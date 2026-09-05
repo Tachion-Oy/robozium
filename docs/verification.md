@@ -1,5 +1,10 @@
 # Verification
 
+The records below are historical and predate the shared compaction migration.
+They retain the dependency revisions and results originally verified. See the
+[shared compaction migration](compaction-migration.md) for local validation
+against the current compaction dependency pin.
+
 ## Release-quality CI implementation — 2026-09-05
 
 These are local Linux results, not GitHub Actions results. Tooling: Python

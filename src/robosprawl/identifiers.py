@@ -2,7 +2,6 @@
 ORCHESTRATOR_AGENT_NAME = "orchestrator"
 LIBRARIAN_AGENT_NAME = "librarian"
 START_BACKGROUND_AGENT_TOOL_NAME = "start_background_agent"
-COMPACTIFY_MESSAGES_TOOL_NAME = "compactify_messages_when_needed"
 SNAPSHOT_CONVERSATIONS_TOOL_NAME = "snapshot_conversations"
 CONSOLIDATE_MEMORY_TOOL_NAME = "consolidate_memory"
 PURGE_LOGS_TOOL_NAME = "purge_logs"
