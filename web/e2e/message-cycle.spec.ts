@@ -101,7 +101,24 @@ test("replies to the active prompt while an older message is displayed", async (
 	})
 
 	await textarea.fill("first reply")
-	await page.getByRole("button", { name: "Send", exact: true }).click()
+	const compositionResult = await textarea.evaluate((element: HTMLTextAreaElement) => {
+		const form = element.form!
+		let submissions = 0
+		const countSubmission = () => { submissions += 1 }
+		form.addEventListener("submit", countSubmission)
+		const event = new KeyboardEvent("keydown", {
+			key: "Enter",
+			isComposing: true,
+			bubbles: true,
+			cancelable: true,
+		})
+		element.dispatchEvent(event)
+		form.removeEventListener("submit", countSubmission)
+		return { prevented: event.defaultPrevented, submissions }
+	})
+	expect(compositionResult).toEqual({ prevented: false, submissions: 0 })
+	await expect(textarea).toHaveValue("first reply")
+	await textarea.press("Enter")
 	await expect(secondPrompt).toBeVisible({ timeout: 15_000 })
 
 	await textarea.fill("draft for the latest prompt")

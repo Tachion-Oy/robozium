@@ -1,0 +1,784 @@
+/* HUD frame: base and light-theme presentation. */
+
+/* Base */
+
+/* ---------------------------------------------------------------------------
+ * Agent HUD
+ * ------------------------------------------------------------------------- */
+
+.agent-hud {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--hud-dim-bg);
+}
+
+/* Live run modal: fade the dim backdrop + box in/out across streaming ↔ passive
+   instead of mounting/unmounting, so a quick stream → tool-call → stream
+   succession doesn't flicker. */
+
+.agent-hud--fade {
+  transition: background-color 220ms ease;
+}
+
+.agent-hud--fade .agent-hud__box {
+  transition:
+    width 200ms ease,
+    height 200ms ease,
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+/* User-dismissed: vanish a touch quicker than the phase fade. */
+
+.agent-hud--hidden,
+.agent-hud--hidden .agent-hud__box {
+  transition-duration: 160ms;
+}
+
+.agent-hud--hidden {
+  background-color: transparent;
+  pointer-events: none;
+}
+
+/* Collapse toward the shared centre (not a downward nudge) so the box reads as
+   shrinking into the minimized widget that grows over the same point. */
+
+.agent-hud--hidden .agent-hud__box {
+  opacity: 0;
+  transform: scale(0.92);
+  pointer-events: none;
+}
+
+/* Intro only: ease the dim backdrop in (the normal workflow keeps it instant).
+   `both` holds the final dim state once the animation ends. */
+
+.agent-hud--intro {
+  animation: hud-dim-in var(--intro-hud-backdrop-fade) ease both;
+}
+
+@keyframes hud-dim-in {
+  from {
+    background-color: transparent;
+  }
+  to {
+    background-color: var(--hud-dim-bg);
+  }
+}
+
+.agent-hud__box {
+  /* Production default: poster-frame spacing for the finished shell. */
+  --hud-pad-x: 3.6rem;
+  --hud-pad-y: 2.025rem;
+  --hud-pad-top: 2.025rem;
+  --hud-pad-bottom: 1.575rem;
+  --hud-section-gap: 1rem;
+  --hud-panel-gap: 0.9rem;
+  --hud-actions-gap: 1.4rem;
+  --hud-reply-pad-block-start: 0.95rem;
+  --hud-reply-pad-block-end: 1.1rem;
+  --hud-reply-pad-inline: 1.15rem;
+  --hud-logo-size: 3.85rem;
+  --hud-logo-font-size: 3.3rem;
+  --hud-control-pad-y: 0.48rem;
+  --hud-control-pad-x: 0.72rem;
+  --hud-corner-control-size: 1.55rem;
+  --hud-corner-control-gap: 0.22rem;
+  --hud-corner-control-half-gap: 0.11rem;
+  --hud-corner-control-left: 0.9rem;
+  position: relative;
+  /* The landing route starts compact; run entry expands through the shared
+     resize state after hydration. */
+  width: 68rem;
+  height: 40rem;
+  border: 3px double var(--hud-box-border);
+  --hud-grid-line: 2px;
+  --hud-grid-color: rgba(64, 200, 255, 0.04);
+  background:
+    linear-gradient(
+      var(--hud-grid-color) 0 var(--hud-grid-line),
+      transparent var(--hud-grid-line)
+    ),
+    linear-gradient(
+      90deg,
+      var(--hud-grid-color) 0 var(--hud-grid-line),
+      transparent var(--hud-grid-line)
+    ),
+    rgba(9, 20, 38, 0.72);
+  background-size: 3.5rem 3.5rem, 3.5rem 3.5rem, auto;
+  /* Built here (not from a :root var) so --hud-glow-scale resolves against this
+     element -- letting .agent-hud__box--inactive dim it. */
+  box-shadow:
+    0 0 10px rgba(64, 200, 255, calc(0.38 * var(--hud-glow-scale))),
+    0 0 28px rgba(64, 200, 255, calc(0.18 * var(--hud-glow-scale))),
+    0 0 52px rgba(64, 200, 255, calc(0.08 * var(--hud-glow-scale)));
+  padding: var(--hud-pad-top, var(--hud-pad-y)) var(--hud-pad-x)
+    var(--hud-pad-bottom, var(--hud-pad-y));
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition:
+    width 200ms ease,
+    height 200ms ease;
+}
+
+/* Idle HUD (waiting / streaming -- not awaiting a prompt): dim the blue edge
+   glow. Strength lives in --hud-inactive-glow-scale (one knob to tweak). */
+
+.agent-hud__box--inactive {
+  --hud-glow-scale: var(--hud-inactive-glow-scale);
+  /* Dim the top-edge event badge uniformly while idle (same look, darker). */
+  --hud-event-brightness: var(--hud-inactive-event-brightness);
+}
+
+/* Pointer movement must track the grip directly; the normal transition remains
+   useful for keyboard resizing and responsive viewport adjustments. */
+
+.agent-hud--fade .agent-hud__box--resizing,
+.agent-hud__box--resizing {
+  transition: none;
+  cursor: nesw-resize;
+  user-select: none;
+}
+
+/* Bottom-left resize affordance. Its visible square shares the corner rail's
+   button chrome, while the parent retains a generous drag/focus hit target. */
+
+.agent-hud__resize-handle {
+  position: absolute;
+  top: calc(
+    50% + var(--hud-corner-control-size) + var(--hud-corner-control-gap) +
+      var(--hud-corner-control-half-gap)
+  );
+  left: var(--hud-corner-control-left);
+  z-index: 20;
+  width: var(--hud-corner-control-size);
+  height: var(--hud-corner-control-size);
+  cursor: nesw-resize;
+  touch-action: none;
+  user-select: none;
+  outline: none;
+}
+
+.agent-hud__resize-wedge {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  width: var(--hud-corner-control-size);
+  height: var(--hud-corner-control-size);
+  box-sizing: border-box;
+  color: color-mix(in oklab, var(--term-blue) 76%, white 24%);
+  filter:
+    drop-shadow(0 0 1px color-mix(in oklab, var(--term-blue) 58%, transparent))
+    drop-shadow(0 0 6px color-mix(in oklab, var(--term-blue) 28%, transparent));
+  opacity: 0.72;
+  transition:
+    color 140ms ease,
+    filter 140ms ease,
+    opacity 140ms ease;
+}
+
+.agent-hud__resize-icon {
+  display: block;
+  width: 1.05rem;
+  height: 1.05rem;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  vector-effect: non-scaling-stroke;
+}
+
+.agent-hud__resize-handle:hover .agent-hud__resize-wedge,
+.agent-hud__resize-handle:focus-visible .agent-hud__resize-wedge,
+.agent-hud__box--resizing .agent-hud__resize-wedge {
+  --btn-edge: color-mix(in oklab, var(--term-blue) 88%, white 12%);
+  --btn-fill-strength: 24%;
+  color: color-mix(in oklab, var(--term-blue) 68%, white 32%);
+  filter:
+    drop-shadow(0 0 2px color-mix(in oklab, var(--term-blue) 78%, transparent))
+    drop-shadow(0 0 8px color-mix(in oklab, var(--term-blue) 42%, transparent));
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-hud__resize-wedge {
+    transition: none;
+  }
+}
+
+.agent-hud__box--landing {
+  justify-content: flex-start;
+}
+
+/* Model selection and view mode share the HUD's top edge. */
+
+.agent-hud__header {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.agent-hud__header--landing {
+  flex: 0 0 auto;
+  margin-bottom: var(--hud-section-gap);
+}
+
+/* Run and status modes keep the control in normal flow. Its real rendered
+   height therefore defines the header row, and the margin exactly mirrors the
+   gap between the lower panel and the action buttons. */
+
+.agent-hud__header--row {
+  flex: 0 0 auto;
+  margin-bottom: var(--hud-section-gap);
+}
+
+.agent-hud__run-view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+}
+
+.agent-hud__event-edge {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(-50%);
+  max-width: calc(100% - 2.3rem);
+  z-index: 1;
+  user-select: none;
+  white-space: nowrap;
+  /* Uniform dim while idle: brightness() darkens fill + glow + text together
+     without adding translucency, so the look is unchanged and the box border
+     never shows through. Driven by .agent-hud__box--inactive. */
+  filter: brightness(var(--hud-event-brightness, 1));
+  transition: filter 160ms ease;
+}
+
+.agent-hud__event-label {
+  --term-msg-color: var(--term-blue);
+  --term-msg-glow: var(--term-glow-blue);
+  display: inline-block;
+  max-width: 100%;
+}
+
+.agent-hud__event-label .term-msg-badge {
+  box-sizing: border-box;
+  font-size: 1.08rem;
+  font-family: var(--font-agent-input);
+  letter-spacing: 0.10em;
+  max-width: 100%;
+  padding: 0 0.6ch;
+}
+
+.agent-hud__event-label .term-msg-badge-label {
+  max-width: 100%;
+}
+
+/* ---------------------------------------------------------------------------
+ * Minimized HUD control
+ *
+ * The small octagon the HUD collapses into when dismissed during a run: the
+ * brand "A" indicator plus an expand button (the only way back into the HUD).
+ * It is vertically centred in the left gutter so it never sits on top of the
+ * message text. Its "A" shares the expanded indicator's working and
+ * awaiting-input treatments.
+ * ------------------------------------------------------------------------- */
+
+.agent-hud__mini {
+  position: fixed;
+  inset-block: 0;
+  left: max(0.75rem, calc((100vw - 84rem) / 4 - 4.875rem));
+  width: 9.75rem;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* All the widget's knobs live here, once. --mini-size drives a REGULAR octagon:
+   a square box whose corner cut = size / (2 + √2) gives eight equal-length
+   sides. The border is two thin lines (--mini-line) with a gap (--mini-gap)
+   between them -- the HUD box's `double` border colour (--hud-box-border) on an
+   octagon. The fill borrows the HUD input tint at low opacity, blurred.
+   --hud-logo-* / --hud-control-pad-* mirror .agent-hud__box so the reused seam
+   logo and Expand button render at exactly their HUD size. */
+
+.agent-hud__mini-box {
+  --mini-size: 9.75rem;
+  --mini-cut: calc(var(--mini-size) / (2 + 1.41421356));
+  --mini-edge: var(--hud-box-border);
+  --mini-fill: color-mix(in oklab, var(--hud-input-bg) 40%, transparent);
+  --mini-line: 1px;
+  --mini-gap: 2px;
+  --mini-band: calc(2 * var(--mini-line) + var(--mini-gap));
+  --hud-logo-size: 3.85rem;
+  --hud-logo-font-size: 3.3rem;
+  --hud-control-pad-y: 0.48rem;
+  --hud-control-pad-x: 0.72rem;
+  --hud-corner-control-size: calc(1.15rem + 2 * var(--hud-control-pad-y));
+  position: relative;
+  width: var(--mini-size);
+  height: var(--mini-size);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  /* Only the Expand control is interactive — the octagon must not swallow
+     wheel/pan gestures in the surrounding gutter. */
+  pointer-events: none;
+  transform: scale(1);
+  /* Scale + fade is matched to the HUD box's --fade timing. */
+  transition:
+    opacity 220ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.agent-hud__mini-expand {
+  pointer-events: auto;
+}
+
+/* Open HUD -> the widget shrinks and fades out (inert). */
+
+.agent-hud__mini--hidden {
+  pointer-events: none;
+}
+
+.agent-hud__mini--hidden .agent-hud__mini-box {
+  opacity: 0;
+  transform: scale(0.72);
+  pointer-events: none;
+}
+
+/* Translucent blurred fill, clipped to the octagon (drawn behind the outline). */
+
+.agent-hud__mini-box::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  clip-path: polygon(
+    var(--mini-cut) 0,
+    calc(100% - var(--mini-cut)) 0,
+    100% var(--mini-cut),
+    100% calc(100% - var(--mini-cut)),
+    calc(100% - var(--mini-cut)) 100%,
+    var(--mini-cut) 100%,
+    0 calc(100% - var(--mini-cut)),
+    0 var(--mini-cut)
+  );
+  background: var(--mini-fill);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+/* Double-line octagon outline: eight painted bands (4 straight edges + 4 bevel
+   cuts), same construction as the HUD panels/buttons but each band carries two
+   parallel edge lines instead of one. --mini-stripe is the two-line pattern for
+   the straight edges; --mini-bevel the same for the 45deg corners. */
+
+.agent-hud__mini-box::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  --mini-stripe: var(--mini-edge) 0 var(--mini-line),
+    transparent var(--mini-line) calc(var(--mini-line) + var(--mini-gap)),
+    var(--mini-edge) calc(var(--mini-line) + var(--mini-gap)) var(--mini-band);
+  --mini-bevel: transparent calc(50% - var(--mini-band) / 2),
+    var(--mini-edge) calc(50% - var(--mini-band) / 2),
+    var(--mini-edge) calc(50% - var(--mini-band) / 2 + var(--mini-line)),
+    transparent calc(50% - var(--mini-band) / 2 + var(--mini-line)),
+    transparent calc(50% + var(--mini-band) / 2 - var(--mini-line)),
+    var(--mini-edge) calc(50% + var(--mini-band) / 2 - var(--mini-line)),
+    var(--mini-edge) calc(50% + var(--mini-band) / 2),
+    transparent calc(50% + var(--mini-band) / 2);
+  background-image:
+    linear-gradient(to bottom, var(--mini-stripe)),
+    linear-gradient(to bottom, var(--mini-stripe)),
+    linear-gradient(to right, var(--mini-stripe)),
+    linear-gradient(to right, var(--mini-stripe)),
+    linear-gradient(135deg, var(--mini-bevel)),
+    linear-gradient(45deg, var(--mini-bevel)),
+    linear-gradient(135deg, var(--mini-bevel)),
+    linear-gradient(45deg, var(--mini-bevel));
+  background-position:
+    top center,
+    bottom center,
+    left center,
+    right center,
+    top left,
+    top right,
+    bottom right,
+    bottom left;
+  background-size:
+    calc(100% - 2 * var(--mini-cut)) var(--mini-band),
+    calc(100% - 2 * var(--mini-cut)) var(--mini-band),
+    var(--mini-band) calc(100% - 2 * var(--mini-cut)),
+    var(--mini-band) calc(100% - 2 * var(--mini-cut)),
+    var(--mini-cut) var(--mini-cut),
+    var(--mini-cut) var(--mini-cut),
+    var(--mini-cut) var(--mini-cut),
+    var(--mini-cut) var(--mini-cut);
+  background-repeat: no-repeat;
+  /* Blue edge glow tracing the octagon outline -- the same cyan bloom the HUD
+     box carries at rest (full strength, not the dimmed inactive variant). */
+  filter:
+    drop-shadow(0 0 6px rgba(64, 200, 255, 0.38))
+    drop-shadow(0 0 16px rgba(64, 200, 255, 0.16));
+}
+
+/* At widths where the capped message rail no longer leaves a full outer
+   gutter, use a compact octagon inside the role-label gutter. Its right edge
+   remains clear of the flowing message-content column. */
+
+@media (max-width: 96rem) {
+  .agent-hud__mini {
+    left: 0.75rem;
+    width: 6.5rem;
+  }
+
+  .agent-hud__mini-box {
+    --mini-size: 6.5rem;
+    --hud-logo-size: 2.35rem;
+    --hud-logo-font-size: 2rem;
+    --hud-control-pad-y: 0.28rem;
+    --hud-control-pad-x: 0.42rem;
+    gap: 0.2rem;
+  }
+
+  .agent-hud__mini-expand {
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+  }
+}
+
+.agent-hud__event-text {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  animation: hud-text-swap 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-hud__event-text {
+    animation: none;
+  }
+}
+
+.agent-hud__mini-expand {
+  pointer-events: auto;
+}
+
+/* The shared button chrome declares position: relative for its pseudo layers.
+   The resize face is the exception: it must stay anchored to the handle's
+   bottom slot or it rises into the lower divider control. */
+
+.agent-hud__resize-wedge.agent-hud__corner-control {
+  position: absolute;
+}
+
+/* Fresh-load HUD entrance used below. Run/status/project views use the
+   shorter hud-view-in animation defined with their layout rules above. */
+
+@keyframes hud-appear {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fresh-load intro entrances: the HUD panel and the nav bar fade in. Gated on
+   no-preference so reduced-motion users get the content with no animation. */
+
+@media (prefers-reduced-motion: no-preference) {
+  .agent-hud__box--intro {
+    animation: hud-appear var(--intro-hud-box-fade) ease both;
+  }
+}
+
+/* Light theme */
+
+/*  Light HUD shell, panels, controls, matrices, resize handle, and minimized state  */
+:root[data-theme="light"] .agent-hud__event-label {
+  --term-msg-color: var(--term-blue);
+  --term-msg-accent: var(--term-blue);
+  --term-msg-glow: none;
+}
+:root[data-theme="light"] .agent-hud__header--row {
+  margin-bottom: 0.85rem;
+}
+:root[data-theme="light"] .agent-hud__event-edge {
+  max-width: calc(100% - 4.5rem);
+  /* Keep the run label on the header row with the two selectors. Sitting
+     across the outer shell edge exposed the rounded rail behind its corners. */
+  top: var(--hud-pad-top);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 24;
+  filter: none;
+}
+:root[data-theme="light"] .agent-hud__event-label .term-msg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--hud-input-text);
+  font-size: 0.83rem;
+  letter-spacing: 0.075em;
+  padding: 0.28rem 0.72rem 0.32rem;
+  border: 1px solid
+    color-mix(in oklab, var(--term-green) 26%, var(--hud-input-border));
+  border-radius: 0.26rem;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, white 38%, var(--hud-input-bg)),
+    color-mix(in oklab, var(--term-green) 6%, var(--hud-input-bg))
+  );
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 64%, transparent),
+    inset 0 -0.14rem 0 color-mix(in oklab, var(--term-green) 62%, transparent),
+    0 0.16rem 0.24rem
+      color-mix(in oklab, var(--hud-control-ink) 11%, transparent);
+}
+:root[data-theme="light"]
+  .agent-hud__event-label
+  .term-msg-badge::before {
+  width: 0.52rem;
+  height: 2.15rem;
+  flex: 0 0 auto;
+  background: var(--term-green);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 34%, transparent);
+  content: none;
+}
+:root[data-theme="light"]
+  .agent-hud__event-label
+  .term-msg-badge-label {
+  font-weight: 500;
+  text-transform: uppercase;
+  color: var(--hud-control-ink);
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+  filter: none;
+  max-width: none;
+  overflow: hidden;
+}
+:root[data-theme="light"] .agent-hud__mini {
+  width: 8rem;
+}
+:root[data-theme="light"] .agent-hud__mini-box {
+  --hud-logo-size: 3.1rem;
+  --hud-logo-font-size: 2.5rem;
+  width: 7.15rem;
+  height: auto;
+  min-height: 7.9rem;
+  gap: 0.62rem;
+  padding: 0.72rem;
+  border: 1px solid
+    color-mix(in oklab, var(--term-blue) 28%, var(--hud-input-border));
+  border-radius: 0.64rem;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, white 28%, var(--hud-box-bg)),
+    color-mix(in oklab, var(--term-blue) 5%, var(--hud-box-bg))
+  );
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 68%, transparent),
+    inset 0 -0.16rem 0 color-mix(in oklab, var(--term-blue) 34%, transparent),
+    0 0.58rem 1.25rem
+      color-mix(in oklab, var(--hud-control-ink) 19%, transparent);
+  filter: none;
+}
+:root[data-theme="light"] .agent-hud__mini-box::before {
+  inset: 0.34rem;
+  clip-path: none;
+  border: 1px solid
+    color-mix(in oklab, var(--hud-input-border) 42%, transparent);
+  border-radius: 0.42rem;
+  background: transparent;
+  backdrop-filter: none;
+}
+:root[data-theme="light"] .agent-hud__mini-expand {
+  width: 100%;
+  min-height: 2.35rem;
+  padding-inline: 0.65rem;
+  border-radius: 0.3rem;
+  font-size: 0.86rem;
+}
+:root[data-theme="light"] .agent-hud__mini-box::after {
+  content: none;
+}
+:root[data-theme="light"] .agent-hud__event-text {
+  animation: none;
+  max-width: min(32rem, 54vw);
+}
+:root[data-theme="light"] .agent-hud__box::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  background-size: auto, 3rem 3rem, 3rem 3rem, auto;
+  clip-path: none;
+  inset: 0.68rem;
+  border-radius: 0.27rem;
+  background: repeating-linear-gradient(
+      0deg,
+      transparent 0 3px,
+      color-mix(in oklab, var(--hud-input-text) 1.4%, transparent) 3px 4px
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, white 10%, var(--hud-light-center-bg)),
+      var(--hud-light-center-bg) 22%,
+      color-mix(
+        in oklab,
+        var(--hud-input-text) 2%,
+        var(--hud-light-center-bg)
+      )
+    ),
+    var(--hud-light-center-bg);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 44%, transparent);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root[data-theme="light"] .agent-hud__box::after {
+  --shell-inner-cut: 0.7rem;
+  --shell-rail: 0.1rem;
+  --shell-rail-color: color-mix(
+    in oklab,
+    var(--hud-input-border) 58%,
+    transparent
+  );
+  --shell-bevel: transparent calc(50% - var(--shell-rail) / 2),
+    var(--shell-rail-color) calc(50% - var(--shell-rail) / 2),
+    var(--shell-rail-color) calc(50% + var(--shell-rail) / 2),
+    transparent calc(50% + var(--shell-rail) / 2);
+  content: "";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  background-image: linear-gradient(var(--shell-rail-color), var(--shell-rail-color)),
+    linear-gradient(var(--shell-rail-color), var(--shell-rail-color)),
+    linear-gradient(var(--shell-rail-color), var(--shell-rail-color)),
+    linear-gradient(var(--shell-rail-color), var(--shell-rail-color)),
+    linear-gradient(135deg, var(--shell-bevel)),
+    linear-gradient(45deg, var(--shell-bevel)),
+    linear-gradient(135deg, var(--shell-bevel)),
+    linear-gradient(45deg, var(--shell-bevel));
+  background-position: top center,
+    bottom center,
+    left center,
+    right center,
+    top left,
+    top right,
+    bottom right,
+    bottom left;
+  background-size: calc(100% - 2 * var(--shell-inner-cut)) var(--shell-rail),
+    calc(100% - 2 * var(--shell-inner-cut)) var(--shell-rail),
+    var(--shell-rail) calc(100% - 2 * var(--shell-inner-cut)),
+    var(--shell-rail) calc(100% - 2 * var(--shell-inner-cut)),
+    var(--shell-inner-cut) var(--shell-inner-cut),
+    var(--shell-inner-cut) var(--shell-inner-cut),
+    var(--shell-inner-cut) var(--shell-inner-cut),
+    var(--shell-inner-cut) var(--shell-inner-cut);
+  background-repeat: no-repeat;
+  box-sizing: border-box;
+  inset: 0.56rem;
+  border: 1px solid
+    color-mix(in oklab, var(--hud-input-border) 58%, transparent);
+  border-radius: 0.34rem;
+  background: none;
+}
+:root[data-theme="light"] .agent-hud__box {
+  isolation: isolate;
+  --hud-shell-cut: 0.9rem;
+  --hud-light-inner-rail: 0.68rem;
+  --hud-pad-top: 1.45rem;
+  --hud-pad-bottom: 1.25rem;
+  --hud-actions-gap: 1rem;
+  --hud-reply-pad-block-start: 0.8rem;
+  --hud-reply-pad-block-end: 0.85rem;
+  --hud-reply-pad-inline: 1.25rem;
+  --hud-logo-size: 2.4rem;
+  --hud-logo-font-size: 1.55rem;
+  --hud-control-pad-y: 0.68rem;
+  --hud-control-pad-x: 1.15rem;
+  --hud-corner-control-size: 1.9rem;
+  --hud-corner-control-gap: 0.22rem;
+  --hud-corner-control-half-gap: 0.11rem;
+  /* Centre the side controls between the inset rail seam and the panel seam,
+     not between the panel seam and the shell's outer edge. */
+  --hud-corner-control-left: calc(
+    0.61rem + var(--hud-light-inner-rail) / 2
+  );
+  clip-path: none;
+  --hud-light-rail-bg: color-mix(
+    in oklab,
+    var(--hud-control-ink) 13%,
+    var(--hud-box-bg)
+  );
+  --hud-light-center-bg: color-mix(
+    in oklab,
+    var(--hud-control-ink) 8%,
+    var(--hud-box-bg)
+  );
+  border: 1px solid
+    color-mix(in oklab, var(--hud-input-border) 74%, var(--hud-control-ink));
+  border-radius: 0.58rem;
+  /* A solid base prevents the dark stream beneath the HUD from leaking
+     through antialiased pixels where the rounded inner surface meets the
+     inset rail. */
+  background: var(--hud-light-rail-bg);
+  box-shadow: inset 0 0 0 var(--hud-light-inner-rail) var(--hud-light-rail-bg),
+    inset 0 1px 0 color-mix(in oklab, white 38%, transparent),
+    0 0.45rem 1rem
+      color-mix(in oklab, var(--hud-control-ink) 15%, transparent),
+    0 1.2rem 2.8rem
+      color-mix(in oklab, var(--hud-control-ink) 13%, transparent);
+  filter: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  --hud-pad-x: 3.2rem;
+  --hud-section-gap: 1.2rem;
+}
+:root[data-theme="light"] .agent-hud__resize-icon {
+  width: 1rem;
+  height: 1rem;
+  margin: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+:root[data-theme="light"]
+  .agent-hud__resize-handle:hover
+  .agent-hud__resize-wedge,
+:root[data-theme="light"]
+  .agent-hud__resize-handle:focus-visible
+  .agent-hud__resize-wedge,
+:root[data-theme="light"]
+  .agent-hud__box--resizing
+  .agent-hud__resize-wedge {
+  filter: none;
+  opacity: 1;
+}

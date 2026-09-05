@@ -1,4 +1,4 @@
-import { AppView } from "./components/terminal"
+import { AppView } from "./components/AppView"
 import { fetchSeed } from "@/lib/robosprawl/http"
 import type { ModelSelection, Project, RunView } from "@/lib/robosprawl/wire"
 
