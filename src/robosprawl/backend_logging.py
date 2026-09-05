@@ -6,8 +6,11 @@ import json
 import logging
 import os
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from logging.handlers import RotatingFileHandler
+from threading import Lock
 from urllib.parse import urlsplit
 
 from roboz.runtime import LOG_DATA_ATTRIBUTE, LOG_DATE_FORMAT, LOG_FORMAT
@@ -17,7 +20,6 @@ from robosprawl.hub import HubLoggingConfig
 _APPLICATION_LOGGERS = ("robosprawl", "roboz_shed", "roboz")
 _UVICORN_LOGGERS = ("uvicorn.access", "uvicorn.error")
 _POLLING_PATHS = (re.compile(r"/projects"), re.compile(r"/run/[^/]+"))
-_HANDLERS: tuple[logging.Handler, logging.Handler | None] | None = None
 
 
 def _level(name: str) -> int:
@@ -54,7 +56,11 @@ class _JsonLinesFormatter(logging.Formatter):
 class _SecureRotatingFileHandler(RotatingFileHandler):
     def _open(self):
         stream = super()._open()
-        os.chmod(self.baseFilename, 0o600)
+        try:
+            os.chmod(self.baseFilename, 0o600)
+        except OSError:
+            stream.close()
+            raise
         return stream
 
 
@@ -103,44 +109,107 @@ def keep_access_log(record: logging.LogRecord) -> bool:
     return not any(pattern.fullmatch(path) for pattern in _POLLING_PATHS)
 
 
-def configure_backend_logging(config: HubLoggingConfig) -> None:
-    """Install application console and technical-file handlers once."""
-    global _HANDLERS
-    if _HANDLERS is None:
-        console = _build_console_handler(config)
-        try:
-            file_handler = _build_file_handler(config)
-        except OSError as error:
-            if config.on_error == "fail":
+class _ProcessLogging:
+    """Own process handlers; application lifespans only register their use."""
+
+    def __init__(self) -> None:
+        self._lock = Lock()
+        self._users = 0
+        self._config: HubLoggingConfig | None = None
+        self._handlers: tuple[logging.Handler, ...] = ()
+        self._saved: list[tuple[logging.Logger, int, bool]] = []
+        self._filter_added = False
+
+    @contextmanager
+    def use(self, config: HubLoggingConfig) -> Iterator[None]:
+        with self._lock:
+            if self._users and self._config != config:
                 raise RuntimeError(
-                    f"Cannot initialize backend log file {config.path}"
-                ) from error
+                    "Backend logging is already in use with a different configuration"
+                )
+            if not self._users:
+                self._install(config)
+                self._config = config
+            self._users += 1
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._users -= 1
+                if not self._users:
+                    self._config = None
+                    self._uninstall()
+
+    def _install(self, config: HubLoggingConfig) -> None:
+        self._saved = [
+            (logger, logger.level, logger.propagate)
+            for name in _APPLICATION_LOGGERS
+            for logger in (logging.getLogger(name),)
+        ]
+        try:
+            console = _build_console_handler(config)
+            self._handlers = (console,)
             file_handler = None
-            fallback = logging.getLogger("robosprawl")
-            _attach(fallback, console)
-            fallback.setLevel(console.level)
-            fallback.error(
-                "Persistent backend logging unavailable (path=%s, error_type=%s)",
-                config.path,
-                type(error).__name__,
-            )
-        _HANDLERS = console, file_handler
+            file_error = None
+            try:
+                file_handler = _build_file_handler(config)
+            except OSError as error:
+                if config.on_error == "fail":
+                    raise RuntimeError(
+                        f"Cannot initialize backend log file {config.path}"
+                    ) from error
+                file_error = error
+            if file_handler is not None:
+                self._handlers += (file_handler,)
 
-    console, file_handler = _HANDLERS
-    logger_level = min(
-        console.level,
-        file_handler.level if file_handler is not None else logging.CRITICAL,
-    )
-    for name in _APPLICATION_LOGGERS:
-        logger = logging.getLogger(name)
-        _attach(logger, console)
-        _attach(logger, file_handler)
-        logger.setLevel(logger_level)
-        logger.propagate = False
+            logger_level = min(handler.level for handler in self._handlers)
+            for name in _APPLICATION_LOGGERS:
+                logger = logging.getLogger(name)
+                for handler in self._handlers:
+                    _attach(logger, handler)
+                logger.setLevel(logger_level)
+                logger.propagate = False
 
-    for name in _UVICORN_LOGGERS:
-        _attach(logging.getLogger(name), file_handler)
+            for name in _UVICORN_LOGGERS:
+                _attach(logging.getLogger(name), file_handler)
 
-    access_logger = logging.getLogger("uvicorn.access")
-    if keep_access_log not in access_logger.filters:
-        access_logger.addFilter(keep_access_log)
+            access_logger = logging.getLogger("uvicorn.access")
+            if keep_access_log not in access_logger.filters:
+                access_logger.addFilter(keep_access_log)
+                self._filter_added = True
+
+            if file_error is not None:
+                logging.getLogger("robosprawl").error(
+                    "Persistent backend logging unavailable (path=%s, error_type=%s)",
+                    config.path,
+                    type(file_error).__name__,
+                )
+        except BaseException:
+            self._uninstall()
+            raise
+
+    def _uninstall(self) -> None:
+        for name in (*_APPLICATION_LOGGERS, *_UVICORN_LOGGERS):
+            logger = logging.getLogger(name)
+            for handler in self._handlers:
+                logger.removeHandler(handler)
+        if self._filter_added:
+            logging.getLogger("uvicorn.access").removeFilter(keep_access_log)
+        for logger, level, propagate in self._saved:
+            logger.setLevel(level)
+            logger.propagate = propagate
+        for handler in self._handlers:
+            handler.close()
+        self._handlers = ()
+        self._saved = []
+        self._filter_added = False
+
+
+_PROCESS_LOGGING = _ProcessLogging()
+
+
+@contextmanager
+def backend_logging_context(config: HubLoggingConfig) -> Iterator[None]:
+    """Use the process logging configuration until this application exits."""
+    with _PROCESS_LOGGING.use(config):
+        yield

@@ -8,7 +8,6 @@ from roboz import ExternalDependency, ExternalDependencyKind, LazyExternalDepend
 from roboz.llm import EndpointLike, LLMEndpoint, TranscriptionEndpointLike
 from roboz.runtime import EventSink
 from roboz.tools.librarian import LibrarianConstructor
-from roboz_openai import openai_endpoint
 from roboz_shed.tools.cli_commands.run_file_command import FILE_COMMANDS_READ
 
 from robosprawl.composition import (
@@ -27,36 +26,20 @@ from robosprawl.orchestrator_factory import (
     OrchestratorEndpointGetter,
     OrchestratorFactory,
 )
+from robosprawl.settings import DeploymentSettings
 from robosprawl.workspace import Project
 
-
-def _router(model: str, effort: str):
-    return openai_endpoint(
-        model=model,
-        max_context_tokens=1_310_720,
-        api_name="openrouter",
-        base_url="https://openrouter.ai/api/v1",
-        api_key_env="OPENROUTER_API_KEY",
-        extra_body={
-            "provider": {"sort": "throughput", "require_parameters": True},
-            "reasoning": {"effort": effort},
-        },
-    )
-
-
+_DEFAULT_SETTINGS = DeploymentSettings()
 ORCHESTRATOR_MODELS = {
-    "GLM-5.3 · OpenRouter": _router("z-ai/glm-5.3", "low"),
-    "GLM-5.3 Flash · OpenRouter": _router("z-ai/glm-5.3-flash", "low"),
-    "GPT-OSS-120B · Cerebras": openai_endpoint(
-        model="gpt-oss-120b",
-        max_context_tokens=131072,
-        api_name="cerebras",
-        base_url="https://api.cerebras.ai/v1",
-        api_key_env="CEREBRAS_API_KEY",
-    ),
+    _DEFAULT_SETTINGS.endpoints[key].label: _DEFAULT_SETTINGS.endpoints[key].endpoint()
+    for key in _DEFAULT_SETTINGS.selectable_models
 }
-DEFAULT_ORCHESTRATOR_MODEL = next(iter(ORCHESTRATOR_MODELS.values()))
-DEFAULT_MEMORY_MODEL = _router("z-ai/glm-5.3", "high")
+DEFAULT_ORCHESTRATOR_MODEL = ORCHESTRATOR_MODELS[
+    _DEFAULT_SETTINGS.endpoints[_DEFAULT_SETTINGS.default_model].label
+]
+DEFAULT_MEMORY_MODEL = _DEFAULT_SETTINGS.endpoints[
+    _DEFAULT_SETTINGS.memory_model
+].endpoint()
 
 
 class OrchestratorModelSelector:
@@ -130,12 +113,13 @@ def standard_factory(
     *,
     subagents: Sequence[SubAgentSpec] = (),
     orchestrator_endpoint: EndpointLike = DEFAULT_ORCHESTRATOR_MODEL,
+    memory_endpoint: EndpointLike = DEFAULT_MEMORY_MODEL,
 ) -> AgenticFactory:
     return AgenticFactory(
         orchestrator=OrchestratorConstructor(
             agent_endpoint=orchestrator_endpoint, subagents=tuple(subagents)
         ),
-        librarian=LibrarianConstructor(snapshot_endpoint=DEFAULT_MEMORY_MODEL),
+        librarian=LibrarianConstructor(snapshot_endpoint=memory_endpoint),
     )
 
 
@@ -160,16 +144,54 @@ class HubDeployment:
     model_selector: OrchestratorModelSelector
     transcription_endpoint: TranscriptionEndpointLike | None
     inspectable_endpoints: tuple[ExternalDependency, ...]
+    dependency_registry: tuple[DependencyRegistration, ...] | None = None
 
     @classmethod
     def standard(cls, config: HubConfig) -> "HubDeployment":
-        selector = OrchestratorModelSelector.standard_model_selector()
+        settings = config.deployment
+        endpoints = {key: value.endpoint() for key, value in settings.endpoints.items()}
+        selector = OrchestratorModelSelector(
+            {
+                settings.endpoints[key].label: endpoints[key]
+                for key in settings.selectable_models
+            },
+            default=endpoints[settings.default_model],
+        )
+        memory = endpoints[settings.memory_model]
+
+        def factory(
+            project: Project,
+            /,
+            *,
+            endpoint_getter: OrchestratorEndpointGetter,
+            event_sinks: Sequence[EventSink],
+        ) -> RootAgentBundle:
+            return standard_factory(
+                orchestrator_endpoint=OrchestratorEndpointRoute(endpoint_getter),
+                memory_endpoint=memory,
+            )(project, event_sinks=event_sinks)
+
+        used = {
+            endpoint.dependency_id: endpoint
+            for endpoint in (*selector.models.values(), memory)
+        }
         return cls(
             config=config,
-            orchestrator_factory=standard_orchestrator_factory,
+            orchestrator_factory=factory,
             model_selector=selector,
             transcription_endpoint=transcription_endpoint(),
             inspectable_endpoints=tuple(selector.models.values()),
+            dependency_registry=(
+                *EXECUTABLE_DEPENDENCY_REGISTRATIONS,
+                *(
+                    DependencyRegistration(
+                        endpoint.dependency_id,
+                        endpoint.kind,
+                        check_openai_compatible_endpoint,
+                    )
+                    for endpoint in used.values()
+                ),
+            ),
         )
 
     @classmethod
@@ -178,13 +200,32 @@ class HubDeployment:
         config: HubConfig,
         orchestrator_factory: OrchestratorFactory,
         transcription_endpoint: TranscriptionEndpointLike | None,
+        *,
+        model_selector: OrchestratorModelSelector | None = None,
+        dependency_registry: Sequence[DependencyRegistration] | None = None,
     ) -> "HubDeployment":
         return cls(
             config=config,
             orchestrator_factory=orchestrator_factory,
-            model_selector=OrchestratorModelSelector.standard_model_selector(),
+            model_selector=model_selector
+            or OrchestratorModelSelector(
+                {
+                    config.deployment.endpoints[key].label: config.deployment.endpoints[
+                        key
+                    ].endpoint()
+                    for key in config.deployment.selectable_models
+                },
+                default=config.deployment.endpoints[
+                    config.deployment.default_model
+                ].endpoint(),
+            ),
             transcription_endpoint=transcription_endpoint,
-            inspectable_endpoints=(),
+            inspectable_endpoints=tuple(model_selector.models.values())
+            if model_selector is not None
+            else (),
+            dependency_registry=tuple(dependency_registry)
+            if dependency_registry is not None
+            else None,
         )
 
 

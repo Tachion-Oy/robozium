@@ -55,6 +55,10 @@ def main() -> None:
         prefix="robosprawl-install-", dir=os.environ.get("RUNNER_TEMP", "/tmp")
     ) as directory:
         root = Path(directory)
+        env["ROBOSPRAWL_CONFIG"] = str(root / "hub.config.json")
+        # Installed checks must not inherit a source checkout's pytest options,
+        # including when RUNNER_TEMP is placed inside that checkout.
+        (root / "pytest.ini").write_text("[pytest]\n")
 
         def run(*command):
             subprocess.run(command, cwd=root, env=env, check=True)
@@ -130,6 +134,8 @@ def main() -> None:
                     "-m",
                     "pytest",
                     "--noconftest",
+                    "-c",
+                    str(root / "pytest.ini"),
                     "-q",
                     str(root / "test_composition.py"),
                     "--junitxml=" + str(reports / f"{label}-composition.xml"),

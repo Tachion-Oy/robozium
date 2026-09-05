@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
@@ -13,6 +13,7 @@ from robosprawl.hub_utils import (
     find_hub_config,
     slugify_project_name,
 )
+from robosprawl.settings import DeploymentSettings
 from robosprawl.workspace import Project, Sandbox, SandboxNames
 
 
@@ -80,6 +81,7 @@ class HubConfig:
     sandbox: Sandbox
     project_subdirs: Mapping[str, str]
     logging: HubLoggingConfig
+    deployment: DeploymentSettings = field(default_factory=DeploymentSettings)
 
     def project(self, name: str) -> Project:
         return Project(
@@ -99,8 +101,10 @@ def transcription_endpoint() -> None:
     return None
 
 
-def load_hub_config(*, start: Path | None = None) -> HubConfig:
-    config_file = find_hub_config(start)
+def load_hub_config(
+    *, start: Path | None = None, config_file: Path | None = None
+) -> HubConfig:
+    config_file = find_hub_config(start, config_file=config_file)
     try:
         data = json.loads(config_file.read_text(encoding="utf-8"))
         name = data["hub"]["name"]
@@ -130,8 +134,37 @@ def load_hub_config(*, start: Path | None = None) -> HubConfig:
     project_subdirs = {
         key: config_relative_name(project_cfg, key, "project") for key in project_cfg
     }
+    required = {"logs", "snapshots", "memory"}
+    if missing := required - project_subdirs.keys():
+        raise RuntimeError(
+            f"Hub config project is missing required folders: {sorted(missing)}"
+        )
+    for key, folder in project_subdirs.items():
+        path = Path(folder)
+        if (
+            key.startswith("_")
+            or hasattr(Project, key)
+            or key in {"sandbox", "slug", "subdirs"}
+        ):
+            raise RuntimeError(f"Reserved project folder key: {key}")
+        if path == Path(".") or ".." in path.parts:
+            raise RuntimeError(f"Project folder must stay within its project: {key}")
+    folders = [Path(folder) for folder in project_subdirs.values()]
+    if any(
+        a.is_relative_to(b) or b.is_relative_to(a)
+        for i, a in enumerate(folders)
+        for b in folders[i + 1 :]
+    ):
+        raise RuntimeError("Project folders must not overlap")
+    tiers = [sandbox.names.readonly, sandbox.names.workspace, sandbox.names.projects]
+    if len(set(tiers)) != len(tiers):
+        raise RuntimeError("Sandbox tiers must be distinct")
+    for folder in [*tiers, sandbox.names.safe_scripts]:
+        if len(Path(folder).parts) != 1 or folder in {".", ".."}:
+            raise RuntimeError("Sandbox tier names must be single folder names")
     return HubConfig(
         name=name,
+        deployment=DeploymentSettings.model_validate(data.get("deployment", {})),
         sandbox=sandbox,
         project_subdirs=project_subdirs,
         logging=HubLoggingConfig.from_config(
