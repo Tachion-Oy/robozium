@@ -46,7 +46,7 @@ jobs:
           source scripts/env.sh
           uv sync --locked --dev
           uv run pytest --cov-fail-under=90 --cov-report=xml:.artifacts/reports/coverage.xml --junitxml=.artifacts/reports/pytest.xml
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: python-${{ matrix.python }}
@@ -98,12 +98,12 @@ jobs:
       - run: npm --prefix web run test:run -- --reporter=default --reporter=junit --outputFile.junit=../.artifacts/reports/vitest.xml
       - run: npm --prefix web run build
       - run: tar -czf web-build.tar.gz -C web .next
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: production-web
           path: robosprawl/web-build.tar.gz
           retention-days: 14
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: frontend-reports
@@ -137,14 +137,14 @@ jobs:
           echo "CANDIDATE_DIR=$candidate_dir" >> "$GITHUB_ENV"
           uv build --no-sources --all-packages --project ../roboz --out-dir "$candidate_dir"
           bash scripts/verify-wheels.sh "$candidate_dir"
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && env.CANDIDATE_DIR != ''
         with:
           name: candidate-distributions
           path: ${{ env.CANDIDATE_DIR }}/
           if-no-files-found: error
           retention-days: 14
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: distribution-reports
@@ -210,7 +210,7 @@ jobs:
         env:
           ROBOSPRAWL_E2E_PREBUILT: "1"
         run: bash scripts/e2e/run-mock-playwright.sh --project=${{ matrix.browser }}
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: browser-${{ matrix.browser }}-${{ matrix.suite }}
