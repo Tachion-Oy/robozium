@@ -26,8 +26,10 @@ Excluded original tests are exclusively integration-specific: email signatures; 
 
 No unresolved dependency compatibility blocker has been identified. Credential-backed live inference still requires a separately reported smoke test.
 
-## Advisory browser compatibility
+## Browser compatibility
 
-WebKit's local E2E run has two advisory failures: simulated HUD dragging leaves its horizontal position unchanged, and an unknown-run toast detaches before its dismiss click finishes. Chromium and Firefox pass the same scenarios. The affected application tests and exact diagnostics are recorded in `docs/verification.md`.
-
-Proposed next step: investigate pointer targeting and toast timing in RoboSprawl before assigning a dependency bug. No Roboz API blocker has been demonstrated and no external fix is proposed or applied. Impact: WebKit remains advisory; the required browser gates pass.
+The previously advisory WebKit findings are addressed in application tests:
+geometry waits for layout and toast dismissal precedes the polling-stop wait.
+All three browsers now gate CI. See [testing](testing.md) for repetition commands
+and [verification](verification.md) for local evidence and remaining limits.
+No dependency API change is required by these repairs.
