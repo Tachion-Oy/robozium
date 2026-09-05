@@ -4,6 +4,53 @@ import { describe, expect, it } from "vitest"
 import { HudMarkdown } from "../../../../../app/components/hud/run/HudMarkdown"
 
 describe("HudMarkdown", () => {
+	it.each(["h4", "h5", "h6", "strong", "em", "del"])(
+		"strips untrusted attributes from raw %s elements",
+		(tag) => {
+			const { container } = render(
+				createElement(
+					HudMarkdown,
+					null,
+					`<${tag} style="position:fixed;inset:0;background-image:url(https://example.invalid/tracking.png)" onclick="alert(1)" class="agent-hud__box" data-unapproved="yes">Untrusted content</${tag}>`,
+				),
+			)
+			const element = container.querySelector(tag)!
+			expect(element.textContent).toBe("Untrusted content")
+			for (const attribute of ["style", "onclick", "class", "data-unapproved"]) {
+				expect(element.hasAttribute(attribute)).toBe(false)
+			}
+			expect(container.innerHTML).not.toContain("tracking.png")
+		},
+	)
+
+	it("preserves table alignment and fenced-code language classes", () => {
+		const { container } = render(
+			createElement(
+				HudMarkdown,
+				null,
+				"| Value |\n| ---: |\n| 42 |\n\n```typescript\nconst value = 42\n```",
+			),
+		)
+		expect(container.querySelector("th")?.style.textAlign).toBe("right")
+		expect(container.querySelector("td")?.style.textAlign).toBe("right")
+		expect(container.querySelector("pre code")?.className).toBe("language-typescript")
+	})
+
+	it("keeps file links while removing unapproved file attributes", () => {
+		render(
+			createElement(
+				HudMarkdown,
+				null,
+				'<file src="projects/example/report.txt" style="position:fixed" onclick="alert(1)" download="spoof.txt">Report</file>',
+			),
+		)
+		const link = screen.getByRole("link", { name: "Report" })
+		expect(link.getAttribute("href")).toBe("/api/files/projects/example/report.txt")
+		for (const attribute of ["style", "onclick", "download"]) {
+			expect(link.hasAttribute(attribute)).toBe(false)
+		}
+	})
+
 	it("keeps a table mounted when unchanged markdown rerenders", () => {
 		const markdown = "| First | Second |\n| --- | --- |\n| one | two |"
 		const { container, rerender } = render(

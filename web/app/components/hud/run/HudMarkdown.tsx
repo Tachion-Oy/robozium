@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import ReactMarkdown from "react-markdown"
 import rehypeRaw from "rehype-raw"
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize"
 import remarkGfm from "remark-gfm"
 
 type HudMarkdownProps = {
@@ -23,6 +24,16 @@ type HudHastNode = {
 }
 
 const JSON_UNICODE_HEX = /^[0-9a-f]{4}$/i
+
+// Agent HTML is untrusted; only extend the safe defaults for our file links.
+const HUD_SANITIZE_SCHEMA = {
+	...defaultSchema,
+	tagNames: [...(defaultSchema.tagNames ?? []), "file"],
+	attributes: {
+		...defaultSchema.attributes,
+		file: ["src"],
+	},
+}
 
 /**
  * Recover Unicode that was escaped twice before reaching the HUD. Only a
@@ -261,7 +272,11 @@ export function HudMarkdown({ children, className }: HudMarkdownProps) {
 		<div className={rootClassName}>
 			<ReactMarkdown
 				remarkPlugins={[remarkGfm]}
-				rehypePlugins={[rehypeRaw, rehypeDecodeHudUnicodeEscapes]}
+				rehypePlugins={[
+					rehypeRaw,
+					[rehypeSanitize, HUD_SANITIZE_SCHEMA],
+					rehypeDecodeHudUnicodeEscapes,
+				]}
 				allowedElements={HUD_ALLOWED_ELEMENTS}
 				urlTransform={transformHudLinkUrl}
 				components={HUD_MARKDOWN_COMPONENTS as never}>
