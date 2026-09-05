@@ -5,6 +5,69 @@ They retain the dependency revisions and results originally verified. See the
 [shared compaction migration](compaction-migration.md) for local validation
 against the current compaction dependency pin.
 
+## Private dependency CI repair — 2026-09-05
+
+The [PR #6 merge run](https://github.com/Tachion-Oy/robosprawl/actions/runs/33970513925)
+and the [preceding main run](https://github.com/Tachion-Oy/robosprawl/actions/runs/33961363513)
+both failed while checking out private `Tachion-Oy/roboz`. The pinned commit
+exists, but RoboSprawl's default workflow token cannot read another private
+repository. Python 3.13/3.14, quality, and distribution stopped before tests;
+browser jobs were skipped. The merge's frontend job passed lint, typechecking,
+331 tests across 44 files, and its production build.
+
+The workflow now takes `ROBOZ_CI_TOKEN` for each of its three Roboz checkout
+definitions, retaining the dependency pin and credential cleanup. The planned
+read-only deploy key could not be registered: GitHub returned HTTP 422,
+"Deploy keys are disabled for this repository." No remote key was created, and
+the unused local key was deleted. The replacement is a fine-grained read-only
+token restricted to Roboz, configured separately in Actions and Dependabot
+secrets; see [setup and PyPI cutover](testing.md#temporary-private-dependency-access).
+
+`actionlint` 1.7.12 and `git diff --check` pass for this repair. Both secret entries
+were confirmed through GitHub metadata after setup; secret values were not read.
+The [credential-enabled rerun](https://github.com/Tachion-Oy/robosprawl/actions/runs/33971837032/attempts/2)
+successfully checked out Roboz and passed Python 3.13/3.14, quality, and distribution
+validation, allowing the three browser suites to run. Full job results are linked
+from [the repair PR's checks](https://github.com/Tachion-Oy/robosprawl/pull/8/checks).
+Dependabot's secret entry exists, but its end-to-end validation requires a
+Dependabot PR containing the repaired workflow; existing Dependabot PRs still
+use the earlier workflow on `main`.
+
+That first complete browser run exposed two WebKit timing assertions: minimized
+widget bounds were sampled during its scale transition, and a five-second retry
+wrapper interrupted the Minimize hover before WebKit finished its stability
+check. Chromium passed 38 tests, Firefox passed 36, and WebKit passed all 20 stress
+repetitions before its full suite reported 33 passes, two failures, and one skipped
+test. The repair waits for the widget's final transform and for reply-ready state
+before the light-theme hover, retaining the geometry and hover-style assertions.
+WebKit stress and full-suite entries now run in parallel.
+The two repaired scenarios passed three repetitions each with retries disabled
+against the downloaded CI frontend and backend builds (six passes in 1.7 minutes).
+TypeScript, targeted ESLint, actionlint, and whitespace checks also passed.
+
+The next GitHub run passed the repaired dismiss and hover checks. It exposed a
+detached-row style read in the padding test (empty computed values, then a passing
+retry), and one cold resize stress repetition exhausted the 60-second total test
+budget at its final mobile assertion; the other nine resize repetitions passed
+in 39–47 seconds. Padding now uses locator CSS assertions, and that comprehensive
+resize flow has a 120-second total budget with unchanged per-action and
+per-assertion limits. Flaky-only retry success still fails its browser job.
+Both scenarios then passed three local repetitions each without retries (six
+passes in 1.9 minutes), with lint, TypeScript, and workflow validation passing.
+
+The [next GitHub run](https://github.com/Tachion-Oy/robosprawl/actions/runs/33975430070)
+passed Python 3.13/3.14, quality, frontend, distribution, Chromium, Firefox, and
+WebKit stress. WebKit's full suite reported 35 passes and one flaky terminal-log
+style assertion (`terminal-log.spec.ts:65`, empty transition property on the first
+attempt, then a passing retry). WebKit is now temporarily advisory at the user's
+request: both matrix entries use job-level `continue-on-error`, retain all tests
+and reports, and no longer fail the aggregate CI gate. All other gates remain
+required. This policy supersedes the historical all-browser requirement below.
+
+This supersedes the earlier assumption below that public repository access was
+the only supported checkout path; the historical local validation results remain
+distinct from GitHub results.
+
 ## Release-quality CI implementation — 2026-09-05
 
 These are local Linux results, not GitHub Actions results. Tooling: Python

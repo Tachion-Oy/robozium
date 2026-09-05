@@ -66,7 +66,11 @@ test("HUD closes through Minimize or Escape and reopens via the minimized widget
 	// Widget appears with the same awaiting-input indicator state.
 	await expect(mini).not.toHaveClass(/agent-hud__mini--hidden/)
 	await expect(miniLogo).toHaveAttribute("data-agent-state", AgentActivityState.AwaitingInput)
-	const miniBox = await page.locator(".agent-hud__mini-box").boundingBox()
+	const miniPanel = page.locator(".agent-hud__mini-box")
+	// The visibility class changes before the scale transition finishes. Measure
+	// final geometry only after the widget reaches its full size on every browser.
+	await expect(miniPanel).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 0)")
+	const miniBox = await miniPanel.boundingBox()
 	const expandBox = await expand.boundingBox()
 	const messageContent = await page.locator(".term-msg-content").first().boundingBox()
 	expect(miniBox).not.toBeNull()

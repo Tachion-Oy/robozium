@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test"
+import { AgentActivityState } from "../lib/robosprawl/session/reducer"
 import { createProject, gotoLanding } from "./helpers"
 
 test.use({ viewport: { width: 1920, height: 1080 } })
@@ -14,11 +15,10 @@ test("project actions retain zero inline padding in both themes", async ({ page,
 		await page.evaluate((nextTheme) => {
 			document.documentElement.dataset.theme = nextTheme
 		}, theme)
-		const padding = await actions.evaluate((element) => {
-			const style = getComputedStyle(element)
-			return [style.paddingInlineStart, style.paddingInlineEnd]
-		})
-		expect(padding).toEqual(["0px", "0px"])
+		// Project polling can replace the row during a theme change. Locator
+		// assertions reacquire it instead of reading styles from a detached node.
+		await expect(actions).toHaveCSS("padding-inline-start", "0px")
+		await expect(actions).toHaveCSS("padding-inline-end", "0px")
 	}
 })
 
@@ -166,12 +166,15 @@ test("switches and persists the integrated light theme", async ({
 	expect(centeredHistoryControls).not.toBeNull()
 	expect(centeredHistoryControls ?? Number.POSITIVE_INFINITY).toBeLessThan(1)
 	const minimize = page.getByRole("button", { name: "Minimize" })
-    // The first streamed reply can still resize the HUD after the button becomes
-    // visible. Reacquire hover if that layout move takes it away from the pointer.
-    await expect(async () => {
-        await minimize.hover()
-        expect(await minimize.evaluate((element) => getComputedStyle(element).transform)).not.toBe("none")
-    }).toPass({ timeout: 5_000 })
+	// The composer is visible while the first reply is still resizing the HUD.
+	// Wait for the prompt before hovering, and let the action and CSS assertion
+	// use their own timeouts instead of interrupting hover with a shorter wrapper.
+	await expect(page.locator(".agent-hud__logo--actions")).toHaveAttribute(
+		"data-agent-state",
+		AgentActivityState.AwaitingInput,
+	)
+	await minimize.hover()
+	await expect(minimize).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, -1)")
 
 	const enabledControlColors = await page.evaluate(() => {
 		const selectors = [
