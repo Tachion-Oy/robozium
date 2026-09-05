@@ -34,6 +34,7 @@ jobs:
           repository: Tachion-Oy/roboz
           ref: f148023af667dc58c842d11f5a93843c2b0f1a8e
           path: roboz
+          token: ${{ secrets.ROBOZ_CI_TOKEN }}
           persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -64,6 +65,7 @@ jobs:
           repository: Tachion-Oy/roboz
           ref: f148023af667dc58c842d11f5a93843c2b0f1a8e
           path: roboz
+          token: ${{ secrets.ROBOZ_CI_TOKEN }}
           persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -120,6 +122,7 @@ jobs:
           repository: Tachion-Oy/roboz
           ref: f148023af667dc58c842d11f5a93843c2b0f1a8e
           path: roboz
+          token: ${{ secrets.ROBOZ_CI_TOKEN }}
           persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:

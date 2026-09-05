@@ -1,5 +1,28 @@
 # Verification
 
+## Private dependency CI repair — 2026-09-05
+
+The [PR #6 merge run](https://github.com/Tachion-Oy/robosprawl/actions/runs/33970513925)
+and the [preceding main run](https://github.com/Tachion-Oy/robosprawl/actions/runs/33961363513)
+both failed while checking out private `Tachion-Oy/roboz`. The pinned commit
+exists, but RoboSprawl's default workflow token cannot read another private
+repository. Python 3.13/3.14, quality, and distribution stopped before tests;
+browser jobs were skipped. The merge's frontend job passed lint, typechecking,
+331 tests across 44 files, and its production build.
+
+The workflow now takes `ROBOZ_CI_TOKEN` for each of its three Roboz checkout
+definitions, retaining the dependency pin and credential cleanup. The planned
+read-only deploy key could not be registered: GitHub returned HTTP 422,
+"Deploy keys are disabled for this repository." No remote key was created, and
+the unused local key was deleted. The replacement is a fine-grained read-only
+token restricted to Roboz, configured separately in Actions and Dependabot
+secrets; see [setup and PyPI cutover](testing.md#temporary-private-dependency-access).
+
+`actionlint` 1.7.12 and `git diff --check` pass for this repair. Credential setup
+and complete GitHub CI validation remain pending. This supersedes the earlier
+assumption below that public repository access was the only supported checkout
+path; the historical local validation results remain distinct from GitHub results.
+
 ## Release-quality CI implementation — 2026-09-05
 
 These are local Linux results, not GitHub Actions results. Tooling: Python

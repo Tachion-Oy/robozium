@@ -75,12 +75,21 @@ Visual baselines live under `web/e2e/visual-regression.spec.ts-snapshots`. Updat
 CI checks out this repository and the pinned Roboz revision as siblings, so
 locked source paths work unchanged. Dependencies are built once and passed as
 candidate artifacts. Require the aggregate **CI** check for branch protection.
-Actions are pinned to immutable commits and maintained by Dependabot; fork PR
-checks need no secrets. Reports and candidate archives are retained for 14 days.
+Actions are pinned to immutable commits and maintained by Dependabot. Until Roboz
+is published, its private checkout uses a dedicated fine-grained read-only token stored
+as `ROBOZ_CI_TOKEN` in both Actions and Dependabot secrets. Same-repository PRs
+and Dependabot use that credential; fork PRs cannot complete the private dependency
+checks without access to it. See [CI credential setup](docs/testing.md#temporary-private-dependency-access).
+Reports and candidate archives are retained for 14 days.
 
 ## Future PyPI installation
 
-The project declares versioned dependencies on `roboz`, `roboz-shed`, and `roboz-openai`, with exactly three local source overrides in `pyproject.toml`. Once the desired versions are published, remove `[tool.uv.sources]`, refresh `uv.lock` with `uv lock`, and run the full checks again. No import or application namespace changes are needed. The installation checker accepts a directory of candidate distributions and
-continues to apply after that transition. Supply the reviewed PyPI dependency
-wheels instead of building the temporary sibling checkout. No containerization
-or publication is performed by these checks.
+The project declares versioned dependencies on `roboz`, `roboz-shed`, and
+`roboz-openai`, with exactly three local source overrides in `pyproject.toml`.
+Once compatible versions of all three are on PyPI, remove those overrides and
+the CI Roboz checkouts, refresh `uv.lock`, and download the released dependency
+wheels into the existing candidate directory instead of building Roboz from
+source. The archive verifier and browser installation continue to consume that
+directory. Revoke the token and delete both secret entries after the
+credential-free workflow passes. See the [PyPI cutover steps](docs/testing.md#pypi-cutover).
+No import or application namespace changes are needed; these checks do not publish packages.
