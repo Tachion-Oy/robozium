@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import unicodedata
 from pathlib import Path
@@ -21,7 +22,13 @@ def slugify_project_name(name: str) -> str:
     return slug
 
 
-def find_hub_config(start: Path | None) -> Path:
+def find_hub_config(start: Path | None, *, config_file: Path | None = None) -> Path:
+    explicit = config_file or (os.environ.get("ROBOSPRAWL_CONFIG") if start is None else None)
+    if explicit is not None:
+        path = Path(explicit).expanduser().resolve()
+        if not path.is_file():
+            raise RuntimeError(f"Missing hub config: {path}")
+        return path
     current = (start or Path.cwd()).resolve()
     repo_root = Path(__file__).resolve().parents[2]
     for folder in (current, *current.parents, repo_root):

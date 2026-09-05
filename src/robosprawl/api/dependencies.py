@@ -8,15 +8,20 @@ from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
 from roboz.llm import TranscriptionEndpointLike
-from roboz.tooling import ExternalDependency
+from roboz.tooling import ExternalDependency, ExternalDependencyKind
 
 from robosprawl.dependency_contract import (
     BoundDependency,
+    DependencyContractError,
     DependencyRegistration,
     bind_dependencies,
 )
-from robosprawl.dependency_health import DependencyHealthMonitor, DependencyRecord
-from robosprawl.deployment import STANDARD_DEPENDENCY_REGISTRY
+from robosprawl.dependency_health import (
+    DependencyHealthMonitor,
+    DependencyRecord,
+    check_executable,
+    check_openai_compatible_endpoint,
+)
 from robosprawl.orchestrator_factory import (
     OrchestratorEndpointGetter,
     OrchestratorFactory,
@@ -31,7 +36,7 @@ def inspect_dependencies(
     *,
     project: Project,
     endpoint_getter: OrchestratorEndpointGetter,
-    registrations: Sequence[DependencyRegistration],
+    registrations: Sequence[DependencyRegistration] | None,
     hub_dependencies: Sequence[ExternalDependency] = (),
 ) -> tuple[BoundDependency, ...]:
     with tempfile.TemporaryDirectory(prefix="robosprawl-dependency-inspection-") as raw:
@@ -46,7 +51,22 @@ def inspect_dependencies(
             for agent in agents
             for dependency in agent.external_dependencies()
         ]
-        return bind_dependencies([*discovered, *hub_dependencies], registrations)
+        discovered.extend(hub_dependencies)
+        if registrations is None:
+            checks = {
+                ExternalDependencyKind.EXECUTABLE: check_executable,
+                ExternalDependencyKind.MODEL_ENDPOINT: check_openai_compatible_endpoint,
+            }
+            unique = {item.dependency_id: item for item in discovered}
+            if any(item.kind not in checks for item in unique.values()):
+                raise DependencyContractError(
+                    "custom dependency kind requires an explicit checker registration"
+                )
+            registrations = tuple(
+                DependencyRegistration(item.dependency_id, item.kind, checks[item.kind])
+                for item in unique.values()
+            )
+        return bind_dependencies(discovered, registrations)
 
 
 def dependency_lifespan(
@@ -60,12 +80,6 @@ def dependency_lifespan(
     interval_s: float,
     timeout_s: float,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
-    registry = (
-        tuple(registrations)
-        if registrations is not None
-        else STANDARD_DEPENDENCY_REGISTRY
-    )
-
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
         hub_dependencies = tuple(selectable_endpoints)
@@ -75,7 +89,7 @@ def dependency_lifespan(
             factory,
             project=project,
             endpoint_getter=endpoint_getter,
-            registrations=registry,
+            registrations=registrations,
             hub_dependencies=hub_dependencies,
         )
         monitor = DependencyHealthMonitor(

@@ -155,7 +155,9 @@ def create_app(
             project=hub_config.project(hub_config.name),
             transcription_endpoint=deployment.transcription_endpoint,
             selectable_endpoints=deployment.inspectable_endpoints,
-            registrations=dependency_registry,
+            registrations=dependency_registry
+            if dependency_registry is not None
+            else deployment.dependency_registry,
             interval_s=dependency_check_interval_s,
             timeout_s=dependency_check_timeout_s,
         ),
