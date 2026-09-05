@@ -3,6 +3,25 @@ import { createProject, gotoLanding } from "./helpers"
 
 test.use({ viewport: { width: 1920, height: 1080 } })
 
+test("project actions retain zero inline padding in both themes", async ({ page, request }) => {
+	const slug = await createProject(request, `Action Spacing ${Date.now()}`)
+	await gotoLanding(page)
+	const actions = page.locator("li", {
+		has: page.getByRole("button", { name: `Open ${slug}`, exact: true }),
+	}).locator(".agent-hud__row-actions")
+	await expect(actions).toBeVisible()
+	for (const theme of ["dark", "light"] as const) {
+		await page.evaluate((nextTheme) => {
+			document.documentElement.dataset.theme = nextTheme
+		}, theme)
+		const padding = await actions.evaluate((element) => {
+			const style = getComputedStyle(element)
+			return [style.paddingInlineStart, style.paddingInlineEnd]
+		})
+		expect(padding).toEqual(["0px", "0px"])
+	}
+})
+
 test("switches and persists the integrated light theme", async ({
 	page,
 	request,

@@ -294,7 +294,6 @@
 :root[data-theme="light"] .agent-hud__row-actions {
   width: 13.25rem;
   gap: 0.72rem;
-  padding-inline-left: 0.55rem;
 }
 :root[data-theme="light"] .agent-hud__row-action {
   border-radius: 0.3rem;
