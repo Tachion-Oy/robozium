@@ -60,7 +60,7 @@ build artifact, passed unchanged to each browser job.
 `ROBOSPRAWL_E2E_PYTHON` selects the installed backend interpreter.
 `ROBOSPRAWL_E2E_PREBUILT=1` requires `web/.next/BUILD_ID`; otherwise the developer
 wrapper builds the frontend. The backend starts with `python -I -m uvicorn
-robosprawl.api.app:mock_app` from a disposable configuration/data directory.
+robosprawl.api.app:mock_app --factory` from a disposable configuration/data directory.
 API and web ports default to 8000/3100 and are configurable through
 `ROBOSPRAWL_E2E_API_PORT`/`ROBOSPRAWL_E2E_WEB_PORT`. Port checks use socket binding,
 so even a non-HTTP listener is rejected. Existing services are never reused.
