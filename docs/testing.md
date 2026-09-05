@@ -79,9 +79,11 @@ starting a new run after recovery.
 
 ## Browser diagnostics and visual review
 
-All Chromium, Firefox, and WebKit tests are required. The 20 repeated WebKit
-scenarios run in a separate browser-matrix entry alongside the three full suites;
-all four entries must pass. Reports use `browser-<browser>-<suite>` artifact names,
+Chromium and Firefox are required. WebKit is temporarily advisory: both its full
+suite and its 20 repeated scenarios continue running in parallel, with job-level
+`continue-on-error` scoped to WebKit. Their failures do not fail the workflow or
+the aggregate CI gate; Python, quality, frontend, distribution, Chromium, and
+Firefox remain required. Reports use `browser-<browser>-<suite>` artifact names,
 where suite is `full` or `stress`. On CI, `failOnFlakyTests`
 rejects tests that pass only on retry. Retries exist for diagnostics, not for
 turning a flaky run green. Chromium visual baselines stay immutable in CI;

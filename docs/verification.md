@@ -35,7 +35,7 @@ check. Chromium passed 38 tests, Firefox passed 36, and WebKit passed all 20 str
 repetitions before its full suite reported 33 passes, two failures, and one skipped
 test. The repair waits for the widget's final transform and for reply-ready state
 before the light-theme hover, retaining the geometry and hover-style assertions.
-WebKit stress and full-suite entries now run in parallel and remain required.
+WebKit stress and full-suite entries now run in parallel.
 The two repaired scenarios passed three repetitions each with retries disabled
 against the downloaded CI frontend and backend builds (six passes in 1.7 minutes).
 TypeScript, targeted ESLint, actionlint, and whitespace checks also passed.
@@ -46,9 +46,18 @@ retry), and one cold resize stress repetition exhausted the 60-second total test
 budget at its final mobile assertion; the other nine resize repetitions passed
 in 39–47 seconds. Padding now uses locator CSS assertions, and that comprehensive
 resize flow has a 120-second total budget with unchanged per-action and
-per-assertion limits. Flaky-only retry success still fails CI.
+per-assertion limits. Flaky-only retry success still fails its browser job.
 Both scenarios then passed three local repetitions each without retries (six
 passes in 1.9 minutes), with lint, TypeScript, and workflow validation passing.
+
+The [next GitHub run](https://github.com/Tachion-Oy/robosprawl/actions/runs/33975430070)
+passed Python 3.13/3.14, quality, frontend, distribution, Chromium, Firefox, and
+WebKit stress. WebKit's full suite reported 35 passes and one flaky terminal-log
+style assertion (`terminal-log.spec.ts:65`, empty transition property on the first
+attempt, then a passing retry). WebKit is now temporarily advisory at the user's
+request: both matrix entries use job-level `continue-on-error`, retain all tests
+and reports, and no longer fail the aggregate CI gate. All other gates remain
+required. This policy supersedes the historical all-browser requirement below.
 
 This supersedes the earlier assumption below that public repository access was
 the only supported checkout path; the historical local validation results remain

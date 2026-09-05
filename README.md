@@ -93,9 +93,11 @@ runner-owned directories separate from real user data. `.env` and runtime data a
 
 E2E covers projects, replies, streaming, specialist views, file links,
 cancel/delete, recovery, themes, Librarian activity, and persisted-project
-recovery after a backend crash/restart. All three browsers are required.
+recovery after a backend crash/restart. Chromium and Firefox are required in CI;
+WebKit is temporarily advisory, including its stress run.
 The repaired WebKit layout and toast scenarios are repeated ten times without
-retries in CI. Flaky tests fail the gate even if a diagnostic retry passes.
+retries in CI. Flaky tests fail their browser job even if a diagnostic retry
+passes; WebKit failures do not block the aggregate CI gate.
 
 Set `ROBOSPRAWL_E2E_API_PORT` and `ROBOSPRAWL_E2E_WEB_PORT` if ports 8000 and 3100
 are occupied. Each invocation owns its backend, frontend, temporary data, and
