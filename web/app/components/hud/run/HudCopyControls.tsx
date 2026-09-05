@@ -1,59 +1,23 @@
 "use client"
 
-import { useRunSessionSelector } from "@/hooks/useRunSession"
-import { getHudMessages } from "@/lib/robosprawl/hud-messages"
-import {
-	getActiveStreamingMessage,
-	RunHudPhase,
-} from "@/lib/robosprawl/session/reducer"
-import { streamingDisplayText } from "@/lib/robosprawl/streaming-text"
+import type { AgentMessage } from "./AgentMessagePanel"
 import {
 	CopyTextButton,
 	type CopyTextButtonProps,
 } from "./CopyTextButton"
 
 type HudCopyControlsProps = {
+	agentMessage: AgentMessage
 	replyDraft: string
 	onClearReply: () => void
 }
 
 /** Copy controls for the two text panels in their visual top-to-bottom order. */
 export function HudCopyControls({
+	agentMessage,
 	replyDraft,
 	onClearReply,
 }: HudCopyControlsProps) {
-	const phase = useRunSessionSelector(
-		(state) => state.hud.phase,
-		RunHudPhase.Passive,
-	)
-	const prompt = useRunSessionSelector((state) => state.hud.prompt, null)
-	const promptId = useRunSessionSelector((state) => state.hud.promptId, null)
-	const messages = useRunSessionSelector((state) => state.hud.messages, [])
-	const selectedMessageId = useRunSessionSelector(
-		(state) => state.hud.selectedMessageId,
-		null,
-	)
-	const activeStream = useRunSessionSelector(getActiveStreamingMessage, null)
-	const selectedMessage = getHudMessages(messages, selectedMessageId).message
-	const fallback = (() => {
-		switch (phase) {
-			case RunHudPhase.Streaming:
-				return {
-					id: `live:${activeStream?.messageId ?? phase}`,
-					content: activeStream
-						? streamingDisplayText(activeStream.text)
-						: "",
-				}
-			case RunHudPhase.Prompting:
-				return {
-					id: `live:${promptId ?? phase}`,
-					content: prompt ?? "",
-				}
-			default:
-				return { id: `live:${phase}`, content: "" }
-		}
-	})()
-	const agentMessage = selectedMessage ?? fallback
 	const targets: CopyTextButtonProps[] = [
 		{
 			copyKey: replyDraft,

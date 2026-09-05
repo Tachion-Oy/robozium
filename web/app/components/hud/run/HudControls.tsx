@@ -1,4 +1,5 @@
 import { AudioLevelMeter } from "./AudioLevelMeter"
+import type { AgentMessage } from "./AgentMessagePanel"
 import { HudCopyControls } from "./HudCopyControls"
 import {
 	HudMessageNavigation,
@@ -25,6 +26,7 @@ export type HudControlModel = {
 }
 
 type HudControlsProps = HudControlModel & {
+	agentMessage: AgentMessage
 	navigation: HudMessageNavigationModel
 	replyDraft: string
 	onClearReply: () => void
@@ -35,6 +37,7 @@ type HudControlsProps = HudControlModel & {
 }
 
 export function HudControls({
+	agentMessage,
 	dictation,
 	navigation,
 	replyDraft,
@@ -82,6 +85,7 @@ export function HudControls({
 			<HudMessageNavigation {...navigation} />
 			<div className="agent-hud__actions-submit">
 				<HudCopyControls
+					agentMessage={agentMessage}
 					replyDraft={replyDraft}
 					onClearReply={onClearReply}
 				/>

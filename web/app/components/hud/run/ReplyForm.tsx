@@ -68,6 +68,7 @@ export function ReplyForm({
 			</div>
 			<HudControls
 				{...controls}
+				agentMessage={message}
 				navigation={navigation}
 				replyDraft={composer.value}
 				onClearReply={() => composer.onChange("")}

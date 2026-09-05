@@ -2,12 +2,11 @@ import { createElement } from "react"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { AgentActivityState } from "../../../../../lib/robosprawl/session/reducer"
-import {
-	HudControls,
-} from "../../../../../app/components/hud/run/HudControls"
+import { HudControls } from "../../../../../app/components/hud/run/HudControls"
 
 type Props = Parameters<typeof HudControls>[0]
 type Overrides = {
+	agentMessage?: Props["agentMessage"]
 	dictation?: Partial<Props["dictation"]>
 	navigation?: Partial<Props["navigation"]>
 	submission?: Partial<Props["submission"]>
@@ -19,6 +18,11 @@ type Overrides = {
 
 function createProps(overrides: Overrides = {}): Props {
 	return {
+		agentMessage: overrides.agentMessage ?? {
+			id: "agent:current",
+			content: "Agent output",
+			mode: "current",
+		},
 		dictation: {
 			isRecording: false,
 			isTranscribing: false,

@@ -1,6 +1,6 @@
 import { useState } from "react"
-import { act, fireEvent, render, screen } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
 	createInitialRunSessionState,
 	RunHudPhase,
@@ -156,7 +156,50 @@ beforeEach(() => {
 	)
 })
 
+afterEach(() => vi.unstubAllGlobals())
+
 describe("RunHud prompt history", () => {
+	it.each([
+		{
+			name: "streaming",
+			buildState: () => {
+				const state = createInitialRunSessionState("run-1")
+				state.hud.phase = RunHudPhase.Streaming
+				state.hud.streaming = {
+					messageId: "stream-1",
+					text: "Streaming answer",
+					agentName: "orchestrator",
+				}
+				return state
+			},
+			expected: "Streaming answer",
+		},
+		{
+			name: "current prompt",
+			buildState: () => promptingState(["Current prompt"]),
+			expected: "Current prompt",
+		},
+		{
+			name: "historical",
+			buildState: () => {
+				const state = promptingState(["Historical answer", "Current prompt"])
+				state.hud.selectedMessageId = state.hud.messages[0].id
+				return state
+			},
+			expected: "Historical answer",
+		},
+	])("copies the displayed $name message", async ({ buildState, expected }) => {
+		const writeText = vi.fn().mockResolvedValue(undefined)
+		vi.stubGlobal("navigator", { clipboard: { writeText } })
+		mocks.state = buildState()
+		renderHud()
+
+		expect(screen.getByText(expected)).not.toBeNull()
+		fireEvent.click(screen.getByRole("button", { name: "Copy agent output" }))
+
+		await waitFor(() => expect(writeText).toHaveBeenCalledWith(expected))
+	})
+
 	it("shows a live notification, follows its prompt, and keeps history available", () => {
 		const notification = "### August timesheet\n\nReady to download."
 		const initial = createInitialRunSessionState("run-1")
