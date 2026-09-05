@@ -25,7 +25,6 @@ from roboz.runtime.pipe import EventPipe
 from roboz.skill import Skill
 from roboz.tooling import Tool
 
-from robosprawl.compaction import get_compactify_messages_when_needed_tool
 from robosprawl.composition.runtime_sinks import (
     resolve_event_sinks,
     resolve_interaction_mode,
@@ -296,12 +295,6 @@ class AgentConstructor(ABC):
         """Optional final adjustment once the agent exists."""
 
     # --- shared machinery, implemented once ---
-
-    def _compactify(self, endpoint: EndpointLike, threshold_percent: float) -> Tool:
-        """The context-compaction default tool."""
-        return get_compactify_messages_when_needed_tool(
-            endpoint=endpoint, threshold_percent=threshold_percent
-        )
 
     def _subagent_tools(
         self, specs: Sequence[SubAgentSpec], ctx: BuildContext

@@ -1,10 +1,10 @@
 # Deferred dependency changes
 
-All external repositories were read-only during this port. Apply future dependency work in its own repository and release; this application uses existing public APIs only.
+The original port treated external repositories as read-only. Reusable capabilities now belong in Roboz and its Shed package; this application composes their public APIs.
 
 ## Remaining naming cleanup in Roboz
 
-Repository: `Tachion-Oy/roboz`, pinned at `f148023af667dc58c842d11f5a93843c2b0f1a8e`.
+Repository: `Tachion-Oy/roboz`, pinned at `4e531215c69aec42e82af24e47f06c871b896f82`.
 
 The historical project prefix remains in Roboz documentation, test fixtures, and the Proton Bridge request-ID email header. The header is defined by `EmailHeader.REQUEST_ID` in `packages/proton-bridge/src/roboz_proton_bridge/protocol.py` (the literal legacy spelling is deliberately not duplicated here).
 
@@ -16,7 +16,7 @@ Impact on this port: none, because email is deferred and the bridge package is n
 
 Roboz renamed `Agent`, `FactoryCtx`, `SubagentCtx`, `prompt_user_at_start`, and the `custom_prompt_user_tool` constructor argument, and validates public tool names as lowercase snake case. RoboSprawl uses those public names directly. Its tests now give tool functions valid public names.
 
-Roboz leaves workspace layout and orchestration policy to applications. RoboSprawl owns the path, root/background bundle, file-tool policy, and context-compaction composition; the actual Librarian pipeline remains Roboz's `LibrarianConstructor`. No dependency changes were required for these adaptations.
+Roboz leaves workspace layout and orchestration policy to applications. RoboSprawl owns the path, root/background bundle, file-tool policy, and context-compaction composition; the actual Librarian pipeline remains Roboz's `LibrarianConstructor`. The compaction implementation and full continuation prompts are provided by `roboz_shed.tools.get_compactify_messages_when_needed_tool`; RoboSprawl selects the endpoint and 60% threshold and supplies the owning event pipe. `OrchestratorConstructor.compactify_timeout_s` optionally bounds each provider attempt, defaulting to `None`.
 
 ## Deferred integrations and their tests
 

@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+from roboz_shed.identifiers import COMPACTIFY_MESSAGES_TOOL_NAME
 from roboz_shed.models import ActionVerdict, Operation
 from roboz_shed.tools.utils import check_allow_deny_permission
 
@@ -16,7 +17,6 @@ from robosprawl.hub import (
     project_paths,
 )
 from robosprawl.identifiers import (
-    COMPACTIFY_MESSAGES_TOOL_NAME,
     CONSOLIDATE_MEMORY_TOOL_NAME,
     PURGE_LOGS_TOOL_NAME,
     PURGE_MEMORY_TOOL_NAME,

@@ -2,7 +2,7 @@
 
 Use Linux, Python 3.13 or 3.14, Node 22, and uv 0.12.10. CI checks out
 `robosprawl/` and `roboz/` as siblings. The dependency pin remains
-`f148023af667dc58c842d11f5a93843c2b0f1a8e`; neither manifests nor locks are rewritten.
+`4e531215c69aec42e82af24e47f06c871b896f82`; neither manifests nor locks are rewritten.
 Windows/macOS application support is not claimed by the existing Linux launchers.
 
 ```bash
