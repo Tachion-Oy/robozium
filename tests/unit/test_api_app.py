@@ -10,6 +10,8 @@ from collections.abc import Sequence
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from threading import Event
+from types import SimpleNamespace
 
 import pytest
 from fastapi import Request
@@ -31,6 +33,7 @@ from roboz.runtime.persistence import (
     mark_conversation_active,
     utc_iso_z,
 )
+from roboz.runtime.pipe import EventPipe
 from roboz.tooling.decorators import tool
 from roboz.tools import MessageCtx, prompt_user_at_start, stop
 from roboz.tools.memory_files import (
@@ -411,7 +414,7 @@ def test_api_start_get_reply_until_completed(tmp_path: Path) -> None:
     r = _create_run(client)
     assert r.status_code == 200
     run_id = r.json()["run_id"]
-    assert application.state.run_manager.start_if_needed(run_id)
+    assert application.state.run_manager.start_run(run_id)
 
     deadline = time.monotonic() + 15.0
     prompt_id = None
@@ -496,7 +499,7 @@ def test_api_projects_reads_one_lifecycle_snapshot_not_conversation_history(
             "{not-needed-on-the-hot-path", encoding="utf-8"
         )
 
-    app_module = importlib.import_module("robosprawl.api.app")
+    app_module = importlib.import_module("robosprawl.api.project_service")
     original_activity_reader = app_module.active_marker_paths
     activity_reads: list[Path] = []
 
@@ -642,7 +645,7 @@ def test_api_projects_live_run_status_takes_precedence_over_disk_artifacts(
     run_id = client.post("/run/create", json={"project": TEST_PROJECT_SLUG}).json()[
         "run_id"
     ]
-    assert application.state.run_manager.start_if_needed(run_id)
+    assert application.state.run_manager.start_run(run_id)
     _wait_for_status(client, run_id, "awaiting_user_input")
 
     rows = client.get("/projects").json()
@@ -665,38 +668,47 @@ def test_api_projects_live_status_wins_over_running_librarian_log(
     target_status: RunStatus,
     expected_project_status: str,
 ) -> None:
+    entered, release = Event(), Event()
+
+    def constructing_factory(project, *, endpoint_getter, event_sinks):
+        entered.set()
+        assert release.wait(5)
+        return _minimal_factory(
+            project, endpoint_getter=endpoint_getter, event_sinks=event_sinks
+        )
+
     factory = (
-        _running_factory if target_status == RunStatus.RUNNING else _minimal_factory
+        constructing_factory
+        if target_status == RunStatus.CANCELLING
+        else _running_factory
+        if target_status == RunStatus.RUNNING
+        else _minimal_factory
     )
     application = create_app(deployment=_test_deployment(factory, tmp_path))
     client = TestClient(application)
+    manager = application.state.run_manager
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
     run_id = client.post("/run/create", json={"project": TEST_PROJECT_SLUG}).json()[
         "run_id"
     ]
-    if target_status not in {RunStatus.QUEUED, RunStatus.CANCELLING}:
-        assert application.state.run_manager.start_if_needed(run_id)
+    try:
+        if target_status != RunStatus.QUEUED:
+            assert manager.start_run(run_id)
+        if target_status == RunStatus.CANCELLING:
+            assert entered.wait(2)
+            assert manager.cancel(run_id)
+        elif target_status in {RunStatus.RUNNING, RunStatus.AWAITING_USER_INPUT}:
+            _wait_for_status(client, run_id, target_status.value)
 
-    if target_status == RunStatus.RUNNING:
-        _wait_for_status(client, run_id, "running")
-    elif target_status == RunStatus.AWAITING_USER_INPUT:
-        _wait_for_status(client, run_id, "awaiting_user_input")
-    elif target_status == RunStatus.CANCELLING:
-        manager = application.state.run_manager
-        with manager._lock:  # noqa: SLF001 - deterministic test-only state shaping
-            manager._runs[run_id]["status"] = RunStatus.CANCELLING  # noqa: SLF001
-
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
-    _write_agent_run_log(
-        project,
-        agent_name=LIBRARIAN_AGENT_NAME,
-        status="running",
-    )
-
-    rows = client.get("/projects").json()
-    assert rows[0]["slug"] == TEST_PROJECT_SLUG
-    assert rows[0]["status"] == expected_project_status
-    assert rows[0]["run_id"] == run_id
+        project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+        _write_agent_run_log(project, agent_name=LIBRARIAN_AGENT_NAME, status="running")
+        rows = client.get("/projects").json()
+        assert rows[0]["slug"] == TEST_PROJECT_SLUG
+        assert rows[0]["status"] == expected_project_status
+        assert rows[0]["run_id"] == run_id
+    finally:
+        release.set()
+        assert manager.shutdown(timeout_s=5)
 
 
 def test_api_projects_ignores_pending_snapshot_artifacts_without_live_run(
@@ -762,7 +774,7 @@ def test_api_cancelled_project_transitions_from_cancelling_to_dormant(
     run_id = client.post("/run/create", json={"project": TEST_PROJECT_SLUG}).json()[
         "run_id"
     ]
-    assert application.state.run_manager.start_if_needed(run_id)
+    assert application.state.run_manager.start_run(run_id)
     _wait_for_status(client, run_id, "awaiting_user_input")
     assert client.post(f"/projects/{TEST_PROJECT_SLUG}/cancel").status_code == 200
     _wait_for_status(client, run_id, "cancelled")
@@ -808,7 +820,7 @@ def test_api_projects_reports_dormant_after_cancelled_run(tmp_path: Path) -> Non
     run_id = client.post("/run/create", json={"project": TEST_PROJECT_SLUG}).json()[
         "run_id"
     ]
-    assert application.state.run_manager.start_if_needed(run_id)
+    assert application.state.run_manager.start_run(run_id)
     _wait_for_status(client, run_id, "awaiting_user_input")
 
     response = client.post(f"/projects/{TEST_PROJECT_SLUG}/cancel")
@@ -838,7 +850,7 @@ def test_api_projects_cancel_syncing_project_without_run_id(tmp_path: Path) -> N
     run_id = client.post("/run/create", json={"project": TEST_PROJECT_SLUG}).json()[
         "run_id"
     ]
-    assert application.state.run_manager.start_if_needed(run_id)
+    assert application.state.run_manager.start_run(run_id)
     _wait_for_status(client, run_id, "completed")
 
     project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
@@ -886,7 +898,7 @@ def test_api_cancel_awaiting_input_persists_cancelled_conversation_status(
     run_id = client.post("/run/create", json={"project": TEST_PROJECT_SLUG}).json()[
         "run_id"
     ]
-    assert application.state.run_manager.start_if_needed(run_id)
+    assert application.state.run_manager.start_run(run_id)
     _wait_for_status(client, run_id, "awaiting_user_input")
     assert client.post(f"/projects/{TEST_PROJECT_SLUG}/cancel").json() == {"ok": True}
     _wait_for_status(client, run_id, "cancelled")
@@ -918,7 +930,7 @@ def test_api_projects_reports_dormant_when_root_terminal_and_librarian_not_runni
     run_id = client.post("/run/create", json={"project": TEST_PROJECT_SLUG}).json()[
         "run_id"
     ]
-    assert application.state.run_manager.start_if_needed(run_id)
+    assert application.state.run_manager.start_run(run_id)
     _wait_for_status(client, run_id, "completed")
 
     rows = client.get("/projects").json()
@@ -953,7 +965,7 @@ def test_api_reply_without_active_prompt_returns_400(tmp_path: Path) -> None:
     application = create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     client = TestClient(application)
     run_id = _create_run(client).json()["run_id"]
-    assert application.state.run_manager.start_if_needed(run_id)
+    assert application.state.run_manager.start_run(run_id)
 
     deadline = time.monotonic() + 15.0
     while time.monotonic() < deadline:
@@ -986,7 +998,7 @@ def test_minimal_run_emits_message_events_to_run_event_listeners(
     capture = lambda ev: collected.append(ev)  # noqa: E731
     manager.subscribe_event_listener(run_id, capture)
     try:
-        assert manager.start_if_needed(run_id)
+        assert manager.start_run(run_id)
         reply_deadline = time.monotonic() + 15.0
         while time.monotonic() < reply_deadline:
             view = manager.run_view(run_id)
@@ -1146,11 +1158,10 @@ def test_api_startup_clears_pre_boot_librarian_marker(tmp_path: Path) -> None:
         started_at=datetime.now(timezone.utc) - timedelta(minutes=5),
     )
 
-    client = TestClient(
+    with TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
-    )
-
-    rows = client.get("/projects").json()
+    ) as client:
+        rows = client.get("/projects").json()
     assert rows == [
         {
             "slug": TEST_PROJECT_SLUG,
@@ -1172,11 +1183,10 @@ def test_api_startup_clears_pre_boot_orchestrator_marker(tmp_path: Path) -> None
         started_at=datetime.now(timezone.utc) - timedelta(minutes=5),
     )
 
-    client = TestClient(
+    with TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
-    )
-
-    rows = client.get("/projects").json()
+    ) as client:
+        rows = client.get("/projects").json()
     assert rows == [
         {
             "slug": TEST_PROJECT_SLUG,
@@ -1234,7 +1244,7 @@ def test_api_run_view_includes_agent_fields_and_message_trace(tmp_path: Path) ->
     )
     client = TestClient(application)
     run_id = _create_run(client).json()["run_id"]
-    assert application.state.run_manager.start_if_needed(run_id)
+    assert application.state.run_manager.start_run(run_id)
 
     deadline = time.monotonic() + 10.0
     while time.monotonic() < deadline:
@@ -1257,15 +1267,20 @@ def test_api_run_view_includes_agent_fields_and_message_trace(tmp_path: Path) ->
 
 
 def test_api_run_view_serializes_script_output_trace_entry(tmp_path: Path) -> None:
-    application = create_app(
-        deployment=_test_deployment(_stream_terminating_factory, tmp_path)
-    )
+    event = ScriptOutputEvent(content="script line", sequence=0)
+
+    def factory(project, *, endpoint_getter, event_sinks):
+        def invoke():
+            for sink in event_sinks:
+                sink(event)
+
+        return RootAgentBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
+
+    application = create_app(deployment=_test_deployment(factory, tmp_path))
     client = TestClient(application)
     run_id = _create_run(client).json()["run_id"]
-
-    application.state.run_manager._events.dispatch(  # noqa: SLF001
-        run_id, ScriptOutputEvent(content="script line", sequence=0)
-    )
+    assert application.state.run_manager.start_run(run_id)
+    _wait_for_status(client, run_id, "completed")
 
     response = client.get(f"/run/{run_id}")
     assert response.status_code == 200
@@ -1279,24 +1294,28 @@ def test_api_run_view_serializes_script_output_trace_entry(tmp_path: Path) -> No
 
 
 def test_api_run_view_serializes_runtime_event_trace_entry(tmp_path: Path) -> None:
-    application = create_app(
-        deployment=_test_deployment(_stream_terminating_factory, tmp_path)
+    event = RuntimeEvent(
+        category="llm",
+        kind="failed",
+        level="error",
+        message="provider auth error",
+        sequence=0,
+        agent_name="root",
+        data={"error_kind": "auth"},
     )
+
+    def factory(project, *, endpoint_getter, event_sinks):
+        def invoke():
+            for sink in event_sinks:
+                sink(event)
+
+        return RootAgentBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
+
+    application = create_app(deployment=_test_deployment(factory, tmp_path))
     client = TestClient(application)
     run_id = _create_run(client).json()["run_id"]
-
-    application.state.run_manager._events.dispatch(  # noqa: SLF001
-        run_id,
-        RuntimeEvent(
-            category="llm",
-            kind="failed",
-            level="error",
-            message="provider auth error",
-            sequence=0,
-            agent_name="root",
-            data={"error_kind": "auth"},
-        ),
-    )
+    assert application.state.run_manager.start_run(run_id)
+    _wait_for_status(client, run_id, "completed")
 
     response = client.get(f"/run/{run_id}")
     assert response.status_code == 200
@@ -1324,7 +1343,7 @@ def test_api_run_view_message_trace_respects_history_limit(
     application = create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     client = TestClient(application)
     run_id = _create_run(client).json()["run_id"]
-    assert application.state.run_manager.start_if_needed(run_id)
+    assert application.state.run_manager.start_run(run_id)
 
     deadline = time.monotonic() + 15.0
     prompt_id: str | None = None
@@ -1385,7 +1404,7 @@ def test_api_interrupt_awaiting_input_returns_false(tmp_path: Path) -> None:
     application = create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     client = TestClient(application)
     run_id = _create_run(client).json()["run_id"]
-    assert application.state.run_manager.start_if_needed(run_id)
+    assert application.state.run_manager.start_run(run_id)
     _wait_for_status(client, run_id, "awaiting_user_input")
 
     response = client.post(f"/run/{run_id}/interrupt")
@@ -1438,7 +1457,7 @@ def test_api_delete_busy_project_returns_409(tmp_path: Path) -> None:
     application = create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     client = TestClient(application)
     run_id = _create_run(client).json()["run_id"]
-    assert application.state.run_manager.start_if_needed(run_id)
+    assert application.state.run_manager.start_run(run_id)
     _wait_for_status(client, run_id, "awaiting_user_input")
 
     response = client.delete(f"/projects/{TEST_PROJECT_SLUG}")
@@ -1452,7 +1471,7 @@ def test_api_cancel_then_delete_flow(tmp_path: Path) -> None:
     application = create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     client = TestClient(application)
     run_id = _create_run(client).json()["run_id"]
-    assert application.state.run_manager.start_if_needed(run_id)
+    assert application.state.run_manager.start_run(run_id)
     _wait_for_status(client, run_id, "awaiting_user_input")
 
     assert client.post(f"/projects/{TEST_PROJECT_SLUG}/cancel").json() == {"ok": True}
@@ -1754,7 +1773,7 @@ def test_real_orchestrator_reads_top_level_workspace_file(
     )
     client = TestClient(application)
     run_id = _create_run(client).json()["run_id"]
-    assert application.state.run_manager.start_if_needed(run_id)
+    assert application.state.run_manager.start_run(run_id)
 
     # Poll until the run reaches a terminal status. "completed" and "failed" are
     # both terminal, so we stop on either, then assert it was the good one -- a

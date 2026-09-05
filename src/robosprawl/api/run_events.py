@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import asdict, replace
-from threading import Lock
+from threading import RLock
 
 from roboz.runtime.events import (
     EventSink,
@@ -17,7 +19,7 @@ from roboz.runtime.events import (
 )
 
 from robosprawl.api.state import (
-    RunState,
+    RunProjection,
     RunViewLifecycleEntry,
     RunViewMessageEntry,
     RunViewMessagePayload,
@@ -32,71 +34,82 @@ logger = logging.getLogger(__name__)
 class RunEvents:
     """Owns event normalization and replay-listener delivery for run state."""
 
-    def __init__(
-        self, runs: dict[str, RunState], lock: Lock, *, message_history_limit: int
-    ) -> None:
-        self._runs = runs
-        self._lock = lock
+    def __init__(self, *, message_history_limit: int) -> None:
+        self._lock = RLock()
+        self._delivery_lock = RLock()
         self._message_history_limit = message_history_limit
+        self._listeners: list[EventSink] = []
+        self._state: RunProjection = {
+            "next_sequence": 1,
+            "agent_stack": [],
+            "current_agent_name": None,
+            "parent_agent_name": None,
+            "message_trace": [],
+        }
+        self._completion_listeners: dict[EventSink, Callable[[], None]] = {}
+        self._completed = False
 
-    def sink(self, run_id: str) -> EventSink:
-        """Return an event sink bound to ``run_id``."""
-
-        def run_event_sink(event: PipeEvent) -> None:
-            self.dispatch(run_id, event)
-
-        return run_event_sink
-
-    def subscribe(self, run_id: str, event_listener: EventSink) -> None:
+    @property
+    def current_agent_name(self) -> str | None:
         with self._lock:
-            state = self._runs.get(run_id)
-            if state is None:
-                msg = f"unknown run_id: {run_id}"
-                raise KeyError(msg)
-            state["event_listeners"].append(event_listener)
+            return self._state["current_agent_name"]
 
-    def unsubscribe(self, run_id: str, event_listener: EventSink) -> None:
+    def snapshot(self) -> RunProjection:
         with self._lock:
-            state = self._runs.get(run_id)
-            if state is None:
-                return
-            try:
-                state["event_listeners"].remove(event_listener)
-            except ValueError:
-                pass
+            return {
+                **self._state,
+                "agent_stack": list(self._state["agent_stack"]),
+                "message_trace": deepcopy(self._state["message_trace"]),
+            }
 
-    def dispatch(self, run_id: str, event: PipeEvent) -> PipeEvent:
+    def subscribe(
+        self, listener: EventSink, on_complete: Callable[[], None] | None = None
+    ) -> None:
+        with self._delivery_lock:
+            with self._lock:
+                self._listeners.append(listener)
+                if on_complete is not None:
+                    self._completion_listeners[listener] = on_complete
+                completed = self._completed
+            if completed and on_complete is not None:
+                on_complete()
+
+    def unsubscribe(self, listener: EventSink) -> None:
         with self._lock:
-            state = self._runs.get(run_id)
-            if state is None:
-                msg = f"unknown run_id: {run_id}"
-                raise KeyError(msg)
-            event = self._normalize_and_record(state, event)
-            event_listeners = list(state["event_listeners"])
+            if listener in self._listeners:
+                self._listeners.remove(listener)
+            self._completion_listeners.pop(listener, None)
 
-        logger.debug(
-            "Dispatch event (run_id=%s type=%s sequence=%s listeners=%d)",
-            run_id,
-            type(event).__name__,
-            getattr(event, "sequence", None),
-            len(event_listeners),
-        )
-        for event_listener in event_listeners:
-            try:
-                event_listener(event)
-            except Exception:
-                # A listener failing (e.g. a full/dead SSE queue) must not stop
-                # delivery to the others, and the failure must not be silent.
-                logger.warning(
-                    "Event listener raised (run_id=%s type=%s listener=%r)",
-                    run_id,
-                    type(event).__name__,
-                    event_listener,
-                    exc_info=True,
-                )
+    def complete(self) -> None:
+        with self._delivery_lock:
+            with self._lock:
+                if self._completed:
+                    return
+                self._completed = True
+                listeners = tuple(self._completion_listeners.values())
+            for listener in listeners:
+                try:
+                    listener()
+                except Exception:
+                    logger.warning("Completion listener raised", exc_info=True)
+
+    def dispatch(self, event: PipeEvent) -> PipeEvent:
+        # Sequencing and fanout share one order, without holding the state lock
+        # while calling external listeners (which may read a run snapshot).
+        with self._delivery_lock:
+            with self._lock:
+                event = self._normalize_and_record(self._state, event)
+                listeners = tuple(self._listeners)
+            for listener in listeners:
+                try:
+                    listener(event)
+                except Exception:
+                    logger.warning("Event listener raised", exc_info=True)
         return event
 
-    def _normalize_and_record(self, state: RunState, event: PipeEvent) -> PipeEvent:
+    def _normalize_and_record(
+        self, state: RunProjection, event: PipeEvent
+    ) -> PipeEvent:
         sequence = self._next_run_sequence(state)
         match event:
             case MessageDeltaEvent():
@@ -120,7 +133,7 @@ class RunEvents:
             case _:
                 return event
 
-    def _record_message_event(self, state: RunState, event: MessageEvent) -> None:
+    def _record_message_event(self, state: RunProjection, event: MessageEvent) -> None:
         payload: RunViewMessagePayload = {
             "role": event.message.role,
             "content": event.message.content,
@@ -134,7 +147,9 @@ class RunEvents:
         }
         self._append_trace_entry(state, message_entry)
 
-    def _record_lifecycle_event(self, state: RunState, event: RunLifecycleEvent) -> None:
+    def _record_lifecycle_event(
+        self, state: RunProjection, event: RunLifecycleEvent
+    ) -> None:
         stack = state["agent_stack"]
         match event:
             case RunLifecycleEvent(kind="started", agent_name=agent_name):
@@ -159,7 +174,7 @@ class RunEvents:
         self._append_trace_entry(state, lifecycle_entry)
 
     def _record_script_output_event(
-        self, state: RunState, event: ScriptOutputEvent
+        self, state: RunProjection, event: ScriptOutputEvent
     ) -> None:
         script_entry: RunViewScriptOutputEntry = {
             "type": "script_output",
@@ -168,7 +183,7 @@ class RunEvents:
         }
         self._append_trace_entry(state, script_entry)
 
-    def _record_runtime_event(self, state: RunState, event: RuntimeEvent) -> None:
+    def _record_runtime_event(self, state: RunProjection, event: RuntimeEvent) -> None:
         runtime_entry: RunViewRuntimeEventEntry = {
             "type": "runtime_event",
             "sequence": event.sequence,
@@ -183,12 +198,12 @@ class RunEvents:
         }
         self._append_trace_entry(state, runtime_entry)
 
-    def _append_trace_entry(self, state: RunState, entry: TraceEntry) -> None:
+    def _append_trace_entry(self, state: RunProjection, entry: TraceEntry) -> None:
         next_trace = [*state["message_trace"], entry]
         state["message_trace"] = next_trace[-self._message_history_limit :]
 
     @staticmethod
-    def _next_run_sequence(state: RunState) -> int:
+    def _next_run_sequence(state: RunProjection) -> int:
         """Allocate one sequence space for the hub run trace.
 
         Each agent has its own ``EventPipe`` sequence counter, and a hub run can

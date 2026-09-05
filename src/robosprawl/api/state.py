@@ -3,18 +3,12 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from threading import Thread
 from typing import Any, Literal, TypedDict
 
-from roboz.llm import LLMEndpoint
 from roboz.models import MessageKind, Role
-from roboz.runtime.events import EventSink
 from roboz.runtime.observability import RuntimeEventLevel
-from roboz.runtime.pipe import EventPipe
-from roboz.tooling import LazyExternalDependency
 
 from robosprawl.composition import RootAgentBundle as RootAgentBundle  # noqa: PLC0414
-from robosprawl.workspace import Project
 
 
 class RunStatus(StrEnum):
@@ -96,22 +90,23 @@ TraceEntry = (
 )
 
 
-class RunState(TypedDict):
-    project: Project
-    orchestrator_endpoint: LazyExternalDependency[LLMEndpoint]
-    status: RunStatus
-    created_at: float
-    completed_at: float | None
-    cancel_requested: bool
-    thread: Thread | None
-    pipe: EventPipe | None
-    background_pipes: tuple[EventPipe, ...]
-    event_listeners: list[EventSink]
+class RunProjection(TypedDict):
     next_sequence: int
     agent_stack: list[str]
     current_agent_name: str | None
     parent_agent_name: str | None
     message_trace: list[TraceEntry]
+
+
+class RunState(RunProjection):
+    project: str
+    model_id: str
+    status: RunStatus
+    created_at: float
+    completed_at: float | None
+    cancel_requested: bool
+    worker_alive: bool
+    background_active: bool
     current_prompt_id: str | None
     current_prompt: str | None
     error: str | None

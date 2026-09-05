@@ -4,9 +4,8 @@ import asyncio
 import json
 import logging
 import queue
-import shutil
 import tempfile
-from collections.abc import Collection, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 
 from fastapi import (
@@ -23,11 +22,7 @@ from roboz.llm import (
 )
 from roboz.llm.calls import call_transcription_api
 from roboz.runtime import log_with_data
-from roboz.runtime.events import PipeEvent, RunLifecycleEvent
-from roboz.runtime.persistence import (
-    active_marker_paths,
-    clear_active_markers,
-)
+from roboz.runtime.events import PipeEvent
 
 from robosprawl.api.dependencies import dependency_lifespan
 from robosprawl.api.dependencies import router as dependency_router
@@ -37,10 +32,10 @@ from robosprawl.api.errors import (
 )
 from robosprawl.api.files import serve_hub_file
 from robosprawl.api.models import *
-from robosprawl.api.projects import ProjectListItem, compose_project_list
+from robosprawl.api.project_service import ProjectService
 from robosprawl.api.run_manager import RunManager
 from robosprawl.api.sse import event_to_sse_frame
-from robosprawl.api.state import RunLifecycleKind, RunStatus
+from robosprawl.api.state import RunStatus
 from robosprawl.api.state import (
     RunView as RunViewState,
 )
@@ -52,13 +47,11 @@ from robosprawl.deployment import (
     OrchestratorModelSelector,
 )
 from robosprawl.hub import HubConfig, load_hub_config
-from robosprawl.identifiers import LIBRARIAN_AGENT_NAME
 from robosprawl.mock import (
     mock_orchestrator_factory,
     stream_mock_orchestrator_factory,
     stream_sync_mock_orchestrator_factory,
 )
-from robosprawl.workspace import Project
 
 logger = logging.getLogger(__name__)
 
@@ -76,44 +69,6 @@ ALLOWED_TRANSCRIPTION_CONTENT_TYPES = frozenset(
         "audio/x-m4a",
     }
 )
-
-
-def _clear_preboot_active_markers(*, config: HubConfig) -> None:
-    projects_dir = config.sandbox.projects_dir
-    if not projects_dir.is_dir():
-        return
-    for project_dir in projects_dir.iterdir():
-        if not project_dir.is_dir():
-            continue
-        try:
-            project = config.project(project_dir.name)
-        except RuntimeError:
-            continue
-        clear_active_markers(project.logs)
-
-
-def _librarian_is_active(project: Project) -> bool:
-    return bool(active_marker_paths(project.logs, {LIBRARIAN_AGENT_NAME}))
-
-
-def _active_librarian_project_slugs(projects: Sequence[Project]) -> set[str]:
-    return {project.slug for project in projects if _librarian_is_active(project)}
-
-
-def _cancelling_project_slugs(
-    *,
-    projects: Sequence[Project],
-    manager: RunManager,
-    active_librarian_project_slugs: Collection[str],
-) -> set[str]:
-    return {
-        project.slug
-        for project in projects
-        if manager.project_is_cancelling(
-            project.slug,
-            background_sync_active=project.slug in active_librarian_project_slugs,
-        )
-    }
 
 
 def _model_selection_view(
@@ -144,8 +99,16 @@ def create_app(
 
     """
     hub_config = deployment.config
+    manager = RunManager(
+        deployment.orchestrator_factory,
+        hub_name=hub_config.name,
+        default_orchestrator_endpoint=lambda: (
+            deployment.model_selector.selected_endpoint
+        ),
+    )
+    projects = ProjectService(hub_config, manager)
     configure_backend_logging(hub_config.logging)
-    _clear_preboot_active_markers(config=hub_config)
+    projects.recover()
     app = FastAPI(
         title=hub_config.name,
         version="0.1.0",
@@ -164,13 +127,8 @@ def create_app(
     )
     app.state.ready = False
     app.state.dependency_health = None
-    app.state.run_manager = RunManager(
-        deployment.orchestrator_factory,
-        hub_name=hub_config.name,
-        default_orchestrator_endpoint=lambda: (
-            deployment.model_selector.selected_endpoint
-        ),
-    )
+    app.state.run_manager = manager
+    app.state.projects = projects
     app.state.transcription_endpoint = deployment.transcription_endpoint
     app.include_router(dependency_router)
 
@@ -180,12 +138,12 @@ def create_app(
             return _model_selection_view(deployment.model_selector)
         manager: RunManager = request.app.state.run_manager
         try:
-            endpoint = manager.get_orchestrator_endpoint(run_id)
+            model_id = manager.get_orchestrator_model_id(run_id)
         except KeyError:
             raise HTTPException(status_code=404, detail="unknown run_id") from None
         return _model_selection_view(
             deployment.model_selector,
-            selected_model_id=endpoint.dependency_id,
+            selected_model_id=model_id,
         )
 
     @app.post("/models", response_model=ModelSelectionView)
@@ -211,97 +169,36 @@ def create_app(
     def files_get(path: str) -> Response:
         return serve_hub_file(path, sandbox=hub_config.sandbox)
 
-    @app.post("/run/create")
-    def run_create(body: CreateBody, request: Request) -> dict[str, str]:
-        manager: RunManager = request.app.state.run_manager
+    def project_operation(operation):
         try:
-            project = hub_config.project(body.project)
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        if not project.root.is_dir():
-            raise HTTPException(status_code=404, detail="unknown project")
-        try:
-            run_id = manager.create(
-                project,
-                background_sync_active=_librarian_is_active(project),
-            )
+            return operation()
         except (ProjectBusyError, ProjectCancellationInProgressError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
-        return {"run_id": run_id}
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="unknown project") from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/run/create")
+    def run_create(body: CreateBody) -> dict[str, str]:
+        return {"run_id": project_operation(lambda: projects.prepare_run(body.project))}
 
     @app.post("/projects")
     def projects_create(body: ProjectCreateBody) -> dict[str, str]:
-        try:
-            project = hub_config.manifest_project(body.name)
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {"slug": project.slug}
+        return {"slug": project_operation(lambda: projects.create(body.name))}
 
     @app.get("/projects", response_model=list[ProjectSummary])
-    def projects_get(request: Request) -> list[ProjectSummary]:
-        manager: RunManager = request.app.state.run_manager
-        projects_dir = hub_config.sandbox.projects_dir
-        projects = (
-            sorted(
-                (
-                    hub_config.project(project_dir.name)
-                    for project_dir in projects_dir.iterdir()
-                    if project_dir.is_dir()
-                ),
-                key=lambda item: item.slug,
-            )
-            if projects_dir.is_dir()
-            else []
-        )
-        active_librarian_project_slugs = _active_librarian_project_slugs(projects)
-        cancelling_project_slugs = _cancelling_project_slugs(
-            projects=projects,
-            manager=manager,
-            active_librarian_project_slugs=active_librarian_project_slugs,
-        )
-        rows: list[ProjectListItem] = compose_project_list(
-            projects=projects,
-            runs=manager.list_project_runs(
-                active_background_sync_projects=active_librarian_project_slugs
-            ),
-            cancelling_projects=cancelling_project_slugs,
-            active_background_sync_projects=active_librarian_project_slugs,
-        )
-        return [ProjectSummary(**row) for row in rows]
+    def projects_get() -> list[ProjectSummary]:
+        return [ProjectSummary(**row) for row in projects.list()]
 
     @app.delete("/projects/{slug}")
-    def projects_delete(slug: str, request: Request) -> dict[str, bool]:
-        manager: RunManager = request.app.state.run_manager
-        try:
-            project = hub_config.project(slug)
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        projects_dir = hub_config.sandbox.projects_dir.resolve()
-        root = project.root.resolve()
-        # Confine the delete to a direct child of the projects tier.
-        if root == projects_dir or root.parent != projects_dir:
-            raise HTTPException(status_code=400, detail="invalid project path")
-        if not root.is_dir():
-            raise HTTPException(status_code=404, detail="unknown project")
-        if manager.project_is_busy(project.slug) or _librarian_is_active(project):
-            raise HTTPException(
-                status_code=409,
-                detail="project has an active run; cancel it first",
-            )
-        shutil.rmtree(root)
-        manager.forget_project_runs(project.slug)
+    def projects_delete(slug: str) -> dict[str, bool]:
+        project_operation(lambda: projects.delete(slug))
         return {"ok": True}
 
     @app.post("/projects/{slug}/cancel")
-    def projects_cancel(slug: str, request: Request) -> dict[str, bool]:
-        manager: RunManager = request.app.state.run_manager
-        try:
-            project = hub_config.project(slug)
-        except RuntimeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        if not project.root.is_dir():
-            raise HTTPException(status_code=404, detail="unknown project")
-        return {"ok": manager.cancel_project(project.slug)}
+    def projects_cancel(slug: str) -> dict[str, bool]:
+        return {"ok": project_operation(lambda: projects.cancel(slug))}
 
     @app.get("/run/{run_id}", response_model=RunView)
     def run_get(run_id: str, request: Request) -> RunView:
@@ -347,9 +244,14 @@ def create_app(
         if len(audio) > MAX_TRANSCRIPTION_UPLOAD_BYTES:
             raise HTTPException(status_code=413, detail="audio upload too large")
 
-        endpoint: TranscriptionEndpointLike | None = request.app.state.transcription_endpoint
+        endpoint: TranscriptionEndpointLike | None = (
+            request.app.state.transcription_endpoint
+        )
         if endpoint is None:
-            raise HTTPException(status_code=503, detail="Live transcription is not available in RoboSprawl.")
+            raise HTTPException(
+                status_code=503,
+                detail="Live transcription is not available in RoboSprawl.",
+            )
         try:
             text = await asyncio.to_thread(
                 call_transcription_api,
@@ -394,11 +296,15 @@ def create_app(
             )
             raise HTTPException(status_code=409, detail="run already finished")
         stream_started = asyncio.get_running_loop().time()
-        event_queue: queue.Queue[PipeEvent] = queue.Queue()
+        event_queue: queue.Queue[PipeEvent | None] = queue.Queue()
         stream_queue_listener = event_queue.put_nowait
 
         try:
-            manager.subscribe_event_listener(run_id, stream_queue_listener)
+            manager.subscribe_event_listener(
+                run_id,
+                stream_queue_listener,
+                on_complete=lambda: event_queue.put_nowait(None),
+            )
         except KeyError:
             log_with_data(
                 logger,
@@ -408,7 +314,7 @@ def create_app(
             )
             raise HTTPException(status_code=404, detail="unknown run_id") from None
         try:
-            started = manager.start_if_needed(run_id)
+            started = manager.start_run(run_id)
         except KeyError:
             manager.unsubscribe_event_listener(run_id, stream_queue_listener)
             log_with_data(
@@ -456,14 +362,10 @@ def create_app(
                     except queue.Empty:
                         yield b": keepalive\n\n"
                         continue
-                    yield event_to_sse_frame(event).encode("utf-8")
-                    if (
-                        isinstance(event, RunLifecycleEvent)
-                        and event.kind == RunLifecycleKind.STOPPED
-                        and event.parent_agent_name is None
-                    ):
+                    if event is None:
                         ended_on_terminal = True
                         return
+                    yield event_to_sse_frame(event).encode("utf-8")
             finally:
                 manager.unsubscribe_event_listener(run_id, stream_queue_listener)
                 duration_ms = round(
@@ -528,7 +430,11 @@ def _ephemeral_hub_config() -> HubConfig:
 
 def live_app() -> FastAPI:
     return create_app(deployment=HubDeployment.standard(load_hub_config()))
+
+
 MOCK_DEPENDENCY_REGISTRY = EXECUTABLE_DEPENDENCY_REGISTRATIONS
+
+
 mock_app = create_app(
     deployment=HubDeployment.custom(
         load_hub_config(),
