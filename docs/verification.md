@@ -1,5 +1,10 @@
 # Verification
 
+The records below are historical and predate the shared compaction migration.
+They retain the dependency revisions and results originally verified. See the
+[shared compaction migration](compaction-migration.md) for local validation
+against the current compaction dependency pin.
+
 ## Private dependency CI repair — 2026-09-05
 
 The [PR #6 merge run](https://github.com/Tachion-Oy/robosprawl/actions/runs/33970513925)

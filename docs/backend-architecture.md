@@ -49,3 +49,10 @@ release closes it and restores the previous logger settings.
 When adding behavior, place it with the state or resource it governs.
 Cross-component work should call that owner’s operations rather than reach into
 its mutable state.
+
+Automatic conversation compaction is provided by Roboz Shed. The orchestrator
+composes its tool with the selected endpoint, a 60% threshold, and the same
+event pipe that owns the agent's cancellation and interruption signals.
+`compactify_timeout_s` optionally bounds each provider attempt; it defaults to
+`None`. The shared tool owns its continuation prompts, history replacement,
+status payload, and per-instance counter. Roboz core owns summarization.

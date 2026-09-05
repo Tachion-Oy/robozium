@@ -1,11 +1,15 @@
 """Application file assistant and its deliberately small capability set."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from roboz import stop
 from roboz.llm import EndpointLike
 from roboz_shed.skills import cli_skill, file_editing
-from roboz_shed.tools import get_apply_patch, get_run_file_command
+from roboz_shed.tools import (
+    get_apply_patch,
+    get_compactify_messages_when_needed_tool,
+    get_run_file_command,
+)
 from roboz_shed.tools.cli_commands.run_file_command import FILE_COMMANDS_READ
 
 from robosprawl.composition.construction import (
@@ -24,6 +28,7 @@ class OrchestratorConstructor(AgenticConstructor):
     seed_initial_messages_from_memory: bool = True
     auto_load_skills: bool = True
     agent_name: str = "orchestrator"
+    compactify_timeout_s: float | None = field(default=None, kw_only=True)
 
     def description(self):
         return "RoboSprawl project assistant with file tools and persistent memory."
@@ -45,8 +50,11 @@ class OrchestratorConstructor(AgenticConstructor):
         defaults = self.extra_default_tools
         if defaults is None:
             defaults = (
-                self._compactify(
-                    self.agent_endpoint, self.compactify_threshold_percent
+                get_compactify_messages_when_needed_tool(
+                    endpoint=self.agent_endpoint,
+                    threshold_percent=self.compactify_threshold_percent,
+                    pipe=pipe,
+                    timeout_s=self.compactify_timeout_s,
                 ),
             )
         return ToolSurface(
