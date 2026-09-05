@@ -26,7 +26,11 @@ export function ReplyEditor({
 	}, [value])
 
 	const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (event) => {
-		if (event.key !== "Enter" || event.shiftKey) return
+		if (
+			event.key !== "Enter" ||
+			event.shiftKey ||
+			event.nativeEvent.isComposing
+		) return
 
 		event.preventDefault()
 		if (canSubmit) event.currentTarget.form?.requestSubmit()
