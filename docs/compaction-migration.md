@@ -69,8 +69,9 @@ RoboSprawl is on `refactor/shared-compaction` in
 `roboz` symlink supplies its relative source dependencies. The main application
 checkout and other worktrees are untouched.
 
-Publish the Roboz feature commit before pushing the application branch so its
-three CI checkout pins can fetch the new dependency. These changes are local;
-they create no remote branches, tags, or package releases. Hosted CI remains the
-integration gate, including the existing browser checks. Coordinate the CI pin
-update with the separate CI-repair branch when integrating both changes.
+Push the Roboz feature branch before the application branch so its three CI
+checkout pins can fetch the new dependency. Merge the Roboz dependency PR before
+the application PR. This migration creates no tags or package releases. Hosted
+CI remains the integration gate, including the existing browser checks.
+Coordinate the CI pin update with the separate CI-repair branch when integrating
+both changes.
