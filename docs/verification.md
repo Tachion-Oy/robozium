@@ -1,9 +1,17 @@
 # Verification
 
-The records below are historical and predate the shared compaction migration.
-They retain the dependency revisions and results originally verified. See the
-[shared compaction migration](compaction-migration.md) for local validation
-against the current compaction dependency pin.
+The records below preserve the source revisions and results originally
+verified. Their pinned-source procedures and reuse of downloaded CI builds are
+superseded for current acceptance: each new CI run tests current Roboz `main`
+and builds fresh application distributions and frontend assets. Fresh wheel
+and source-distribution installation checks remain required. See
+[current validation instructions](testing.md) and the historical
+[shared compaction migration](compaction-migration.md).
+
+The earlier job-level WebKit continuation described below could leave an
+individual WebKit check red even when aggregate CI passed. The current policy
+accepts only completed WebKit test failures at the step level, with warnings;
+setup and runner failures remain required. Historical results are unchanged.
 
 ## Private dependency CI repair — 2026-09-05
 

@@ -1,8 +1,12 @@
 # CI-equivalent validation
 
 Use Linux, Python 3.13 or 3.14, Node 22, and uv 0.12.10. CI checks out
-`robosprawl/` and `roboz/` as siblings. The dependency pin remains
-`4e531215c69aec42e82af24e47f06c871b896f82`; neither manifests nor locks are rewritten.
+`robosprawl/` and `roboz/` as siblings. Each new workflow run resolves Roboz’s
+current `main` once, then uses that SHA for every dependency checkout. Browser
+jobs install fresh wheels from that same run. Neither manifests nor locks are
+rewritten; missing access or incompatible current source fails required CI.
+For local reproduction, use a fresh sibling checkout of current Roboz `main`
+and record both source SHAs; preserve any existing development checkout.
 Windows/macOS application support is not claimed by the existing Linux launchers.
 
 ```bash
@@ -80,10 +84,14 @@ starting a new run after recovery.
 ## Browser diagnostics and visual review
 
 Chromium and Firefox are required. WebKit is temporarily advisory: both its full
-suite and its 20 repeated scenarios continue running in parallel, with job-level
-`continue-on-error` scoped to WebKit. Their failures do not fail the workflow or
-the aggregate CI gate; Python, quality, frontend, distribution, Chromium, and
-Firefox remain required. Reports use `browser-<browser>-<suite>` artifact names,
+suite and its 20 repeated scenarios continue running in parallel. Only their
+test steps use `continue-on-error`. After successful service setup and cleanup,
+the runner emits `playwright_exit_code` to `GITHUB_OUTPUT`; the required result
+evaluator accepts exit 1 as advisory only for a failed WebKit test step. It
+records a warning and summary, leaving the WebKit job and aggregate CI green.
+Missing completion output, abnormal termination, setup, service, and cleanup
+failures remain required. Local runner exit codes are unchanged. Python,
+quality, frontend, distribution, Chromium, and Firefox remain required. Reports use `browser-<browser>-<suite>` artifact names,
 where suite is `full` or `stress`. On CI, `failOnFlakyTests`
 rejects tests that pass only on retry. Retries exist for diagnostics, not for
 turning a flaky run green. Chromium visual baselines stay immutable in CI;
@@ -110,7 +118,8 @@ individual action and assertion timeouts remain unchanged.
 ## Required status and publication
 
 Use the aggregate **CI** check for branch protection. It requires Python,
-quality, frontend, distribution, and every browser job to succeed, including
+source resolution, quality, frontend, distribution, and every browser job to
+succeed after WebKit test outcomes are classified as described above, including
 when another job failed or was cancelled. PRs, main pushes, and manual runs use
 read-only permissions, no persisted checkout credentials, immutable action
 pins maintained by Dependabot, cancellation of superseded runs, and bounded
@@ -141,9 +150,11 @@ reading that repository. Do not reuse a broad developer token.
 2. Store the token as `ROBOZ_CI_TOKEN` in RoboSprawl's **Actions secrets**
    and separately in its **Dependabot secrets**. Dependabot-triggered workflows
    cannot use Actions secrets; both entries must have the same name and value.
-3. The three Roboz checkout definitions use `token` with that secret, retain
-   the exact dependency revision, and remove credentials after checkout with
-   `persist-credentials: false`. The Python matrix runs the same checkout twice.
+3. The resolver checks out Roboz `main` with that secret and records its SHA.
+   The three downstream checkout definitions use the same secret and resolved
+   SHA, with `persist-credentials: false` on every checkout. The Python matrix
+   runs its checkout twice. Both source SHAs are recorded in the workflow
+   summary and distribution reports.
 4. Run a normal PR and a Dependabot PR through every gate. A missing credential
    must fail checkout and the aggregate check; do not bypass required jobs.
 
@@ -160,7 +171,7 @@ After compatible releases of **all three** packages (`roboz`, `roboz-shed`, and
 
 1. Remove the three `[tool.uv.sources]` overrides, run `uv lock`, and review the
    registry sources and versions. Retain locked sync in CI.
-2. Remove all three Roboz checkout steps from CI. Replace the Roboz build in the
+2. Remove the Roboz resolver and all three downstream checkout steps from CI. Replace the Roboz build in the
    distribution job with `python -m pip download --only-binary=:all: --no-deps
    --dest "$candidate_dir"` and exact `name==version` arguments for the three
    packages, using their versions from the refreshed lock. Keep the directory
@@ -177,5 +188,5 @@ After compatible releases of **all three** packages (`roboz`, `roboz-shed`, and
 
 Publishing the Git repository alone does not migrate CI to PyPI. If it becomes
 public earlier, the `token` inputs and credential can be removed while retaining
-the pinned source checkout. See [uv packaging guidance](https://docs.astral.sh/uv/guides/package/).
-Changing a pin or passing validation does not authorize tags or publication.
+the checkout of current `main`, resolved once per run. See [uv packaging guidance](https://docs.astral.sh/uv/guides/package/).
+Passing validation does not authorize tags or publication.

@@ -251,4 +251,12 @@ def main() -> int:
 
 if __name__ == "__main__":
     (ROOT / ".artifacts/e2e").mkdir(parents=True, exist_ok=True)
-    raise SystemExit(main())
+    exit_code = main()
+    # Exceptions (including setup, interruption, and cleanup failures) never
+    # reach here. Only a completed single-browser invocation can be advisory.
+    if os.environ.get("GITHUB_OUTPUT") and any(
+        arg == "--project" or arg.startswith("--project=") for arg in sys.argv[1:]
+    ):
+        with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
+            output.write(f"playwright_exit_code={exit_code}\n")
+    raise SystemExit(exit_code)

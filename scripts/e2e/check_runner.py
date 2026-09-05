@@ -67,7 +67,11 @@ def main() -> None:
                 "--repeat-each=100",
                 "--grep=an unknown run keeps",
             ]
-        with tempfile.TemporaryFile(mode="w+") as log:
+        with (
+            tempfile.TemporaryFile(mode="w+") as log,
+            tempfile.NamedTemporaryFile(mode="r+") as output,
+        ):
+            env["GITHUB_OUTPUT"] = output.name
             process = subprocess.Popen(
                 [sys.executable, str(ROOT / "scripts/e2e/run.py"), *args],
                 cwd=ROOT,
@@ -97,6 +101,10 @@ def main() -> None:
                 if occupied:
                     occupied.close()
             assert status != 0, case
+            output.seek(0)
+            assert output.read() == (
+                "playwright_exit_code=1\n" if case == "failed-tests" else ""
+            ), case
             log.seek(0)
             text = log.read()
             report = Path(

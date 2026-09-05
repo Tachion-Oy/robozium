@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 from roboz.exceptions import LLMCallTimeoutError
-from roboz.llm import LLMEndpoint, MockLLMEndpoint
+from roboz.llm import LLMEndpoint, MockLLMEndpoint, estimate_conversation_tokens
 from roboz.models import MessageKind
 from roboz.runtime import Output
 from roboz.runtime.events import MessageEvent
@@ -30,7 +30,9 @@ def _compaction_project(tmp_path):
 def _write_action():
     return {
         "action": "apply_patch",
-        "rationale": "record progress",
+        # Trigger compaction with removable history, leaving enough context for
+        # the preserved system prompt and the bounded continuation payload.
+        "rationale": "record progress " * 1000,
         "path": "projects/compaction-test/note.txt",
         "old_string": "",
         "new_string": "work in progress",
@@ -46,7 +48,7 @@ def test_orchestrator_compacts_with_shed_and_persists_summary(tmp_path):
             {"value": "Keep editing the local file."},
             {"action": "stop", "rationale": "done", "value": "done"},
         ],
-        max_context_tokens=20,
+        max_context_tokens=10000,
     )
     agent = AgenticFactory(
         orchestrator=OrchestratorConstructor(
@@ -68,6 +70,7 @@ def test_orchestrator_compacts_with_shed_and_persists_summary(tmp_path):
     assert payload["caller"] == "compactify_messages_when_needed"
     assert payload["threshold_percent"] == 60
     assert payload["summary_markdown"] == "Keep editing the local file."
+    assert estimate_conversation_tokens(messages) < endpoint.max_context_tokens * 0.6
     statuses = [
         json.loads(event.message.content)
         for event in events
@@ -119,7 +122,7 @@ def test_orchestrator_controls_reach_compaction_provider(tmp_path, control):
         ),
         api_name="test",
         model_name="compaction",
-        max_context_tokens=20,
+        max_context_tokens=10000,
         stream=False,
     )
     agent = AgenticFactory(

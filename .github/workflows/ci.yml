@@ -17,7 +17,32 @@ env:
   NEXT_TELEMETRY_DISABLED: "1"
   ROBOSPRAWL_API_BASE_URL: http://127.0.0.1:8000
 jobs:
+  resolve-roboz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.revision.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Tachion-Oy/roboz
+          ref: main
+          path: roboz
+          token: ${{ secrets.ROBOZ_CI_TOKEN }}
+          persist-credentials: false
+      - name: Record source revisions
+        id: revision
+        working-directory: .
+        run: |
+          roboz_sha="$(git -C roboz rev-parse HEAD)"
+          echo "sha=$roboz_sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Tested source revisions"
+            echo "- RoboSprawl: $GITHUB_SHA (workflow checkout; PR merge commit for pull requests)"
+            echo "- Roboz main: $roboz_sha"
+          } >> "$GITHUB_STEP_SUMMARY"
   python:
+    needs: [resolve-roboz]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
@@ -32,7 +57,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Tachion-Oy/roboz
-          ref: 4e531215c69aec42e82af24e47f06c871b896f82
+          ref: ${{ needs.resolve-roboz.outputs.sha }}
           path: roboz
           token: ${{ secrets.ROBOZ_CI_TOKEN }}
           persist-credentials: false
@@ -53,6 +78,7 @@ jobs:
           path: robosprawl/.artifacts/reports/
           retention-days: 14
   quality:
+    needs: [resolve-roboz]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -63,7 +89,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Tachion-Oy/roboz
-          ref: 4e531215c69aec42e82af24e47f06c871b896f82
+          ref: ${{ needs.resolve-roboz.outputs.sha }}
           path: roboz
           token: ${{ secrets.ROBOZ_CI_TOKEN }}
           persist-credentials: false
@@ -110,6 +136,7 @@ jobs:
           path: robosprawl/.artifacts/reports/
           retention-days: 14
   distribution:
+    needs: [resolve-roboz]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -120,7 +147,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Tachion-Oy/roboz
-          ref: 4e531215c69aec42e82af24e47f06c871b896f82
+          ref: ${{ needs.resolve-roboz.outputs.sha }}
           path: roboz
           token: ${{ secrets.ROBOZ_CI_TOKEN }}
           persist-credentials: false
@@ -130,6 +157,13 @@ jobs:
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: "0.12.10"
+      - name: Record distribution sources
+        run: |
+          mkdir -p .artifacts/distribution-reports
+          {
+            echo "RoboSprawl: $(git rev-parse HEAD)"
+            echo "Roboz: $(git -C ../roboz rev-parse HEAD)"
+          } | tee .artifacts/distribution-reports/source-revisions.txt
       - run: |
           source scripts/env.sh
           uv sync --locked --dev
@@ -154,8 +188,6 @@ jobs:
     needs: [frontend, distribution]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    # Keep WebKit diagnostics running while its remaining flakes are investigated.
-    continue-on-error: ${{ matrix.browser == 'webkit' }}
     strategy:
       fail-fast: false
       matrix:
@@ -201,15 +233,27 @@ jobs:
           source scripts/env.sh
           python scripts/e2e/check_runner.py
       - name: Repeat repaired WebKit scenarios without retries
+        id: stress
         if: matrix.suite == 'stress'
+        continue-on-error: ${{ matrix.browser == 'webkit' }}
         env:
           ROBOSPRAWL_E2E_PREBUILT: "1"
         run: bash scripts/e2e/run-mock-playwright.sh --project=webkit --grep='opens compact on landing|an unknown run keeps' --repeat-each=10 --retries=0
       - name: Complete browser suite
+        id: full
         if: matrix.suite == 'full'
+        continue-on-error: ${{ matrix.browser == 'webkit' }}
         env:
           ROBOSPRAWL_E2E_PREBUILT: "1"
         run: bash scripts/e2e/run-mock-playwright.sh --project=${{ matrix.browser }}
+      - name: Evaluate browser result
+        if: ${{ !cancelled() && (steps.full.outcome != 'skipped' || steps.stress.outcome != 'skipped') }}
+        env:
+          BROWSER: ${{ matrix.browser }}
+          SUITE: ${{ matrix.suite }}
+          TEST_OUTCOME: ${{ matrix.suite == 'full' && steps.full.outcome || steps.stress.outcome }}
+          PLAYWRIGHT_EXIT_CODE: ${{ matrix.suite == 'full' && steps.full.outputs.playwright_exit_code || steps.stress.outputs.playwright_exit_code }}
+        run: python scripts/e2e/evaluate_result.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
@@ -219,7 +263,7 @@ jobs:
   ci:
     name: CI
     if: always()
-    needs: [python, quality, frontend, distribution, browsers]
+    needs: [resolve-roboz, python, quality, frontend, distribution, browsers]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
