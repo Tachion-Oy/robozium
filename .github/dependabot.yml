@@ -4,3 +4,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Avoid restarting CI on dependency PRs whenever main changes.
+    rebase-strategy: disabled
+    groups:
+      github-actions:
+        patterns:
+          - "*"
