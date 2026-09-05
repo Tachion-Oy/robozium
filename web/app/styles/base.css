@@ -1,0 +1,22 @@
+/* ---------------------------------------------------------------------------
+ * Base layer
+ * ------------------------------------------------------------------------- */
+
+html,
+body {
+  background: var(--term-bg);
+  color: var(--term-green);
+  font-family: var(--font-terminal);
+  letter-spacing: var(--term-letter-spacing);
+  line-height: var(--term-line-height);
+}
+
+html {
+  /* One density control scales the terminal stream, navigation, HUD chrome,
+     selectors, minimized controls, and feedback surfaces together. */
+  font-size: var(--app-ui-root-font-size);
+}
+
+body {
+  font-size: var(--term-font-size);
+}

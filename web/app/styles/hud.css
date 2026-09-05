@@ -1,0 +1,1903 @@
+/* ---------------------------------------------------------------------------
+ * Agent HUD
+ * ------------------------------------------------------------------------- */
+
+.agent-hud {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--hud-dim-bg);
+}
+
+/* Live run modal: fade the dim backdrop + box in/out across streaming ↔ passive
+   instead of mounting/unmounting, so a quick stream → tool-call → stream
+   succession doesn't flicker. */
+.agent-hud--fade {
+  transition: background-color 220ms ease;
+}
+
+.agent-hud--fade .agent-hud__box {
+  transition:
+    width 200ms ease,
+    height 200ms ease,
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+/* User-dismissed: vanish a touch quicker than the phase fade. */
+.agent-hud--hidden,
+.agent-hud--hidden .agent-hud__box {
+  transition-duration: 160ms;
+}
+
+.agent-hud--hidden {
+  background-color: transparent;
+  pointer-events: none;
+}
+
+/* Collapse toward the shared centre (not a downward nudge) so the box reads as
+   shrinking into the minimized widget that grows over the same point. */
+.agent-hud--hidden .agent-hud__box {
+  opacity: 0;
+  transform: scale(0.92);
+  pointer-events: none;
+}
+
+/* Intro only: ease the dim backdrop in (the normal workflow keeps it instant).
+   `both` holds the final dim state once the animation ends. */
+.agent-hud--intro {
+  animation: hud-dim-in var(--intro-hud-backdrop-fade) ease both;
+}
+
+@keyframes hud-dim-in {
+  from {
+    background-color: transparent;
+  }
+  to {
+    background-color: var(--hud-dim-bg);
+  }
+}
+
+.agent-hud__box {
+  /* Production default: poster-frame spacing for the finished shell. */
+  --hud-pad-x: 3.6rem;
+  --hud-pad-y: 2.025rem;
+  --hud-pad-top: 2.025rem;
+  --hud-pad-bottom: 1.575rem;
+  --hud-section-gap: 1rem;
+  --hud-panel-gap: 0.9rem;
+  --hud-actions-gap: 1.4rem;
+  --hud-reply-pad-block-start: 0.95rem;
+  --hud-reply-pad-block-end: 1.1rem;
+  --hud-reply-pad-inline: 1.15rem;
+  --hud-logo-size: 3.85rem;
+  --hud-logo-font-size: 3.3rem;
+  --hud-control-pad-y: 0.48rem;
+  --hud-control-pad-x: 0.72rem;
+  --hud-corner-control-size: 1.55rem;
+  --hud-corner-control-gap: 0.22rem;
+  --hud-corner-control-half-gap: 0.11rem;
+  --hud-corner-control-left: 0.9rem;
+  position: relative;
+  /* The landing route starts compact; run entry expands through the shared
+     resize state after hydration. */
+  width: 68rem;
+  height: 40rem;
+  border: 3px double var(--hud-box-border);
+  --hud-grid-line: 2px;
+  --hud-grid-color: rgba(64, 200, 255, 0.04);
+  background:
+    linear-gradient(
+      var(--hud-grid-color) 0 var(--hud-grid-line),
+      transparent var(--hud-grid-line)
+    ),
+    linear-gradient(
+      90deg,
+      var(--hud-grid-color) 0 var(--hud-grid-line),
+      transparent var(--hud-grid-line)
+    ),
+    rgba(9, 20, 38, 0.72);
+  background-size: 3.5rem 3.5rem, 3.5rem 3.5rem, auto;
+  /* Built here (not from a :root var) so --hud-glow-scale resolves against this
+     element -- letting .agent-hud__box--inactive dim it. */
+  box-shadow:
+    0 0 10px rgba(64, 200, 255, calc(0.38 * var(--hud-glow-scale))),
+    0 0 28px rgba(64, 200, 255, calc(0.18 * var(--hud-glow-scale))),
+    0 0 52px rgba(64, 200, 255, calc(0.08 * var(--hud-glow-scale)));
+  padding: var(--hud-pad-top, var(--hud-pad-y)) var(--hud-pad-x)
+    var(--hud-pad-bottom, var(--hud-pad-y));
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition:
+    width 200ms ease,
+    height 200ms ease;
+}
+
+/* Idle HUD (waiting / streaming -- not awaiting a prompt): dim the blue edge
+   glow. Strength lives in --hud-inactive-glow-scale (one knob to tweak). */
+.agent-hud__box--inactive {
+  --hud-glow-scale: var(--hud-inactive-glow-scale);
+  /* Dim the top-edge event badge uniformly while idle (same look, darker). */
+  --hud-event-brightness: var(--hud-inactive-event-brightness);
+}
+
+/* Pointer movement must track the grip directly; the normal transition remains
+   useful for keyboard resizing and responsive viewport adjustments. */
+.agent-hud--fade .agent-hud__box--resizing,
+.agent-hud__box--resizing {
+  transition: none;
+  cursor: nesw-resize;
+  user-select: none;
+}
+
+/* Bottom-left resize affordance. Its visible square shares the corner rail's
+   button chrome, while the parent retains a generous drag/focus hit target. */
+.agent-hud__resize-handle {
+  position: absolute;
+  top: calc(
+    50% + var(--hud-corner-control-size) + var(--hud-corner-control-gap) +
+      var(--hud-corner-control-half-gap)
+  );
+  left: var(--hud-corner-control-left);
+  z-index: 20;
+  width: var(--hud-corner-control-size);
+  height: var(--hud-corner-control-size);
+  cursor: nesw-resize;
+  touch-action: none;
+  user-select: none;
+  outline: none;
+}
+
+.agent-hud__resize-wedge {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  width: var(--hud-corner-control-size);
+  height: var(--hud-corner-control-size);
+  box-sizing: border-box;
+  color: color-mix(in oklab, var(--term-blue) 76%, white 24%);
+  filter:
+    drop-shadow(0 0 1px color-mix(in oklab, var(--term-blue) 58%, transparent))
+    drop-shadow(0 0 6px color-mix(in oklab, var(--term-blue) 28%, transparent));
+  opacity: 0.72;
+  transition:
+    color 140ms ease,
+    filter 140ms ease,
+    opacity 140ms ease;
+}
+
+.agent-hud__resize-icon {
+  display: block;
+  width: 1.05rem;
+  height: 1.05rem;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  vector-effect: non-scaling-stroke;
+}
+
+.agent-hud__resize-handle:hover .agent-hud__resize-wedge,
+.agent-hud__resize-handle:focus-visible .agent-hud__resize-wedge,
+.agent-hud__box--resizing .agent-hud__resize-wedge {
+  --btn-edge: color-mix(in oklab, var(--term-blue) 88%, white 12%);
+  --btn-fill-strength: 24%;
+  color: color-mix(in oklab, var(--term-blue) 68%, white 32%);
+  filter:
+    drop-shadow(0 0 2px color-mix(in oklab, var(--term-blue) 78%, transparent))
+    drop-shadow(0 0 8px color-mix(in oklab, var(--term-blue) 42%, transparent));
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-hud__resize-wedge {
+    transition: none;
+  }
+}
+
+.agent-hud__box--landing {
+  justify-content: flex-start;
+}
+
+/* Model selection and view mode share the HUD's top edge. */
+.agent-hud__header {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.agent-hud__header--landing {
+  flex: 0 0 auto;
+  margin-bottom: var(--hud-section-gap);
+}
+
+/* Run and status modes keep the control in normal flow. Its real rendered
+   height therefore defines the header row, and the margin exactly mirrors the
+   gap between the lower panel and the action buttons. */
+.agent-hud__header--row {
+  flex: 0 0 auto;
+  margin-bottom: var(--hud-section-gap);
+}
+
+.agent-hud__run-view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+}
+
+.agent-hud__run-view > .agent-hud__replySection {
+  margin-top: 0;
+}
+
+.agent-hud__start {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+}
+
+.agent-hud__project-input {
+  width: min(28rem, 52vw);
+  border: 1px solid var(--hud-input-border);
+  background: var(--hud-input-bg);
+  color: var(--hud-input-text);
+  border-radius: 2px;
+  padding: 0.55rem 0.75rem;
+  font-size: 1.25rem;
+  letter-spacing: 0.04em;
+}
+
+.agent-hud__project-input:focus-visible {
+  outline: none;
+  border-color: color-mix(in oklab, var(--term-blue) 80%, transparent);
+}
+
+.agent-hud__project-input::placeholder {
+  color: var(--hud-input-placeholder);
+}
+
+.agent-hud__event-edge {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(-50%);
+  max-width: calc(100% - 2.3rem);
+  z-index: 1;
+  user-select: none;
+  white-space: nowrap;
+  /* Uniform dim while idle: brightness() darkens fill + glow + text together
+     without adding translucency, so the look is unchanged and the box border
+     never shows through. Driven by .agent-hud__box--inactive. */
+  filter: brightness(var(--hud-event-brightness, 1));
+  transition: filter 160ms ease;
+}
+
+.agent-hud__event-label {
+  --term-msg-color: var(--term-blue);
+  --term-msg-glow: var(--term-glow-blue);
+  display: inline-block;
+  max-width: 100%;
+}
+
+.agent-hud__event-label .term-msg-badge {
+  box-sizing: border-box;
+  font-size: 1.08rem;
+  font-family: var(--font-agent-input);
+  letter-spacing: 0.10em;
+  max-width: 100%;
+  padding: 0 0.6ch;
+}
+
+.agent-hud__event-label .term-msg-badge-label {
+  max-width: 100%;
+}
+
+
+ 
+.agent-hud__agent {
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  color: var(--hud-input-text);
+  text-shadow: none;
+  font-family: inherit;
+  line-height: var(--term-line-height);
+  letter-spacing: var(--term-letter-spacing);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  text-align: left;
+}
+
+.agent-hud__markdown {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.agent-hud__markdown > *:first-child {
+  margin-top: 0;
+}
+
+.agent-hud__markdown > *:last-child {
+  margin-bottom: 0;
+}
+
+.agent-hud__markdown-p {
+  margin: 0 0 0.5rem;
+}
+
+.agent-hud__markdown-h1,
+.agent-hud__markdown-h2,
+.agent-hud__markdown-h3 {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 1em;
+  font-weight: 700;
+}
+
+.agent-hud__markdown-ul,
+.agent-hud__markdown-ol {
+  margin: 0 0 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.agent-hud__markdown-ul {
+  list-style: disc;
+}
+
+.agent-hud__markdown-ol {
+  list-style: decimal;
+}
+
+.agent-hud__markdown-inline-code {
+  border: 1px solid color-mix(in oklab, var(--term-blue) 35%, transparent);
+  background: color-mix(in oklab, var(--hud-input-bg) 90%, black 10%);
+  border-radius: 2px;
+  padding: 0 0.2rem;
+}
+
+.agent-hud__markdown-pre {
+  max-width: 100%;
+  margin: 0 0 0.75rem;
+  border: 1px solid color-mix(in oklab, var(--term-blue) 35%, transparent);
+  border-radius: 2px;
+  padding: 0.45rem 0.55rem;
+  background: color-mix(in oklab, var(--hud-input-bg) 88%, black 12%);
+  white-space: pre;
+  overflow-x: auto;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.agent-hud__markdown-pre code {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  overflow-wrap: inherit;
+  word-break: inherit;
+}
+
+.agent-hud__markdown-blockquote {
+  margin: 0 0 0.75rem;
+  padding: 0.1rem 0 0.1rem 0.75rem;
+  border-left: 2px solid color-mix(in oklab, var(--term-blue) 45%, transparent);
+  color: color-mix(in oklab, var(--hud-input-text) 82%, transparent);
+}
+
+.agent-hud__markdown-table-scroll {
+  max-width: 100%;
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.35rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: auto;
+  scrollbar-color:
+    color-mix(in oklab, var(--term-blue) 65%, transparent)
+    color-mix(in oklab, var(--term-blue) 12%, transparent);
+}
+
+.agent-hud__markdown-table-scroll::-webkit-scrollbar {
+  height: 12px;
+}
+
+.agent-hud__markdown-table-scroll::-webkit-scrollbar-track {
+  background: color-mix(in oklab, var(--term-blue) 12%, transparent);
+  border-radius: 999px;
+}
+
+.agent-hud__markdown-table-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--term-blue) 65%, transparent);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+
+.agent-hud__markdown-table-scroll:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--term-blue) 80%, transparent);
+  background-clip: content-box;
+}
+
+.agent-hud__markdown-table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
+}
+
+.agent-hud__markdown-table th,
+.agent-hud__markdown-table td {
+  border: 1px solid color-mix(in oklab, var(--term-blue) 30%, transparent);
+  padding: 0.25rem 0.45rem;
+  text-align: left;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.agent-hud__markdown-table th:last-child,
+.agent-hud__markdown-table td:last-child {
+  min-width: min(28rem, 50vw);
+  white-space: normal;
+}
+
+.agent-hud__markdown-table th {
+  background: color-mix(in oklab, var(--hud-input-bg) 90%, black 10%);
+}
+
+.agent-hud__markdown-link {
+  color: color-mix(in oklab, var(--term-blue) 70%, white 30%);
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+  text-decoration-thickness: 1px;
+}
+
+.agent-hud__markdown-link:hover {
+  color: color-mix(in oklab, var(--term-blue) 78%, white 22%);
+}
+ 
+.agent-hud__replySection {
+  margin-top: var(--hud-section-gap);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: visible;
+  gap: var(--hud-section-gap);
+  /* Eases the reply section in when the HUD first appears for a run. The
+     streaming and interactive states share this same element (no remount), so
+     flipping between them just swaps the inner content in place — smooth, with
+     no replayed entrance. */
+  animation: hud-view-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center;
+}
+
+.agent-hud__project-view {
+  animation: hud-view-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center;
+}
+
+.agent-hud__overview-loading {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  color: color-mix(in oklab, var(--term-blue) 64%, white 36%);
+  font-family: var(--font-agent-input);
+  letter-spacing: 0.08em;
+  text-shadow: var(--term-glow-blue);
+}
+
+.agent-hud__overview-loading-dots {
+  display: inline-block;
+  width: 3ch;
+  overflow: hidden;
+  clip-path: inset(0 100% 0 0);
+  animation: hud-overview-loading-dots 1.1s steps(4, end) infinite;
+}
+
+@keyframes hud-overview-loading-dots {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.agent-hud__status-view {
+  animation: hud-view-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center;
+}
+
+@keyframes hud-view-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-hud__replySection,
+  .agent-hud__project-view,
+  .agent-hud__status-view {
+    animation: none;
+  }
+
+  .agent-hud__overview-loading-dots {
+    animation: none;
+    clip-path: none;
+  }
+}
+
+/* The two stacked panels (agent message / reply textarea). The layout controls
+   move their shared boundary via [data-layout]; in a "large" mode the small
+   panel is pinned to four lines and scrolls its overflow. */
+.agent-hud__panels {
+  --hud-compact-panel-height: calc(
+    5.4em + var(--hud-reply-pad-block-start) +
+      var(--hud-reply-pad-block-end) + 2px
+  );
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hud-panel-gap);
+}
+
+/* Flexbox (not grid) so layout changes can ANIMATE: flex-grow/flex-basis are
+   interpolatable, whereas a grid track going 1fr -> fixed length is not. Both
+   panels grow by default; a "large" mode pins the small one to four lines. */
+.agent-hud__panels > .agent-hud__replyBox {
+  flex: 1 1 0;
+  transition:
+    flex-grow 220ms ease,
+    flex-basis 220ms ease;
+}
+
+.agent-hud__panels[data-layout="top"] > .agent-hud__replyBox--user {
+  flex: 0 0 var(--hud-compact-panel-height);
+}
+
+.agent-hud__panels[data-layout="bottom"] > .agent-hud__replyBox--agent {
+  flex: 0 0 var(--hud-compact-panel-height);
+}
+
+/* Prompt-history controls share the layout control's triangular SVG language.
+   The group occupies the geometric centre of the bottom action row. */
+.agent-hud__message-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  justify-self: center;
+  pointer-events: none;
+}
+
+.agent-hud__message-nav-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.04rem;
+  pointer-events: none;
+}
+
+.agent-hud__layout-direction.agent-hud__message-direction {
+  /* Slightly overlapping margins compact the pair without shrinking its 36px
+     hit targets or making it shorter than the centre status indicator. */
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  margin-inline: -2px;
+  align-self: center;
+  pointer-events: auto;
+}
+
+.agent-hud__layout-wedge.agent-hud__message-wedge {
+  width: 1.05rem;
+  height: 0.92rem;
+}
+
+.agent-hud__message-wedge--previous {
+  transform: rotate(-90deg);
+}
+
+.agent-hud__message-wedge--next {
+  transform: rotate(90deg);
+}
+
+.agent-hud__layout-wedge.agent-hud__message-wedge--jump {
+  width: 1.38rem;
+  height: 0.92rem;
+  transform: none;
+}
+
+/* Brand initial in the action row. It is a passive status indicator, not a
+   control. State-specific treatments are shared with the minimized copy. */
+.agent-hud__logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--hud-logo-size);
+  height: var(--hud-logo-size);
+  font-family: "Anurati Pro", var(--font-display);
+  font-weight: 400;
+  font-variation-settings: "SCAN" -40;
+  font-size: var(--hud-logo-font-size);
+  line-height: 1;
+  letter-spacing: 0;
+  color: color-mix(in oklab, var(--term-blue) 80%, white 20%);
+  background: var(--hud-logo-bg);
+  border: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 9px color-mix(in oklab, var(--term-blue) 52%, transparent);
+  text-shadow:
+    0 0 4px color-mix(in oklab, var(--term-blue) 85%, transparent),
+    0 0 12px color-mix(in oklab, var(--term-blue) 55%, transparent);
+  transition:
+    color 180ms ease,
+    text-shadow 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.agent-hud__logo--actions {
+  --hud-logo-size: 36px;
+  --hud-logo-font-size: 31px;
+  position: static;
+  flex: 0 0 auto;
+  transform: none;
+}
+
+/* Awaiting input is the brighter, steady state: Send is available regardless
+   of which historical message is currently displayed. */
+.agent-hud__logo[data-agent-state="awaiting-input"] {
+  color: color-mix(in oklab, white 84%, var(--term-lime) 16%);
+  text-shadow:
+    0 0 2px color-mix(in oklab, white 68%, transparent),
+    0 0 6px color-mix(in oklab, white 52%, transparent),
+    0 0 12px color-mix(in oklab, var(--term-lime) 80%, transparent),
+    0 0 30px color-mix(in oklab, var(--term-lime) 68%, transparent),
+    0 0 60px color-mix(in oklab, var(--term-lime) 48%, transparent);
+  box-shadow: 0 0 9px color-mix(in oklab, var(--term-blue) 52%, transparent);
+}
+
+/* While the agent works, both indicators pulse distinctly in the stream's
+   amber. This static rule is also the reduced-motion fallback. */
+.agent-hud__logo[data-agent-state="working"] {
+  color: var(--term-amber);
+  text-shadow:
+    0 0 2px color-mix(in oklab, var(--term-amber) 82%, transparent),
+    0 0 7px color-mix(in oklab, var(--term-amber) 62%, transparent),
+    0 0 18px color-mix(in oklab, var(--term-amber) 42%, transparent),
+    0 0 38px color-mix(in oklab, var(--term-amber) 24%, transparent);
+  box-shadow: 0 0 9px color-mix(in oklab, var(--term-amber) 52%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes hud-agent-working-pulse {
+    from {
+      color: color-mix(in oklab, var(--term-amber) 58%, black 42%);
+      text-shadow:
+        0 0 1px color-mix(in oklab, var(--term-amber) 42%, transparent),
+        0 0 5px color-mix(in oklab, var(--term-amber) 24%, transparent),
+        0 0 14px color-mix(in oklab, var(--term-amber) 12%, transparent),
+        0 0 30px color-mix(in oklab, var(--term-amber) 5%, transparent);
+      box-shadow: 0 0 9px
+        color-mix(in oklab, var(--term-amber) 52%, transparent);
+    }
+    to {
+      color: color-mix(in oklab, white 22%, var(--term-amber) 78%);
+      text-shadow:
+        0 0 2px color-mix(in oklab, white 48%, transparent),
+        0 0 8px color-mix(in oklab, var(--term-amber) 92%, transparent),
+        0 0 22px color-mix(in oklab, var(--term-amber) 70%, transparent),
+        0 0 48px color-mix(in oklab, var(--term-amber) 46%, transparent);
+      box-shadow: 0 0 9px
+        color-mix(in oklab, var(--term-amber) 52%, transparent);
+    }
+  }
+
+  .agent-hud__logo[data-agent-state="working"] {
+    animation: hud-agent-working-pulse 1.15s ease-in-out infinite alternate;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Minimized HUD control
+ *
+ * The small octagon the HUD collapses into when dismissed during a run: the
+ * brand "A" indicator plus an expand button (the only way back into the HUD).
+ * It is vertically centred in the left gutter so it never sits on top of the
+ * message text. Its "A" shares the expanded indicator's working and
+ * awaiting-input treatments.
+ * ------------------------------------------------------------------------- */
+.agent-hud__mini {
+  position: fixed;
+  inset-block: 0;
+  left: max(0.75rem, calc((100vw - 84rem) / 4 - 4.875rem));
+  width: 9.75rem;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* All the widget's knobs live here, once. --mini-size drives a REGULAR octagon:
+   a square box whose corner cut = size / (2 + √2) gives eight equal-length
+   sides. The border is two thin lines (--mini-line) with a gap (--mini-gap)
+   between them -- the HUD box's `double` border colour (--hud-box-border) on an
+   octagon. The fill borrows the HUD input tint at low opacity, blurred.
+   --hud-logo-* / --hud-control-pad-* mirror .agent-hud__box so the reused seam
+   logo and Expand button render at exactly their HUD size. */
+.agent-hud__mini-box {
+  --mini-size: 9.75rem;
+  --mini-cut: calc(var(--mini-size) / (2 + 1.41421356));
+  --mini-edge: var(--hud-box-border);
+  --mini-fill: color-mix(in oklab, var(--hud-input-bg) 40%, transparent);
+  --mini-line: 1px;
+  --mini-gap: 2px;
+  --mini-band: calc(2 * var(--mini-line) + var(--mini-gap));
+  --hud-logo-size: 3.85rem;
+  --hud-logo-font-size: 3.3rem;
+  --hud-control-pad-y: 0.48rem;
+  --hud-control-pad-x: 0.72rem;
+  --hud-corner-control-size: calc(1.15rem + 2 * var(--hud-control-pad-y));
+  position: relative;
+  width: var(--mini-size);
+  height: var(--mini-size);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  /* Only the Expand control is interactive — the octagon must not swallow
+     wheel/pan gestures in the surrounding gutter. */
+  pointer-events: none;
+  transform: scale(1);
+  /* Scale + fade is matched to the HUD box's --fade timing. */
+  transition:
+    opacity 220ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.agent-hud__mini-expand {
+  pointer-events: auto;
+}
+
+/* Open HUD -> the widget shrinks and fades out (inert). */
+.agent-hud__mini--hidden {
+  pointer-events: none;
+}
+
+.agent-hud__mini--hidden .agent-hud__mini-box {
+  opacity: 0;
+  transform: scale(0.72);
+  pointer-events: none;
+}
+
+/* Translucent blurred fill, clipped to the octagon (drawn behind the outline). */
+.agent-hud__mini-box::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  clip-path: polygon(
+    var(--mini-cut) 0,
+    calc(100% - var(--mini-cut)) 0,
+    100% var(--mini-cut),
+    100% calc(100% - var(--mini-cut)),
+    calc(100% - var(--mini-cut)) 100%,
+    var(--mini-cut) 100%,
+    0 calc(100% - var(--mini-cut)),
+    0 var(--mini-cut)
+  );
+  background: var(--mini-fill);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+/* Double-line octagon outline: eight painted bands (4 straight edges + 4 bevel
+   cuts), same construction as the HUD panels/buttons but each band carries two
+   parallel edge lines instead of one. --mini-stripe is the two-line pattern for
+   the straight edges; --mini-bevel the same for the 45deg corners. */
+.agent-hud__mini-box::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  --mini-stripe: var(--mini-edge) 0 var(--mini-line),
+    transparent var(--mini-line) calc(var(--mini-line) + var(--mini-gap)),
+    var(--mini-edge) calc(var(--mini-line) + var(--mini-gap)) var(--mini-band);
+  --mini-bevel: transparent calc(50% - var(--mini-band) / 2),
+    var(--mini-edge) calc(50% - var(--mini-band) / 2),
+    var(--mini-edge) calc(50% - var(--mini-band) / 2 + var(--mini-line)),
+    transparent calc(50% - var(--mini-band) / 2 + var(--mini-line)),
+    transparent calc(50% + var(--mini-band) / 2 - var(--mini-line)),
+    var(--mini-edge) calc(50% + var(--mini-band) / 2 - var(--mini-line)),
+    var(--mini-edge) calc(50% + var(--mini-band) / 2),
+    transparent calc(50% + var(--mini-band) / 2);
+  background-image:
+    linear-gradient(to bottom, var(--mini-stripe)),
+    linear-gradient(to bottom, var(--mini-stripe)),
+    linear-gradient(to right, var(--mini-stripe)),
+    linear-gradient(to right, var(--mini-stripe)),
+    linear-gradient(135deg, var(--mini-bevel)),
+    linear-gradient(45deg, var(--mini-bevel)),
+    linear-gradient(135deg, var(--mini-bevel)),
+    linear-gradient(45deg, var(--mini-bevel));
+  background-position:
+    top center,
+    bottom center,
+    left center,
+    right center,
+    top left,
+    top right,
+    bottom right,
+    bottom left;
+  background-size:
+    calc(100% - 2 * var(--mini-cut)) var(--mini-band),
+    calc(100% - 2 * var(--mini-cut)) var(--mini-band),
+    var(--mini-band) calc(100% - 2 * var(--mini-cut)),
+    var(--mini-band) calc(100% - 2 * var(--mini-cut)),
+    var(--mini-cut) var(--mini-cut),
+    var(--mini-cut) var(--mini-cut),
+    var(--mini-cut) var(--mini-cut),
+    var(--mini-cut) var(--mini-cut);
+  background-repeat: no-repeat;
+  /* Blue edge glow tracing the octagon outline -- the same cyan bloom the HUD
+     box carries at rest (full strength, not the dimmed inactive variant). */
+  filter:
+    drop-shadow(0 0 6px rgba(64, 200, 255, 0.38))
+    drop-shadow(0 0 16px rgba(64, 200, 255, 0.16));
+}
+
+/* The brand "A", centred on top: the same seam-logo indicator at the same size,
+   only flowed in the stack instead of absolutely positioned on a seam. Rest and
+   pulse styling are inherited from .agent-hud__logo. */
+.agent-hud__logo--mini {
+  position: static;
+  transform: none;
+}
+
+/* At widths where the capped message rail no longer leaves a full outer
+   gutter, use a compact octagon inside the role-label gutter. Its right edge
+   remains clear of the flowing message-content column. */
+@media (max-width: 96rem) {
+  .agent-hud__mini {
+    left: 0.75rem;
+    width: 6.5rem;
+  }
+
+  .agent-hud__mini-box {
+    --mini-size: 6.5rem;
+    --hud-logo-size: 2.35rem;
+    --hud-logo-font-size: 2rem;
+    --hud-control-pad-y: 0.28rem;
+    --hud-control-pad-x: 0.42rem;
+    gap: 0.2rem;
+  }
+
+  .agent-hud__mini-expand {
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+  }
+}
+
+.agent-hud__replyBox {
+  /* Octagon plate, same dimensions/padding as the old rectangle. The interior
+     fill is drawn by ::before (clipped to the octagon); the border is drawn by
+     ::after as straight edges plus four bevel cuts — so the element itself is
+     NOT clipped, leaving the corner triangles visible for the glow to bloom
+     into. Both panels share this, so the streaming and interactive states read
+     as the same shape. */
+  /* Shape-locked: 1.5rem is the original 24px cut at 100% density and scales
+     with the compact root size instead of becoming proportionally oversized. */
+  --panel-cut: 1.5rem;
+  --panel-ring: 1.5px;
+  --panel-edge: var(--hud-input-border);
+  position: relative;
+  z-index: 0;
+  background: transparent;
+  color: var(--hud-input-text);
+  padding: var(--hud-reply-pad-block-start) var(--hud-reply-pad-inline)
+    var(--hud-reply-pad-block-end);
+  font-family: var(--font-agent-input);
+  line-height: var(--term-line-height);
+  letter-spacing: var(--term-letter-spacing);
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.agent-hud__replyBox::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  clip-path: polygon(
+    var(--panel-cut) 0,
+    calc(100% - var(--panel-cut)) 0,
+    100% var(--panel-cut),
+    100% calc(100% - var(--panel-cut)),
+    calc(100% - var(--panel-cut)) 100%,
+    var(--panel-cut) 100%,
+    0 calc(100% - var(--panel-cut)),
+    0 var(--panel-cut)
+  );
+  /* Resting fill is the input bg; the streaming state retints this per panel
+     via --panel-fill-bg (see the streaming block below). */
+  background: var(--panel-fill-bg, var(--hud-input-bg));
+}
+
+/* The octagon outline: four straight edges + four bevel cuts, all the same
+   thin dim line. The bevels are a crisp band the same width and colour as the
+   straight edges, tiled into each corner. No glow. */
+.agent-hud__replyBox::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  --bevel: transparent calc(50% - var(--panel-ring) / 2),
+    var(--panel-edge) calc(50% - var(--panel-ring) / 2),
+    var(--panel-edge) calc(50% + var(--panel-ring) / 2),
+    transparent calc(50% + var(--panel-ring) / 2);
+  background-image:
+    linear-gradient(var(--panel-edge), var(--panel-edge)),
+    linear-gradient(var(--panel-edge), var(--panel-edge)),
+    linear-gradient(var(--panel-edge), var(--panel-edge)),
+    linear-gradient(var(--panel-edge), var(--panel-edge)),
+    linear-gradient(135deg, var(--bevel)),
+    linear-gradient(45deg, var(--bevel)),
+    linear-gradient(135deg, var(--bevel)),
+    linear-gradient(45deg, var(--bevel));
+  background-position:
+    top center,
+    bottom center,
+    left center,
+    right center,
+    top left,
+    top right,
+    bottom right,
+    bottom left;
+  background-size:
+    calc(100% - 2 * var(--panel-cut)) var(--panel-ring),
+    calc(100% - 2 * var(--panel-cut)) var(--panel-ring),
+    var(--panel-ring) calc(100% - 2 * var(--panel-cut)),
+    var(--panel-ring) calc(100% - 2 * var(--panel-cut)),
+    var(--panel-cut) var(--panel-cut),
+    var(--panel-cut) var(--panel-cut),
+    var(--panel-cut) var(--panel-cut),
+    var(--panel-cut) var(--panel-cut);
+  background-repeat: no-repeat;
+}
+
+.agent-hud__replyBox-scroll {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  margin-block: 0.35rem;
+  padding-right: 0.35rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: auto;
+  scrollbar-color:
+    color-mix(in oklab, var(--term-blue) 65%, transparent)
+    color-mix(in oklab, var(--term-blue) 12%, transparent);
+}
+
+.agent-hud__replyBox-scroll::-webkit-scrollbar {
+  width: 12px;
+}
+
+.agent-hud__replyBox-scroll::-webkit-scrollbar-track {
+  background: color-mix(in oklab, var(--term-blue) 12%, transparent);
+  border-radius: 999px;
+}
+
+.agent-hud__replyBox-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--term-blue) 65%, transparent);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+
+.agent-hud__replyBox-scroll:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--term-blue) 80%, transparent);
+  background-clip: content-box;
+}
+
+/* ---------------------------------------------------------------------------
+ * Hidden-until-hover scrollbar shared by the reply textarea and runs table
+ * list: transparent at rest, with a thin blue thumb on hover. The scrollbar's
+ * reserved width stays
+ * constant (only its color changes) so hovering never resizes the content box
+ * and reflows text -- Chrome visibly reflows/rewraps text when a scrollbar's
+ * width toggles.
+ * ------------------------------------------------------------------------- */
+.agent-hud__textarea,
+.agent-hud__table-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.agent-hud__textarea::-webkit-scrollbar,
+.agent-hud__table-scroll::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+
+.agent-hud__textarea::-webkit-scrollbar-track,
+.agent-hud__table-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.agent-hud__textarea::-webkit-scrollbar-thumb,
+.agent-hud__table-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+  transition: background 120ms ease;
+}
+
+.agent-hud__textarea:hover,
+.agent-hud__table-scroll:hover {
+  scrollbar-color: color-mix(in oklab, var(--term-blue) 55%, transparent) transparent;
+}
+
+.agent-hud__textarea:hover::-webkit-scrollbar-thumb,
+.agent-hud__table-scroll:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--term-blue) 55%, transparent);
+}
+
+.agent-hud__replyBox--agent {
+  text-align: left;
+}
+
+/* Live streaming "responding" view streams straight into the agent panel — no
+   nested plate. The text inherits the panel's colours and is scrolled by the
+   shared panel scroll area, so the streaming and interactive states are
+   visually identical apart from the content itself. */
+.agent-hud__stream-text {
+  margin: 0;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  /* Resting values; the streaming block dims these via the *-active vars. */
+  opacity: var(--hud-stream-text-opacity-active, 1);
+  color: var(--hud-stream-text-color-active, inherit);
+}
+
+/* Soften the streaming-text -> final-message swap: each fades in quickly as it
+   mounts, so the content settles in instead of hard-cutting. */
+.agent-hud__stream-text,
+.agent-hud__markdown {
+  animation: hud-text-fade 200ms ease both;
+}
+
+@keyframes hud-text-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-hud__stream-text,
+  .agent-hud__markdown,
+  .agent-hud__actions-submit {
+    animation: none;
+    transition: none;
+  }
+}
+
+.agent-hud__textarea {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-decoration: none;
+  resize: none;
+  scrollbar-width: none;
+}
+
+/* webkit/firefox hover scrollbar is shared with .agent-hud__replyBox-scroll
+   (see the consolidated block above). */
+
+.agent-hud__textarea:focus-visible {
+  outline: none;
+}
+
+.agent-hud__textarea::placeholder {
+  color: var(--hud-input-placeholder);
+}
+
+/* Soft swap for project badge text that changes in place. */
+@keyframes hud-text-swap {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.agent-hud__event-text {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  animation: hud-text-swap 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-hud__event-text {
+    animation: none;
+  }
+}
+
+.agent-hud__replyBox:focus-within {
+  --panel-edge: color-mix(in oklab, var(--term-blue) 80%, transparent);
+}
+
+.agent-hud__actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--hud-actions-gap);
+}
+
+/* Octagon button chrome: two solid, nested polygons form a continuous accent
+   shell and inset surface. Unlike separate 1px gradient strips, these shapes do
+   not lose individual edges when browser zoom places the control on fractional
+   device pixels. Variants inherit their surface from --btn-accent and adjust
+   --btn-fill-strength, with interaction states free to brighten the edge. */
+.agent-hud__expand,
+.agent-hud__minimize,
+.agent-hud__corner-control,
+.agent-hud__copy-text,
+.agent-hud__dictate,
+.agent-hud__cancel,
+.agent-hud__interrupt,
+.agent-hud__layout-controls .agent-hud__layout-direction,
+.agent-hud__send,
+.agent-hud__selector-trigger {
+  /* Shape-locked equivalent of the original 9px cut at a 16px root. */
+  --btn-cut: 0.5625rem;
+  --btn-ring: 2px;
+  --btn-accent: var(--term-blue);
+  --btn-fill-strength: 10%;
+  --btn-edge: color-mix(in oklab, var(--btn-accent) 38%, transparent);
+  --btn-surface: color-mix(in oklab, var(--hud-input-bg) 90%, transparent);
+  --btn-fill: color-mix(
+    in oklab,
+    var(--btn-accent) var(--btn-fill-strength),
+    transparent
+  );
+  position: relative;
+  z-index: 0;
+  border: 0;
+  background: transparent;
+}
+
+.agent-hud__expand::before,
+.agent-hud__minimize::before,
+.agent-hud__corner-control::before,
+.agent-hud__copy-text::before,
+.agent-hud__dictate::before,
+.agent-hud__cancel::before,
+.agent-hud__interrupt::before,
+.agent-hud__layout-controls .agent-hud__layout-direction::before,
+.agent-hud__send::before,
+.agent-hud__selector-trigger::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  clip-path: polygon(
+    var(--btn-cut) 0,
+    calc(100% - var(--btn-cut)) 0,
+    100% var(--btn-cut),
+    100% calc(100% - var(--btn-cut)),
+    calc(100% - var(--btn-cut)) 100%,
+    var(--btn-cut) 100%,
+    0 calc(100% - var(--btn-cut)),
+    0 var(--btn-cut)
+  );
+  background: var(--btn-edge);
+  transition: background 120ms ease;
+}
+
+.agent-hud__expand::after,
+.agent-hud__minimize::after,
+.agent-hud__corner-control::after,
+.agent-hud__copy-text::after,
+.agent-hud__dictate::after,
+.agent-hud__cancel::after,
+.agent-hud__interrupt::after,
+.agent-hud__layout-controls .agent-hud__layout-direction::after,
+.agent-hud__send::after,
+.agent-hud__selector-trigger::after {
+  content: "";
+  position: absolute;
+  inset: var(--btn-ring);
+  z-index: -1;
+  pointer-events: none;
+  --btn-inner-cut: calc(var(--btn-cut) - var(--btn-ring) / 2);
+  clip-path: polygon(
+    var(--btn-inner-cut) 0,
+    calc(100% - var(--btn-inner-cut)) 0,
+    100% var(--btn-inner-cut),
+    100% calc(100% - var(--btn-inner-cut)),
+    calc(100% - var(--btn-inner-cut)) 100%,
+    var(--btn-inner-cut) 100%,
+    0 calc(100% - var(--btn-inner-cut)),
+    0 var(--btn-inner-cut)
+  );
+  background:
+    linear-gradient(var(--btn-fill), var(--btn-fill)),
+    var(--btn-surface);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  transition: background 120ms ease;
+}
+
+.agent-hud__expand,
+.agent-hud__minimize,
+.agent-hud__dictate,
+.agent-hud__cancel,
+.agent-hud__interrupt {
+  color: color-mix(in oklab, var(--term-blue) 70%, white 30%);
+  padding: var(--hud-control-pad-y) var(--hud-control-pad-x);
+  font-family: var(--font-agent-input);
+  line-height: 1;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.agent-hud__expand:hover,
+.agent-hud__minimize:hover {
+  color: color-mix(in oklab, var(--term-blue) 72%, white 28%);
+  --btn-edge: color-mix(in oklab, var(--term-blue) 88%, white 12%);
+  --btn-fill-strength: 24%;
+  text-shadow:
+    0 0 3px color-mix(in oklab, var(--term-blue) 88%, white 12%),
+    0 0 14px color-mix(in oklab, var(--term-blue) 65%, transparent);
+}
+
+.agent-hud__mini-expand {
+  pointer-events: auto;
+}
+
+.agent-hud__size-icon {
+  display: block;
+  width: 1.05rem;
+  height: 1.05rem;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.55;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+/* Compact icon action beside the Current Run selector. */
+.agent-hud__copy-text {
+  --btn-cut: 0.4375rem;
+  --btn-accent: var(--term-blue);
+  --btn-fill-strength: 8%;
+  display: inline-grid;
+  place-items: center;
+  width: calc(1rem + 2 * var(--hud-control-pad-y));
+  height: 100%;
+  padding: 0;
+  color: color-mix(in oklab, var(--term-blue) 76%, white 24%);
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    filter 120ms ease;
+}
+
+.agent-hud__copy-text:not(:disabled):hover {
+  --btn-edge: color-mix(in oklab, var(--term-blue) 88%, white 12%);
+  --btn-fill-strength: 24%;
+  color: color-mix(in oklab, var(--term-blue) 68%, white 32%);
+  filter: drop-shadow(
+    0 0 7px color-mix(in oklab, var(--term-blue) 48%, transparent)
+  );
+}
+
+.agent-hud__copy-text[data-copied] {
+  --btn-accent: var(--term-green);
+  --btn-edge: color-mix(in oklab, var(--term-green) 72%, transparent);
+  --btn-fill-strength: 18%;
+  color: color-mix(in oklab, var(--term-green) 72%, white 28%);
+}
+
+.agent-hud__copy-text:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.agent-hud__copy-text-icon {
+  width: 1rem;
+  height: 1rem;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.agent-hud__copy-text-icon--reverse {
+  transform: rotate(180deg);
+}
+
+/* Record (dictate): greenish to match the HUD message palette, the same way
+   Cancel borrows amber and Interrupt borrows red. */
+.agent-hud__dictate {
+  --btn-accent: var(--term-green);
+  color: color-mix(in oklab, var(--term-green) 65%, white 35%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  inline-size: 7rem;
+  min-inline-size: 7rem;
+  max-inline-size: 7rem;
+  gap: 0;
+}
+
+.agent-hud__dictate[aria-pressed="true"] {
+  color: color-mix(in oklab, var(--term-green) 72%, white 28%);
+  --btn-edge: color-mix(in oklab, var(--term-green) 78%, transparent);
+  --btn-fill-strength: 28%;
+  gap: 0.55rem;
+  padding-inline: 0.65rem;
+  box-shadow:
+    0 0 14px color-mix(in oklab, var(--term-green) 22%, transparent),
+    inset 0 0 16px color-mix(in oklab, var(--term-green) 10%, transparent);
+}
+
+.agent-hud__dictate-meter {
+  position: static;
+  transform: none;
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0.13rem;
+  width: 2rem;
+  height: 0.48rem;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.agent-hud__dictate-meter-segment {
+  flex: 1 1 0;
+  min-width: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.agent-hud__dictate-meter-segment[data-active] {
+  background: color-mix(in oklab, var(--term-green) 72%, white 28%);
+  box-shadow: 0 0 5px color-mix(in oklab, var(--term-green) 72%, transparent);
+}
+
+.agent-hud__dictate-meter-segment[data-active]:nth-child(n + 4) {
+  background: color-mix(in oklab, var(--term-green) 84%, white 16%);
+}
+
+.agent-hud__dictate-meter-segment[data-active]:nth-child(n + 6) {
+  background: color-mix(in oklab, var(--term-green) 94%, white 6%);
+}
+
+.agent-hud__dictate-meter[data-silent]
+  .agent-hud__dictate-meter-segment:first-child {
+  background: color-mix(in oklab, var(--term-green) 72%, white 28%);
+  box-shadow: 0 0 5px color-mix(in oklab, var(--term-green) 72%, transparent);
+  opacity: 0.72;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .agent-hud__dictate-meter[data-silent]
+    .agent-hud__dictate-meter-segment:first-child {
+    animation: hud-recording-silent-blink 0.9s ease-in-out infinite alternate;
+  }
+
+  @keyframes hud-recording-silent-blink {
+    from { opacity: 0.18; }
+    to { opacity: 1; }
+  }
+}
+
+.agent-hud__dictate:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Run controls (Cancel / Interrupt) share the base button chrome above but are
+   colour-coded to their intent: amber for cancel, red for interrupt. The row
+   layout (inline-flex/gap) lives on the element in HudControls.tsx. */
+.agent-hud__cancel {
+  --btn-accent: var(--term-amber);
+  color: color-mix(in oklab, var(--term-amber) 65%, white 35%);
+}
+
+.agent-hud__cancel:not(:disabled):hover {
+  color: color-mix(in oklab, var(--term-amber) 80%, white 20%);
+  --btn-edge: color-mix(in oklab, var(--term-amber) 80%, white 20%);
+  --btn-fill-strength: 28%;
+  text-shadow: var(--term-glow-amber);
+}
+
+.agent-hud__interrupt {
+  --btn-accent: var(--term-red);
+  color: color-mix(in oklab, var(--term-red) 60%, white 40%);
+}
+
+.agent-hud__interrupt:not(:disabled):hover {
+  color: color-mix(in oklab, var(--term-red) 82%, white 18%);
+  --btn-edge: color-mix(in oklab, var(--term-red) 82%, white 18%);
+  --btn-fill-strength: 28%;
+  text-shadow: var(--term-glow-red);
+}
+
+.agent-hud__cancel:disabled,
+.agent-hud__interrupt:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.agent-hud__run-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: var(--hud-actions-gap);
+}
+
+.agent-hud__actions-submit {
+  display: inline-flex;
+  align-items: stretch;
+  justify-self: end;
+  gap: var(--hud-actions-gap);
+  padding-right: 0.2rem;
+  margin-bottom: 0.15rem;
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 0ms linear 0ms;
+}
+
+/* Shell-level controls form a compact rail immediately above the visible
+   resize face. Keeping them outside the action row leaves that row balanced. */
+.agent-hud__corner-controls {
+  position: absolute;
+  top: calc(
+    50% - var(--hud-corner-control-size) -
+      var(--hud-corner-control-size) - var(--hud-corner-control-gap) -
+      var(--hud-corner-control-half-gap)
+  );
+  left: var(--hud-corner-control-left);
+  bottom: auto;
+  z-index: 21;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hud-corner-control-gap);
+}
+
+.agent-hud__minimize:disabled {
+  cursor: default;
+  opacity: 0.28;
+  filter: none;
+}
+
+.agent-hud__corner-controls[data-disabled]
+  .agent-hud__corner-control {
+  --btn-edge: color-mix(in oklab, var(--term-blue) 30%, transparent);
+  --btn-fill-strength: 5%;
+  cursor: default;
+  opacity: 0.55;
+  filter: none;
+}
+
+.agent-hud__corner-controls[data-disabled]
+  .agent-hud__layout-wedge {
+  color: color-mix(in oklab, var(--term-blue) 62%, white 38%);
+  opacity: 0.55;
+  filter: none;
+}
+
+.agent-hud__copy-controls {
+  display: inline-flex;
+  align-items: stretch;
+  align-self: stretch;
+  gap: calc(var(--hud-actions-gap) / 2);
+}
+
+.agent-hud__layout-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hud-corner-control-gap);
+}
+
+.agent-hud__corner-control {
+  --btn-cut: 0.4375rem;
+  display: grid;
+  place-items: center;
+  width: var(--hud-corner-control-size);
+  height: var(--hud-corner-control-size);
+  min-width: var(--hud-corner-control-size);
+  min-height: var(--hud-corner-control-size);
+  padding: 0;
+}
+
+/* The shared button chrome declares position: relative for its pseudo layers.
+   The resize face is the exception: it must stay anchored to the handle's
+   bottom slot or it rises into the lower divider control. */
+.agent-hud__resize-wedge.agent-hud__corner-control {
+  position: absolute;
+}
+
+.agent-hud__layout-direction {
+  display: inline-grid;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.15rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: color-mix(in oklab, var(--term-blue) 76%, white 24%);
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.agent-hud__layout-controls .agent-hud__layout-direction {
+  --btn-cut: 0.4375rem;
+  width: var(--hud-corner-control-size);
+  height: var(--hud-corner-control-size);
+}
+
+.agent-hud__layout-wedge {
+  display: block;
+  width: 0.86rem;
+  height: 0.75rem;
+  overflow: visible;
+  fill: currentColor;
+  stroke: none;
+  filter: drop-shadow(
+    0 0 4px color-mix(in oklab, var(--term-blue) 72%, transparent)
+  );
+  opacity: 0.86;
+  transition:
+    filter 140ms ease,
+    opacity 140ms ease;
+}
+
+.agent-hud__layout-wedge--down {
+  transform: rotate(180deg);
+}
+
+.agent-hud__layout-controls .agent-hud__layout-direction:not(:disabled):hover {
+  --btn-edge: color-mix(in oklab, var(--term-blue) 88%, white 12%);
+  --btn-fill-strength: 24%;
+}
+
+.agent-hud__layout-direction:not(:disabled):hover .agent-hud__layout-wedge {
+  filter:
+    drop-shadow(0 0 2px var(--term-blue))
+    drop-shadow(0 0 6px color-mix(in oklab, var(--term-blue) 88%, transparent))
+    drop-shadow(0 0 14px color-mix(in oklab, var(--term-blue) 58%, transparent));
+  opacity: 1;
+}
+
+.agent-hud__layout-direction:disabled {
+  cursor: default;
+  --btn-edge: color-mix(in oklab, var(--term-blue) 16%, transparent);
+  --btn-fill-strength: 3%;
+}
+
+.agent-hud__layout-direction:disabled .agent-hud__layout-wedge {
+  filter: none;
+  opacity: 0.22;
+}
+
+.agent-hud__minimize:focus-visible,
+.agent-hud__copy-text:focus-visible,
+.agent-hud__layout-controls .agent-hud__layout-direction:focus-visible,
+.agent-hud__message-direction:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--term-blue) 80%, white 20%);
+  outline-offset: 2px;
+}
+
+/* Send: the primary action, so it shares the record button's green but carries
+   a stronger fill to stand out from the other controls. */
+.agent-hud__send,
+.agent-hud__selector-trigger {
+  --btn-accent: var(--term-green);
+  --btn-edge: color-mix(in oklab, var(--term-green) 62%, transparent);
+  --btn-fill-strength: 22%;
+  color: color-mix(in oklab, var(--term-green) 60%, white 40%);
+  padding: var(--hud-control-pad-y) var(--hud-control-pad-x);
+  font-family: var(--font-agent-input);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.agent-hud__dictate:not(:disabled):hover,
+.agent-hud__send:not(:disabled):hover,
+.agent-hud__selector-trigger:not(:disabled):hover {
+  color: color-mix(in oklab, var(--term-green) 72%, white 28%);
+  --btn-edge: color-mix(in oklab, var(--term-green) 88%, white 12%);
+  --btn-fill-strength: 38%;
+  text-shadow:
+    0 0 3px color-mix(in oklab, var(--term-green) 88%, white 12%),
+    0 0 14px color-mix(in oklab, var(--term-green) 65%, transparent),
+    0 0 36px color-mix(in oklab, var(--term-green) 40%, transparent);
+}
+
+.agent-hud__send:disabled,
+.agent-hud__selector-trigger:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+
+/* Streaming presentation dims only the live agent output. The composer remains
+   at full strength because drafting and dictation are always available. */
+.agent-hud__replySection[data-streaming] {
+  --hud-stream-text-opacity-active: var(--hud-stream-text-opacity);
+  --hud-stream-text-color-active: var(--hud-stream-text-color);
+}
+
+/* While the agent is working, keep the top panel in the translucent state that
+   previously appeared only during streaming. Awaiting-input remains opaque. */
+.agent-hud__replySection[data-agent-state="working"]
+  .agent-hud__replyBox--agent {
+  opacity: var(--hud-stream-agent-opacity);
+  --panel-fill-bg: color-mix(
+    in oklab,
+    var(--hud-input-bg) var(--hud-stream-agent-fill),
+    transparent
+  );
+}
+
+/* Live stream updates continuously; suppress the per-mount fade so it doesn't
+   flicker. Scoped to stream-text only -- markdown keeps its fade. */
+.agent-hud__replySection[data-streaming] .agent-hud__stream-text {
+  animation: none;
+}
+
+/* A completed message awaiting the user returns to the solid reading plate. */
+.agent-hud__replySection[data-agent-state="awaiting-input"]
+  .agent-hud__replyBox--agent {
+  opacity: 1;
+  --panel-fill-bg: var(--hud-input-bg);
+}
+
+.agent-hud__dictation-error {
+  margin-top: 0.4rem;
+  color: var(--term-error);
+  font-family: var(--font-agent-input);
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-shadow: var(--term-glow-error);
+}
+
+/* Runs table header: a thin blue rule under the column labels, echoing the
+   markdown table's border colour, so labels read as a header rather than
+   crowding straight into the first row of values. */
+.agent-hud__table-header {
+  border-bottom: 3px double color-mix(in oklab, var(--term-blue) 50%,  transparent);
+}
+
+.agent-hud__row-status--opening {
+  color: color-mix(in oklab, var(--hud-input-text) 72%, white 28%);
+  text-shadow: var(--term-glow-blue);
+}
+
+/* Mark the project belonging to the open run without adding row chrome. The
+   label's phosphor pulse keeps the context visible while the table remains
+   visually consistent with its other rows. */
+.agent-hud__project-name--current {
+  color: color-mix(in oklab, var(--term-blue) 64%, white 36%);
+  text-shadow:
+    0 0 1px var(--term-blue),
+    0 0 6px color-mix(in oklab, var(--term-blue) 64%, transparent),
+    0 0 16px color-mix(in oklab, var(--term-blue) 30%, transparent);
+}
+
+@keyframes hud-current-project-pulse {
+  from {
+    filter: brightness(0.82);
+    text-shadow:
+      0 0 1px var(--term-blue),
+      0 0 4px color-mix(in oklab, var(--term-blue) 44%, transparent),
+      0 0 10px color-mix(in oklab, var(--term-blue) 18%, transparent);
+  }
+  to {
+    filter: brightness(1.16);
+    text-shadow:
+      0 0 2px color-mix(in oklab, var(--term-blue) 76%, white 24%),
+      0 0 8px color-mix(in oklab, var(--term-blue) 76%, transparent),
+      0 0 22px color-mix(in oklab, var(--term-blue) 42%, transparent);
+  }
+}
+
+@keyframes hud-opening-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .agent-hud__project-name--current {
+    animation: hud-current-project-pulse 1.8s ease-in-out infinite alternate;
+  }
+
+  .agent-hud__row-status--opening {
+    animation: hud-opening-pulse 1.8s ease-in-out infinite;
+  }
+}
+
+/* Per-row HUD actions (Cancel / Delete). Compact, terminal-styled buttons that
+   mirror .agent-hud__send but are colour-coded to their intent. */
+.agent-hud__row-action {
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0.2rem 0.55rem;
+  font-family: var(--font-agent-input);
+  font-size: 0.95rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: 0.2rem;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease,
+    text-shadow 120ms ease;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.agent-hud__row-cancel {
+  color: color-mix(in oklab, var(--term-amber) 60%, white 40%);
+  border-color: color-mix(in oklab, var(--term-amber) 45%, transparent);
+  background: color-mix(in oklab, var(--term-amber) 8%, transparent);
+}
+
+.agent-hud__row-cancel:not(:disabled):hover {
+  color: color-mix(in oklab, var(--term-amber) 80%, white 20%);
+  border-color: color-mix(in oklab, var(--term-amber) 80%, white 20%);
+  background: color-mix(in oklab, var(--term-amber) 18%, transparent);
+  text-shadow: var(--term-glow-amber);
+}
+
+.agent-hud__row-delete {
+  color: color-mix(in oklab, var(--term-red) 60%, white 40%);
+  border-color: color-mix(in oklab, var(--term-red) 45%, transparent);
+  background: color-mix(in oklab, var(--term-red) 8%, transparent);
+}
+
+.agent-hud__row-delete:not(:disabled):hover {
+  color: color-mix(in oklab, var(--term-red) 82%, white 18%);
+  border-color: color-mix(in oklab, var(--term-red) 82%, white 18%);
+  background: color-mix(in oklab, var(--term-red) 18%, transparent);
+  text-shadow: var(--term-glow-red);
+}
+
+.agent-hud__row-delete--confirm {
+  color: color-mix(in oklab, var(--term-red) 88%, white 12%);
+  border-color: color-mix(in oklab, var(--term-red) 88%, white 12%);
+  background: color-mix(in oklab, var(--term-red) 24%, transparent);
+  text-shadow: var(--term-glow-red);
+}
+
+.agent-hud__row-cancel:disabled,
+.agent-hud__row-delete:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Fresh-load HUD entrance used below. Run/status/project views use the
+   shorter hud-view-in animation defined with their layout rules above. */
+@keyframes hud-appear {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fresh-load intro entrances: the HUD panel and the nav bar fade in. Gated on
+   no-preference so reduced-motion users get the content with no animation. */
+@media (prefers-reduced-motion: no-preference) {
+  .agent-hud__box--intro {
+    animation: hud-appear var(--intro-hud-box-fade) ease both;
+  }
+
+  @keyframes nav-appear {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Runs once when the nav first mounts (initial document load). Client-side
+     navigations reuse the same element, so it never re-fires on nav-clicks. */
+  .app-nav--enter {
+    animation: nav-appear var(--intro-nav-fade) ease both;
+  }
+}

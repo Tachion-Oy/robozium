@@ -1,0 +1,33 @@
+# Deferred dependency changes
+
+All external repositories were read-only during this port. Apply future dependency work in its own repository and release; this application uses existing public APIs only.
+
+## Remaining naming cleanup in Roboz
+
+Repository: `Tachion-Oy/roboz`, pinned at `f148023af667dc58c842d11f5a93843c2b0f1a8e`.
+
+The historical project prefix remains in Roboz documentation, test fixtures, and the Proton Bridge request-ID email header. The header is defined by `EmailHeader.REQUEST_ID` in `packages/proton-bridge/src/roboz_proton_bridge/protocol.py` (the literal legacy spelling is deliberately not duplicated here).
+
+Proposed external fix: update prose and fixtures independently; migrate the header to `X-Roboz-Request-Id` using dual-read support before changing writes. Existing mailbox drafts carry the old header. An immediate rename would prevent request-ID lookup from recognizing them and could break idempotency or create duplicate drafts. Add tests that find both historical and new headers and define the compatibility period before removal.
+
+Impact on this port: none, because email is deferred and the bridge package is not installed by RoboSprawl.
+
+## Application adaptations
+
+Roboz renamed `Agent`, `FactoryCtx`, `SubagentCtx`, `prompt_user_at_start`, and the `custom_prompt_user_tool` constructor argument, and validates public tool names as lowercase snake case. RoboSprawl uses those public names directly. Its tests now give tool functions valid public names.
+
+Roboz leaves workspace layout and orchestration policy to applications. RoboSprawl owns the path, root/background bundle, file-tool policy, and context-compaction composition; the actual Librarian pipeline remains Roboz's `LibrarianConstructor`. No dependency changes were required for these adaptations.
+
+## Deferred integrations and their tests
+
+Live transcription returns HTTP 503. Mock transcription retains upload, codec, error, and size-limit tests. Email/signatures, web search, indexed search, office/PDF creation, timesheets, shell execution, containerized coding, and the code-task planner are outside this first port.
+
+Excluded original tests are exclusively integration-specific: email signatures; code-plan creation/reply; timesheet confirmation and deployment binding; coding sandbox checks/policy; provider-specific email, web, indexed-search deployment wiring; web-service authentication; and the default code-planner lineup. General dependency-contract, health-monitor, project, run, cancellation, streaming, file-serving, model-selection, and memory tests are retained and adapted. Deployment tests assert the reduced tool set and credential-free configuration.
+
+No unresolved dependency compatibility blocker has been identified. Credential-backed live inference still requires a separately reported smoke test.
+
+## Advisory browser compatibility
+
+WebKit's local E2E run has two advisory failures: simulated HUD dragging leaves its horizontal position unchanged, and an unknown-run toast detaches before its dismiss click finishes. Chromium and Firefox pass the same scenarios. The affected application tests and exact diagnostics are recorded in `docs/verification.md`.
+
+Proposed next step: investigate pointer targeting and toast timing in RoboSprawl before assigning a dependency bug. No Roboz API blocker has been demonstrated and no external fix is proposed or applied. Impact: WebKit remains advisory; the required browser gates pass.

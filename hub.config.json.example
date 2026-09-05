@@ -1,0 +1,29 @@
+{
+  "hub": {
+    "name": "RoboSprawl"
+  },
+  "sandbox": {
+    "root": ".runtime/data",
+    "readonly": "readonly",
+    "workspace": "workspace",
+    "projects": "projects",
+    "safe_scripts": "safe-scripts"
+  },
+  "project": {
+    "logs": "conversation_logs",
+    "snapshots": "conversation_snapshots",
+    "memory": "persistent_memory"
+  },
+  "logging": {
+    "console": {
+      "level": "INFO"
+    },
+    "file": {
+      "path": ".runtime/logs/backend.jsonl",
+      "level": "DEBUG",
+      "max_bytes": 26214400,
+      "backup_count": 5,
+      "on_error": "fail"
+    }
+  }
+}

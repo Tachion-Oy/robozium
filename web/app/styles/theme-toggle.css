@@ -1,0 +1,96 @@
+.theme-controls {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.42rem;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.3rem;
+  padding: 0.48rem 0.7rem;
+  border: 1px solid color-mix(in oklab, var(--term-blue) 52%, transparent);
+  border-radius: 0.32rem;
+  background: color-mix(in oklab, var(--hud-input-bg) 82%, transparent);
+  color: color-mix(in oklab, var(--term-blue) 62%, white 38%);
+  font-family: var(--font-agent-input);
+  font-size: 0.76rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: var(--term-glow-blue);
+  box-shadow: 0 0 14px color-mix(in oklab, var(--term-blue) 14%, transparent);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+  border-color: color-mix(in oklab, var(--term-blue) 82%, white 18%);
+  background: color-mix(in oklab, var(--term-blue) 18%, var(--hud-input-bg));
+  outline: none;
+}
+
+.theme-toggle__indicator {
+  width: 0.62rem;
+  height: 0.62rem;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 7px currentColor;
+}
+
+.theme-toggle__label--dark {
+  display: none;
+}
+
+:root[data-theme="light"] .theme-toggle__label--light {
+  display: none;
+}
+
+:root[data-theme="light"] .theme-toggle__label--dark {
+  display: inline;
+}
+
+:root[data-theme="light"] .theme-toggle {
+  border-color: color-mix(
+    in oklab,
+    var(--term-blue) 54%,
+    var(--hud-input-border)
+  );
+  background: color-mix(in oklab, var(--term-blue) 10%, var(--hud-input-bg));
+  color: var(--hud-control-ink);
+  text-shadow: none;
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 58%, transparent),
+    0 0.3rem 0.9rem
+      color-mix(in oklab, var(--hud-control-ink) 14%, transparent);
+}
+
+:root[data-theme="light"] .theme-toggle:hover,
+:root[data-theme="light"] .theme-toggle:focus-visible {
+  border-color: color-mix(
+    in oklab,
+    var(--term-blue) 72%,
+    var(--hud-control-ink)
+  );
+  background: color-mix(in oklab, var(--term-blue) 17%, var(--hud-input-bg));
+}
+
+@media (max-width: 640px) {
+  .theme-controls {
+    top: 0.6rem;
+    right: 0.6rem;
+  }
+}

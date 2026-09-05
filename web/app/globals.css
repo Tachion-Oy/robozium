@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+ * Styling is split by responsibility. Read this before editing styles:
+ *
+ *   CSS owns LOOK   -- color, background, border colour, text/box-shadow glow,
+ *                      @keyframes/animation/transition, clip-path shapes,
+ *                      decorative ::before/::after, masks, fonts.
+ *   Tailwind owns LAYOUT (in the JSX) -- display, flex/grid, gap, padding,
+ *                      margin, width/height, position/inset, z, overflow.
+ *
+ * Raw values live ONLY as tokens in theme.css; components reference var()/the
+ * term-* utilities. Layout that is welded to a shape (e.g. padding that must
+ * match a clip-path) stays in CSS and is tagged with a "shape-locked" note.
+ * ------------------------------------------------------------------------- */
+
+@import "./styles/fonts.css";
+@import "./styles/theme.css";
+@import "./styles/base.css";
+@import "./styles/crt.css";
+@import "./styles/hud.css";
+@import "./styles/terminal.css";
+@import "./styles/nav.css";
+@import "./styles/light-theme.css";
+@import "./styles/light-hud.css";
+@import "./styles/model-selector.css";
+@import "./styles/error-toast.css";
+@import "./styles/theme-toggle.css";

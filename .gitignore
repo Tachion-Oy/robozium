@@ -1,0 +1,16 @@
+.env
+.venv/
+.artifacts/
+.runtime/
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+web/node_modules/
+web/.next/
+web/out/
+web/coverage/
+web/test-results/
+web/playwright-report/
+web/*.tsbuildinfo
+.ruff_cache/

@@ -1,0 +1,314 @@
+/*  Light palette, terminal raster, stream typography, and navigation  */
+:root[data-theme="light"] {
+    color-scheme: light;
+    /* Stream shading knobs. The first is visible whenever the HUD is absent
+       (during the landing reveal and after minimizing); the second is the
+       flat shade behind an open HUD. Keep the values between 0 and 1. */
+    --light-stream-shade-color: 31 36 44;
+    --light-stream-shade-without-hud-opacity: 0.1;
+    --light-stream-shade-with-hud-opacity: 0.5;
+    /* Base stream brightness. Move this toward #fff to brighten beyond what
+       removing the shade overlays can achieve. */
+    --light-stream-canvas: #f3f0e7;
+    --stream-ink: #242b45;
+    --stream-ink-bleed: 1px;
+    --term-agent: #b9872f;
+    --term-tool: #26787a;
+    --term-system: #63452c;
+    --term-error: #a8443e;
+    --term-green: #26787a;
+    --term-amber: #b9872f;
+    --term-red: #a8443e;
+    --term-blue: #788bb5;
+    --term-dim-green: #477172;
+    --term-dim-amber: #765f3c;
+    --term-dim-red: #7e4e49;
+    --term-dim-blue: #596982;
+    --term-agent-ink: var(--stream-ink);
+    --term-tool-ink: var(--stream-ink);
+    --term-system-ink: var(--stream-ink);
+    --term-error-ink: var(--stream-ink);
+    --term-lifecycle-ink: var(--stream-ink);
+    --term-agent-accent: var(--term-agent);
+    --term-tool-accent: var(--term-tool);
+    --term-system-accent: var(--term-system);
+    --term-error-accent: var(--term-error);
+    --term-lifecycle-accent: var(--term-tool);
+    --term-glow-agent: 0 0 var(--stream-ink-bleed)
+    color-mix(in oklab, var(--stream-ink) 65%, transparent);
+    --term-glow-tool: var(--term-glow-agent);
+    --term-glow-error: var(--term-glow-agent);
+    --term-glow-system: var(--term-glow-agent);
+    --term-scanline-opacity: 0.1;
+    --term-scanline-color: rgb(
+    49 55 70 / calc(0.56 * var(--term-scanline-opacity))
+  );
+    --term-scanline-size: 4px;
+    --term-rgb-mask-opacity: 0.2;
+    --term-rgb-mask-size: 2px;
+    --term-bloom-color: rgba(255, 255, 255, 0.16);
+    --term-vignette: radial-gradient(
+      ellipse at center,
+      transparent 54%,
+      rgb(
+        var(--light-stream-shade-color) /
+          var(--light-stream-shade-without-hud-opacity)
+      ) 135%
+    );
+    --hud-lab-canvas: var(--light-stream-canvas);
+    --hud-box-bg: #dcd8cf;
+    --hud-input-bg: #f1ede5;
+    --hud-input-text: #505762;
+    --hud-input-placeholder: #777c82;
+    --hud-box-border: #62686b;
+    --hud-input-border: #858b8b;
+    --hud-grid-color: #8e9695;
+    --hud-lab-surface-opacity: 98%;
+    --hud-lab-grid-opacity: 0%;
+    --hud-lab-shadow-opacity: 20%;
+    --hud-control-ink: #333a46;
+    /* Project matrix roles deliberately preserve the dark-theme hierarchy
+       while using quieter pigments that suit the light lab surface. */
+    --hud-status-running: #3f7f50;
+    --hud-status-waiting: #b66d2f;
+    --hud-status-syncing: #84952f;
+    --hud-status-opening: #5477ad;
+    --error-toast-bg-opacity: 96%;
+    --term-bg: var(--hud-lab-canvas);
+    --term-bg-elev: var(--hud-input-bg);
+    --term-lime: var(--term-green);
+    --hud-text: var(--hud-input-text);
+    --hud-text-glow: none;
+    --hud-logo-bg: color-mix(in oklab, var(--hud-input-bg) 82%, transparent);
+    --hud-chip-bg: color-mix(in oklab, var(--hud-input-bg) 82%, transparent);
+    --hud-chip-bg-strong: color-mix(in oklab, var(--hud-input-bg) 94%, transparent);
+    --hud-row-bg: color-mix(in oklab, var(--hud-input-bg) 62%, transparent);
+    --hud-mini-shadow: drop-shadow(
+    0 6px 12px
+      color-mix(
+        in oklab,
+        var(--hud-box-border) var(--hud-lab-shadow-opacity),
+        transparent
+      )
+  );
+    --term-glow-blue: 0 0 1px
+    color-mix(in oklab, var(--term-blue) 40%, transparent);
+    --term-glow-green: 0 0 1px
+    color-mix(in oklab, var(--term-green) 40%, transparent);
+    --term-glow-amber: 0 0 1px
+    color-mix(in oklab, var(--term-amber) 40%, transparent);
+    --term-glow-red: 0 0 1px
+    color-mix(in oklab, var(--term-red) 40%, transparent);
+    --term-glow-lime: var(--term-glow-green);
+    --term-glow-lime-strong: var(--term-glow-green);
+    color: var(--hud-input-text);
+    background: var(--hud-lab-canvas);
+    --hud-send-bg: color-mix(in oklab, var(--term-blue) 16%, var(--hud-box-bg));
+    --hud-send-border: color-mix(in oklab, var(--term-blue) 58%, var(--hud-input-text));
+    --hud-send-text: var(--hud-input-text);
+    --hud-dim-bg: rgb(
+      var(--light-stream-shade-color) /
+        var(--light-stream-shade-with-hud-opacity)
+    )
+}
+:root[data-theme="light"] .term-scanlines::after {
+    background: repeating-linear-gradient(
+      to right,
+      rgb(140 60 60 / var(--term-rgb-mask-opacity)) 0
+        calc(var(--term-rgb-mask-size) / 3),
+      rgb(58 126 96 / var(--term-rgb-mask-opacity))
+        calc(var(--term-rgb-mask-size) / 3)
+        calc(var(--term-rgb-mask-size) * 2 / 3),
+      rgb(62 80 142 / var(--term-rgb-mask-opacity))
+        calc(var(--term-rgb-mask-size) * 2 / 3)
+        var(--term-rgb-mask-size)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--term-scanline-size) * 0.55),
+      var(--term-scanline-color) calc(var(--term-scanline-size) * 0.8),
+      transparent var(--term-scanline-size)
+    );
+    opacity: 1;
+    mix-blend-mode: multiply
+}
+:root[data-theme="light"] .term-msg {
+    --term-msg-color: var(--stream-ink);
+    --term-msg-accent: var(--term-tool-accent);
+    --term-msg-glow: 0 0 var(--stream-ink-bleed)
+    color-mix(in oklab, var(--stream-ink) 65%, transparent);
+    color: var(--stream-ink);
+    text-shadow: var(--term-msg-glow)
+}
+:root[data-theme="light"] .term-msg[data-role="agent"] {
+    --term-msg-color: var(--stream-ink);
+    --term-msg-accent: var(--term-agent-accent)
+}
+:root[data-theme="light"] .term-msg[data-role="tool"],
+:root[data-theme="light"] .term-msg[data-role="script"],
+:root[data-theme="light"] .term-msg[data-role="lifecycle"] {
+    --term-msg-color: var(--stream-ink);
+    --term-msg-accent: var(--term-tool-accent)
+}
+:root[data-theme="light"] .term-msg[data-role="system"] {
+    --term-msg-color: var(--stream-ink);
+    --term-msg-accent: var(--term-system-accent)
+}
+:root[data-theme="light"] .term-msg[data-role="error"] {
+    --term-msg-color: var(--stream-ink);
+    --term-msg-accent: var(--term-error-accent)
+}
+:root[data-theme="light"] .term-msg-badge,
+:root[data-theme="light"] .term-tag {
+    background: var(--term-msg-accent);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 45%, transparent),
+    inset 0 -1px 0 color-mix(in oklab, black 22%, transparent),
+    1px 1px 0 color-mix(in oklab, var(--term-msg-accent) 46%, black 54%)
+}
+:root[data-theme="light"] .term-msg[data-role="script"] .term-msg-badge,
+:root[data-theme="light"] .term-msg[data-role="system"] .term-msg-badge {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--term-msg-accent),
+    1px 1px 0 color-mix(in oklab, var(--term-msg-accent) 35%, transparent)
+}
+:root[data-theme="light"] .term-msg-badge-label,
+:root[data-theme="light"] .term-tag-label {
+    color: var(--term-bg-elev);
+    -webkit-text-stroke: 0;
+    text-shadow: 0 0 var(--stream-ink-bleed)
+    color-mix(in oklab, var(--term-bg-elev) 60%, transparent);
+    filter: none
+}
+:root[data-theme="light"]
+  .term-msg[data-role="script"]
+  .term-msg-badge-label,
+:root[data-theme="light"]
+  .term-msg[data-role="system"]
+  .term-msg-badge-label {
+    color: var(--term-msg-accent)
+}
+:root[data-theme="light"] .term-emph {
+    color: var(--term-msg-accent);
+    text-shadow: 0 0 var(--stream-ink-bleed)
+    color-mix(in oklab, var(--term-msg-accent) 60%, transparent)
+}
+:root[data-theme="light"] .term-banner {
+    color: var(--term-lifecycle-accent)
+}
+:root[data-theme="light"] .term-banner-logo {
+    display: none
+}
+:root[data-theme="light"] .term-banner-card {
+    border: 1px solid
+    color-mix(
+      in oklab,
+      var(--term-lifecycle-accent) 56%,
+      var(--stream-ink) 44%
+    );
+    background: color-mix(in oklab, var(--term-bg-elev) 68%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 44%, transparent),
+    1px 1px 0
+      color-mix(
+        in oklab,
+        var(--term-lifecycle-accent) 38%,
+        var(--stream-ink) 62%
+      )
+}
+:root[data-theme="light"] .term-banner-card-title {
+    --term-msg-color: var(--stream-ink);
+    --term-msg-accent: var(--term-lifecycle-accent);
+    --term-msg-glow: none
+}
+:root[data-theme="light"] .term-banner-card-body .term-banner-label {
+    color: color-mix(
+    in oklab,
+    var(--term-lifecycle-accent) 68%,
+    var(--stream-ink) 32%
+  );
+    text-shadow: 0 0 var(--stream-ink-bleed)
+    color-mix(in oklab, var(--term-lifecycle-accent) 50%, transparent);
+    opacity: 1
+}
+:root[data-theme="light"] .term-banner-arrow {
+    color: var(--term-lifecycle-accent);
+    text-shadow: none
+}
+:root[data-theme="light"] .term-banner-card-body .term-banner-val {
+    color: var(--stream-ink);
+    text-shadow: 0 0 var(--stream-ink-bleed)
+    color-mix(in oklab, var(--stream-ink) 58%, transparent)
+}
+:root[data-theme="light"] .term-prompt,
+:root[data-theme="light"] .term-prompt-host,
+:root[data-theme="light"] .term-prompt-sep,
+:root[data-theme="light"] .term-prompt-path,
+:root[data-theme="light"] .term-prompt-sigil {
+    color: var(--stream-ink);
+    text-shadow: 0 0 var(--stream-ink-bleed)
+    color-mix(in oklab, var(--stream-ink) 52%, transparent)
+}
+:root[data-theme="light"] .term-caret,
+:root[data-theme="light"] .term-caret--reveal::after {
+    background: var(--stream-ink);
+    box-shadow: none
+}
+:root[data-theme="light"] .term-log {
+    scrollbar-color: color-mix(in oklab, var(--stream-ink) 48%, transparent)
+    color-mix(in oklab, var(--stream-ink) 10%, transparent)
+}
+:root[data-theme="light"]
+  .term-log--scrollable
+  .term-msg--interactive {
+    border-radius: 0.2rem;
+    transition:
+      background-color 140ms ease-out,
+      color 140ms ease-out,
+      text-shadow 140ms ease-out;
+}
+:root[data-theme="light"]
+  .term-log--scrollable
+  .term-msg--interactive:hover,
+:root[data-theme="light"]
+  .term-log--scrollable
+  .term-msg--interactive:focus-visible {
+    background-color: color-mix(
+      in oklab,
+      var(--stream-ink) 7%,
+      transparent
+    );
+    color: color-mix(
+      in oklab,
+      var(--stream-ink) 68%,
+      var(--term-msg-accent) 32%
+    );
+    text-shadow:
+      0 0 1px color-mix(in oklab, var(--term-msg-accent) 62%, transparent),
+      0 0 7px color-mix(in oklab, var(--term-msg-accent) 22%, transparent);
+}
+:root[data-theme="light"] .app-nav__brand {
+    color: color-mix(in oklab, var(--stream-ink) 88%, black 12%);
+    text-shadow: -0.018em -0.018em 0 color-mix(in oklab, white 82%, transparent),
+    0.025em 0.025em 0 color-mix(in oklab, var(--term-tool) 54%, transparent),
+    0.052em 0.052em 0 color-mix(in oklab, var(--term-agent) 30%, transparent),
+    0 0.09em 0.18em color-mix(in oklab, var(--stream-ink) 14%, transparent)
+}
+:root[data-theme="light"] .app-nav__brand:hover,
+:root[data-theme="light"] .app-nav__brand:focus-visible {
+    color: color-mix(in oklab, var(--stream-ink) 82%, var(--term-tool) 18%);
+    text-shadow: -0.025em -0.025em 0 color-mix(in oklab, white 88%, transparent),
+    0.035em 0.035em 0 color-mix(in oklab, var(--term-tool) 62%, transparent),
+    0.065em 0.065em 0 color-mix(in oklab, var(--term-agent) 36%, transparent),
+    0 0.1em 0.2em color-mix(in oklab, var(--stream-ink) 17%, transparent)
+}
+:root[data-theme="light"] .intro-emph__plain .term-tag {
+    background: transparent;
+    box-shadow: none
+}
+:root[data-theme="light"] .intro-emph__plain .term-tag-label,
+:root[data-theme="light"] .intro-emph__plain .term-emph {
+    color: var(--term-msg-color);
+    -webkit-text-stroke: 0;
+    text-shadow: var(--term-msg-glow);
+    filter: none
+}

@@ -1,0 +1,635 @@
+/* ---------------------------------------------------------------------------
+ * Caret
+ * ------------------------------------------------------------------------- */
+
+@keyframes term-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.term-caret {
+  display: inline-block;
+  width: 0.6em;
+  height: 1em;
+  background: var(--term-agent);
+  vertical-align: text-bottom;
+  box-shadow: var(--term-glow-agent);
+  animation: term-blink 1s steps(1, end) infinite;
+}
+
+.term-caret[data-term-role="tool"] {
+  background: var(--term-tool);
+  box-shadow: var(--term-glow-tool);
+}
+
+.term-caret[data-term-role="error"] {
+  background: var(--term-error);
+  box-shadow: var(--term-glow-error);
+}
+
+/* Landing-intro reveal: each animating message renders its full text so the
+   line wrapping is fixed from the start; the untyped tail stays in layout but
+   invisible, and the caret paints with zero layout width so it can't push the
+   wrapping around. Result: text reveals in place with no reflow. */
+.term-reveal-pending {
+  opacity: 0;
+}
+
+.term-caret--reveal {
+  display: inline-block;
+  width: 0;
+  height: 1em;
+  position: absolute;
+}
+
+.term-caret--reveal::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0.6em;
+  height: 1em;
+  background: currentColor;
+  box-shadow:
+    0 0 4px currentColor,
+    0 0 10px currentColor;
+  animation: term-blink 1s steps(1, end) infinite;
+}
+
+.term-caret--reveal-reversed::after {
+  right: 0;
+  left: auto;
+}
+
+/* Landing intro: when a message settles, fade its tag / emphasis decoration in
+   over a plain-looking, pixel-aligned copy of the same content underneath — so
+   the styling materialises instead of popping and the glyphs never move. */
+.intro-emph {
+  position: relative;
+  display: block;
+}
+
+.intro-emph__plain {
+  position: absolute;
+  inset: 0;
+  animation: intro-emph-plain-fade var(--intro-emphasis-fade) ease both;
+}
+
+.intro-emph__rich {
+  position: relative;
+  display: block;
+  animation: intro-emph-fade var(--intro-emphasis-fade) ease both;
+}
+
+/* Live stream log settles faster than the landing intro. */
+.intro-emph--fast .intro-emph__rich {
+  animation-duration: var(--live-emphasis-fade);
+}
+
+.intro-emph--fast .intro-emph__plain {
+  animation-duration: var(--live-emphasis-fade);
+}
+
+@keyframes intro-emph-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes intro-emph-plain-fade {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Underlay keeps the tag / emphasis LAYOUT (padding, nowrap) so it lines up
+   exactly with the rich layer, but drops the decoration so it reads as plain
+   phosphor while the rich layer fades in on top. */
+.intro-emph__plain .term-tag {
+  background: transparent;
+  box-shadow: none;
+}
+
+.intro-emph__plain .term-tag-label {
+  color: var(--term-msg-color);
+  -webkit-text-stroke: 0;
+  text-shadow: var(--term-msg-glow);
+  filter: none;
+}
+
+.intro-emph__plain .term-emph {
+  color: var(--term-msg-color);
+  text-shadow: var(--term-msg-glow);
+}
+
+.term-prompt {
+  /* Layout (flex row / gap / top margin) lives on the element in
+     TerminalPrompt.tsx and C64Loader.tsx; this rule owns the phosphor look. */
+  font-family: var(--font-terminal);
+  color: var(--term-agent);
+  text-shadow: var(--term-glow-agent);
+  user-select: none;
+}
+
+.term-prompt .term-caret {
+  transform: translateY(0.04em);
+}
+
+.term-prompt-host {
+  color: color-mix(in oklab, var(--term-agent) 40%, white 60%);
+  text-shadow:
+    0 0 1px color-mix(in oklab, var(--term-agent) 60%, white 40%),
+    0 0 4px var(--term-agent),
+    0 0 12px color-mix(in oklab, var(--term-agent) 88%, transparent),
+    0 0 28px color-mix(in oklab, var(--term-agent) 55%, transparent);
+}
+
+.term-prompt-sep,
+.term-prompt-path {
+  color: var(--term-agent);
+  text-shadow: var(--term-glow-agent);
+}
+
+.term-prompt-sigil {
+  margin-right: 0.35em;
+  color: color-mix(in oklab, var(--term-agent) 50%, white 50%);
+  text-shadow:
+    0 0 1px color-mix(in oklab, var(--term-agent) 60%, white 40%),
+    0 0 3px var(--term-agent),
+    0 0 10px color-mix(in oklab, var(--term-agent) 78%, transparent);
+}
+
+/* ---------------------------------------------------------------------------
+ * Message rows
+ *
+ * Each row is a 2-col grid: a fixed-width role badge gutter + flowing
+ * content. All per-role styling flows through two vars set on the row
+ * itself (`--term-msg-color`, `--term-msg-glow`), so badge / tag / emphasis
+ * children pick up the right accent automatically via `var(--term-msg-color)`
+ * without needing per-role rules of their own.
+ * ------------------------------------------------------------------------- */
+
+.term-msg {
+  /* Row grid (2 cols: badge gutter + content), gap, baseline align and top
+     margin live on the element in TerminalMessage.tsx. This rule owns the
+     per-role colour/glow vars and the phosphor look they drive. */
+  --term-msg-color: var(--term-green);
+  --term-msg-glow: var(--term-glow-green);
+  font-family: var(--font-terminal);
+  line-height: var(--term-line-height);
+  letter-spacing: var(--term-letter-spacing);
+  color: var(--term-msg-color);
+  text-shadow: var(--term-msg-glow);
+}
+
+.term-msg[data-role="agent"] {
+  --term-msg-color: var(--term-agent);
+  --term-msg-glow: var(--term-glow-agent);
+}
+.term-msg[data-role="tool"] {
+  --term-msg-color: var(--term-tool);
+  --term-msg-glow: var(--term-glow-tool);
+}
+.term-msg[data-role="script"] {
+  --term-msg-color: var(--term-tool);
+  --term-msg-glow: var(--term-glow-tool);
+}
+.term-msg[data-role="error"] {
+  --term-msg-color: var(--term-error);
+  --term-msg-glow: var(--term-glow-error);
+}
+.term-msg[data-role="system"] {
+  --term-msg-color: var(--term-amber);
+  --term-msg-glow: var(--term-glow-amber);
+}
+.term-msg[data-role="lifecycle"] {
+  --term-msg-color: var(--term-tool);
+  --term-msg-glow: var(--term-glow-tool);
+}
+
+.term-msg-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-width: 0;
+}
+
+/* Tight dark-mode body phosphor: preserve the hue and close halo while
+   dropping the broad 12/24/40px layers that are costly during reveal. */
+:root[data-theme="dark"] .term-msg-content {
+  text-shadow:
+    0 0 1px var(--term-msg-color),
+    0 0 4px color-mix(in oklab, var(--term-msg-color) 82%, transparent);
+}
+
+/* Compact live log: collapse each message's whitespace so markdown blank lines
+   and double spacing cram into flowing text (`white-space: normal` inherits into
+   the cross-fade layers). Length is bounded to ~3 lines by character budget in
+   `renderMessageContent` rather than a height clip — clipping would slice the
+   phosphor glow at a hard edge. Scoped to the live log only; the landing demo
+   keeps its multi-line layout. */
+.term-log--clamp .term-msg-content {
+  white-space: normal;
+}
+
+.term-log--scrollable .term-msg--interactive {
+  cursor: pointer;
+}
+
+/* Keep expandable rows distinct without animating broad text-shadow layers,
+   which are costly to repaint across long transcript lines. The normal tight
+   body phosphor remains unchanged while a role-tinted fill marks the row. */
+:root[data-theme="dark"]
+  .term-log--scrollable
+  .term-msg--hoverable,
+:root[data-theme="dark"]
+  .term-log--scrollable
+  .term-msg--interactive {
+  border-radius: 0.2rem;
+  transition: background-color 140ms ease-out;
+}
+
+:root[data-theme="dark"]
+  .term-log--scrollable
+  .term-msg--hoverable:hover,
+:root[data-theme="dark"]
+  .term-log--scrollable
+  .term-msg--interactive:focus-visible {
+  background-color: color-mix(
+    in oklab,
+    var(--term-msg-color) 7%,
+    transparent
+  );
+}
+
+/* Expansion swaps the rendered character budget, so use a brief phosphor
+   settle on the content rather than exposing an abrupt text reflow. */
+.term-msg--expanded .term-msg-content {
+  animation: term-msg-open 150ms ease-out both;
+}
+
+.term-msg--collapsed .term-msg-content {
+  animation: term-msg-close 110ms ease-in both;
+}
+
+@keyframes term-msg-open {
+  from {
+    opacity: 0.55;
+    filter: blur(0.45px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes term-msg-close {
+  from {
+    opacity: 0.68;
+    filter: blur(0.3px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .term-msg--expanded .term-msg-content,
+  .term-msg--collapsed .term-msg-content {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Role badge (inverted label on a filled field for most roles; tool + system
+ * use the same cell + padding with a transparent fill and an inset ring).
+ *
+ * Colors are pulled from the message's --term-msg-color so a single rule
+ * skins every role. Top/bottom insets give a subtle neon-tube sheen.
+ * ------------------------------------------------------------------------- */
+
+/* Permanent compact bloom shared by large labels and inline tag pills. It
+   retains near-field phosphor mass, attenuates the wider bloom, and removes
+   the 40px layer. */
+.term-msg-badge,
+.term-tag {
+  --term-label-outer-glow:
+    0 0 1px var(--term-msg-color),
+    0 0 4px color-mix(in oklab, var(--term-msg-color) 82%, transparent),
+    0 0 12px color-mix(in oklab, var(--term-msg-color) 40%, transparent),
+    0 0 24px color-mix(in oklab, var(--term-msg-color) 16%, transparent);
+}
+
+.term-msg-badge {
+  align-self: start;
+  justify-self: stretch;
+  display: inline-block;
+  padding: 0 0.5ch;
+  background: var(--term-msg-color);
+  /* Tight outer halation fattens the block edge before the compact bloom. */
+  box-shadow:
+    var(--term-badge-sheen),
+    0 0 1.5px color-mix(in oklab, var(--term-msg-color) 75%, transparent),
+    0 0 4px color-mix(in oklab, var(--term-msg-color) 50%, transparent),
+    var(--term-label-outer-glow);
+  letter-spacing: 0.1em;
+  text-align: center;
+  font-family: var(--font-terminal);
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Inner label span -- only reason this exists is so we can apply a real
+   Gaussian blur to the glyphs without blurring the badge box + halo. The
+   inline-block keeps the filter from collapsing, and `will-change: filter`
+   nudges browsers into doing the composite on the GPU so we don't pay a
+   layout cost per row.
+   Color is a dark tint of the role instead of pure `--term-bg` so the
+   cutout reads as dim phosphor rather than vector ink, and the text-shadow
+   lets same-color bleed leak back into the blurred edges. */
+.term-msg-badge-label,
+.term-tag-label {
+  display: inline-block;
+  color: color-mix(in oklab, var(--term-bg) 78%, var(--term-msg-color) 22%);
+  /* Fattens the glyphs in the same ink color, so blur has more mass to
+     soften -- restores the previous chunkier look while the filter below
+     actually diffuses the edges. */
+  -webkit-text-stroke: 0.9px color-mix(in oklab, var(--term-bg) 78%, var(--term-msg-color) 22%);
+  text-shadow:
+    0 0 1px color-mix(in oklab, var(--term-msg-color) 85%, transparent),
+    0 0 3px color-mix(in oklab, var(--term-msg-color) 55%, transparent),
+    0 0 6px color-mix(in oklab, var(--term-msg-color) 30%, transparent);
+  /* Cranked intentionally so the softening is obvious -- dial down to
+     taste. 0.45px was imperceptible, 2px is over-the-top. Adjust from here. */
+  filter: blur(0.5px);
+  will-change: filter;
+}
+
+/* Script + system: same outer size as a filled pill; ring drawn inset so it
+   doesn't grow the badge vs other roles. (Tool uses the filled-pill style like
+   agent — its glyphs are punched out of the lime fill.) */
+.term-msg[data-role="script"] .term-msg-badge,
+.term-msg[data-role="system"] .term-msg-badge {
+  background: transparent;
+  box-shadow:
+    inset 0 0 0 1.5px var(--term-msg-color),
+    0 0 1.5px color-mix(in oklab, var(--term-msg-color) 75%, transparent),
+    0 0 4px color-mix(in oklab, var(--term-msg-color) 50%, transparent),
+    var(--term-label-outer-glow);
+}
+
+.term-msg[data-role="script"] .term-msg-badge .term-msg-badge-label,
+.term-msg[data-role="system"] .term-msg-badge .term-msg-badge-label {
+  color: var(--term-msg-color);
+  -webkit-text-stroke: 0;
+  text-shadow: var(--term-msg-glow);
+  filter: none;
+  will-change: auto;
+}
+
+/* ---------------------------------------------------------------------------
+ * Inline emphasis + inline tag
+ *
+ * - `.term-emph` is text-only glow.
+ * - `.term-tag` is an inverted mini-badge (box + sheen); cutout text uses
+ *   `.term-tag-label`, same stack as `.term-msg-badge-label` (blur on glyphs only).
+ * ------------------------------------------------------------------------- */
+
+.term-emph {
+  color: color-mix(in oklab, var(--term-msg-color) 40%, white 60%);
+  text-shadow:
+    0 0 1px color-mix(in oklab, var(--term-msg-color) 60%, white 40%),
+    0 0 3px var(--term-msg-color),
+    0 0 12px color-mix(in oklab, var(--term-msg-color) 88%, transparent),
+    0 0 28px color-mix(in oklab, var(--term-msg-color) 55%, transparent),
+    0 0 48px color-mix(in oklab, var(--term-msg-color) 32%, transparent); 
+  font-style: normal;
+}
+
+.term-tag {
+  display: inline-block;
+  /* The 0.5ch side padding gives the pill breathing room, but the negative
+     margin cancels its contribution to inline advance: the pill occupies the
+     same width as its bare text. This keeps tag geometry identical to the flat
+     reveal text and across every render path (intro cross-fade, demo log, live
+     log), so nothing shifts when a line settles or when the intro log swaps to
+     the static demo log as the HUD appears. The background bleeds 0.5ch over
+     the adjacent whitespace, which is blank in every place a tag is used. */
+  padding: 0 0.5ch;
+  margin: 0 -0.5ch;
+  background: var(--term-msg-color);
+  box-shadow:
+    var(--term-badge-sheen),
+    0 0 1.5px color-mix(in oklab, var(--term-msg-color) 75%, transparent),
+    0 0 4px color-mix(in oklab, var(--term-msg-color) 50%, transparent),
+    var(--term-label-outer-glow);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+ * Opening banner (new-process card)
+ *
+ * A double-bordered info card. The card title ("NEW PROCESS") floats on the top border the
+ * same way a classic fieldset/legend does -- punched INTO the frame, not
+ * painted over it.
+ *
+ * Earlier iterations rendered the whole frame with box-drawing chars
+ * (╔══╗ ║ ╚══╝). VT323 has those glyphs but their advance width does NOT
+ * match its ASCII space, so "50 chars per row" in text did not equal "same
+ * pixel width" on screen and the right edge drifted. `border-style: double`
+ * gives us the same visual vocabulary (two parallel amber strokes) with
+ * guaranteed alignment.
+ *
+ * Color layers (all amber -- hue discipline sells the CRT illusion): 
+ *   - card border / arrow  : dim amber, soft halo (structure, not content)
+ *   - title / field values : hot white-tinted amber + strong halo (neon)
+ *   - field labels         : mid amber, normal phosphor
+ * ------------------------------------------------------------------------- */
+
+.term-banner {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  margin: 2rem 0 1.6rem 0; 
+  padding-top: 0.3rem;
+  font-family: var(--font-terminal);
+  color: var(--term-green);
+  font-size: 1rem;
+  line-height: 1;
+  max-width: 100%;
+}
+
+/* The info card itself. `border-style: double` = same visual vocabulary as
+   ╔══╗ / ╚══╝ box-drawing chars, without the font-metric alignment
+   problem. Ambient box-shadow adds the outer CRT bloom so the card reads
+   as a glass panel, not a plain border. */
+.term-banner-card {
+  position: relative;
+  border: 3px double
+    color-mix(in oklab, var(--term-green) 55%, var(--term-bg) 45%);
+  padding: 0.95rem 1.25rem 0.8rem;
+  background: transparent;
+  box-shadow:
+    0 0 14px color-mix(in oklab, var(--term-green) 20%, transparent),
+    0 0 36px color-mix(in oklab, var(--term-green) 10%, transparent);
+  line-height: 1.3;
+  min-width: 0;
+}
+
+/* Title sits on the top double border (fieldset-style placement). Uses the
+   same filled badge + “cutout” label treatment as the message role gutter. */
+.term-banner-card-title {
+  --term-msg-color: var(--term-green);
+  --term-msg-glow: var(--term-glow-green); 
+  position: absolute;
+  top: 0;
+  left: 0.9rem;
+  transform: translateY(-50%);
+  display: inline-block;
+  max-width: calc(100% - 1.8rem);
+  user-select: none;
+}
+
+.term-banner-card-title .term-msg-badge {
+  font-size: 1.12rem;
+  letter-spacing: 0.2em; 
+  padding: 0 0.6ch;
+}
+
+/* 3-col grid: label | arrow | value. `display: contents` on each row lets
+   dt/arrow/dd flow directly into the parent grid tracks, so arrows and
+   values line up across rows no matter how wide a label gets. */
+.term-banner-card-body {
+  display: grid;
+  grid-template-columns: max-content max-content 1fr;
+  column-gap: 0.9rem;
+  row-gap: 0.1rem;
+  margin: 0;
+  padding: 0;
+}
+
+.term-banner-row {
+  display: contents;
+}
+
+.term-banner-card-body .term-banner-label {
+  margin: 0;
+  font-weight: normal;
+  color: var(--term-green);
+  text-shadow: var(--term-glow-green);
+  opacity: 0.82;
+}
+
+.term-banner-arrow {
+  color: color-mix(in oklab, var(--term-green) 55%, var(--term-bg) 45%);
+  text-shadow:
+    0 0 1px color-mix(in oklab, var(--term-green) 50%, transparent),
+    0 0 4px color-mix(in oklab, var(--term-green) 28%, transparent);
+  user-select: none;
+}
+
+.term-banner-card-body .term-banner-val {
+  margin: 0;
+  color: color-mix(in oklab, var(--term-green) 35%, white 65%);
+  text-shadow:
+    0 0 1px color-mix(in oklab, var(--term-green) 60%, white 40%),
+    0 0 4px var(--term-green),
+    0 0 14px color-mix(in oklab, var(--term-green) 88%, transparent),
+    0 0 32px color-mix(in oklab, var(--term-green) 55%, transparent),
+    0 0 56px color-mix(in oklab, var(--term-green) 32%, transparent);
+  word-break: break-all;
+}
+
+
+/* ---------------------------------------------------------------------------
+ * Terminal log scroll clip
+ *
+ * Overflow is hidden at the top (old lines scroll off upward). A mask keeps
+ * the clip edge soft so copy fades under the nav instead of shearing against
+ * a hard rectangle. The fade is tied to the log box top, which sits flush
+ * under the nav in the flex column -- same as a viewport-anchored fade for
+ * this layout. Bottom stays fully opaque so the live tail reads at full strength.
+ * ------------------------------------------------------------------------- */
+
+/* Live-log entry: fade the whole log in once its data has hydrated, so the
+   message history settles in as one soft step instead of popping mid-load.
+   Matches the HUD's own hud-view-in timing. */
+@keyframes term-log-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.term-log--enter {
+  animation: term-log-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .term-log--enter {
+    animation: none;
+  }
+}
+
+.term-log {
+  /* Reserve the scrollbar's space permanently so toggling overflow between
+     hidden and auto (HUD dismissed) never reflows the log. Anchoring is off
+     because the column-reverse pin + manual hold in TerminalLog own scroll
+     positioning. */
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color:
+    color-mix(in oklab, var(--term-blue) 65%, transparent)
+    color-mix(in oklab, var(--term-blue) 12%, transparent);
+  overflow-anchor: none;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 8vh,
+    #000 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 8vh,
+    #000 100%
+  );
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+.term-log::-webkit-scrollbar {
+  width: 12px;
+}
+
+.term-log::-webkit-scrollbar-track {
+  background: color-mix(in oklab, var(--term-blue) 12%, transparent);
+  border-radius: 999px;
+}
+
+.term-log::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--term-blue) 65%, transparent);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+
+.term-log:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--term-blue) 80%, transparent);
+  background-clip: content-box;
+}
