@@ -13,7 +13,8 @@
     "test:run": "vitest run",
     "test:e2e": "bash ../scripts/e2e/run-mock-playwright.sh --project=chromium",
     "test:e2e:playwright": "playwright test",
-    "test:e2e:all-browsers": "ROBOSPRAWL_E2E_ALL_BROWSERS=1 bash ../scripts/e2e/run-mock-playwright.sh"
+    "test:e2e:all-browsers": "ROBOSPRAWL_E2E_ALL_BROWSERS=1 bash ../scripts/e2e/run-mock-playwright.sh",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@fontsource-variable/sixtyfour": "^5.3.0",

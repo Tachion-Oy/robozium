@@ -24,9 +24,12 @@ roboz-openai = { path = "../roboz/packages/openai", editable = false }
 addopts = "--cov=robosprawl --cov-report=term-missing --basetemp=.artifacts/pytest-tmp"
 testpaths = ["tests"]
 [dependency-groups]
-dev = ["pytest>=8.4.1", "pytest-cov>=6.2.1", "httpx>=0.27.0", "ruff>=0.5.0"]
+dev = ["pytest>=8.4.1", "pytest-cov>=6.2.1", "httpx>=0.27.0", "ruff>=0.5.0", "pyright>=1.1.411", "twine>=6.2"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]
 [tool.ruff.lint.per-file-ignores]
 "src/robosprawl/api/app.py" = ["F403", "F405"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src/robosprawl", "/README.md", "/CHANGELOG.md", "/LICENSE", "/pyproject.toml", "/hub.config.json.example"]

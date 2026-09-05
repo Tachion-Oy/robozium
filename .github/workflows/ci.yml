@@ -1,63 +1,225 @@
 name: CI
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
+    working-directory: robosprawl
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  ROBOSPRAWL_API_BASE_URL: http://127.0.0.1:8000
 jobs:
-  verify:
+  python:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: robosprawl
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: Tachion-Oy/roboz
+          ref: f148023af667dc58c842d11f5a93843c2b0f1a8e
+          path: roboz
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.12.10"
+      - run: |
+          source scripts/env.sh
+          uv sync --locked --dev
+          uv run pytest --cov-fail-under=90 --cov-report=xml:.artifacts/reports/coverage.xml --junitxml=.artifacts/reports/pytest.xml
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        if: always()
+        with:
+          name: python-${{ matrix.python }}
+          path: robosprawl/.artifacts/reports/
+          retention-days: 14
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: robosprawl
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: Tachion-Oy/roboz
+          ref: f148023af667dc58c842d11f5a93843c2b0f1a8e
+          path: roboz
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.12.10"
+      - run: |
+          source scripts/env.sh
+          uv sync --locked --dev
+          uv run ruff check src tests scripts
+          uv run pyright
+          uv run pytest tests/contract --no-cov
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: robosprawl
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: robosprawl/web/package-lock.json
+      - run: npm --prefix web ci
+      - run: npm --prefix web run lint
+      - run: npm --prefix web run typecheck
+      - run: npm --prefix web run test:run -- --reporter=default --reporter=junit --outputFile.junit=../.artifacts/reports/vitest.xml
+      - run: npm --prefix web run build
+      - run: tar -czf web-build.tar.gz -C web .next
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: production-web
+          path: robosprawl/web-build.tar.gz
+          retention-days: 14
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        if: always()
+        with:
+          name: frontend-reports
+          path: robosprawl/.artifacts/reports/
+          retention-days: 14
+  distribution:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: robosprawl
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: Tachion-Oy/roboz
+          ref: f148023af667dc58c842d11f5a93843c2b0f1a8e
+          path: roboz
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.12.10"
+      - run: |
+          source scripts/env.sh
+          uv sync --locked --dev
+          candidate_dir="$(mktemp -d)"
+          echo "CANDIDATE_DIR=$candidate_dir" >> "$GITHUB_ENV"
+          uv build --no-sources --all-packages --project ../roboz --out-dir "$candidate_dir"
+          bash scripts/verify-wheels.sh "$candidate_dir"
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        if: always() && env.CANDIDATE_DIR != ''
+        with:
+          name: candidate-distributions
+          path: ${{ env.CANDIDATE_DIR }}/
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        if: always()
+        with:
+          name: distribution-reports
+          path: robosprawl/.artifacts/distribution-reports/
+          retention-days: 14
+  browsers:
+    needs: [frontend, distribution]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         browser: [chromium, firefox, webkit]
-    continue-on-error: ${{ matrix.browser == 'webkit' }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          repository: Tachion-Oy/roboz
-          ref: f148023af667dc58c842d11f5a93843c2b0f1a8e
-          path: .artifacts/dependencies/roboz
+          path: robosprawl
           persist-credentials: false
-      - name: Install local tooling and adapt source paths
-        shell: bash
-        run: |
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: robosprawl/web/package-lock.json
+      - run: npm --prefix web ci
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: candidate-distributions
+          path: robosprawl/.artifacts/distributions
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: production-web
+          path: robosprawl/.artifacts
+      - run: |
+          tar -xzf .artifacts/web-build.tar.gz -C web
+          backend_env="$(mktemp -d)"
+          python -m venv "$backend_env"
+          "$backend_env/bin/python" -I -m pip install .artifacts/distributions/{robosprawl,roboz,roboz_shed,roboz_openai}-*.whl
+          "$backend_env/bin/python" -I -m pip check
+          echo "ROBOSPRAWL_E2E_PYTHON=$backend_env/bin/python" >> "$GITHUB_ENV"
           source scripts/env.sh
-          mkdir -p .artifacts/bin
-          curl -LsSf https://github.com/astral-sh/uv/releases/download/0.6.14/uv-x86_64-unknown-linux-gnu.tar.gz -o .artifacts/uv.tar.gz
-          tar -xzf .artifacts/uv.tar.gz -C .artifacts/bin --strip-components=1
-          echo "$PWD/.artifacts/bin" >> "$GITHUB_PATH"
-          python3 - <<'PY'
-          from pathlib import Path
-          for name in ('pyproject.toml', 'uv.lock'):
-              p = Path(name)
-              p.write_text(p.read_text().replace('../roboz', '.artifacts/dependencies/roboz'))
-          PY
-      - name: Install dependencies inside checkout
-        run: |
-          source scripts/env.sh
-          uv sync --locked
-          npm --prefix web ci
-          npm --prefix web exec -- playwright install ${{ matrix.browser }}
-      - name: Unit tests and wheel installation
+          npm --prefix web exec -- playwright install --with-deps ${{ matrix.browser }}
+      - name: Verify runner failure and interruption cleanup
         if: matrix.browser == 'chromium'
         run: |
           source scripts/env.sh
-          uv run --locked pytest
-          uv run --locked ruff check src tests scripts
-          npm --prefix web run test:run
-          npm --prefix web run lint
-          ./scripts/verify-wheels.sh
-      - name: Browser gate (WebKit advisory)
+          python scripts/e2e/check_runner.py
+      - name: Repeat repaired WebKit scenarios without retries
+        if: matrix.browser == 'webkit'
+        env:
+          ROBOSPRAWL_E2E_PREBUILT: "1"
+        run: bash scripts/e2e/run-mock-playwright.sh --project=webkit --grep='opens compact on landing|an unknown run keeps' --repeat-each=10 --retries=0
+      - name: Complete browser suite
+        env:
+          ROBOSPRAWL_E2E_PREBUILT: "1"
         run: bash scripts/e2e/run-mock-playwright.sh --project=${{ matrix.browser }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:
-          name: results-${{ matrix.browser }}
-          path: |
-            web/playwright-report
-            web/test-results
-            .artifacts/mock-api.log
-          retention-days: 7
+          name: browser-${{ matrix.browser }}
+          path: robosprawl/.artifacts/e2e/
+          retention-days: 14
+  ci:
+    name: CI
+    if: always()
+    needs: [python, quality, frontend, distribution, browsers]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every gate to succeed
+        working-directory: .
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python - <<'PYTHON'
+          import json, os
+          results = json.loads(os.environ["RESULTS"])
+          assert all(job["result"] == "success" for job in results.values()), results
+          PYTHON
