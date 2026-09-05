@@ -125,7 +125,11 @@ vi.mock("../../../../app/components/hud/dependencies/DependencyPanel", () => ({
 	DependencyPanel: () => <div>Status panel content</div>,
 }))
 vi.mock("../../../../app/components/hud/ModelSelector", () => ({
-	ModelSelector: () => <button type="button">Model selector</button>,
+	ModelSelector: ({ runId }: { runId: string | null }) => (
+		<button type="button" data-run-id={runId ?? "default"}>
+			Model selector
+		</button>
+	),
 	ModelSelectorLoading: () => <button type="button">Loading models</button>,
 }))
 
@@ -152,7 +156,7 @@ afterEach(() => {
 	vi.unstubAllGlobals()
 })
 
-async function chooseHudView(currentLabel: string, nextLabel: string) {
+async function chooseHudScreen(currentLabel: string, nextLabel: string) {
 	fireEvent.click(
 		screen.getByRole("button", { name: currentLabel }),
 	)
@@ -226,7 +230,11 @@ describe("AgentHUD status mode", () => {
 		expect(viewSelector.closest(".agent-hud__header")?.className).toBe(
 			"agent-hud__header agent-hud__header--landing",
 		)
-		expect(screen.getByRole("button", { name: "Model selector" })).not.toBeNull()
+		expect(
+			screen
+				.getByRole("button", { name: "Model selector" })
+				.getAttribute("data-run-id"),
+		).toBe("default")
 		expect(screen.getByText("Landing HUD content")).not.toBeNull()
 		expect(
 			(screen.getByRole("button", { name: "Minimize" }) as HTMLButtonElement)
@@ -241,11 +249,11 @@ describe("AgentHUD status mode", () => {
 		).toBe(true)
 		expect(screen.getByTestId("resize-handle")).not.toBeNull()
 
-		await chooseHudView("Runs Overview", "Dependencies")
+		await chooseHudScreen("Runs Overview", "Dependencies")
 		expect(screen.queryByText("Landing HUD content")).toBeNull()
 		expect(screen.getByText("Status panel content")).not.toBeNull()
 
-		await chooseHudView("Dependencies", "Runs Overview")
+		await chooseHudScreen("Dependencies", "Runs Overview")
 		expect(screen.getByText("Landing HUD content")).not.toBeNull()
 		expect(screen.queryByText("Status panel content")).toBeNull()
 	})
@@ -264,6 +272,11 @@ describe("AgentHUD status mode", () => {
 		const modeButton = screen.getByRole("button", {
 			name: "Current Run",
 		})
+		expect(
+			screen
+				.getByRole("button", { name: "Model selector" })
+				.getAttribute("data-run-id"),
+		).toBe("run-1")
 		expect(modeButton.closest(".agent-hud__header")?.className).toBe(
 			"agent-hud__header agent-hud__header--row",
 		)
@@ -328,9 +341,13 @@ describe("AgentHUD status mode", () => {
 		)
 		expect(hudSizeStore.getState().progress).toBe(0.45)
 		expect(screen.queryByText("Run HUD content")).toBeNull()
-		expect(screen.queryByText("Run HUD content")).toBeNull()
 		expect(screen.getByText("Landing HUD content")).not.toBeNull()
 		expect(screen.getByText("Current alpha")).not.toBeNull()
+		expect(
+			screen
+				.getByRole("button", { name: "Model selector" })
+				.getAttribute("data-run-id"),
+		).toBe("run-1")
 		expect(
 			(screen.getByRole("button", { name: "Minimize" }) as HTMLButtonElement)
 				.disabled,
@@ -339,10 +356,10 @@ describe("AgentHUD status mode", () => {
 			"alpha",
 		)
 
-		await chooseHudView("Runs Overview", "Dependencies")
+		await chooseHudScreen("Runs Overview", "Dependencies")
 		expect(screen.getByText("Status panel content")).not.toBeNull()
 
-		await chooseHudView("Dependencies", "Runs Overview")
+		await chooseHudScreen("Dependencies", "Runs Overview")
 		fireEvent.click(screen.getByRole("button", { name: "Current project" }))
 		expect(screen.getByText("Run HUD content")).not.toBeNull()
 		expect(hudSizeStore.getState().progress).toBe(0.45)
@@ -387,6 +404,11 @@ describe("AgentHUD status mode", () => {
 		expect(hudSizeStore.getState().progress).toBe(0)
 		expect(screen.queryByText("Run HUD content")).toBeNull()
 		expect(screen.getByRole("button", { name: "Runs Overview" })).not.toBeNull()
+		expect(
+			screen
+				.getByRole("button", { name: "Model selector" })
+				.getAttribute("data-run-id"),
+		).toBe("default")
 		expect(screen.queryByRole("button", { name: "Current project" })).toBeNull()
 		expect(screen.queryByText("Current alpha")).toBeNull()
 		expect(document.querySelector(".agent-hud__event-text")).toBeNull()
@@ -408,9 +430,9 @@ describe("AgentHUD status mode", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Expand" }))
 		expect(screen.getByText("Landing HUD content")).not.toBeNull()
 
-		await chooseHudView("Runs Overview", "Dependencies")
+		await chooseHudScreen("Runs Overview", "Dependencies")
 		expect(screen.getByText("Status panel content")).not.toBeNull()
-		await chooseHudView("Dependencies", "Runs Overview")
+		await chooseHudScreen("Dependencies", "Runs Overview")
 		expect(screen.getByText("Landing HUD content")).not.toBeNull()
 	})
 

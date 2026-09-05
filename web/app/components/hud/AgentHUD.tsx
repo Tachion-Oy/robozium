@@ -21,10 +21,11 @@ import {
 import { HudHeader } from "./HudHeader"
 import { HudProjectBadge } from "./HudProjectBadge"
 import {
-	HudScreenContent,
-	type HudView,
-	type RecoveryView,
-} from "./HudScreenContent"
+	DEFAULT_HUD_SCREEN_SELECTIONS,
+	resolveHudPresentation,
+	selectHudScreen,
+} from "./hudPresentation"
+import { HudScreenContent } from "./HudScreenContent"
 import { ResizableHudBox } from "./HudResizeHandle"
 import { MinimizedHudControl } from "./MinimizedHudControl"
 
@@ -44,15 +45,15 @@ export function AgentHUD({
 	defaultModelSelectionPromise = null,
 }: AgentHUDProps) {
 	const [layoutMode, setLayoutMode] = useState<LayoutMode>("top")
-	const [hudView, setHudView] = useState<HudView>("main")
-	const [recoveryView, setRecoveryView] = useState<RecoveryView>("agents")
+	const [screenSelections, setScreenSelections] = useState(
+		DEFAULT_HUD_SCREEN_SELECTIONS,
+	)
 	const [replyDraft, setReplyDraft] = useState("")
 	const [prevRunId, setPrevRunId] = useState(runId)
 	if (runId !== prevRunId) {
 		setPrevRunId(runId)
 		setLayoutMode("top")
-		setHudView("main")
-		setRecoveryView("agents")
+		setScreenSelections(DEFAULT_HUD_SCREEN_SELECTIONS)
 		setReplyDraft("")
 	}
 	const phase = useRunSessionSelector(
@@ -80,11 +81,16 @@ export function AgentHUD({
 		true,
 	)
 
-	const isLanding = !runId
-	const isRecovery =
-		!isLanding && (phase === RunHudPhase.Done || runUnavailable)
-	const visibleHudView = isRecovery ? recoveryView : hudView
-	const visibleModelSelectionPromise = isRecovery
+	const presentation = resolveHudPresentation({
+		hasRun: Boolean(runId),
+		phase,
+		runUnavailable,
+		selections: screenSelections,
+	})
+	const { context } = presentation
+	const isLanding = context === "landing"
+	const isRecovery = context === "recovery"
+	const visibleModelSelectionPromise = presentation.modelScope === "default"
 		? (defaultModelSelectionPromise ?? modelSelectionPromise)
 		: modelSelectionPromise
 	const minimizedAgentActivityState =
@@ -121,7 +127,7 @@ export function AgentHUD({
 		if (isRecovery) hudVisibilityStore.setState({ open: true })
 	}, [isRecovery])
 
-	// Apply the route/recovery size default before paint. User-selected views are
+	// Apply the route/recovery size default before paint. User-selected screens are
 	// deliberately absent from these dependencies so checking Runs Overview from
 	// a live run preserves the current size.
 	useLayoutEffect(() => {
@@ -149,22 +155,15 @@ export function AgentHUD({
 
 	const showHud = isLanding || Boolean(runId)
 	if (!showHud) return null
-	const applyHudView = (view: HudView) => {
-		if (isRecovery) {
-			if (view !== "main") setRecoveryView(view)
-			return
-		}
-		if (isLanding && view === "agents") return
-		setHudView(view)
-	}
-	const selectHudView = (view: HudView) => {
-		applyHudView(view)
-	}
+	const selectScreen = (screen: typeof presentation.screen) =>
+		setScreenSelections((current) =>
+			selectHudScreen(current, context, screen),
+		)
 	// Intro entrance classes must not leak into the run view: their finished
 	// fill-mode:both animations hold opacity/background at animation priority,
 	// which would override the agent-hud--hidden dismissal styles.
 	const hudBoxClassName = `agent-hud__box${
-		isLanding && visibleHudView === "main"
+		presentation.headerVariant === "landing"
 			? " agent-hud__box--landing"
 			: ""
 	}${enteredViaIntro && isLanding ? " agent-hud__box--intro" : ""}${
@@ -179,9 +178,6 @@ export function AgentHUD({
 	]
 		.filter(Boolean)
 		.join(" ")
-	const sideControlsActive =
-		!isLanding && !isRecovery && visibleHudView === "main"
-
 	return (
 		<>
 			{showPanel ? (
@@ -192,7 +188,7 @@ export function AgentHUD({
 						className={hudBoxClassName}
 						inert={!isLanding && !isOpen}>
 						<HudCornerControls
-							disabled={!sideControlsActive}
+							disabled={!presentation.enableCornerControls}
 							layout={{
 								mode: layoutMode,
 								onMove: (direction) =>
@@ -203,30 +199,26 @@ export function AgentHUD({
 									hudVisibilityStore.setState({ open: false }),
 							}}
 						/>
-						{!isLanding && !isRecovery ? (
+						{presentation.showProjectBadge ? (
 							<HudProjectBadge projectSlug={projectSlug} />
 						) : null}
 						{isLanding || isRecovery || isOpen ? (
 							<HudHeader
-								view={visibleHudView}
-								isLanding={isLanding}
-								isRecovery={isRecovery}
+								presentation={presentation}
 								runId={runId}
 								modelSelectionPromise={visibleModelSelectionPromise}
-								onSelectView={selectHudView}
+								onSelectScreen={selectScreen}
 							/>
 						) : null}
 						<HudScreenContent
-							view={visibleHudView}
-							isLanding={isLanding}
-							isRecovery={isRecovery}
+							presentation={presentation}
 							runId={runId}
 							replyDraft={replyDraft}
 							onReplyDraftChange={setReplyDraft}
 							projectSlug={projectSlug}
 							initialProjects={initialProjects}
 							layoutMode={layoutMode}
-							onReturnToRun={() => setHudView("main")}
+							onReturnToRun={() => selectScreen("run")}
 						/>
 					</ResizableHudBox>
 				</div>

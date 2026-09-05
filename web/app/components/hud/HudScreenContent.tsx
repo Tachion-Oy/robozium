@@ -1,17 +1,13 @@
 import type { Dispatch, SetStateAction } from "react"
 import type { Project } from "@/lib/robosprawl/wire"
 import type { LayoutMode } from "./HudCornerControls"
-import { ProjectOverview } from "./projects/ProjectOverview"
 import { RunHud } from "./run/RunHud"
+import { ProjectOverview } from "./projects/ProjectOverview"
 import { DependencyPanel } from "./dependencies/DependencyPanel"
-
-export type HudView = "main" | "dependencies" | "agents"
-export type RecoveryView = "dependencies" | "agents"
+import type { HudPresentation } from "./hudPresentation"
 
 type HudScreenContentProps = {
-	view: HudView
-	isLanding: boolean
-	isRecovery: boolean
+	presentation: HudPresentation
 	runId: string | null
 	replyDraft: string
 	onReplyDraftChange: Dispatch<SetStateAction<string>>
@@ -22,9 +18,7 @@ type HudScreenContentProps = {
 }
 
 export function HudScreenContent({
-	view,
-	isLanding,
-	isRecovery,
+	presentation,
 	runId,
 	replyDraft,
 	onReplyDraftChange,
@@ -33,23 +27,25 @@ export function HudScreenContent({
 	layoutMode,
 	onReturnToRun,
 }: HudScreenContentProps) {
-	if (view === "dependencies") return <DependencyPanel />
+	if (presentation.screen === "dependencies") return <DependencyPanel />
 
-	if (view === "agents" && !isLanding) {
+	if (presentation.screen === "projects") {
 		return (
 			<ProjectOverview
-				initialProjects={null}
-				currentProjectSlug={isRecovery ? null : projectSlug}
-				onCurrentProjectClick={isRecovery ? undefined : onReturnToRun}
+				initialProjects={
+					presentation.context === "landing" ? initialProjects : null
+				}
+				currentProjectSlug={
+					presentation.context === "active-run" ? projectSlug : null
+				}
+				onCurrentProjectClick={
+					presentation.context === "active-run" ? onReturnToRun : undefined
+				}
 			/>
 		)
 	}
 
-	if (view === "main" && isLanding) {
-		return <ProjectOverview initialProjects={initialProjects} />
-	}
-
-	if (view === "main" && runId) {
+	if (presentation.screen === "run" && runId) {
 		return (
 			<div className="agent-hud__run-view">
 				<RunHud
