@@ -1,10 +1,12 @@
 """RunManager + WaitRegistry integration (no HTTP)."""
 
+import json
 import time
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from threading import Event, Lock
+from threading import Event, current_thread
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -36,14 +38,11 @@ from robosprawl.api.errors import (
     ProjectBusyError,
     ProjectCancellationInProgressError,
 )
+from robosprawl.api.run_control import RunControl
+from robosprawl.api.run_events import RunEvents
 from robosprawl.api.run_manager import RunManager
 from robosprawl.api.state import (
-    STATUS_CANCELLING,
-    STATUS_COMPLETED,
-    STATUS_FAILED,
-    STATUS_RUNNING,
     RootAgentBundle,
-    RunState,
 )
 from robosprawl.api.user_io import ApiUserIO
 from robosprawl.api.wait_registry import WaitRegistry
@@ -199,7 +198,7 @@ def _manager(
     )
 
 
-def test_run_executor_builds_a_route_that_closes_over_its_run_state() -> None:
+def test_manager_builds_a_route_that_closes_over_its_run_state() -> None:
     first = _lazy_manager_endpoint("first")
     second = _lazy_manager_endpoint("second")
     static_route = OrchestratorEndpointRoute(lambda: first)
@@ -242,7 +241,7 @@ def test_run_executor_builds_a_route_that_closes_over_its_run_state() -> None:
         default_orchestrator_endpoint=lambda: first,
     )
     run_id = manager.create(_project())
-    assert manager.start_if_needed(run_id)
+    assert manager.start_run(run_id)
     assert waiting_for_change.wait(timeout=5.0)
 
     manager.replace_orchestrator_endpoint(run_id, second)
@@ -300,7 +299,7 @@ def test_run_manager_api_user_io_unblocks_on_resolve() -> None:
 
     manager = _manager(factory, hub_name="TestHub")
     run_id = manager.create(_project())
-    assert manager.start_if_needed(run_id)
+    assert manager.start_run(run_id)
 
     deadline = time.monotonic() + 15.0
     prompt_id = None
@@ -375,26 +374,21 @@ def test_wait_registry_resolve_before_wait_returns_immediately() -> None:
 
 
 def test_api_user_io_returns_none_when_prompt_times_out() -> None:
-    state = cast(
-        RunState,
-        {"current_prompt_id": None, "current_prompt": None, "status": STATUS_RUNNING},
-    )
-    io = ApiUserIO(WaitRegistry(), state, Lock(), lambda _event: None)
+    control = RunControl(_project(), _TEST_DEFAULT_ENDPOINT, history_limit=5000)
+    io = ApiUserIO(control)
 
     # A real (tiny) timeout: if it were not forwarded to the registry's event.wait,
     # this would block forever instead of returning None.
     assert io.request_input("question?", timeout=0.01) is None
-    assert state["current_prompt_id"] is None
+    assert control.snapshot()["current_prompt_id"] is None
 
 
 def test_api_user_io_notify_streams_message_event_to_sink() -> None:
     """Generic one-way notify output must reach the run event sink."""
-    state = cast(
-        RunState,
-        {"current_prompt_id": None, "current_prompt": None, "status": STATUS_RUNNING},
-    )
+    control = RunControl(_project(), _TEST_DEFAULT_ENDPOINT, history_limit=5000)
     emitted: list[object] = []
-    io = ApiUserIO(WaitRegistry(), state, Lock(), emitted.append)
+    control.subscribe(emitted.append)
+    io = ApiUserIO(control)
 
     io.notify("buzz line 1\n")
     io.notify("buzz line 2\n")
@@ -405,31 +399,31 @@ def test_api_user_io_notify_streams_message_event_to_sink() -> None:
     assert first.message.role == Role.ASSISTANT
     assert first.message.content == "buzz line 1\n"
     assert first.message.message_kind == MessageKind.USER_NOTIFICATION
-    assert state["status"] == STATUS_RUNNING
+    state = control.snapshot()
+    assert state["status"] == "queued"
     assert state["current_prompt_id"] is None
     assert state["current_prompt"] is None
-    # The manager owns final run sequencing; ApiUserIO emits a placeholder.
+    # Subscribers receive the run's normalized ordering.
     assert isinstance(emitted[1], MessageEvent)
-    assert first.sequence == 0
-    assert emitted[1].sequence == 0
+    assert first.sequence == 1
+    assert emitted[1].sequence == 2
+
 
 
 def test_manager_sequences_and_replays_user_notifications() -> None:
-    manager = _manager(_minimal_api_agent_for_manager_test, hub_name="TestHub")
+    from roboz.runtime.io import interact_with_user
+
+    def factory(project, *, endpoint_getter, event_sinks):
+        def invoke():
+            interact_with_user("first", with_reply=False)
+            interact_with_user("second", with_reply=False)
+
+        return RootAgentBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
+
+    manager = _manager(factory, hub_name="TestHub")
     run_id = manager.create(_project())
-    state = manager._runs[run_id]
-    io = ApiUserIO(
-        manager._wait_registry,
-        state,
-        manager._lock,
-        manager._events.sink(run_id),
-    )
-
-    io.notify("first")
-    io.notify("second")
-
+    _complete_run(manager, run_id)
     view = manager.run_view(run_id)
-    assert view is not None
     notifications = [
         entry
         for entry in view["message_trace"]
@@ -444,35 +438,19 @@ def test_manager_sequences_and_replays_user_notifications() -> None:
     assert all(entry["payload"]["role"] == Role.ASSISTANT for entry in notifications)
 
 
-def test_manager_assigns_one_sequence_space_to_mixed_run_events() -> None:
-    def factory(
-        project: Project,
-        /,
-        *,
-        endpoint_getter: OrchestratorEndpointGetter,
-        event_sinks: Sequence[EventSink],
-    ) -> RootAgentBundle:
-        return _minimal_api_agent_for_manager_test(
-            project,
-            endpoint_getter=endpoint_getter,
-            event_sinks=event_sinks,
-        )
-
-    manager = _manager(factory, hub_name="TestHub")
-    run_id = manager.create(_project())
+@pytest.mark.parametrize("history_limit", [1, 3, 5000])
+def test_run_events_assigns_one_sequence_space_to_mixed_run_events(history_limit) -> None:
+    events = RunEvents(message_history_limit=history_limit)
     delivered: list[object] = []
-    manager.subscribe_event_listener(run_id, delivered.append)
+    events.subscribe(delivered.append)
 
-    manager._events.dispatch(  # noqa: SLF001 - regression covers event normalization.
-        run_id,
+    events.dispatch(
         RunLifecycleEvent(kind="started", agent_name="agent", sequence=99),
     )
-    manager._events.dispatch(  # noqa: SLF001
-        run_id,
+    events.dispatch(
         ScriptOutputEvent(content="line", sequence=1),
     )
-    manager._events.dispatch(  # noqa: SLF001
-        run_id,
+    events.dispatch(
         RuntimeEvent(
             category="llm",
             kind="failed",
@@ -483,46 +461,61 @@ def test_manager_assigns_one_sequence_space_to_mixed_run_events() -> None:
             data={"error_kind": "auth"},
         ),
     )
-    manager._events.dispatch(  # noqa: SLF001
-        run_id,
+    events.dispatch(
         MessageEvent(Message(role=Role.USER, content="done"), sequence=1),
     )
 
     assert [getattr(event, "sequence") for event in delivered] == [1, 2, 3, 4]
-    view = manager.run_view(run_id)
+    view = events.snapshot()
     assert view is not None
     trace_sequences = [
         entry["sequence"] if "sequence" in entry else entry["payload"]["sequence"]
         for entry in view["message_trace"]
     ]
-    assert trace_sequences == [1, 2, 3, 4]
-    assert view["message_trace"][2]["type"] == "runtime_event"
-    message_entry = view["message_trace"][3]
+    assert trace_sequences == [1, 2, 3, 4][-history_limit:]
+    if history_limit > 1:
+        assert view["message_trace"][-2]["type"] == "runtime_event"
+    message_entry = view["message_trace"][-1]
     assert message_entry["type"] == "message"
     assert message_entry["payload"]["message_kind"] is None
 
 
-def test_manager_forwards_message_deltas_without_trace_pollution() -> None:
-    def factory(
-        project: Project,
-        /,
-        *,
-        endpoint_getter: OrchestratorEndpointGetter,
-        event_sinks: Sequence[EventSink],
-    ) -> RootAgentBundle:
-        return _minimal_api_agent_for_manager_test(
-            project,
-            endpoint_getter=endpoint_getter,
-            event_sinks=event_sinks,
+def test_run_event_snapshots_detach_nested_runtime_data() -> None:
+    events = RunEvents(message_history_limit=2)
+    events.dispatch(
+        RuntimeEvent(
+            category="llm",
+            kind="failed",
+            level="error",
+            message="auth failed",
+            sequence=1,
+            agent_name="agent",
+            data={"details": {"attempts": [1]}},
         )
+    )
 
-    manager = _manager(factory, hub_name="TestHub")
-    run_id = manager.create(_project())
+    snapshot = events.snapshot()
+    assert isinstance(snapshot["message_trace"], list)
+    assert json.loads(json.dumps(snapshot)) == snapshot
+    entry = snapshot["message_trace"][0]
+    assert entry["type"] == "runtime_event"
+    assert entry["payload"]["data"] is not None
+    entry["payload"]["data"]["details"]["attempts"].append(2)
+    entry["payload"]["message"] = "changed"
+    snapshot["message_trace"].clear()
+
+    actual = events.snapshot()["message_trace"][0]
+    assert actual["type"] == "runtime_event"
+    assert actual["payload"]["message"] == "auth failed"
+    assert actual["payload"]["data"] == {"details": {"attempts": [1]}}
+
+
+def test_run_events_forwards_message_deltas_without_trace_pollution() -> None:
+    events = RunEvents(message_history_limit=5000)
     delivered: list[object] = []
-    manager.subscribe_event_listener(run_id, delivered.append)
+    events.subscribe(delivered.append)
 
-    manager._events.dispatch(  # noqa: SLF001 - regression covers event normalization.
-        run_id,
+    events.dispatch(
         MessageDeltaEvent(
             message_id="m1",
             delta="hel",
@@ -532,8 +525,7 @@ def test_manager_forwards_message_deltas_without_trace_pollution() -> None:
             sequence=99,
         ),
     )
-    manager._events.dispatch(  # noqa: SLF001
-        run_id,
+    events.dispatch(
         MessageDeltaEvent(
             message_id="m1",
             delta="lo",
@@ -543,8 +535,7 @@ def test_manager_forwards_message_deltas_without_trace_pollution() -> None:
             sequence=99,
         ),
     )
-    manager._events.dispatch(  # noqa: SLF001
-        run_id,
+    events.dispatch(
         MessageEvent(
             Message(role=Role.ASSISTANT, content="hello"),
             sequence=99,
@@ -558,7 +549,7 @@ def test_manager_forwards_message_deltas_without_trace_pollution() -> None:
     assert isinstance(delivered[2], MessageEvent)
     assert delivered[2].message_id == "m1"
 
-    view = manager.run_view(run_id)
+    view = events.snapshot()
     assert view is not None
     assert len(view["message_trace"]) == 1
     assert view["message_trace"][0]["type"] == "message"
@@ -613,7 +604,7 @@ def test_nested_subagent_lifecycle_events_reach_run_event_listeners() -> None:
     run_id = manager.create(_project())
     capture = lambda e: collected.append(e)  # noqa: E731
     manager.subscribe_event_listener(run_id, capture)
-    assert manager.start_if_needed(run_id)
+    assert manager.start_run(run_id)
 
     deadline = time.monotonic() + 30.0
     try:
@@ -671,12 +662,9 @@ def test_manager_create_returns_existing_run_during_librarian_overlap() -> None:
 
 
 def test_manager_create_allocates_new_run_after_project_completes() -> None:
-    manager = _manager(_minimal_api_agent_for_manager_test, hub_name="TestHub")
+    manager = _manager(_immediate_factory, hub_name="TestHub")
     first = manager.create(_project("my-project"))
-    with manager._lock:
-        state = manager._runs[first]
-        state["status"] = STATUS_COMPLETED
-        state["completed_at"] = time.time()
+    _complete_run(manager, first)
 
     second = manager.create(_project("my-project"))
 
@@ -684,12 +672,9 @@ def test_manager_create_allocates_new_run_after_project_completes() -> None:
 
 
 def test_manager_create_allocates_new_run_after_project_fails() -> None:
-    manager = _manager(_minimal_api_agent_for_manager_test, hub_name="TestHub")
+    manager = _manager(_failed_factory, hub_name="TestHub")
     first = manager.create(_project("my-project"))
-    with manager._lock:
-        state = manager._runs[first]
-        state["status"] = STATUS_FAILED
-        state["completed_at"] = time.time()
+    _complete_run(manager, first)
 
     second = manager.create(_project("my-project"))
 
@@ -723,22 +708,30 @@ def test_manager_create_rejects_blank_project_slug() -> None:
         manager.create(_project("   "))
 
 
-def test_manager_start_if_needed_is_idempotent() -> None:
-    manager = _manager(_minimal_api_agent_for_manager_test, hub_name="TestHub")
+
+def test_manager_start_run_is_idempotent() -> None:
+    names = []
+
+    def factory(*args, **kwargs):
+        names.append(current_thread().name)
+        return _minimal_api_agent_for_manager_test(*args, **kwargs)
+
+    manager = _manager(factory, hub_name="TestHub")
     run_id = manager.create(_project())
-    assert manager.start_if_needed(run_id)
-    assert not manager.start_if_needed(run_id)
-    state = manager.get_run(run_id)
-    assert state is not None
-    thread = state["thread"]
-    assert thread is not None
-    assert thread.name == f"TestHub-run-{run_id[:8]}"
+    try:
+        assert manager.start_run(run_id)
+        assert not manager.start_run(run_id)
+        _wait_status(manager, run_id, {"awaiting_user_input"})
+        assert names == [f"TestHub-run-{run_id[:8]}"]
+        assert manager.get_run(run_id)["worker_alive"]
+    finally:
+        assert manager.shutdown(timeout_s=5)
 
 
 def test_manager_cancel_awaiting_input_marks_cancelled() -> None:
     manager = _manager(_minimal_api_agent_for_manager_test, hub_name="TestHub")
     run_id = manager.create(_project())
-    assert manager.start_if_needed(run_id)
+    assert manager.start_run(run_id)
     _wait_status(manager, run_id, {"awaiting_user_input"})
 
     assert manager.cancel(run_id) is True
@@ -746,14 +739,21 @@ def test_manager_cancel_awaiting_input_marks_cancelled() -> None:
 
 
 def test_manager_cancel_running_thread_marks_cancelled() -> None:
-    manager = _manager(_busy_factory, hub_name="TestHub")
+    pipes = []
+
+    def factory(*args, **kwargs):
+        bundle = _busy_factory(*args, **kwargs)
+        pipes.append(bundle.agent.pipe)
+        return bundle
+
+    manager = _manager(factory, hub_name="TestHub")
     run_id = manager.create(_project())
-    assert manager.start_if_needed(run_id)
+    assert manager.start_run(run_id)
     _wait_status(manager, run_id, {"running"})
     time.sleep(0.1)  # let the thread enter the busy tool loop
     running_state = manager.get_run(run_id)
     assert running_state is not None
-    run_pipe = running_state["pipe"]
+    run_pipe = pipes[0]
     assert run_pipe is not None
     assert run_pipe.cancelled is False
 
@@ -764,23 +764,28 @@ def test_manager_cancel_running_thread_marks_cancelled() -> None:
     # The interrupted worker thread must actually unwind (this is the delete gate).
     state = manager.get_run(run_id)
     assert state is not None
-    thread = state["thread"]
-    assert thread is not None
     deadline = time.monotonic() + 5.0
-    while thread.is_alive() and time.monotonic() < deadline:
+    while manager.get_run(run_id)["worker_alive"] and time.monotonic() < deadline:
         time.sleep(0.02)
-    assert not thread.is_alive()
+    assert not manager.get_run(run_id)["worker_alive"]
 
 
 def test_manager_interrupt_running_thread_prompts_user_and_keeps_run_alive() -> None:
-    manager = _manager(_busy_factory, hub_name="TestHub")
+    pipes = []
+
+    def factory(*args, **kwargs):
+        bundle = _busy_factory(*args, **kwargs)
+        pipes.append(bundle.agent.pipe)
+        return bundle
+
+    manager = _manager(factory, hub_name="TestHub")
     run_id = manager.create(_project())
-    assert manager.start_if_needed(run_id)
+    assert manager.start_run(run_id)
     _wait_status(manager, run_id, {"running"})
     time.sleep(0.1)
     running_state = manager.get_run(run_id)
     assert running_state is not None
-    run_pipe = running_state["pipe"]
+    run_pipe = pipes[0]
     assert run_pipe is not None
     assert run_pipe.interrupted is False
 
@@ -789,24 +794,20 @@ def test_manager_interrupt_running_thread_prompts_user_and_keeps_run_alive() -> 
     view = _wait_status(manager, run_id, {"awaiting_user_input"})
     assert view["status"] == "awaiting_user_input"
     assert view["current_prompt"] is not None
+    assert manager.shutdown(timeout_s=5)
 
 
 def test_manager_interrupt_terminal_run_returns_false() -> None:
-    manager = _manager(_minimal_api_agent_for_manager_test, hub_name="TestHub")
+    manager = _manager(_immediate_factory, hub_name="TestHub")
     run_id = manager.create(_project())
-    with manager._lock:
-        state = manager._runs[run_id]
-        state["status"] = STATUS_COMPLETED
-        state["completed_at"] = time.time()
+    _complete_run(manager, run_id)
     assert manager.interrupt(run_id) is False
 
 
 def test_manager_cancel_returns_false_when_terminal() -> None:
-    manager = _manager(_minimal_api_agent_for_manager_test, hub_name="TestHub")
+    manager = _manager(_immediate_factory, hub_name="TestHub")
     run_id = manager.create(_project())
-    with manager._lock:
-        manager._runs[run_id]["status"] = STATUS_COMPLETED
-        manager._runs[run_id]["completed_at"] = time.time()
+    _complete_run(manager, run_id)
 
     assert manager.cancel(run_id) is False
 
@@ -819,7 +820,7 @@ def test_manager_cancel_queued_run_marks_cancelled_and_blocks_start() -> None:
     view = manager.run_view(run_id)
     assert view is not None
     assert view["status"] == "cancelled"
-    assert manager.start_if_needed(run_id) is False
+    assert manager.start_run(run_id) is False
 
 
 def test_manager_completes_immediately_after_root_exits_even_with_librarian() -> None:
@@ -847,7 +848,7 @@ def test_manager_completes_immediately_after_root_exits_even_with_librarian() ->
 
     manager = _manager(factory, hub_name="TestHub")
     run_id = manager.create(_project("syncing-proj"))
-    assert manager.start_if_needed(run_id)
+    assert manager.start_run(run_id)
     assert _wait_status(manager, run_id, {"completed"})["status"] == "completed"
     listed = [run for run in manager.list_project_runs() if run["run_id"] == run_id]
     assert listed and listed[0]["status"] == "completed"
@@ -882,7 +883,7 @@ def test_manager_failed_root_does_not_transition_through_syncing() -> None:
 
     manager = _manager(factory, hub_name="TestHub")
     run_id = manager.create(_project("failing-proj"))
-    assert manager.start_if_needed(run_id)
+    assert manager.start_run(run_id)
     assert _wait_status(manager, run_id, {"failed"})["status"] == "failed"
 
 
@@ -911,7 +912,7 @@ def test_manager_cancelled_run_does_not_enter_syncing_state() -> None:
 
     manager = _manager(factory, hub_name="TestHub")
     run_id = manager.create(_project("cancelled-proj"))
-    assert manager.start_if_needed(run_id)
+    assert manager.start_run(run_id)
     _wait_status(manager, run_id, {"running"})
 
     assert manager.cancel(run_id) is True
@@ -924,7 +925,7 @@ def test_manager_project_is_busy_tracks_thread_liveness_and_forget() -> None:
     # Not started yet: no live thread, so not busy.
     assert manager.project_is_busy("busy-proj") is False
 
-    assert manager.start_if_needed(run_id)
+    assert manager.start_run(run_id)
     _wait_status(manager, run_id, {"running"})
     deadline = time.monotonic() + 5.0
     while not manager.project_is_busy("busy-proj") and time.monotonic() < deadline:
@@ -1040,7 +1041,7 @@ def test_manager_cancel_does_not_fan_out_to_background_agents() -> None:
 
     manager = _manager(factory, hub_name="TestHub")
     run_id = manager.create(_project())
-    assert manager.start_if_needed(run_id)
+    assert manager.start_run(run_id)
     _wait_status(manager, run_id, {"running"})
     time.sleep(0.1)
     assert background.pipe.cancelled is False
@@ -1061,7 +1062,7 @@ def test_manager_cancel_project_cancels_background_librarian_pipe(
     slug = "syncing-project"
     project = _tmp_project(tmp_path, slug)
     run_id = manager.create(project)
-    assert manager.start_if_needed(run_id)
+    assert manager.start_run(run_id)
     assert _wait_status(manager, run_id, {"completed"})["status"] == "completed"
     assert background.pipe.cancelled is False
     _write_agent_log(
@@ -1070,7 +1071,7 @@ def test_manager_cancel_project_cancels_background_librarian_pipe(
         status="running",
     )
 
-    assert manager.cancel_project(slug) is True
+    assert manager.cancel_runs_for_project(slug) is True
     assert background.pipe.cancelled is True
     assert (
         manager.project_is_cancelling(project.slug, background_sync_active=True) is True
@@ -1087,68 +1088,96 @@ def test_manager_create_rejects_project_while_cancellation_is_in_progress(
     )
     project = _tmp_project(tmp_path, "cancelling-project")
     run_id = manager.create(project)
-    assert manager.start_if_needed(run_id)
+    assert manager.start_run(run_id)
     _wait_status(manager, run_id, {"completed"})
     _write_agent_log(
         project,
         agent_name=LIBRARIAN_AGENT_NAME,
         status="running",
     )
-    assert manager.cancel_project(project.slug) is True
+    assert manager.cancel_runs_for_project(project.slug) is True
 
     with pytest.raises(ProjectCancellationInProgressError, match="still in progress"):
         manager.create(project, background_sync_active=True)
 
 
-def test_manager_looks_up_each_cancelling_run() -> None:
-    manager = _manager(_minimal_api_agent_for_manager_test, hub_name="TestHub")
-    projects = [_project(f"cancelling-{index}") for index in range(4)]
-    run_ids = [manager.create(project) for project in projects]
-    with manager._lock:
-        for run_id in run_ids:
-            manager._runs[run_id]["status"] = STATUS_CANCELLING
-            manager._runs[run_id]["cancel_requested"] = True
 
-    assert all(manager.project_is_cancelling(project.slug) for project in projects)
+def test_manager_looks_up_each_cancelling_run() -> None:
+    release = Event()
+    entered = {f"cancelling-{index}": Event() for index in range(4)}
+
+    def factory(project, *, endpoint_getter, event_sinks):
+        entered[project.slug].set()
+        assert release.wait(5)
+        return _immediate_factory(
+            project, endpoint_getter=endpoint_getter, event_sinks=event_sinks
+        )
+
+    manager = _manager(factory, hub_name="TestHub")
+    projects = [_project(slug) for slug in entered]
+    try:
+        for project in projects:
+            run_id = manager.create(project)
+            assert manager.start_run(run_id)
+            assert entered[project.slug].wait(2)
+            assert manager.cancel(run_id)
+        assert all(manager.project_is_cancelling(project.slug) for project in projects)
+    finally:
+        release.set()
+        assert manager.shutdown(timeout_s=5)
 
 
 def test_manager_cancel_project_cancels_live_run_by_slug() -> None:
     manager = _manager(_minimal_api_agent_for_manager_test, hub_name="TestHub")
     slug = "live-project"
     run_id = manager.create(_project(slug))
-    assert manager.start_if_needed(run_id)
+    assert manager.start_run(run_id)
     _wait_status(manager, run_id, {"awaiting_user_input"})
 
-    assert manager.cancel_project(slug) is True
+    assert manager.cancel_runs_for_project(slug) is True
     assert _wait_status(manager, run_id, {"cancelled"})["status"] == "cancelled"
-    assert manager.cancel_project(slug) is True
+    assert manager.cancel_runs_for_project(slug) is True
 
 
 def test_manager_cancel_terminal_run_is_noop_without_syncing_path(
     tmp_path: Path,
 ) -> None:
-    manager = _manager(_minimal_api_agent_for_manager_test, hub_name="TestHub")
+    manager = _manager(_immediate_factory, hub_name="TestHub")
     run_id = manager.create(_tmp_project(tmp_path, "idle-proj"))
-    with manager._lock:
-        state = manager._runs[run_id]
-        state["status"] = STATUS_COMPLETED
-        state["completed_at"] = time.time()
+    _complete_run(manager, run_id)
 
     assert manager.cancel(run_id) is False
 
 
 def test_manager_list_project_runs_evicts_stale_completed_entries() -> None:
     manager = _manager(
-        _minimal_api_agent_for_manager_test,
+        _immediate_factory,
         hub_name="TestHub",
         completed_ttl_s=0.01,
     )
     run_id = manager.create(_project())
-    with manager._lock:
-        state = manager._runs[run_id]
-        state["status"] = STATUS_COMPLETED
-        state["completed_at"] = time.time() - 1.0
+    _complete_run(manager, run_id)
+    time.sleep(0.02)
 
     listed = manager.list_project_runs()
     assert listed == []
     assert manager.get_run(run_id) is None
+
+
+def _immediate_factory(project, *, endpoint_getter, event_sinks):
+    return RootAgentBundle(
+        SimpleNamespace(pipe=EventPipe(event_sinks=event_sinks), invoke=lambda: None)
+    )
+
+
+def _failed_factory(project, *, endpoint_getter, event_sinks):
+    raise RuntimeError("construction failed")
+
+
+def _complete_run(manager, run_id):
+    assert manager.start_run(run_id)
+    _wait_status(manager, run_id, {"completed", "failed"})
+    deadline = time.monotonic() + 5
+    while manager.get_run(run_id)["worker_alive"] and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert not manager.get_run(run_id)["worker_alive"]

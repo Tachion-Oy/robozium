@@ -1,5 +1,5 @@
-"""Live FastAPI CLI entrypoint; imported only when live mode is selected."""
+"""Explicit live application factory for ASGI launchers."""
 
-from robosprawl.api.app import live_app
+from robosprawl.api.app import live_app as app
 
-app = live_app()
+__all__ = ["app"]

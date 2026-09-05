@@ -68,6 +68,11 @@ class WaitRegistry:
             raise RuntimeError(msg)
         return popped.reply
 
+    def discard(self, prompt_id: str) -> None:
+        """Release a wait interrupted before its normal result/timeout cleanup."""
+        with self._lock:
+            self._slots.pop(prompt_id, None)
+
     def resolve(self, prompt_id: str, content: str) -> bool:
         with self._lock:
             slot = self._slots.get(prompt_id)
@@ -75,6 +80,8 @@ class WaitRegistry:
                 logger.warning(
                     "Resolve for unknown/inactive prompt (prompt_id=%s)", prompt_id
                 )
+                return False
+            if slot.event.is_set():
                 return False
             slot.reply = content
             slot.event.set()

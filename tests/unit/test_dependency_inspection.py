@@ -200,7 +200,7 @@ def test_standard_deployment_discovery_exactly_matches_explicit_registry() -> No
 
 
 def test_mock_app_dependency_contract_allows_startup() -> None:
-    with TestClient(mock_app) as client:
+    with TestClient(mock_app()) as client:
         assert client.get("/ready").status_code == 200
 
 

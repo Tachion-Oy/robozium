@@ -23,7 +23,7 @@ cp .env.example .env
 ./scripts/dev.sh --live
 ```
 
-The model selector retains GLM-5.3, GLM-5.3 Flash (OpenRouter), and GPT-OSS-120B (Cerebras). Endpoint URLs, context limits, and request options are application policy in `src/robosprawl/deployment.py`; credentials stay in the environment. OpenRouter is also required by the Librarian even when Cerebras is selected for the root agent. The dependency panel reports missing credentials or unavailable routes. Readiness means the application is initialized; provider health is reported independently. Model availability may depend on your provider account.
+The model selector retains GLM-5.3, GLM-5.3 Flash (OpenRouter), and GPT-OSS-120B (Cerebras). Endpoint URLs, context limits, request options, and the root/memory model choices are configurable in the optional `deployment` section of `hub.config.json`; `hub.config.json.example` shows the full defaults. Credentials stay in the environment. With the default configuration, OpenRouter is also required by the Librarian even when Cerebras is selected for the root agent. The dependency panel reports missing credentials or unavailable routes. Readiness means the application is initialized; provider health is reported independently. Model availability may depend on your provider account.
 
 Live capabilities are interaction, guarded file reading, literal patch editing, automatic context compaction, and Librarian memory. Reads stay within the configured sandbox; the current project is writable, shared workspace writes prompt, and other locations are denied. These are application tool guards, not an OS sandbox. Live transcription returns a clear HTTP 503; mock transcription remains testable. See [deferred dependency work](docs/deferred-dependency-changes.md) for omitted integrations.
 
@@ -31,11 +31,50 @@ Both launch modes use `fastapi dev`, showing the FastAPI startup banner, API doc
 
 The launcher waits up to 60 seconds for API readiness and stops both process groups when either service exits or Ctrl+C is pressed. Ports 8000 and 3000 must be free.
 
+## Backend configuration and launch
+
+For a backend-only development server:
+
+```bash
+source scripts/env.sh
+uv run uvicorn robosprawl.api.app:mock_app --factory --reload --reload-dir src
+# Live backend, with credentials from .env:
+uv run --env-file .env uvicorn robosprawl.api.app:live_app --factory --reload --reload-dir src
+```
+
+Set `ROBOSPRAWL_CONFIG=/absolute/path/hub.config.json` to choose a separate deployment and data location. The existing configuration remains valid without a `deployment` section. To use one OpenAI-compatible model for both the root agent and memory, add this section and replace the example service/model values:
+
+```json
+"deployment": {
+  "endpoints": {
+    "local": {
+      "label": "Local model",
+      "api_name": "local",
+      "model": "your-model-id",
+      "base_url": "http://127.0.0.1:1234/v1",
+      "api_key_env": "LOCAL_MODEL_KEY",
+      "max_context_tokens": 32768
+    }
+  },
+  "selectable_models": ["local"],
+  "default_model": "local",
+  "memory_model": "local"
+}
+```
+
+Set the referenced credential variable (use a placeholder if your local service requires no authentication). Each endpoint also accepts `timeout_s` (default 60), `stream` (default true), and `extra_body`. Endpoint keys are local configuration references; `api_name` distinguishes services in dependency identities. The model menu, memory pipeline, and dependency health registrations are assembled together. Invalid references, overlapping persistence folders, and missing `logs`, `snapshots`, or `memory` folders fail configuration validation before agents are constructed.
+
+For custom Python deployments, `HubDeployment.custom()` accepts a model selector and dependency registrations. Built-in executable/model checker registrations can be inferred from the constructed graph; other dependency kinds require explicit checkers. An explicit registry retains exact graph validation.
+
+Backend imports have no startup side effects. ASGI factories build an app; its lifespan registers use of process logging and recovers activity markers before accepting work. Overlapping apps in one process must share the same logging configuration. Shutdown cancels root and background work and waits up to ten seconds, logging a timeout if synchronous work cannot stop. Run registries are process-local: run one backend worker per data directory.
+
+See [Backend ownership](docs/backend-architecture.md) for the intent and boundaries of the runtime.
+
 ## Data and isolation
 
-`hub.config.json` is generic and ready to use; `hub.config.json.example` documents the same layout. Runtime data defaults to `.runtime/data` and technical logs to `.runtime/logs`. Each project owns `conversation_logs`, `conversation_snapshots`, and `persistent_memory`. Configuration lookup checks the current directory and its parents before the application checkout.
+`hub.config.json` is generic and ready to use; `hub.config.json.example` documents the layout and model defaults. Runtime data defaults to `.runtime/data` and technical logs to `.runtime/logs`. Each project owns `conversation_logs`, `conversation_snapshots`, and `persistent_memory`. Configuration lookup uses `ROBOSPRAWL_CONFIG` when set, otherwise checks the current directory and its parents before the application checkout. All relative data and log paths resolve against the selected configuration file. Python callers can pass `load_hub_config(config_file=Path(...))`, which takes precedence over the environment.
 
-The scripts source `scripts/env.sh`, keeping environments, Python bytecode, uv/npm caches, downloaded browsers, inside `.artifacts`, `.venv`, or `web`. Next.js build output and browser reports also remain inside this checkout. These generated directories are gitignored. Before running tools directly, use:
+The scripts source `scripts/env.sh`, keeping temporary files, environments, Python bytecode, uv/npm caches, and downloaded browsers inside `.artifacts`, `.venv`, or `web`. Next.js build output and browser reports also remain inside this checkout. These generated directories are gitignored. Before running tools directly, use:
 
 ```bash
 source scripts/env.sh

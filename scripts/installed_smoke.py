@@ -42,6 +42,7 @@ def main() -> None:
                 "-m",
                 "uvicorn",
                 "robosprawl.api.app:mock_app",
+                "--factory",
                 "--host",
                 "127.0.0.1",
                 "--port",

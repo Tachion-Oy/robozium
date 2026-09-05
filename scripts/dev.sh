@@ -9,7 +9,7 @@ API_URL="http://127.0.0.1:8000"
 
 source "${REPO_ROOT}/scripts/env.sh"
 cd "${REPO_ROOT}"
-APP_TARGET="robosprawl.api.app:mock_app"
+APP_TARGET="robosprawl.api.mock:app"
 ENV_ARGS=()
 case "${1:-}" in
     "") ;;
