@@ -18,10 +18,19 @@ the unused local key was deleted. The replacement is a fine-grained read-only
 token restricted to Roboz, configured separately in Actions and Dependabot
 secrets; see [setup and PyPI cutover](testing.md#temporary-private-dependency-access).
 
-`actionlint` 1.7.12 and `git diff --check` pass for this repair. Credential setup
-and complete GitHub CI validation remain pending. This supersedes the earlier
-assumption below that public repository access was the only supported checkout
-path; the historical local validation results remain distinct from GitHub results.
+`actionlint` 1.7.12 and `git diff --check` pass for this repair. Both secret entries
+were confirmed through GitHub metadata after setup; secret values were not read.
+The [credential-enabled rerun](https://github.com/Tachion-Oy/robosprawl/actions/runs/33971837032/attempts/2)
+successfully checked out Roboz and passed Python 3.13/3.14, quality, and distribution
+validation, allowing the three browser suites to run. Full job results are linked
+from [the repair PR's checks](https://github.com/Tachion-Oy/robosprawl/pull/8/checks).
+Dependabot's secret entry exists, but its end-to-end validation requires a
+Dependabot PR containing the repaired workflow; existing Dependabot PRs still
+use the earlier workflow on `main`.
+
+This supersedes the earlier assumption below that public repository access was
+the only supported checkout path; the historical local validation results remain
+distinct from GitHub results.
 
 ## Release-quality CI implementation — 2026-09-05
 
