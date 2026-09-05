@@ -79,7 +79,10 @@ starting a new run after recovery.
 
 ## Browser diagnostics and visual review
 
-All Chromium, Firefox, and WebKit tests are required. On CI, `failOnFlakyTests`
+All Chromium, Firefox, and WebKit tests are required. The 20 repeated WebKit
+scenarios run in a separate browser-matrix entry alongside the three full suites;
+all four entries must pass. Reports use `browser-<browser>-<suite>` artifact names,
+where suite is `full` or `stress`. On CI, `failOnFlakyTests`
 rejects tests that pass only on retry. Retries exist for diagnostics, not for
 turning a flaky run green. Chromium visual baselines stay immutable in CI;
 `updateSnapshots: 'none'` also makes local baseline changes intentional. To
@@ -92,6 +95,11 @@ changes. Unknown-run recovery dismisses the toast immediately after it appears, 
 waiting for route/layout recovery or observing a later polling interval. The
 two repeated scenarios cancel their active projects afterward, avoiding an
 accumulation of background Librarians during stress runs.
+
+The minimized-widget geometry check waits for its scale transition to finish
+before measuring. The light-theme hover check waits for the reply-ready state
+before moving the pointer, then waits for the CSS transform; a short enclosing
+retry timeout must not interrupt the browser's actionability wait.
 
 ## Required status and publication
 

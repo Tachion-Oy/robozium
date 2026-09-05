@@ -28,6 +28,18 @@ Dependabot's secret entry exists, but its end-to-end validation requires a
 Dependabot PR containing the repaired workflow; existing Dependabot PRs still
 use the earlier workflow on `main`.
 
+That first complete browser run exposed two WebKit timing assertions: minimized
+widget bounds were sampled during its scale transition, and a five-second retry
+wrapper interrupted the Minimize hover before WebKit finished its stability
+check. Chromium passed 38 tests, Firefox passed 36, and WebKit passed all 20 stress
+repetitions before its full suite reported 33 passes, two failures, and one skipped
+test. The repair waits for the widget's final transform and for reply-ready state
+before the light-theme hover, retaining the geometry and hover-style assertions.
+WebKit stress and full-suite entries now run in parallel and remain required.
+The two repaired scenarios passed three repetitions each with retries disabled
+against the downloaded CI frontend and backend builds (six passes in 1.7 minutes).
+TypeScript, targeted ESLint, actionlint, and whitespace checks also passed.
+
 This supersedes the earlier assumption below that public repository access was
 the only supported checkout path; the historical local validation results remain
 distinct from GitHub results.

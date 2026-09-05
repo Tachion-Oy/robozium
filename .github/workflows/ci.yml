@@ -158,6 +158,10 @@ jobs:
       fail-fast: false
       matrix:
         browser: [chromium, firefox, webkit]
+        suite: [full]
+        include:
+          - browser: webkit
+            suite: stress
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -195,18 +199,19 @@ jobs:
           source scripts/env.sh
           python scripts/e2e/check_runner.py
       - name: Repeat repaired WebKit scenarios without retries
-        if: matrix.browser == 'webkit'
+        if: matrix.suite == 'stress'
         env:
           ROBOSPRAWL_E2E_PREBUILT: "1"
         run: bash scripts/e2e/run-mock-playwright.sh --project=webkit --grep='opens compact on landing|an unknown run keeps' --repeat-each=10 --retries=0
       - name: Complete browser suite
+        if: matrix.suite == 'full'
         env:
           ROBOSPRAWL_E2E_PREBUILT: "1"
         run: bash scripts/e2e/run-mock-playwright.sh --project=${{ matrix.browser }}
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:
-          name: browser-${{ matrix.browser }}
+          name: browser-${{ matrix.browser }}-${{ matrix.suite }}
           path: robosprawl/.artifacts/e2e/
           retention-days: 14
   ci:
