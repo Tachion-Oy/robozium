@@ -63,11 +63,10 @@ Browser suites and hosted CI were not run for this backend migration.
 
 ## Integration order
 
-The Roboz change is on `feat/shared-compaction` in the existing checkout.
-RoboSprawl is on `refactor/shared-compaction` in
-`/home/tommi/Projects/robosprawl-worktrees/shared-compaction`; the existing sibling
-`roboz` symlink supplies its relative source dependencies. The main application
-checkout and other worktrees are untouched.
+For local validation, place `robosprawl/` and `roboz/` under the same parent
+directory. From RoboSprawl, the dependency checkout must be available at
+`../roboz`, using the Roboz commit recorded above. Follow the
+[setup instructions](../README.md) for the relative source dependencies.
 
 Push the Roboz feature branch before the application branch so its three CI
 checkout pins can fetch the new dependency. Merge the Roboz dependency PR before
