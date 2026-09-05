@@ -1,12 +1,22 @@
 """Configuration can be inspected and imported independently of startup."""
 
 import json
+import logging
+import os
+import subprocess
+import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
+from roboz import Agent
+from roboz.tools import stop
 
+from robosprawl.api.app import create_app
 from robosprawl.api.dependencies import inspect_dependencies
+from robosprawl.composition import RootAgentBundle
 from robosprawl.deployment import HubDeployment
 from robosprawl.hub import load_hub_config
 from robosprawl.settings import DeploymentSettings
@@ -18,6 +28,70 @@ def config_file(tmp_path):
     path = tmp_path / "hub.config.json"
     path.write_text(example.read_text())
     return path
+
+
+def test_imports_do_not_boot_or_modify_process_paths(tmp_path):
+    code = """
+import logging, pathlib, tempfile
+from roboz.runtime.persistence import mark_conversation_active, active_marker_paths
+root = pathlib.Path.cwd()
+logs = root / 'logs'
+mark_conversation_active(agent_dir=logs / 'orchestrator', conversation_id='existing')
+before_temp = tempfile.gettempdir()
+before_handlers = list(logging.getLogger('robosprawl').handlers)
+import robosprawl.api.app
+import robosprawl.api.live
+import robosprawl.api.mock
+import robosprawl.api.run_manager
+assert len(active_marker_paths(logs, {'orchestrator'})) == 1
+assert tempfile.gettempdir() == before_temp
+assert logging.getLogger('robosprawl').handlers == before_handlers
+assert not (root / '.artifacts').exists()
+assert callable(robosprawl.api.app.mock_app)
+"""
+    env = {
+        **os.environ,
+        "ROBOSPRAWL_CONFIG": str(tmp_path / "missing.json"),
+        "ROBOSPRAWL_ROOT": str(tmp_path),
+        "PYTHONDONTWRITEBYTECODE": "1",
+    }
+    subprocess.run(
+        [sys.executable, "-B", "-c", code],
+        cwd=tmp_path,
+        env=env,
+        check=True,
+        timeout=15,
+    )
+
+
+def test_logging_uses_each_explicit_app_config(config_file):
+    config = load_hub_config(config_file=config_file)
+
+    def factory(project, *, endpoint_getter, event_sinks):
+        return RootAgentBundle(
+            Agent(
+                name="root",
+                is_agentic=False,
+                agent_endpoint=None,
+                default_tools=[stop],
+                event_sinks=event_sinks,
+            )
+        )
+
+    for name in ["first", "second"]:
+        path = config_file.parent / name / "backend.jsonl"
+        selected = replace(config, logging=replace(config.logging, path=path))
+        app = create_app(
+            deployment=HubDeployment.custom(selected, factory, None),
+            dependency_registry=(),
+        )
+        assert not path.exists(), "app construction must not configure logging"
+        with TestClient(app):
+            logging.getLogger("robosprawl.test").info("message-%s", name)
+        assert f"message-{name}" in path.read_text()
+    assert (
+        "message-second" not in (config_file.parent / "first/backend.jsonl").read_text()
+    )
 
 
 def custom_settings():
@@ -121,3 +195,42 @@ def test_persistence_folders_cannot_escape_or_overlap(config_file, folders):
         load_hub_config(config_file=config_file)
 
 
+@pytest.mark.parametrize("conflicting", [False, True])
+def test_overlapping_app_lifespans_preserve_existing_logging(config_file, conflicting):
+    config = load_hub_config(config_file=config_file)
+
+    def factory(project, *, endpoint_getter, event_sinks):
+        return RootAgentBundle(
+            Agent(
+                name="root",
+                is_agentic=False,
+                agent_endpoint=None,
+                default_tools=[stop],
+                event_sinks=event_sinks,
+            )
+        )
+
+    def app(selected):
+        return create_app(
+            deployment=HubDeployment.custom(selected, factory, None),
+            dependency_registry=(),
+        )
+
+    with TestClient(app(config)) as first:
+        if conflicting:
+            other = replace(
+                config,
+                logging=replace(
+                    config.logging, path=config_file.parent / "conflicting.jsonl"
+                ),
+            )
+            with pytest.raises(RuntimeError, match="different configuration"):
+                with TestClient(app(other)):
+                    pytest.fail("conflicting app started")
+            assert not other.logging.path.exists()
+        else:
+            with TestClient(app(config)) as second:
+                assert second.get("/ready").status_code == 200
+        logging.getLogger("robosprawl.test").info("first-app-still-active")
+        assert first.get("/ready").status_code == 200
+        assert "first-app-still-active" in config.logging.path.read_text()

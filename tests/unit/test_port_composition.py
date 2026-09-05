@@ -93,11 +93,11 @@ def reject(*args, **kwargs):
 deployment.HubDeployment.standard = reject
 from robosprawl.api.app import mock_app
 from fastapi.testclient import TestClient
-with TestClient(mock_app) as client:
+with TestClient(mock_app()) as client:
     assert client.get('/ready').status_code == 200
-    from robosprawl.backend_logging import _HANDLERS
+    import logging
     from robosprawl.hub import load_hub_config
-    assert _HANDLERS[1].baseFilename == str(load_hub_config().logging.path)
+    assert any(getattr(handler, "baseFilename", None) == str(load_hub_config().logging.path) for handler in logging.getLogger("robosprawl").handlers)
     assert all(row['kind'] == 'executable' for row in client.get('/admin/dependencies').json())
 """,
         ],

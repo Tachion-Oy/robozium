@@ -24,13 +24,13 @@ from roboz.llm.calls import call_transcription_api
 from roboz.runtime import log_with_data
 from roboz.runtime.events import PipeEvent
 
-from robosprawl.api.dependencies import dependency_lifespan
 from robosprawl.api.dependencies import router as dependency_router
 from robosprawl.api.errors import (
     ProjectBusyError,
     ProjectCancellationInProgressError,
 )
 from robosprawl.api.files import serve_hub_file
+from robosprawl.api.lifespan import application_lifespan
 from robosprawl.api.models import *
 from robosprawl.api.project_service import ProjectService
 from robosprawl.api.run_manager import RunManager
@@ -39,7 +39,6 @@ from robosprawl.api.state import RunStatus
 from robosprawl.api.state import (
     RunView as RunViewState,
 )
-from robosprawl.backend_logging import configure_backend_logging
 from robosprawl.dependency_contract import DependencyRegistration
 from robosprawl.deployment import (
     EXECUTABLE_DEPENDENCY_REGISTRATIONS,
@@ -107,17 +106,13 @@ def create_app(
         ),
     )
     projects = ProjectService(hub_config, manager)
-    configure_backend_logging(hub_config.logging)
-    projects.recover()
     app = FastAPI(
         title=hub_config.name,
         version="0.1.0",
-        lifespan=dependency_lifespan(
-            factory=deployment.orchestrator_factory,
-            endpoint_getter=lambda: deployment.model_selector.selected_endpoint,
-            project=hub_config.project(hub_config.name),
-            transcription_endpoint=deployment.transcription_endpoint,
-            selectable_endpoints=deployment.inspectable_endpoints,
+        lifespan=application_lifespan(
+            deployment=deployment,
+            manager=manager,
+            projects=projects,
             registrations=dependency_registry
             if dependency_registry is not None
             else deployment.dependency_registry,
@@ -435,14 +430,17 @@ def live_app() -> FastAPI:
 MOCK_DEPENDENCY_REGISTRY = EXECUTABLE_DEPENDENCY_REGISTRATIONS
 
 
-mock_app = create_app(
-    deployment=HubDeployment.custom(
-        load_hub_config(),
-        mock_orchestrator_factory,
-        MockTranscriptionEndpoint(["mock transcription"]),
-    ),
-    dependency_registry=MOCK_DEPENDENCY_REGISTRY,
-)
+def mock_app() -> FastAPI:
+    return create_app(
+        deployment=HubDeployment.custom(
+            load_hub_config(),
+            mock_orchestrator_factory,
+            MockTranscriptionEndpoint(["mock transcription"]),
+            dependency_registry=MOCK_DEPENDENCY_REGISTRY,
+        ),
+    )
+
+
 def stream_mock_app() -> FastAPI:
     """Create the paced, ephemeral mock only when explicitly launched."""
     return create_app(

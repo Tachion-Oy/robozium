@@ -339,6 +339,32 @@ def test_shutdown_tracks_background_thread_until_it_exits(config):
     projects.delete("demo")
 
 
+def test_lifespan_shutdown_releases_input_wait(config):
+    ready = threading.Event()
+
+    def factory(project, *, endpoint_getter, event_sinks):
+        def invoke():
+            ready.set()
+            interact_with_user("question", with_reply=True)
+
+        return RootAgentBundle(
+            SimpleNamespace(
+                pipe=EventPipe(), invoke=invoke, external_dependencies=lambda: ()
+            )
+        )
+
+    app = create_app(
+        deployment=HubDeployment.custom(config, factory, None), dependency_registry=()
+    )
+    with TestClient(app):
+        manager = app.state.run_manager
+        run_id = manager.create(config.project("demo"))
+        manager.start_run(run_id)
+        assert ready.wait(2)
+    assert not manager.get_run(run_id)["worker_alive"]
+    assert manager.run_view(run_id)["status"] == "cancelled"
+
+
 def test_interrupted_input_releases_its_wait_slot(config, monkeypatch):
     control = RunControl(
         config.project("demo"), DEFAULT_ORCHESTRATOR_MODEL, history_limit=10
