@@ -6,7 +6,7 @@ A runnable project-agent application built on Roboz, with a FastAPI backend, str
 
 Use Linux with Bash, `setsid`, curl, uv (CI uses 0.12.10), Node.js 22, npm, and the read commands `grep`, `rg`, `pwd`, `cat`, `head`, `tail`, `find`, `ls`, `wc`, and `diff`. Python 3.13+ is required; uv downloads it into this checkout if needed. Playwright needs its usual Linux browser libraries already installed; installation scripts do not change system packages.
 
-Place Roboz at `../roboz`, pinned to `4e531215c69aec42e82af24e47f06c871b896f82` for the verified dependency contract. RoboSprawl consumes that checkout through its public package APIs. From the RoboSprawl directory:
+Place a fresh checkout of Roboz’s current `main` at `../roboz`. RoboSprawl consumes that checkout through its public package APIs. From the RoboSprawl directory:
 
 ```bash
 ./scripts/install.sh
@@ -97,7 +97,8 @@ recovery after a backend crash/restart. Chromium and Firefox are required in CI;
 WebKit is temporarily advisory, including its stress run.
 The repaired WebKit layout and toast scenarios are repeated ten times without
 retries in CI. Flaky tests fail their browser job even if a diagnostic retry
-passes; WebKit failures do not block the aggregate CI gate.
+passes. Completed WebKit test failures produce advisory warnings and successful
+job checks; setup, service, interruption, and cleanup failures remain required.
 
 Set `ROBOSPRAWL_E2E_API_PORT` and `ROBOSPRAWL_E2E_WEB_PORT` if ports 8000 and 3100
 are occupied. Each invocation owns its backend, frontend, temporary data, and
@@ -113,9 +114,11 @@ For a paced stream demonstration, source `scripts/env.sh` and run `uv run uvicor
 
 Visual baselines live under `web/e2e/visual-regression.spec.ts-snapshots`. Update them intentionally with `--project=chromium --update-snapshots`, then review the images. [Verification notes](docs/verification.md) record the port's results and visual review. Credential-backed live inference is reported separately from automated configuration tests.
 
-CI checks out this repository and the pinned Roboz revision as siblings, so
-locked source paths work unchanged. Dependencies are built once and passed as
-candidate artifacts. Require the aggregate **CI** check for branch protection.
+CI resolves Roboz’s current `main` once per workflow run and checks out that
+exact revision beside this repository for Python, quality, and packaging checks.
+Both tested source revisions appear in the workflow summary and distribution
+reports. Dependencies are built fresh and passed to browser jobs as artifacts
+from the same run; previous runs’ application builds are not reused. Require the aggregate **CI** check for branch protection.
 Actions are pinned to immutable commits and maintained by Dependabot. Until Roboz
 is published, its private checkout uses a dedicated fine-grained read-only token stored
 as `ROBOZ_CI_TOKEN` in both Actions and Dependabot secrets. Same-repository PRs

@@ -4,7 +4,7 @@ The original port treated external repositories as read-only. Reusable capabilit
 
 ## Remaining naming cleanup in Roboz
 
-Repository: `Tachion-Oy/roboz`, pinned at `4e531215c69aec42e82af24e47f06c871b896f82`.
+Repository: `Tachion-Oy/roboz`. CI tests its current `main`, resolved once per run.
 
 The historical project prefix remains in Roboz documentation, test fixtures, and the Proton Bridge request-ID email header. The header is defined by `EmailHeader.REQUEST_ID` in `packages/proton-bridge/src/roboz_proton_bridge/protocol.py` (the literal legacy spelling is deliberately not duplicated here).
 
@@ -30,6 +30,7 @@ No unresolved dependency compatibility blocker has been identified. Credential-b
 
 The previously advisory WebKit findings are addressed in application tests:
 geometry waits for layout and toast dismissal precedes the polling-stop wait.
-All three browsers now gate CI. See [testing](testing.md) for repetition commands
+Chromium and Firefox gate CI. Completed WebKit test failures are advisory;
+setup and runner failures remain required. See [testing](testing.md) for repetition commands
 and [verification](verification.md) for local evidence and remaining limits.
 No dependency API change is required by these repairs.

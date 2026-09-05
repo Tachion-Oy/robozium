@@ -1,7 +1,9 @@
 # Shared compaction migration
 
-RoboSprawl uses `roboz_shed.tools.get_compactify_messages_when_needed_tool` from
-Roboz commit `4e531215c69aec42e82af24e47f06c871b896f82`. The redundant application
+The migration was verified with
+`roboz_shed.tools.get_compactify_messages_when_needed_tool` from Roboz commit
+`4e531215c69aec42e82af24e47f06c871b896f82`. That SHA is historical evidence;
+current CI tests Roboz `main`, resolved once per run. The redundant application
 module and identifier are removed. Python consumers should import the builder
 from `roboz_shed.tools` and its name from `roboz_shed.identifiers`.
 
@@ -61,7 +63,7 @@ The installed checks verify imports originate in the fresh installation rather
 than a checkout. Tests use scripted providers without live credentials.
 Browser suites and hosted CI were not run for this backend migration.
 
-## Integration order
+## Historical integration order (superseded)
 
 For local validation, place `robosprawl/` and `roboz/` under the same parent
 directory. From RoboSprawl, the dependency checkout must be available at
