@@ -8,7 +8,7 @@ vi.mock("../../lib/robosprawl/http", () => ({
 	fetchSeed: mocks.fetchSeed,
 }))
 
-vi.mock("../../app/components/terminal", () => ({
+vi.mock("../../app/components/AppView", () => ({
 	AppView: () => null,
 }))
 

@@ -8,6 +8,4 @@ export { TerminalEmphasis } from "./TerminalEmphasis";
 export { TerminalTag } from "./TerminalTag";
 export { TerminalStream } from "./TerminalStream";
 export { TerminalRunView } from "./TerminalRunView";
-export { AgentHUD } from "./AgentHUD";
-export { AppView } from "./AppView";
 export { placeholderLogItems } from "./placeholders";

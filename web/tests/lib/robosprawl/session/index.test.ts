@@ -222,7 +222,7 @@ describe("cancel parity between the run table and the run HUD", () => {
 	it("calls the identical project-cancel API from both entry points", async () => {
 		mockedCancelProject.mockResolvedValue({ ok: true })
 
-		// Run table entry point: LandingHud.handleCancelRun calls project cancel
+		// Run table entry point: ProjectOverview.handleCancelRun calls project cancel
 		// directly, with no local state gating it whatsoever.
 		await cancelProjectApi("table-project")
 
