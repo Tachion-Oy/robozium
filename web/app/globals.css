@@ -18,11 +18,13 @@
 @import "./styles/theme.css";
 @import "./styles/base.css";
 @import "./styles/crt.css";
-@import "./styles/hud.css";
+@import "./components/hud/hud-frame.css";
+@import "./components/hud/hud-panels.css";
+@import "./components/hud/hud-controls.css";
+@import "./components/hud/projects/project-overview.css";
 @import "./styles/terminal.css";
 @import "./styles/nav.css";
 @import "./styles/light-theme.css";
-@import "./styles/light-hud.css";
 @import "./styles/model-selector.css";
 @import "./styles/error-toast.css";
 @import "./styles/theme-toggle.css";

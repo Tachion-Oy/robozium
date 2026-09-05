@@ -1,0 +1,1272 @@
+/* Shared HUD controls: base and light-theme presentation. */
+
+/* Base */
+
+/* Prompt-history controls share the layout control's triangular SVG language.
+   The group occupies the geometric centre of the bottom action row. */
+
+.agent-hud__message-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  justify-self: center;
+  pointer-events: none;
+}
+
+.agent-hud__message-nav-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.04rem;
+  pointer-events: none;
+}
+
+.agent-hud__layout-direction.agent-hud__message-direction {
+  /* Slightly overlapping margins compact the pair without shrinking its 36px
+     hit targets or making it shorter than the centre status indicator. */
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  margin-inline: -2px;
+  align-self: center;
+  pointer-events: auto;
+}
+
+.agent-hud__layout-wedge.agent-hud__message-wedge {
+  width: 1.05rem;
+  height: 0.92rem;
+}
+
+.agent-hud__message-wedge--previous {
+  transform: rotate(-90deg);
+}
+
+.agent-hud__message-wedge--next {
+  transform: rotate(90deg);
+}
+
+.agent-hud__layout-wedge.agent-hud__message-wedge--jump {
+  width: 1.38rem;
+  height: 0.92rem;
+  transform: none;
+}
+
+/* Brand initial in the action row. It is a passive status indicator, not a
+   control. State-specific treatments are shared with the minimized copy. */
+
+.agent-hud__logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--hud-logo-size);
+  height: var(--hud-logo-size);
+  font-family: "Anurati Pro", var(--font-display);
+  font-weight: 400;
+  font-variation-settings: "SCAN" -40;
+  font-size: var(--hud-logo-font-size);
+  line-height: 1;
+  letter-spacing: 0;
+  color: color-mix(in oklab, var(--term-blue) 80%, white 20%);
+  background: var(--hud-logo-bg);
+  border: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 9px color-mix(in oklab, var(--term-blue) 52%, transparent);
+  text-shadow:
+    0 0 4px color-mix(in oklab, var(--term-blue) 85%, transparent),
+    0 0 12px color-mix(in oklab, var(--term-blue) 55%, transparent);
+  transition:
+    color 180ms ease,
+    text-shadow 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.agent-hud__logo--actions {
+  --hud-logo-size: 36px;
+  --hud-logo-font-size: 31px;
+  position: static;
+  flex: 0 0 auto;
+  transform: none;
+}
+
+/* Awaiting input is the brighter, steady state: Send is available regardless
+   of which historical message is currently displayed. */
+
+.agent-hud__logo[data-agent-state="awaiting-input"] {
+  color: color-mix(in oklab, white 84%, var(--term-lime) 16%);
+  text-shadow:
+    0 0 2px color-mix(in oklab, white 68%, transparent),
+    0 0 6px color-mix(in oklab, white 52%, transparent),
+    0 0 12px color-mix(in oklab, var(--term-lime) 80%, transparent),
+    0 0 30px color-mix(in oklab, var(--term-lime) 68%, transparent),
+    0 0 60px color-mix(in oklab, var(--term-lime) 48%, transparent);
+  box-shadow: 0 0 9px color-mix(in oklab, var(--term-blue) 52%, transparent);
+}
+
+/* While the agent works, both indicators pulse distinctly in the stream's
+   amber. This static rule is also the reduced-motion fallback. */
+
+.agent-hud__logo[data-agent-state="working"] {
+  color: var(--term-amber);
+  text-shadow:
+    0 0 2px color-mix(in oklab, var(--term-amber) 82%, transparent),
+    0 0 7px color-mix(in oklab, var(--term-amber) 62%, transparent),
+    0 0 18px color-mix(in oklab, var(--term-amber) 42%, transparent),
+    0 0 38px color-mix(in oklab, var(--term-amber) 24%, transparent);
+  box-shadow: 0 0 9px color-mix(in oklab, var(--term-amber) 52%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes hud-agent-working-pulse {
+    from {
+      color: color-mix(in oklab, var(--term-amber) 58%, black 42%);
+      text-shadow:
+        0 0 1px color-mix(in oklab, var(--term-amber) 42%, transparent),
+        0 0 5px color-mix(in oklab, var(--term-amber) 24%, transparent),
+        0 0 14px color-mix(in oklab, var(--term-amber) 12%, transparent),
+        0 0 30px color-mix(in oklab, var(--term-amber) 5%, transparent);
+      box-shadow: 0 0 9px
+        color-mix(in oklab, var(--term-amber) 52%, transparent);
+    }
+    to {
+      color: color-mix(in oklab, white 22%, var(--term-amber) 78%);
+      text-shadow:
+        0 0 2px color-mix(in oklab, white 48%, transparent),
+        0 0 8px color-mix(in oklab, var(--term-amber) 92%, transparent),
+        0 0 22px color-mix(in oklab, var(--term-amber) 70%, transparent),
+        0 0 48px color-mix(in oklab, var(--term-amber) 46%, transparent);
+      box-shadow: 0 0 9px
+        color-mix(in oklab, var(--term-amber) 52%, transparent);
+    }
+  }
+
+  .agent-hud__logo[data-agent-state="working"] {
+    animation: hud-agent-working-pulse 1.15s ease-in-out infinite alternate;
+  }
+}
+
+/* The brand "A", centred on top: the same seam-logo indicator at the same size,
+   only flowed in the stack instead of absolutely positioned on a seam. Rest and
+   pulse styling are inherited from .agent-hud__logo. */
+
+.agent-hud__logo--mini {
+  position: static;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-hud__actions-submit {
+    animation: none;
+    transition: none;
+  }
+}
+
+.agent-hud__actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--hud-actions-gap);
+}
+
+/* Octagon button chrome: two solid, nested polygons form a continuous accent
+   shell and inset surface. Unlike separate 1px gradient strips, these shapes do
+   not lose individual edges when browser zoom places the control on fractional
+   device pixels. Variants inherit their surface from --btn-accent and adjust
+   --btn-fill-strength, with interaction states free to brighten the edge. */
+
+.agent-hud__expand,
+.agent-hud__minimize,
+.agent-hud__corner-control,
+.agent-hud__copy-text,
+.agent-hud__dictate,
+.agent-hud__cancel,
+.agent-hud__interrupt,
+.agent-hud__layout-controls .agent-hud__layout-direction,
+.agent-hud__send,
+.agent-hud__selector-trigger {
+  /* Shape-locked equivalent of the original 9px cut at a 16px root. */
+  --btn-cut: 0.5625rem;
+  --btn-ring: 2px;
+  --btn-accent: var(--term-blue);
+  --btn-fill-strength: 10%;
+  --btn-edge: color-mix(in oklab, var(--btn-accent) 38%, transparent);
+  --btn-surface: color-mix(in oklab, var(--hud-input-bg) 90%, transparent);
+  --btn-fill: color-mix(
+    in oklab,
+    var(--btn-accent) var(--btn-fill-strength),
+    transparent
+  );
+  position: relative;
+  z-index: 0;
+  border: 0;
+  background: transparent;
+}
+
+.agent-hud__expand::before,
+.agent-hud__minimize::before,
+.agent-hud__corner-control::before,
+.agent-hud__copy-text::before,
+.agent-hud__dictate::before,
+.agent-hud__cancel::before,
+.agent-hud__interrupt::before,
+.agent-hud__layout-controls .agent-hud__layout-direction::before,
+.agent-hud__send::before,
+.agent-hud__selector-trigger::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  clip-path: polygon(
+    var(--btn-cut) 0,
+    calc(100% - var(--btn-cut)) 0,
+    100% var(--btn-cut),
+    100% calc(100% - var(--btn-cut)),
+    calc(100% - var(--btn-cut)) 100%,
+    var(--btn-cut) 100%,
+    0 calc(100% - var(--btn-cut)),
+    0 var(--btn-cut)
+  );
+  background: var(--btn-edge);
+  transition: background 120ms ease;
+}
+
+.agent-hud__expand::after,
+.agent-hud__minimize::after,
+.agent-hud__corner-control::after,
+.agent-hud__copy-text::after,
+.agent-hud__dictate::after,
+.agent-hud__cancel::after,
+.agent-hud__interrupt::after,
+.agent-hud__layout-controls .agent-hud__layout-direction::after,
+.agent-hud__send::after,
+.agent-hud__selector-trigger::after {
+  content: "";
+  position: absolute;
+  inset: var(--btn-ring);
+  z-index: -1;
+  pointer-events: none;
+  --btn-inner-cut: calc(var(--btn-cut) - var(--btn-ring) / 2);
+  clip-path: polygon(
+    var(--btn-inner-cut) 0,
+    calc(100% - var(--btn-inner-cut)) 0,
+    100% var(--btn-inner-cut),
+    100% calc(100% - var(--btn-inner-cut)),
+    calc(100% - var(--btn-inner-cut)) 100%,
+    var(--btn-inner-cut) 100%,
+    0 calc(100% - var(--btn-inner-cut)),
+    0 var(--btn-inner-cut)
+  );
+  background:
+    linear-gradient(var(--btn-fill), var(--btn-fill)),
+    var(--btn-surface);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  transition: background 120ms ease;
+}
+
+.agent-hud__expand,
+.agent-hud__minimize,
+.agent-hud__dictate,
+.agent-hud__cancel,
+.agent-hud__interrupt {
+  color: color-mix(in oklab, var(--term-blue) 70%, white 30%);
+  padding: var(--hud-control-pad-y) var(--hud-control-pad-x);
+  font-family: var(--font-agent-input);
+  line-height: 1;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.agent-hud__expand:hover,
+.agent-hud__minimize:hover {
+  color: color-mix(in oklab, var(--term-blue) 72%, white 28%);
+  --btn-edge: color-mix(in oklab, var(--term-blue) 88%, white 12%);
+  --btn-fill-strength: 24%;
+  text-shadow:
+    0 0 3px color-mix(in oklab, var(--term-blue) 88%, white 12%),
+    0 0 14px color-mix(in oklab, var(--term-blue) 65%, transparent);
+}
+
+.agent-hud__size-icon {
+  display: block;
+  width: 1.05rem;
+  height: 1.05rem;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.55;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+/* Compact icon action beside the Current Run selector. */
+
+.agent-hud__copy-text {
+  --btn-cut: 0.4375rem;
+  --btn-accent: var(--term-blue);
+  --btn-fill-strength: 8%;
+  display: inline-grid;
+  place-items: center;
+  width: calc(1rem + 2 * var(--hud-control-pad-y));
+  height: 100%;
+  padding: 0;
+  color: color-mix(in oklab, var(--term-blue) 76%, white 24%);
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    filter 120ms ease;
+}
+
+.agent-hud__copy-text:not(:disabled):hover {
+  --btn-edge: color-mix(in oklab, var(--term-blue) 88%, white 12%);
+  --btn-fill-strength: 24%;
+  color: color-mix(in oklab, var(--term-blue) 68%, white 32%);
+  filter: drop-shadow(
+    0 0 7px color-mix(in oklab, var(--term-blue) 48%, transparent)
+  );
+}
+
+.agent-hud__copy-text[data-copied] {
+  --btn-accent: var(--term-green);
+  --btn-edge: color-mix(in oklab, var(--term-green) 72%, transparent);
+  --btn-fill-strength: 18%;
+  color: color-mix(in oklab, var(--term-green) 72%, white 28%);
+}
+
+.agent-hud__copy-text:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.agent-hud__copy-text-icon {
+  width: 1rem;
+  height: 1rem;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.agent-hud__copy-text-icon--reverse {
+  transform: rotate(180deg);
+}
+
+/* Record (dictate): greenish to match the HUD message palette, the same way
+   Cancel borrows amber and Interrupt borrows red. */
+
+.agent-hud__dictate {
+  --btn-accent: var(--term-green);
+  color: color-mix(in oklab, var(--term-green) 65%, white 35%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  inline-size: 7rem;
+  min-inline-size: 7rem;
+  max-inline-size: 7rem;
+  gap: 0;
+}
+
+.agent-hud__dictate[aria-pressed="true"] {
+  color: color-mix(in oklab, var(--term-green) 72%, white 28%);
+  --btn-edge: color-mix(in oklab, var(--term-green) 78%, transparent);
+  --btn-fill-strength: 28%;
+  gap: 0.55rem;
+  padding-inline: 0.65rem;
+  box-shadow:
+    0 0 14px color-mix(in oklab, var(--term-green) 22%, transparent),
+    inset 0 0 16px color-mix(in oklab, var(--term-green) 10%, transparent);
+}
+
+.agent-hud__dictate-meter {
+  position: static;
+  transform: none;
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0.13rem;
+  width: 2rem;
+  height: 0.48rem;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.agent-hud__dictate-meter-segment {
+  flex: 1 1 0;
+  min-width: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.agent-hud__dictate-meter-segment[data-active] {
+  background: color-mix(in oklab, var(--term-green) 72%, white 28%);
+  box-shadow: 0 0 5px color-mix(in oklab, var(--term-green) 72%, transparent);
+}
+
+.agent-hud__dictate-meter-segment[data-active]:nth-child(n + 4) {
+  background: color-mix(in oklab, var(--term-green) 84%, white 16%);
+}
+
+.agent-hud__dictate-meter-segment[data-active]:nth-child(n + 6) {
+  background: color-mix(in oklab, var(--term-green) 94%, white 6%);
+}
+
+.agent-hud__dictate-meter[data-silent]
+  .agent-hud__dictate-meter-segment:first-child {
+  background: color-mix(in oklab, var(--term-green) 72%, white 28%);
+  box-shadow: 0 0 5px color-mix(in oklab, var(--term-green) 72%, transparent);
+  opacity: 0.72;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .agent-hud__dictate-meter[data-silent]
+    .agent-hud__dictate-meter-segment:first-child {
+    animation: hud-recording-silent-blink 0.9s ease-in-out infinite alternate;
+  }
+
+  @keyframes hud-recording-silent-blink {
+    from { opacity: 0.18; }
+    to { opacity: 1; }
+  }
+}
+
+.agent-hud__dictate:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Run controls (Cancel / Interrupt) share the base button chrome above but are
+   colour-coded to their intent: amber for cancel, red for interrupt. The row
+   layout (inline-flex/gap) lives on the element in HudControls.tsx. */
+
+.agent-hud__cancel {
+  --btn-accent: var(--term-amber);
+  color: color-mix(in oklab, var(--term-amber) 65%, white 35%);
+}
+
+.agent-hud__cancel:not(:disabled):hover {
+  color: color-mix(in oklab, var(--term-amber) 80%, white 20%);
+  --btn-edge: color-mix(in oklab, var(--term-amber) 80%, white 20%);
+  --btn-fill-strength: 28%;
+  text-shadow: var(--term-glow-amber);
+}
+
+.agent-hud__interrupt {
+  --btn-accent: var(--term-red);
+  color: color-mix(in oklab, var(--term-red) 60%, white 40%);
+}
+
+.agent-hud__interrupt:not(:disabled):hover {
+  color: color-mix(in oklab, var(--term-red) 82%, white 18%);
+  --btn-edge: color-mix(in oklab, var(--term-red) 82%, white 18%);
+  --btn-fill-strength: 28%;
+  text-shadow: var(--term-glow-red);
+}
+
+.agent-hud__cancel:disabled,
+.agent-hud__interrupt:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.agent-hud__run-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: var(--hud-actions-gap);
+}
+
+.agent-hud__actions-submit {
+  display: inline-flex;
+  align-items: stretch;
+  justify-self: end;
+  gap: var(--hud-actions-gap);
+  padding-right: 0.2rem;
+  margin-bottom: 0.15rem;
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 0ms linear 0ms;
+}
+
+/* Shell-level controls form a compact rail immediately above the visible
+   resize face. Keeping them outside the action row leaves that row balanced. */
+
+.agent-hud__corner-controls {
+  position: absolute;
+  top: calc(
+    50% - var(--hud-corner-control-size) -
+      var(--hud-corner-control-size) - var(--hud-corner-control-gap) -
+      var(--hud-corner-control-half-gap)
+  );
+  left: var(--hud-corner-control-left);
+  bottom: auto;
+  z-index: 21;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hud-corner-control-gap);
+}
+
+.agent-hud__minimize:disabled {
+  cursor: default;
+  opacity: 0.28;
+  filter: none;
+}
+
+.agent-hud__corner-controls[data-disabled]
+  .agent-hud__corner-control {
+  --btn-edge: color-mix(in oklab, var(--term-blue) 30%, transparent);
+  --btn-fill-strength: 5%;
+  cursor: default;
+  opacity: 0.55;
+  filter: none;
+}
+
+.agent-hud__corner-controls[data-disabled]
+  .agent-hud__layout-wedge {
+  color: color-mix(in oklab, var(--term-blue) 62%, white 38%);
+  opacity: 0.55;
+  filter: none;
+}
+
+.agent-hud__copy-controls {
+  display: inline-flex;
+  align-items: stretch;
+  align-self: stretch;
+  gap: calc(var(--hud-actions-gap) / 2);
+}
+
+.agent-hud__layout-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hud-corner-control-gap);
+}
+
+.agent-hud__corner-control {
+  --btn-cut: 0.4375rem;
+  display: grid;
+  place-items: center;
+  width: var(--hud-corner-control-size);
+  height: var(--hud-corner-control-size);
+  min-width: var(--hud-corner-control-size);
+  min-height: var(--hud-corner-control-size);
+  padding: 0;
+}
+
+.agent-hud__layout-direction {
+  display: inline-grid;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.15rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: color-mix(in oklab, var(--term-blue) 76%, white 24%);
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.agent-hud__layout-controls .agent-hud__layout-direction {
+  --btn-cut: 0.4375rem;
+  width: var(--hud-corner-control-size);
+  height: var(--hud-corner-control-size);
+}
+
+.agent-hud__layout-wedge {
+  display: block;
+  width: 0.86rem;
+  height: 0.75rem;
+  overflow: visible;
+  fill: currentColor;
+  stroke: none;
+  filter: drop-shadow(
+    0 0 4px color-mix(in oklab, var(--term-blue) 72%, transparent)
+  );
+  opacity: 0.86;
+  transition:
+    filter 140ms ease,
+    opacity 140ms ease;
+}
+
+.agent-hud__layout-wedge--down {
+  transform: rotate(180deg);
+}
+
+.agent-hud__layout-controls .agent-hud__layout-direction:not(:disabled):hover {
+  --btn-edge: color-mix(in oklab, var(--term-blue) 88%, white 12%);
+  --btn-fill-strength: 24%;
+}
+
+.agent-hud__layout-direction:not(:disabled):hover .agent-hud__layout-wedge {
+  filter:
+    drop-shadow(0 0 2px var(--term-blue))
+    drop-shadow(0 0 6px color-mix(in oklab, var(--term-blue) 88%, transparent))
+    drop-shadow(0 0 14px color-mix(in oklab, var(--term-blue) 58%, transparent));
+  opacity: 1;
+}
+
+.agent-hud__layout-direction:disabled {
+  cursor: default;
+  --btn-edge: color-mix(in oklab, var(--term-blue) 16%, transparent);
+  --btn-fill-strength: 3%;
+}
+
+.agent-hud__layout-direction:disabled .agent-hud__layout-wedge {
+  filter: none;
+  opacity: 0.22;
+}
+
+.agent-hud__minimize:focus-visible,
+.agent-hud__copy-text:focus-visible,
+.agent-hud__layout-controls .agent-hud__layout-direction:focus-visible,
+.agent-hud__message-direction:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--term-blue) 80%, white 20%);
+  outline-offset: 2px;
+}
+
+/* Send: the primary action, so it shares the record button's green but carries
+   a stronger fill to stand out from the other controls. */
+
+.agent-hud__send,
+.agent-hud__selector-trigger {
+  --btn-accent: var(--term-green);
+  --btn-edge: color-mix(in oklab, var(--term-green) 62%, transparent);
+  --btn-fill-strength: 22%;
+  color: color-mix(in oklab, var(--term-green) 60%, white 40%);
+  padding: var(--hud-control-pad-y) var(--hud-control-pad-x);
+  font-family: var(--font-agent-input);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.agent-hud__dictate:not(:disabled):hover,
+.agent-hud__send:not(:disabled):hover,
+.agent-hud__selector-trigger:not(:disabled):hover {
+  color: color-mix(in oklab, var(--term-green) 72%, white 28%);
+  --btn-edge: color-mix(in oklab, var(--term-green) 88%, white 12%);
+  --btn-fill-strength: 38%;
+  text-shadow:
+    0 0 3px color-mix(in oklab, var(--term-green) 88%, white 12%),
+    0 0 14px color-mix(in oklab, var(--term-green) 65%, transparent),
+    0 0 36px color-mix(in oklab, var(--term-green) 40%, transparent);
+}
+
+.agent-hud__send:disabled,
+.agent-hud__selector-trigger:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.agent-hud__dictation-error {
+  margin-top: 0.4rem;
+  color: var(--term-error);
+  font-family: var(--font-agent-input);
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-shadow: var(--term-glow-error);
+}
+
+/* Fresh-load intro entrances: the HUD panel and the nav bar fade in. Gated on
+   no-preference so reduced-motion users get the content with no animation. */
+
+@media (prefers-reduced-motion: no-preference) {
+
+  @keyframes nav-appear {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Runs once when the nav first mounts (initial document load). Client-side
+     navigations reuse the same element, so it never re-fires on nav-clicks. */
+  .app-nav--enter {
+    animation: nav-appear var(--intro-nav-fade) ease both;
+  }
+}
+
+/* Light theme */
+
+:root[data-theme="light"] .agent-hud__logo[data-agent-state="working"],
+:root[data-theme="light"] .agent-hud__logo[data-agent-state="awaiting-input"] {
+  color: var(--term-amber);
+  box-shadow: none;
+  text-shadow: none;
+  animation: none;
+}
+:root[data-theme="light"] .agent-hud__dictate:disabled,
+:root[data-theme="light"] .agent-hud__cancel:disabled,
+:root[data-theme="light"] .agent-hud__interrupt:disabled {
+  opacity: 0.42;
+}
+:root[data-theme="light"] .agent-hud__message-nav {
+  gap: 0.34rem;
+  padding: 0;
+  background: transparent;
+}
+:root[data-theme="light"] .agent-hud__actions {
+  min-height: 3.15rem;
+}
+:root[data-theme="light"] .agent-hud__actions-submit {
+  /* Preserve a little paint space around the rightmost control so the Send
+     border and lower accent are not clipped by the action-row boundary. */
+  padding-right: 0.2rem;
+  margin-bottom: 0.15rem;
+}
+:root[data-theme="light"] .agent-hud__layout:hover {
+  --btn-fill: color-mix(in oklab, var(--btn-tone) 12%, var(--hud-input-bg));
+  color: var(--hud-input-text);
+  text-shadow: none;
+}
+:root[data-theme="light"] .agent-hud__dictate > span::before {
+  content: "";
+  display: inline-block;
+  width: 0.68rem;
+  height: 0.68rem;
+  margin-right: 0.55rem;
+  border-radius: 50%;
+  vertical-align: -0.04rem;
+  background: var(--term-green);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 34%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--term-green) 68%, transparent);
+}
+:root[data-theme="light"] .agent-hud__logo {
+  animation: none;
+  color: var(--hud-input-text);
+  background: color-mix(in oklab, var(--hud-box-bg) 86%, white 14%);
+  border: 1px solid color-mix(in oklab, var(--hud-input-border) 78%, transparent);
+  filter: none;
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 52%, transparent),
+    0 1px 2px color-mix(in oklab, var(--hud-input-text) 10%, transparent);
+  text-shadow: none;
+  clip-path: none;
+  border-radius: 0.35rem;
+  font-family: "Anurati Pro", var(--font-display);
+  font-weight: 400;
+  font-variation-settings: "SCAN" -40;
+}
+:root[data-theme="light"]
+  .agent-hud__logo[data-agent-state="awaiting-input"] {
+  background: color-mix(in oklab, var(--term-green) 22%, var(--hud-input-bg));
+  border: 1px solid
+    color-mix(in oklab, var(--term-green) 78%, var(--hud-control-ink));
+  filter: none;
+  text-shadow: none;
+  clip-path: none;
+  border-radius: 0.35rem;
+  font-family: "Anurati Pro", var(--font-display);
+  font-weight: 400;
+  font-variation-settings: "SCAN" -40;
+  color: color-mix(in oklab, var(--term-green) 88%, var(--hud-control-ink));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 52%, transparent),
+    0 0 0 0.16rem color-mix(in oklab, var(--term-green) 30%, transparent),
+    0 0.24rem 0.82rem
+      color-mix(in oklab, var(--term-green) 30%, transparent),
+    0 0 1.35rem color-mix(in oklab, var(--term-green) 22%, transparent);
+  animation: none;
+}
+@keyframes hud-light-agent-working-pulse {
+  from {
+    filter: saturate(0.72);
+    opacity: 0.68;
+  }
+  to {
+    filter: saturate(1);
+    opacity: 1;
+  }
+}
+/* Light mode keeps the same familiar glyph but replaces the CRT glow and
+   octagonal shell with the restrained raised control language used by the HUD. */
+:root[data-theme="light"] .agent-hud__copy-text {
+  --copy-tone: var(--term-blue);
+  width: 2.25rem;
+  height: 2.8rem;
+  color: var(--hud-control-ink);
+  border: 1px solid
+    color-mix(in oklab, var(--copy-tone) 48%, var(--hud-input-border));
+  border-radius: 0.3rem;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, white 34%, var(--hud-input-bg)),
+    color-mix(in oklab, var(--copy-tone) 10%, var(--hud-input-bg))
+  );
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 70%, transparent),
+    inset 0 -0.14rem 0 color-mix(in oklab, var(--copy-tone) 54%, transparent),
+    0 0.13rem 0.2rem
+      color-mix(in oklab, var(--hud-control-ink) 11%, transparent);
+  filter: none;
+  transition:
+    transform 110ms ease,
+    border-color 110ms ease,
+    background 110ms ease,
+    box-shadow 110ms ease,
+    color 110ms ease;
+}
+:root[data-theme="light"] .agent-hud__copy-text::before,
+:root[data-theme="light"] .agent-hud__copy-text::after {
+  content: none;
+}
+:root[data-theme="light"] .agent-hud__copy-text:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__copy-text:not(:disabled):focus-visible {
+  color: var(--hud-control-ink);
+  border-color: color-mix(
+    in oklab,
+    var(--copy-tone) 72%,
+    var(--hud-control-ink)
+  );
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, white 48%, var(--hud-input-bg)),
+    color-mix(in oklab, var(--copy-tone) 18%, var(--hud-input-bg))
+  );
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 78%, transparent),
+    inset 0 -0.16rem 0 color-mix(in oklab, var(--copy-tone) 68%, transparent),
+    0 0.28rem 0.48rem
+      color-mix(in oklab, var(--copy-tone) 20%, transparent);
+  filter: none;
+  outline: none;
+  transform: translateY(-1px);
+}
+:root[data-theme="light"] .agent-hud__copy-text[data-copied] {
+  --copy-tone: var(--term-green);
+}
+:root[data-theme="light"] .agent-hud__copy-text:disabled {
+  color: color-mix(in oklab, var(--hud-control-ink) 42%, var(--hud-input-bg));
+  opacity: 0.62;
+}
+:root[data-theme="light"] .agent-hud__logo--mini {
+  color: color-mix(in oklab, var(--term-green) 78%, var(--hud-control-ink));
+  border-color: color-mix(
+    in oklab,
+    var(--term-green) 42%,
+    var(--hud-input-border)
+  );
+  border-radius: 0.42rem;
+  background: color-mix(in oklab, var(--term-green) 8%, var(--hud-input-bg));
+}
+:root[data-theme="light"] .agent-hud__dictate[aria-pressed="true"] {
+  justify-content: center;
+  gap: 0.62rem;
+  padding-inline: 0.65rem;
+}
+:root[data-theme="light"]
+  .agent-hud__dictate[aria-pressed="true"]
+  > span::before {
+  content: none;
+}
+:root[data-theme="light"]
+  .agent-hud__dictate[data-dictation-state="transcribing"]
+  > span::before {
+  content: none;
+}
+:root[data-theme="light"] .agent-hud__dictate-meter {
+  box-sizing: border-box;
+  align-items: stretch;
+  width: 2.15rem;
+  height: 1rem;
+  gap: 0.12rem;
+  padding: 0.2rem 0.22rem;
+  border: 1px solid
+    color-mix(in oklab, var(--term-green) 36%, var(--hud-input-border));
+  border-radius: 0.22rem;
+  background: color-mix(in oklab, var(--term-green) 10%, var(--hud-input-bg));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 55%, transparent),
+    inset 0 0 0 1px color-mix(in oklab, var(--term-green) 12%, transparent);
+}
+:root[data-theme="light"] .agent-hud__dictate-meter-segment {
+  border-radius: 0.04rem;
+  background: color-mix(in oklab, var(--term-green) 15%, var(--hud-input-bg));
+}
+:root[data-theme="light"]
+  .agent-hud__dictate-meter-segment[data-active],
+:root[data-theme="light"]
+  .agent-hud__dictate-meter[data-silent]
+  .agent-hud__dictate-meter-segment:first-child {
+  background: color-mix(in oklab, var(--term-green) 82%, var(--hud-control-ink));
+  box-shadow: none;
+}
+:root[data-theme="light"] .agent-hud__expand:hover,
+:root[data-theme="light"] .agent-hud__minimize:hover {
+  --btn-fill: color-mix(in oklab, var(--btn-tone) 12%, var(--hud-input-bg));
+  text-shadow: none;
+  color: #252b35;
+}
+:root[data-theme="light"]
+  .agent-hud__send:disabled {
+  --btn-edge: color-mix(
+    in oklab,
+    var(--term-green) 44%,
+    var(--hud-input-border)
+  );
+  --btn-fill: color-mix(in oklab, var(--term-green) 34%, var(--hud-input-bg));
+  opacity: 1;
+  color: color-mix(in oklab, var(--hud-control-ink) 56%, var(--hud-input-bg));
+}
+:root[data-theme="light"] .agent-hud__layout-wedge {
+  filter: none;
+  color: var(--hud-control-ink);
+  fill: currentColor;
+}
+:root[data-theme="light"] .agent-hud__message-wedge {
+  opacity: 0.78;
+  filter: none;
+  color: var(--hud-control-ink);
+  fill: currentColor;
+}
+:root[data-theme="light"] .agent-hud__message-direction {
+  color: var(--hud-control-ink);
+}
+:root[data-theme="light"] .agent-hud__message-direction:disabled {
+  color: color-mix(
+    in oklab,
+    var(--hud-control-ink) 28%,
+    var(--hud-input-bg)
+  );
+}
+:root[data-theme="light"]
+  .agent-hud__message-direction:disabled
+  .agent-hud__message-wedge {
+  opacity: 0.22;
+  filter: none;
+}
+:root[data-theme="light"]
+  .agent-hud__logo[data-agent-state="working"] {
+  background: color-mix(in oklab, var(--hud-box-bg) 86%, white 14%);
+  border: 1px solid color-mix(in oklab, var(--hud-input-border) 78%, transparent);
+  filter: none;
+  text-shadow: none;
+  clip-path: none;
+  border-radius: 0.35rem;
+  font-family: "Anurati Pro", var(--font-display);
+  font-weight: 400;
+  font-variation-settings: "SCAN" -40;
+  color: color-mix(in oklab, var(--term-amber) 84%, var(--hud-input-text));
+  border-color: color-mix(
+    in oklab,
+    var(--term-amber) 42%,
+    var(--hud-input-border)
+  );
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 52%, transparent),
+    0 0.18rem 0.55rem
+      color-mix(in oklab, var(--term-amber) 18%, transparent);
+  animation: hud-light-agent-working-invert 1.15s ease-in-out infinite alternate;
+}
+@keyframes hud-light-agent-working-invert {
+  from {
+    color: color-mix(in oklab, white 92%, var(--term-amber));
+    background: color-mix(in oklab, var(--term-amber) 82%, var(--hud-control-ink));
+    border-color: color-mix(in oklab, var(--term-amber) 70%, var(--hud-control-ink));
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 35%, transparent),
+      0 0.18rem 0.55rem
+        color-mix(in oklab, var(--term-amber) 22%, transparent);
+  }
+  to {
+    color: color-mix(in oklab, var(--term-amber) 86%, var(--hud-control-ink));
+    background: color-mix(in oklab, var(--hud-input-bg) 94%, white 6%);
+    border-color: color-mix(in oklab, var(--term-amber) 46%, var(--hud-input-border));
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 55%, transparent),
+      0 0 0 0.16rem color-mix(in oklab, var(--term-amber) 13%, transparent),
+      0 0.2rem 0.7rem
+        color-mix(in oklab, var(--term-amber) 18%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="light"]
+    .agent-hud__logo[data-agent-state="working"] {
+    animation: none;
+  }
+}
+:root[data-theme="light"] .agent-hud__expand::before,
+:root[data-theme="light"] .agent-hud__minimize::before,
+:root[data-theme="light"] .agent-hud__corner-control::before,
+:root[data-theme="light"] .agent-hud__copy-text::before,
+:root[data-theme="light"] .agent-hud__dictate::before,
+:root[data-theme="light"] .agent-hud__cancel::before,
+:root[data-theme="light"] .agent-hud__interrupt::before,
+:root[data-theme="light"] .agent-hud__layout::before,
+:root[data-theme="light"]
+  .agent-hud__layout-controls
+  .agent-hud__layout-direction::before,
+:root[data-theme="light"] .agent-hud__send::before {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, white 24%, var(--btn-fill)),
+    var(--btn-fill)
+  );
+  box-shadow: inset 0 -0.18rem 0 color-mix(in oklab, var(--btn-tone) 86%, transparent),
+    inset 0 1px 0 color-mix(in oklab, white 55%, transparent);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  clip-path: none;
+  border-radius: 0.38rem;
+  content: none;
+}
+:root[data-theme="light"] .agent-hud__expand::after,
+:root[data-theme="light"] .agent-hud__minimize::after,
+:root[data-theme="light"] .agent-hud__corner-control::after,
+:root[data-theme="light"] .agent-hud__copy-text::after,
+:root[data-theme="light"] .agent-hud__dictate::after,
+:root[data-theme="light"] .agent-hud__cancel::after,
+:root[data-theme="light"] .agent-hud__interrupt::after,
+:root[data-theme="light"] .agent-hud__layout::after,
+:root[data-theme="light"]
+  .agent-hud__layout-controls
+  .agent-hud__layout-direction::after,
+:root[data-theme="light"] .agent-hud__send::after {
+  border: var(--btn-ring) solid var(--btn-edge);
+  border-radius: 0.38rem;
+  background: none;
+  box-sizing: border-box;
+  content: none;
+}
+:root[data-theme="light"] .agent-hud__expand,
+:root[data-theme="light"] .agent-hud__minimize,
+:root[data-theme="light"] .agent-hud__corner-control,
+:root[data-theme="light"] .agent-hud__copy-text,
+:root[data-theme="light"] .agent-hud__dictate,
+:root[data-theme="light"] .agent-hud__cancel,
+:root[data-theme="light"] .agent-hud__interrupt,
+:root[data-theme="light"] .agent-hud__layout,
+:root[data-theme="light"]
+  .agent-hud__layout-controls
+  .agent-hud__layout-direction,
+:root[data-theme="light"] .agent-hud__send {
+  --btn-cut: 0.38rem;
+  --btn-ring: 0.08rem;
+  min-height: 2.8rem;
+  font-size: 0.88rem;
+  letter-spacing: 0.025em;
+  text-shadow: none;
+  filter: drop-shadow(
+    0 1px 1px color-mix(in oklab, var(--hud-input-text) 8%, transparent)
+  );
+  clip-path: none;
+  color: var(--hud-control-ink);
+  border: 1px solid var(--btn-edge);
+  border-radius: 0.3rem;
+  background:
+    linear-gradient(
+      to top,
+      color-mix(in oklab, var(--btn-tone) 68%, transparent) 0 0.16rem,
+      transparent 0.16rem
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, white 30%, var(--btn-fill)),
+      color-mix(in oklab, var(--btn-fill) 88%, var(--hud-input-bg))
+    );
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 68%, transparent),
+    0 0.13rem 0.2rem
+      color-mix(in oklab, var(--hud-control-ink) 11%, transparent);
+  transition: transform 110ms ease,
+    border-color 110ms ease,
+    background 110ms ease,
+    box-shadow 110ms ease,
+    color 110ms ease;
+}
+:root[data-theme="light"] .agent-hud__corner-control,
+:root[data-theme="light"]
+  .agent-hud__layout-controls
+  .agent-hud__layout-direction.agent-hud__corner-control {
+  width: var(--hud-corner-control-size);
+  height: var(--hud-corner-control-size);
+  min-width: var(--hud-corner-control-size);
+  min-height: var(--hud-corner-control-size);
+  padding: 0;
+}
+:root[data-theme="light"] .agent-hud__copy-text {
+  width: 2.25rem;
+  min-width: 2.25rem;
+  min-height: 2.8rem;
+}
+:root[data-theme="light"] .agent-hud__copy-text-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+:root[data-theme="light"] .agent-hud__dictate {
+  --btn-tone: var(--term-green);
+  --btn-edge: color-mix(
+    in oklab,
+    var(--btn-tone) 58%,
+    var(--hud-input-border)
+  );
+  --btn-fill: color-mix(in oklab, var(--btn-tone) 12%, var(--hud-input-bg));
+}
+:root[data-theme="light"] .agent-hud__cancel {
+  --btn-tone: var(--term-amber);
+  --btn-edge: color-mix(
+    in oklab,
+    var(--btn-tone) 60%,
+    var(--hud-input-border)
+  );
+  --btn-fill: color-mix(in oklab, var(--btn-tone) 14%, var(--hud-input-bg));
+}
+:root[data-theme="light"] .agent-hud__interrupt {
+  --btn-tone: var(--term-red);
+  --btn-edge: color-mix(
+    in oklab,
+    var(--btn-tone) 58%,
+    var(--hud-input-border)
+  );
+  --btn-fill: color-mix(in oklab, var(--btn-tone) 13%, var(--hud-input-bg));
+}
+:root[data-theme="light"] .agent-hud__expand,
+:root[data-theme="light"] .agent-hud__minimize,
+:root[data-theme="light"] .agent-hud__corner-control,
+:root[data-theme="light"] .agent-hud__copy-text,
+:root[data-theme="light"] .agent-hud__layout,
+:root[data-theme="light"]
+  .agent-hud__layout-controls
+  .agent-hud__layout-direction {
+  --btn-tone: var(--term-blue);
+  --btn-edge: color-mix(
+    in oklab,
+    var(--btn-tone) 58%,
+    var(--hud-input-border)
+  );
+  --btn-fill: color-mix(in oklab, var(--btn-tone) 13%, var(--hud-input-bg));
+}
+:root[data-theme="light"] .agent-hud__send {
+  --btn-tone: var(--term-green);
+  --btn-edge: color-mix(
+    in oklab,
+    var(--btn-tone) 82%,
+    var(--hud-input-text)
+  );
+  --btn-fill: color-mix(in oklab, var(--btn-tone) 72%, var(--hud-input-bg));
+}
+:root[data-theme="light"] .agent-hud__dictate:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__copy-text:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__cancel:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__interrupt:not(:disabled):hover,
+:root[data-theme="light"]
+  .agent-hud__layout-controls
+  .agent-hud__layout-direction:not(:disabled):hover {
+  --btn-fill: color-mix(in oklab, var(--btn-tone) 12%, var(--hud-input-bg));
+  text-shadow: none;
+  transform: translateY(-1px);
+  border-color: color-mix(
+    in oklab,
+    var(--btn-tone) 72%,
+    var(--hud-control-ink)
+  );
+  background:
+    linear-gradient(
+      to top,
+      color-mix(in oklab, var(--btn-tone) 78%, transparent) 0 0.18rem,
+      transparent 0.18rem
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, white 42%, var(--btn-fill)),
+      color-mix(in oklab, var(--btn-tone) 16%, var(--btn-fill))
+    );
+  color: var(--hud-control-ink);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 76%, transparent),
+    0 0.28rem 0.48rem
+      color-mix(in oklab, var(--btn-tone) 22%, transparent);
+  outline: none;
+}
+:root[data-theme="light"]
+  .agent-hud__send:not(:disabled):hover {
+  --btn-fill: color-mix(in oklab, var(--term-green) 84%, white 16%);
+  text-shadow: none;
+  transform: translateY(-1px);
+  border-color: color-mix(
+    in oklab,
+    var(--btn-tone) 72%,
+    var(--hud-control-ink)
+  );
+  background:
+    linear-gradient(
+      to top,
+      color-mix(in oklab, var(--btn-tone) 78%, transparent) 0 0.18rem,
+      transparent 0.18rem
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, white 42%, var(--btn-fill)),
+      color-mix(in oklab, var(--btn-tone) 16%, var(--btn-fill))
+    );
+  color: var(--hud-control-ink);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 76%, transparent),
+    0 0.28rem 0.48rem
+      color-mix(in oklab, var(--btn-tone) 22%, transparent);
+  outline: none;
+}
+:root[data-theme="light"] .agent-hud__expand:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__expand:not(:disabled):focus-visible,
+:root[data-theme="light"] .agent-hud__minimize:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__minimize:not(:disabled):focus-visible,
+:root[data-theme="light"] .agent-hud__dictate:not(:disabled):focus-visible,
+:root[data-theme="light"] .agent-hud__cancel:not(:disabled):focus-visible,
+:root[data-theme="light"] .agent-hud__interrupt:not(:disabled):focus-visible,
+:root[data-theme="light"] .agent-hud__layout:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__layout:not(:disabled):focus-visible,
+:root[data-theme="light"]
+  .agent-hud__layout-controls
+  .agent-hud__layout-direction:not(:disabled):focus-visible,
+:root[data-theme="light"]
+  .agent-hud__send:not(:disabled):focus-visible {
+  transform: translateY(-1px);
+  border-color: color-mix(
+    in oklab,
+    var(--btn-tone) 72%,
+    var(--hud-control-ink)
+  );
+  background:
+    linear-gradient(
+      to top,
+      color-mix(in oklab, var(--btn-tone) 78%, transparent) 0 0.18rem,
+      transparent 0.18rem
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, white 42%, var(--btn-fill)),
+      color-mix(in oklab, var(--btn-tone) 16%, var(--btn-fill))
+    );
+  color: var(--hud-control-ink);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 76%, transparent),
+    0 0.28rem 0.48rem
+      color-mix(in oklab, var(--btn-tone) 22%, transparent);
+  outline: none;
+}
+:root[data-theme="light"] .agent-hud__expand:not(:disabled):active,
+:root[data-theme="light"] .agent-hud__minimize:not(:disabled):active,
+:root[data-theme="light"] .agent-hud__dictate:not(:disabled):active,
+:root[data-theme="light"] .agent-hud__cancel:not(:disabled):active,
+:root[data-theme="light"] .agent-hud__interrupt:not(:disabled):active,
+:root[data-theme="light"]
+  .agent-hud__layout-controls
+  .agent-hud__layout-direction:not(:disabled):active,
+:root[data-theme="light"]
+  .agent-hud__send:not(:disabled):active {
+  transform: translateY(0);
+}

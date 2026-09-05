@@ -1,0 +1,835 @@
+/* HUD panels: base and light-theme presentation. */
+
+/* Base */
+
+.agent-hud__run-view > .agent-hud__replySection {
+  margin-top: 0;
+}
+
+
+
+.agent-hud__agent {
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  color: var(--hud-input-text);
+  text-shadow: none;
+  font-family: inherit;
+  line-height: var(--term-line-height);
+  letter-spacing: var(--term-letter-spacing);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  text-align: left;
+}
+
+
+
+.agent-hud__markdown {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+}
+
+
+
+.agent-hud__markdown > *:first-child {
+  margin-top: 0;
+}
+
+
+
+.agent-hud__markdown > *:last-child {
+  margin-bottom: 0;
+}
+
+
+
+.agent-hud__markdown-p {
+  margin: 0 0 0.5rem;
+}
+
+
+
+.agent-hud__markdown-h1,
+.agent-hud__markdown-h2,
+.agent-hud__markdown-h3 {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 1em;
+  font-weight: 700;
+}
+
+
+
+.agent-hud__markdown-ul,
+.agent-hud__markdown-ol {
+  margin: 0 0 0.5rem;
+  padding-left: 1.5rem;
+}
+
+
+
+.agent-hud__markdown-ul {
+  list-style: disc;
+}
+
+
+
+.agent-hud__markdown-ol {
+  list-style: decimal;
+}
+
+
+
+.agent-hud__markdown-inline-code {
+  border: 1px solid color-mix(in oklab, var(--term-blue) 35%, transparent);
+  background: color-mix(in oklab, var(--hud-input-bg) 90%, black 10%);
+  border-radius: 2px;
+  padding: 0 0.2rem;
+}
+
+
+
+.agent-hud__markdown-pre {
+  max-width: 100%;
+  margin: 0 0 0.75rem;
+  border: 1px solid color-mix(in oklab, var(--term-blue) 35%, transparent);
+  border-radius: 2px;
+  padding: 0.45rem 0.55rem;
+  background: color-mix(in oklab, var(--hud-input-bg) 88%, black 12%);
+  white-space: pre;
+  overflow-x: auto;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+
+
+.agent-hud__markdown-pre code {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  overflow-wrap: inherit;
+  word-break: inherit;
+}
+
+
+
+.agent-hud__markdown-blockquote {
+  margin: 0 0 0.75rem;
+  padding: 0.1rem 0 0.1rem 0.75rem;
+  border-left: 2px solid color-mix(in oklab, var(--term-blue) 45%, transparent);
+  color: color-mix(in oklab, var(--hud-input-text) 82%, transparent);
+}
+
+
+
+.agent-hud__markdown-table-scroll {
+  max-width: 100%;
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.35rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: auto;
+  scrollbar-color:
+    color-mix(in oklab, var(--term-blue) 65%, transparent)
+    color-mix(in oklab, var(--term-blue) 12%, transparent);
+}
+
+
+
+.agent-hud__markdown-table-scroll::-webkit-scrollbar {
+  height: 12px;
+}
+
+
+
+.agent-hud__markdown-table-scroll::-webkit-scrollbar-track {
+  background: color-mix(in oklab, var(--term-blue) 12%, transparent);
+  border-radius: 999px;
+}
+
+
+
+.agent-hud__markdown-table-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--term-blue) 65%, transparent);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+
+
+
+.agent-hud__markdown-table-scroll:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--term-blue) 80%, transparent);
+  background-clip: content-box;
+}
+
+
+
+.agent-hud__markdown-table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
+}
+
+
+
+.agent-hud__markdown-table th,
+.agent-hud__markdown-table td {
+  border: 1px solid color-mix(in oklab, var(--term-blue) 30%, transparent);
+  padding: 0.25rem 0.45rem;
+  text-align: left;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+
+
+.agent-hud__markdown-table th:last-child,
+.agent-hud__markdown-table td:last-child {
+  min-width: min(28rem, 50vw);
+  white-space: normal;
+}
+
+
+
+.agent-hud__markdown-table th {
+  background: color-mix(in oklab, var(--hud-input-bg) 90%, black 10%);
+}
+
+
+
+.agent-hud__markdown-link {
+  color: color-mix(in oklab, var(--term-blue) 70%, white 30%);
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+  text-decoration-thickness: 1px;
+}
+
+
+
+.agent-hud__markdown-link:hover {
+  color: color-mix(in oklab, var(--term-blue) 78%, white 22%);
+}
+
+
+
+.agent-hud__replySection {
+  margin-top: var(--hud-section-gap);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: visible;
+  gap: var(--hud-section-gap);
+  /* Eases the reply section in when the HUD first appears for a run. The
+     streaming and interactive states share this same element (no remount), so
+     flipping between them just swaps the inner content in place — smooth, with
+     no replayed entrance. */
+  animation: hud-view-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center;
+}
+
+
+
+.agent-hud__status-view {
+  animation: hud-view-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center;
+}
+
+
+
+@keyframes hud-view-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-hud__replySection,
+.agent-hud__status-view {
+    animation: none;
+  }
+}
+
+
+
+/* The two stacked panels (agent message / reply textarea). The layout controls
+   move their shared boundary via [data-layout]; in a "large" mode the small
+   panel is pinned to four lines and scrolls its overflow. */
+
+
+
+.agent-hud__panels {
+  --hud-compact-panel-height: calc(
+    5.4em + var(--hud-reply-pad-block-start) +
+      var(--hud-reply-pad-block-end) + 2px
+  );
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hud-panel-gap);
+}
+
+
+
+/* Flexbox (not grid) so layout changes can ANIMATE: flex-grow/flex-basis are
+   interpolatable, whereas a grid track going 1fr -> fixed length is not. Both
+   panels grow by default; a "large" mode pins the small one to four lines. */
+
+
+
+.agent-hud__panels > .agent-hud__replyBox {
+  flex: 1 1 0;
+  transition:
+    flex-grow 220ms ease,
+    flex-basis 220ms ease;
+}
+
+
+
+.agent-hud__panels[data-layout="top"] > .agent-hud__replyBox--user {
+  flex: 0 0 var(--hud-compact-panel-height);
+}
+
+
+
+.agent-hud__panels[data-layout="bottom"] > .agent-hud__replyBox--agent {
+  flex: 0 0 var(--hud-compact-panel-height);
+}
+
+
+
+.agent-hud__replyBox {
+  /* Octagon plate, same dimensions/padding as the old rectangle. The interior
+     fill is drawn by ::before (clipped to the octagon); the border is drawn by
+     ::after as straight edges plus four bevel cuts — so the element itself is
+     NOT clipped, leaving the corner triangles visible for the glow to bloom
+     into. Both panels share this, so the streaming and interactive states read
+     as the same shape. */
+  /* Shape-locked: 1.5rem is the original 24px cut at 100% density and scales
+     with the compact root size instead of becoming proportionally oversized. */
+  --panel-cut: 1.5rem;
+  --panel-ring: 1.5px;
+  --panel-edge: var(--hud-input-border);
+  position: relative;
+  z-index: 0;
+  background: transparent;
+  color: var(--hud-input-text);
+  padding: var(--hud-reply-pad-block-start) var(--hud-reply-pad-inline)
+    var(--hud-reply-pad-block-end);
+  font-family: var(--font-agent-input);
+  line-height: var(--term-line-height);
+  letter-spacing: var(--term-letter-spacing);
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+
+
+.agent-hud__replyBox::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  clip-path: polygon(
+    var(--panel-cut) 0,
+    calc(100% - var(--panel-cut)) 0,
+    100% var(--panel-cut),
+    100% calc(100% - var(--panel-cut)),
+    calc(100% - var(--panel-cut)) 100%,
+    var(--panel-cut) 100%,
+    0 calc(100% - var(--panel-cut)),
+    0 var(--panel-cut)
+  );
+  /* Resting fill is the input bg; the streaming state retints this per panel
+     via --panel-fill-bg (see the streaming block below). */
+  background: var(--panel-fill-bg, var(--hud-input-bg));
+}
+
+
+
+/* The octagon outline: four straight edges + four bevel cuts, all the same
+   thin dim line. The bevels are a crisp band the same width and colour as the
+   straight edges, tiled into each corner. No glow. */
+
+
+
+.agent-hud__replyBox::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  --bevel: transparent calc(50% - var(--panel-ring) / 2),
+    var(--panel-edge) calc(50% - var(--panel-ring) / 2),
+    var(--panel-edge) calc(50% + var(--panel-ring) / 2),
+    transparent calc(50% + var(--panel-ring) / 2);
+  background-image:
+    linear-gradient(var(--panel-edge), var(--panel-edge)),
+    linear-gradient(var(--panel-edge), var(--panel-edge)),
+    linear-gradient(var(--panel-edge), var(--panel-edge)),
+    linear-gradient(var(--panel-edge), var(--panel-edge)),
+    linear-gradient(135deg, var(--bevel)),
+    linear-gradient(45deg, var(--bevel)),
+    linear-gradient(135deg, var(--bevel)),
+    linear-gradient(45deg, var(--bevel));
+  background-position:
+    top center,
+    bottom center,
+    left center,
+    right center,
+    top left,
+    top right,
+    bottom right,
+    bottom left;
+  background-size:
+    calc(100% - 2 * var(--panel-cut)) var(--panel-ring),
+    calc(100% - 2 * var(--panel-cut)) var(--panel-ring),
+    var(--panel-ring) calc(100% - 2 * var(--panel-cut)),
+    var(--panel-ring) calc(100% - 2 * var(--panel-cut)),
+    var(--panel-cut) var(--panel-cut),
+    var(--panel-cut) var(--panel-cut),
+    var(--panel-cut) var(--panel-cut),
+    var(--panel-cut) var(--panel-cut);
+  background-repeat: no-repeat;
+}
+
+
+
+.agent-hud__replyBox-scroll {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  margin-block: 0.35rem;
+  padding-right: 0.35rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: auto;
+  scrollbar-color:
+    color-mix(in oklab, var(--term-blue) 65%, transparent)
+    color-mix(in oklab, var(--term-blue) 12%, transparent);
+}
+
+
+
+.agent-hud__replyBox-scroll::-webkit-scrollbar {
+  width: 12px;
+}
+
+
+
+.agent-hud__replyBox-scroll::-webkit-scrollbar-track {
+  background: color-mix(in oklab, var(--term-blue) 12%, transparent);
+  border-radius: 999px;
+}
+
+
+
+.agent-hud__replyBox-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--term-blue) 65%, transparent);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+
+
+
+.agent-hud__replyBox-scroll:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--term-blue) 80%, transparent);
+  background-clip: content-box;
+}
+
+
+
+/* ---------------------------------------------------------------------------
+ * Hidden-until-hover scrollbar shared by the reply textarea and runs table
+ * list: transparent at rest, with a thin blue thumb on hover. The scrollbar's
+ * reserved width stays
+ * constant (only its color changes) so hovering never resizes the content box
+ * and reflows text -- Chrome visibly reflows/rewraps text when a scrollbar's
+ * width toggles.
+ * ------------------------------------------------------------------------- */
+
+
+
+.agent-hud__textarea,
+.agent-hud__table-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+
+
+.agent-hud__textarea::-webkit-scrollbar,
+.agent-hud__table-scroll::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+
+
+
+.agent-hud__textarea::-webkit-scrollbar-track,
+.agent-hud__table-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+
+.agent-hud__textarea::-webkit-scrollbar-thumb,
+.agent-hud__table-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+  transition: background 120ms ease;
+}
+
+
+
+.agent-hud__textarea:hover,
+.agent-hud__table-scroll:hover {
+  scrollbar-color: color-mix(in oklab, var(--term-blue) 55%, transparent) transparent;
+}
+
+
+
+.agent-hud__textarea:hover::-webkit-scrollbar-thumb,
+.agent-hud__table-scroll:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--term-blue) 55%, transparent);
+}
+
+
+
+.agent-hud__replyBox--agent {
+  text-align: left;
+}
+
+
+
+/* Live streaming "responding" view streams straight into the agent panel — no
+   nested plate. The text inherits the panel's colours and is scrolled by the
+   shared panel scroll area, so the streaming and interactive states are
+   visually identical apart from the content itself. */
+
+
+
+.agent-hud__stream-text {
+  margin: 0;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  /* Resting values; the streaming block dims these via the *-active vars. */
+  opacity: var(--hud-stream-text-opacity-active, 1);
+  color: var(--hud-stream-text-color-active, inherit);
+}
+
+
+
+/* Soften the streaming-text -> final-message swap: each fades in quickly as it
+   mounts, so the content settles in instead of hard-cutting. */
+
+
+
+.agent-hud__stream-text,
+.agent-hud__markdown {
+  animation: hud-text-fade 200ms ease both;
+}
+
+
+
+@keyframes hud-text-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-hud__stream-text,
+.agent-hud__markdown {
+    animation: none;
+    transition: none;
+  }
+}
+
+
+
+.agent-hud__textarea {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-decoration: none;
+  resize: none;
+  scrollbar-width: none;
+}
+
+
+
+/* webkit/firefox hover scrollbar is shared with .agent-hud__replyBox-scroll
+   (see the consolidated block above). */
+
+
+
+.agent-hud__textarea:focus-visible {
+  outline: none;
+}
+
+
+
+.agent-hud__textarea::placeholder {
+  color: var(--hud-input-placeholder);
+}
+
+
+
+/* Soft swap for project badge text that changes in place. */
+
+
+
+@keyframes hud-text-swap {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+
+
+.agent-hud__replyBox:focus-within {
+  --panel-edge: color-mix(in oklab, var(--term-blue) 80%, transparent);
+}
+
+
+
+/* Streaming presentation dims only the live agent output. The composer remains
+   at full strength because drafting and dictation are always available. */
+
+
+
+.agent-hud__replySection[data-streaming] {
+  --hud-stream-text-opacity-active: var(--hud-stream-text-opacity);
+  --hud-stream-text-color-active: var(--hud-stream-text-color);
+}
+
+
+
+/* While the agent is working, keep the top panel in the translucent state that
+   previously appeared only during streaming. Awaiting-input remains opaque. */
+
+
+
+.agent-hud__replySection[data-agent-state="working"]
+  .agent-hud__replyBox--agent {
+  opacity: var(--hud-stream-agent-opacity);
+  --panel-fill-bg: color-mix(
+    in oklab,
+    var(--hud-input-bg) var(--hud-stream-agent-fill),
+    transparent
+  );
+}
+
+
+
+/* Live stream updates continuously; suppress the per-mount fade so it doesn't
+   flicker. Scoped to stream-text only -- markdown keeps its fade. */
+
+
+
+.agent-hud__replySection[data-streaming] .agent-hud__stream-text {
+  animation: none;
+}
+
+
+
+/* A completed message awaiting the user returns to the solid reading plate. */
+
+
+
+.agent-hud__replySection[data-agent-state="awaiting-input"]
+  .agent-hud__replyBox--agent {
+  opacity: 1;
+  --panel-fill-bg: var(--hud-input-bg);
+}
+
+
+
+/* Runs table header: a thin blue rule under the column labels, echoing the
+   markdown table's border colour, so labels read as a header rather than
+   crowding straight into the first row of values. */
+
+
+
+.agent-hud__table-header {
+  border-bottom: 3px double color-mix(in oklab, var(--term-blue) 50%,  transparent);
+}
+
+/* Light theme */
+
+:root[data-theme="light"] .agent-hud__replyBox--user {
+  --panel-fill-bg: color-mix(
+    in oklab,
+    var(--hud-box-bg) 72%,
+    var(--hud-input-bg) 28%
+  );
+}
+:root[data-theme="light"] .agent-hud__replySection {
+  position: relative;
+  z-index: 1;
+  margin-top: 0;
+  gap: 1.45rem;
+}
+:root[data-theme="light"] .agent-hud__panels {
+  --hud-compact-panel-height: calc(
+    5.4em + var(--hud-reply-pad-block-start) +
+      var(--hud-reply-pad-block-end) + 2px
+  );
+}
+:root[data-theme="light"] .agent-hud__replyBox--agent {
+  padding-top: 2.8rem;
+}
+:root[data-theme="light"]
+  .agent-hud__replySection[data-agent-state="working"]
+  .agent-hud__replyBox--agent {
+  opacity: 1;
+  --panel-fill-bg: color-mix(
+    in oklab,
+    var(--hud-input-bg) 92%,
+    var(--hud-box-bg) 8%
+  );
+}
+:root[data-theme="light"] .agent-hud__replyBox:focus-within {
+  --panel-edge: color-mix(
+    in oklab,
+    var(--term-blue) 62%,
+    var(--hud-input-border) 38%
+  );
+}
+:root[data-theme="light"] .agent-hud__markdown:empty::before {
+  display: inline-block;
+  color: var(--hud-input-placeholder);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  opacity: 0.58;
+  content: none;
+}
+:root[data-theme="light"] .agent-hud__agent,
+:root[data-theme="light"] .agent-hud__stream-text,
+:root[data-theme="light"] .agent-hud__textarea {
+  color: var(--hud-input-text);
+  text-shadow: none;
+}
+:root[data-theme="light"] .agent-hud__replyBox::after {
+  border: var(--panel-ring) solid var(--panel-edge);
+  border-radius: 0.42rem;
+  background: none;
+  box-sizing: border-box;
+}
+:root[data-theme="light"] .agent-hud__status-view {
+  position: relative;
+  z-index: 1;
+  color: var(--hud-input-text);
+  text-shadow: none;
+}
+:root[data-theme="light"] .agent-hud__status-view [class*="text-shadow"] {
+  text-shadow: none;
+}
+:root[data-theme="light"] .agent-hud__status-view .app-nav__cta {
+  border: 0.08rem solid
+    color-mix(in oklab, var(--term-green) 58%, var(--hud-input-border));
+  border-radius: 0.38rem;
+  background: color-mix(in oklab, var(--term-green) 13%, var(--hud-input-bg));
+  color: color-mix(in oklab, var(--term-green) 68%, var(--hud-input-text));
+  font-family: var(--font-agent-input);
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 48%, transparent);
+  text-shadow: none;
+}
+:root[data-theme="light"] .agent-hud__replyBox--user::before {
+  background: repeating-linear-gradient(
+      0deg,
+      transparent 0 3px,
+      color-mix(in oklab, var(--hud-input-text) 1.2%, transparent) 3px 4px
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, white 12%, var(--panel-fill-bg)),
+      var(--panel-fill-bg) 24%
+    );
+}
+:root[data-theme="light"] .agent-hud__table-scroll {
+  padding: 0.2rem 0.35rem 0.55rem;
+}
+:root[data-theme="light"] .agent-hud__table-header {
+  border-bottom: 0.08rem solid
+    color-mix(in oklab, var(--term-blue) 34%, var(--hud-input-border));
+  margin-bottom: 0.62rem;
+  padding: 0.48rem 0.62rem 0.72rem;
+  border-bottom-width: 1px;
+  background: color-mix(in oklab, var(--term-blue) 3%, transparent);
+}
+:root[data-theme="light"] .agent-hud__replyBox {
+  --panel-cut: 0.72rem;
+  --panel-edge: color-mix(
+    in oklab,
+    var(--hud-input-border) 78%,
+    transparent
+  );
+  --panel-fill-bg: color-mix(
+    in oklab,
+    var(--hud-input-bg) 96%,
+    transparent
+  );
+  --panel-ring: 1px;
+}
+:root[data-theme="light"] .agent-hud__replyBox::before {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: repeating-linear-gradient(
+      0deg,
+      transparent 0 3px,
+      color-mix(in oklab, var(--hud-input-text) 1.2%, transparent) 3px 4px
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, white 12%, var(--panel-fill-bg)),
+      var(--panel-fill-bg) 24%
+    );
+  clip-path: none;
+  border-radius: 0.42rem;
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 42%, transparent);
+}

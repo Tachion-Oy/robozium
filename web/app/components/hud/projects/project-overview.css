@@ -1,0 +1,323 @@
+/* Project overview: base and light-theme presentation. */
+
+/* Base */
+
+@keyframes hud-overview-loading-dots {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.agent-hud__start {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+}
+
+.agent-hud__project-input {
+  width: min(28rem, 52vw);
+  border: 1px solid var(--hud-input-border);
+  background: var(--hud-input-bg);
+  color: var(--hud-input-text);
+  border-radius: 2px;
+  padding: 0.55rem 0.75rem;
+  font-size: 1.25rem;
+  letter-spacing: 0.04em;
+}
+
+.agent-hud__project-input:focus-visible {
+  outline: none;
+  border-color: color-mix(in oklab, var(--term-blue) 80%, transparent);
+}
+
+.agent-hud__project-input::placeholder {
+  color: var(--hud-input-placeholder);
+}
+
+.agent-hud__project-view {
+  animation: hud-view-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center;
+}
+
+.agent-hud__overview-loading {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  color: color-mix(in oklab, var(--term-blue) 64%, white 36%);
+  font-family: var(--font-agent-input);
+  letter-spacing: 0.08em;
+  text-shadow: var(--term-glow-blue);
+}
+
+.agent-hud__overview-loading-dots {
+  display: inline-block;
+  width: 3ch;
+  overflow: hidden;
+  clip-path: inset(0 100% 0 0);
+  animation: hud-overview-loading-dots 1.1s steps(4, end) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-hud__project-view {
+    animation: none;
+  }
+
+  .agent-hud__overview-loading-dots {
+    animation: none;
+    clip-path: none;
+  }
+}
+
+.agent-hud__row-status--opening {
+  color: color-mix(in oklab, var(--hud-input-text) 72%, white 28%);
+  text-shadow: var(--term-glow-blue);
+}
+
+/* Mark the project belonging to the open run without adding row chrome. The
+   label's phosphor pulse keeps the context visible while the table remains
+   visually consistent with its other rows. */
+
+.agent-hud__project-name--current {
+  color: color-mix(in oklab, var(--term-blue) 64%, white 36%);
+  text-shadow:
+    0 0 1px var(--term-blue),
+    0 0 6px color-mix(in oklab, var(--term-blue) 64%, transparent),
+    0 0 16px color-mix(in oklab, var(--term-blue) 30%, transparent);
+}
+
+@keyframes hud-current-project-pulse {
+  from {
+    filter: brightness(0.82);
+    text-shadow:
+      0 0 1px var(--term-blue),
+      0 0 4px color-mix(in oklab, var(--term-blue) 44%, transparent),
+      0 0 10px color-mix(in oklab, var(--term-blue) 18%, transparent);
+  }
+  to {
+    filter: brightness(1.16);
+    text-shadow:
+      0 0 2px color-mix(in oklab, var(--term-blue) 76%, white 24%),
+      0 0 8px color-mix(in oklab, var(--term-blue) 76%, transparent),
+      0 0 22px color-mix(in oklab, var(--term-blue) 42%, transparent);
+  }
+}
+
+@keyframes hud-opening-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .agent-hud__project-name--current {
+    animation: hud-current-project-pulse 1.8s ease-in-out infinite alternate;
+  }
+
+  .agent-hud__row-status--opening {
+    animation: hud-opening-pulse 1.8s ease-in-out infinite;
+  }
+}
+
+/* Per-row HUD actions (Cancel / Delete). Compact, terminal-styled buttons that
+   mirror .agent-hud__send but are colour-coded to their intent. */
+
+.agent-hud__row-action {
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0.2rem 0.55rem;
+  font-family: var(--font-agent-input);
+  font-size: 0.95rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: 0.2rem;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease,
+    text-shadow 120ms ease;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.agent-hud__row-cancel {
+  color: color-mix(in oklab, var(--term-amber) 60%, white 40%);
+  border-color: color-mix(in oklab, var(--term-amber) 45%, transparent);
+  background: color-mix(in oklab, var(--term-amber) 8%, transparent);
+}
+
+.agent-hud__row-cancel:not(:disabled):hover {
+  color: color-mix(in oklab, var(--term-amber) 80%, white 20%);
+  border-color: color-mix(in oklab, var(--term-amber) 80%, white 20%);
+  background: color-mix(in oklab, var(--term-amber) 18%, transparent);
+  text-shadow: var(--term-glow-amber);
+}
+
+.agent-hud__row-delete {
+  color: color-mix(in oklab, var(--term-red) 60%, white 40%);
+  border-color: color-mix(in oklab, var(--term-red) 45%, transparent);
+  background: color-mix(in oklab, var(--term-red) 8%, transparent);
+}
+
+.agent-hud__row-delete:not(:disabled):hover {
+  color: color-mix(in oklab, var(--term-red) 82%, white 18%);
+  border-color: color-mix(in oklab, var(--term-red) 82%, white 18%);
+  background: color-mix(in oklab, var(--term-red) 18%, transparent);
+  text-shadow: var(--term-glow-red);
+}
+
+.agent-hud__row-delete--confirm {
+  color: color-mix(in oklab, var(--term-red) 88%, white 12%);
+  border-color: color-mix(in oklab, var(--term-red) 88%, white 12%);
+  background: color-mix(in oklab, var(--term-red) 24%, transparent);
+  text-shadow: var(--term-glow-red);
+}
+
+.agent-hud__row-cancel:disabled,
+.agent-hud__row-delete:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Light theme */
+
+:root[data-theme="light"] .agent-hud__project-row > button:hover,
+:root[data-theme="light"] .agent-hud__project-row > button:focus-visible {
+  background: color-mix(in oklab, var(--term-blue) 9%, var(--hud-input-bg));
+  filter: none;
+}
+:root[data-theme="light"] .agent-hud__project-view [class*="text-shadow"] {
+  text-shadow: none;
+}
+:root[data-theme="light"] .agent-hud__project-name--current {
+  color: color-mix(in oklab, var(--term-blue) 68%, var(--hud-input-text));
+  text-shadow: none;
+  animation: none;
+}
+:root[data-theme="light"] .agent-hud__row-status--running {
+  color: var(--hud-status-running);
+  text-shadow: none;
+}
+:root[data-theme="light"] .agent-hud__row-status--waiting {
+  color: var(--hud-status-waiting);
+  text-shadow: none;
+}
+:root[data-theme="light"] .agent-hud__row-status--syncing {
+  color: var(--hud-status-syncing);
+  text-shadow: none;
+}
+:root[data-theme="light"] .agent-hud__row-status--opening {
+  color: var(--hud-status-opening);
+  text-shadow: none;
+}
+:root[data-theme="light"] .agent-hud__row-cancel {
+  color: color-mix(in oklab, var(--term-amber) 72%, var(--hud-input-text));
+  border-color: color-mix(
+    in oklab,
+    var(--term-amber) 46%,
+    var(--hud-input-border)
+  );
+  background: color-mix(in oklab, var(--term-amber) 10%, var(--hud-input-bg));
+}
+:root[data-theme="light"] .agent-hud__row-delete {
+  color: color-mix(in oklab, var(--term-red) 72%, var(--hud-input-text));
+  border-color: color-mix(
+    in oklab,
+    var(--term-red) 44%,
+    var(--hud-input-border)
+  );
+  background: color-mix(in oklab, var(--term-red) 9%, var(--hud-input-bg));
+}
+:root[data-theme="light"] .agent-hud__start {
+  border: 0.08rem solid
+    color-mix(in oklab, var(--term-green) 58%, var(--hud-input-border));
+  border-radius: 0.38rem;
+  background: color-mix(in oklab, var(--term-green) 13%, var(--hud-input-bg));
+  color: color-mix(in oklab, var(--term-green) 68%, var(--hud-input-text));
+  font-family: var(--font-agent-input);
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 48%, transparent);
+  text-shadow: none;
+}
+:root[data-theme="light"] .agent-hud__project-view {
+  position: relative;
+  z-index: 1;
+  color: var(--hud-input-text);
+  text-shadow: none;
+  gap: 1.2rem;
+  padding: 0.8rem;
+  border: 1px solid
+    color-mix(in oklab, var(--hud-input-border) 68%, var(--term-blue));
+  border-radius: 0.48rem;
+  background: linear-gradient(
+      180deg,
+      color-mix(in oklab, white 18%, transparent),
+      transparent 24%
+    ),
+    color-mix(in oklab, var(--term-blue) 4%, var(--hud-input-bg));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 66%, transparent),
+    inset 0 -1px 0
+      color-mix(in oklab, var(--hud-control-ink) 8%, transparent),
+    0 0.35rem 0.8rem
+      color-mix(in oklab, var(--hud-control-ink) 10%, transparent);
+}
+:root[data-theme="light"] .agent-hud__project-row {
+  min-height: 3.4rem;
+  padding: 0.42rem 0.62rem;
+  border: 1px solid
+    color-mix(in oklab, var(--hud-input-border) 42%, transparent);
+  border-radius: 0.38rem;
+  background: color-mix(in oklab, white 22%, var(--hud-input-bg));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 72%, transparent);
+}
+:root[data-theme="light"] .agent-hud__project-row + .agent-hud__project-row {
+  margin-top: 0.62rem;
+}
+:root[data-theme="light"] .agent-hud__project-row > button {
+  padding: 0.48rem 0.55rem;
+}
+:root[data-theme="light"] .agent-hud__row-actions {
+  width: 13.25rem;
+  gap: 0.72rem;
+  padding-inline-left: 0.55rem;
+}
+:root[data-theme="light"] .agent-hud__row-action {
+  border-radius: 0.3rem;
+  text-shadow: none;
+  backdrop-filter: none;
+  min-width: 5.75rem;
+  padding: 0.48rem 0.82rem;
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 58%, transparent);
+  transition: transform 110ms ease,
+    border-color 110ms ease,
+    background 110ms ease,
+    box-shadow 110ms ease,
+    color 110ms ease;
+}
+:root[data-theme="light"] .agent-hud__row-action:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__row-action:not(:disabled):focus-visible {
+  transform: translateY(-1px);
+  filter: saturate(1.18);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 70%, transparent),
+    0 0.22rem 0.42rem
+      color-mix(in oklab, currentColor 18%, transparent);
+  outline: none;
+}
+:root[data-theme="light"] .agent-hud__row-action:not(:disabled):active {
+  transform: translateY(0);
+}
