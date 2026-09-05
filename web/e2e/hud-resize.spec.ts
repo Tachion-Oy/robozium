@@ -1,6 +1,16 @@
 import { expect, test } from "@playwright/test"
 import { gotoLanding } from "./helpers"
 
+let projectSlug: string | undefined
+
+// Repetitions must not accumulate background Librarians from earlier runs.
+test.afterEach(async ({ request }) => {
+	if (projectSlug) {
+		await request.post(`/api/projects/${encodeURIComponent(projectSlug)}/cancel`)
+		projectSlug = undefined
+	}
+})
+
 test.use({ viewport: { width: 1920, height: 1080 } })
 
 test("opens compact on landing and wide in a run while content uses the available space", async ({
@@ -139,15 +149,16 @@ test("opens compact on landing and wide in a run while content uses the availabl
 		.toBeGreaterThan(0)
 	const draggedProgress = Number(await handle.getAttribute("aria-valuenow"))
 	expect(draggedProgress).toBeLessThanOrEqual(100)
-	const draggedStatusBounds = await overviewSelector.boundingBox()
-	expect(draggedStatusBounds).not.toBeNull()
-	if (minimumStatusBounds && draggedStatusBounds) {
-		expect(draggedStatusBounds.x).toBeGreaterThan(minimumStatusBounds.x)
-		expect(draggedStatusBounds.y).toBeLessThan(minimumStatusBounds.y)
-	}
+	// Progress updates before WebKit commits the resulting layout.
+	await expect.poll(async () => {
+		const bounds = await overviewSelector.boundingBox()
+		return Boolean(bounds && minimumStatusBounds &&
+			bounds.x > minimumStatusBounds.x && bounds.y < minimumStatusBounds.y)
+	}).toBe(true)
 
 	await page.locator("button.agent-hud__start").click()
-	await page.getByLabel("Project name").fill(`hud-resize-e2e-${Date.now()}`)
+	projectSlug = `hud-resize-e2e-${Date.now()}`
+	await page.getByLabel("Project name").fill(projectSlug)
 	await page.getByRole("button", { name: "Create Project" }).click()
 	await expect(page).toHaveURL(/[?&]runId=/, { timeout: 20_000 })
 	await expect(page.locator(".agent-hud__textarea")).toBeVisible({

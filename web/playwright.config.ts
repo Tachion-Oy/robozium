@@ -49,10 +49,13 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
+  failOnFlakyTests: !!process.env.CI,
+  updateSnapshots: 'none',
+  outputDir: `${process.env.ROBOSPRAWL_E2E_REPORT_DIR}/test-results`,
   /* Opt out of parallel tests on CI. */
   workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  reporter: [['list'], ['html', { outputFolder: `${process.env.ROBOSPRAWL_E2E_REPORT_DIR}/playwright-report`, open: 'never' }], ['junit', { outputFile: `${process.env.ROBOSPRAWL_E2E_REPORT_DIR}/playwright.xml` }]],
   /* CI runners (esp. WebKit, which is software-rendered on Linux) are
    * meaningfully slower than a local machine. Give actions/assertions more
    * room there so a loaded runner doesn't fail on wall-clock alone. */
@@ -66,7 +69,8 @@ export default defineConfig({
     baseURL: webBaseUrl,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
 
     actionTimeout: process.env.CI ? 15_000 : 0,
   },
@@ -78,8 +82,8 @@ export default defineConfig({
   projects: runAllBrowserProjects ? [...DESKTOP_PROJECTS] : [DESKTOP_PROJECTS[0]],
 
   /* Run a non-watch server to avoid EMFILE from dev watcher load. */
-  webServer: {
-    command: `npm run build && npm run start -- --hostname 127.0.0.1 --port ${webPort}`,
+  webServer: process.env.ROBOSPRAWL_E2E_WEB_MANAGED === "1" ? undefined : {
+    command: `${process.env.ROBOSPRAWL_E2E_PREBUILT === "1" ? "" : "npm run build && "}npm run start -- --hostname 127.0.0.1 --port ${webPort}`,
     url: webBaseUrl,
     reuseExistingServer: false,
   },

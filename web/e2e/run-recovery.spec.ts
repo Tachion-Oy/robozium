@@ -1,11 +1,21 @@
 import { expect, test } from "@playwright/test"
 import { createProject } from "./helpers"
 
+let projectSlug: string | undefined
+
+test.afterEach(async ({ request }) => {
+	if (projectSlug) {
+		await request.post(`/api/projects/${encodeURIComponent(projectSlug)}/cancel`)
+		projectSlug = undefined
+	}
+})
+
 test("an unknown run keeps its toast, returns home, and stops polling", async ({
 	page,
 	request,
 }) => {
 	const slug = await createProject(request, `Invalid Run Recovery ${Date.now()}`)
+	projectSlug = slug
 	const invalidRunId = `missing-${Date.now()}`
 	let runViewRequests = 0
 	page.on("request", (request) => {
@@ -25,6 +35,9 @@ test("an unknown run keeps its toast, returns home, and stops polling", async ({
 		}),
 	})
 	await expect(toast).toBeVisible({ timeout: 20_000 })
+	// Dismiss before waiting for route/layout recovery or the polling interval.
+	await toast.getByRole("button", { name: "Dismiss error notification" }).click()
+	await expect(toast).toHaveCount(0)
 	await expect
 		.poll(() => new URL(page.url()).searchParams.get("runId"))
 		.toBeNull()
@@ -42,12 +55,10 @@ test("an unknown run keeps its toast, returns home, and stops polling", async ({
 	await expect(page.locator(".term-log")).not.toHaveClass(
 		/term-log--scrollable/,
 	)
+
 	const requestsAfterLanding = runViewRequests
 	await page.waitForTimeout(2_200)
 	expect(runViewRequests).toBe(requestsAfterLanding)
-
-	await toast.getByRole("button", { name: "Dismiss error notification" }).click()
-	await expect(toast).toHaveCount(0)
 
 	await page.getByRole("button", { name: `Open ${slug}`, exact: true }).click()
 	await expect
