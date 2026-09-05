@@ -100,6 +100,10 @@ The minimized-widget geometry check waits for its scale transition to finish
 before measuring. The light-theme hover check waits for the reply-ready state
 before moving the pointer, then waits for the CSS transform; a short enclosing
 retry timeout must not interrupt the browser's actionability wait.
+Project-action padding uses locator CSS assertions so polling can replace rows
+without leaving the check with a detached node. The comprehensive resize scenario
+has a 120-second total budget for its landing, run, theme, zoom, and mobile phases;
+individual action and assertion timeouts remain unchanged.
 
 ## Required status and publication
 

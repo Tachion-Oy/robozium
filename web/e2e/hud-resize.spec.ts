@@ -16,6 +16,10 @@ test.use({ viewport: { width: 1920, height: 1080 } })
 test("opens compact on landing and wide in a run while content uses the available space", async ({
 	page,
 }) => {
+	// This scenario covers landing, run resizing, both themes, zoom-equivalent
+	// density, and mobile reset. Cold WebKit CI exhausted 60s at the final check;
+	// give the whole flow room while retaining each action/assertion timeout.
+	test.setTimeout(120_000)
 	// This test asserts final geometry, not entrance animation timing. On loaded
 	// CI runners the transform can still be in flight after a fixed wait, which
 	// makes the two otherwise-equal gaps differ by several pixels.

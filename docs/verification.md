@@ -40,6 +40,16 @@ The two repaired scenarios passed three repetitions each with retries disabled
 against the downloaded CI frontend and backend builds (six passes in 1.7 minutes).
 TypeScript, targeted ESLint, actionlint, and whitespace checks also passed.
 
+The next GitHub run passed the repaired dismiss and hover checks. It exposed a
+detached-row style read in the padding test (empty computed values, then a passing
+retry), and one cold resize stress repetition exhausted the 60-second total test
+budget at its final mobile assertion; the other nine resize repetitions passed
+in 39–47 seconds. Padding now uses locator CSS assertions, and that comprehensive
+resize flow has a 120-second total budget with unchanged per-action and
+per-assertion limits. Flaky-only retry success still fails CI.
+Both scenarios then passed three local repetitions each without retries (six
+passes in 1.9 minutes), with lint, TypeScript, and workflow validation passing.
+
 This supersedes the earlier assumption below that public repository access was
 the only supported checkout path; the historical local validation results remain
 distinct from GitHub results.

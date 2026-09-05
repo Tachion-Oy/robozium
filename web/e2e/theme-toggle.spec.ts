@@ -15,11 +15,10 @@ test("project actions retain zero inline padding in both themes", async ({ page,
 		await page.evaluate((nextTheme) => {
 			document.documentElement.dataset.theme = nextTheme
 		}, theme)
-		const padding = await actions.evaluate((element) => {
-			const style = getComputedStyle(element)
-			return [style.paddingInlineStart, style.paddingInlineEnd]
-		})
-		expect(padding).toEqual(["0px", "0px"])
+		// Project polling can replace the row during a theme change. Locator
+		// assertions reacquire it instead of reading styles from a detached node.
+		await expect(actions).toHaveCSS("padding-inline-start", "0px")
+		await expect(actions).toHaveCSS("padding-inline-end", "0px")
 	}
 })
 
