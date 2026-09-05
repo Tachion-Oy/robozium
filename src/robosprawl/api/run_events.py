@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import logging
+from collections import deque
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import asdict, replace
 from threading import RLock
+from typing import TypedDict
 
 from roboz.runtime.events import (
     EventSink,
@@ -31,20 +33,27 @@ from robosprawl.api.state import (
 logger = logging.getLogger(__name__)
 
 
+class _EventState(TypedDict):
+    next_sequence: int
+    agent_stack: list[str]
+    current_agent_name: str | None
+    parent_agent_name: str | None
+    message_trace: deque[TraceEntry]
+
+
 class RunEvents:
     """Owns event normalization and replay-listener delivery for run state."""
 
     def __init__(self, *, message_history_limit: int) -> None:
         self._lock = RLock()
         self._delivery_lock = RLock()
-        self._message_history_limit = message_history_limit
         self._listeners: list[EventSink] = []
-        self._state: RunProjection = {
+        self._state: _EventState = {
             "next_sequence": 1,
             "agent_stack": [],
             "current_agent_name": None,
             "parent_agent_name": None,
-            "message_trace": [],
+            "message_trace": deque(maxlen=message_history_limit),
         }
         self._completion_listeners: dict[EventSink, Callable[[], None]] = {}
         self._completed = False
@@ -59,7 +68,7 @@ class RunEvents:
             return {
                 **self._state,
                 "agent_stack": list(self._state["agent_stack"]),
-                "message_trace": deepcopy(self._state["message_trace"]),
+                "message_trace": list(deepcopy(self._state["message_trace"])),
             }
 
     def subscribe(
@@ -108,7 +117,7 @@ class RunEvents:
         return event
 
     def _normalize_and_record(
-        self, state: RunProjection, event: PipeEvent
+        self, state: _EventState, event: PipeEvent
     ) -> PipeEvent:
         sequence = self._next_run_sequence(state)
         match event:
@@ -133,7 +142,7 @@ class RunEvents:
             case _:
                 return event
 
-    def _record_message_event(self, state: RunProjection, event: MessageEvent) -> None:
+    def _record_message_event(self, state: _EventState, event: MessageEvent) -> None:
         payload: RunViewMessagePayload = {
             "role": event.message.role,
             "content": event.message.content,
@@ -148,7 +157,7 @@ class RunEvents:
         self._append_trace_entry(state, message_entry)
 
     def _record_lifecycle_event(
-        self, state: RunProjection, event: RunLifecycleEvent
+        self, state: _EventState, event: RunLifecycleEvent
     ) -> None:
         stack = state["agent_stack"]
         match event:
@@ -174,7 +183,7 @@ class RunEvents:
         self._append_trace_entry(state, lifecycle_entry)
 
     def _record_script_output_event(
-        self, state: RunProjection, event: ScriptOutputEvent
+        self, state: _EventState, event: ScriptOutputEvent
     ) -> None:
         script_entry: RunViewScriptOutputEntry = {
             "type": "script_output",
@@ -183,7 +192,7 @@ class RunEvents:
         }
         self._append_trace_entry(state, script_entry)
 
-    def _record_runtime_event(self, state: RunProjection, event: RuntimeEvent) -> None:
+    def _record_runtime_event(self, state: _EventState, event: RuntimeEvent) -> None:
         runtime_entry: RunViewRuntimeEventEntry = {
             "type": "runtime_event",
             "sequence": event.sequence,
@@ -198,12 +207,11 @@ class RunEvents:
         }
         self._append_trace_entry(state, runtime_entry)
 
-    def _append_trace_entry(self, state: RunProjection, entry: TraceEntry) -> None:
-        next_trace = [*state["message_trace"], entry]
-        state["message_trace"] = next_trace[-self._message_history_limit :]
+    def _append_trace_entry(self, state: _EventState, entry: TraceEntry) -> None:
+        state["message_trace"].append(entry)
 
     @staticmethod
-    def _next_run_sequence(state: RunProjection) -> int:
+    def _next_run_sequence(state: _EventState) -> int:
         """Allocate one sequence space for the hub run trace.
 
         Each agent has its own ``EventPipe`` sequence counter, and a hub run can

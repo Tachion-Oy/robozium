@@ -152,7 +152,8 @@ def test_explicit_config_path_wins_over_environment(config_file, monkeypatch):
     with pytest.raises(RuntimeError, match="Missing hub config"):
         load_hub_config()
     monkeypatch.setenv("ROBOSPRAWL_CONFIG", str(config_file))
-    assert load_hub_config().sandbox.root == config_file.parent / ".runtime/data"
+    expected = (config_file.parent / ".runtime/data").resolve()
+    assert load_hub_config().sandbox.root == expected
 
 
 @pytest.mark.parametrize("key", ["logs", "snapshots", "memory"])

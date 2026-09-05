@@ -1,5 +1,6 @@
 """RunManager + WaitRegistry integration (no HTTP)."""
 
+import json
 import time
 from collections.abc import Sequence
 from datetime import datetime, timezone
@@ -437,8 +438,9 @@ def test_manager_sequences_and_replays_user_notifications() -> None:
     assert all(entry["payload"]["role"] == Role.ASSISTANT for entry in notifications)
 
 
-def test_run_events_assigns_one_sequence_space_to_mixed_run_events() -> None:
-    events = RunEvents(message_history_limit=5000)
+@pytest.mark.parametrize("history_limit", [1, 3, 5000])
+def test_run_events_assigns_one_sequence_space_to_mixed_run_events(history_limit) -> None:
+    events = RunEvents(message_history_limit=history_limit)
     delivered: list[object] = []
     events.subscribe(delivered.append)
 
@@ -470,11 +472,42 @@ def test_run_events_assigns_one_sequence_space_to_mixed_run_events() -> None:
         entry["sequence"] if "sequence" in entry else entry["payload"]["sequence"]
         for entry in view["message_trace"]
     ]
-    assert trace_sequences == [1, 2, 3, 4]
-    assert view["message_trace"][2]["type"] == "runtime_event"
-    message_entry = view["message_trace"][3]
+    assert trace_sequences == [1, 2, 3, 4][-history_limit:]
+    if history_limit > 1:
+        assert view["message_trace"][-2]["type"] == "runtime_event"
+    message_entry = view["message_trace"][-1]
     assert message_entry["type"] == "message"
     assert message_entry["payload"]["message_kind"] is None
+
+
+def test_run_event_snapshots_detach_nested_runtime_data() -> None:
+    events = RunEvents(message_history_limit=2)
+    events.dispatch(
+        RuntimeEvent(
+            category="llm",
+            kind="failed",
+            level="error",
+            message="auth failed",
+            sequence=1,
+            agent_name="agent",
+            data={"details": {"attempts": [1]}},
+        )
+    )
+
+    snapshot = events.snapshot()
+    assert isinstance(snapshot["message_trace"], list)
+    assert json.loads(json.dumps(snapshot)) == snapshot
+    entry = snapshot["message_trace"][0]
+    assert entry["type"] == "runtime_event"
+    assert entry["payload"]["data"] is not None
+    entry["payload"]["data"]["details"]["attempts"].append(2)
+    entry["payload"]["message"] = "changed"
+    snapshot["message_trace"].clear()
+
+    actual = events.snapshot()["message_trace"][0]
+    assert actual["type"] == "runtime_event"
+    assert actual["payload"]["message"] == "auth failed"
+    assert actual["payload"]["data"] == {"details": {"attempts": [1]}}
 
 
 def test_run_events_forwards_message_deltas_without_trace_pollution() -> None:
