@@ -1,3 +1,4 @@
+import { WireLifecycleStatus } from "@/lib/robosprawl/wire"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { startRunSessionConnection } from "../../../../lib/robosprawl/session/connection"
@@ -94,7 +95,7 @@ describe("run session stream connection", () => {
 				agent_name: "root",
 				parent_agent_name: null,
 				sequence: 4,
-				status: "completed",
+				status: WireLifecycleStatus.Completed,
 			},
 		} satisfies PipeEventFrame
 		let streamRequests = 0

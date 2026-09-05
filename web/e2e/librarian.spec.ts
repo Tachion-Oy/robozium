@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test"
+import { expect, test, type APIResponse, type Page } from "@playwright/test"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { walkFiles, waitFor } from "./helpers"
@@ -6,8 +6,8 @@ import { walkFiles, waitFor } from "./helpers"
 async function startRunForProject(
 	page: Page,
 	projectSlug: string,
-	cancelProject: (slug: string) => Promise<Response>,
-	createRun: (slug: string) => Promise<Response>,
+	cancelProject: (slug: string) => Promise<APIResponse>,
+	createRun: (slug: string) => Promise<APIResponse>,
 ): Promise<void> {
 	// If a prior spec left this seeded project busy, request cancellation first.
 	try {
@@ -18,7 +18,7 @@ async function startRunForProject(
 	const deadlineMs = Date.now() + 20_000
 	while (Date.now() < deadlineMs) {
 		const response = await createRun(projectSlug)
-		if (response.ok) {
+		if (response.ok()) {
 			const payload = (await response.json()) as { run_id?: unknown }
 			if (typeof payload.run_id === "string") {
 				await page.goto(`/?runId=${encodeURIComponent(payload.run_id)}`)

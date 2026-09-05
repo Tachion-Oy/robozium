@@ -114,13 +114,9 @@ describe("HudResizeHandle", () => {
 	})
 
 	it("coalesces pointer moves to one update per animation frame", () => {
-		let frameCallback: FrameRequestCallback | null = null
 		const requestFrame = vi
 			.spyOn(window, "requestAnimationFrame")
-			.mockImplementation((callback) => {
-				frameCallback = callback
-				return 1
-			})
+			.mockImplementation(() => 1)
 		const cancelFrame = vi
 			.spyOn(window, "cancelAnimationFrame")
 			.mockImplementation(() => {})
@@ -148,7 +144,9 @@ describe("HudResizeHandle", () => {
 
 		expect(requestFrame).toHaveBeenCalledTimes(1)
 		expect(onProgressChange).not.toHaveBeenCalled()
-		if (frameCallback) frameCallback(16)
+		const scheduled = requestFrame.mock.calls[0]?.[0]
+		expect(scheduled).toBeDefined()
+		scheduled?.(16)
 		expect(onProgressChange).toHaveBeenCalledTimes(1)
 		expect(onProgressChange.mock.lastCall?.[0]).toBeGreaterThan(0)
 

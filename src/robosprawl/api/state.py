@@ -9,6 +9,7 @@ from typing import Any, Literal, TypedDict
 from roboz.llm import LLMEndpoint
 from roboz.models import MessageKind, Role
 from roboz.runtime.events import EventSink
+from roboz.runtime.observability import RuntimeEventLevel
 from roboz.runtime.pipe import EventPipe
 from roboz.tooling import LazyExternalDependency
 
@@ -75,7 +76,7 @@ class RunViewScriptOutputEntry(TypedDict):
 class RunViewRuntimeEventPayload(TypedDict):
     category: str
     kind: str
-    level: Literal["debug", "info", "warning", "error"]
+    level: RuntimeEventLevel | Literal["debug", "info", "warning", "error"]
     message: str
     agent_name: str
     data: dict[str, Any] | None

@@ -5,7 +5,7 @@ import { AudioLevelMeter } from "../../../../app/components/terminal/AudioLevelM
 describe("AudioLevelMeter", () => {
 	it("renders six segments and fills them to the supplied level", () => {
 		const { container } = render(<AudioLevelMeter level={0.5} />)
-		const meter = container.querySelector(".agent-hud__dictate-meter")
+		const meter = container.querySelector<HTMLElement>(".agent-hud__dictate-meter")
 
 		expect(meter?.getAttribute("aria-hidden")).toBe("true")
 		expect(
@@ -17,7 +17,7 @@ describe("AudioLevelMeter", () => {
 
 	it("marks the meter silent without treating its pulse as detected audio", () => {
 		const { container } = render(<AudioLevelMeter level={0} />)
-		const meter = container.querySelector(".agent-hud__dictate-meter")
+		const meter = container.querySelector<HTMLElement>(".agent-hud__dictate-meter")
 
 		expect(meter?.dataset.silent).toBe("true")
 		expect(meter?.querySelectorAll("[data-active]").length).toBe(0)

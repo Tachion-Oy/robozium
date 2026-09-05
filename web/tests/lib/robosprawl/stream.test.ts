@@ -1,3 +1,4 @@
+import { WireLifecycleStatus } from "@/lib/robosprawl/wire"
 import { describe, expect, it } from "vitest";
 import {
   accumulateStreamingDelta,
@@ -45,7 +46,7 @@ describe("mapFrameToLogItems", () => {
           kind: RunLifecycleKind.Started,
           agent_name: "robosprawl",
           sequence: 1,
-          status: "running",
+          status: WireLifecycleStatus.Running,
         },
       },
       receivedAt,
@@ -111,7 +112,7 @@ describe("mapFrameToLogItems", () => {
           kind: RunLifecycleKind.Stopped,
           agent_name: "robosprawl",
           sequence: 4,
-          status: "completed",
+          status: WireLifecycleStatus.Completed,
         },
       },
       receivedAt,

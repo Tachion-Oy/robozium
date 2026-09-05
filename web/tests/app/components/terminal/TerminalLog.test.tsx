@@ -1,4 +1,3 @@
-import { createElement } from "react"
 import { cleanup, render } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { TerminalLog } from "../../../../app/components/terminal/TerminalLog"
@@ -24,11 +23,7 @@ describe("TerminalLog", () => {
 		vi.stubGlobal("ResizeObserver", ResizeObserverMock)
 
 		const { container, unmount } = render(
-			createElement(
-				TerminalLog,
-				{ scrollable: true },
-				createElement("div", null, "log entry"),
-			),
+			<TerminalLog scrollable><div>log entry</div></TerminalLog>,
 		)
 		const box = container.querySelector(".term-log") as HTMLDivElement
 		const content = box.firstElementChild

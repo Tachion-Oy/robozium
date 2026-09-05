@@ -1,3 +1,4 @@
+import { WireLifecycleStatus } from "@/lib/robosprawl/wire"
 import { describe, expect, it } from "vitest"
 import {
 	createInitialRunSessionState,
@@ -794,7 +795,7 @@ describe("run session reducer", () => {
 						kind: RunLifecycleKind.Stopped,
 						agent_name: "root",
 						sequence: 11,
-						status: "completed",
+						status: WireLifecycleStatus.Completed,
 					},
 				},
 			},
@@ -818,7 +819,7 @@ describe("run session reducer", () => {
 						agent_name: "specialist",
 						parent_agent_name: "root",
 						sequence: 11,
-						status: "completed",
+						status: WireLifecycleStatus.Completed,
 					},
 				},
 			},

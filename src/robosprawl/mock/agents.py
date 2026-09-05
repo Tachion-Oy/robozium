@@ -6,6 +6,7 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import SupportsIndex
 
 from roboz.llm import MockLLMEndpoint, MockProviderError
 from roboz.models import Empty, Message
@@ -457,7 +458,7 @@ class _HoldableResponses(list[str | Exception]):
         self.is_cancelled = is_cancelled
         self.max_hold_s = max_hold_s
 
-    def pop(self, index: int = -1) -> str | Exception:
+    def pop(self, index: SupportsIndex = -1) -> str | Exception:
         deadline = time.monotonic() + self.max_hold_s
         while (
             self.hold_marker.exists()
