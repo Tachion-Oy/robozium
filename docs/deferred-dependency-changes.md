@@ -14,7 +14,7 @@ Impact on this port: none, because email is deferred and the bridge package is n
 
 ## Application adaptations
 
-Roboz renamed `Agent`, `FactoryCtx`, `SubagentCtx`, `prompt_user_at_start`, and the `custom_prompt_user_tool` constructor argument, and validates public tool names as lowercase snake case. RoboSprawl uses those public names directly. Its tests now give tool functions valid public names.
+RoboSprawl uses Roboz `Ctx` and direct resources. The removed specialized contexts and `ToolDependency` wrappers are no longer imported. Public tool names remain lowercase snake case.
 
 Roboz leaves workspace layout and orchestration policy to applications. RoboSprawl owns the path, root/background bundle, file-tool policy, and context-compaction composition; the actual Librarian pipeline remains Roboz's `LibrarianConstructor`. The compaction implementation and full continuation prompts are provided by `roboz_shed.tools.get_compactify_messages_when_needed_tool`; RoboSprawl selects the endpoint and 60% threshold and supplies the owning event pipe. `OrchestratorConstructor.compactify_timeout_s` optionally bounds each provider attempt, defaulting to `None`.
 
@@ -34,3 +34,26 @@ Chromium and Firefox gate CI. Completed WebKit test failures are advisory;
 setup and runner failures remain required. See [testing](testing.md) for repetition commands
 and [verification](verification.md) for local evidence and remaining limits.
 No dependency API change is required by these repairs.
+
+
+## Replaceable model references
+
+`OrchestratorEndpointRoute` implements Roboz's `ExternalDependencyReference`.
+It reads its getter once per materialization or inspection. Discovery returns
+that selected lazy dependency; materialization delegates to its own identity
+validation and client cache. No initial-model identity or metadata is captured.
+Request-option wrappers preserve this live selection contract.
+
+Global selection sets the default for future runs. A run-specific selection
+changes that run's next model resolution; calls already in flight retain their
+endpoint. Switching back reuses the selected model's cached client. Every
+selectable model stays in the deployment health catalog. Registration matching,
+checkers, scheduling, timeouts, and cached HTTP health responses are unchanged.
+
+The reference API must reach Roboz `main` before this adaptation lands because
+Hub CI resolves that branch. Local paired-candidate checks are recorded in
+`reference-validation.md`. No versions, dependency ranges, or publication actions
+change. The lock refresh records the already-added Roboz development dependency
+on PyYAML; it changes no package resolution or compatibility range. Refresh
+installed core, Shed, and OpenAI candidates together; Shed already exports the
+required compaction tool, so no compatibility shim is needed.

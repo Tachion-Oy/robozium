@@ -10,8 +10,8 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from roboz import Agent
-from roboz.agent import SubagentCtx, run_subagent
+from roboz import Agent, Ctx
+from roboz.agent import run_subagent
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
 from roboz.models import Empty, Message, MessageKind, Role, Str
 from roboz.runtime import Output
@@ -32,7 +32,7 @@ from roboz.runtime.persistence import (
 from roboz.runtime.pipe import EventPipe
 from roboz.tooling import ExternalDependencyKind, LazyExternalDependency
 from roboz.tooling.decorators import tool
-from roboz.tools import MessageCtx, prompt_user_at_start, stop
+from roboz.tools import prompt_user_at_start, stop
 
 from robosprawl.api.errors import (
     ProjectBusyError,
@@ -147,7 +147,7 @@ def _minimal_api_agent_for_manager_test(
             {"action": "stop", "rationale": "done", "value": "ok"},
         ]
     )
-    start_only = prompt_user_at_start(MessageCtx(message="m"))
+    start_only = prompt_user_at_start(Ctx(message="m"))
     return _root_bundle(
         Agent(
             interaction_mode=Output.API,
@@ -583,7 +583,7 @@ def test_nested_subagent_lifecycle_events_reach_run_event_listeners() -> None:
                 ]
             ),
         )
-        run_child = run_subagent(SubagentCtx(child)).copy(name="delegate")
+        run_child = run_subagent(Ctx(agent=child)).copy(name="delegate")
         return _root_bundle(
             Agent(
                 name="parent_orchestrator",

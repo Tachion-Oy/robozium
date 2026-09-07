@@ -6,13 +6,12 @@ import ssl
 import sys
 import threading
 import time
-from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
-from roboz import Agent, FactoryCtx
+from roboz import Agent, Ctx
 from roboz.llm import LLMEndpoint, MockTranscriptionEndpoint
 from roboz.models import Empty, Message
 from roboz.tooling import (
@@ -20,7 +19,6 @@ from roboz.tooling import (
     ExternalDependencyKind,
     LazyExternalDependency,
     NetworkServiceDependency,
-    ToolDependency,
 )
 from roboz.tooling.decorators import factory
 
@@ -53,14 +51,9 @@ from robosprawl.hub import load_hub_config, transcription_endpoint
 _TEST_ORCHESTRATOR_ENDPOINT = next(iter(ORCHESTRATOR_MODELS.values()))
 
 
-@dataclass(frozen=True)
-class _DependenciesCtx(FactoryCtx):
-    dependencies: tuple[ToolDependency[ExecutableDependency], ...]
-
-
 @factory
 def dependency_tool(
-    input: Empty, messages: list[Message], ctx: _DependenciesCtx
+    input: Empty, messages: list[Message], ctx: Ctx
 ) -> Empty:
     del messages, ctx
     return input
@@ -70,9 +63,7 @@ def _factory_for(*names: str):
     def build(project, /, *, endpoint_getter, event_sinks):
         del project, endpoint_getter
         bound = dependency_tool(
-            _DependenciesCtx(
-                tuple(ToolDependency(ExecutableDependency(name)) for name in names)
-            )
+            Ctx(dependencies=tuple(ExecutableDependency(name) for name in names))
         )
         return RootAgentBundle(
             agent=Agent(

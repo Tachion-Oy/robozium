@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Migrate tool contexts to `Ctx` and direct resources. Model routes now expose
+  the currently selected dependency and preserve per-run switching through
+  request-option wrappers. In-flight requests retain their endpoint, and
+  returning to a model reuses its client.
+
 ### Fixed
 
 - Report completed WebKit test failures as advisory warnings with successful CI job checks, while retaining required setup and runner failures.

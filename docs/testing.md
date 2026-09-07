@@ -190,3 +190,11 @@ Publishing the Git repository alone does not migrate CI to PyPI. If it becomes
 public earlier, the `token` inputs and credential can be removed while retaining
 the checkout of current `main`, resolved once per run. See [uv packaging guidance](https://docs.astral.sh/uv/guides/package/).
 Passing validation does not authorize tags or publication.
+
+
+The `model-selection` mock scenario uses real LLM endpoint resolution with
+scripted provider clients. It records each actual provider request in the
+isolated project's `.mock-model-requests.jsonl`. The active-run HTTP test and
+installed browser model-selector test verify first → second → first requests,
+request options, global defaults, and isolation from a second active run. The
+scenario has no live credentials or production test-control API.

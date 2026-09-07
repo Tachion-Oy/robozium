@@ -182,9 +182,9 @@ def test_standard_factory_reuses_configured_endpoints_in_derived_tools(
     (librarian,) = bundle.background_agents
     snapshot, consolidate = librarian.default_tools[:2]
 
-    assert compactifier.dependencies[0].resource is DEFAULT_ORCHESTRATOR_MODEL
-    assert snapshot.dependencies[0].resource is DEFAULT_MEMORY_MODEL
-    assert consolidate.dependencies[0].resource is DEFAULT_MEMORY_MODEL
+    assert compactifier.dependencies[0] is DEFAULT_ORCHESTRATOR_MODEL
+    assert snapshot.dependencies[0] is DEFAULT_MEMORY_MODEL
+    assert consolidate.dependencies[0] is DEFAULT_MEMORY_MODEL
 
 
 def test_standard_factory_uses_project_paths_and_default_tools(

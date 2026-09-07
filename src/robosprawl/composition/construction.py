@@ -11,10 +11,8 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Final, Sequence
 
-from roboz import Agent
+from roboz import Agent, Ctx
 from roboz.agent import (
-    BackgroundAgentCtx,
-    SubagentCtx,
     run_background_agent,
     run_subagent,
 )
@@ -301,7 +299,7 @@ class AgentConstructor(ABC):
     ) -> list[Tool]:
         """Nested agents wrapped as invocable tools."""
         return [
-            run_subagent(SubagentCtx(spec.constructor.build(ctx.for_child()))).copy(
+            run_subagent(Ctx(agent=spec.constructor.build(ctx.for_child()))).copy(
                 name=spec.tool_name, description=spec.tool_description
             )
             for spec in specs
@@ -310,7 +308,7 @@ class AgentConstructor(ABC):
     def _background_agent_tools(self, ctx: BuildContext) -> list[Tool]:
         """Start-tools for the deployment's background agents."""
         return [
-            run_background_agent(BackgroundAgentCtx(agent)).copy(
+            run_background_agent(Ctx(agent=agent)).copy(
                 name=f"{START_BACKGROUND_AGENT_TOOL_NAME}_{agent.name}"
             )
             for agent in ctx.background_agents

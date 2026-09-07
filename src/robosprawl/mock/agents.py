@@ -8,12 +8,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import SupportsIndex
 
-from roboz.llm import MockLLMEndpoint, MockProviderError
+from roboz.llm import EndpointLike, MockLLMEndpoint, MockProviderError
 from roboz.models import Empty, Message
 from roboz.runtime import interact_with_user
 from roboz.runtime.events import EventSink, MessageDeltaEvent, PipeEvent
 from roboz.runtime.pipe import EventPipe
-from roboz.tooling import FactoryCtx
+from roboz.tooling import Ctx
 from roboz.tooling.decorators import factory
 from roboz.tools import stop
 
@@ -62,14 +62,9 @@ LIBRARIAN_HOLD_POLL_S = 0.05
 ScriptedMockResponse = dict[str, object] | Exception
 
 
-@dataclass(frozen=True)
-class MockNotificationContext(FactoryCtx):
-    message: str
-
-
 @factory
 def mock_user_notification(
-    input: Empty, messages: list[Message], ctx: MockNotificationContext
+    input: Empty, messages: list[Message], ctx: Ctx
 ) -> Empty:
     """Send a deterministic one-way notification in the mock scenario."""
     del input, messages
@@ -167,6 +162,7 @@ def _mock_agentic_factory(
     with_librarian: bool,
     logs_root_override: Path | None = None,
     notification: str | None = None,
+    endpoint: EndpointLike | None = None,
 ) -> AgenticFactory:
     """A scripted deployment built from the shed's constructors.
 
@@ -178,7 +174,7 @@ def _mock_agentic_factory(
     # explicit reply from prompt_user, not auto-loaded skill bootstrap chatter.
     return AgenticFactory(
         orchestrator=OrchestratorConstructor(
-            agent_endpoint=MockLLMEndpoint(responses=responses),
+            agent_endpoint=endpoint if endpoint is not None else MockLLMEndpoint(responses=responses),
             subagents=(
                 SubAgentSpec(
                     constructor=HelloWorldConstructor(),
@@ -187,7 +183,7 @@ def _mock_agentic_factory(
                 ),
             ),
             extra_default_tools=(
-                (mock_user_notification(MockNotificationContext(message=notification)),)
+                (mock_user_notification(Ctx(message=notification)),)
                 if notification is not None
                 else ()
             ),
@@ -205,7 +201,13 @@ def mock_orchestrator_factory(
     endpoint_getter: OrchestratorEndpointGetter,
     event_sinks: Sequence[EventSink],
 ) -> RootAgentBundle:
-    del endpoint_getter
+    if _mock_scenario(project) == "model-selection":
+        from robosprawl.mock.model_selection import model_selection_endpoint
+
+        return _mock_agentic_factory(
+            project, responses=[], with_librarian=False,
+            endpoint=model_selection_endpoint(endpoint_getter, project.root),
+        )(project, event_sinks=event_sinks)
     artifact = project.root / "documents" / "generated-note.txt"
     artifact.parent.mkdir(parents=True, exist_ok=True)
     if not artifact.exists():

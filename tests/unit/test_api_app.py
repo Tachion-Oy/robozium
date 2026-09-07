@@ -17,7 +17,7 @@ import pytest
 from fastapi import Request
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
-from roboz import Agent
+from roboz import Agent, Ctx
 from roboz.llm import MockLLMEndpoint, MockTranscriptionEndpoint
 from roboz.models import Empty, Message, Str
 from roboz.runtime import Output
@@ -35,7 +35,7 @@ from roboz.runtime.persistence import (
 )
 from roboz.runtime.pipe import EventPipe
 from roboz.tooling.decorators import tool
-from roboz.tools import MessageCtx, prompt_user_at_start, stop
+from roboz.tools import prompt_user_at_start, stop
 from roboz.tools.memory_files import (
     TIMESTAMP_STEM_FORMAT,
     load_conversation_run,
@@ -99,7 +99,7 @@ def _minimal_factory(
             {"action": "stop", "rationale": "done", "value": "ok"},
         ]
     )
-    start_only = prompt_user_at_start(MessageCtx(message="m"))
+    start_only = prompt_user_at_start(Ctx(message="m"))
     return _root_bundle(
         Agent(
             interaction_mode=Output.API,
@@ -1791,3 +1791,54 @@ def test_real_orchestrator_reads_top_level_workspace_file(
         for entry in view["message_trace"]
     )
     assert marker in transcript, transcript
+
+
+def test_active_model_api_switch_changes_next_request_and_isolates_runs(tmp_path: Path) -> None:
+    from robosprawl.mock.agents import mock_orchestrator_factory
+    from robosprawl.mock.model_selection import MODEL_REQUESTS_FILE
+
+    application = create_app(deployment=_test_deployment(mock_orchestrator_factory, tmp_path))
+    client = TestClient(application)
+    manager = application.state.run_manager
+    runs = []
+    first = 'model:openrouter:z-ai/glm-5.3'
+    second = 'model:openrouter:z-ai/glm-5.3-flash'
+
+    def start(slug):
+        project = project_paths(slug, start=tmp_path)
+        project.root.mkdir(parents=True, exist_ok=True)
+        (project.root / '.mock-scenario').write_text('model-selection')
+        run_id = _create_run(client, {'project': slug}).json()['run_id']
+        runs.append(run_id)
+        assert manager.start_run(run_id)
+        return run_id, project.root / MODEL_REQUESTS_FILE
+
+    def requests_at_prompt(run_id, journal, count):
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            state = client.get(f'/run/{run_id}').json()
+            rows = [json.loads(line) for line in journal.read_text().splitlines()] if journal.exists() else []
+            if len(rows) == count and state['status'] == 'awaiting_user_input':
+                return rows
+            assert state['status'] not in ('failed', 'completed'), state
+            time.sleep(.02)
+        raise AssertionError('run did not reach scripted prompt')
+
+    try:
+        run_a, journal_a = start('model-first')
+        assert requests_at_prompt(run_a, journal_a, 1)[0]['model_id'] == first
+        assert client.post('/models', json={'model_id': second}).status_code == 200
+        run_b, journal_b = start('model-second')
+        assert requests_at_prompt(run_b, journal_b, 1)[0]['model_id'] == second
+        for count, selected in enumerate((second, first), start=2):
+            assert client.post('/models', json={'model_id': selected, 'run_id': run_a}).status_code == 200
+            assert client.post(f'/run/{run_a}/reply', json={'content': 'continue'}).status_code == 200
+            rows = requests_at_prompt(run_a, journal_a, count)
+            assert rows[-1]['model_id'] == selected
+            assert rows[-1]['extra_body'] == {'reasoning': {'effort': 'low'}}
+        assert client.post(f'/run/{run_b}/reply', json={'content': 'continue'}).status_code == 200
+        assert [row['model_id'] for row in requests_at_prompt(run_b, journal_b, 2)] == [second, second]
+        assert client.get('/models').json()['selected_model_id'] == second
+    finally:
+        for run_id in runs:
+            manager.cancel(run_id)

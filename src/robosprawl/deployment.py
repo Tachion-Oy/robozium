@@ -4,7 +4,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from threading import Lock
 
-from roboz import ExternalDependency, ExternalDependencyKind, LazyExternalDependency
+from roboz import (
+    ExternalDependency,
+    ExternalDependencyKind,
+    ExternalDependencyReference,
+    LazyExternalDependency,
+)
 from roboz.llm import EndpointLike, LLMEndpoint, TranscriptionEndpointLike
 from roboz.runtime import EventSink
 from roboz.tools.librarian import LibrarianConstructor
@@ -90,23 +95,23 @@ class OrchestratorModelSelector:
         )
 
 
-class OrchestratorEndpointRoute(LazyExternalDependency[LLMEndpoint]):
-    """Stable dependency identity that routes calls to the bound run endpoint."""
+class OrchestratorEndpointRoute(ExternalDependencyReference[LLMEndpoint]):
+    """Resolve and inspect the endpoint currently selected for a run."""
+
+    __slots__ = ("_endpoint_getter",)
 
     def __init__(self, endpoint_getter: OrchestratorEndpointGetter) -> None:
-        initial_endpoint = endpoint_getter()
-        super().__init__(
-            dependency_id_value=initial_endpoint.dependency_id,
-            dependency_kind=initial_endpoint.kind,
-            metadata=initial_endpoint.redacted_metadata(),
-            resolver=lambda: endpoint_getter().materialize(),
-        )
+        self._endpoint_getter = endpoint_getter
 
     def materialize(self) -> LLMEndpoint:
-        # The selected dependency validates its own concrete endpoint.
-        # This route is an alias, so its stable inspection id intentionally does
-        # not have to match the selected endpoint's id.
-        return self.resolver()
+        """Let the selected dependency validate and cache its own endpoint."""
+        endpoint = self._endpoint_getter()
+        return endpoint.materialize()
+
+    def external_dependencies(self) -> tuple[ExternalDependency, ...]:
+        """Expose the selected dependency without constructing its client."""
+        endpoint = self._endpoint_getter()
+        return (endpoint,)
 
 
 def standard_factory(
