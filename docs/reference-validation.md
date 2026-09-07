@@ -104,11 +104,36 @@ export ROBOSPRAWL_E2E_WEB_PORT=13100
 | `python3 scripts/e2e/check_runner.py` | All five failure/interruption cleanup cases passed |
 | `bash scripts/e2e/run-mock-playwright.sh --project=chromium` | 39 passed, exit 0; existing visual baselines unchanged |
 | `bash scripts/e2e/run-mock-playwright.sh --project=firefox` | 37 passed, exit 0 |
-| `bash scripts/e2e/run-mock-playwright.sh --project=webkit` | Running; final result will be recorded before handoff |
-| `bash scripts/e2e/run-mock-playwright.sh --project=webkit --grep='opens compact on landing|an unknown run keeps' --repeat-each=10 --retries=0` | Queued after full suite |
+| `bash scripts/e2e/run-mock-playwright.sh --project=webkit` | 37 passed, exit 0 |
+| `bash scripts/e2e/run-mock-playwright.sh --project=webkit --grep='opens compact on landing\|an unknown run keeps' --repeat-each=10 --retries=0` | 18 passed / 2 failed, exit 1; advisory under existing policy |
 
 WebKit completed test failures are advisory; setup/runner/cleanup failures remain
 required. All runs use zero retries and unchanged visual baselines.
+
+Both stress failures are the existing `run-recovery.spec.ts:39` toast-dismissal
+click timing out at 60 seconds: the element is unstable, then detaches while
+Playwright retries. The full WebKit suite passes that same scenario. The ten
+resize repetitions pass; recovery passes eight of ten. No test, timeout,
+assertion, visual baseline, or policy was weakened.
+
+`BROWSER=webkit SUITE=stress TEST_OUTCOME=failure PLAYWRIGHT_EXIT_CODE=1 python3
+scripts/e2e/evaluate_result.py` exits 0 and classifies the completed test failure
+as advisory. The raw stress runner exit remains 1. Final cleanup checks confirm
+all five browser runs removed disposable workspaces and stopped their owned
+processes; API/web ports 18000/13100 are free.
+
+Diagnostic directories under `.artifacts/e2e/`:
+
+- Focused installed switch: `run-xhlukx6n` (1 passed).
+- Chromium: `run-5yzwdwbz` (39 passed, 4.3 minutes).
+- Firefox: `run-t1pl29w2` (37 passed, 4.6 minutes).
+- WebKit full: `run-5rigxouo` (37 passed, 7.5 minutes).
+- WebKit stress: `run-ba4d21_t` (18 passed / 2 failed, 8.5 minutes), with both
+  `error-context.md`, screenshots, and trace archives retained.
+
+Each directory retains backend/frontend logs, Playwright logs, HTML/JUnit
+reports, and `result.json`. Policy and cleanup results are in
+`.artifacts/webkit-policy.log` and `.artifacts/browser-cleanup.log`.
 <!-- BROWSER_RESULTS_END -->
 
 Roboz PR #16 at `38a13ed6c1a4790e035e0d95a1b21b8c1167fb7b` has a
@@ -126,3 +151,19 @@ Roboz report. CI must resolve Roboz `main` containing PR #16 before this Hub
 adaptation can land. Local paired-candidate results do not claim that current
 Hub CI against the older Roboz main passes. GitHub results and Linux browser
 checks do not establish live provider behavior or native Safari/macOS support.
+
+
+## Current-main CI prerequisite
+
+[Hub CI run 34110224721](https://github.com/Tachion-Oy/robosprawl/actions/runs/34110224721)
+passes dependency checkout and frontend verification. Python 3.13/3.14, quality,
+and distribution fail because current Roboz main cannot import
+`ExternalDependencyReference`; browser jobs are skipped and aggregate CI fails.
+Confirmed with `gh pr view 13 --json state,isDraft,statusCheckRollup` and
+`gh run view 34110224721 --log-failed` (both exit 0); logs are retained in
+`.artifacts/pr-status.json` and `.artifacts/ci-failed.log`.
+
+Keep PR #13 in draft. After Roboz #16 reaches main, rerun the complete Hub
+workflow so its resolver selects that new main revision; an isolated failed-job
+rerun can retain the old resolved SHA. Land only after required Hub CI is green.
+The workflow and its dependency source have not been bypassed or weakened.
