@@ -1,5 +1,9 @@
 # Verification
 
+For the Ctx and endpoint-reference follow-up, see the
+[paired-candidate validation report](reference-validation.md), including exact
+source revisions, commands, archive hashes, and installed browser results.
+
 The records below preserve the source revisions and results originally
 verified. Their pinned-source procedures and reuse of downloaded CI builds are
 superseded for current acceptance: each new CI run tests current Roboz `main`
