@@ -5,8 +5,8 @@ verified. Their pinned-source procedures and reuse of downloaded CI builds are
 superseded for current acceptance: each new CI run tests current Roboz `main`
 and builds fresh application distributions and frontend assets. Fresh wheel
 and source-distribution installation checks remain required. See
-[current validation instructions](testing.md) and the historical
-[shared compaction migration](compaction-migration.md).
+[current validation instructions](testing.md) and
+[deployment composition](deployment.md).
 
 The earlier job-level WebKit continuation described below could leave an
 individual WebKit check red even when aggregate CI passed. The current policy

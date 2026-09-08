@@ -166,8 +166,8 @@ and [Dependabot secret handling](https://docs.github.com/en/code-security/refere
 
 ### PyPI cutover
 
-After compatible releases of **all three** packages (`roboz`, `roboz-shed`, and
-`roboz-openai`) are available on PyPI:
+After compatible releases of **all three** packages (`roboz`, `roboshed`, and
+`roboz-endpoints`) are available on PyPI:
 
 1. Remove the three `[tool.uv.sources]` overrides, run `uv lock`, and review the
    registry sources and versions. Retain locked sync in CI.
