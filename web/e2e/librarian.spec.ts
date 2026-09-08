@@ -62,9 +62,10 @@ test("librarian generates snapshot and purges logs", async ({ page, request }) =
 		return markdownFiles[0] ?? null
 	})
 
-	const snapshotText = await fs.readFile(snapshotPath, "utf8")
-	expect(snapshotText).toContain("# Conversation Snapshot")
-	expect(snapshotText).toContain("Librarian generated this memory.")
+	await expect.poll(() => fs.readFile(snapshotPath, "utf8"))
+		.toContain("# Conversation Snapshot")
+	await expect.poll(() => fs.readFile(snapshotPath, "utf8"))
+		.toContain("Librarian generated this memory.")
 
 	await waitFor("purged conversation log count", async () => {
 		const jsonFiles = await walkFiles(conversationRoot as string, ".json")
