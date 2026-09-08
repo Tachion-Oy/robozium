@@ -222,7 +222,7 @@ jobs:
           tar -xzf .artifacts/web-build.tar.gz -C web
           backend_env="$(mktemp -d)"
           python -m venv "$backend_env"
-          "$backend_env/bin/python" -I -m pip install .artifacts/distributions/{robosprawl,roboz,roboz_shed,roboz_openai}-*.whl
+          "$backend_env/bin/python" -I -m pip install .artifacts/distributions/{robosprawl,roboz,roboshed,roboz_endpoints}-*.whl
           "$backend_env/bin/python" -I -m pip check
           echo "ROBOSPRAWL_E2E_PYTHON=$backend_env/bin/python" >> "$GITHUB_ENV"
           source scripts/env.sh

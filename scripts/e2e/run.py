@@ -121,14 +121,17 @@ def main() -> int:
             memory = project / "persistent_memory"
             for path in (logs, snapshots, memory):
                 path.mkdir(parents=True)
-            config = json.loads((ROOT / "hub.config.json").read_text())
-            config["hub"]["name"] = "RoboSprawlE2E"
-            config["sandbox"]["root"] = "hub_data"
-            config["logging"]["file"]["path"] = "technical_logs/backend.jsonl"
-            (workspace / "hub.config.json").write_text(json.dumps(config))
+            (workspace / "hub.config.py").write_text(
+                (ROOT / "hub.config.py").read_text()
+                + "\nfrom dataclasses import replace\nfrom pathlib import Path\n"
+                + "WORKSPACE = replace(WORKSPACE, root=Path('hub_data'))\n"
+                + "LOGGING = replace(LOGGING, path=Path('technical_logs/backend.jsonl'))\n"
+            )
             env.update(
                 {
                     "ROBOSPRAWL_E2E_ALL_BROWSERS": "1",
+                    "ROBOSPRAWL_CONFIG": str(workspace / "hub.config.py"),
+                    "ROBOSPRAWL_PYTHON": python,
                     "ROBOSPRAWL_E2E_HUB_BASE_DIR": str(hub),
                     "ROBOSPRAWL_E2E_CONVERSATION_LOGS_DIR": str(logs),
                     "ROBOSPRAWL_E2E_SNAPSHOT_DIR": str(snapshots),

@@ -14,7 +14,7 @@ for relative in paths:
         violations.append(relative)
     try:
         content = path.read_text()
-    except (UnicodeError, IsADirectoryError):
+    except (UnicodeError, IsADirectoryError, FileNotFoundError):
         continue
     if legacy_prefix in content.casefold():
         violations.append(relative)

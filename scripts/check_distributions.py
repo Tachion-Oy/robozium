@@ -2,7 +2,6 @@
 
 import argparse
 import email
-import json
 import os
 import shutil
 import subprocess
@@ -55,7 +54,7 @@ def main() -> None:
         prefix="robosprawl-install-", dir=os.environ.get("RUNNER_TEMP", "/tmp")
     ) as directory:
         root = Path(directory)
-        env["ROBOSPRAWL_CONFIG"] = str(root / "hub.config.json")
+        env["ROBOSPRAWL_CONFIG"] = str(root / "hub.config.py")
         # Installed checks must not inherit a source checkout's pytest options,
         # including when RUNNER_TEMP is placed inside that checkout.
         (root / "pytest.ini").write_text("[pytest]\n")
@@ -73,7 +72,7 @@ def main() -> None:
                 "CHANGELOG.md",
                 "LICENSE",
                 "pyproject.toml",
-                "hub.config.json.example",
+                "hub.config.py",
                 "PKG-INFO",
                 ".gitignore",  # Hatch includes VCS ignore rules in sdists.
             }
@@ -95,7 +94,7 @@ def main() -> None:
         validate(rebuilt)
         dependencies = [
             next(dist.glob(pattern))
-            for pattern in ("roboz-*.whl", "roboz_shed-*.whl", "roboz_openai-*.whl")
+            for pattern in ("roboz-*.whl", "roboshed-*.whl", "roboz_endpoints-*.whl")
         ]
         for label, wheel in (("wheel", original), ("sdist", rebuilt)):
             venv = (
@@ -118,10 +117,12 @@ def main() -> None:
                 "pytest",
             )
             run(str(python), "-I", "-m", "pip", "check")
-            config = json.loads((ROOT / "hub.config.json").read_text())
-            config["sandbox"]["root"] = "hub_data"
-            config["logging"]["file"]["path"] = "technical_logs/backend.jsonl"
-            (root / "hub.config.json").write_text(json.dumps(config))
+            (root / "hub.config.py").write_text(
+                (ROOT / "hub.config.py").read_text()
+                + "\nfrom dataclasses import replace\nfrom pathlib import Path\n"
+                + "WORKSPACE = replace(WORKSPACE, root=Path('hub_data'))\n"
+                + "LOGGING = replace(LOGGING, path=Path('technical_logs/backend.jsonl'))\n"
+            )
             shutil.copyfile(
                 ROOT / "tests/unit/test_port_composition.py",
                 root / "test_composition.py",

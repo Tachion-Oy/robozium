@@ -9,8 +9,8 @@ sources = tomllib.loads((root / "pyproject.toml").read_text())["tool"]["uv"]["so
 staging = root / ".artifacts" / "wheel-sources"
 for name, source in (
     ("core", root / sources["roboz"]["path"]),
-    ("shed", root / sources["roboz-shed"]["path"]),
-    ("openai", root / sources["roboz-openai"]["path"]),
+    ("shed", root / sources["roboshed"]["path"]),
+    ("endpoints", root / sources["roboz-endpoints"]["path"]),
     ("application", root),
 ):
     target = staging / name
