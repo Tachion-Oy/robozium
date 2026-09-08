@@ -6,8 +6,9 @@ from collections.abc import Collection, Iterable
 from enum import StrEnum
 from typing import TypedDict
 
+from roboshed.workspace import Project
+
 from robosprawl.api.state import ProjectRunItem, RunStatus
-from robosprawl.workspace import Project
 
 
 class ProjectStatus(StrEnum):

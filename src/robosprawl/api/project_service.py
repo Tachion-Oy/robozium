@@ -3,42 +3,54 @@
 import shutil
 from threading import RLock
 
+from roboshed.workspace import Project
 from roboz.runtime.persistence import active_marker_paths, clear_active_markers
 
 from robosprawl.api.errors import ProjectBusyError
 from robosprawl.api.projects import ProjectListItem, compose_project_list
 from robosprawl.api.run_manager import RunManager
-from robosprawl.hub import HubConfig
-from robosprawl.workspace import Project
+from robosprawl.hub.application import Hub
 
 
 class ProjectService:
-    def __init__(self, config: HubConfig, manager: RunManager) -> None:
-        self._config = config
+    def __init__(self, hub: Hub, manager: RunManager) -> None:
+        self._hub = hub
         self._manager = manager
         self._lock = RLock()
 
     def _projects(self) -> list[Project]:
-        directory = self._config.sandbox.projects_dir
+        directory = self._hub.workspace.projects_dir
         if not directory.is_dir():
             return []
         return [
-            self._config.project(child.name)
+            self._hub.project(child.name)
             for child in directory.iterdir()
             if child.is_dir()
         ]
 
     def recover(self) -> None:
         """Discard activity markers left by a previous process before accepting work."""
-        self._config.sandbox.validate()
+        workspace = self._hub.workspace
+        root = workspace.resolved_root
+        allowed = {workspace.readonly, workspace.shared, workspace.projects}
+        if root.exists():
+            unexpected = sorted(
+                child.name
+                for child in root.iterdir()
+                if child.is_dir() and child.name not in allowed
+            )
+            if unexpected:
+                raise ValueError(
+                    f"Unexpected folders in workspace root {root}: {', '.join(unexpected)}"
+                )
         with self._lock:
             for project in self._projects():
                 clear_active_markers(project.logs)
 
     def _existing(self, name: str) -> Project:
-        project = self._config.project(name)
+        project = self._hub.project(name)
         root = project.root.resolve()
-        if root.parent != self._config.sandbox.projects_dir.resolve():
+        if root.parent != self._hub.workspace.projects_dir.resolve():
             raise RuntimeError("invalid project path")
         if not root.is_dir():
             raise FileNotFoundError("unknown project")
@@ -54,12 +66,20 @@ class ProjectService:
 
     def create(self, name: str) -> str:
         with self._lock:
-            return self._config.manifest_project(name).slug
+            project = self._hub.project(name)
+            project.root.mkdir(parents=True, exist_ok=True)
+            return project.slug
 
     def prepare_run(self, name: str) -> str:
         """Check the project and ask the manager to register or reuse a run."""
         with self._lock:
             project = self._existing(name)
+            for directory in (
+                project.workspace.readonly_dir,
+                project.workspace.shared_dir,
+                project.workspace.projects_dir,
+            ):
+                directory.mkdir(parents=True, exist_ok=True)
             return self._manager.create(
                 project, background_sync_active=self._active(project)
             )

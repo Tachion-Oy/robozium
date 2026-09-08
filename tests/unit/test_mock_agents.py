@@ -1,14 +1,10 @@
-import json
 import threading
 import time
 from pathlib import Path
 
-from roboz.llm import MockLLMEndpoint, MockProviderError
-
-from robosprawl.api.state import RootAgentBundle
-from robosprawl.deployment import DEFAULT_ORCHESTRATOR_MODEL
-from robosprawl.hub import project_paths
-from robosprawl.identifiers import (
+from config_support import write_config
+from roboshed.deployments.robosprawl import RoboSprawlBundle
+from roboshed.identifiers import (
     CONSOLIDATE_MEMORY_TOOL_NAME,
     LIBRARIAN_AGENT_NAME,
     PURGE_LOGS_TOOL_NAME,
@@ -17,60 +13,32 @@ from robosprawl.identifiers import (
     SLEEP_BETWEEN_RUNS_TOOL_NAME,
     SNAPSHOT_CONVERSATIONS_TOOL_NAME,
 )
-from robosprawl.mock import (
-    mock_orchestrator_factory,
-    stream_sync_mock_orchestrator_factory,
+from roboz.llm import MockLLMEndpoint, MockProviderError
+from roboz_endpoints import openrouter
+
+from robosprawl.hub.utils import load_hub
+from robosprawl.mock.agents import (
+    MOCK_SCENARIO_USER_NOTIFICATION,
+    _holdable_endpoint,
+    mock_deployment,
+    stream_sync_mock_deployment,
 )
-from robosprawl.mock.agents import MOCK_SCENARIO_USER_NOTIFICATION, _holdable_endpoint
 
 
 def _endpoint_getter():
-    return DEFAULT_ORCHESTRATOR_MODEL
-
-
-def _write_hub_config(root: Path) -> None:
-    (root / "hub.config.json").write_text(
-        json.dumps(
-            {
-                "hub": {"name": "MockHub"},
-                "logging": {
-                    "console": {"level": "INFO"},
-                    "file": {
-                        "path": "technical_logs/backend.jsonl",
-                        "level": "DEBUG",
-                        "max_bytes": 26214400,
-                        "backup_count": 5,
-                        "on_error": "fail",
-                    },
-                },
-                "sandbox": {
-                    "root": "hub_data",
-                    "readonly": "readonly",
-                    "workspace": "workspace",
-                    "projects": "projects",
-                    "safe_scripts": "safe-scripts",
-                },
-                "project": {
-                    "logs": "conversation_logs",
-                    "snapshots": "conversation_snapshots",
-                    "memory": "persistent_memory",
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
+    return openrouter.z_ai__glm_5_3
 
 
 def test_mock_librarian_is_non_agentic_workflow(tmp_path: Path) -> None:
-    _write_hub_config(tmp_path)
-    project = project_paths("alpha", start=tmp_path)
+    write_config(tmp_path, workspace="hub_data", name="MockHub")
+    project = load_hub(start=tmp_path).project("alpha")
 
-    (librarian,) = mock_orchestrator_factory(
+    (librarian,) = mock_deployment(
         project, endpoint_getter=_endpoint_getter, event_sinks=()
     ).background_agents
 
     assert librarian.name == LIBRARIAN_AGENT_NAME
-    assert librarian.agent_endpoint is None
+    assert librarian.is_agentic is False
     assert librarian.is_agentic is False
     assert [tool.name for tool in librarian.default_tools] == [
         SNAPSHOT_CONVERSATIONS_TOOL_NAME,
@@ -82,33 +50,33 @@ def test_mock_librarian_is_non_agentic_workflow(tmp_path: Path) -> None:
     ]
 
 
-def test_mock_orchestrator_factory_uses_background_agent_wiring(
+def test_mock_deployment_uses_background_agent_wiring(
     tmp_path: Path,
 ) -> None:
-    _write_hub_config(tmp_path)
-    project = project_paths("alpha", start=tmp_path)
+    write_config(tmp_path, workspace="hub_data", name="MockHub")
+    project = load_hub(start=tmp_path).project("alpha")
 
-    bundle = mock_orchestrator_factory(
-        project, endpoint_getter=_endpoint_getter, event_sinks=()
-    )
+    bundle = mock_deployment(project, endpoint_getter=_endpoint_getter, event_sinks=())
 
-    assert isinstance(bundle, RootAgentBundle)
+    assert isinstance(bundle, RoboSprawlBundle)
     assert len(bundle.background_agents) == 1
     assert bundle.background_agents[0].name == LIBRARIAN_AGENT_NAME
+    assert not project.root.exists()
     assert [tool.name for tool in bundle.agent.default_tools] == [
-        "start_background_agent_librarian"
+        "prepare_mock_artifact",
+        "start_background_agent_librarian",
     ]
 
 
-def test_mock_orchestrator_factory_selects_error_scenario_from_marker(
+def test_mock_deployment_selects_error_scenario_from_marker(
     tmp_path: Path,
 ) -> None:
-    _write_hub_config(tmp_path)
-    project = project_paths("alpha", start=tmp_path)
+    write_config(tmp_path, workspace="hub_data", name="MockHub")
+    project = load_hub(start=tmp_path).project("alpha")
     project.root.mkdir(parents=True, exist_ok=True)
     (project.root / ".mock-scenario").write_text("llm-error", encoding="utf-8")
 
-    orchestrator = mock_orchestrator_factory(
+    orchestrator = mock_deployment(
         project, endpoint_getter=_endpoint_getter, event_sinks=()
     ).agent
 
@@ -121,21 +89,22 @@ def test_mock_orchestrator_factory_selects_error_scenario_from_marker(
     assert isinstance(orchestrator.agent_endpoint.mock_responses[2], str)
 
 
-def test_mock_orchestrator_factory_adds_notification_default_tool_for_scenario(
+def test_mock_deployment_adds_notification_default_tool_for_scenario(
     tmp_path: Path,
 ) -> None:
-    _write_hub_config(tmp_path)
-    project = project_paths("notification", start=tmp_path)
+    write_config(tmp_path, workspace="hub_data", name="MockHub")
+    project = load_hub(start=tmp_path).project("notification")
     project.root.mkdir(parents=True, exist_ok=True)
     (project.root / ".mock-scenario").write_text(
         MOCK_SCENARIO_USER_NOTIFICATION, encoding="utf-8"
     )
 
-    orchestrator = mock_orchestrator_factory(
+    orchestrator = mock_deployment(
         project, endpoint_getter=_endpoint_getter, event_sinks=()
     ).agent
 
     assert [tool.name for tool in orchestrator.default_tools] == [
+        "prepare_mock_artifact",
         "mock_user_notification",
         "start_background_agent_librarian",
     ]
@@ -144,14 +113,14 @@ def test_mock_orchestrator_factory_adds_notification_default_tool_for_scenario(
 def test_stream_sync_mock_factory_exposes_background_agent_for_syncing(
     tmp_path: Path,
 ) -> None:
-    _write_hub_config(tmp_path)
-    project = project_paths("alpha", start=tmp_path)
+    write_config(tmp_path, workspace="hub_data", name="MockHub")
+    project = load_hub(start=tmp_path).project("alpha")
 
-    bundle = stream_sync_mock_orchestrator_factory(
+    bundle = stream_sync_mock_deployment(
         project, endpoint_getter=_endpoint_getter, event_sinks=()
     )
 
-    assert isinstance(bundle, RootAgentBundle)
+    assert isinstance(bundle, RoboSprawlBundle)
     assert len(bundle.background_agents) == 1
     assert bundle.background_agents[0].name == LIBRARIAN_AGENT_NAME
 
@@ -261,3 +230,40 @@ def test_holdable_endpoint_honors_max_hold_s(tmp_path: Path) -> None:
     start = time.monotonic()
     endpoint.mock_responses.pop(0)
     assert time.monotonic() - start < 1.0
+
+
+def test_stream_mock_repeats_specialist_and_recreates_scripts_per_run(
+    tmp_path, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from roboz.runtime import bind_api_user_io, reset_api_user_io
+
+    from robosprawl.mock.agents import stream_mock_deployment
+
+    monkeypatch.setenv("ROBOSPRAWL_STREAM_MOCK_DELAY_S", "0")
+    monkeypatch.setenv("ROBOSPRAWL_STREAM_MOCK_START_DELAY_S", "0")
+    write_config(tmp_path, workspace="hub_data", name="MockHub")
+    project = load_hub(start=tmp_path).project("stream")
+    replies = []
+
+    def reply(message, timeout=None):
+        replies.append(message)
+        return "continue"
+
+    token = bind_api_user_io(
+        SimpleNamespace(request_input=reply, notify=lambda message: None)
+    )
+    try:
+        for _ in range(2):
+            bundle = stream_mock_deployment(
+                project,
+                endpoint_getter=_endpoint_getter,
+                event_sinks=(),
+            )
+            result, _ = bundle.agent.invoke()
+            assert "end of the streaming mock walkthrough" in result.value
+    finally:
+        reset_api_user_io(token)
+    assert len(replies) == 4
+    assert len(list((project.logs / "hello_world").rglob("*.json"))) == 6

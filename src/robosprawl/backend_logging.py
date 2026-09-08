@@ -15,9 +15,9 @@ from urllib.parse import urlsplit
 
 from roboz.runtime import LOG_DATA_ATTRIBUTE, LOG_DATE_FORMAT, LOG_FORMAT
 
-from robosprawl.hub import HubLoggingConfig
+from robosprawl.hub.logging import HubLoggingConfig
 
-_APPLICATION_LOGGERS = ("robosprawl", "roboz_shed", "roboz")
+_APPLICATION_LOGGERS = ("robosprawl", "roboshed", "roboz")
 _UVICORN_LOGGERS = ("uvicorn.access", "uvicorn.error")
 _POLLING_PATHS = (re.compile(r"/projects"), re.compile(r"/run/[^/]+"))
 

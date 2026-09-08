@@ -4,15 +4,18 @@ import json
 import threading
 import time
 from contextvars import ContextVar
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
+from roboshed.deployments.robosprawl import RoboSprawlBundle
 from roboz import Agent
 from roboz.runtime.io import interact_with_user
 from roboz.runtime.persistence import RunStatus as AgentStatus
 from roboz.runtime.pipe import EventPipe
 from roboz.tools import stop
+from roboz_endpoints import openrouter
 
 from robosprawl.api.app import create_app
 from robosprawl.api.errors import ProjectBusyError
@@ -21,25 +24,25 @@ from robosprawl.api.run_control import RunControl
 from robosprawl.api.run_manager import RunManager
 from robosprawl.api.state import RunStatus
 from robosprawl.api.wait_registry import WaitRegistry
-from robosprawl.composition import RootAgentBundle
-from robosprawl.deployment import DEFAULT_ORCHESTRATOR_MODEL, HubDeployment
-from robosprawl.hub import load_hub_config
+from robosprawl.hub.utils import load_hub
+
+_TEST_ENDPOINT = openrouter.z_ai__glm_5_3
 
 
 @pytest.fixture
 def config(tmp_path):
     from pathlib import Path
 
-    example = Path(__file__).resolve().parents[2] / "hub.config.json.example"
-    (tmp_path / "hub.config.json").write_text(example.read_text())
-    return load_hub_config(start=tmp_path)
+    example = Path(__file__).resolve().parents[2] / "hub.config.py"
+    (tmp_path / "hub.config.py").write_text(example.read_text())
+    return load_hub(start=tmp_path)
 
 
 def manager_for(factory):
     return RunManager(
         factory,
         hub_name="OwnershipTest",
-        default_orchestrator_endpoint=lambda: DEFAULT_ORCHESTRATOR_MODEL,
+        default_orchestrator_endpoint=lambda: _TEST_ENDPOINT,
     )
 
 
@@ -58,7 +61,7 @@ def test_cancel_during_construction_never_invokes(config, project_cancel):
     def factory(project, *, endpoint_getter, event_sinks):
         entered.set()
         assert release.wait(2)
-        return RootAgentBundle(
+        return RoboSprawlBundle(
             SimpleNamespace(pipe=EventPipe(), invoke=lambda: invoked.append(True))
         )
 
@@ -68,7 +71,9 @@ def test_cancel_during_construction_never_invokes(config, project_cancel):
     try:
         assert entered.wait(2)
         assert (
-            manager.cancel_runs_for_project("demo") if project_cancel else manager.cancel(run_id)
+            manager.cancel_runs_for_project("demo")
+            if project_cancel
+            else manager.cancel(run_id)
         )
     finally:
         release.set()
@@ -94,7 +99,7 @@ def test_cancel_survives_pipe_initialization_reset(config):
             finally:
                 pipe.finalize_run(status=AgentStatus.CANCELLED)
 
-        return RootAgentBundle(SimpleNamespace(pipe=pipe, invoke=invoke))
+        return RoboSprawlBundle(SimpleNamespace(pipe=pipe, invoke=invoke))
 
     manager = manager_for(factory)
     run_id = manager.create(config.project("demo"))
@@ -120,7 +125,7 @@ def test_prompt_registration_is_atomic_with_control(config, operation, monkeypat
         def invoke():
             replies.append(interact_with_user("question", with_reply=True))
 
-        return RootAgentBundle(SimpleNamespace(pipe=pipe, invoke=invoke))
+        return RoboSprawlBundle(SimpleNamespace(pipe=pipe, invoke=invoke))
 
     manager = manager_for(factory)
     original_register = WaitRegistry.register
@@ -168,7 +173,7 @@ def test_factory_failure_closes_http_stream_and_late_subscribers(config):
     def factory(project, *, endpoint_getter, event_sinks):
         if project.slug == "broken":
             raise RuntimeError("cannot construct this project")
-        return RootAgentBundle(
+        return RoboSprawlBundle(
             Agent(
                 name="root",
                 is_agentic=False,
@@ -179,7 +184,7 @@ def test_factory_failure_closes_http_stream_and_late_subscribers(config):
         )
 
     app = create_app(
-        deployment=HubDeployment.custom(config, factory, None), dependency_registry=()
+        deployment=replace(config, deployment=factory, transcription_endpoint=None)
     )
     with TestClient(app) as client:
         client.post("/projects", json={"name": "broken"})
@@ -211,7 +216,7 @@ def test_snapshots_do_not_expose_mutable_event_state(config):
             entered.set()
             assert release.wait(3)
 
-        return RootAgentBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
+        return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
 
     manager = manager_for(factory)
     run_id = manager.create(config.project("demo"))
@@ -222,7 +227,7 @@ def test_snapshots_do_not_expose_mutable_event_state(config):
         # Even while running, the entire observation is data, with no live handles.
         assert json.loads(json.dumps(snapshot))["project"] == "demo"
         assert snapshot["worker_alive"]
-        assert snapshot["model_id"] == DEFAULT_ORCHESTRATOR_MODEL.dependency_id
+        assert snapshot["model_id"] == _TEST_ENDPOINT.dependency_id
         assert (
             not {
                 "thread",
@@ -258,7 +263,7 @@ def test_deletion_serializes_against_start_and_create(config, monkeypatch, opera
 
     def factory(project, *, endpoint_getter, event_sinks):
         invoked.append(True)
-        return RootAgentBundle(SimpleNamespace(pipe=EventPipe(), invoke=lambda: None))
+        return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=lambda: None))
 
     manager = manager_for(factory)
     projects = ProjectService(config, manager)
@@ -315,7 +320,7 @@ def test_shutdown_tracks_background_thread_until_it_exits(config):
             threading.Thread(target=background.invoke, daemon=True).start()
             assert started.wait(2)
 
-        return RootAgentBundle(
+        return RoboSprawlBundle(
             SimpleNamespace(pipe=EventPipe(), invoke=invoke), (background,)
         )
 
@@ -347,14 +352,14 @@ def test_lifespan_shutdown_releases_input_wait(config):
             ready.set()
             interact_with_user("question", with_reply=True)
 
-        return RootAgentBundle(
+        return RoboSprawlBundle(
             SimpleNamespace(
                 pipe=EventPipe(), invoke=invoke, external_dependencies=lambda: ()
             )
         )
 
     app = create_app(
-        deployment=HubDeployment.custom(config, factory, None), dependency_registry=()
+        deployment=replace(config, deployment=factory, transcription_endpoint=None)
     )
     with TestClient(app):
         manager = app.state.run_manager
@@ -366,9 +371,7 @@ def test_lifespan_shutdown_releases_input_wait(config):
 
 
 def test_interrupted_input_releases_its_wait_slot(config, monkeypatch):
-    control = RunControl(
-        config.project("demo"), DEFAULT_ORCHESTRATOR_MODEL, history_limit=10
-    )
+    control = RunControl(config.project("demo"), _TEST_ENDPOINT, history_limit=10)
     seen = []
 
     def interrupted(registry, prompt_id, *, timeout_s):
@@ -402,7 +405,7 @@ def test_concurrent_starts_invoke_factory_once(config):
         calls.append(project.slug)
         entered.set()
         assert release.wait(3)
-        return RootAgentBundle(SimpleNamespace(pipe=EventPipe(), invoke=lambda: None))
+        return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=lambda: None))
 
     manager = manager_for(factory)
     run_id = manager.create(config.project("demo"))
@@ -440,7 +443,7 @@ def test_worker_inherits_context_at_start(config):
         entered.set()
         assert release.wait(3)
         observed.append(request_id.get())
-        return RootAgentBundle(SimpleNamespace(pipe=EventPipe(), invoke=lambda: None))
+        return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=lambda: None))
 
     manager = manager_for(factory)
     run_id = manager.create(config.project("demo"))
@@ -461,9 +464,7 @@ def test_worker_inherits_context_at_start(config):
 def test_thread_start_failure_finishes_once_without_holding_control_lock(
     config, monkeypatch
 ):
-    control = RunControl(
-        config.project("demo"), DEFAULT_ORCHESTRATOR_MODEL, history_limit=10
-    )
+    control = RunControl(config.project("demo"), _TEST_ENDPOINT, history_limit=10)
     original_start = threading.Thread.start
     observed, invoked = [], []
 
@@ -482,7 +483,9 @@ def test_thread_start_failure_finishes_once_without_holding_control_lock(
     monkeypatch.setattr(threading.Thread, "start", start)
     control.subscribe(lambda event: None, on_complete=completed)
     with pytest.raises(RuntimeError, match="cannot start thread"):
-        control.launch_worker(lambda: invoked.append(True), thread_name="failing-worker")
+        control.launch_worker(
+            lambda: invoked.append(True), thread_name="failing-worker"
+        )
     assert observed == [RunStatus.FAILED]
     assert not invoked
     state = control.snapshot()
@@ -501,7 +504,7 @@ def test_replies_cannot_cross_run_prompt_boundaries(config):
         def invoke():
             replies[project.slug] = interact_with_user(project.slug, with_reply=True)
 
-        return RootAgentBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
+        return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
 
     manager = manager_for(factory)
     runs = {name: manager.create(config.project(name)) for name in ("first", "second")}

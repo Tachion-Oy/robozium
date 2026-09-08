@@ -10,16 +10,16 @@ from collections.abc import Callable
 from contextvars import copy_context
 from uuid import uuid4
 
+from roboshed.deployments.robosprawl import RoboSprawlBundle
+from roboshed.workspace import Project
+from roboz.dependencies import LazyExternalDependency
 from roboz.llm import LLMEndpoint
 from roboz.runtime.events import EventSink, PipeEvent, RunLifecycleEvent
 from roboz.runtime.pipe import EventPipe
-from roboz.tooling import LazyExternalDependency
 
 from robosprawl.api.run_events import RunEvents
 from robosprawl.api.state import ProjectRunItem, RunState, RunStatus
 from robosprawl.api.wait_registry import RunCancelled, WaitRegistry
-from robosprawl.composition import RootAgentBundle
-from robosprawl.workspace import Project
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +146,7 @@ class RunControl:
             raise failure
         return True
 
-    def attach(self, bundle: RootAgentBundle) -> bool:
+    def attach(self, bundle: RoboSprawlBundle) -> bool:
         with self._lock:
             self._pipe = bundle.agent.pipe
             self._background_pipes = tuple(

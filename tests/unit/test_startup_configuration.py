@@ -1,31 +1,28 @@
 """Configuration can be inspected and imported independently of startup."""
 
-import json
 import logging
 import os
 import subprocess
 import sys
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import ValidationError
+from roboshed.deployments.robosprawl import RoboSprawlBundle, inspect_dependencies
 from roboz import Agent
 from roboz.tools import stop
+from roboz_endpoints.adapters.openai_compatible import OpenAICompatibleAdapter
 
 from robosprawl.api.app import create_app
-from robosprawl.api.dependencies import inspect_dependencies
-from robosprawl.composition import RootAgentBundle
-from robosprawl.deployment import HubDeployment
-from robosprawl.hub import load_hub_config
-from robosprawl.settings import DeploymentSettings
+from robosprawl.hub.utils import load_hub
 
 
 @pytest.fixture
 def config_file(tmp_path):
-    example = Path(__file__).resolve().parents[2] / "hub.config.json.example"
-    path = tmp_path / "hub.config.json"
+    example = Path(__file__).resolve().parents[2] / "hub.config.py"
+    path = tmp_path / "hub.config.py"
     path.write_text(example.read_text())
     return path
 
@@ -40,8 +37,6 @@ mark_conversation_active(agent_dir=logs / 'orchestrator', conversation_id='exist
 before_temp = tempfile.gettempdir()
 before_handlers = list(logging.getLogger('robosprawl').handlers)
 import robosprawl.api.app
-import robosprawl.api.live
-import robosprawl.api.mock
 import robosprawl.api.run_manager
 assert len(active_marker_paths(logs, {'orchestrator'})) == 1
 assert tempfile.gettempdir() == before_temp
@@ -65,10 +60,10 @@ assert callable(robosprawl.api.app.mock_app)
 
 
 def test_logging_uses_each_explicit_app_config(config_file):
-    config = load_hub_config(config_file=config_file)
+    config = load_hub(config_file=config_file)
 
     def factory(project, *, endpoint_getter, event_sinks):
-        return RootAgentBundle(
+        return RoboSprawlBundle(
             Agent(
                 name="root",
                 is_agentic=False,
@@ -82,8 +77,9 @@ def test_logging_uses_each_explicit_app_config(config_file):
         path = config_file.parent / name / "backend.jsonl"
         selected = replace(config, logging=replace(config.logging, path=path))
         app = create_app(
-            deployment=HubDeployment.custom(selected, factory, None),
-            dependency_registry=(),
+            deployment=replace(
+                selected, deployment=factory, transcription_endpoint=None
+            ),
         )
         assert not path.exists(), "app construction must not configure logging"
         with TestClient(app):
@@ -94,114 +90,114 @@ def test_logging_uses_each_explicit_app_config(config_file):
     )
 
 
-def custom_settings():
-    def endpoint(name):
-        return dict(
-            label=name,
-            model=name,
-            api_name="local",
-            base_url="http://127.0.0.1:12345/v1",
-            api_key_env="LOCAL_MODEL_KEY",
-            max_context_tokens=32768,
-        )
-
-    return dict(
-        endpoints={"root": endpoint("root-model"), "memory": endpoint("memory-model")},
-        selectable_models=["root"],
-        default_model="root",
-        memory_model="memory",
-    )
-
-
 def test_custom_root_and_memory_compile_one_dependency_contract(
     config_file, monkeypatch
 ):
     monkeypatch.delenv("LOCAL_MODEL_KEY", raising=False)
-    data = json.loads(config_file.read_text())
-    data["deployment"] = custom_settings()
-    config_file.write_text(json.dumps(data))
-    config = load_hub_config(config_file=config_file)
-    deployment = HubDeployment.standard(config)
+    adapter = OpenAICompatibleAdapter(
+        api_name="local",
+        base_url="http://127.0.0.1:12345/v1",
+        api_key_env="LOCAL_MODEL_KEY",
+    )
+    root, spare, memory = (
+        adapter.chat_endpoint(model=f"{role}-model", max_context_tokens=32768)
+        for role in ("root", "spare", "memory")
+    )
+    hub = load_hub(config_file=config_file)
+    hub = replace(
+        hub,
+        models={"Root": root, "Spare": spare},
+        default_model=root,
+        deployment=replace(
+            hub.deployment,
+            recipe=replace(hub.deployment.recipe, memory_endpoint=memory),
+        ),
+    )
     bound = inspect_dependencies(
-        deployment.orchestrator_factory,
-        project=config.project("demo"),
-        endpoint_getter=lambda: deployment.model_selector.selected_endpoint,
-        registrations=deployment.dependency_registry,
-        hub_dependencies=deployment.inspectable_endpoints,
+        hub.deployment,
+        project=hub.project("demo"),
+        endpoint_getter=lambda: hub.model_selector.selected_endpoint,
+        registrations=hub.dependency_registry,
+        additional_dependencies=tuple(hub.models.values()),
     )
-    ids = {item.dependency.dependency_id for item in bound}
-    assert {item for item in ids if item.startswith("model:")} == {
-        "model:local:root-model",
-        "model:local:memory-model",
+    assert {
+        item.dependency.dependency_id
+        for item in bound
+        if item.dependency.dependency_id.startswith("model:")
+    } == {
+        root.dependency_id,
+        spare.dependency_id,
+        memory.dependency_id,
     }
-    assert deployment.model_selector.selected_model_id == "model:local:root-model"
-    custom = HubDeployment.custom(
-        config,
-        deployment.orchestrator_factory,
-        None,
-        model_selector=deployment.model_selector,
-        dependency_registry=deployment.dependency_registry,
-    )
-    assert custom.model_selector is deployment.model_selector
-    assert custom.dependency_registry == deployment.dependency_registry
+    assert hub.model_selector.selected_endpoint is root
+    hub.model_selector.select(spare.dependency_id)
+    assert hub.deployment.recipe.memory_endpoint is memory
 
 
 def test_explicit_config_path_wins_over_environment(config_file, monkeypatch):
     monkeypatch.setenv("ROBOSPRAWL_CONFIG", str(config_file.parent / "missing.json"))
-    assert load_hub_config(config_file=config_file).name == "RoboSprawl"
+    assert load_hub(config_file=config_file).name == "RoboSprawl"
     with pytest.raises(RuntimeError, match="Missing hub config"):
-        load_hub_config()
+        load_hub()
     monkeypatch.setenv("ROBOSPRAWL_CONFIG", str(config_file))
     expected = (config_file.parent / ".runtime/data").resolve()
-    assert load_hub_config().sandbox.root == expected
+    assert load_hub().workspace.root == expected
 
 
-@pytest.mark.parametrize("key", ["logs", "snapshots", "memory"])
-def test_required_persistence_keys_fail_during_config_load(config_file, key):
-    data = json.loads(config_file.read_text())
-    del data["project"][key]
-    config_file.write_text(json.dumps(data))
-    with pytest.raises(RuntimeError, match="missing required folders"):
-        load_hub_config(config_file=config_file)
+@pytest.mark.parametrize("key", ["LOGS_DIR", "SNAPSHOTS_DIR", "MEMORY_DIR"])
+def test_required_persistence_choices_fail_during_load(config_file, key):
+    with config_file.open("a") as file:
+        file.write(f"\ndel {key}\n")
+    with pytest.raises(RuntimeError, match=key):
+        load_hub(config_file=config_file)
 
 
-@pytest.mark.parametrize("change", ["unknown", "duplicate", "url", "service"])
-def test_invalid_deployment_fails_before_construction(change):
-    settings = custom_settings()
+@pytest.mark.parametrize("change", ["unknown", "duplicate", "empty-label"])
+def test_invalid_model_selection_fails_before_construction(config_file, change):
+    hub = load_hub(config_file=config_file)
     if change == "unknown":
-        settings["memory_model"] = "missing"
-    elif change == "duplicate":
-        settings["selectable_models"] = ["root", "root"]
-    elif change == "url":
-        settings["endpoints"]["root"]["base_url"] = "file:///tmp/model"
+        with pytest.raises(ValueError, match="default model"):
+            replace(hub, models={"Only spare": list(hub.models.values())[1]})
     else:
-        settings["endpoints"]["memory"]["base_url"] = "http://different-service/v1"
-    with pytest.raises(ValidationError):
-        DeploymentSettings.model_validate(settings)
+        models = (
+            {"One": hub.default_model, "Two": hub.default_model}
+            if change == "duplicate"
+            else {"": hub.default_model}
+        )
+        with pytest.raises(ValueError):
+            replace(hub, models=models)
 
 
 @pytest.mark.parametrize(
-    "folders",
+    "settings",
     [
-        dict(memory="../escape"),
-        dict(memory="conversation_logs"),
-        dict(memory="conversation_logs/nested"),
+        {"interval_s": 0},
+        {"timeout_s": -1},
+        {"interval_s": float("inf")},
+        {"timeout_s": float("nan")},
     ],
 )
-def test_persistence_folders_cannot_escape_or_overlap(config_file, folders):
-    data = json.loads(config_file.read_text())
-    data["project"].update(folders)
-    config_file.write_text(json.dumps(data))
-    with pytest.raises(RuntimeError):
-        load_hub_config(config_file=config_file)
+def test_invalid_health_settings_fail_during_configuration(config_file, settings):
+    hub = load_hub(config_file=config_file)
+    with pytest.raises(ValueError, match="finite and positive"):
+        replace(hub.dependency_health, **settings)
+
+
+@pytest.mark.parametrize(
+    "folder", ["../escape", "/escape", "conversation_logs", "conversation_logs/nested"]
+)
+def test_persistence_folders_cannot_escape_or_overlap(config_file, folder):
+    hub = load_hub(config_file=config_file)
+    with pytest.raises(ValueError):
+        replace(hub, memory_dir=Path(folder))
 
 
 @pytest.mark.parametrize("conflicting", [False, True])
 def test_overlapping_app_lifespans_preserve_existing_logging(config_file, conflicting):
-    config = load_hub_config(config_file=config_file)
+    config = load_hub(config_file=config_file)
 
     def factory(project, *, endpoint_getter, event_sinks):
-        return RootAgentBundle(
+        return RoboSprawlBundle(
             Agent(
                 name="root",
                 is_agentic=False,
@@ -213,8 +209,9 @@ def test_overlapping_app_lifespans_preserve_existing_logging(config_file, confli
 
     def app(selected):
         return create_app(
-            deployment=HubDeployment.custom(selected, factory, None),
-            dependency_registry=(),
+            deployment=replace(
+                selected, deployment=factory, transcription_endpoint=None
+            ),
         )
 
     with TestClient(app(config)) as first:
@@ -235,3 +232,81 @@ def test_overlapping_app_lifespans_preserve_existing_logging(config_file, confli
         logging.getLogger("robosprawl.test").info("first-app-still-active")
         assert first.get("/ready").status_code == 200
         assert "first-app-still-active" in config.logging.path.read_text()
+
+
+def test_project_service_owns_startup_layout_validation(config_file):
+    from robosprawl.api.project_service import ProjectService
+
+    config = load_hub(config_file=config_file)
+    unexpected = config.workspace.root / "misplaced"
+    unexpected.mkdir(parents=True)
+    service = ProjectService(config, SimpleNamespace())
+    with pytest.raises(ValueError, match="Unexpected folders.*misplaced"):
+        service.recover()
+    unexpected.rmdir()
+    (config.workspace.root / "note.txt").write_text("root files are permitted")
+    service.recover()
+    assert service.create("New Project") == "new-project"
+    project = config.project("New Project")
+    assert project.root.is_dir()
+    assert not any(
+        path.exists() for path in (project.logs, project.snapshots, project.memory)
+    )
+
+
+def test_config_loads_fresh_endpoints_without_materialization(config_file, monkeypatch):
+    for key in ("OPENROUTER_API_KEY", "CEREBRAS_API_KEY"):
+        monkeypatch.delenv(key, raising=False)
+    first = load_hub(config_file=config_file)
+    second = load_hub(config_file=config_file)
+    assert first.default_model is not second.default_model
+    assert first.model_selector is not second.model_selector
+    assert first.default_model.dependency_id == second.default_model.dependency_id
+    assert not first.workspace.root.exists()
+    with pytest.raises(TypeError):
+        first.models["extra"] = first.default_model
+
+
+def test_constants_control_the_complete_deployment(config_file, monkeypatch):
+    monkeypatch.chdir(config_file.parent)
+    with config_file.open("a") as file:
+        file.write("""
+MODELS = {"Alternate": FLASH}
+DEFAULT_MODEL = FLASH
+DEPENDENCY_HEALTH = DependencyHealthSettings(interval_s=17, timeout_s=3)
+DEPLOYMENT = DeploymentFactory(RoboSprawl(
+    capabilities=(Compactification(threshold_percent=42),),
+    memory_endpoint=GPT_OSS,
+    interaction_mode=Output.API,
+    project_context="Configured project context for {project.slug}",
+))
+""")
+    hub = load_hub(config_file=config_file)
+    factory = hub.deployment.recipe(
+        hub.project("custom"), orchestrator_endpoint=hub.default_model
+    )
+    assert tuple(hub.models) == ("Alternate",)
+    assert hub.model_selector.selected_endpoint is hub.models["Alternate"]
+    assert (
+        hub.dependency_health.interval_s == 17 and hub.dependency_health.timeout_s == 3
+    )
+    assert factory.orchestrator.capabilities[-1].threshold_percent == 42
+    assert "Configured project context for custom" in factory.orchestrator.system_prompt
+    assert (
+        factory.librarian.agent_endpoint.dependency_id == "model:cerebras:gpt-oss-120b"
+    )
+    assert not hub.workspace.root.exists()
+
+
+def test_checked_in_config_has_only_constant_declarations(config_file):
+    import ast
+
+    tree = ast.parse(config_file.read_text())
+    assert all(
+        isinstance(node, (ast.Import, ast.ImportFrom, ast.AnnAssign))
+        for node in tree.body
+    )
+    assert not any(
+        isinstance(node, (ast.FunctionDef, ast.ClassDef, ast.Lambda))
+        for node in ast.walk(tree)
+    )

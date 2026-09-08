@@ -6,7 +6,7 @@ import asyncio
 import importlib
 import json
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -14,11 +14,21 @@ from threading import Event
 from types import SimpleNamespace
 
 import pytest
+from config_support import write_config
 from fastapi import Request
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
+from roboshed.deployments.robosprawl import RoboSprawlBundle, RunFactory
+from roboshed.identifiers import LIBRARIAN_AGENT_NAME
+from roboshed.tools.memory_files import (
+    TIMESTAMP_STEM_FORMAT,
+    load_conversation_run,
+    utc_now,
+)
+from roboshed.workspace import Project
 from roboz import Agent
-from roboz.llm import MockLLMEndpoint, MockTranscriptionEndpoint
+from roboz.dependencies import LazyExternalDependency
+from roboz.llm import LLMEndpoint, MockLLMEndpoint, MockTranscriptionEndpoint
 from roboz.models import Empty, Message, Str
 from roboz.runtime import Output
 from roboz.runtime.events import (
@@ -34,42 +44,29 @@ from roboz.runtime.persistence import (
     utc_iso_z,
 )
 from roboz.runtime.pipe import EventPipe
+from roboz.tooling import Ctx
 from roboz.tooling.decorators import tool
-from roboz.tools import MessageCtx, prompt_user_at_start, stop
-from roboz.tools.memory_files import (
-    TIMESTAMP_STEM_FORMAT,
-    load_conversation_run,
-    utc_now,
-)
+from roboz.tools import prompt_user_at_start, stop
 
 from robosprawl.api.app import create_app
-from robosprawl.api.state import RootAgentBundle, RunStatus
-from robosprawl.deployment import HubDeployment, standard_factory
-from robosprawl.hub import hub_paths, load_hub_config, project_paths
-from robosprawl.identifiers import (
-    LIBRARIAN_AGENT_NAME,
-    ORCHESTRATOR_AGENT_NAME,
-)
-from robosprawl.mock import mock_orchestrator_factory
-from robosprawl.orchestrator_factory import (
-    OrchestratorEndpointGetter,
-    OrchestratorFactory,
-)
-from robosprawl.workspace import Project
+from robosprawl.api.state import RunStatus
+from robosprawl.hub.application import Hub
+from robosprawl.hub.utils import load_hub
+from robosprawl.mock.agents import mock_deployment
 
 TEST_PROJECT_SLUG = "alpha"
 UNMANIFESTED_PROJECT_SLUG = "unmanifested-project"
 
 
-def _root_bundle(agent: Agent) -> RootAgentBundle:
-    return RootAgentBundle(agent=agent, background_agents=())
+def _root_bundle(agent: Agent) -> RoboSprawlBundle:
+    return RoboSprawlBundle(agent=agent, background_agents=())
 
 
-def _test_deployment(factory: OrchestratorFactory, config_start: Path) -> HubDeployment:
-    return HubDeployment.custom(
-        load_hub_config(start=config_start),
-        factory,
-        MockTranscriptionEndpoint(["unused"]),
+def _test_deployment(factory: RunFactory, config_start: Path) -> Hub:
+    return replace(
+        load_hub(start=config_start),
+        deployment=factory,
+        transcription_endpoint=MockTranscriptionEndpoint(["unused"]),
     )
 
 
@@ -89,9 +86,9 @@ def _minimal_factory(
     project: Project,
     /,
     *,
-    endpoint_getter: OrchestratorEndpointGetter,
+    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
     event_sinks: Sequence[EventSink],
-) -> RootAgentBundle:
+) -> RoboSprawlBundle:
     del project, endpoint_getter
     endpoint = MockLLMEndpoint(
         responses=[
@@ -99,7 +96,7 @@ def _minimal_factory(
             {"action": "stop", "rationale": "done", "value": "ok"},
         ]
     )
-    start_only = prompt_user_at_start(MessageCtx(message="m"))
+    start_only = prompt_user_at_start(Ctx(message="m"))
     return _root_bundle(
         Agent(
             interaction_mode=Output.API,
@@ -119,9 +116,9 @@ def _running_factory(
     project: Project,
     /,
     *,
-    endpoint_getter: OrchestratorEndpointGetter,
+    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
     event_sinks: Sequence[EventSink],
-) -> RootAgentBundle:
+) -> RoboSprawlBundle:
     del project, endpoint_getter
     endpoint = MockLLMEndpoint(
         responses=[
@@ -146,9 +143,9 @@ def _stream_terminating_factory(
     project: Project,
     /,
     *,
-    endpoint_getter: OrchestratorEndpointGetter,
+    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
     event_sinks: Sequence[EventSink],
-) -> RootAgentBundle:
+) -> RoboSprawlBundle:
     del project, endpoint_getter
     endpoint = MockLLMEndpoint(
         responses=[
@@ -172,9 +169,9 @@ def _syncing_after_stop_factory(
     project: Project,
     /,
     *,
-    endpoint_getter: OrchestratorEndpointGetter,
+    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
     event_sinks: Sequence[EventSink],
-) -> RootAgentBundle:
+) -> RoboSprawlBundle:
     del project, endpoint_getter
     root = Agent(
         interaction_mode=Output.API,
@@ -194,50 +191,17 @@ def _syncing_after_stop_factory(
         system_prompt="stub background agent",
         agent_endpoint=MockLLMEndpoint(responses=[]),
     )
-    return RootAgentBundle(agent=root, background_agents=(background,))
-
-
-def _write_hub_config(root: Path) -> None:
-    (root / "hub.config.json").write_text(
-        json.dumps(
-            {
-                "hub": {"name": "TestHub"},
-                "logging": {
-                    "console": {"level": "INFO"},
-                    "file": {
-                        "path": "technical_logs/backend.jsonl",
-                        "level": "DEBUG",
-                        "max_bytes": 26214400,
-                        "backup_count": 5,
-                        "on_error": "fail",
-                    },
-                },
-                "sandbox": {
-                    "root": "workspace",
-                    "readonly": "readonly",
-                    "workspace": "workspace",
-                    "projects": "projects",
-                    "safe_scripts": "safe-scripts",
-                },
-                "project": {
-                    "logs": "conversation_logs",
-                    "snapshots": "conversation_snapshots",
-                    "memory": "persistent_memory",
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
+    return RoboSprawlBundle(agent=root, background_agents=(background,))
 
 
 @pytest.fixture(autouse=True)
 def _isolated_hub_config(tmp_path: Path) -> None:
     """Write an isolated hub config under ``tmp_path``.
 
-    Tests point the app at it with ``create_app(deployment=HubDeployment.standard(load_hub_config(start=tmp_path)))``; nothing
+    Tests point the app at it with ``create_app(deployment=Hub(load_hub(start=tmp_path)))``; nothing
     relies on the process working directory.
     """
-    _write_hub_config(tmp_path)
+    write_config(tmp_path)
 
 
 def _create_run(client: TestClient, payload: dict[str, object] | None = None):
@@ -299,9 +263,7 @@ def _write_snapshot_memory_artifacts(project: Project) -> None:
 
 
 def test_models_get_and_post_update_process_selection(tmp_path: Path) -> None:
-    application = create_app(
-        deployment=HubDeployment.standard(load_hub_config(start=tmp_path))
-    )
+    application = create_app(deployment=load_hub(start=tmp_path))
     client = TestClient(application)
 
     initial = client.get("/models")
@@ -335,9 +297,7 @@ def test_models_get_and_post_update_process_selection(tmp_path: Path) -> None:
 def test_models_post_rejects_unknown_id_without_changing_selection(
     tmp_path: Path,
 ) -> None:
-    application = create_app(
-        deployment=HubDeployment.standard(load_hub_config(start=tmp_path))
-    )
+    application = create_app(deployment=load_hub(start=tmp_path))
     client = TestClient(application)
 
     response = client.post("/models", json={"model_id": "model:unknown"})
@@ -390,9 +350,7 @@ def test_model_selection_is_snapshotted_and_scoped_per_run(tmp_path: Path) -> No
 
 
 def test_models_returns_not_found_for_unknown_run(tmp_path: Path) -> None:
-    application = create_app(
-        deployment=HubDeployment.standard(load_hub_config(start=tmp_path))
-    )
+    application = create_app(deployment=load_hub(start=tmp_path))
     client = TestClient(application)
 
     assert client.get("/models?run_id=missing").status_code == 404
@@ -460,7 +418,7 @@ def test_api_projects_lists_project_folders(tmp_path: Path) -> None:
 
     assert client.get("/projects").json() == []
 
-    projects_dir = hub_paths(start=tmp_path).projects_dir
+    projects_dir = load_hub(start=tmp_path).workspace.projects_dir
     (projects_dir / "beta").mkdir(parents=True)
     (projects_dir / "alpha").mkdir()
     (projects_dir / "stray.txt").write_text("not a project", encoding="utf-8")
@@ -491,8 +449,8 @@ def test_api_projects_reads_one_lifecycle_snapshot_not_conversation_history(
     application = create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     client = TestClient(application)
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
-    history_dir = project.logs / ORCHESTRATOR_AGENT_NAME
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
+    history_dir = project.logs / "orchestrator"
     history_dir.mkdir(parents=True, exist_ok=True)
     for index in range(500):
         (history_dir / f"legacy-{index}.json").write_text(
@@ -531,7 +489,7 @@ def test_api_projects_reports_syncing_from_running_librarian_log_without_live_ru
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
     _write_agent_run_log(
         project,
         agent_name=LIBRARIAN_AGENT_NAME,
@@ -557,7 +515,7 @@ def test_api_projects_reports_dormant_from_terminal_librarian_log_without_live_r
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
     _write_agent_run_log(
         project,
         agent_name=LIBRARIAN_AGENT_NAME,
@@ -582,7 +540,7 @@ def test_api_projects_ignores_torn_librarian_json_without_crashing(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
     torn = project.logs / LIBRARIAN_AGENT_NAME / "conv-1.json"
     torn.parent.mkdir(parents=True, exist_ok=True)
     torn.write_text("{not-json", encoding="utf-8")
@@ -603,7 +561,7 @@ def test_api_run_create_returns_409_while_librarian_is_running(tmp_path: Path) -
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
     _write_agent_run_log(
         project,
         agent_name=LIBRARIAN_AGENT_NAME,
@@ -620,7 +578,7 @@ def test_api_run_create_succeeds_when_librarian_log_is_terminal(tmp_path: Path) 
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
     _write_agent_run_log(
         project,
         agent_name=LIBRARIAN_AGENT_NAME,
@@ -639,7 +597,7 @@ def test_api_projects_live_run_status_takes_precedence_over_disk_artifacts(
     application = create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     client = TestClient(application)
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
     _write_snapshot_memory_artifacts(project)
 
     run_id = client.post("/run/create", json={"project": TEST_PROJECT_SLUG}).json()[
@@ -700,7 +658,7 @@ def test_api_projects_live_status_wins_over_running_librarian_log(
         elif target_status in {RunStatus.RUNNING, RunStatus.AWAITING_USER_INPUT}:
             _wait_for_status(client, run_id, target_status.value)
 
-        project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+        project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
         _write_agent_run_log(project, agent_name=LIBRARIAN_AGENT_NAME, status="running")
         rows = client.get("/projects").json()
         assert rows[0]["slug"] == TEST_PROJECT_SLUG
@@ -718,7 +676,7 @@ def test_api_projects_ignores_pending_snapshot_artifacts_without_live_run(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
     _write_snapshot_memory_artifacts(project)
 
     assert client.get("/projects").json() == [
@@ -739,7 +697,7 @@ def test_api_projects_reports_dormant_for_non_liveness_disk_artifacts(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
     project.memory.mkdir(parents=True, exist_ok=True)
     (project.memory / "project_state.json").write_text(
         json.dumps(
@@ -769,7 +727,7 @@ def test_api_cancelled_project_transitions_from_cancelling_to_dormant(
     application = create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     client = TestClient(application)
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
 
     run_id = client.post("/run/create", json={"project": TEST_PROJECT_SLUG}).json()[
         "run_id"
@@ -853,7 +811,7 @@ def test_api_projects_cancel_syncing_project_without_run_id(tmp_path: Path) -> N
     assert application.state.run_manager.start_run(run_id)
     _wait_for_status(client, run_id, "completed")
 
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
     _write_agent_run_log(
         project,
         agent_name=LIBRARIAN_AGENT_NAME,
@@ -889,9 +847,7 @@ def test_api_projects_cancel_succeeds_when_already_inactive(tmp_path: Path) -> N
 def test_api_cancel_awaiting_input_persists_cancelled_conversation_status(
     tmp_path: Path,
 ) -> None:
-    application = create_app(
-        deployment=_test_deployment(mock_orchestrator_factory, tmp_path)
-    )
+    application = create_app(deployment=_test_deployment(mock_deployment, tmp_path))
     client = TestClient(application)
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
 
@@ -903,8 +859,8 @@ def test_api_cancel_awaiting_input_persists_cancelled_conversation_status(
     assert client.post(f"/projects/{TEST_PROJECT_SLUG}/cancel").json() == {"ok": True}
     _wait_for_status(client, run_id, "cancelled")
 
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
-    orchestrator_logs = project.logs / ORCHESTRATOR_AGENT_NAME
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
+    orchestrator_logs = project.logs / "orchestrator"
     deadline = time.monotonic() + 15.0
     while time.monotonic() < deadline:
         runs = [
@@ -984,8 +940,6 @@ def test_api_reply_without_active_prompt_returns_400(tmp_path: Path) -> None:
     assert "awaiting user input" in resp.json()["detail"]
 
 
-
-
 def test_minimal_run_emits_message_events_to_run_event_listeners(
     tmp_path: Path,
 ) -> None:
@@ -1026,7 +980,6 @@ def test_minimal_run_emits_message_events_to_run_event_listeners(
 def test_api_stream_autostarts_run_and_emits_first_event(tmp_path: Path) -> None:
     application = create_app(
         deployment=_test_deployment(_stream_terminating_factory, tmp_path),
-        dependency_registry=(),
     )
     client = TestClient(application)
     run_id = _create_run(client).json()["run_id"]
@@ -1064,7 +1017,6 @@ def test_api_stream_logs_the_terminal_status(
     monkeypatch.setattr(app_module, "log_with_data", capture_log)
     application = create_app(
         deployment=_test_deployment(_stream_terminating_factory, tmp_path),
-        dependency_registry=(),
     )
     client = TestClient(application)
     run_id = _create_run(client).json()["run_id"]
@@ -1136,20 +1088,21 @@ def test_api_startup_does_not_manifest_projects_or_start_daemons(
 ) -> None:
     application = create_app(
         deployment=_test_deployment(_stream_terminating_factory, tmp_path),
-        dependency_registry=(),
     )
-    project_paths(TEST_PROJECT_SLUG, start=tmp_path).root.mkdir(parents=True)
+    load_hub(start=tmp_path).project(TEST_PROJECT_SLUG).root.mkdir(parents=True)
 
     with TestClient(application):
-        assert not project_paths(
-            UNMANIFESTED_PROJECT_SLUG, start=tmp_path
-        ).root.exists()
+        assert (
+            not load_hub(start=tmp_path)
+            .project(UNMANIFESTED_PROJECT_SLUG)
+            .root.exists()
+        )
 
     assert not hasattr(application.state.run_manager, "_daemon_threads")
 
 
 def test_api_startup_clears_pre_boot_librarian_marker(tmp_path: Path) -> None:
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
     project.root.mkdir(parents=True)
     _write_agent_run_log(
         project,
@@ -1174,11 +1127,11 @@ def test_api_startup_clears_pre_boot_librarian_marker(tmp_path: Path) -> None:
 
 
 def test_api_startup_clears_pre_boot_orchestrator_marker(tmp_path: Path) -> None:
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
     project.root.mkdir(parents=True)
     _write_agent_run_log(
         project,
-        agent_name=ORCHESTRATOR_AGENT_NAME,
+        agent_name="orchestrator",
         status="running",
         started_at=datetime.now(timezone.utc) - timedelta(minutes=5),
     )
@@ -1199,7 +1152,7 @@ def test_api_startup_clears_pre_boot_orchestrator_marker(tmp_path: Path) -> None
 
 
 def test_api_startup_skips_torn_conversation_json(tmp_path: Path) -> None:
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
     project.root.mkdir(parents=True)
     torn = project.logs / LIBRARIAN_AGENT_NAME / "broken.json"
     torn.parent.mkdir(parents=True, exist_ok=True)
@@ -1233,8 +1186,8 @@ def test_api_project_create_manifests_root_without_starting_daemon(
 
     assert response.status_code == 200
     assert response.json() == {"slug": "my-project"}
-    assert project_paths("My Project", start=tmp_path).root.is_dir()
-    assert not project_paths("My Project", start=tmp_path).logs.exists()
+    assert load_hub(start=tmp_path).project("My Project").root.is_dir()
+    assert not load_hub(start=tmp_path).project("My Project").logs.exists()
     assert not hasattr(application.state.run_manager, "_daemon_threads")
 
 
@@ -1274,7 +1227,7 @@ def test_api_run_view_serializes_script_output_trace_entry(tmp_path: Path) -> No
             for sink in event_sinks:
                 sink(event)
 
-        return RootAgentBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
+        return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
 
     application = create_app(deployment=_test_deployment(factory, tmp_path))
     client = TestClient(application)
@@ -1309,7 +1262,7 @@ def test_api_run_view_serializes_runtime_event_trace_entry(tmp_path: Path) -> No
             for sink in event_sinks:
                 sink(event)
 
-        return RootAgentBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
+        return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
 
     application = create_app(deployment=_test_deployment(factory, tmp_path))
     client = TestClient(application)
@@ -1423,7 +1376,7 @@ def test_api_delete_dormant_project_removes_folder(tmp_path: Path) -> None:
     application = create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     client = TestClient(application)
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
-    root = project_paths(TEST_PROJECT_SLUG, start=tmp_path).root
+    root = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG).root
     assert root.is_dir()
 
     response = client.delete(f"/projects/{TEST_PROJECT_SLUG}")
@@ -1437,7 +1390,7 @@ def test_api_delete_project_with_running_librarian_returns_409(tmp_path: Path) -
     application = create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     client = TestClient(application)
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
-    project = project_paths(TEST_PROJECT_SLUG, start=tmp_path)
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
     _write_agent_run_log(
         project,
         agent_name=LIBRARIAN_AGENT_NAME,
@@ -1464,7 +1417,7 @@ def test_api_delete_busy_project_returns_409(tmp_path: Path) -> None:
     assert response.status_code == 409
     assert "active run" in response.json()["detail"]
     # Folder is left intact while a run is live.
-    assert project_paths(TEST_PROJECT_SLUG, start=tmp_path).root.is_dir()
+    assert load_hub(start=tmp_path).project(TEST_PROJECT_SLUG).root.is_dir()
 
 
 def test_api_cancel_then_delete_flow(tmp_path: Path) -> None:
@@ -1488,7 +1441,7 @@ def test_api_cancel_then_delete_flow(tmp_path: Path) -> None:
         time.sleep(0.05)
         response = client.delete(f"/projects/{TEST_PROJECT_SLUG}")
     assert response.status_code == 200
-    assert not project_paths(TEST_PROJECT_SLUG, start=tmp_path).root.exists()
+    assert not load_hub(start=tmp_path).project(TEST_PROJECT_SLUG).root.exists()
 
 
 def test_api_run_create_requires_project_field(tmp_path: Path) -> None:
@@ -1533,7 +1486,7 @@ def test_api_files_get_serves_hub_file_with_safe_headers(tmp_path: Path) -> None
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = hub_paths(start=tmp_path).resolved_root
+    base_dir = load_hub(start=tmp_path).workspace.resolved_root
     file_path = base_dir / "projects" / "alpha" / "documents" / "cv.txt"
     file_path.parent.mkdir(parents=True)
     file_path.write_text("updated cv", encoding="utf-8")
@@ -1552,7 +1505,7 @@ def test_api_files_get_serves_pdf_with_inferred_content_type(tmp_path: Path) -> 
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = hub_paths(start=tmp_path).resolved_root
+    base_dir = load_hub(start=tmp_path).workspace.resolved_root
     file_path = base_dir / "projects" / "alpha" / "documents" / "cv.pdf"
     file_path.parent.mkdir(parents=True)
     file_path.write_bytes(b"%PDF-1.4\n%mock pdf\n")
@@ -1570,7 +1523,7 @@ def test_api_files_get_allows_reads_outside_projects_within_hub_root(
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = hub_paths(start=tmp_path).resolved_root
+    base_dir = load_hub(start=tmp_path).workspace.resolved_root
     file_path = base_dir / "shared" / "templates" / "cover-letter.txt"
     file_path.parent.mkdir(parents=True)
     file_path.write_text("shared template", encoding="utf-8")
@@ -1586,7 +1539,7 @@ def test_api_files_get_serves_trusted_timesheet_artifact(tmp_path: Path) -> None
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
     relative = "readonly/Tachion/planning/Tunnit/timesheet_2026-08.csv"
-    file_path = hub_paths(start=tmp_path).resolved_root / relative
+    file_path = load_hub(start=tmp_path).workspace.resolved_root / relative
     file_path.parent.mkdir(parents=True)
     file_path.write_text("Date,Hours\r\n2026-08-02,3.5\r\n", encoding="utf-8")
 
@@ -1622,7 +1575,7 @@ def test_api_files_get_returns_not_a_file_diagnostic_for_directories(
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = hub_paths(start=tmp_path).resolved_root
+    base_dir = load_hub(start=tmp_path).workspace.resolved_root
     folder = base_dir / "projects" / "alpha" / "documents"
     folder.mkdir(parents=True)
 
@@ -1639,7 +1592,7 @@ def test_api_files_get_rejects_empty_or_absolute_paths(tmp_path: Path) -> None:
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = hub_paths(start=tmp_path).resolved_root
+    base_dir = load_hub(start=tmp_path).workspace.resolved_root
     (base_dir / "projects" / "alpha").mkdir(parents=True)
 
     empty_path_response = client.get("/files/%20")
@@ -1655,7 +1608,7 @@ def test_api_files_get_rejects_escape_outside_hub(tmp_path: Path) -> None:
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = hub_paths(start=tmp_path).resolved_root
+    base_dir = load_hub(start=tmp_path).workspace.resolved_root
     (base_dir / "projects" / "alpha").mkdir(parents=True)
     external_file = base_dir.parent / "outside.txt"
     external_file.write_text("nope", encoding="utf-8")
@@ -1672,7 +1625,7 @@ def test_api_files_get_rejects_symlink_escape(tmp_path: Path) -> None:
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = hub_paths(start=tmp_path).resolved_root
+    base_dir = load_hub(start=tmp_path).workspace.resolved_root
     project_root = base_dir / "projects" / "alpha"
     project_root.mkdir(parents=True)
     external_file = base_dir.parent / "outside.txt"
@@ -1690,23 +1643,12 @@ def test_api_files_get_rejects_symlink_escape(tmp_path: Path) -> None:
 def test_real_orchestrator_reads_top_level_workspace_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """End-to-end guard for the workspace-root regression.
+    """Drive the standard composition through HTTP to read a shared-area file.
 
-    All filesystem activity stays inside pytest's ``tmp_path``: the autouse
-    ``_isolated_hub_config`` fixture writes a config there and the app is pointed at
-    it via ``create_app(deployment=HubDeployment.standard(load_hub_config(start=tmp_path)))``. Its ``base_dir`` is the *relative*
-    ``workspace/``, so ``hub_paths(start=tmp_path).resolved_root`` lives under ``tmp_path``
-    -- no real project folder is touched (asserted below).
-
-    The body plants one file under the top-level ``workspace/`` tier -- the tier
-    that held the CV folder and silently disappeared when the sandbox root was
-    mis-pointed at ``projects/<slug>`` -- then drives the shed's *real*
-    ``standard_factory`` deployment through the HTTP manager with a scripted
-    ``cat`` of that file, with every endpoint swapped for a mock via
-    ``dataclasses.replace``. Its unique marker can only appear in the transcript
-    if the orchestrator's sandbox root is the hub base_dir.
+    Both models are scripted and paths are isolated under the configured root.
+    The transcript must contain the marker from outside the current project.
     """
-    base_dir = hub_paths(start=tmp_path).resolved_root
+    base_dir = load_hub(start=tmp_path).workspace.resolved_root
     assert base_dir.is_relative_to(tmp_path.resolve()), base_dir  # writes stay in tmp
 
     marker = "ROBOZ-CV-MARKER-7F3A91"
@@ -1730,43 +1672,18 @@ def test_real_orchestrator_reads_top_level_workspace_file(
             {"action": "stop", "rationale": "done", "value": "read the CV"},
         ]
     )
-    # The deployment auto-starts the librarian as a default tool on the very
-    # first step, before the LLM ever gets a say -- leaving its endpoint real would
-    # let a live background agent hit the real API. Same story for the code task
-    # plan generator subagent: never let anything in this test reach a real
-    # endpoint, so every constructor gets a mock via dataclasses.replace.
-    factory = standard_factory()
-    assert factory.librarian is not None
-    factory = replace(
-        factory,
-        orchestrator=replace(
-            factory.orchestrator,
-            agent_endpoint=endpoint,
-            subagents=tuple(
-                replace(
-                    spec,
-                    constructor=replace(  # type: ignore[type-var]
-                        spec.constructor,  # type: ignore[arg-type]
-                        agent_endpoint=MockLLMEndpoint(responses=[]),
-                    ),
-                )
-                for spec in factory.orchestrator.subagents
-            ),
-        ),
-        librarian=replace(
-            factory.librarian, snapshot_endpoint=MockLLMEndpoint(responses=[])
-        ),
-    )
 
     def orchestrator_factory(
         project: Project,
         /,
         *,
-        endpoint_getter: OrchestratorEndpointGetter,
+        endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
         event_sinks: Sequence[EventSink],
-    ) -> RootAgentBundle:
+    ) -> RoboSprawlBundle:
         del endpoint_getter
-        return factory(project, event_sinks=event_sinks)
+        return replace(
+            load_hub().deployment.recipe, memory_endpoint=MockLLMEndpoint([])
+        )(project, orchestrator_endpoint=endpoint).build(event_sinks=event_sinks)
 
     application = create_app(
         deployment=_test_deployment(orchestrator_factory, tmp_path),
@@ -1791,3 +1708,27 @@ def test_real_orchestrator_reads_top_level_workspace_file(
         for entry in view["message_trace"]
     )
     assert marker in transcript, transcript
+
+
+@pytest.mark.parametrize("operation", ["create", "run", "delete", "cancel"])
+def test_project_operations_reject_shared_path_validation_errors(tmp_path, operation):
+    config = load_hub(start=tmp_path)
+    client = TestClient(
+        create_app(deployment=_test_deployment(_stream_terminating_factory, tmp_path))
+    )
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    config.workspace.projects_dir.mkdir(parents=True)
+    (config.workspace.projects_dir / "escape").symlink_to(
+        outside, target_is_directory=True
+    )
+    if operation == "create":
+        response = client.post("/projects", json={"name": "escape"})
+    elif operation == "run":
+        response = client.post("/run/create", json={"project": "escape"})
+    elif operation == "delete":
+        response = client.delete("/projects/escape")
+    else:
+        response = client.post("/projects/escape/cancel")
+    assert response.status_code == 400
+    assert outside.is_dir() and not list(outside.iterdir())

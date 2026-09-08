@@ -5,8 +5,7 @@ from pathlib import Path
 
 from fastapi import Response
 from fastapi.responses import FileResponse, JSONResponse
-
-from robosprawl.workspace import Sandbox
+from roboshed.workspace import Workspace
 
 
 def _build_expected_file_tag(requested_path: str) -> str:
@@ -36,8 +35,8 @@ class _FileRequestCtx:
         )
 
 
-def serve_hub_file(path: str, *, sandbox: Sandbox) -> Response:
-    hub_root = sandbox.resolved_root
+def serve_hub_file(path: str, *, workspace: Workspace) -> Response:
+    hub_root = workspace.resolved_root
     requested_path = path.strip()
     ctx = _FileRequestCtx(requested_path=requested_path, resolved_root=hub_root)
 
