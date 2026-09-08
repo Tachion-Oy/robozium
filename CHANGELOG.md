@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a credential-free model-selection mock scenario and HTTP/browser checks that verify actual provider requests after active-run switching and isolation between runs.
+
 - Type configuration exports with `HubValues` and select the shared `robosprawl` orientation/HUD skill. The shared deployment derives actual paths from `Project` at construction time.
 
 - Replace the split Python/JSON configuration with one editable `hub.config.py` containing named constants. Hub holds validated inputs and runtime selection directly; loading and slug helpers live in `hub.utils`. Logging defaults live in `hub.logging`.

@@ -212,8 +212,20 @@ def mock_recipe(
     *,
     orchestrator_endpoint: EndpointLike,
 ) -> AgenticFactory:
-    del orchestrator_endpoint
     scenario = _mock_scenario(project)
+    if scenario == "model-selection":
+        from robosprawl.mock.model_selection import model_selection_endpoint
+
+        return AgenticFactory(
+            project=project,
+            orchestrator=orchestrator(
+                agent_endpoint=model_selection_endpoint(
+                    orchestrator_endpoint, project.root
+                ),
+                interaction_mode=Output.API,
+            ),
+            seed_initial_messages_from_memory=False,
+        )
     responses = (
         _mock_orchestrator_error_responses()
         if scenario == MOCK_SCENARIO_LLM_ERROR

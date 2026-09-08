@@ -94,8 +94,8 @@ as production code and excluding generated files, locks, documentation, and bina
 
 | Scope | Additions | Deletions | Net |
 | --- | ---: | ---: | ---: |
-| Production Python | 546 | 2,247 | -1,701 |
-| Total maintained code | 1,625 | 3,882 | -2,257 |
+| Production Python | 639 | 2,247 | -1,608 |
+| Total maintained code | 1,851 | 3,882 | -2,031 |
 
 This iteration passed 55 configuration/construction checks, seven focused host
 checks, one shared permission-binding check, Python lint and typing, frontend
@@ -105,3 +105,11 @@ packaging, and browser gates remain deferred until review finishes.
 
 The orientation/schema follow-up passed five focused checks and Python lint/typing.
 A negative typing probe confirmed that misspelled `HubValues` keys are rejected.
+
+The model-selection follow-up ports PR #13's useful HTTP and browser coverage to
+shared deployment contracts. A scripted provider journals actual requests;
+checks verify first → second → first switching, request-option propagation,
+future-run defaults, and isolation of another active run. The focused HTTP and
+Chromium scenarios passed, along with Python/TypeScript typing and changed-file
+lint. Chromium reused the existing production frontend build and the development
+backend environment; fresh installed-wheel and full browser gates remain deferred.
