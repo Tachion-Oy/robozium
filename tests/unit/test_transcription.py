@@ -31,7 +31,7 @@ def _isolated_hub_config(tmp_path: Path) -> None:
 
 
 def test_live_transcription_returns_clear_service_unavailable(tmp_path: Path) -> None:
-    assert load_hub().transcription_endpoint is None
+    assert load_hub(start=tmp_path).transcription_endpoint is None
     client = TestClient(create_app(deployment=_deployment(None, tmp_path)))
     response = client.post(
         "/transcribe", files={"file": ("clip.webm", b"audio", "audio/webm")}

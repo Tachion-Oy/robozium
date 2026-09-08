@@ -11,6 +11,7 @@ def write_config(
     path = root / "hub.config.py"
     path.write_text(
         "from dataclasses import replace\n"
+        "from pathlib import Path\n"
         + CONFIG.read_text()
         + f"\nNAME = {name!r}\n"
         + f"WORKSPACE = replace(WORKSPACE, root=Path({workspace!r}))\n"

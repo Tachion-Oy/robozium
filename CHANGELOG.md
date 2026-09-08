@@ -13,6 +13,8 @@
 
 ### Fixed
 
+- Provision the frontend CI job with Python and the resolved Roboz dependencies before loading `hub.config.py`; keep transcription assertions and generated test configuration isolated.
+
 - Report completed WebKit test failures as advisory warnings with successful CI job checks, while retaining required setup and runner failures.
 
 - Keep local editor reports, frontend build output, and development artifacts out of Python source distributions.

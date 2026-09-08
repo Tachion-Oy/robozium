@@ -95,7 +95,7 @@ as production code and excluding generated files, locks, documentation, and bina
 | Scope | Additions | Deletions | Net |
 | --- | ---: | ---: | ---: |
 | Production Python | 639 | 2,247 | -1,608 |
-| Total maintained code | 1,851 | 3,882 | -2,031 |
+| Total maintained code | 1,870 | 3,882 | -2,012 |
 
 This iteration passed 55 configuration/construction checks, seven focused host
 checks, one shared permission-binding check, Python lint and typing, frontend
