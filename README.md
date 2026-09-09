@@ -4,9 +4,12 @@ A runnable project-agent application built on Roboz, with a FastAPI backend, str
 
 ## Prerequisites and installation
 
-Use Linux with Bash, `setsid`, curl, uv (CI uses 0.12.10), Node.js 22, npm, and the read commands `grep`, `rg`, `pwd`, `cat`, `head`, `tail`, `find`, `ls`, `wc`, and `diff`. Python 3.13+ is required; uv downloads it into this checkout if needed. Playwright needs its usual Linux browser libraries already installed; installation scripts do not change system packages.
+Use Linux with Bash, `setsid`, curl, uv 0.12.10 or newer (CI uses 0.12.10), Node.js 22, npm, and the read commands `grep`, `rg`, `pwd`, `cat`, `head`, `tail`, `find`, `ls`, `wc`, and `diff`. Python 3.13+ is required; uv downloads it into this checkout if needed. Playwright needs its usual Linux browser libraries already installed; installation scripts do not change system packages.
 
-Place a fresh checkout of Roboz’s current `main` at `../roboz`. RoboSprawl consumes that checkout through its public package APIs. From the RoboSprawl directory:
+RoboSprawl installs `roboz==0.1.2.dev2`, `roboshed==0.1.0a2`, and
+`roboz-endpoints[openai]==0.1.0a2` from TestPyPI. Other dependencies come from
+PyPI. No sibling Roboz checkout or package-index credentials are needed.
+From the RoboSprawl directory:
 
 ```bash
 ./scripts/install.sh
@@ -105,26 +108,21 @@ For a paced stream demonstration, source `scripts/env.sh` and run `uv run uvicor
 
 Visual baselines live under `web/e2e/visual-regression.spec.ts-snapshots`. Update them intentionally with `--project=chromium --update-snapshots`, then review the images. [Verification notes](docs/verification.md) record the port's results and visual review. Credential-backed live inference is reported separately from automated configuration tests.
 
-CI resolves Roboz’s current `main` once per workflow run and checks out that
-exact revision beside this repository for Python, quality, and packaging checks.
-Both tested source revisions appear in the workflow summary and distribution
-reports. Dependencies are built fresh and passed to browser jobs as artifacts
-from the same run; previous runs’ application builds are not reused. Require the aggregate **CI** check for branch protection.
-Actions are pinned to immutable commits and maintained by Dependabot. Until Roboz
-is published, its private checkout uses a dedicated fine-grained read-only token stored
-as `ROBOZ_CI_TOKEN` in both Actions and Dependabot secrets. Same-repository PRs
-and Dependabot use that credential; fork PRs cannot complete the private dependency
-checks without access to it. See [CI credential setup](docs/testing.md#temporary-private-dependency-access).
-Reports and candidate archives are retained for 14 days.
+CI installs the exact dependency releases recorded in `uv.lock`. The three
+Roboz packages use an explicit TestPyPI index; all other dependencies use PyPI.
+The distribution job downloads dependency wheels from their locked registry
+URLs, verifies SHA-256 hashes, and builds the application archives fresh.
+Browser jobs verify and install those same wheels with pip. Dependency versions,
+URLs, and hashes are recorded with distribution reports. Require the aggregate
+**CI** check for branch protection.
+Actions are pinned to immutable commits and maintained by Dependabot. CI needs
+no access token for the Roboz repository. Reports and candidate archives are
+retained for 14 days. See [testing commands and artifact contracts](docs/testing.md).
 
-## Future PyPI installation
+## Production PyPI installation later
 
-The project declares versioned dependencies on `roboz`, `roboshed`, and
-`roboz-endpoints[openai]`, with exactly three local source overrides in `pyproject.toml`.
-Once compatible versions of all three are on PyPI, remove those overrides and
-the CI Roboz checkouts, refresh `uv.lock`, and download the released dependency
-wheels into the existing candidate directory instead of building Roboz from
-source. The archive verifier and browser installation continue to consume that
-directory. Revoke the token and delete both secret entries after the
-credential-free workflow passes. See the [PyPI cutover steps](docs/testing.md#pypi-cutover).
-No import or application namespace changes are needed; these checks do not publish packages.
+This integration uses TestPyPI only. After compatible versions of all three
+packages are published to production PyPI, update the dependency pins, remove
+the explicit TestPyPI configuration, and refresh `uv.lock`. The downloader also
+accepts production PyPI URLs and continues enforcing the locked wheel hashes.
+See the [PyPI cutover steps](docs/testing.md#pypi-cutover).

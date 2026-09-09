@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Install the tested Roboz, Shed, and Endpoints releases from TestPyPI. Development
+  setup and installed browser tests no longer need a sibling Roboz checkout or
+  a private-repository dependency token.
+
 - Add a credential-free model-selection mock scenario and HTTP/browser checks that verify actual provider requests after active-run switching and isolation between runs.
 
 - Type configuration exports with `HubValues` and select the shared `robosprawl` orientation/HUD skill. The shared deployment derives actual paths from `Project` at construction time.
