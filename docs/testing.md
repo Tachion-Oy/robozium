@@ -151,7 +151,7 @@ reading that repository. Do not reuse a broad developer token.
    and separately in its **Dependabot secrets**. Dependabot-triggered workflows
    cannot use Actions secrets; both entries must have the same name and value.
 3. The resolver checks out Roboz `main` with that secret and records its SHA.
-   The three downstream checkout definitions use the same secret and resolved
+   The four downstream checkout definitions use the same secret and resolved
    SHA, with `persist-credentials: false` on every checkout. The Python matrix
    runs its checkout twice. Both source SHAs are recorded in the workflow
    summary and distribution reports.
@@ -171,7 +171,7 @@ After compatible releases of **all three** packages (`roboz`, `roboshed`, and
 
 1. Remove the three `[tool.uv.sources]` overrides, run `uv lock`, and review the
    registry sources and versions. Retain locked sync in CI.
-2. Remove the Roboz resolver and all three downstream checkout steps from CI. Replace the Roboz build in the
+2. Remove the Roboz resolver and all four downstream checkout steps from CI. Replace the Roboz build in the
    distribution job with `python -m pip download --only-binary=:all: --no-deps
    --dest "$candidate_dir"` and exact `name==version` arguments for the three
    packages, using their versions from the refreshed lock. Keep the directory

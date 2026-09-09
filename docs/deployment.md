@@ -81,35 +81,16 @@ shared deployment code. Construction starts no agents or threads and creates no
 persistence directories. Mocks retain fresh scripts and their existing scenario
 controls.
 
-Configuration and construction checks run during review. Full release, frontend,
-and browser gates are deferred until review finishes; earlier full-gate results
-predate this configuration change. Code accounting is generated under
-`.artifacts/reports/` and excludes documentation, generated files, locks, and
-binaries.
+The full local gates have now run against merged Roboz `303384e`. See
+[deployment validation](deployment-validation.md) for results, the artifact-read
+assertion correction, browser policy, source revisions, and retained diagnostics.
 
 ## Current code accounting
 
-Against RoboSprawl baseline `b68a8d1`, including the new root Python configuration
-as production code and excluding generated files, locks, documentation, and binaries:
+Against RoboSprawl baseline `b68a8d1`, including the root Python configuration as
+production code and excluding generated files, locks, documentation, and binaries:
 
 | Scope | Additions | Deletions | Net |
 | --- | ---: | ---: | ---: |
 | Production Python | 639 | 2,247 | -1,608 |
-| Total maintained code | 1,870 | 3,882 | -2,012 |
-
-This iteration passed 55 configuration/construction checks, seven focused host
-checks, one shared permission-binding check, Python lint and typing, frontend
-lint for changed files and TypeScript checking, and Next.js configuration loading.
-All 284 application tests collect successfully. Full suites, coverage, fresh
-packaging, and browser gates remain deferred until review finishes.
-
-The orientation/schema follow-up passed five focused checks and Python lint/typing.
-A negative typing probe confirmed that misspelled `HubValues` keys are rejected.
-
-The model-selection follow-up ports PR #13's useful HTTP and browser coverage to
-shared deployment contracts. A scripted provider journals actual requests;
-checks verify first → second → first switching, request-option propagation,
-future-run defaults, and isolation of another active run. The focused HTTP and
-Chromium scenarios passed, along with Python/TypeScript typing and changed-file
-lint. Chromium reused the existing production frontend build and the development
-backend environment; fresh installed-wheel and full browser gates remain deferred.
+| Total maintained code | 1,880 | 3,890 | -2,010 |
