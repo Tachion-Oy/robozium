@@ -9,8 +9,8 @@ from roboshed.agents.orchestrator import ORCHESTRATOR_PROMPT
 from roboshed.capabilities import Compactification, MaintenanceCadence
 from roboshed.deployments.robosprawl import AgenticFactory
 from roboshed.identifiers import COMPACTIFY_MESSAGES_TOOL_NAME
+from roboshed.sandbox import Sandbox
 from roboshed.skills import robosprawl as robosprawl_skill
-from roboshed.workspace import Project, Workspace
 from roboz import DependencyRoute
 from roboz.deployment import AgentDefinition, Capability, SubAgentSpec
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
@@ -18,6 +18,7 @@ from roboz.runtime import Output
 from roboz.tools import stop
 from roboz_endpoints import cerebras, openrouter
 
+from robosprawl.api.projects import Project
 from robosprawl.hub.utils import load_hub
 
 
@@ -59,15 +60,16 @@ def _specialist(name, *, subagents=(), responses=None):
 def test_composition_uses_persistent_preset_and_has_no_construction_side_effects(
     tmp_path, monkeypatch
 ):
-    project = Project(
-        Workspace(
-            tmp_path / "absent", readonly="references", shared="team", projects="work"
-        ),
-        "demo",
-        logs_dir=Path("conversations"),
-        snapshots_dir=Path("summaries"),
-        memory_dir=Path("preferences"),
+    sandbox = Sandbox(
+        tmp_path / "absent",
+        readonly="references",
+        shared="team",
+        projects="work",
+        logs=Path("conversations"),
+        snapshots=Path("summaries"),
+        memory=Path("preferences"),
     )
+    project = Project(sandbox, "demo")
     root_endpoint = openrouter.z_ai__glm_5_3
     memory_endpoint = cerebras.gpt_oss_120b
     nested = SubAgentSpec(_specialist("nested"), "nested", "Nested specialist")
@@ -83,12 +85,12 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
         monkeypatch.delenv(key, raising=False)
     factory = replace(
         load_hub().deployment.recipe, memory_endpoint=memory_endpoint, subagents=(spec,)
-    )(project, orchestrator_endpoint=root_endpoint)
+    )(project.sandbox, project.slug, orchestrator_endpoint=root_endpoint)
     assert isinstance(factory, AgenticFactory)
     assert factory.agent_names() == {"orchestrator", "specialist", "nested"}
     assert factory.orchestrator.system_prompt.startswith(ORCHESTRATOR_PROMPT)
     assert "<file src=" not in factory.orchestrator.system_prompt
-    assert str(project.workspace.resolved_root) in factory.orchestrator.system_prompt
+    assert str(project.sandbox.resolved_root) in factory.orchestrator.system_prompt
     assert str(project.root) in factory.orchestrator.system_prompt
     for location in (project.logs, project.snapshots, project.memory):
         assert str(location) in factory.orchestrator.system_prompt
@@ -117,7 +119,7 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
     assert robosprawl_skill in bundle.agent.auto_loaded_skills
     assert '<file src="relative/path.ext">' in robosprawl_skill.instructions
     assert "runtime-supplied" in robosprawl_skill.instructions
-    assert not project.workspace.root.exists()
+    assert not project.sandbox.root.exists()
     assert bundle.agent.initial_messages == (project.memory,)
     assert bundle.agent.pipe.data_path == project.logs / "orchestrator"
     (background,) = bundle.background_agents
@@ -140,7 +142,7 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
 
 
 def test_nested_specialists_have_separate_persistence_and_seed_memory(tmp_path):
-    project = Project(Workspace(tmp_path), "demo")
+    project = Project(Sandbox(tmp_path), "demo")
     project.memory.mkdir(parents=True)
     (project.memory / "remember.md").write_text("REMEMBER-PREFERENCES")
     nested = SubAgentSpec(_specialist("nested"), "nested", "Nested")
@@ -161,7 +163,8 @@ def test_nested_specialists_have_separate_persistence_and_seed_memory(tmp_path):
         memory_endpoint=MockLLMEndpoint([]),
         subagents=(specialist,),
     )(
-        project,
+        project.sandbox,
+        project.slug,
         orchestrator_endpoint=MockLLMEndpoint(
             [
                 {"action": "delegate", "rationale": "test action"},
@@ -186,7 +189,7 @@ def test_route_discovery_and_compaction_follow_model_switch_without_rebuild(tmp_
     selected = first
     route = DependencyRoute(lambda: selected)
     bundle = replace(load_hub().deployment.recipe, memory_endpoint=memory)(
-        Project(Workspace(tmp_path), "demo"), orchestrator_endpoint=route
+        Sandbox(tmp_path), "demo", orchestrator_endpoint=route
     ).build()
     compactifier = next(
         t for t in bundle.agent.default_tools if t.name == COMPACTIFY_MESSAGES_TOOL_NAME

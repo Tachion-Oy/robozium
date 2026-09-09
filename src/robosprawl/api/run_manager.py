@@ -10,7 +10,6 @@ from functools import partial
 from uuid import uuid4
 
 from roboshed.deployments.robosprawl import RunFactory
-from roboshed.workspace import Project
 from roboz.dependencies import LazyExternalDependency
 from roboz.llm import LLMEndpoint
 from roboz.runtime import (
@@ -23,6 +22,7 @@ from roboz.runtime import (
 from roboz.runtime.events import EventSink
 
 from robosprawl.api.errors import ProjectBusyError, ProjectCancellationInProgressError
+from robosprawl.api.projects import Project
 from robosprawl.api.run_control import RunControl
 from robosprawl.api.state import ProjectRunItem, RunState, RunStatus, RunView
 from robosprawl.api.user_io import ApiUserIO
@@ -131,7 +131,8 @@ class RunManager:
                 control.finish(RunStatus.CANCELLED)
                 return
             bundle = factory(
-                control.project,
+                control.project.sandbox,
+                control.project.slug,
                 endpoint_getter=control.endpoint,
                 event_sinks=(control.dispatch,),
             )

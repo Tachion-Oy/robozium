@@ -1,17 +1,20 @@
 from pathlib import Path
 
 import pytest
-from roboshed.workspace import Project, Workspace
+from roboshed.sandbox import Sandbox
 
-from robosprawl.api.projects import ProjectStatus, compose_project_list
+from robosprawl.api.projects import Project, ProjectStatus, compose_project_list
 from robosprawl.api.state import ProjectRunItem, RunStatus
 
 
 def _project(tmp_path: Path, slug: str = "alpha") -> Project:
     return Project(
-        workspace=Workspace(root=tmp_path, shared="workspace"),
+        sandbox=Sandbox(
+            root=tmp_path,
+            shared="workspace",
+            logs=Path("conversation_logs"),
+        ),
         slug=slug,
-        logs_dir=Path("conversation_logs"),
     )
 
 

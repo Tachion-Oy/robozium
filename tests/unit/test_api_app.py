@@ -20,12 +20,12 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from roboshed.deployments.robosprawl import RoboSprawlBundle, RunFactory
 from roboshed.identifiers import LIBRARIAN_AGENT_NAME
+from roboshed.sandbox import Sandbox
 from roboshed.tools.memory_files import (
     TIMESTAMP_STEM_FORMAT,
     load_conversation_run,
     utc_now,
 )
-from roboshed.workspace import Project
 from roboz import Agent
 from roboz.dependencies import LazyExternalDependency
 from roboz.llm import LLMEndpoint, MockLLMEndpoint, MockTranscriptionEndpoint
@@ -49,6 +49,7 @@ from roboz.tooling.decorators import tool
 from roboz.tools import prompt_user_at_start, stop
 
 from robosprawl.api.app import create_app
+from robosprawl.api.projects import Project
 from robosprawl.api.state import RunStatus
 from robosprawl.hub.application import Hub
 from robosprawl.hub.utils import load_hub
@@ -83,13 +84,14 @@ def pause(input: Empty, messages: list[Message]) -> Str:
 
 
 def _minimal_factory(
-    project: Project,
+    sandbox: Sandbox,
+    project_slug: str,
     /,
     *,
     endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
     event_sinks: Sequence[EventSink],
 ) -> RoboSprawlBundle:
-    del project, endpoint_getter
+    del sandbox, project_slug, endpoint_getter
     endpoint = MockLLMEndpoint(
         responses=[
             {"action": "entry", "rationale": "ask"},
@@ -113,13 +115,14 @@ def _minimal_factory(
 
 
 def _running_factory(
-    project: Project,
+    sandbox: Sandbox,
+    project_slug: str,
     /,
     *,
     endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
     event_sinks: Sequence[EventSink],
 ) -> RoboSprawlBundle:
-    del project, endpoint_getter
+    del sandbox, project_slug, endpoint_getter
     endpoint = MockLLMEndpoint(
         responses=[
             {"action": "pause", "rationale": "keep running briefly"},
@@ -140,13 +143,14 @@ def _running_factory(
 
 
 def _stream_terminating_factory(
-    project: Project,
+    sandbox: Sandbox,
+    project_slug: str,
     /,
     *,
     endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
     event_sinks: Sequence[EventSink],
 ) -> RoboSprawlBundle:
-    del project, endpoint_getter
+    del sandbox, project_slug, endpoint_getter
     endpoint = MockLLMEndpoint(
         responses=[
             {"action": "stop", "rationale": "done", "value": "ok"},
@@ -166,13 +170,14 @@ def _stream_terminating_factory(
 
 
 def _syncing_after_stop_factory(
-    project: Project,
+    sandbox: Sandbox,
+    project_slug: str,
     /,
     *,
     endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
     event_sinks: Sequence[EventSink],
 ) -> RoboSprawlBundle:
-    del project, endpoint_getter
+    del sandbox, project_slug, endpoint_getter
     root = Agent(
         interaction_mode=Output.API,
         event_sinks=event_sinks,
@@ -418,7 +423,7 @@ def test_api_projects_lists_project_folders(tmp_path: Path) -> None:
 
     assert client.get("/projects").json() == []
 
-    projects_dir = load_hub(start=tmp_path).workspace.projects_dir
+    projects_dir = load_hub(start=tmp_path).sandbox.projects_dir
     (projects_dir / "beta").mkdir(parents=True)
     (projects_dir / "alpha").mkdir()
     (projects_dir / "stray.txt").write_text("not a project", encoding="utf-8")
@@ -628,11 +633,14 @@ def test_api_projects_live_status_wins_over_running_librarian_log(
 ) -> None:
     entered, release = Event(), Event()
 
-    def constructing_factory(project, *, endpoint_getter, event_sinks):
+    def constructing_factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         entered.set()
         assert release.wait(5)
         return _minimal_factory(
-            project, endpoint_getter=endpoint_getter, event_sinks=event_sinks
+            sandbox,
+            project_slug,
+            endpoint_getter=endpoint_getter,
+            event_sinks=event_sinks,
         )
 
     factory = (
@@ -1222,7 +1230,9 @@ def test_api_run_view_includes_agent_fields_and_message_trace(tmp_path: Path) ->
 def test_api_run_view_serializes_script_output_trace_entry(tmp_path: Path) -> None:
     event = ScriptOutputEvent(content="script line", sequence=0)
 
-    def factory(project, *, endpoint_getter, event_sinks):
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
+        del sandbox, project_slug, endpoint_getter
+
         def invoke():
             for sink in event_sinks:
                 sink(event)
@@ -1257,7 +1267,9 @@ def test_api_run_view_serializes_runtime_event_trace_entry(tmp_path: Path) -> No
         data={"error_kind": "auth"},
     )
 
-    def factory(project, *, endpoint_getter, event_sinks):
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
+        del sandbox, project_slug, endpoint_getter
+
         def invoke():
             for sink in event_sinks:
                 sink(event)
@@ -1486,7 +1498,7 @@ def test_api_files_get_serves_hub_file_with_safe_headers(tmp_path: Path) -> None
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = load_hub(start=tmp_path).workspace.resolved_root
+    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
     file_path = base_dir / "projects" / "alpha" / "documents" / "cv.txt"
     file_path.parent.mkdir(parents=True)
     file_path.write_text("updated cv", encoding="utf-8")
@@ -1505,7 +1517,7 @@ def test_api_files_get_serves_pdf_with_inferred_content_type(tmp_path: Path) -> 
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = load_hub(start=tmp_path).workspace.resolved_root
+    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
     file_path = base_dir / "projects" / "alpha" / "documents" / "cv.pdf"
     file_path.parent.mkdir(parents=True)
     file_path.write_bytes(b"%PDF-1.4\n%mock pdf\n")
@@ -1523,7 +1535,7 @@ def test_api_files_get_allows_reads_outside_projects_within_hub_root(
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = load_hub(start=tmp_path).workspace.resolved_root
+    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
     file_path = base_dir / "shared" / "templates" / "cover-letter.txt"
     file_path.parent.mkdir(parents=True)
     file_path.write_text("shared template", encoding="utf-8")
@@ -1539,7 +1551,7 @@ def test_api_files_get_serves_trusted_timesheet_artifact(tmp_path: Path) -> None
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
     relative = "readonly/Tachion/planning/Tunnit/timesheet_2026-08.csv"
-    file_path = load_hub(start=tmp_path).workspace.resolved_root / relative
+    file_path = load_hub(start=tmp_path).sandbox.resolved_root / relative
     file_path.parent.mkdir(parents=True)
     file_path.write_text("Date,Hours\r\n2026-08-02,3.5\r\n", encoding="utf-8")
 
@@ -1575,7 +1587,7 @@ def test_api_files_get_returns_not_a_file_diagnostic_for_directories(
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = load_hub(start=tmp_path).workspace.resolved_root
+    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
     folder = base_dir / "projects" / "alpha" / "documents"
     folder.mkdir(parents=True)
 
@@ -1592,7 +1604,7 @@ def test_api_files_get_rejects_empty_or_absolute_paths(tmp_path: Path) -> None:
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = load_hub(start=tmp_path).workspace.resolved_root
+    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
     (base_dir / "projects" / "alpha").mkdir(parents=True)
 
     empty_path_response = client.get("/files/%20")
@@ -1608,7 +1620,7 @@ def test_api_files_get_rejects_escape_outside_hub(tmp_path: Path) -> None:
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = load_hub(start=tmp_path).workspace.resolved_root
+    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
     (base_dir / "projects" / "alpha").mkdir(parents=True)
     external_file = base_dir.parent / "outside.txt"
     external_file.write_text("nope", encoding="utf-8")
@@ -1625,7 +1637,7 @@ def test_api_files_get_rejects_symlink_escape(tmp_path: Path) -> None:
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = load_hub(start=tmp_path).workspace.resolved_root
+    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
     project_root = base_dir / "projects" / "alpha"
     project_root.mkdir(parents=True)
     external_file = base_dir.parent / "outside.txt"
@@ -1648,7 +1660,7 @@ def test_real_orchestrator_reads_top_level_workspace_file(
     Both models are scripted and paths are isolated under the configured root.
     The transcript must contain the marker from outside the current project.
     """
-    base_dir = load_hub(start=tmp_path).workspace.resolved_root
+    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
     assert base_dir.is_relative_to(tmp_path.resolve()), base_dir  # writes stay in tmp
 
     marker = "ROBOZ-CV-MARKER-7F3A91"
@@ -1674,7 +1686,8 @@ def test_real_orchestrator_reads_top_level_workspace_file(
     )
 
     def orchestrator_factory(
-        project: Project,
+        sandbox: Sandbox,
+        project_slug: str,
         /,
         *,
         endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
@@ -1683,7 +1696,9 @@ def test_real_orchestrator_reads_top_level_workspace_file(
         del endpoint_getter
         return replace(
             load_hub().deployment.recipe, memory_endpoint=MockLLMEndpoint([])
-        )(project, orchestrator_endpoint=endpoint).build(event_sinks=event_sinks)
+        )(sandbox, project_slug, orchestrator_endpoint=endpoint).build(
+            event_sinks=event_sinks
+        )
 
     application = create_app(
         deployment=_test_deployment(orchestrator_factory, tmp_path),
@@ -1718,8 +1733,8 @@ def test_project_operations_reject_shared_path_validation_errors(tmp_path, opera
     )
     outside = tmp_path / "outside"
     outside.mkdir()
-    config.workspace.projects_dir.mkdir(parents=True)
-    (config.workspace.projects_dir / "escape").symlink_to(
+    config.sandbox.projects_dir.mkdir(parents=True)
+    (config.sandbox.projects_dir / "escape").symlink_to(
         outside, target_is_directory=True
     )
     if operation == "create":

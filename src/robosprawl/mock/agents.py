@@ -17,7 +17,7 @@ from roboshed.capabilities import (
     MemoryConsolidation,
 )
 from roboshed.deployments.robosprawl import AgenticFactory, DeploymentFactory
-from roboshed.workspace import Project
+from roboshed.sandbox import Sandbox
 from roboz.deployment import AgentDefinition, Capability, SubAgentSpec
 from roboz.llm import EndpointLike, MockLLMEndpoint, MockProviderError
 from roboz.models import Empty, Message
@@ -26,6 +26,8 @@ from roboz.runtime.events import EventSink, MessageDeltaEvent, PipeEvent
 from roboz.tooling import Ctx
 from roboz.tooling.decorators import factory
 from roboz.tools import stop
+
+from robosprawl.api.projects import Project
 
 # Per-chunk pause (seconds) the streaming mock inserts between message deltas so
 # the live stream is actually visible in the HUD. Override with
@@ -73,7 +75,7 @@ def _mock_orchestrator_responses(project: Project) -> list[ScriptedMockResponse]
             "rationale": "ask user what to do next",
             "value": (
                 "Hello! I generated a text artifact for validation: "
-                f'<file src="{project.workspace.projects}/{project.slug}/documents/generated-note.txt">'
+                f'<file src="{project.sandbox.projects}/{project.slug}/documents/generated-note.txt">'
                 "Open the generated text file"
                 "</file>"
             ),
@@ -132,7 +134,7 @@ def _mock_recipe(
     prepare_artifact: bool = False,
 ) -> AgenticFactory:
     """Fresh scripted definitions using the same shared construction as production."""
-    permissions = project.permissions
+    permissions = project.sandbox.permissions(project.slug)
     root = orchestrator(
         agent_endpoint=MockLLMEndpoint(responses=responses),
         interaction_mode=Output.API,
@@ -187,18 +189,28 @@ def _mock_recipe(
         [{"value": "## E2E snapshot\n- Librarian generated this memory."}] * 12
     )
     return AgenticFactory(
-        project=project,
+        sandbox=project.sandbox,
+        project_slug=project.slug,
         orchestrator=root,
         seed_initial_messages_from_memory=False,
         librarian=librarian(
             agent_endpoint=endpoint,
             capabilities=(
-                ConversationSnapshots(project, names, token_growth_threshold=1),
-                MemoryConsolidation(
-                    project, names, min_pending_snapshots=1, max_pending_age_seconds=0
+                ConversationSnapshots(
+                    project.sandbox,
+                    project.slug,
+                    names,
+                    token_growth_threshold=1,
                 ),
-                ArtifactRetention(project, max_log_files=4),
-                MaintenanceCadence(project, names, seconds=1),
+                MemoryConsolidation(
+                    project.sandbox,
+                    project.slug,
+                    names,
+                    min_pending_snapshots=1,
+                    max_pending_age_seconds=0,
+                ),
+                ArtifactRetention(project.sandbox, project.slug, max_log_files=4),
+                MaintenanceCadence(project.sandbox, project.slug, names, seconds=1),
                 _LibrarianHold(project, endpoint),
             ),
         )
@@ -208,16 +220,20 @@ def _mock_recipe(
 
 
 def mock_recipe(
-    project: Project,
+    sandbox: Sandbox,
+    project_slug: str,
+    /,
     *,
     orchestrator_endpoint: EndpointLike,
 ) -> AgenticFactory:
+    project = Project(sandbox, project_slug)
     scenario = _mock_scenario(project)
     if scenario == "model-selection":
         from robosprawl.mock.model_selection import model_selection_endpoint
 
         return AgenticFactory(
-            project=project,
+            sandbox=sandbox,
+            project_slug=project_slug,
             orchestrator=orchestrator(
                 agent_endpoint=model_selection_endpoint(
                     orchestrator_endpoint, project.root
@@ -252,7 +268,7 @@ def mock_recipe(
             "Onboarding and introduction: Going through project details and "
             "sorting out practicalities. |\n\n"
             "Your requested file is ready: "
-            f'<file src="{project.workspace.projects}/{project.slug}/documents/generated-note.txt">'
+            f'<file src="{project.sandbox.projects}/{project.slug}/documents/generated-note.txt">'
             "Open the generated text file"
             "</file>"
         )
@@ -412,7 +428,9 @@ def _stream_responses(project: Project) -> list[ScriptedMockResponse]:
 
 
 def stream_mock_recipe(
-    project: Project,
+    sandbox: Sandbox,
+    project_slug: str,
+    /,
     *,
     orchestrator_endpoint: EndpointLike,
 ) -> AgenticFactory:
@@ -423,6 +441,7 @@ def stream_mock_recipe(
     ``mock_app`` is untouched.
     """
     del orchestrator_endpoint
+    project = Project(sandbox, project_slug)
     responses = _stream_responses(project)
     return _mock_recipe(
         project,
@@ -432,7 +451,9 @@ def stream_mock_recipe(
 
 
 def stream_sync_mock_recipe(
-    project: Project,
+    sandbox: Sandbox,
+    project_slug: str,
+    /,
     *,
     orchestrator_endpoint: EndpointLike,
 ) -> AgenticFactory:
@@ -444,6 +465,7 @@ def stream_sync_mock_recipe(
     manager enters the same post-stop ``syncing`` state as production.
     """
     del orchestrator_endpoint
+    project = Project(sandbox, project_slug)
     responses = _stream_responses(project)
     return _mock_recipe(
         project,

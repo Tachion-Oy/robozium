@@ -3,8 +3,8 @@ from typing import Final
 
 from roboshed.capabilities import Compactification, FileCommands, FileEditing
 from roboshed.deployments.robosprawl import DeploymentFactory, RoboSprawl
+from roboshed.sandbox import Sandbox
 from roboshed.skills import robosprawl
-from roboshed.workspace import Workspace
 from roboz.deployment import Capability
 from roboz.llm import with_openrouter_policy
 from roboz.runtime import Output
@@ -14,15 +14,15 @@ from robosprawl.hub.application import DependencyHealthSettings
 from robosprawl.hub.logging import HubLoggingConfig
 
 NAME: Final = "RoboSprawl"
-WORKSPACE: Final = Workspace(
-    root=Path(".runtime/data"),
+SANDBOX: Final = Sandbox(
+    root=Path(f"../{NAME}"),
     readonly="readonly",
     shared="workspace",
     projects="projects",
+    logs=Path("conversation_logs"),
+    snapshots=Path("conversation_snapshots"),
+    memory=Path("persistent_memory"),
 )
-LOGS_DIR: Final = Path("conversation_logs")
-SNAPSHOTS_DIR: Final = Path("conversation_snapshots")
-MEMORY_DIR: Final = Path("persistent_memory")
 LOGGING: Final = HubLoggingConfig()
 DEPENDENCY_HEALTH: Final = DependencyHealthSettings(interval_s=60.0, timeout_s=20.0)
 

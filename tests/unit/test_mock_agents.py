@@ -30,11 +30,14 @@ def _endpoint_getter():
 
 
 def test_mock_librarian_is_non_agentic_workflow(tmp_path: Path) -> None:
-    write_config(tmp_path, workspace="hub_data", name="MockHub")
+    write_config(tmp_path, sandbox_root="hub_data", name="MockHub")
     project = load_hub(start=tmp_path).project("alpha")
 
     (librarian,) = mock_deployment(
-        project, endpoint_getter=_endpoint_getter, event_sinks=()
+        project.sandbox,
+        project.slug,
+        endpoint_getter=_endpoint_getter,
+        event_sinks=(),
     ).background_agents
 
     assert librarian.name == LIBRARIAN_AGENT_NAME
@@ -53,10 +56,15 @@ def test_mock_librarian_is_non_agentic_workflow(tmp_path: Path) -> None:
 def test_mock_deployment_uses_background_agent_wiring(
     tmp_path: Path,
 ) -> None:
-    write_config(tmp_path, workspace="hub_data", name="MockHub")
+    write_config(tmp_path, sandbox_root="hub_data", name="MockHub")
     project = load_hub(start=tmp_path).project("alpha")
 
-    bundle = mock_deployment(project, endpoint_getter=_endpoint_getter, event_sinks=())
+    bundle = mock_deployment(
+        project.sandbox,
+        project.slug,
+        endpoint_getter=_endpoint_getter,
+        event_sinks=(),
+    )
 
     assert isinstance(bundle, RoboSprawlBundle)
     assert len(bundle.background_agents) == 1
@@ -71,13 +79,16 @@ def test_mock_deployment_uses_background_agent_wiring(
 def test_mock_deployment_selects_error_scenario_from_marker(
     tmp_path: Path,
 ) -> None:
-    write_config(tmp_path, workspace="hub_data", name="MockHub")
+    write_config(tmp_path, sandbox_root="hub_data", name="MockHub")
     project = load_hub(start=tmp_path).project("alpha")
     project.root.mkdir(parents=True, exist_ok=True)
     (project.root / ".mock-scenario").write_text("llm-error", encoding="utf-8")
 
     orchestrator = mock_deployment(
-        project, endpoint_getter=_endpoint_getter, event_sinks=()
+        project.sandbox,
+        project.slug,
+        endpoint_getter=_endpoint_getter,
+        event_sinks=(),
     ).agent
 
     assert isinstance(orchestrator.agent_endpoint, MockLLMEndpoint)
@@ -92,7 +103,7 @@ def test_mock_deployment_selects_error_scenario_from_marker(
 def test_mock_deployment_adds_notification_default_tool_for_scenario(
     tmp_path: Path,
 ) -> None:
-    write_config(tmp_path, workspace="hub_data", name="MockHub")
+    write_config(tmp_path, sandbox_root="hub_data", name="MockHub")
     project = load_hub(start=tmp_path).project("notification")
     project.root.mkdir(parents=True, exist_ok=True)
     (project.root / ".mock-scenario").write_text(
@@ -100,7 +111,10 @@ def test_mock_deployment_adds_notification_default_tool_for_scenario(
     )
 
     orchestrator = mock_deployment(
-        project, endpoint_getter=_endpoint_getter, event_sinks=()
+        project.sandbox,
+        project.slug,
+        endpoint_getter=_endpoint_getter,
+        event_sinks=(),
     ).agent
 
     assert [tool.name for tool in orchestrator.default_tools] == [
@@ -113,11 +127,14 @@ def test_mock_deployment_adds_notification_default_tool_for_scenario(
 def test_stream_sync_mock_factory_exposes_background_agent_for_syncing(
     tmp_path: Path,
 ) -> None:
-    write_config(tmp_path, workspace="hub_data", name="MockHub")
+    write_config(tmp_path, sandbox_root="hub_data", name="MockHub")
     project = load_hub(start=tmp_path).project("alpha")
 
     bundle = stream_sync_mock_deployment(
-        project, endpoint_getter=_endpoint_getter, event_sinks=()
+        project.sandbox,
+        project.slug,
+        endpoint_getter=_endpoint_getter,
+        event_sinks=(),
     )
 
     assert isinstance(bundle, RoboSprawlBundle)
@@ -243,7 +260,7 @@ def test_stream_mock_repeats_specialist_and_recreates_scripts_per_run(
 
     monkeypatch.setenv("ROBOSPRAWL_STREAM_MOCK_DELAY_S", "0")
     monkeypatch.setenv("ROBOSPRAWL_STREAM_MOCK_START_DELAY_S", "0")
-    write_config(tmp_path, workspace="hub_data", name="MockHub")
+    write_config(tmp_path, sandbox_root="hub_data", name="MockHub")
     project = load_hub(start=tmp_path).project("stream")
     replies = []
 
@@ -257,7 +274,8 @@ def test_stream_mock_repeats_specialist_and_recreates_scripts_per_run(
     try:
         for _ in range(2):
             bundle = stream_mock_deployment(
-                project,
+                project.sandbox,
+                project.slug,
                 endpoint_getter=_endpoint_getter,
                 event_sinks=(),
             )

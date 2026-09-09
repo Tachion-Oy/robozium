@@ -22,7 +22,7 @@ from robosprawl.hub.utils import load_hub
 def _compaction_project(tmp_path):
     config = load_hub()
     project = replace(
-        config, workspace=replace(config.workspace, root=tmp_path / "sandbox")
+        config, sandbox=replace(config.sandbox, root=tmp_path / "sandbox")
     ).project("compaction-test")
     project.root.mkdir(parents=True)
     return project
@@ -52,7 +52,7 @@ def test_orchestrator_compacts_with_shed_and_persists_summary(tmp_path):
         max_context_tokens=10000,
     )
     factory = replace(load_hub().deployment.recipe, memory_endpoint=MockLLMEndpoint([]))(
-        project, orchestrator_endpoint=endpoint
+        project.sandbox, project.slug, orchestrator_endpoint=endpoint
     )
     agent = (
         replace(
@@ -62,8 +62,14 @@ def test_orchestrator_compacts_with_shed_and_persists_summary(tmp_path):
                 factory.orchestrator,
                 capabilities=(
                     factory.orchestrator.capabilities[0],
-                    FileCommands(project.permissions, auto_load_skill=False),
-                    FileEditing(project.permissions, auto_load_skill=False),
+                    FileCommands(
+                        project.sandbox.permissions(project.slug),
+                        auto_load_skill=False,
+                    ),
+                    FileEditing(
+                        project.sandbox.permissions(project.slug),
+                        auto_load_skill=False,
+                    ),
                     Compactification(threshold_percent=60),
                 ),
             ),
@@ -139,7 +145,7 @@ def test_orchestrator_controls_reach_compaction_provider(tmp_path, control):
         stream=False,
     )
     factory = replace(load_hub().deployment.recipe, memory_endpoint=MockLLMEndpoint([]))(
-        project, orchestrator_endpoint=endpoint
+        project.sandbox, project.slug, orchestrator_endpoint=endpoint
     )
     agent = (
         replace(
@@ -149,8 +155,14 @@ def test_orchestrator_controls_reach_compaction_provider(tmp_path, control):
                 factory.orchestrator,
                 capabilities=(
                     factory.orchestrator.capabilities[0],
-                    FileCommands(project.permissions, auto_load_skill=False),
-                    FileEditing(project.permissions, auto_load_skill=False),
+                    FileCommands(
+                        project.sandbox.permissions(project.slug),
+                        auto_load_skill=False,
+                    ),
+                    FileEditing(
+                        project.sandbox.permissions(project.slug),
+                        auto_load_skill=False,
+                    ),
                     Compactification(
                         threshold_percent=60,
                         timeout_s=0.1 if control == "timeout" else None,
@@ -199,7 +211,7 @@ def test_orchestrator_controls_reach_compaction_provider(tmp_path, control):
 def test_file_agent_loads_memory_writes_project_and_denies_escape(tmp_path):
     config = load_hub()
     project = replace(
-        config, workspace=replace(config.workspace, root=tmp_path / "sandbox")
+        config, sandbox=replace(config.sandbox, root=tmp_path / "sandbox")
     ).project("patch-test")
     project.memory.mkdir(parents=True)
     (project.memory / "memory.md").write_text("REMEMBER-LOCAL-MARKER")
@@ -226,7 +238,7 @@ def test_file_agent_loads_memory_writes_project_and_denies_escape(tmp_path):
     )
     bundle = replace(
         replace(load_hub().deployment.recipe, memory_endpoint=MockLLMEndpoint([]))(
-            project, orchestrator_endpoint=endpoint
+            project.sandbox, project.slug, orchestrator_endpoint=endpoint
         ),
         librarian=None,
     ).build()
