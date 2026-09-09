@@ -11,6 +11,8 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+from roboz_wheels import verify_wheels
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -49,7 +51,10 @@ def main() -> None:
         k: v
         for k, v in os.environ.items()
         if k not in {"PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"}
+        and not k.startswith("PIP_")
     }
+    env["PIP_CONFIG_FILE"] = os.devnull
+    dependencies = verify_wheels(dist)
     with tempfile.TemporaryDirectory(
         prefix="robosprawl-install-", dir=os.environ.get("RUNNER_TEMP", "/tmp")
     ) as directory:
@@ -92,10 +97,6 @@ def main() -> None:
         )
         rebuilt = next((root / "rebuilt").glob("*.whl"))
         validate(rebuilt)
-        dependencies = [
-            next(dist.glob(pattern))
-            for pattern in ("roboz-*.whl", "roboshed-*.whl", "roboz_endpoints-*.whl")
-        ]
         for label, wheel in (("wheel", original), ("sdist", rebuilt)):
             venv = (
                 args.python_output.resolve()
@@ -111,7 +112,10 @@ def main() -> None:
                 "-I",
                 "-m",
                 "pip",
+                "--isolated",
                 "install",
+                "--index-url",
+                "https://pypi.org/simple/",
                 str(wheel),
                 *(str(p) for p in dependencies),
                 "pytest",

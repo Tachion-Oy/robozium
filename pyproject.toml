@@ -6,9 +6,9 @@ readme = "README.md"
 requires-python = ">=3.13"
 license = "Apache-2.0"
 dependencies = [
-  "roboz>=0.1.1,<0.2.0",
-  "roboshed>=0.1.0a1,<0.2.0",
-  "roboz-endpoints[openai]>=0.1.0a1,<0.2.0",
+  "roboz==0.1.2.dev2",
+  "roboshed==0.1.0a2",
+  "roboz-endpoints[openai]==0.1.0a2",
   "fastapi[standard]>=0.135.0",
   "uvicorn[standard]>=0.30.0",
   "pydantic>=2.12.5",
@@ -17,9 +17,15 @@ dependencies = [
 requires = ["hatchling>=1.32"]
 build-backend = "hatchling.build"
 [tool.uv.sources]
-roboz = { path = "../roboz", editable = false }
-roboshed = { path = "../roboz/packages/shed", editable = false }
-roboz-endpoints = { path = "../roboz/packages/endpoints", editable = false }
+roboz = { index = "testpypi" }
+roboshed = { index = "testpypi" }
+roboz-endpoints = { index = "testpypi" }
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+explicit = true
+
 [tool.pytest.ini_options]
 addopts = "--cov=robosprawl --cov-report=term-missing --basetemp=.artifacts/pytest-tmp"
 testpaths = ["tests"]

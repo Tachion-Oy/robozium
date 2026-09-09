@@ -58,8 +58,9 @@ and interrupted-run diagnostics remain retained alongside the final results.
 
 ## Reproduction and retained evidence
 
-Use the commands in [CI-equivalent validation](testing.md) with sibling source
-checkouts at the recorded revisions. This run used separate Python environments
+For historical reproduction, use `docs/testing.md` from the recorded revisions
+with sibling source checkouts. [Current validation](testing.md) uses indexed
+releases instead. This run used separate Python environments
 and pytest/coverage output paths, then:
 
 - `ruff check src tests scripts hub.config.py` and `pyright`.

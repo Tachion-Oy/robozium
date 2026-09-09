@@ -1,6 +1,7 @@
 # Contributing
 
-Use the sibling dependency checkout and locked setup in [README](README.md).
+Use the locked TestPyPI installation in [README](README.md); no sibling dependency
+checkout is required.
 Run the [CI-equivalent checks](docs/testing.md); they require no service credentials.
 Keep application API, persisted data, prompts, and validation compatible. Add
 focused contract or E2E coverage for changed behavior and record externally

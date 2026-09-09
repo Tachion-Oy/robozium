@@ -1,12 +1,12 @@
 # CI-equivalent validation
 
-Use Linux, Python 3.13 or 3.14, Node 22, and uv 0.12.10. CI checks out
-`robosprawl/` and `roboz/` as siblings. Each new workflow run resolves Roboz’s
-current `main` once, then uses that SHA for every dependency checkout. Browser
-jobs install fresh wheels from that same run. Neither manifests nor locks are
-rewritten; missing access or incompatible current source fails required CI.
-For local reproduction, use a fresh sibling checkout of current Roboz `main`
-and record both source SHAs; preserve any existing development checkout.
+Use Linux, Python 3.13 or 3.14, Node 22, and uv 0.12.10. CI checks out only
+RoboSprawl and installs the exact Roboz dependency releases from `uv.lock`.
+The three Roboz packages are assigned to an explicit TestPyPI index; ordinary
+dependencies use PyPI. A sibling Roboz checkout and private dependency token
+are not required. Missing indexed artifacts or mismatched hashes fail the check;
+there is no source-checkout fallback. Browser jobs install the application build
+and downloaded dependency wheels from the same workflow run.
 Windows/macOS application support is not claimed by the existing Linux launchers.
 
 ```bash
@@ -31,7 +31,7 @@ contracts live in `tests/contract/`.
 
 ```bash
 candidate_dir="$(mktemp -d)"
-uv build --no-sources --all-packages --project ../roboz --out-dir "$candidate_dir"
+uv run --locked python scripts/roboz_wheels.py --dist "$candidate_dir"
 bash scripts/verify-wheels.sh "$candidate_dir"
 # Keep a separate fresh pip environment for browser jobs:
 backend_env="$(mktemp -d)/backend"
@@ -51,7 +51,11 @@ bash scripts/e2e/run-mock-playwright.sh --project=firefox
 bash scripts/e2e/run-mock-playwright.sh --project=webkit
 ```
 
-Build into fresh directories. The archive checker verifies metadata/content,
+Build into fresh directories. `scripts/roboz_wheels.py` downloads the three
+universal dependency wheels from the registry URLs in `uv.lock` and verifies
+their hashes. Its `--check` mode verifies existing artifacts without network
+access; stale versions, local lock sources, and hash mismatches fail.
+The archive checker verifies metadata/content,
 rejects direct source requirements, rebuilds the application wheel from its
 source distribution with overrides disabled, and independently installs each
 candidate with pip. It runs `pip check`, verifies installed import locations,
@@ -118,7 +122,7 @@ individual action and assertion timeouts remain unchanged.
 ## Required status and publication
 
 Use the aggregate **CI** check for branch protection. It requires Python,
-source resolution, quality, frontend, distribution, and every browser job to
+quality, frontend, distribution, and every browser job to
 succeed after WebKit test outcomes are classified as described above, including
 when another job failed or was cancelled. PRs, main pushes, and manual runs use
 read-only permissions, no persisted checkout credentials, immutable action
@@ -128,65 +132,35 @@ job timeouts. Artifacts are retained for 14 days. See
 
 Local success is not a GitHub Actions result. Linux browser suites do not prove
 native Safari/macOS application support or live provider behavior. No provider credentials
-are needed by these checks. The private Roboz checkout does require the temporary
-CI credential described below. Actual GitHub results and controlled live checks
-must be reported separately. On 2026-09-05, `main` was unprotected and GitHub
+or private dependency credentials are needed by these checks. Actual GitHub
+results must be reported separately. On 2026-09-05, `main` was unprotected and GitHub
 reported rulesets unavailable under the repository's current plan. Requiring
 aggregate **CI** remains a repository-settings follow-up when the plan or
 visibility permits it.
 
-### Temporary private dependency access
+### Retiring the dependency checkout token
 
-The workflow's default `GITHUB_TOKEN` is scoped to RoboSprawl and cannot read
-private `Tachion-Oy/roboz`. Deploy keys are disabled for Roboz, so the dependency
-checkout uses a dedicated fine-grained personal access token restricted to
-reading that repository. Do not reuse a broad developer token.
-
-1. Create a fine-grained token with **Resource owner: Tachion-Oy**, **Only select
-   repositories: roboz**, **Contents: Read-only**, and a 30-day expiration (renew
-   both secret entries if release takes longer). Metadata read access is implicit;
-   no write permissions are needed. If organization approval is required, obtain
-   it before running CI. Token creation requires the owner's GitHub session.
-2. Store the token as `ROBOZ_CI_TOKEN` in RoboSprawl's **Actions secrets**
-   and separately in its **Dependabot secrets**. Dependabot-triggered workflows
-   cannot use Actions secrets; both entries must have the same name and value.
-3. The resolver checks out Roboz `main` with that secret and records its SHA.
-   The four downstream checkout definitions use the same secret and resolved
-   SHA, with `persist-credentials: false` on every checkout. The Python matrix
-   runs its checkout twice. Both source SHAs are recorded in the workflow
-   summary and distribution reports.
-4. Run a normal PR and a Dependabot PR through every gate. A missing credential
-   must fail checkout and the aggregate check; do not bypass required jobs.
-
-This setup supports same-repository PRs and Dependabot while Roboz is private.
-Fork PRs do not receive the credential and cannot complete the dependency gates.
-Do not switch to privileged PR triggers to expose it to fork code. See
-[checkout authentication](https://github.com/actions/checkout#checkout-multiple-repos-private)
-and [Dependabot secret handling](https://docs.github.com/en/code-security/reference/supply-chain-security/troubleshoot-dependabot/dependabot-on-actions#accessing-secrets).
+The workflow no longer references `ROBOZ_CI_TOKEN`. After the credential-free CI
+run succeeds, the owner can remove its Actions and Dependabot secret entries and
+revoke the dedicated read-only token. Older branches that still check out Roboz
+may continue needing it until they adopt this change.
 
 ### PyPI cutover
 
 After compatible releases of **all three** packages (`roboz`, `roboshed`, and
-`roboz-endpoints`) are available on PyPI:
+`roboz-endpoints`) are available on production PyPI:
 
-1. Remove the three `[tool.uv.sources]` overrides, run `uv lock`, and review the
-   registry sources and versions. Retain locked sync in CI.
-2. Remove the Roboz resolver and all four downstream checkout steps from CI. Replace the Roboz build in the
-   distribution job with `python -m pip download --only-binary=:all: --no-deps
-   --dest "$candidate_dir"` and exact `name==version` arguments for the three
-   packages, using their versions from the refreshed lock. Keep the directory
-   fresh and preserve the existing artifact name.
-3. Continue calling `bash scripts/verify-wheels.sh "$candidate_dir"`. Update
-   that script's no-argument dependency preparation and the local candidate-build
-   examples above to download the same released wheels instead of using a sibling
-   checkout. The archive checker and browser wheel installation already accept
-   those wheel filenames, so their interfaces do not need to change.
-4. Require every gate on normal and Dependabot PRs with the checkout credential
-   absent from the workflow. Then delete `ROBOZ_CI_TOKEN` from both secret stores,
-   revoke the dedicated token, and update setup instructions to remove the
-   sibling-checkout prerequisite.
+1. Update their exact dependency pins and remove the three `[tool.uv.sources]`
+   entries plus the named TestPyPI index. Run `uv lock` and review the production
+   registry URLs and hashes. Retain locked sync in CI.
+2. Run the same archive and installed browser checks. The downloader accepts
+   wheels from PyPI or TestPyPI, based on each locked registry; it never searches
+   another index when a selected artifact is missing.
+3. Update the installation instructions to identify the production releases.
 
-Publishing the Git repository alone does not migrate CI to PyPI. If it becomes
-public earlier, the `token` inputs and credential can be removed while retaining
-the checkout of current `main`, resolved once per run. See [uv packaging guidance](https://docs.astral.sh/uv/guides/package/).
-Passing validation does not authorize tags or publication.
+The consumer checks build local and CI application candidates; they do not
+publish RoboSprawl. Plain pip does not use uv's index assignments, so these
+candidates must be installed with the downloaded dependency wheels as shown
+above. Do not publish RoboSprawl to production PyPI while its dependency pins
+are available only on TestPyPI. Production publication remains a separate
+release action after the cutover checks.

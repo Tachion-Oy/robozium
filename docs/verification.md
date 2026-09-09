@@ -2,8 +2,8 @@
 
 The records below preserve the source revisions and results originally
 verified. Their pinned-source procedures and reuse of downloaded CI builds are
-superseded for current acceptance: each new CI run tests current Roboz `main`
-and builds fresh application distributions and frontend assets. Fresh wheel
+superseded for current acceptance: each new CI run installs the locked Roboz
+releases from TestPyPI and builds fresh application distributions and frontend assets. Fresh wheel
 and source-distribution installation checks remain required. See
 [current validation instructions](testing.md) and
 [deployment composition](deployment.md).
@@ -29,7 +29,7 @@ read-only deploy key could not be registered: GitHub returned HTTP 422,
 "Deploy keys are disabled for this repository." No remote key was created, and
 the unused local key was deleted. The replacement is a fine-grained read-only
 token restricted to Roboz, configured separately in Actions and Dependabot
-secrets; see [setup and PyPI cutover](testing.md#temporary-private-dependency-access).
+secrets; see [retiring the dependency token](testing.md#retiring-the-dependency-checkout-token).
 
 `actionlint` 1.7.12 and `git diff --check` pass for this repair. Both secret entries
 were confirmed through GitHub metadata after setup; secret values were not read.

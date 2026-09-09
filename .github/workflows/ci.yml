@@ -17,32 +17,7 @@ env:
   NEXT_TELEMETRY_DISABLED: "1"
   ROBOSPRAWL_API_BASE_URL: http://127.0.0.1:8000
 jobs:
-  resolve-roboz:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      sha: ${{ steps.revision.outputs.sha }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: Tachion-Oy/roboz
-          ref: main
-          path: roboz
-          token: ${{ secrets.ROBOZ_CI_TOKEN }}
-          persist-credentials: false
-      - name: Record source revisions
-        id: revision
-        working-directory: .
-        run: |
-          roboz_sha="$(git -C roboz rev-parse HEAD)"
-          echo "sha=$roboz_sha" >> "$GITHUB_OUTPUT"
-          {
-            echo "### Tested source revisions"
-            echo "- RoboSprawl: $GITHUB_SHA (workflow checkout; PR merge commit for pull requests)"
-            echo "- Roboz main: $roboz_sha"
-          } >> "$GITHUB_STEP_SUMMARY"
   python:
-    needs: [resolve-roboz]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
@@ -53,13 +28,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: robosprawl
-          persist-credentials: false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: Tachion-Oy/roboz
-          ref: ${{ needs.resolve-roboz.outputs.sha }}
-          path: roboz
-          token: ${{ secrets.ROBOZ_CI_TOKEN }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -78,20 +46,12 @@ jobs:
           path: robosprawl/.artifacts/reports/
           retention-days: 14
   quality:
-    needs: [resolve-roboz]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: robosprawl
-          persist-credentials: false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: Tachion-Oy/roboz
-          ref: ${{ needs.resolve-roboz.outputs.sha }}
-          path: roboz
-          token: ${{ secrets.ROBOZ_CI_TOKEN }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -106,20 +66,12 @@ jobs:
           uv run pyright
           uv run pytest tests/contract --no-cov
   frontend:
-    needs: [resolve-roboz]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: robosprawl
-          persist-credentials: false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: Tachion-Oy/roboz
-          ref: ${{ needs.resolve-roboz.outputs.sha }}
-          path: roboz
-          token: ${{ secrets.ROBOZ_CI_TOKEN }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -154,20 +106,12 @@ jobs:
           path: robosprawl/.artifacts/reports/
           retention-days: 14
   distribution:
-    needs: [resolve-roboz]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: robosprawl
-          persist-credentials: false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: Tachion-Oy/roboz
-          ref: ${{ needs.resolve-roboz.outputs.sha }}
-          path: roboz
-          token: ${{ secrets.ROBOZ_CI_TOKEN }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -180,14 +124,13 @@ jobs:
           mkdir -p .artifacts/distribution-reports
           {
             echo "RoboSprawl: $(git rev-parse HEAD)"
-            echo "Roboz: $(git -C ../roboz rev-parse HEAD)"
           } | tee .artifacts/distribution-reports/source-revisions.txt
       - run: |
           source scripts/env.sh
           uv sync --locked --dev
           candidate_dir="$(mktemp -d)"
           echo "CANDIDATE_DIR=$candidate_dir" >> "$GITHUB_ENV"
-          uv build --no-sources --all-packages --project ../roboz --out-dir "$candidate_dir"
+          uv run --locked python scripts/roboz_wheels.py --dist "$candidate_dir"
           bash scripts/verify-wheels.sh "$candidate_dir"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && env.CANDIDATE_DIR != ''
@@ -240,7 +183,8 @@ jobs:
           tar -xzf .artifacts/web-build.tar.gz -C web
           backend_env="$(mktemp -d)"
           python -m venv "$backend_env"
-          "$backend_env/bin/python" -I -m pip install .artifacts/distributions/{robosprawl,roboz,roboshed,roboz_endpoints}-*.whl
+          python scripts/roboz_wheels.py --dist .artifacts/distributions --check
+          PIP_CONFIG_FILE=/dev/null "$backend_env/bin/python" -I -m pip --isolated install --index-url https://pypi.org/simple/ .artifacts/distributions/{robosprawl,roboz,roboshed,roboz_endpoints}-*.whl
           "$backend_env/bin/python" -I -m pip check
           echo "ROBOSPRAWL_E2E_PYTHON=$backend_env/bin/python" >> "$GITHUB_ENV"
           source scripts/env.sh
@@ -281,7 +225,7 @@ jobs:
   ci:
     name: CI
     if: always()
-    needs: [resolve-roboz, python, quality, frontend, distribution, browsers]
+    needs: [python, quality, frontend, distribution, browsers]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
