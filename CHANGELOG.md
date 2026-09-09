@@ -25,7 +25,7 @@
 
 ### Changed
 
-- Test each CI run against Roboz’s current `main`, resolved once and reported alongside the RoboSprawl revision; build fresh installation and browser candidates from those sources.
+- Test each CI run against the exact Roboz releases locked from TestPyPI; record their versions and hashes alongside the RoboSprawl revision, and build fresh application candidates for installation and browser checks.
 
 - Use Roboz Shed for automatic context compaction, restoring the full continuation prompts and forwarding run cancellation and optional timeouts. Python consumers should import the builder from `roboshed.tools` instead of the removed `robosprawl.compaction` module.
 

@@ -158,5 +158,9 @@ After compatible releases of **all three** packages (`roboz`, `roboshed`, and
    another index when a selected artifact is missing.
 3. Update the installation instructions to identify the production releases.
 
-The consumer checks do not publish packages. TestPyPI releases are rehearsals;
-production publication remains a separate release action.
+The consumer checks build local and CI application candidates; they do not
+publish RoboSprawl. Plain pip does not use uv's index assignments, so these
+candidates must be installed with the downloaded dependency wheels as shown
+above. Do not publish RoboSprawl to production PyPI while its dependency pins
+are available only on TestPyPI. Production publication remains a separate
+release action after the cutover checks.
