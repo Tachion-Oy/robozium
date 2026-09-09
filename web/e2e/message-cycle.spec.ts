@@ -128,10 +128,13 @@ test("replies to the active prompt while an older message is displayed", async (
 	await page.evaluate(() => {
 		document.documentElement.dataset.theme = "light"
 	})
-	const lightEnabledArrowOpacity = await first
-		.locator(".agent-hud__message-wedge")
-		.evaluate((wedge) => Number.parseFloat(getComputedStyle(wedge).opacity))
-	expect(lightEnabledArrowOpacity).toBeGreaterThan(lightDisabledArrowOpacity)
+	await expect
+		.poll(() =>
+			first
+				.locator(".agent-hud__message-wedge")
+				.evaluate((wedge) => Number.parseFloat(getComputedStyle(wedge).opacity)),
+		)
+		.toBeGreaterThan(lightDisabledArrowOpacity)
 	await page.evaluate(() => {
 		document.documentElement.dataset.theme = "dark"
 	})

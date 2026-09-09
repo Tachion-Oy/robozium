@@ -9,6 +9,7 @@ test("selects GPT-OSS on landing and keeps it visible during a run", async ({
 	request,
 }) => {
 	await request.post("/api/models", { data: { model_id: flashGlmId } })
+	let slug: string | null = null
 
 	try {
 		await gotoLanding(page)
@@ -28,7 +29,7 @@ test("selects GPT-OSS on landing and keeps it visible during a run", async ({
 			}),
 		).toBeVisible()
 
-		const slug = await createProject(request, `Model Selector ${Date.now()}`)
+		slug = await createProject(request, `Model Selector ${Date.now()}`)
 		const createResponse = await request.post("/api/runs/create", {
 			data: { project: slug },
 		})
@@ -46,6 +47,9 @@ test("selects GPT-OSS on landing and keeps it visible during a run", async ({
 			"Current Run",
 		)
 	} finally {
+		if (slug) {
+			await request.post(`/api/projects/${encodeURIComponent(slug)}/cancel`)
+		}
 		await request.post("/api/models", { data: { model_id: defaultGlmId } })
 	}
 })
@@ -80,6 +84,23 @@ test("a UI model switch changes the next request and stays isolated to its run",
 		await page.goto(`/?runId=${encodeURIComponent(runId)}`)
 		await expect(page.locator(".agent-hud__agent")).toContainText(`Model request ${count} completed.`, { timeout: 20_000 })
 		await expect(page.locator(".agent-hud__textarea")).toBeVisible()
+		await expect(page.getByRole("button", { name: "Current Run", exact: true })).toBeVisible()
+		const box = page.locator(".agent-hud__box")
+		const viewport = page.viewportSize()
+		if (!viewport) throw new Error("expected a fixed E2E viewport")
+		await expect
+			.poll(async () => {
+				const bounds = await box.boundingBox()
+				if (!bounds) return false
+				return (
+					Math.abs(bounds.width - viewport.width * 0.78) < 2 &&
+					Math.abs(bounds.height - viewport.height * 0.84) < 2
+				)
+			})
+			.toBe(true)
+		await expect
+			.poll(() => box.evaluate((element) => element.getAnimations().length))
+			.toBe(0)
 	}
 	const reply = async (count: number) => {
 		await page.locator(".agent-hud__textarea").fill("continue")
@@ -97,8 +118,13 @@ test("a UI model switch changes the next request and stays isolated to its run",
 		await openPrompt(second.runId, 1)
 		await openPrompt(first.runId, 1)
 		for (const [index, label] of ["GLM-5.3 Flash · OpenRouter", "GLM-5.3 · OpenRouter"].entries()) {
-			await page.locator(".agent-hud__model-selector:not(.agent-hud__view-selector) .agent-hud__model-trigger").click()
-			await page.getByRole("option", { name: label, exact: true }).click()
+			const modelSelector = page.locator(
+				".agent-hud__model-selector:not(.agent-hud__view-selector)",
+			)
+			await modelSelector.getByRole("button").click()
+			const listbox = page.getByRole("listbox", { name: "Base model" })
+			await expect(listbox).toBeVisible()
+			await listbox.getByRole("option", { name: label, exact: true }).click()
 			await expect(page.getByRole("button", { name: label, exact: true })).toBeVisible()
 			await reply(index + 2)
 		}
