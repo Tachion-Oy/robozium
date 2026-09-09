@@ -7,15 +7,16 @@ Roboz and Roboshed primitives supply endpoint definitions and agent construction
 ## Ownership
 
 - The configuration file selects named endpoints, request policies, capabilities,
-  instructions, interaction mode, specialists, workspace/persistence locations,
+  instructions, interaction mode, specialists, one sandbox layout,
   health timings, transcription, and dependency registrations.
 - `robosprawl.hub.application.Hub` validates those inputs, derives projects, and
   owns the runtime `ModelSelector`. It does not pick models or capabilities.
 - `robosprawl.hub.utils` discovers and loads the file and normalizes project names.
 - `robosprawl.hub.logging.HubLoggingConfig` supplies logging defaults. This is the
   explicit exception to requiring deployment choices in the configuration file.
-- `roboshed.deployments.robosprawl.RoboSprawl` binds the selected permission
-  factories to each project and composes the persistent orchestrator and Librarian.
+- `roboshed.deployments.robosprawl.RoboSprawl` derives one policy from the
+  configured sandbox and project slug, binds the selected permission factories,
+  and composes the persistent orchestrator and Librarian.
   `DeploymentFactory` handles fresh runtime construction and live model routing.
 - The API consumes Hub and owns HTTP, streaming, interruption, cancellation,
   background-thread observation, and shutdown.
@@ -29,12 +30,12 @@ switching. Each file load creates fresh lazy catalogs; runs within that Hub reus
 its configured clients.
 
 `CAPABILITIES` is an ordered tuple of configured capabilities or factories that
-accept `WorkspacePermissions`. For example, `(FileCommands, FileEditing,
+accept `PermissionPolicy`. For example, `(FileCommands, FileEditing,
 Compactification(threshold_percent=60))` binds file capabilities to each project's
 permissions while retaining the explicit compaction choice. The selected shared
 `robosprawl` skill owns orientation, HUD formatting, and artifact-link guidance. The shared deployment
-resolves its project context from the current `Project` when constructing a run,
-including configured persistence folders. Configuration does not repeat or pass
+resolves its project context from the configured `Sandbox` and current project
+slug when constructing a run, including configured persistence folders. Configuration does not repeat or pass
 back the deployment’s default context template. No paths or artifact-link syntax are repeated
 in the skill selection.
 
@@ -59,11 +60,15 @@ validation. Errors identify the selected file and retain their
 cause. No JSON schema, builder export, nested HubConfig, or checkout fallback is
 supported.
 
-Workspace and technical-log paths are anchored to that file. Persistence folder
-names stay project-relative and disjoint. Existing folder values are preserved;
-no user data moves. The host creates directories and `ProjectService` validates
-startup layout. Shared `Project.permissions` allows workspace reads and project
-writes, asks for shared writes, and denies other writes.
+Sandbox and technical-log paths are anchored to that file. The single `SANDBOX`
+constant owns tier names and persistence folder names; persistence stays
+project-relative and disjoint. The checked-in configuration places its sandbox
+at `../RoboSprawl`, outside the checkout; it does not move data from the former
+`.runtime/data` root automatically. Tier and persistence folder names are
+preserved. The host creates directories and `ProjectService` validates startup
+layout. `Sandbox.permissions(project_slug)` is the sole policy source: it allows
+sandbox reads and current-project writes, asks for shared writes, and denies
+other writes.
 
 Custom deployments implement the shared `RunFactory` contract and are supplied as
 `DEPLOYMENT`. Python hosts and mocks can use `dataclasses.replace(hub, ...)` to
