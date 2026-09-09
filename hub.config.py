@@ -1,0 +1,61 @@
+from pathlib import Path
+from typing import Final
+
+from roboshed.capabilities import Compactification, FileCommands, FileEditing
+from roboshed.deployments.robosprawl import DeploymentFactory, RoboSprawl
+from roboshed.skills import robosprawl
+from roboshed.workspace import Workspace
+from roboz.deployment import Capability
+from roboz.llm import with_openrouter_policy
+from roboz.runtime import Output
+from roboz_endpoints import cerebras, openrouter
+
+from robosprawl.hub.application import DependencyHealthSettings
+from robosprawl.hub.logging import HubLoggingConfig
+
+NAME: Final = "RoboSprawl"
+WORKSPACE: Final = Workspace(
+    root=Path(".runtime/data"),
+    readonly="readonly",
+    shared="workspace",
+    projects="projects",
+)
+LOGS_DIR: Final = Path("conversation_logs")
+SNAPSHOTS_DIR: Final = Path("conversation_snapshots")
+MEMORY_DIR: Final = Path("persistent_memory")
+LOGGING: Final = HubLoggingConfig()
+DEPENDENCY_HEALTH: Final = DependencyHealthSettings(interval_s=60.0, timeout_s=20.0)
+
+OPENROUTER: Final = openrouter.configured()
+GLM: Final = with_openrouter_policy(OPENROUTER.z_ai__glm_5_3, reasoning_effort="low")
+FLASH: Final = with_openrouter_policy(
+    OPENROUTER.z_ai__glm_5_3_flash, reasoning_effort="low"
+)
+GPT_OSS: Final = cerebras.configured().gpt_oss_120b
+MEMORY_ENDPOINT: Final = with_openrouter_policy(
+    OPENROUTER.z_ai__glm_5_3, reasoning_effort="high"
+)
+MODELS: Final = {
+    "GLM-5.3 · OpenRouter": GLM,
+    "GLM-5.3 Flash · OpenRouter": FLASH,
+    "GPT-OSS-120B · Cerebras": GPT_OSS,
+}
+DEFAULT_MODEL: Final = GLM
+CAPABILITIES: Final = (
+    Capability(auto_loaded_skills=(robosprawl,)),
+    FileCommands,
+    FileEditing,
+    Compactification(threshold_percent=60.0),
+)
+SUBAGENTS: Final = ()
+INTERACTION_MODE: Final = Output.API
+DEPLOYMENT: Final = DeploymentFactory(
+    RoboSprawl(
+        capabilities=CAPABILITIES,
+        memory_endpoint=MEMORY_ENDPOINT,
+        subagents=SUBAGENTS,
+        interaction_mode=INTERACTION_MODE,
+    )
+)
+TRANSCRIPTION_ENDPOINT: Final = None
+DEPENDENCY_REGISTRY: Final = None

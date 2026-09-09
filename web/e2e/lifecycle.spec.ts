@@ -139,16 +139,17 @@ test("happy path: syncing blocks actions and only settles once the librarian's r
 			const files = await walkFiles(paths.snapshots, ".md")
 			return files[0] ?? null
 		})
-		const snapshotText = await fs.readFile(snapshotPath, "utf8")
-		expect(snapshotText).toContain("# Conversation Snapshot")
-		expect(snapshotText).toContain("Librarian generated this memory.")
+		await expect.poll(() => fs.readFile(snapshotPath, "utf8"))
+			.toContain("# Conversation Snapshot")
+		await expect.poll(() => fs.readFile(snapshotPath, "utf8"))
+			.toContain("Librarian generated this memory.")
 
 		const memoryPath = await waitFor("librarian memory markdown", async () => {
 			const files = await walkFiles(paths.memory, ".md")
 			return files[0] ?? null
 		})
-		const memoryText = await fs.readFile(memoryPath, "utf8")
-		expect(memoryText).toContain("Librarian generated this memory.")
+		await expect.poll(() => fs.readFile(memoryPath, "utf8"))
+			.toContain("Librarian generated this memory.")
 
 		await expect(row.getByText("DORMANT", { exact: true })).toBeVisible({
 			timeout: 20_000,

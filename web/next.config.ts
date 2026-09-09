@@ -1,22 +1,18 @@
-import fs from "node:fs"
+import { execFileSync } from "node:child_process"
 import path from "node:path"
 import type { NextConfig } from "next"
 
-type HubConfigFile = {
-	hub?: {
-		name?: unknown
-	}
-}
-
 function readHubName(): string {
-	const configPath = path.resolve(__dirname, "..", "hub.config.json")
-	if (!fs.existsSync(configPath)) return "robosprawl"
-
-	const parsed = JSON.parse(fs.readFileSync(configPath, "utf8")) as HubConfigFile
-	const configuredName = parsed.hub?.name
-	return typeof configuredName === "string" && configuredName.trim()
-		? configuredName
-		: "robosprawl"
+	const python = process.env.ROBOSPRAWL_PYTHON
+		?? path.resolve(__dirname, "..", ".venv", "bin", "python")
+	return execFileSync(python, [
+		"-I",
+		"-c",
+		"from robosprawl.hub.utils import load_hub; print(load_hub().name)",
+	], {
+		cwd: path.resolve(__dirname, ".."),
+		encoding: "utf8",
+	}).trim()
 }
 
 // Paths the client polls on a timer (run view every ~2s, projects every ~3s).

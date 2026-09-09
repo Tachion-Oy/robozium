@@ -1,36 +1,31 @@
 from __future__ import annotations
 
 import os
-import tempfile
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import SupportsIndex
 
-from roboz.llm import MockLLMEndpoint, MockProviderError
+from roboshed.agents import librarian, orchestrator
+from roboshed.capabilities import (
+    ArtifactRetention,
+    ConversationSnapshots,
+    FileCommands,
+    FileEditing,
+    MaintenanceCadence,
+    MemoryConsolidation,
+)
+from roboshed.deployments.robosprawl import AgenticFactory, DeploymentFactory
+from roboshed.workspace import Project
+from roboz.deployment import AgentDefinition, Capability, SubAgentSpec
+from roboz.llm import EndpointLike, MockLLMEndpoint, MockProviderError
 from roboz.models import Empty, Message
-from roboz.runtime import interact_with_user
+from roboz.runtime import EventPipe, Output, interact_with_user
 from roboz.runtime.events import EventSink, MessageDeltaEvent, PipeEvent
-from roboz.runtime.pipe import EventPipe
-from roboz.tooling import FactoryCtx
+from roboz.tooling import Ctx
 from roboz.tooling.decorators import factory
 from roboz.tools import stop
-
-from robosprawl.composition import (
-    AgenticConstructor,
-    AgenticFactory,
-    BuildContext,
-    CancellationProbe,
-    LibrarianConstructor,
-    LibrarianTuning,
-    OrchestratorConstructor,
-    RootAgentBundle,
-    SubAgentSpec,
-    ToolSurface,
-)
-from robosprawl.orchestrator_factory import OrchestratorEndpointGetter
-from robosprawl.workspace import Project
 
 # Per-chunk pause (seconds) the streaming mock inserts between message deltas so
 # the live stream is actually visible in the HUD. Override with
@@ -62,44 +57,12 @@ LIBRARIAN_HOLD_POLL_S = 0.05
 ScriptedMockResponse = dict[str, object] | Exception
 
 
-@dataclass(frozen=True)
-class MockNotificationContext(FactoryCtx):
-    message: str
-
-
 @factory
-def mock_user_notification(
-    input: Empty, messages: list[Message], ctx: MockNotificationContext
-) -> Empty:
+def mock_user_notification(input: Empty, messages: list[Message], ctx: Ctx) -> Empty:
     """Send a deterministic one-way notification in the mock scenario."""
     del input, messages
     interact_with_user(ctx.message, with_reply=False)
     return Empty()
-
-
-@dataclass(frozen=True)
-class HelloWorldConstructor(AgenticConstructor):
-    """A deterministic specialist that returns Hello, World! and stops."""
-
-    agent_name: str = "hello_world"
-
-    def description(self) -> str:
-        return "A deterministic specialist that returns Hello, World! and stops."
-
-    def endpoint(self) -> MockLLMEndpoint:
-        return MockLLMEndpoint(
-            responses=[
-                {"action": "stop", "rationale": "finished", "value": "Hello, World!"}
-            ]
-        )
-
-    def system_prompt(self) -> str:
-        return "A deterministic specialist that returns Hello, World! and stops."
-
-    def tool_surface(
-        self, ctx: BuildContext, pipe: EventPipe, probe: CancellationProbe
-    ) -> ToolSurface:
-        return ToolSurface(tools=(stop,))
 
 
 def _mock_orchestrator_responses(project: Project) -> list[ScriptedMockResponse]:
@@ -110,7 +73,7 @@ def _mock_orchestrator_responses(project: Project) -> list[ScriptedMockResponse]
             "rationale": "ask user what to do next",
             "value": (
                 "Hello! I generated a text artifact for validation: "
-                f'<file src="projects/{project.slug}/documents/generated-note.txt">'
+                f'<file src="{project.workspace.projects}/{project.slug}/documents/generated-note.txt">'
                 "Open the generated text file"
                 "</file>"
             ),
@@ -160,57 +123,109 @@ def _mock_scenario(project: Project) -> str | None:
     return marker.read_text(encoding="utf-8").strip() or None
 
 
-def _mock_agentic_factory(
+def _mock_recipe(
     project: Project,
     *,
     responses: list[ScriptedMockResponse],
     with_librarian: bool,
-    logs_root_override: Path | None = None,
     notification: str | None = None,
+    prepare_artifact: bool = False,
 ) -> AgenticFactory:
-    """A scripted deployment built from the shed's constructors.
-
-    Per-call construction is deliberate: ``MockLLMEndpoint`` consumes its
-    response list and the scenario marker is read per run. Redirect
-    ``logs_root_override`` to a throwaway dir to keep a run ephemeral.
-    """
-    # Keep mock HUD semantics stable: first parsed user message should be the
-    # explicit reply from prompt_user, not auto-loaded skill bootstrap chatter.
-    return AgenticFactory(
-        orchestrator=OrchestratorConstructor(
-            agent_endpoint=MockLLMEndpoint(responses=responses),
-            subagents=(
-                SubAgentSpec(
-                    constructor=HelloWorldConstructor(),
-                    tool_name="hello_world",
-                    tool_description="Run a deterministic hello world specialist agent.",
+    """Fresh scripted definitions using the same shared construction as production."""
+    permissions = project.permissions
+    root = orchestrator(
+        agent_endpoint=MockLLMEndpoint(responses=responses),
+        interaction_mode=Output.API,
+        subagents=(
+            SubAgentSpec(
+                definition=AgentDefinition(
+                    name="hello_world",
+                    system_prompt="Return Hello, World! and stop.",
+                    description="A deterministic specialist that returns Hello, World! and stops.",
+                    agent_endpoint=MockLLMEndpoint(
+                        [
+                            {
+                                "action": "stop",
+                                "rationale": "finished",
+                                "value": "Hello, World!",
+                            }
+                        ]
+                        * sum(
+                            isinstance(response, dict)
+                            and response.get("action") == "hello_world"
+                            for response in responses
+                        )
+                    ),
+                    interaction_mode=Output.API,
+                    capabilities=(Capability(tools=(stop,)),),
                 ),
+                tool_name="hello_world",
+                tool_description="Run a deterministic hello world specialist agent.",
             ),
-            extra_default_tools=(
-                (mock_user_notification(MockNotificationContext(message=notification)),)
-                if notification is not None
-                else ()
-            ),
-            auto_load_skills=False,
-            seed_initial_messages_from_memory=False,
         ),
-        librarian=(_mock_librarian_constructor(project) if with_librarian else None),
-        logs_root_override=logs_root_override,
+        capabilities=(
+            FileCommands(permissions, auto_load_skill=False),
+            FileEditing(permissions, auto_load_skill=False),
+            Capability(
+                default_tools=(
+                    *(
+                        (prepare_mock_artifact(Ctx(project=project)),)
+                        if prepare_artifact
+                        else ()
+                    ),
+                    *(
+                        (mock_user_notification(Ctx(message=notification)),)
+                        if notification is not None
+                        else ()
+                    ),
+                )
+            ),
+        ),
+    )
+    names = root.agent_names()
+    endpoint = MockLLMEndpoint(
+        [{"value": "## E2E snapshot\n- Librarian generated this memory."}] * 12
+    )
+    return AgenticFactory(
+        project=project,
+        orchestrator=root,
+        seed_initial_messages_from_memory=False,
+        librarian=librarian(
+            agent_endpoint=endpoint,
+            capabilities=(
+                ConversationSnapshots(project, names, token_growth_threshold=1),
+                MemoryConsolidation(
+                    project, names, min_pending_snapshots=1, max_pending_age_seconds=0
+                ),
+                ArtifactRetention(project, max_log_files=4),
+                MaintenanceCadence(project, names, seconds=1),
+                _LibrarianHold(project, endpoint),
+            ),
+        )
+        if with_librarian
+        else None,
     )
 
 
-def mock_orchestrator_factory(
+def mock_recipe(
     project: Project,
     *,
-    endpoint_getter: OrchestratorEndpointGetter,
-    event_sinks: Sequence[EventSink],
-) -> RootAgentBundle:
-    del endpoint_getter
-    artifact = project.root / "documents" / "generated-note.txt"
-    artifact.parent.mkdir(parents=True, exist_ok=True)
-    if not artifact.exists():
-        artifact.write_text("Generated by the RoboSprawl mock agent.\n", encoding="utf-8")
+    orchestrator_endpoint: EndpointLike,
+) -> AgenticFactory:
     scenario = _mock_scenario(project)
+    if scenario == "model-selection":
+        from robosprawl.mock.model_selection import model_selection_endpoint
+
+        return AgenticFactory(
+            project=project,
+            orchestrator=orchestrator(
+                agent_endpoint=model_selection_endpoint(
+                    orchestrator_endpoint, project.root
+                ),
+                interaction_mode=Output.API,
+            ),
+            seed_initial_messages_from_memory=False,
+        )
     responses = (
         _mock_orchestrator_error_responses()
         if scenario == MOCK_SCENARIO_LLM_ERROR
@@ -237,20 +252,20 @@ def mock_orchestrator_factory(
             "Onboarding and introduction: Going through project details and "
             "sorting out practicalities. |\n\n"
             "Your requested file is ready: "
-            f'<file src="projects/{project.slug}/documents/generated-note.txt">'
+            f'<file src="{project.workspace.projects}/{project.slug}/documents/generated-note.txt">'
             "Open the generated text file"
             "</file>"
         )
     # The bundle hands the librarian's pipe to the manager so cancel_project can
     # reach it — same wiring as production (the shed's standard deployment).
     # Without it, cancelling a SYNCING project is a no-op in the mock app.
-    factory = _mock_agentic_factory(
+    return _mock_recipe(
         project,
         responses=responses,
         with_librarian=True,
         notification=notification,
+        prepare_artifact=True,
     )
-    return factory(project, event_sinks=event_sinks)
 
 
 # Long, agent-flavoured prose used only by the streaming mock so the live HUD
@@ -376,7 +391,7 @@ def _streaming_pace_sink(delay_seconds: float, start_delay_seconds: float) -> Ev
     return sink
 
 
-def _paced_event_sinks(event_sinks: Sequence[EventSink]) -> tuple[EventSink, ...]:
+def _paced_event_sinks() -> tuple[EventSink, ...]:
     # The pace sink must run BEFORE the manager's stream sink: the pipe dispatches
     # to sinks in registration order, so sleeping here delays when each delta is
     # pushed to the SSE queue. Placed last, the first delta would already have
@@ -385,7 +400,6 @@ def _paced_event_sinks(event_sinks: Sequence[EventSink]) -> tuple[EventSink, ...
         _streaming_pace_sink(
             _stream_mock_delay_seconds(), _stream_mock_start_delay_seconds()
         ),
-        *event_sinks,
     )
 
 
@@ -397,49 +411,45 @@ def _stream_responses(project: Project) -> list[ScriptedMockResponse]:
     )
 
 
-def stream_mock_orchestrator_factory(
+def stream_mock_recipe(
     project: Project,
     *,
-    endpoint_getter: OrchestratorEndpointGetter,
-    event_sinks: Sequence[EventSink],
-) -> RootAgentBundle:
+    orchestrator_endpoint: EndpointLike,
+) -> AgenticFactory:
     """Local-viewing mock: streams visibly and persists nothing.
 
-    Conversation logs go to a throwaway temp dir and the librarian is omitted, so
+    The host supplies a temporary shared workspace; conversation logs stay there and the librarian is omitted, so
     nothing lands in the real hub data. Used only by ``stream_mock_app``; the e2e
     ``mock_app`` is untouched.
     """
-    del endpoint_getter
-    factory = _mock_agentic_factory(
+    del orchestrator_endpoint
+    responses = _stream_responses(project)
+    return _mock_recipe(
         project,
-        responses=_stream_responses(project),
+        responses=responses,
         with_librarian=False,
-        logs_root_override=Path(tempfile.mkdtemp(prefix="robosprawl-stream-mock-")),
     )
-    return factory(project, event_sinks=_paced_event_sinks(event_sinks))
 
 
-def stream_sync_mock_orchestrator_factory(
+def stream_sync_mock_recipe(
     project: Project,
     *,
-    endpoint_getter: OrchestratorEndpointGetter,
-    event_sinks: Sequence[EventSink],
-) -> RootAgentBundle:
+    orchestrator_endpoint: EndpointLike,
+) -> AgenticFactory:
     """Local-viewing sync mock: visible stream plus mocked background librarian.
 
     This is the cheap manual reproduction app for cancel-vs-sync behavior. It
-    still uses only ``MockLLMEndpoint`` instances and an ephemeral log root, but
-    unlike ``stream_mock_orchestrator_factory`` it includes the librarian so the
+    still uses only ``MockLLMEndpoint`` instances and an ephemeral project, but
+    unlike ``stream_mock_recipe`` it includes the librarian so the
     manager enters the same post-stop ``syncing`` state as production.
     """
-    del endpoint_getter
-    factory = _mock_agentic_factory(
+    del orchestrator_endpoint
+    responses = _stream_responses(project)
+    return _mock_recipe(
         project,
-        responses=_stream_responses(project),
+        responses=responses,
         with_librarian=True,
-        logs_root_override=Path(tempfile.mkdtemp(prefix="robosprawl-stream-sync-mock-")),
     )
-    return factory(project, event_sinks=_paced_event_sinks(event_sinks))
 
 
 class _HoldableResponses(list[str | Exception]):
@@ -501,39 +511,41 @@ def _holdable_endpoint(
     return endpoint
 
 
-def _mock_librarian_constructor(project: Project) -> LibrarianConstructor:
-    # The orchestrator logs into the same conversation root the librarian scans,
-    # so a single cycle may snapshot several conversations (the seeded one plus
-    # the live run) before consolidating them into memory. Hand out a generous
-    # supply of identical responses, each carrying the marker the e2e test
-    # asserts on, so no eligible conversation is starved of a response and the
-    # scripted endpoint never exhausts mid-run. Unused responses are harmless
-    # once every conversation has been snapshotted and consolidated.
-    endpoint = MockLLMEndpoint(
-        [{"value": "## E2E snapshot\n- Librarian generated this memory."}] * 12
-    )
-    # ``endpoint_factory`` receives the constructor's cancellation probe, which
-    # tracks the built librarian's pipe — no self-referential closure needed.
-    return LibrarianConstructor(
-        endpoint_factory=lambda is_cancelled: _holdable_endpoint(
-            endpoint,
-            hold_marker=project.root / LIBRARIAN_HOLD_MARKER,
-            cancel_hold_marker=project.root / LIBRARIAN_CANCEL_HOLD_MARKER,
-            is_cancelled=is_cancelled,
-        ),
-        tuning=LibrarianTuning(
-            min_pending_snapshots=1,
-            max_pending_age_seconds=0,
-            token_growth_threshold=1,
-            sleep_seconds=1,
-            max_log_files=4,
-        ),
-    )
+@factory
+def prepare_mock_artifact(input: Empty, messages: list[Message], ctx: Ctx) -> Empty:
+    """Create the mock artifact before presenting its link to the user."""
+    del input, messages
+    artifact = ctx.project.artifact_dir("documents") / "generated-note.txt"
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    if not artifact.exists():
+        artifact.write_text(
+            "Generated by the RoboSprawl mock agent.\n", encoding="utf-8"
+        )
+    return Empty()
 
 
-__all__ = [
-    "HelloWorldConstructor",
-    "mock_orchestrator_factory",
-    "stream_mock_orchestrator_factory",
-    "stream_sync_mock_orchestrator_factory",
-]
+@dataclass(frozen=True)
+class _LibrarianHold:
+    project: Project
+    endpoint: MockLLMEndpoint
+
+    def build(
+        self, pipe: EventPipe, *, default_endpoint: EndpointLike | None
+    ) -> Capability:
+        del default_endpoint
+        _holdable_endpoint(
+            self.endpoint,
+            hold_marker=self.project.root / LIBRARIAN_HOLD_MARKER,
+            cancel_hold_marker=self.project.root / LIBRARIAN_CANCEL_HOLD_MARKER,
+            is_cancelled=lambda: pipe.cancelled,
+        )
+        return Capability()
+
+
+mock_deployment = DeploymentFactory(mock_recipe)
+stream_mock_deployment = DeploymentFactory(
+    stream_mock_recipe, event_sink_factory=_paced_event_sinks
+)
+stream_sync_mock_deployment = DeploymentFactory(
+    stream_sync_mock_recipe, event_sink_factory=_paced_event_sinks
+)

@@ -99,7 +99,7 @@ export async function waitFor<T>(
 	throw new Error(`Timed out waiting for ${description}`)
 }
 
-/** Folders the mock backend derives from `hub.config.json` (see run-mock-playwright.sh). */
+/** Folders the mock backend derives from `hub.config.py` (see scripts/e2e/run.py). */
 export function e2eProjectPaths(slug: string) {
 	const hubBaseDir = process.env.ROBOSPRAWL_E2E_HUB_BASE_DIR
 	if (!hubBaseDir) {

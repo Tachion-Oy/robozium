@@ -1,13 +1,8 @@
 import { expect, test } from "@playwright/test"
-import fs from "node:fs"
-import path from "node:path"
 import { gotoLanding } from "./helpers"
+import nextConfig from "../next.config"
 
-const configPath = path.resolve(__dirname, "..", "..", "hub.config.json")
-const hubConfig = JSON.parse(fs.readFileSync(configPath, "utf8")) as {
-	hub?: { name?: string }
-}
-const hubBrand = (hubConfig.hub?.name ?? "robosprawl").toUpperCase()
+const hubBrand = nextConfig.env!.NEXT_PUBLIC_ROBOSPRAWL_NAME!.toUpperCase()
 
 test.use({ viewport: { width: 1920, height: 1080 } })
 

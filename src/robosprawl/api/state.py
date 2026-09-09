@@ -8,8 +8,6 @@ from typing import Any, Literal, TypedDict
 from roboz.models import MessageKind, Role
 from roboz.runtime.observability import RuntimeEventLevel
 
-from robosprawl.composition import RootAgentBundle as RootAgentBundle  # noqa: PLC0414
-
 
 class RunStatus(StrEnum):
     QUEUED = "queued"

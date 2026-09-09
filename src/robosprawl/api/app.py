@@ -1,23 +1,17 @@
 """Minimal HTTP surface for starting runs and replying to prompts."""
 
 import asyncio
-import json
 import logging
 import queue
 import tempfile
-from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 
-from fastapi import (
-    FastAPI,
-    HTTPException,
-    Request,
-    Response,
-    UploadFile,
-)
+from fastapi import FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from roboz.llm import (
     MockTranscriptionEndpoint,
+    ModelSelector,
     TranscriptionEndpointLike,
 )
 from roboz.llm.calls import call_transcription_api
@@ -25,10 +19,7 @@ from roboz.runtime import log_with_data
 from roboz.runtime.events import PipeEvent
 
 from robosprawl.api.dependencies import router as dependency_router
-from robosprawl.api.errors import (
-    ProjectBusyError,
-    ProjectCancellationInProgressError,
-)
+from robosprawl.api.errors import ProjectBusyError, ProjectCancellationInProgressError
 from robosprawl.api.files import serve_hub_file
 from robosprawl.api.lifespan import application_lifespan
 from robosprawl.api.models import *
@@ -36,20 +27,13 @@ from robosprawl.api.project_service import ProjectService
 from robosprawl.api.run_manager import RunManager
 from robosprawl.api.sse import event_to_sse_frame
 from robosprawl.api.state import RunStatus
-from robosprawl.api.state import (
-    RunView as RunViewState,
-)
-from robosprawl.dependency_contract import DependencyRegistration
-from robosprawl.deployment import (
-    EXECUTABLE_DEPENDENCY_REGISTRATIONS,
-    HubDeployment,
-    OrchestratorModelSelector,
-)
-from robosprawl.hub import HubConfig, load_hub_config
-from robosprawl.mock import (
-    mock_orchestrator_factory,
-    stream_mock_orchestrator_factory,
-    stream_sync_mock_orchestrator_factory,
+from robosprawl.api.state import RunView as RunViewState
+from robosprawl.hub.application import Hub
+from robosprawl.hub.utils import load_hub
+from robosprawl.mock.agents import (
+    mock_deployment,
+    stream_mock_deployment,
+    stream_sync_mock_deployment,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,7 +55,7 @@ ALLOWED_TRANSCRIPTION_CONTENT_TYPES = frozenset(
 
 
 def _model_selection_view(
-    selector: OrchestratorModelSelector,
+    selector: ModelSelector,
     *,
     selected_model_id: str | None = None,
 ) -> ModelSelectionView:
@@ -84,40 +68,23 @@ def _model_selection_view(
     )
 
 
-def create_app(
-    *,
-    deployment: HubDeployment,
-    dependency_registry: Sequence[DependencyRegistration] | None = None,
-    dependency_check_interval_s: float = 60.0,
-    dependency_check_timeout_s: float = 20.0,
-) -> FastAPI:
-    """Build the ASGI app.
-
-    ``deployment`` supplies the complete orchestrator, model selection, and
-    transcription dependency set together with filesystem structure and policy.
-
-    """
-    hub_config = deployment.config
+def create_app(*, deployment: Hub) -> FastAPI:
+    """Host the supplied Hub through ASGI, owning HTTP and runtime lifecycle."""
     manager = RunManager(
-        deployment.orchestrator_factory,
-        hub_name=hub_config.name,
+        deployment.deployment,
+        hub_name=deployment.name,
         default_orchestrator_endpoint=lambda: (
             deployment.model_selector.selected_endpoint
         ),
     )
-    projects = ProjectService(hub_config, manager)
+    projects = ProjectService(deployment, manager)
     app = FastAPI(
-        title=hub_config.name,
+        title=deployment.name,
         version="0.1.0",
         lifespan=application_lifespan(
             deployment=deployment,
             manager=manager,
             projects=projects,
-            registrations=dependency_registry
-            if dependency_registry is not None
-            else deployment.dependency_registry,
-            interval_s=dependency_check_interval_s,
-            timeout_s=dependency_check_timeout_s,
         ),
     )
     app.state.ready = False
@@ -162,7 +129,7 @@ def create_app(
 
     @app.get("/files/{path:path}")
     def files_get(path: str) -> Response:
-        return serve_hub_file(path, sandbox=hub_config.sandbox)
+        return serve_hub_file(path, workspace=deployment.workspace)
 
     def project_operation(operation):
         try:
@@ -171,7 +138,7 @@ def create_app(
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail="unknown project") from exc
-        except RuntimeError as exc:
+        except (RuntimeError, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/run/create")
@@ -386,57 +353,33 @@ def create_app(
     return app
 
 
-def _ephemeral_hub_config() -> HubConfig:
-    """A throwaway hub root (config + sandbox) under a temp dir.
+def _ephemeral_hub() -> Hub:
+    """A throwaway Hub with workspace and logging under a temporary directory.
 
-    Streaming mock projects and their entire sandbox remain throwaway. The
-    directory lives for the process lifetime, like the factory's ephemeral
-    conversation-log root.
+    Streaming mock projects and their entire workspace remain throwaway. The
+    directory lives for the process lifetime.
     """
     config_dir = Path(tempfile.mkdtemp(prefix="robosprawl-stream-mock-hub-"))
-    config = {
-        "hub": {"name": "StreamMockHub"},
-        "logging": {
-            "console": {"level": "INFO"},
-            "file": {
-                "path": "technical_logs/backend.jsonl",
-                "level": "DEBUG",
-                "max_bytes": 26214400,
-                "backup_count": 5,
-                "on_error": "fail",
-            },
-        },
-        "sandbox": {
-            "root": "sandbox",
-            "readonly": "readonly",
-            "workspace": "workspace",
-            "projects": "projects",
-            "safe_scripts": "safe-scripts",
-        },
-        "project": {
-            "logs": "conversation_logs",
-            "snapshots": "conversation_snapshots",
-            "memory": "persistent_memory",
-        },
-    }
-    (config_dir / "hub.config.json").write_text(json.dumps(config), encoding="utf-8")
-    return load_hub_config(start=config_dir)
+    config = load_hub()
+    return replace(
+        config,
+        workspace=replace(
+            config.workspace, root=config_dir / config.workspace.root.name
+        ),
+        logging=replace(config.logging, path=config_dir / config.logging.path.name),
+    )
 
 
 def live_app() -> FastAPI:
-    return create_app(deployment=HubDeployment.standard(load_hub_config()))
-
-
-MOCK_DEPENDENCY_REGISTRY = EXECUTABLE_DEPENDENCY_REGISTRATIONS
+    return create_app(deployment=load_hub())
 
 
 def mock_app() -> FastAPI:
     return create_app(
-        deployment=HubDeployment.custom(
-            load_hub_config(),
-            mock_orchestrator_factory,
-            MockTranscriptionEndpoint(["mock transcription"]),
-            dependency_registry=MOCK_DEPENDENCY_REGISTRY,
+        deployment=replace(
+            load_hub(),
+            deployment=mock_deployment,
+            transcription_endpoint=MockTranscriptionEndpoint(["mock transcription"]),
         ),
     )
 
@@ -444,35 +387,20 @@ def mock_app() -> FastAPI:
 def stream_mock_app() -> FastAPI:
     """Create the paced, ephemeral mock only when explicitly launched."""
     return create_app(
-        deployment=HubDeployment.custom(
-            _ephemeral_hub_config(),
-            stream_mock_orchestrator_factory,
-            MockTranscriptionEndpoint(["mock transcription"]),
+        deployment=replace(
+            _ephemeral_hub(),
+            deployment=stream_mock_deployment,
+            transcription_endpoint=MockTranscriptionEndpoint(["mock transcription"]),
         ),
-        dependency_registry=MOCK_DEPENDENCY_REGISTRY,
     )
 
 
 def stream_sync_mock_app() -> FastAPI:
     """Create the paced mock with a cancellable background Librarian."""
     return create_app(
-        deployment=HubDeployment.custom(
-            _ephemeral_hub_config(),
-            stream_sync_mock_orchestrator_factory,
-            MockTranscriptionEndpoint(["mock transcription"]),
+        deployment=replace(
+            _ephemeral_hub(),
+            deployment=stream_sync_mock_deployment,
+            transcription_endpoint=MockTranscriptionEndpoint(["mock transcription"]),
         ),
-        dependency_registry=MOCK_DEPENDENCY_REGISTRY,
     )
-
-
-__all__ = [
-    "CreateBody",
-    "ProjectCreateBody",
-    "ReplyBody",
-    "RunView",
-    "live_app",
-    "create_app",
-    "mock_app",
-    "stream_mock_app",
-    "stream_sync_mock_app",
-]

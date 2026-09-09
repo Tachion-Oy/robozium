@@ -1,101 +1,42 @@
 """Liveness, readiness, and cached dependency-health endpoints."""
 
-import tempfile
-from collections.abc import AsyncGenerator, Callable, Sequence
+from collections.abc import AsyncGenerator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from dataclasses import replace
-from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
-from roboz.llm import TranscriptionEndpointLike
-from roboz.tooling import ExternalDependency, ExternalDependencyKind
-
-from robosprawl.dependency_contract import (
-    BoundDependency,
-    DependencyContractError,
-    DependencyRegistration,
-    bind_dependencies,
-)
-from robosprawl.dependency_health import (
+from roboshed.dependency_health import (
     DependencyHealthMonitor,
     DependencyRecord,
-    check_executable,
-    check_openai_compatible_endpoint,
 )
-from robosprawl.orchestrator_factory import (
-    OrchestratorEndpointGetter,
-    OrchestratorFactory,
-)
-from robosprawl.workspace import Project
+from roboshed.deployments.robosprawl import inspect_dependencies
+from roboz.dependencies import ExternalDependency
+
+from robosprawl.hub.application import Hub
 
 router = APIRouter()
 
 
-def inspect_dependencies(
-    factory: OrchestratorFactory,
-    *,
-    project: Project,
-    endpoint_getter: OrchestratorEndpointGetter,
-    registrations: Sequence[DependencyRegistration] | None,
-    hub_dependencies: Sequence[ExternalDependency] = (),
-) -> tuple[BoundDependency, ...]:
-    with tempfile.TemporaryDirectory(prefix="robosprawl-dependency-inspection-") as raw:
-        project = replace(
-            project,
-            sandbox=replace(project.sandbox, root=Path(raw)),
-        )
-        built = factory(project, endpoint_getter=endpoint_getter, event_sinks=())
-        agents = (built.agent, *built.background_agents)
-        discovered = [
-            dependency
-            for agent in agents
-            for dependency in agent.external_dependencies()
-        ]
-        discovered.extend(hub_dependencies)
-        if registrations is None:
-            checks = {
-                ExternalDependencyKind.EXECUTABLE: check_executable,
-                ExternalDependencyKind.MODEL_ENDPOINT: check_openai_compatible_endpoint,
-            }
-            unique = {item.dependency_id: item for item in discovered}
-            if any(item.kind not in checks for item in unique.values()):
-                raise DependencyContractError(
-                    "custom dependency kind requires an explicit checker registration"
-                )
-            registrations = tuple(
-                DependencyRegistration(item.dependency_id, item.kind, checks[item.kind])
-                for item in unique.values()
-            )
-        return bind_dependencies(discovered, registrations)
-
-
 def dependency_lifespan(
-    *,
-    factory: OrchestratorFactory,
-    project: Project,
-    endpoint_getter: OrchestratorEndpointGetter,
-    transcription_endpoint: TranscriptionEndpointLike | None,
-    selectable_endpoints: Sequence[ExternalDependency] = (),
-    registrations: Sequence[DependencyRegistration] | None,
-    interval_s: float,
-    timeout_s: float,
+    hub: Hub,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
-        hub_dependencies = tuple(selectable_endpoints)
-        if isinstance(transcription_endpoint, ExternalDependency):
-            hub_dependencies += (transcription_endpoint,)
+        hub_dependencies: tuple[ExternalDependency, ...] = tuple(
+            hub.model_selector.models.values()
+        )
+        if isinstance(hub.transcription_endpoint, ExternalDependency):
+            hub_dependencies += (hub.transcription_endpoint,)
         dependencies = inspect_dependencies(
-            factory,
-            project=project,
-            endpoint_getter=endpoint_getter,
-            registrations=registrations,
-            hub_dependencies=hub_dependencies,
+            hub.deployment,
+            project=hub.project(hub.name),
+            endpoint_getter=lambda: hub.model_selector.selected_endpoint,
+            registrations=hub.dependency_registry,
+            additional_dependencies=hub_dependencies,
         )
         monitor = DependencyHealthMonitor(
             dependencies,
-            interval_s=interval_s,
-            timeout_s=timeout_s,
+            interval_s=hub.dependency_health.interval_s,
+            timeout_s=hub.dependency_health.timeout_s,
         )
         application.state.dependency_health = monitor
         application.state.ready = True
@@ -152,4 +93,4 @@ def dependency(dependency_id: str, request: Request) -> DependencyRecord:
     return record
 
 
-__all__ = ["dependency_lifespan", "inspect_dependencies", "router"]
+__all__ = ["dependency_lifespan", "router"]

@@ -21,7 +21,7 @@ def free_port() -> int:
 
 
 def user_files() -> dict[str, str]:
-    paths = [ROOT / "hub.config.json", *sorted((ROOT / ".runtime").rglob("*"))]
+    paths = [ROOT / "hub.config.py", *sorted((ROOT / ".runtime").rglob("*"))]
     return {
         str(path): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in paths

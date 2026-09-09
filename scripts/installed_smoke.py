@@ -11,13 +11,13 @@ from pathlib import Path
 
 
 def main() -> None:
+    import roboshed
     import roboz
-    import roboz_openai
-    import roboz_shed
+    import roboz_endpoints
 
     import robosprawl
 
-    for module in (robosprawl, roboz, roboz_shed, roboz_openai):
+    for module in (robosprawl, roboz, roboshed, roboz_endpoints):
         assert (
             Path(module.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
         )

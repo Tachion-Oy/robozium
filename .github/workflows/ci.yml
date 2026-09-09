@@ -106,6 +106,7 @@ jobs:
           uv run pyright
           uv run pytest tests/contract --no-cov
   frontend:
+    needs: [resolve-roboz]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -113,6 +114,23 @@ jobs:
         with:
           path: robosprawl
           persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Tachion-Oy/roboz
+          ref: ${{ needs.resolve-roboz.outputs.sha }}
+          path: roboz
+          token: ${{ secrets.ROBOZ_CI_TOKEN }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+      - name: Install Python configuration dependencies
+        run: |
+          source scripts/env.sh
+          uv sync --locked --no-dev
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
@@ -222,7 +240,7 @@ jobs:
           tar -xzf .artifacts/web-build.tar.gz -C web
           backend_env="$(mktemp -d)"
           python -m venv "$backend_env"
-          "$backend_env/bin/python" -I -m pip install .artifacts/distributions/{robosprawl,roboz,roboz_shed,roboz_openai}-*.whl
+          "$backend_env/bin/python" -I -m pip install .artifacts/distributions/{robosprawl,roboz,roboshed,roboz_endpoints}-*.whl
           "$backend_env/bin/python" -I -m pip check
           echo "ROBOSPRAWL_E2E_PYTHON=$backend_env/bin/python" >> "$GITHUB_ENV"
           source scripts/env.sh

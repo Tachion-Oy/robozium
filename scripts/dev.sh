@@ -9,11 +9,11 @@ API_URL="http://127.0.0.1:8000"
 
 source "${REPO_ROOT}/scripts/env.sh"
 cd "${REPO_ROOT}"
-APP_TARGET="robosprawl.api.mock:app"
+APP_TARGET="robosprawl.api.app:mock_app"
 ENV_ARGS=()
 case "${1:-}" in
     "") ;;
-    --live) APP_TARGET="robosprawl.api.live:app"
+    --live) APP_TARGET="robosprawl.api.app:live_app"
         if [[ -f "${ENV_FILE}" ]]; then ENV_ARGS=(--env-file "${ENV_FILE}"); fi ;;
     *) echo "Usage: $0 [--live]" >&2; exit 2 ;;
 esac

@@ -9,6 +9,9 @@ from collections.abc import Callable, Collection
 from functools import partial
 from uuid import uuid4
 
+from roboshed.deployments.robosprawl import RunFactory
+from roboshed.workspace import Project
+from roboz.dependencies import LazyExternalDependency
 from roboz.llm import LLMEndpoint
 from roboz.runtime import (
     Output,
@@ -18,14 +21,11 @@ from roboz.runtime import (
     reset_output,
 )
 from roboz.runtime.events import EventSink
-from roboz.tooling import LazyExternalDependency
 
 from robosprawl.api.errors import ProjectBusyError, ProjectCancellationInProgressError
 from robosprawl.api.run_control import RunControl
 from robosprawl.api.state import ProjectRunItem, RunState, RunStatus, RunView
 from robosprawl.api.user_io import ApiUserIO
-from robosprawl.orchestrator_factory import OrchestratorFactory
-from robosprawl.workspace import Project
 
 logger = logging.getLogger(__name__)
 MESSAGE_HISTORY_LIMIT = 5_000
@@ -35,7 +35,7 @@ COMPLETED_TTL_S = 300.0
 class RunManager:
     def __init__(
         self,
-        root_agent_factory: OrchestratorFactory,
+        root_agent_factory: RunFactory,
         *,
         hub_name: str,
         default_orchestrator_endpoint: Callable[
@@ -118,7 +118,7 @@ class RunManager:
 
     @staticmethod
     def _run_agent(
-        run_id: str, control: RunControl, *, factory: OrchestratorFactory
+        run_id: str, control: RunControl, *, factory: RunFactory
     ) -> None:
         """Worker body: bind API context, construct and invoke the agent.
 

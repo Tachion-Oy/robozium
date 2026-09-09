@@ -9,22 +9,23 @@ from threading import Event, Thread
 from types import SimpleNamespace
 
 import pytest
+from roboshed.capabilities import Compactification, FileCommands, FileEditing
+from roboshed.tools.compactification import CompactifyStatus
 from roboz.exceptions import LLMCallTimeoutError
 from roboz.llm import LLMEndpoint, MockLLMEndpoint, estimate_conversation_tokens
 from roboz.models import MessageKind
-from roboz.runtime import Output
 from roboz.runtime.events import MessageEvent
-from roboz_shed.tools.compactification import CompactifyStatus
 
-from robosprawl.composition import AgenticFactory, OrchestratorConstructor
-from robosprawl.hub import load_hub_config
+from robosprawl.hub.utils import load_hub
 
 
 def _compaction_project(tmp_path):
-    config = load_hub_config()
-    return replace(
-        config, sandbox=replace(config.sandbox, root=tmp_path / "sandbox")
+    config = load_hub()
+    project = replace(
+        config, workspace=replace(config.workspace, root=tmp_path / "sandbox")
     ).project("compaction-test")
+    project.root.mkdir(parents=True)
+    return project
 
 
 def _write_action():
@@ -50,14 +51,26 @@ def test_orchestrator_compacts_with_shed_and_persists_summary(tmp_path):
         ],
         max_context_tokens=10000,
     )
-    agent = AgenticFactory(
-        orchestrator=OrchestratorConstructor(
-            agent_endpoint=endpoint,
-            auto_load_skills=False,
-            seed_initial_messages_from_memory=False,
-        ),
-        interaction_mode=Output.API,
-    )(project, event_sinks=(events.append,)).agent
+    factory = replace(load_hub().deployment.recipe, memory_endpoint=MockLLMEndpoint([]))(
+        project, orchestrator_endpoint=endpoint
+    )
+    agent = (
+        replace(
+            factory,
+            librarian=None,
+            orchestrator=replace(
+                factory.orchestrator,
+                capabilities=(
+                    factory.orchestrator.capabilities[0],
+                    FileCommands(project.permissions, auto_load_skill=False),
+                    FileEditing(project.permissions, auto_load_skill=False),
+                    Compactification(threshold_percent=60),
+                ),
+            ),
+        )
+        .build(event_sinks=(events.append,))
+        .agent
+    )
     assert [tool.OutputModel for tool in agent.default_tools] == [CompactifyStatus]
     result, messages = agent.invoke()
     assert result.value == "done"
@@ -125,15 +138,29 @@ def test_orchestrator_controls_reach_compaction_provider(tmp_path, control):
         max_context_tokens=10000,
         stream=False,
     )
-    agent = AgenticFactory(
-        orchestrator=OrchestratorConstructor(
-            agent_endpoint=endpoint,
-            auto_load_skills=False,
-            seed_initial_messages_from_memory=False,
-            compactify_timeout_s=0.1 if control == "timeout" else None,
-        ),
-        interaction_mode=Output.API,
-    )(project, event_sinks=()).agent
+    factory = replace(load_hub().deployment.recipe, memory_endpoint=MockLLMEndpoint([]))(
+        project, orchestrator_endpoint=endpoint
+    )
+    agent = (
+        replace(
+            factory,
+            librarian=None,
+            orchestrator=replace(
+                factory.orchestrator,
+                capabilities=(
+                    factory.orchestrator.capabilities[0],
+                    FileCommands(project.permissions, auto_load_skill=False),
+                    FileEditing(project.permissions, auto_load_skill=False),
+                    Compactification(
+                        threshold_percent=60,
+                        timeout_s=0.1 if control == "timeout" else None,
+                    ),
+                ),
+            ),
+        )
+        .build()
+        .agent
+    )
     errors = []
 
     def invoke():
@@ -170,9 +197,9 @@ def test_orchestrator_controls_reach_compaction_provider(tmp_path, control):
 
 
 def test_file_agent_loads_memory_writes_project_and_denies_escape(tmp_path):
-    config = load_hub_config()
+    config = load_hub()
     project = replace(
-        config, sandbox=replace(config.sandbox, root=tmp_path / "sandbox")
+        config, workspace=replace(config.workspace, root=tmp_path / "sandbox")
     ).project("patch-test")
     project.memory.mkdir(parents=True)
     (project.memory / "memory.md").write_text("REMEMBER-LOCAL-MARKER")
@@ -197,12 +224,12 @@ def test_file_agent_loads_memory_writes_project_and_denies_escape(tmp_path):
             {"action": "stop", "rationale": "done", "value": "done"},
         ]
     )
-    bundle = AgenticFactory(
-        orchestrator=OrchestratorConstructor(
-            agent_endpoint=endpoint, extra_default_tools=()
+    bundle = replace(
+        replace(load_hub().deployment.recipe, memory_endpoint=MockLLMEndpoint([]))(
+            project, orchestrator_endpoint=endpoint
         ),
-        interaction_mode=Output.API,
-    )(project, event_sinks=())
+        librarian=None,
+    ).build()
     result, messages = bundle.agent.invoke()
     assert result.value == "done"
     assert (project.root / "note.txt").read_text() == "hello"
@@ -218,19 +245,20 @@ def test_mock_import_never_constructs_live_deployment():
             sys.executable,
             "-c",
             """
-import robosprawl.deployment as deployment
+from roboshed.deployments.robosprawl import RoboSprawl
 
 def reject(*args, **kwargs):
     raise AssertionError('live deployment constructed')
-deployment.HubDeployment.standard = reject
+RoboSprawl.__call__ = reject
 from robosprawl.api.app import mock_app
 from fastapi.testclient import TestClient
 with TestClient(mock_app()) as client:
     assert client.get('/ready').status_code == 200
     import logging
-    from robosprawl.hub import load_hub_config
-    assert any(getattr(handler, "baseFilename", None) == str(load_hub_config().logging.path) for handler in logging.getLogger("robosprawl").handlers)
-    assert all(row['kind'] == 'executable' for row in client.get('/admin/dependencies').json())
+    from robosprawl.hub.utils import load_hub
+    assert any(getattr(handler, "baseFilename", None) == str(load_hub().logging.path) for handler in logging.getLogger("robosprawl").handlers)
+    records = client.get('/admin/dependencies').json()
+    assert {row['dependency_id'] for row in records if row['kind'] == 'model_endpoint'} == {model['model_id'] for model in client.get('/models').json()['models']}
 """,
         ],
         env={

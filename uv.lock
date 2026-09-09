@@ -1337,15 +1337,30 @@ wheels = [
 ]
 
 [[package]]
+name = "roboshed"
+version = "0.1.0a1"
+source = { directory = "../roboz/packages/shed" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "roboz" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.12.4" },
+    { name = "roboz", editable = "../roboz" },
+]
+
+[[package]]
 name = "robosprawl"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "pydantic" },
+    { name = "roboshed" },
     { name = "roboz" },
-    { name = "roboz-openai" },
-    { name = "roboz-shed" },
+    { name = "roboz-endpoints", extra = ["openai"] },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -1363,9 +1378,9 @@ dev = [
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.135.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "roboshed", directory = "../roboz/packages/shed" },
     { name = "roboz", directory = "../roboz" },
-    { name = "roboz-openai", directory = "../roboz/packages/openai" },
-    { name = "roboz-shed", directory = "../roboz/packages/shed" },
+    { name = "roboz-endpoints", extras = ["openai"], directory = "../roboz/packages/endpoints" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },
 ]
 
@@ -1394,11 +1409,10 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.12.4" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "rich", specifier = ">=14.2.0" },
-    { name = "roboz-openai", marker = "extra == 'openai'", editable = "../roboz/packages/openai" },
+    { name = "roboshed", marker = "extra == 'shed'", editable = "../roboz/packages/shed" },
     { name = "roboz-proton-bridge", marker = "extra == 'proton-bridge-beta'", editable = "../roboz/packages/proton-bridge" },
-    { name = "roboz-shed", marker = "extra == 'shed'", editable = "../roboz/packages/shed" },
 ]
-provides-extras = ["shed", "openai", "proton-bridge-beta"]
+provides-extras = ["shed", "proton-bridge-beta"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1406,42 +1420,33 @@ dev = [
     { name = "pyright", specifier = ">=1.1.411" },
     { name = "pytest", specifier = ">=7.0" },
     { name = "pytest-cov", specifier = ">=4.0" },
-    { name = "roboz-openai", editable = "../roboz/packages/openai" },
+    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "roboshed", editable = "../roboz/packages/shed" },
+    { name = "roboz-endpoints", extras = ["openai"], editable = "../roboz/packages/endpoints" },
     { name = "roboz-proton-bridge", editable = "../roboz/packages/proton-bridge" },
-    { name = "roboz-shed", editable = "../roboz/packages/shed" },
     { name = "ruff", specifier = ">=0.5.0" },
     { name = "twine", specifier = ">=6.2" },
 ]
 
 [[package]]
-name = "roboz-openai"
+name = "roboz-endpoints"
 version = "0.1.0a1"
-source = { directory = "../roboz/packages/openai" }
+source = { directory = "../roboz/packages/endpoints" }
 dependencies = [
+    { name = "roboz" },
+]
+
+[package.optional-dependencies]
+openai = [
     { name = "openai" },
-    { name = "roboz" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "openai", specifier = ">=2.8.1,<3" },
+    { name = "openai", marker = "extra == 'openai'", specifier = ">=2.8.1,<3" },
     { name = "roboz", editable = "../roboz" },
 ]
-
-[[package]]
-name = "roboz-shed"
-version = "0.1.0a1"
-source = { directory = "../roboz/packages/shed" }
-dependencies = [
-    { name = "pydantic" },
-    { name = "roboz" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "pydantic", specifier = ">=2.12.4" },
-    { name = "roboz", editable = "../roboz" },
-]
+provides-extras = ["openai"]
 
 [[package]]
 name = "ruff"
