@@ -41,8 +41,8 @@ def dependency_tool(input: Empty, messages: list[Message], ctx: Ctx) -> Empty:
 
 
 def _factory_for(*names: str):
-    def build(project, /, *, endpoint_getter, event_sinks):
-        del project, endpoint_getter
+    def build(sandbox, project_slug, /, *, endpoint_getter, event_sinks):
+        del sandbox, project_slug, endpoint_getter
         bound = dependency_tool(
             Ctx(dependencies=tuple(ExecutableDependency(name) for name in names))
         )
@@ -93,7 +93,8 @@ def test_standard_deployment_discovers_tools_and_every_selectable_model() -> Non
     deployment = load_hub()
     discovered = inspect_dependencies(
         deployment.deployment,
-        project=deployment.project("inspection"),
+        sandbox=deployment.sandbox,
+        project_slug=deployment.project("inspection").slug,
         endpoint_getter=lambda: deployment.model_selector.selected_endpoint,
         registrations=deployment.dependency_registry,
         additional_dependencies=tuple(deployment.model_selector.models.values()),
@@ -121,7 +122,7 @@ def test_mock_app_dependency_contract_allows_startup() -> None:
 
 def test_endpoint_catalog_drives_models_and_health_without_materialization(tmp_path):
     write_config(
-        tmp_path, workspace="sandbox", name="DependencyTestHub", interval_s=3600
+        tmp_path, sandbox_root="sandbox", name="DependencyTestHub", interval_s=3600
     )
     config = load_hub(start=tmp_path)
     endpoints = {
@@ -174,13 +175,14 @@ def test_inspection_uses_a_temporary_project_not_the_configured_sandbox(
     tmp_path: Path,
 ) -> None:
     write_config(
-        tmp_path, workspace="sandbox", name="DependencyTestHub", interval_s=3600
+        tmp_path, sandbox_root="sandbox", name="DependencyTestHub", interval_s=3600
     )
     configured_sandbox = tmp_path / "sandbox"
     hub_config = load_hub(start=tmp_path)
     inspect_dependencies(
         _factory_for("bash"),
-        project=hub_config.project(hub_config.name),
+        sandbox=hub_config.sandbox,
+        project_slug=hub_config.project(hub_config.name).slug,
         endpoint_getter=lambda: _TEST_ORCHESTRATOR_ENDPOINT,
         registrations=[_registration("bash")],
     )
@@ -191,7 +193,7 @@ def test_api_reads_cached_state_and_dependency_failure_does_not_affect_ready(
     tmp_path: Path,
 ) -> None:
     write_config(
-        tmp_path, workspace="sandbox", name="DependencyTestHub", interval_s=3600
+        tmp_path, sandbox_root="sandbox", name="DependencyTestHub", interval_s=3600
     )
     calls = 0
 
@@ -229,7 +231,7 @@ def test_api_active_check_runs_checkers_and_returns_updated_cached_records(
     tmp_path: Path,
 ) -> None:
     write_config(
-        tmp_path, workspace="sandbox", name="DependencyTestHub", interval_s=3600
+        tmp_path, sandbox_root="sandbox", name="DependencyTestHub", interval_s=3600
     )
     calls = 0
 
@@ -267,7 +269,7 @@ def test_api_active_check_runs_checkers_and_returns_updated_cached_records(
 
 def test_api_active_check_preserves_no_overlap_behavior(tmp_path: Path) -> None:
     write_config(
-        tmp_path, workspace="sandbox", name="DependencyTestHub", interval_s=3600
+        tmp_path, sandbox_root="sandbox", name="DependencyTestHub", interval_s=3600
     )
     calls = 0
     entered = threading.Event()
@@ -295,7 +297,7 @@ def test_api_active_check_preserves_no_overlap_behavior(tmp_path: Path) -> None:
 
 def test_registry_mismatch_fails_testclient_lifespan(tmp_path: Path) -> None:
     write_config(
-        tmp_path, workspace="sandbox", name="DependencyTestHub", interval_s=3600
+        tmp_path, sandbox_root="sandbox", name="DependencyTestHub", interval_s=3600
     )
     application = create_app(
         deployment=replace(
@@ -313,7 +315,7 @@ def test_registry_mismatch_fails_testclient_lifespan(tmp_path: Path) -> None:
 @pytest.mark.parametrize("setting", ["interval_s", "timeout_s"])
 def test_hub_health_settings_control_runtime_checks(tmp_path, setting):
     write_config(
-        tmp_path, workspace="sandbox", name="DependencyTestHub", interval_s=3600
+        tmp_path, sandbox_root="sandbox", name="DependencyTestHub", interval_s=3600
     )
     calls = 0
 

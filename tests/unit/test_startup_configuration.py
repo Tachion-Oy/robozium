@@ -22,7 +22,8 @@ from robosprawl.hub.utils import load_hub
 @pytest.fixture
 def config_file(tmp_path):
     example = Path(__file__).resolve().parents[2] / "hub.config.py"
-    path = tmp_path / "hub.config.py"
+    path = tmp_path / "config/hub.config.py"
+    path.parent.mkdir()
     path.write_text(example.read_text())
     return path
 
@@ -62,7 +63,8 @@ assert callable(robosprawl.api.app.mock_app)
 def test_logging_uses_each_explicit_app_config(config_file):
     config = load_hub(config_file=config_file)
 
-    def factory(project, *, endpoint_getter, event_sinks):
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
+        del sandbox, project_slug, endpoint_getter
         return RoboSprawlBundle(
             Agent(
                 name="root",
@@ -115,7 +117,8 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
     )
     bound = inspect_dependencies(
         hub.deployment,
-        project=hub.project("demo"),
+        sandbox=hub.sandbox,
+        project_slug=hub.project("demo").slug,
         endpoint_getter=lambda: hub.model_selector.selected_endpoint,
         registrations=hub.dependency_registry,
         additional_dependencies=tuple(hub.models.values()),
@@ -140,15 +143,14 @@ def test_explicit_config_path_wins_over_environment(config_file, monkeypatch):
     with pytest.raises(RuntimeError, match="Missing hub config"):
         load_hub()
     monkeypatch.setenv("ROBOSPRAWL_CONFIG", str(config_file))
-    expected = (config_file.parent / ".runtime/data").resolve()
-    assert load_hub().workspace.root == expected
+    expected = (config_file.parent / "../RoboSprawl").resolve()
+    assert load_hub().sandbox.root == expected
 
 
-@pytest.mark.parametrize("key", ["LOGS_DIR", "SNAPSHOTS_DIR", "MEMORY_DIR"])
-def test_required_persistence_choices_fail_during_load(config_file, key):
+def test_required_sandbox_choice_fails_during_load(config_file):
     with config_file.open("a") as file:
-        file.write(f"\ndel {key}\n")
-    with pytest.raises(RuntimeError, match=key):
+        file.write("\ndel SANDBOX\n")
+    with pytest.raises(RuntimeError, match="SANDBOX"):
         load_hub(config_file=config_file)
 
 
@@ -189,14 +191,15 @@ def test_invalid_health_settings_fail_during_configuration(config_file, settings
 def test_persistence_folders_cannot_escape_or_overlap(config_file, folder):
     hub = load_hub(config_file=config_file)
     with pytest.raises(ValueError):
-        replace(hub, memory_dir=Path(folder))
+        replace(hub, sandbox=replace(hub.sandbox, memory=Path(folder)))
 
 
 @pytest.mark.parametrize("conflicting", [False, True])
 def test_overlapping_app_lifespans_preserve_existing_logging(config_file, conflicting):
     config = load_hub(config_file=config_file)
 
-    def factory(project, *, endpoint_getter, event_sinks):
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
+        del sandbox, project_slug, endpoint_getter
         return RoboSprawlBundle(
             Agent(
                 name="root",
@@ -238,13 +241,13 @@ def test_project_service_owns_startup_layout_validation(config_file):
     from robosprawl.api.project_service import ProjectService
 
     config = load_hub(config_file=config_file)
-    unexpected = config.workspace.root / "misplaced"
+    unexpected = config.sandbox.root / "misplaced"
     unexpected.mkdir(parents=True)
     service = ProjectService(config, SimpleNamespace())
     with pytest.raises(ValueError, match="Unexpected folders.*misplaced"):
         service.recover()
     unexpected.rmdir()
-    (config.workspace.root / "note.txt").write_text("root files are permitted")
+    (config.sandbox.root / "note.txt").write_text("root files are permitted")
     service.recover()
     assert service.create("New Project") == "new-project"
     project = config.project("New Project")
@@ -262,7 +265,7 @@ def test_config_loads_fresh_endpoints_without_materialization(config_file, monke
     assert first.default_model is not second.default_model
     assert first.model_selector is not second.model_selector
     assert first.default_model.dependency_id == second.default_model.dependency_id
-    assert not first.workspace.root.exists()
+    assert not first.sandbox.root.exists()
     with pytest.raises(TypeError):
         first.models["extra"] = first.default_model
 
@@ -278,12 +281,13 @@ DEPLOYMENT = DeploymentFactory(RoboSprawl(
     capabilities=(Compactification(threshold_percent=42),),
     memory_endpoint=GPT_OSS,
     interaction_mode=Output.API,
-    project_context="Configured project context for {project.slug}",
+    project_context="Configured project context for {project_slug}",
 ))
 """)
     hub = load_hub(config_file=config_file)
+    project = hub.project("custom")
     factory = hub.deployment.recipe(
-        hub.project("custom"), orchestrator_endpoint=hub.default_model
+        project.sandbox, project.slug, orchestrator_endpoint=hub.default_model
     )
     assert tuple(hub.models) == ("Alternate",)
     assert hub.model_selector.selected_endpoint is hub.models["Alternate"]
@@ -295,7 +299,7 @@ DEPLOYMENT = DeploymentFactory(RoboSprawl(
     assert (
         factory.librarian.agent_endpoint.dependency_id == "model:cerebras:gpt-oss-120b"
     )
-    assert not hub.workspace.root.exists()
+    assert not hub.sandbox.root.exists()
 
 
 def test_checked_in_config_has_only_constant_declarations(config_file):

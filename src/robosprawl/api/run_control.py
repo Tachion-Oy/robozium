@@ -11,12 +11,12 @@ from contextvars import copy_context
 from uuid import uuid4
 
 from roboshed.deployments.robosprawl import RoboSprawlBundle
-from roboshed.workspace import Project
 from roboz.dependencies import LazyExternalDependency
 from roboz.llm import LLMEndpoint
 from roboz.runtime.events import EventSink, PipeEvent, RunLifecycleEvent
 from roboz.runtime.pipe import EventPipe
 
+from robosprawl.api.projects import Project
 from robosprawl.api.run_events import RunEvents
 from robosprawl.api.state import ProjectRunItem, RunState, RunStatus
 from robosprawl.api.wait_registry import RunCancelled, WaitRegistry

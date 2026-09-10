@@ -57,14 +57,11 @@ def load_hub(*, start: Path | None = None, config_file: Path | None = None) -> H
             raise ValueError(
                 f"Missing configuration choices: {', '.join(sorted(missing))}"
             )
-        workspace = values["WORKSPACE"]
+        sandbox = values["SANDBOX"]
         logging = values["LOGGING"]
         return Hub(
             name=values["NAME"],
-            workspace=replace(workspace, root=(path.parent / workspace.root).resolve()),
-            logs_dir=values["LOGS_DIR"],
-            snapshots_dir=values["SNAPSHOTS_DIR"],
-            memory_dir=values["MEMORY_DIR"],
+            sandbox=replace(sandbox, root=(path.parent / sandbox.root).resolve()),
             logging=replace(logging, path=(path.parent / logging.path).resolve()),
             dependency_health=values["DEPENDENCY_HEALTH"],
             models=values["MODELS"],

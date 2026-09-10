@@ -28,9 +28,9 @@ cp .env.example .env
 
 The model selector retains GLM-5.3, GLM-5.3 Flash (OpenRouter), and GPT-OSS-120B (Cerebras). The editable constants in `hub.config.py` select model labels, root/memory endpoints, and capabilities from shared primitives. Credentials stay in the environment. With the default configuration, OpenRouter is also required by the Librarian even when Cerebras is selected for the root agent. The dependency panel reports missing credentials or unavailable routes. Readiness means the application is initialized; provider health is reported independently. Model availability may depend on your provider account.
 
-Live capabilities are interaction, guarded file reading, literal patch editing, automatic context compaction, and Librarian memory. Reads stay within the configured workspace; the current project is writable, shared workspace writes prompt, and other locations are denied. These are application tool guards, not an OS sandbox. Live transcription returns a clear HTTP 503; mock transcription remains testable. See [deferred dependency work](docs/deferred-dependency-changes.md) for omitted integrations.
+Live capabilities are interaction, guarded file reading, literal patch editing, automatic context compaction, and Librarian memory. Reads stay within the configured sandbox; the current project is writable, shared workspace writes prompt, and other locations are denied. These are application tool guards, not an OS sandbox. Live transcription returns a clear HTTP 503; mock transcription remains testable. See [deferred dependency work](docs/deferred-dependency-changes.md) for omitted integrations.
 
-The live orchestrator applies remembered preferences, delegates to configured specialists, and stays available across tasks. It stops when the user asks to end the session. See [deployment composition](docs/deployment.md) for the shared factory and workspace configuration.
+The live orchestrator applies remembered preferences, delegates to configured specialists, and stays available across tasks. It stops when the user asks to end the session. See [deployment composition](docs/deployment.md) for the shared factory and sandbox configuration.
 
 Both launch modes use `fastapi dev`, showing the FastAPI startup banner, API documentation URL, and server logs in the terminal. Backend source changes reload automatically.
 
@@ -57,7 +57,7 @@ CAPABILITIES: Final = (FileCommands, FileEditing, Compactification(threshold_per
 
 The checked-in file supplies all deployment choices. Logging is the explicit exception: `LOGGING = HubLoggingConfig()` uses defaults from `robosprawl.hub.logging`; pass individual keyword arguments to customize them. See [deployment composition](docs/deployment.md) for the complete contract.
 
-`create_app(deployment=load_hub())` consumes a validated Hub directly. `robosprawl.hub.utils` owns discovery, loading, and slug normalization. Hub owns its inputs and runtime selector; there is no nested configuration wrapper. Shared inspection derives executable/model registrations from constructed agents and all advertised models, including unselected ones. Explicit registries retain exact validation. Standard file boundaries come from `Project.permissions`.
+`create_app(deployment=load_hub())` consumes a validated Hub directly. `robosprawl.hub.utils` owns discovery, loading, and slug normalization. Hub owns its inputs and runtime selector; there is no nested configuration wrapper. Shared inspection derives executable/model registrations from constructed agents and all advertised models, including unselected ones. Explicit registries retain exact validation. Standard file boundaries come only from `Sandbox.permissions(project_slug)`.
 
 Backend imports have no startup side effects. ASGI factories build an app; its lifespan registers use of process logging and recovers activity markers before accepting work. Overlapping apps in one process must share the same logging configuration. Shutdown cancels root and background work and waits up to ten seconds, logging a timeout if synchronous work cannot stop. Run registries are process-local: run one backend worker per data directory.
 
@@ -65,7 +65,18 @@ See [Backend ownership](docs/backend-architecture.md) for the intent and boundar
 
 ## Data and isolation
 
-`hub.config.py` is the single runnable configuration example. Runtime data remains in `.runtime/data` and technical logs in `.runtime/logs`. Projects retain `conversation_logs`, `conversation_snapshots`, and `persistent_memory`. Configuration lookup uses `ROBOSPRAWL_CONFIG` when set, otherwise the current directory and its parents. Relative workspace and technical-log paths resolve against the selected file. Python callers can pass `load_hub(config_file=Path(...))`, which takes precedence over the environment. There is no checkout fallback or JSON loader. The frontend reads its build-time title through the same loader, using `.venv/bin/python` or the interpreter selected by `ROBOSPRAWL_PYTHON`.
+`hub.config.py` is the single runnable configuration example. Its one `SANDBOX`
+value owns the tier names and project persistence folder names. Runtime data
+lives in the adjacent `../RoboSprawl` sandbox and technical logs remain in
+`.runtime/logs`. Projects retain `conversation_logs`, `conversation_snapshots`,
+and `persistent_memory`.
+Configuration lookup uses `ROBOSPRAWL_CONFIG` when set, otherwise the current
+directory and its parents. Relative sandbox and technical-log paths resolve
+against the selected file. Python callers can pass
+`load_hub(config_file=Path(...))`, which takes precedence over the environment.
+There is no checkout fallback or JSON loader. The frontend reads its build-time
+title through the same loader, using `.venv/bin/python` or the interpreter
+selected by `ROBOSPRAWL_PYTHON`.
 
 
 The scripts source `scripts/env.sh`, keeping temporary files, environments, Python bytecode, uv/npm caches, and downloaded browsers inside `.artifacts`, `.venv`, or `web`. Next.js build output and browser reports also remain inside this checkout. These generated directories are gitignored. Before running tools directly, use:

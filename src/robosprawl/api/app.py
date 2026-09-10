@@ -129,7 +129,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
 
     @app.get("/files/{path:path}")
     def files_get(path: str) -> Response:
-        return serve_hub_file(path, workspace=deployment.workspace)
+        return serve_hub_file(path, sandbox=deployment.sandbox)
 
     def project_operation(operation):
         try:
@@ -354,17 +354,17 @@ def create_app(*, deployment: Hub) -> FastAPI:
 
 
 def _ephemeral_hub() -> Hub:
-    """A throwaway Hub with workspace and logging under a temporary directory.
+    """A throwaway Hub with sandbox and logging under a temporary directory.
 
-    Streaming mock projects and their entire workspace remain throwaway. The
+    Streaming mock projects and their entire sandbox remain throwaway. The
     directory lives for the process lifetime.
     """
     config_dir = Path(tempfile.mkdtemp(prefix="robosprawl-stream-mock-hub-"))
     config = load_hub()
     return replace(
         config,
-        workspace=replace(
-            config.workspace, root=config_dir / config.workspace.root.name
+        sandbox=replace(
+            config.sandbox, root=config_dir / config.sandbox.root.name
         ),
         logging=replace(config.logging, path=config_dir / config.logging.path.name),
     )

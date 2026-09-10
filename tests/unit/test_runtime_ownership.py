@@ -34,8 +34,10 @@ def config(tmp_path):
     from pathlib import Path
 
     example = Path(__file__).resolve().parents[2] / "hub.config.py"
-    (tmp_path / "hub.config.py").write_text(example.read_text())
-    return load_hub(start=tmp_path)
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "hub.config.py").write_text(example.read_text())
+    return load_hub(start=config_dir)
 
 
 def manager_for(factory):
@@ -58,7 +60,7 @@ def test_cancel_during_construction_never_invokes(config, project_cancel):
     entered, release = threading.Event(), threading.Event()
     invoked = []
 
-    def factory(project, *, endpoint_getter, event_sinks):
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         entered.set()
         assert release.wait(2)
         return RoboSprawlBundle(
@@ -86,7 +88,7 @@ def test_cancel_survives_pipe_initialization_reset(config):
     entered, release = threading.Event(), threading.Event()
     invoked = []
 
-    def factory(project, *, endpoint_getter, event_sinks):
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         pipe = EventPipe(event_sinks=event_sinks)
 
         def invoke():
@@ -119,7 +121,7 @@ def test_prompt_registration_is_atomic_with_control(config, operation, monkeypat
     entered, release, attempted, returned = (threading.Event() for _ in range(4))
     replies, errors = [], []
 
-    def factory(project, *, endpoint_getter, event_sinks):
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         pipe = EventPipe(event_sinks=event_sinks)
 
         def invoke():
@@ -170,8 +172,8 @@ def test_prompt_registration_is_atomic_with_control(config, operation, monkeypat
 
 
 def test_factory_failure_closes_http_stream_and_late_subscribers(config):
-    def factory(project, *, endpoint_getter, event_sinks):
-        if project.slug == "broken":
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
+        if project_slug == "broken":
             raise RuntimeError("cannot construct this project")
         return RoboSprawlBundle(
             Agent(
@@ -209,7 +211,7 @@ def test_snapshots_do_not_expose_mutable_event_state(config):
 
     entered, release = threading.Event(), threading.Event()
 
-    def factory(project, *, endpoint_getter, event_sinks):
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         def invoke():
             for sink in event_sinks:
                 sink(MessageEvent(Message(role=Role.USER, content="original"), 0))
@@ -261,7 +263,7 @@ def test_deletion_serializes_against_start_and_create(config, monkeypatch, opera
     )
     invoked, errors = [], []
 
-    def factory(project, *, endpoint_getter, event_sinks):
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         invoked.append(True)
         return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=lambda: None))
 
@@ -307,7 +309,7 @@ def test_shutdown_tracks_background_thread_until_it_exits(config):
     started, release = threading.Event(), threading.Event()
     background_pipe = EventPipe()
 
-    def factory(project, *, endpoint_getter, event_sinks):
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         def background_invoke():
             background_pipe.initialize(agent_name="renamed-maintenance")
             started.set()
@@ -347,7 +349,7 @@ def test_shutdown_tracks_background_thread_until_it_exits(config):
 def test_lifespan_shutdown_releases_input_wait(config):
     ready = threading.Event()
 
-    def factory(project, *, endpoint_getter, event_sinks):
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         def invoke():
             ready.set()
             interact_with_user("question", with_reply=True)
@@ -401,8 +403,8 @@ def test_concurrent_starts_invoke_factory_once(config):
     entered, release = threading.Event(), threading.Event()
     calls, results, errors = [], [], []
 
-    def factory(project, *, endpoint_getter, event_sinks):
-        calls.append(project.slug)
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
+        calls.append(project_slug)
         entered.set()
         assert release.wait(3)
         return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=lambda: None))
@@ -439,7 +441,7 @@ def test_worker_inherits_context_at_start(config):
     entered, release = threading.Event(), threading.Event()
     observed = []
 
-    def factory(project, *, endpoint_getter, event_sinks):
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         entered.set()
         assert release.wait(3)
         observed.append(request_id.get())
@@ -500,9 +502,9 @@ def test_thread_start_failure_finishes_once_without_holding_control_lock(
 def test_replies_cannot_cross_run_prompt_boundaries(config):
     replies = {}
 
-    def factory(project, *, endpoint_getter, event_sinks):
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         def invoke():
-            replies[project.slug] = interact_with_user(project.slug, with_reply=True)
+            replies[project_slug] = interact_with_user(project_slug, with_reply=True)
 
         return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
 

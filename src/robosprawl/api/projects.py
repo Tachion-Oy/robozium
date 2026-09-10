@@ -3,12 +3,41 @@
 from __future__ import annotations
 
 from collections.abc import Collection, Iterable
+from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 from typing import TypedDict
 
-from roboshed.workspace import Project
+from roboshed.sandbox import Sandbox
 
 from robosprawl.api.state import ProjectRunItem, RunStatus
+
+
+@dataclass(frozen=True)
+class Project:
+    """API-owned project identity with paths derived by the configured sandbox."""
+
+    sandbox: Sandbox
+    slug: str
+
+    @property
+    def root(self) -> Path:
+        return self.sandbox.project_dir(self.slug)
+
+    @property
+    def logs(self) -> Path:
+        return self.sandbox.project_logs_dir(self.slug)
+
+    @property
+    def snapshots(self) -> Path:
+        return self.sandbox.project_snapshots_dir(self.slug)
+
+    @property
+    def memory(self) -> Path:
+        return self.sandbox.project_memory_dir(self.slug)
+
+    def artifact_dir(self, name: str) -> Path:
+        return self.sandbox.artifact_dir(self.slug, name)
 
 
 class ProjectStatus(StrEnum):
@@ -96,4 +125,4 @@ def compose_project_list(
     return sorted(rows, key=lambda row: row["slug"])
 
 
-__all__ = ["ProjectListItem", "ProjectStatus", "compose_project_list"]
+__all__ = ["Project", "ProjectListItem", "ProjectStatus", "compose_project_list"]

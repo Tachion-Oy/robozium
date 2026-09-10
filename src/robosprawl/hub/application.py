@@ -10,10 +10,11 @@ from types import MappingProxyType
 from typing import TypedDict
 
 from roboshed.deployments.robosprawl import RunFactory
-from roboshed.workspace import Project, Workspace
+from roboshed.sandbox import Sandbox
 from roboz.dependencies import DependencyRegistration, LazyExternalDependency
 from roboz.llm import LLMEndpoint, ModelSelector, TranscriptionEndpointLike
 
+from robosprawl.api.projects import Project
 from robosprawl.hub.logging import HubLoggingConfig
 from robosprawl.hub.utils import slugify_project_name
 
@@ -37,10 +38,7 @@ class HubValues(TypedDict):
     """Required configuration exports; helper constants may coexist in the module."""
 
     NAME: str
-    WORKSPACE: Workspace
-    LOGS_DIR: Path
-    SNAPSHOTS_DIR: Path
-    MEMORY_DIR: Path
+    SANDBOX: Sandbox
     LOGGING: HubLoggingConfig
     DEPENDENCY_HEALTH: DependencyHealthSettings
     MODELS: Mapping[str, LazyExternalDependency[LLMEndpoint]]
@@ -55,10 +53,7 @@ class Hub:
     """Validated deployment inputs and runtime model selection consumed by the host."""
 
     name: str
-    workspace: Workspace
-    logs_dir: Path
-    snapshots_dir: Path
-    memory_dir: Path
+    sandbox: Sandbox
     logging: HubLoggingConfig
     dependency_health: DependencyHealthSettings
     models: Mapping[str, LazyExternalDependency[LLMEndpoint]]
@@ -86,25 +81,25 @@ class Hub:
                 self, "dependency_registry", tuple(self.dependency_registry)
             )
         for folder in (
-            self.workspace.readonly,
-            self.workspace.shared,
-            self.workspace.projects,
+            self.sandbox.readonly,
+            self.sandbox.shared,
+            self.sandbox.projects,
         ):
             if len(Path(folder).parts) != 1 or folder in {".", ".."}:
-                raise ValueError("workspace area names must be single folder names")
-        for folder in (self.logs_dir, self.snapshots_dir, self.memory_dir):
+                raise ValueError("sandbox area names must be single folder names")
+        for folder in (
+            self.sandbox.logs,
+            self.sandbox.snapshots,
+            self.sandbox.memory,
+        ):
             if folder.is_absolute() or ".." in folder.parts:
                 raise ValueError("persistence folders must stay within their project")
         self.project("configuration-check")
-        if self.logging.path.resolve().is_relative_to(self.workspace.projects_dir):
+        if self.logging.path.resolve().is_relative_to(self.sandbox.projects_dir):
             raise ValueError("logging path must be outside projects")
 
     def project(self, name: str) -> Project:
         """Derive a shared project without creating directories."""
-        return Project(
-            workspace=self.workspace,
-            slug=slugify_project_name(name),
-            logs_dir=self.logs_dir,
-            snapshots_dir=self.snapshots_dir,
-            memory_dir=self.memory_dir,
-        )
+        slug = slugify_project_name(name)
+        self.sandbox.project_memory_dir(slug)
+        return Project(sandbox=self.sandbox, slug=slug)
