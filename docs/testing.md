@@ -2,8 +2,8 @@
 
 Use Linux, Python 3.13 or 3.14, Node 22, and uv 0.12.10. CI checks out only
 RoboSprawl and installs the exact Roboz dependency releases from `uv.lock`.
-The three Roboz packages are assigned to an explicit TestPyPI index; ordinary
-dependencies use PyPI. A sibling Roboz checkout and private dependency token
+The three Roboz packages and ordinary dependencies use PyPI. A sibling Roboz
+checkout and private dependency token
 are not required. Missing indexed artifacts or mismatched hashes fail the check;
 there is no source-checkout fallback. Browser jobs install the application build
 and downloaded dependency wheels from the same workflow run.
@@ -145,22 +145,9 @@ run succeeds, the owner can remove its Actions and Dependabot secret entries and
 revoke the dedicated read-only token. Older branches that still check out Roboz
 may continue needing it until they adopt this change.
 
-### PyPI cutover
+### Published dependencies
 
-After compatible releases of **all three** packages (`roboz`, `roboshed`, and
-`roboz-endpoints`) are available on production PyPI:
-
-1. Update their exact dependency pins and remove the three `[tool.uv.sources]`
-   entries plus the named TestPyPI index. Run `uv lock` and review the production
-   registry URLs and hashes. Retain locked sync in CI.
-2. Run the same archive and installed browser checks. The downloader accepts
-   wheels from PyPI or TestPyPI, based on each locked registry; it never searches
-   another index when a selected artifact is missing.
-3. Update the installation instructions to identify the production releases.
-
-The consumer checks build local and CI application candidates; they do not
-publish RoboSprawl. Plain pip does not use uv's index assignments, so these
-candidates must be installed with the downloaded dependency wheels as shown
-above. Do not publish RoboSprawl to production PyPI while its dependency pins
-are available only on TestPyPI. Production publication remains a separate
-release action after the cutover checks.
+The exact Roboz, Roboshed, and Endpoints releases are locked from production
+PyPI. The downloader verifies the registry host, filenames, and SHA-256 hashes;
+it never substitutes a local checkout or searches another index when an artifact
+is missing. Consumer checks build RoboSprawl candidates but do not publish them.

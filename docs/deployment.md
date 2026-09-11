@@ -14,10 +14,10 @@ Roboz and Roboshed primitives supply endpoint definitions and agent construction
 - `robosprawl.hub.utils` discovers and loads the file and normalizes project names.
 - `robosprawl.hub.logging.HubLoggingConfig` supplies logging defaults. This is the
   explicit exception to requiring deployment choices in the configuration file.
-- `roboshed.deployments.robosprawl.RoboSprawl` derives one policy from the
-  configured sandbox and project slug, binds the selected permission factories,
-  and composes the persistent orchestrator and Librarian.
-  `DeploymentFactory` handles fresh runtime construction and live model routing.
+- `robosprawl.hub.deployment.compose_deployment` connects the shared orchestrator
+  and Librarian presets using the run's already-scoped Sandbox, selected model
+  route, and configured choices. Shared `roboshed.deployments.Deployment` builds
+  fresh runtime agents and their persistence sinks.
 - The API consumes Hub and owns HTTP, streaming, interruption, cancellation,
   background-thread observation, and shutdown.
 
@@ -29,15 +29,17 @@ Edit the constants directly. `MODELS` maps display labels to lazy endpoint objec
 switching. Each file load creates fresh lazy catalogs; runs within that Hub reuse
 its configured clients.
 
-`CAPABILITIES` is an ordered tuple of configured capabilities or factories that
-accept `PermissionPolicy`. For example, `(FileCommands, FileEditing,
-Compactification(threshold_percent=60))` binds file capabilities to each project's
-permissions while retaining the explicit compaction choice. The selected shared
-`robosprawl` skill owns orientation, HUD formatting, and artifact-link guidance. The shared deployment
-resolves its project context from the configured `Sandbox` and current project
-slug when constructing a run, including configured persistence folders. Configuration does not repeat or pass
-back the deployment’s default context template. No paths or artifact-link syntax are repeated
-in the skill selection.
+`CAPABILITIES` is an ordered tuple of additional root capabilities: the shared
+`robosprawl` orientation/HUD skill and `Compactification(threshold_percent=60)`.
+The shared orchestrator already supplies file commands and editing, each taking
+only a `PermissionPolicy` derived from the run's Sandbox. Do not add duplicate
+file capabilities here. `SUBAGENTS` holds shared `DeployableAgent` definitions.
+
+`PROJECT_CONTEXT` is the readable prompt template. Composition formats it using
+the run's Sandbox paths, including its configured persistence folders. The
+`DEPLOYMENT` constant binds these choices to `compose_deployment` with
+`functools.partial`; no factory classes or runtime construction belong in the
+configuration file.
 
 `LOGGING = HubLoggingConfig()` keeps the normal console/file behavior. Override
 individual fields, such as `console_level` or `max_bytes`, when needed. The default
@@ -66,12 +68,23 @@ project-relative and disjoint. The checked-in configuration places its sandbox
 at `../RoboSprawl`, outside the checkout; it does not move data from the former
 `.runtime/data` root automatically. Tier and persistence folder names are
 preserved. The host creates directories and `ProjectService` validates startup
-layout. `Sandbox.permissions(project_slug)` is the sole policy source: it allows
+layout. `sandbox.permissions()` is the sole policy source: it allows
 sandbox reads and current-project writes, asks for shared writes, and denies
 other writes.
 
-Custom deployments implement the shared `RunFactory` contract and are supplied as
-`DEPLOYMENT`. Python hosts and mocks can use `dataclasses.replace(hub, ...)` to
+`SANDBOX` is a layout template, not an active run's scope. `Hub.project()` uses
+`for_project(slug)` to derive project paths; `RunManager.create()` takes a fresh
+copy for each independent run, including repeated runs of the same project.
+Permissions and graph construction happen afterward. That instance is passed
+to composition and the Librarian, and may be passed to specialist construction;
+it is never re-scoped during the graph's lifetime. File tools receive only its
+derived policy. Project symbolic-link aliases fail before graph construction.
+
+Custom deployments implement the local `ConfigureDeployment` callable contract
+and are supplied as `DEPLOYMENT`. They receive the scoped Sandbox, matching
+project slug, endpoint getter, and event sinks, then return an unbuilt shared
+`Deployment`. The host calls `build()` and owns the resulting root/background
+agents. Python hosts and mocks can use `dataclasses.replace(hub, ...)` to
 supply explicit typed inputs before app construction. No app-level configuration
 overrides exist. Automatic inspection includes constructed agents, every
 advertised model, and transcription. Explicit registrations must match dependency
@@ -82,20 +95,13 @@ IDs and kinds exactly; custom kinds require explicit checkers.
 The checked-in choices retain API interaction, 60% compaction without an explicit
 timeout, independent root/memory reasoning, and the shared persistent prompt.
 Librarian snapshots, consolidation, retention, and 120-second cadence remain in
-shared deployment code. Construction starts no agents or threads and creates no
+the shared Librarian preset. Construction starts no agents or threads and creates no
 persistence directories. Mocks retain fresh scripts and their existing scenario
 controls.
 
-The full local gates have now run against merged Roboz `303384e`. See
-[deployment validation](deployment-validation.md) for results, the artifact-read
-assertion correction, browser policy, source revisions, and retained diagnostics.
+This integration uses the production-PyPI releases containing the simplified
+deployment API and `Sandbox.for_project()`: Roboz `0.1.2.dev3` and Roboshed
+`0.1.0a4`.
 
-## Current code accounting
-
-Against RoboSprawl baseline `b68a8d1`, including the root Python configuration as
-production code and excluding generated files, locks, documentation, and binaries:
-
-| Scope | Additions | Deletions | Net |
-| --- | ---: | ---: | ---: |
-| Production Python | 639 | 2,247 | -1,608 |
-| Total maintained code | 1,880 | 3,890 | -2,010 |
+[Earlier deployment validation](deployment-validation.md) records the previous
+integration against Roboz `303384e`, not this change.

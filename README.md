@@ -6,9 +6,9 @@ A runnable project-agent application built on Roboz, with a FastAPI backend, str
 
 Use Linux with Bash, `setsid`, curl, uv 0.12.10 or newer (CI uses 0.12.10), Node.js 22, npm, and the read commands `grep`, `rg`, `pwd`, `cat`, `head`, `tail`, `find`, `ls`, `wc`, and `diff`. Python 3.13+ is required; uv downloads it into this checkout if needed. Playwright needs its usual Linux browser libraries already installed; installation scripts do not change system packages.
 
-RoboSprawl installs `roboz==0.1.2.dev2`, `roboshed==0.1.0a2`, and
-`roboz-endpoints[openai]==0.1.0a2` from TestPyPI. Other dependencies come from
-PyPI. No sibling Roboz checkout or package-index credentials are needed.
+RoboSprawl pins `roboz==0.1.2.dev3`, `roboshed==0.1.0a4`, and
+`roboz-endpoints[openai]==0.1.0a3` from PyPI. No sibling Roboz checkout or
+package-index credentials are needed.
 From the RoboSprawl directory:
 
 ```bash
@@ -30,7 +30,7 @@ The model selector retains GLM-5.3, GLM-5.3 Flash (OpenRouter), and GPT-OSS-120B
 
 Live capabilities are interaction, guarded file reading, literal patch editing, automatic context compaction, and Librarian memory. Reads stay within the configured sandbox; the current project is writable, shared workspace writes prompt, and other locations are denied. These are application tool guards, not an OS sandbox. Live transcription returns a clear HTTP 503; mock transcription remains testable. See [deferred dependency work](docs/deferred-dependency-changes.md) for omitted integrations.
 
-The live orchestrator applies remembered preferences, delegates to configured specialists, and stays available across tasks. It stops when the user asks to end the session. See [deployment composition](docs/deployment.md) for the shared factory and sandbox configuration.
+The live orchestrator applies remembered preferences, delegates to configured specialists, and stays available across tasks. It stops when the user asks to end the session. See [deployment composition](docs/deployment.md) for the shared deployment and sandbox configuration.
 
 Both launch modes use `fastapi dev`, showing the FastAPI startup banner, API documentation URL, and server logs in the terminal. Backend source changes reload automatically.
 
@@ -52,12 +52,15 @@ Set `ROBOSPRAWL_CONFIG=/absolute/path/hub.config.py` to choose configuration and
 ```python
 MODELS: Final = {"GLM": GLM, "Cerebras": GPT_OSS}
 DEFAULT_MODEL: Final = GLM
-CAPABILITIES: Final = (FileCommands, FileEditing, Compactification(threshold_percent=60))
+CAPABILITIES: Final = (
+    Capability(auto_loaded_skills=(robosprawl,)),
+    Compactification(threshold_percent=60),
+)
 ```
 
 The checked-in file supplies all deployment choices. Logging is the explicit exception: `LOGGING = HubLoggingConfig()` uses defaults from `robosprawl.hub.logging`; pass individual keyword arguments to customize them. See [deployment composition](docs/deployment.md) for the complete contract.
 
-`create_app(deployment=load_hub())` consumes a validated Hub directly. `robosprawl.hub.utils` owns discovery, loading, and slug normalization. Hub owns its inputs and runtime selector; there is no nested configuration wrapper. Shared inspection derives executable/model registrations from constructed agents and all advertised models, including unselected ones. Explicit registries retain exact validation. Standard file boundaries come only from `Sandbox.permissions(project_slug)`.
+`create_app(deployment=load_hub())` consumes a validated Hub directly. `robosprawl.hub.utils` owns discovery, loading, and slug normalization. Hub owns its inputs and runtime selector; there is no nested configuration wrapper. Shared inspection derives executable/model registrations from constructed agents and all advertised models, including unselected ones. Explicit registries retain exact validation. The shared orchestrator supplies guarded file capabilities; their boundaries come only from the run's scoped `sandbox.permissions()`.
 
 Backend imports have no startup side effects. ASGI factories build an app; its lifespan registers use of process logging and recovers activity markers before accepting work. Overlapping apps in one process must share the same logging configuration. Shutdown cancels root and background work and waits up to ten seconds, logging a timeout if synchronous work cannot stop. Run registries are process-local: run one backend worker per data directory.
 
@@ -120,7 +123,7 @@ For a paced stream demonstration, source `scripts/env.sh` and run `uv run uvicor
 Visual baselines live under `web/e2e/visual-regression.spec.ts-snapshots`. Update them intentionally with `--project=chromium --update-snapshots`, then review the images. [Verification notes](docs/verification.md) record the port's results and visual review. Credential-backed live inference is reported separately from automated configuration tests.
 
 CI installs the exact dependency releases recorded in `uv.lock`. The three
-Roboz packages use an explicit TestPyPI index; all other dependencies use PyPI.
+Roboz packages and ordinary dependencies come from PyPI.
 The distribution job downloads dependency wheels from their locked registry
 URLs, verifies SHA-256 hashes, and builds the application archives fresh.
 Browser jobs verify and install those same wheels with pip. Dependency versions,
@@ -129,11 +132,3 @@ URLs, and hashes are recorded with distribution reports. Require the aggregate
 Actions are pinned to immutable commits and maintained by Dependabot. CI needs
 no access token for the Roboz repository. Reports and candidate archives are
 retained for 14 days. See [testing commands and artifact contracts](docs/testing.md).
-
-## Production PyPI installation later
-
-This integration uses TestPyPI only. After compatible versions of all three
-packages are published to production PyPI, update the dependency pins, remove
-the explicit TestPyPI configuration, and refresh `uv.lock`. The downloader also
-accepts production PyPI URLs and continues enforcing the locked wheel hashes.
-See the [PyPI cutover steps](docs/testing.md#pypi-cutover).

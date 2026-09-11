@@ -3,7 +3,7 @@
 The records below preserve the source revisions and results originally
 verified. Their pinned-source procedures and reuse of downloaded CI builds are
 superseded for current acceptance: each new CI run installs the locked Roboz
-releases from TestPyPI and builds fresh application distributions and frontend assets. Fresh wheel
+releases from PyPI and builds fresh application distributions and frontend assets. Fresh wheel
 and source-distribution installation checks remain required. See
 [current validation instructions](testing.md) and
 [deployment composition](deployment.md).

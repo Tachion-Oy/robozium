@@ -2,13 +2,18 @@
 
 ## Unreleased
 
+- Adopt shared `Deployment` and `DeployableAgent` composition with one fresh,
+  project-scoped Sandbox per run. Paths and permissions come from that instance;
+  the Python configuration retains all deployment choices and project context.
+  Shared agent/tool definitions and host lifecycle behavior are unchanged.
+
 - Replace the split workspace and persistence configuration with one `SANDBOX`.
   It is the sole source of project paths and tiered tool permissions; the API's
   `Project` remains an application-owned identity/lifecycle value. The default
   sandbox root is now `../RoboSprawl`, outside the checkout, while tier names,
   project persistence names, and permission behavior remain unchanged.
 
-- Install the tested Roboz, Shed, and Endpoints releases from TestPyPI. Development
+- Install the tested Roboz, Shed, and Endpoints releases from PyPI. Development
   setup and installed browser tests no longer need a sibling Roboz checkout or
   a private-repository dependency token.
 
@@ -31,7 +36,7 @@
 
 ### Changed
 
-- Test each CI run against the exact Roboz releases locked from TestPyPI; record their versions and hashes alongside the RoboSprawl revision, and build fresh application candidates for installation and browser checks.
+- Test each CI run against the exact Roboz releases locked from PyPI; record their versions and hashes alongside the RoboSprawl revision, and build fresh application candidates for installation and browser checks.
 
 - Use Roboz Shed for automatic context compaction, restoring the full continuation prompts and forwarding run cancellation and optional timeouts. Python consumers should import the builder from `roboshed.tools` instead of the removed `robosprawl.compaction` module.
 
