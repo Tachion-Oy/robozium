@@ -6,10 +6,10 @@ import logging
 import threading
 import time
 from collections.abc import Callable, Collection
-from dataclasses import replace
 from functools import partial
 from uuid import uuid4
 
+from roboshed.deployments import Deployment
 from roboz.dependencies import LazyExternalDependency
 from roboz.llm import LLMEndpoint
 from roboz.runtime import (
@@ -26,7 +26,6 @@ from robosprawl.api.projects import Project
 from robosprawl.api.run_control import RunControl
 from robosprawl.api.state import ProjectRunItem, RunState, RunStatus, RunView
 from robosprawl.api.user_io import ApiUserIO
-from robosprawl.hub.deployment import ConfigureDeployment
 
 logger = logging.getLogger(__name__)
 MESSAGE_HISTORY_LIMIT = 5_000
@@ -36,7 +35,7 @@ COMPLETED_TTL_S = 300.0
 class RunManager:
     def __init__(
         self,
-        configure_deployment: ConfigureDeployment,
+        configure_deployment: Callable[..., Deployment],
         *,
         hub_name: str,
         default_orchestrator_endpoint: Callable[
@@ -95,7 +94,7 @@ class RunManager:
                 )
             run_id = str(uuid4())
             self._runs[run_id] = RunControl(
-                replace(project, sandbox=project.sandbox.for_project(project.slug)),
+                project,
                 self._default_endpoint(),
                 history_limit=self._history_limit,
             )
@@ -122,7 +121,7 @@ class RunManager:
 
     @staticmethod
     def _run_agent(
-        run_id: str, control: RunControl, *, configure: ConfigureDeployment
+        run_id: str, control: RunControl, *, configure: Callable[..., Deployment]
     ) -> None:
         """Worker body: bind API context, construct and invoke the agent.
 

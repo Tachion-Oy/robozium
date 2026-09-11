@@ -31,7 +31,7 @@ def test_configured_models_apply_per_use_request_policy(monkeypatch):
         endpoint.materialize() for endpoint in hub.model_selector.models.values()
     ]
     project = hub.project("policy-test")
-    deployment = hub.deployment(
+    deployment = hub.configure_deployment(
         project.sandbox, project.slug, endpoint_getter=lambda: hub.default_model
     )
     memory = deployment.agent.background_agents[0].agent_endpoint.materialize()
@@ -49,7 +49,7 @@ def test_configured_models_apply_per_use_request_policy(monkeypatch):
         endpoint.client.close()
 
 
-def _specialist(name, *, subagents=(), responses=None):
+def _specialist(name, *, subagents=(), background_agents=(), responses=None):
     return DeployableAgent(
         name=name,
         interaction_mode=Output.API,
@@ -59,6 +59,7 @@ def _specialist(name, *, subagents=(), responses=None):
         ),
         capabilities=(Capability(tools=(stop,)),),
         subagents=subagents,
+        background_agents=background_agents,
     )
 
 
@@ -78,7 +79,9 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
     project = Project(sandbox, "demo")
     root_endpoint = openrouter.z_ai__glm_5_3
     memory_endpoint = cerebras.gpt_oss_120b
-    nested = _specialist("nested")
+    nested = _specialist(
+        "nested", background_agents=(_specialist("specialist_maintenance"),)
+    )
     spec = _specialist("specialist", subagents=(nested,))
 
     def reject(*args, **kwargs):
@@ -93,12 +96,14 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
     assert isinstance(deployment, Deployment)
     names = deployment.agent.agent_names(include_background=False)
     assert names == {"orchestrator", "specialist", "nested"}
-    assert deployment.agent.system_prompt.startswith(ORCHESTRATOR_PROMPT)
-    assert "<file src=" not in deployment.agent.system_prompt
-    assert str(project.sandbox.resolved_root) in deployment.agent.system_prompt
-    assert str(project.root) in deployment.agent.system_prompt
+    assert deployment.agent.system_prompt == ORCHESTRATOR_PROMPT
+    memory_path, context = deployment.agent.initial_messages
+    assert memory_path == project.memory
+    assert "<file src=" not in context
+    assert str(project.sandbox.resolved_root) in context
+    assert str(project.root) in context
     for location in (project.logs, project.snapshots, project.memory):
-        assert str(location) in deployment.agent.system_prompt
+        assert str(location) in context
     assert deployment.agent.interaction_mode == Output.API
     compaction = next(
         c for c in deployment.additional_capabilities if isinstance(c, Compactification)
@@ -121,12 +126,14 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
         retention.max_memory_files,
     ) == (500, 100, 10)
     assert isinstance(cadence, MaintenanceCadence) and cadence.seconds == 120
-    agent, (background,) = deployment.build()
+    agent, (specialist_background, background) = deployment.build()
+    assert specialist_background.name == "specialist_maintenance"
     assert robosprawl_skill in agent.auto_loaded_skills
     assert '<file src="relative/path.ext">' in robosprawl_skill.instructions
     assert "runtime-supplied" in robosprawl_skill.instructions
     assert not project.sandbox.root.exists()
-    assert agent.initial_messages == (project.memory,)
+    assert agent.initial_messages == deployment.agent.initial_messages
+    assert agent.initial_messages[0] == project.memory
     assert agent.pipe.data_path == project.logs / "orchestrator"
     assert background.pipe.data_path == project.logs / "librarian"
     assert not background.is_agentic
@@ -180,6 +187,8 @@ def test_nested_specialists_have_separate_persistence_and_seed_memory(tmp_path):
         assert data["agent_name"] == name and data["status"] == "completed"
         if name == "orchestrator":
             assert "REMEMBER-PREFERENCES" in log.read_text()
+            assert str(project.root) in log.read_text()
+            assert "## Project context" in log.read_text()
 
 
 def test_route_discovery_and_compaction_follow_model_switch_without_rebuild(tmp_path):
@@ -187,11 +196,11 @@ def test_route_discovery_and_compaction_follow_model_switch_without_rebuild(tmp_
     memory = cerebras.gpt_oss_120b
     selected = first
     project = Project(Sandbox(tmp_path).for_project("demo"), "demo")
-    deployment = load_hub().deployment(
+    hub = replace(load_hub(), memory_endpoint=memory)
+    deployment = hub.configure_deployment(
         project.sandbox,
         project.slug,
         endpoint_getter=lambda: selected,
-        memory_endpoint=memory,
     )
     route = deployment.agent.agent_endpoint
     agent, (background,) = deployment.build()
@@ -215,7 +224,7 @@ def test_project_binding_cannot_disagree_with_the_sandbox():
     with pytest.raises(ValueError, match="match the sandbox scope"):
         Project(project.sandbox, "two")
     with pytest.raises(ValueError, match="match the sandbox scope"):
-        hub.deployment(
+        hub.configure_deployment(
             project.sandbox, "two", endpoint_getter=lambda: hub.default_model
         )
 
@@ -242,7 +251,9 @@ def test_interleaved_deployments_keep_project_paths_and_policies_separate(tmp_pa
     hub = replace(hub, sandbox=replace(hub.sandbox, root=tmp_path / "sandbox"))
     first, second = hub.project("one"), hub.project("two")
     deployments = [
-        hub.deployment(p.sandbox, p.slug, endpoint_getter=lambda: hub.default_model)
+        hub.configure_deployment(
+            p.sandbox, p.slug, endpoint_getter=lambda: hub.default_model
+        )
         for p in (first, second)
     ]
     assert first.sandbox is not second.sandbox
@@ -250,12 +261,15 @@ def test_interleaved_deployments_keep_project_paths_and_policies_separate(tmp_pa
     assert hub.sandbox.scope is None
     for project, deployment in zip((first, second), deployments, strict=True):
         agent, (background,) = deployment.build()
-        assert deployment.sandbox is project.sandbox
+        assert deployment.sandbox is not project.sandbox
+        assert deployment.sandbox == project.sandbox
         assert agent.pipe.data_path == project.logs / "orchestrator"
         assert background.pipe.data_path == project.logs / "librarian"
-        assert agent.initial_messages == (project.memory,)
+        assert agent.initial_messages == deployment.agent.initial_messages
+        assert agent.initial_messages[0] == project.memory
+        assert str(project.root) in agent.initial_messages[1]
         for capability in deployment.agent.background_agents[0].capabilities:
-            assert capability.sandbox is project.sandbox
+            assert capability.sandbox is deployment.sandbox
         for capability in deployment.agent.capabilities[1:]:
             policy = capability.permissions
             for target in (first, second):

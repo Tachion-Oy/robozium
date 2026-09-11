@@ -1,4 +1,3 @@
-from functools import partial
 from pathlib import Path
 from typing import Final
 
@@ -11,7 +10,6 @@ from roboz.runtime import Output
 from roboz_endpoints import cerebras, openrouter
 
 from robosprawl.hub.application import DependencyHealthSettings
-from robosprawl.hub.deployment import compose_deployment
 from robosprawl.hub.logging import HubLoggingConfig
 
 NAME: Final = "RoboSprawl"
@@ -48,24 +46,5 @@ CAPABILITIES: Final = (
 )
 SUBAGENTS: Final = ()
 INTERACTION_MODE: Final = Output.API
-PROJECT_CONTEXT: Final = (
-    "## Project context\n"
-    "File tool base: {sandbox.resolved_root}\n"
-    "Project: {project_slug}\n"
-    "Writable project directory: {project_root}\n"
-    "Read-only directory: {sandbox.readonly_dir}\n"
-    "Shared directory: {sandbox.shared_dir}\n"
-    "Conversation logs: {project_logs}\n"
-    "Snapshots: {project_snapshots}\n"
-    "Memory: {project_memory}"
-)
-DEPLOYMENT: Final = partial(
-    compose_deployment,
-    additional_capabilities=CAPABILITIES,
-    memory_endpoint=MEMORY_ENDPOINT,
-    subagents=SUBAGENTS,
-    interaction_mode=INTERACTION_MODE,
-    project_context=PROJECT_CONTEXT,
-)
 TRANSCRIPTION_ENDPOINT: Final = None
 DEPENDENCY_REGISTRY: Final = None

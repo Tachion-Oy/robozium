@@ -28,8 +28,8 @@ def dependency_lifespan(
             hub_dependencies += (hub.transcription_endpoint,)
         project_slug = hub.project(hub.name).slug
         dependencies = inspect_dependencies(
-            lambda sandbox: hub.deployment(
-                sandbox.for_project(project_slug),
+            lambda sandbox: hub.configure_deployment(
+                sandbox,
                 project_slug,
                 endpoint_getter=lambda: hub.model_selector.selected_endpoint,
                 event_sinks=(),

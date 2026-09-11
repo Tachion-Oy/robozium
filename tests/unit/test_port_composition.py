@@ -226,11 +226,11 @@ def test_mock_import_never_constructs_live_deployment():
             sys.executable,
             "-c",
             """
-import robosprawl.hub.deployment
+import robosprawl.hub.application
 
 def reject(*args, **kwargs):
     raise AssertionError('live deployment constructed')
-robosprawl.hub.deployment.compose_deployment = reject
+robosprawl.hub.application.orchestrator = reject
 from robosprawl.api.app import mock_app
 from fastapi.testclient import TestClient
 with TestClient(mock_app()) as client:

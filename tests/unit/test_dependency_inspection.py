@@ -94,8 +94,8 @@ def test_standard_deployment_discovers_tools_and_every_selectable_model() -> Non
     deployment = load_hub()
     project = deployment.project("inspection")
     discovered = inspect_dependencies(
-        lambda sandbox: deployment.deployment(
-            sandbox.for_project(project.slug),
+        lambda sandbox: deployment.configure_deployment(
+            sandbox,
             project.slug,
             endpoint_getter=lambda: deployment.model_selector.selected_endpoint,
             event_sinks=(),
@@ -115,7 +115,7 @@ def test_standard_deployment_discovers_tools_and_every_selectable_model() -> Non
         endpoint.dependency_id
         for endpoint in (
             *deployment.models.values(),
-            deployment.deployment(
+            deployment.configure_deployment(
                 project.sandbox,
                 project.slug,
                 endpoint_getter=lambda: deployment.model_selector.selected_endpoint,

@@ -3,18 +3,30 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 from typing import TypedDict
 
+from roboshed.agents import librarian, orchestrator
+from roboshed.deployments import Deployment
 from roboshed.sandbox import Sandbox
-from roboz.dependencies import DependencyRegistration, LazyExternalDependency
-from roboz.llm import LLMEndpoint, ModelSelector, TranscriptionEndpointLike
+from roboz.dependencies import (
+    DependencyRegistration,
+    DependencyRoute,
+    LazyExternalDependency,
+)
+from roboz.deployment import AgentCapability, DeployableAgent
+from roboz.llm import (
+    EndpointLike,
+    LLMEndpoint,
+    ModelSelector,
+    TranscriptionEndpointLike,
+)
+from roboz.runtime import EventSink, Output
 
 from robosprawl.api.projects import Project
-from robosprawl.hub.deployment import ConfigureDeployment
 from robosprawl.hub.logging import HubLoggingConfig
 from robosprawl.hub.utils import slugify_project_name
 
@@ -43,7 +55,10 @@ class HubValues(TypedDict):
     DEPENDENCY_HEALTH: DependencyHealthSettings
     MODELS: Mapping[str, LazyExternalDependency[LLMEndpoint]]
     DEFAULT_MODEL: LazyExternalDependency[LLMEndpoint]
-    DEPLOYMENT: ConfigureDeployment
+    CAPABILITIES: Sequence[AgentCapability]
+    MEMORY_ENDPOINT: EndpointLike
+    SUBAGENTS: Sequence[DeployableAgent]
+    INTERACTION_MODE: Output | None
     TRANSCRIPTION_ENDPOINT: TranscriptionEndpointLike | None
     DEPENDENCY_REGISTRY: tuple[DependencyRegistration, ...] | None
 
@@ -58,9 +73,13 @@ class Hub:
     dependency_health: DependencyHealthSettings
     models: Mapping[str, LazyExternalDependency[LLMEndpoint]]
     default_model: LazyExternalDependency[LLMEndpoint]
-    deployment: ConfigureDeployment
+    capabilities: Sequence[AgentCapability]
+    memory_endpoint: EndpointLike
+    subagents: Sequence[DeployableAgent]
+    interaction_mode: Output | None
     transcription_endpoint: TranscriptionEndpointLike | None
     dependency_registry: tuple[DependencyRegistration, ...] | None
+    deployment: Callable[..., Deployment] | None = None
     model_selector: ModelSelector = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -74,8 +93,10 @@ class Hub:
             "model_selector",
             ModelSelector(self.models, default=self.default_model),
         )
-        if not callable(self.deployment):
-            raise TypeError("deployment must implement ConfigureDeployment")
+        object.__setattr__(self, "capabilities", tuple(self.capabilities))
+        object.__setattr__(self, "subagents", tuple(self.subagents))
+        if self.deployment is not None and not callable(self.deployment):
+            raise TypeError("deployment override must be callable")
         if self.dependency_registry is not None:
             object.__setattr__(
                 self, "dependency_registry", tuple(self.dependency_registry)
@@ -102,3 +123,52 @@ class Hub:
         """Derive a shared project without creating directories."""
         slug = slugify_project_name(name)
         return Project(sandbox=self.sandbox.for_project(slug), slug=slug)
+
+    def configure_deployment(
+        self,
+        sandbox: Sandbox,
+        project_slug: str,
+        /,
+        *,
+        endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+        event_sinks: Sequence[EventSink] = (),
+    ) -> Deployment:
+        """Construct a fresh scoped graph; the host owns build and execution."""
+        if sandbox.scope is not None and sandbox.scope != project_slug:
+            raise ValueError("deployment project must match the sandbox scope")
+        sandbox = sandbox.for_project(project_slug)
+        if self.deployment is not None:
+            return self.deployment(
+                sandbox,
+                project_slug,
+                endpoint_getter=endpoint_getter,
+                event_sinks=event_sinks,
+            )
+        names = {"orchestrator"}
+        for specialist in self.subagents:
+            names.update(specialist.agent_names(include_background=False))
+        memory = librarian(sandbox, names, agent_endpoint=self.memory_endpoint)
+        context = (
+            "## Project context\n"
+            f"File tool base: {sandbox.resolved_root}\n"
+            f"Project: {project_slug}\n"
+            f"Writable project directory: {sandbox.project_dir()}\n"
+            f"Read-only directory: {sandbox.readonly_dir}\n"
+            f"Shared directory: {sandbox.shared_dir}\n"
+            f"Conversation logs: {sandbox.project_logs_dir()}\n"
+            f"Snapshots: {sandbox.project_snapshots_dir()}\n"
+            f"Memory: {sandbox.project_memory_dir()}"
+        )
+        return Deployment(
+            agent=orchestrator(
+                sandbox,
+                agent_endpoint=DependencyRoute(endpoint_getter),
+                subagents=self.subagents,
+                background_agents=(memory,),
+                interaction_mode=self.interaction_mode,
+                initial_messages=(sandbox.project_memory_dir(), context),
+            ),
+            sandbox=sandbox,
+            additional_capabilities=tuple(self.capabilities),
+            event_sinks=list(event_sinks),
+        )

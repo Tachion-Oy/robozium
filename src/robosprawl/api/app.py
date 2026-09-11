@@ -71,7 +71,7 @@ def _model_selection_view(
 def create_app(*, deployment: Hub) -> FastAPI:
     """Host the supplied Hub through ASGI, owning HTTP and runtime lifecycle."""
     manager = RunManager(
-        deployment.deployment,
+        deployment.configure_deployment,
         hub_name=deployment.name,
         default_orchestrator_endpoint=lambda: (
             deployment.model_selector.selected_endpoint

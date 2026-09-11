@@ -53,7 +53,6 @@ from robosprawl.api.app import create_app
 from robosprawl.api.projects import Project
 from robosprawl.api.state import RunStatus
 from robosprawl.hub.application import Hub
-from robosprawl.hub.deployment import ConfigureDeployment
 from robosprawl.hub.utils import load_hub
 from robosprawl.mock.agents import mock_deployment
 
@@ -65,7 +64,7 @@ def _root_bundle(agent: Agent) -> BuiltAgents:
     return BuiltAgents(agent=agent, background_agents=())
 
 
-def _test_deployment(factory: ConfigureDeployment, config_start: Path) -> Hub:
+def _test_deployment(factory: Callable[..., Deployment], config_start: Path) -> Hub:
     return replace(
         load_hub(start=config_start),
         deployment=factory,

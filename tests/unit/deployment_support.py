@@ -21,12 +21,13 @@ class BuiltAgents(NamedTuple):
 
 def configured_deployment(project, endpoint, **choices):
     """Use the real application composition with an explicit test endpoint."""
-    hub = load_hub()
+    event_sinks = choices.pop("event_sinks", ())
     choices.setdefault("memory_endpoint", MockLLMEndpoint([]))
-    deployment = hub.deployment(
+    hub = replace(load_hub(), **choices)
+    deployment = hub.configure_deployment(
         project.sandbox,
         project.slug,
         endpoint_getter=lambda: hub.default_model,
-        **choices,
+        event_sinks=event_sinks,
     )
     return replace(deployment, agent=replace(deployment.agent, agent_endpoint=endpoint))

@@ -5,7 +5,6 @@ import os
 import subprocess
 import sys
 from dataclasses import replace
-from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -112,11 +111,11 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
         hub,
         models={"Root": root, "Spare": spare},
         default_model=root,
-        deployment=partial(hub.deployment, memory_endpoint=memory),
+        memory_endpoint=memory,
     )
     bound = inspect_dependencies(
-        lambda sandbox: hub.deployment(
-            sandbox.for_project("demo"),
+        lambda sandbox: hub.configure_deployment(
+            sandbox,
             "demo",
             endpoint_getter=lambda: hub.model_selector.selected_endpoint,
         ),
@@ -135,7 +134,7 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
     }
     assert hub.model_selector.selected_endpoint is root
     hub.model_selector.select(spare.dependency_id)
-    configured = hub.deployment(
+    configured = hub.configure_deployment(
         hub.project("demo").sandbox,
         "demo",
         endpoint_getter=lambda: hub.model_selector.selected_endpoint,
@@ -153,10 +152,14 @@ def test_explicit_config_path_wins_over_environment(config_file, monkeypatch):
     assert load_hub().sandbox.root == expected
 
 
-def test_required_sandbox_choice_fails_during_load(config_file):
+@pytest.mark.parametrize(
+    "choice",
+    ["SANDBOX", "CAPABILITIES", "MEMORY_ENDPOINT", "SUBAGENTS", "INTERACTION_MODE"],
+)
+def test_required_choice_fails_during_load(config_file, choice):
     with config_file.open("a") as file:
-        file.write("\ndel SANDBOX\n")
-    with pytest.raises(RuntimeError, match="SANDBOX"):
+        file.write(f"\ndel {choice}\n")
+    with pytest.raises(RuntimeError, match=choice):
         load_hub(config_file=config_file)
 
 
@@ -280,21 +283,19 @@ def test_constants_control_the_complete_deployment(config_file, monkeypatch):
     monkeypatch.chdir(config_file.parent)
     with config_file.open("a") as file:
         file.write("""
+from roboz.deployment import DeployableAgent
+
 MODELS = {"Alternate": FLASH}
 DEFAULT_MODEL = FLASH
 DEPENDENCY_HEALTH = DependencyHealthSettings(interval_s=17, timeout_s=3)
-DEPLOYMENT = partial(
-    compose_deployment,
-    additional_capabilities=(Compactification(threshold_percent=42),),
-    memory_endpoint=GPT_OSS,
-    subagents=(),
-    interaction_mode=Output.API,
-    project_context="Configured project context for {project_slug}",
-)
+CAPABILITIES = (Compactification(threshold_percent=42),)
+MEMORY_ENDPOINT = GPT_OSS
+SUBAGENTS = (DeployableAgent(name="reviewer", agent_endpoint=GPT_OSS),)
+INTERACTION_MODE = None
 """)
     hub = load_hub(config_file=config_file)
     project = hub.project("custom")
-    deployment = hub.deployment(
+    deployment = hub.configure_deployment(
         project.sandbox, project.slug, endpoint_getter=lambda: hub.default_model
     )
     assert tuple(hub.models) == ("Alternate",)
@@ -303,7 +304,14 @@ DEPLOYMENT = partial(
         hub.dependency_health.interval_s == 17 and hub.dependency_health.timeout_s == 3
     )
     assert deployment.additional_capabilities[-1].threshold_percent == 42
-    assert "Configured project context for custom" in deployment.agent.system_prompt
+    assert deployment.agent.subagents == tuple(hub.subagents)
+    assert deployment.agent.agent_names(include_background=False) == {
+        "orchestrator", "reviewer"
+    }
+    assert hub.interaction_mode is None
+    assert deployment.agent.interaction_mode is None
+    assert deployment.agent.initial_messages[0] == project.memory
+    assert "Project: custom" in deployment.agent.initial_messages[1]
     assert (
         deployment.agent.background_agents[0].agent_endpoint.dependency_id
         == "model:cerebras:gpt-oss-120b"

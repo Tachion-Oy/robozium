@@ -11,6 +11,7 @@ from typing import Any, cast
 
 import pytest
 from deployment_support import BuiltAgents
+from roboshed.deployments import Deployment
 from roboshed.identifiers import LIBRARIAN_AGENT_NAME
 from roboshed.sandbox import Sandbox
 from roboz import Agent, DependencyRoute
@@ -48,7 +49,6 @@ from robosprawl.api.run_events import RunEvents
 from robosprawl.api.run_manager import RunManager
 from robosprawl.api.user_io import ApiUserIO
 from robosprawl.api.wait_registry import WaitRegistry
-from robosprawl.hub.deployment import ConfigureDeployment
 
 
 @tool
@@ -168,7 +168,9 @@ def _root_bundle(agent: Agent) -> BuiltAgents:
     return BuiltAgents(agent=agent, background_agents=())
 
 
-def _manager(factory: ConfigureDeployment, *, hub_name: str, **kwargs: Any) -> RunManager:
+def _manager(
+    factory: Callable[..., Deployment], *, hub_name: str, **kwargs: Any
+) -> RunManager:
     return RunManager(
         factory,
         hub_name=hub_name,
@@ -873,7 +875,7 @@ def _stub_background_agent(name: str = "stub_librarian") -> Agent:
     )
 
 
-def _completed_root_with_background(background: Agent) -> ConfigureDeployment:
+def _completed_root_with_background(background: Agent) -> Callable[..., Deployment]:
     def factory(
         sandbox: Sandbox,
         project_slug: str,
@@ -1098,7 +1100,12 @@ def test_each_run_gets_a_fresh_sandbox_even_when_reusing_a_project(tmp_path):
             event_sinks=event_sinks,
         )
 
-    manager = _manager(factory, hub_name="TestHub")
+    from dataclasses import replace
+
+    from robosprawl.hub.utils import load_hub
+
+    hub = replace(load_hub(), deployment=factory)
+    manager = _manager(hub.configure_deployment, hub_name="TestHub")
     project = _tmp_project(tmp_path, "same-project")
     try:
         for _ in range(2):

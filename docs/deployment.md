@@ -7,17 +7,18 @@ Roboz and Roboshed primitives supply endpoint definitions and agent construction
 ## Ownership
 
 - The configuration file selects named endpoints, request policies, capabilities,
-  instructions, interaction mode, specialists, one sandbox layout,
+  interaction mode, specialists, one sandbox layout,
   health timings, transcription, and dependency registrations.
 - `robosprawl.hub.application.Hub` validates those inputs, derives projects, and
-  owns the runtime `ModelSelector`. It does not pick models or capabilities.
+  owns the runtime `ModelSelector`. It constructs the shared agent graph directly
+  from the configured choices.
 - `robosprawl.hub.utils` discovers and loads the file and normalizes project names.
 - `robosprawl.hub.logging.HubLoggingConfig` supplies logging defaults. This is the
   explicit exception to requiring deployment choices in the configuration file.
-- `robosprawl.hub.deployment.compose_deployment` connects the shared orchestrator
-  and Librarian presets using the run's already-scoped Sandbox, selected model
-  route, and configured choices. Shared `roboshed.deployments.Deployment` builds
-  fresh runtime agents and their persistence sinks.
+- `Hub.configure_deployment()` creates a fresh scoped Sandbox, constructs the
+  Librarian from the root and recursive foreground specialist names, and passes
+  it to the shared orchestrator. Shared `roboshed.deployments.Deployment.build()`
+  builds fresh runtime agents and their persistence sinks.
 - The API consumes Hub and owns HTTP, streaming, interruption, cancellation,
   background-thread observation, and shutdown.
 
@@ -35,11 +36,11 @@ The shared orchestrator already supplies file commands and editing, each taking
 only a `PermissionPolicy` derived from the run's Sandbox. Do not add duplicate
 file capabilities here. `SUBAGENTS` holds shared `DeployableAgent` definitions.
 
-`PROJECT_CONTEXT` is the readable prompt template. Composition formats it using
-the run's Sandbox paths, including its configured persistence folders. The
-`DEPLOYMENT` constant binds these choices to `compose_deployment` with
-`functools.partial`; no factory classes or runtime construction belong in the
-configuration file.
+Hub loads `CAPABILITIES`, `MEMORY_ENDPOINT`, `SUBAGENTS`, and `INTERACTION_MODE`
+directly. It supplies the memory directory and a generated project-location
+message through the orchestrator's `initial_messages`. The shared system prompt
+is used unchanged. Project locations come from the same scoped Sandbox used for
+file permissions, the Librarian, and the Deployment.
 
 `LOGGING = HubLoggingConfig()` keeps the normal console/file behavior. Override
 individual fields, such as `console_level` or `max_bytes`, when needed. The default
@@ -72,22 +73,21 @@ layout. `sandbox.permissions()` is the sole policy source: it allows
 sandbox reads and current-project writes, asks for shared writes, and denies
 other writes.
 
-`SANDBOX` is a layout template, not an active run's scope. `Hub.project()` uses
-`for_project(slug)` to derive project paths; `RunManager.create()` takes a fresh
-copy for each independent run, including repeated runs of the same project.
-Permissions and graph construction happen afterward. That instance is passed
-to composition and the Librarian, and may be passed to specialist construction;
-it is never re-scoped during the graph's lifetime. File tools receive only its
-derived policy. Project symbolic-link aliases fail before graph construction.
+`SANDBOX` is a layout template. `Hub.project()` uses `for_project(slug)` to derive
+project paths; `Hub.configure_deployment()` takes a fresh scoped copy for each
+independent run, including repeated runs of the same project. Permissions and
+graph construction use that instance throughout. It is never re-scoped during
+the graph's lifetime. File tools receive only its derived policy. Project
+symbolic-link aliases fail before graph construction.
 
-Custom deployments implement the local `ConfigureDeployment` callable contract
-and are supplied as `DEPLOYMENT`. They receive the scoped Sandbox, matching
-project slug, endpoint getter, and event sinks, then return an unbuilt shared
-`Deployment`. The host calls `build()` and owns the resulting root/background
-agents. Python hosts and mocks can use `dataclasses.replace(hub, ...)` to
-supply explicit typed inputs before app construction. No app-level configuration
-overrides exist. Automatic inspection includes constructed agents, every
-advertised model, and transcription. Explicit registrations must match dependency
+Python hosts and mocks can use `dataclasses.replace(hub, ...)` to supply explicit
+inputs before app construction. The optional `deployment` callable override
+receives the fresh scoped Sandbox, matching project slug, endpoint getter, and
+event sinks, and returns an unbuilt shared Deployment. It is a runtime override;
+the configuration file declares deployment choices directly. The host calls
+`build()` and owns the resulting root/background agents. No app-level
+configuration overrides exist. Automatic inspection includes constructed agents,
+every advertised model, and transcription. Explicit registrations must match dependency
 IDs and kinds exactly; custom kinds require explicit checkers.
 
 ## Behavior and verification
