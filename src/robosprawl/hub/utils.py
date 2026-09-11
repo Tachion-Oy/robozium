@@ -66,10 +66,7 @@ def load_hub(*, start: Path | None = None, config_file: Path | None = None) -> H
             dependency_health=values["DEPENDENCY_HEALTH"],
             models=values["MODELS"],
             default_model=values["DEFAULT_MODEL"],
-            capabilities=values["CAPABILITIES"],
-            memory_endpoint=values["MEMORY_ENDPOINT"],
-            subagents=values["SUBAGENTS"],
-            interaction_mode=values["INTERACTION_MODE"],
+            deployment=values["DEPLOYMENT"],
             transcription_endpoint=values["TRANSCRIPTION_ENDPOINT"],
             dependency_registry=values["DEPENDENCY_REGISTRY"],
         )

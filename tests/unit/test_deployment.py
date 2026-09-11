@@ -196,7 +196,8 @@ def test_route_discovery_and_compaction_follow_model_switch_without_rebuild(tmp_
     memory = cerebras.gpt_oss_120b
     selected = first
     project = Project(Sandbox(tmp_path).for_project("demo"), "demo")
-    hub = replace(load_hub(), memory_endpoint=memory)
+    hub = load_hub()
+    hub = replace(hub, deployment=replace(hub.deployment, memory_endpoint=memory))
     deployment = hub.configure_deployment(
         project.sandbox,
         project.slug,

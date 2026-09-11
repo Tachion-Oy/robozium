@@ -111,7 +111,7 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
         hub,
         models={"Root": root, "Spare": spare},
         default_model=root,
-        memory_endpoint=memory,
+        deployment=replace(hub.deployment, memory_endpoint=memory),
     )
     bound = inspect_dependencies(
         lambda sandbox: hub.configure_deployment(
@@ -154,7 +154,7 @@ def test_explicit_config_path_wins_over_environment(config_file, monkeypatch):
 
 @pytest.mark.parametrize(
     "choice",
-    ["SANDBOX", "CAPABILITIES", "MEMORY_ENDPOINT", "SUBAGENTS", "INTERACTION_MODE"],
+    ["SANDBOX", "DEPLOYMENT"],
 )
 def test_required_choice_fails_during_load(config_file, choice):
     with config_file.open("a") as file:
@@ -292,6 +292,13 @@ CAPABILITIES = (Compactification(threshold_percent=42),)
 MEMORY_ENDPOINT = GPT_OSS
 SUBAGENTS = (DeployableAgent(name="reviewer", agent_endpoint=GPT_OSS),)
 INTERACTION_MODE = None
+DEPLOYMENT = RoboSprawl(
+    memory_endpoint=MEMORY_ENDPOINT,
+    additional_capabilities=CAPABILITIES,
+    subagents=SUBAGENTS,
+    interaction_mode=INTERACTION_MODE,
+)
+del CAPABILITIES, MEMORY_ENDPOINT, SUBAGENTS, INTERACTION_MODE
 """)
     hub = load_hub(config_file=config_file)
     project = hub.project("custom")
@@ -304,11 +311,11 @@ INTERACTION_MODE = None
         hub.dependency_health.interval_s == 17 and hub.dependency_health.timeout_s == 3
     )
     assert deployment.additional_capabilities[-1].threshold_percent == 42
-    assert deployment.agent.subagents == tuple(hub.subagents)
+    assert deployment.agent.subagents == tuple(hub.deployment.subagents)
     assert deployment.agent.agent_names(include_background=False) == {
         "orchestrator", "reviewer"
     }
-    assert hub.interaction_mode is None
+    assert hub.deployment.interaction_mode is None
     assert deployment.agent.interaction_mode is None
     assert deployment.agent.initial_messages[0] == project.memory
     assert "Project: custom" in deployment.agent.initial_messages[1]
@@ -331,3 +338,9 @@ def test_checked_in_config_has_only_constant_declarations(config_file):
         isinstance(node, (ast.FunctionDef, ast.ClassDef, ast.Lambda))
         for node in ast.walk(tree)
     )
+
+
+@pytest.mark.parametrize("getter", [None, 42])
+def test_hub_requires_a_callable_deployment(config_file, getter):
+    with pytest.raises(TypeError, match="deployment must be callable"):
+        replace(load_hub(config_file=config_file), deployment=getter)

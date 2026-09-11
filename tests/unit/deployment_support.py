@@ -23,7 +23,8 @@ def configured_deployment(project, endpoint, **choices):
     """Use the real application composition with an explicit test endpoint."""
     event_sinks = choices.pop("event_sinks", ())
     choices.setdefault("memory_endpoint", MockLLMEndpoint([]))
-    hub = replace(load_hub(), **choices)
+    hub = load_hub()
+    hub = replace(hub, deployment=replace(hub.deployment, **choices))
     deployment = hub.configure_deployment(
         project.sandbox,
         project.slug,

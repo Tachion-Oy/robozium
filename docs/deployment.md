@@ -10,15 +10,16 @@ Roboz and Roboshed primitives supply endpoint definitions and agent construction
   interaction mode, specialists, one sandbox layout,
   health timings, transcription, and dependency registrations.
 - `robosprawl.hub.application.Hub` validates those inputs, derives projects, and
-  owns the runtime `ModelSelector`. It constructs the shared agent graph directly
-  from the configured choices.
+  owns the runtime `ModelSelector`. It stores the configured deployment getter
+  and supplies runtime inputs without knowing the agent recipe.
 - `robosprawl.hub.utils` discovers and loads the file and normalizes project names.
 - `robosprawl.hub.logging.HubLoggingConfig` supplies logging defaults. This is the
   explicit exception to requiring deployment choices in the configuration file.
-- `Hub.configure_deployment()` creates a fresh scoped Sandbox, constructs the
-  Librarian from the root and recursive foreground specialist names, and passes
-  it to the shared orchestrator. Shared `roboshed.deployments.Deployment.build()`
-  builds fresh runtime agents and their persistence sinks.
+- `Hub.configure_deployment()` creates a fresh scoped Sandbox and invokes the
+  stored getter with the project slug, model getter, and event sinks.
+- `roboshed.deployments.robosprawl.RoboSprawl` owns the concrete agent recipe:
+  the orchestrator, Librarian, recursive foreground names, and initial messages.
+  Shared `Deployment.build()` builds runtime agents and persistence sinks.
 - The API consumes Hub and owns HTTP, streaming, interruption, cancellation,
   background-thread observation, and shutdown.
 
@@ -36,9 +37,23 @@ The shared orchestrator already supplies file commands and editing, each taking
 only a `PermissionPolicy` derived from the run's Sandbox. Do not add duplicate
 file capabilities here. `SUBAGENTS` holds shared `DeployableAgent` definitions.
 
-Hub loads `CAPABILITIES`, `MEMORY_ENDPOINT`, `SUBAGENTS`, and `INTERACTION_MODE`
-directly. It supplies the memory directory and a generated project-location
-message through the orchestrator's `initial_messages`. The shared system prompt
+The configuration constructs its deployment getter explicitly:
+
+```python
+from roboshed.deployments.robosprawl import RoboSprawl
+
+DEPLOYMENT = RoboSprawl(
+    memory_endpoint=MEMORY_ENDPOINT,
+    additional_capabilities=CAPABILITIES,
+    subagents=SUBAGENTS,
+    interaction_mode=INTERACTION_MODE,
+)
+```
+
+Hub loads only `DEPLOYMENT` for agent configuration. The four constants above are
+helpers used to construct that object; they are not required Hub exports.
+The recipe supplies the memory directory and generated project locations
+through the orchestrator's `initial_messages`. The shared system prompt
 is used unchanged. Project locations come from the same scoped Sandbox used for
 file permissions, the Librarian, and the Deployment.
 
@@ -81,10 +96,10 @@ the graph's lifetime. File tools receive only its derived policy. Project
 symbolic-link aliases fail before graph construction.
 
 Python hosts and mocks can use `dataclasses.replace(hub, ...)` to supply explicit
-inputs before app construction. The optional `deployment` callable override
-receives the fresh scoped Sandbox, matching project slug, endpoint getter, and
-event sinks, and returns an unbuilt shared Deployment. It is a runtime override;
-the configuration file declares deployment choices directly. The host calls
+inputs before app construction. The required `deployment` callable receives
+the fresh scoped Sandbox, matching project slug, endpoint getter, and event
+sinks, and returns an unbuilt shared Deployment. Mocks supply a different
+callable through the same field. The host calls
 `build()` and owns the resulting root/background agents. No app-level
 configuration overrides exist. Automatic inspection includes constructed agents,
 every advertised model, and transcription. Explicit registrations must match dependency
@@ -99,9 +114,12 @@ the shared Librarian preset. Construction starts no agents or threads and create
 persistence directories. Mocks retain fresh scripts and their existing scenario
 controls.
 
-This integration uses the production-PyPI releases containing the simplified
-deployment API and `Sandbox.for_project()`: Roboz `0.1.2.dev3` and Roboshed
-`0.1.0a4`.
+The dependency pins still select Roboz `0.1.2.dev3` and Roboshed `0.1.0a4`.
+The new `RoboSprawl` module is a source-only addition in
+[Tachion-Oy/roboz#34](https://github.com/Tachion-Oy/roboz/pull/34); it is not in
+the published Roboshed wheel yet. This branch is validated with the candidate
+Shed wheel and awaits a package release and dependency-pin update before normal
+locked installation or CI can consume it. No local dependency paths are committed.
 
 [Earlier deployment validation](deployment-validation.md) records the previous
 integration against Roboz `303384e`, not this change.
