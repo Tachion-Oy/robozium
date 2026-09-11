@@ -10,7 +10,8 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from roboshed.deployments.robosprawl import RoboSprawlBundle, RunFactory
+from deployment_support import BuiltAgents
+from roboshed.deployments import Deployment
 from roboshed.identifiers import LIBRARIAN_AGENT_NAME
 from roboshed.sandbox import Sandbox
 from roboz import Agent, DependencyRoute
@@ -70,7 +71,7 @@ def _busy_factory(
     *,
     endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
     event_sinks: Sequence[EventSink],
-) -> RoboSprawlBundle:
+) -> BuiltAgents:
     """A run that gets stuck inside a tool, i.e. RUNNING (not awaiting input)."""
     del sandbox, project_slug, endpoint_getter
     endpoint = MockLLMEndpoint(responses=[{"action": "busy", "rationale": "spin"}])
@@ -106,6 +107,7 @@ def _project(slug: str = "alpha") -> Project:
             root=Path(__file__).resolve().parents[2] / ".artifacts" / "test-sandbox",
             shared="workspace",
             logs=Path("conversation_logs"),
+            scope=slug,
         ),
         slug=slug,
     )
@@ -118,7 +120,7 @@ def _minimal_api_agent_for_manager_test(
     *,
     endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
     event_sinks: Sequence[EventSink],
-) -> RoboSprawlBundle:
+) -> BuiltAgents:
     del sandbox, project_slug, endpoint_getter
     endpoint = MockLLMEndpoint(
         responses=[
@@ -162,11 +164,13 @@ def _lazy_manager_endpoint(name: str) -> LazyExternalDependency[LLMEndpoint]:
 _TEST_DEFAULT_ENDPOINT = _lazy_manager_endpoint("default")
 
 
-def _root_bundle(agent: Agent) -> RoboSprawlBundle:
-    return RoboSprawlBundle(agent=agent, background_agents=())
+def _root_bundle(agent: Agent) -> BuiltAgents:
+    return BuiltAgents(agent=agent, background_agents=())
 
 
-def _manager(factory: RunFactory, *, hub_name: str, **kwargs: Any) -> RunManager:
+def _manager(
+    factory: Callable[..., Deployment], *, hub_name: str, **kwargs: Any
+) -> RunManager:
     return RunManager(
         factory,
         hub_name=hub_name,
@@ -204,7 +208,7 @@ def test_manager_builds_a_route_that_closes_over_its_run_state() -> None:
 
         del sandbox, project_slug, event_sinks
         resolved_models.append(route.materialize().model_name)
-        return RoboSprawlBundle(
+        return BuiltAgents(
             agent=cast(Agent, ProbeAgent()),
             background_agents=(),
         )
@@ -237,7 +241,7 @@ def test_run_manager_api_user_io_unblocks_on_resolve() -> None:
         *,
         endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
         event_sinks: Sequence[EventSink],
-    ) -> RoboSprawlBundle:
+    ) -> BuiltAgents:
         return _minimal_api_agent_for_manager_test(
             sandbox,
             project_slug,
@@ -328,7 +332,7 @@ def test_manager_sequences_and_replays_user_notifications() -> None:
             interact_with_user("first", with_reply=False)
             interact_with_user("second", with_reply=False)
 
-        return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
+        return BuiltAgents(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
 
     manager = _manager(factory, hub_name="TestHub")
     run_id = manager.create(_project())
@@ -478,7 +482,7 @@ def test_nested_subagent_lifecycle_events_reach_run_event_listeners() -> None:
         *,
         endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
         event_sinks: Sequence[EventSink],
-    ) -> RoboSprawlBundle:
+    ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
         child = Agent(
             name="child_agent",
@@ -745,7 +749,7 @@ def test_manager_completes_immediately_after_root_exits_even_with_librarian() ->
         *,
         endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
         event_sinks: Sequence[EventSink],
-    ) -> RoboSprawlBundle:
+    ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
         root = Agent(
             interaction_mode=Output.API,
@@ -757,7 +761,7 @@ def test_manager_completes_immediately_after_root_exits_even_with_librarian() ->
                 responses=[{"action": "stop", "rationale": "done", "value": "ok"}]
             ),
         )
-        return RoboSprawlBundle(agent=root, background_agents=(background,))
+        return BuiltAgents(agent=root, background_agents=(background,))
 
     manager = _manager(factory, hub_name="TestHub")
     run_id = manager.create(_project("syncing-proj"))
@@ -781,7 +785,7 @@ def test_manager_failed_root_does_not_transition_through_syncing() -> None:
         *,
         endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
         event_sinks: Sequence[EventSink],
-    ) -> RoboSprawlBundle:
+    ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
         root = Agent(
             interaction_mode=Output.API,
@@ -793,7 +797,7 @@ def test_manager_failed_root_does_not_transition_through_syncing() -> None:
                 responses=[{"action": "boom", "rationale": "fail"}]
             ),
         )
-        return RoboSprawlBundle(agent=root, background_agents=(background,))
+        return BuiltAgents(agent=root, background_agents=(background,))
 
     manager = _manager(factory, hub_name="TestHub")
     run_id = manager.create(_project("failing-proj"))
@@ -811,7 +815,7 @@ def test_manager_cancelled_run_does_not_enter_syncing_state() -> None:
         *,
         endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
         event_sinks: Sequence[EventSink],
-    ) -> RoboSprawlBundle:
+    ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
         root = Agent(
             interaction_mode=Output.API,
@@ -823,7 +827,7 @@ def test_manager_cancelled_run_does_not_enter_syncing_state() -> None:
                 responses=[{"action": "busy", "rationale": "spin"}]
             ),
         )
-        return RoboSprawlBundle(agent=root, background_agents=(background,))
+        return BuiltAgents(agent=root, background_agents=(background,))
 
     manager = _manager(factory, hub_name="TestHub")
     run_id = manager.create(_project("cancelled-proj"))
@@ -871,7 +875,7 @@ def _stub_background_agent(name: str = "stub_librarian") -> Agent:
     )
 
 
-def _completed_root_with_background(background: Agent) -> RunFactory:
+def _completed_root_with_background(background: Agent) -> Callable[..., Deployment]:
     def factory(
         sandbox: Sandbox,
         project_slug: str,
@@ -879,7 +883,7 @@ def _completed_root_with_background(background: Agent) -> RunFactory:
         *,
         endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
         event_sinks: Sequence[EventSink],
-    ) -> RoboSprawlBundle:
+    ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
         root = Agent(
             interaction_mode=Output.API,
@@ -891,7 +895,7 @@ def _completed_root_with_background(background: Agent) -> RunFactory:
                 responses=[{"action": "stop", "rationale": "done", "value": "ok"}]
             ),
         )
-        return RoboSprawlBundle(agent=root, background_agents=(background,))
+        return BuiltAgents(agent=root, background_agents=(background,))
 
     return factory
 
@@ -902,6 +906,7 @@ def _tmp_project(tmp_path: Path, slug: str = "alpha") -> Project:
             root=tmp_path,
             shared="workspace",
             logs=Path("conversation_logs"),
+            scope=slug,
         ),
         slug=slug,
     )
@@ -941,7 +946,7 @@ def test_manager_cancel_does_not_fan_out_to_background_agents() -> None:
         *,
         endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
         event_sinks: Sequence[EventSink],
-    ) -> RoboSprawlBundle:
+    ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
         root = Agent(
             interaction_mode=Output.API,
@@ -953,7 +958,7 @@ def test_manager_cancel_does_not_fan_out_to_background_agents() -> None:
                 responses=[{"action": "busy", "rationale": "spin"}]
             ),
         )
-        return RoboSprawlBundle(agent=root, background_agents=(background,))
+        return BuiltAgents(agent=root, background_agents=(background,))
 
     manager = _manager(factory, hub_name="TestHub")
     run_id = manager.create(_project())
@@ -1082,9 +1087,42 @@ def test_manager_list_project_runs_evicts_stale_completed_entries() -> None:
     assert manager.get_run(run_id) is None
 
 
+def test_each_run_gets_a_fresh_sandbox_even_when_reusing_a_project(tmp_path):
+    sandboxes = []
+
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
+        assert sandbox.scope == project_slug
+        sandboxes.append(sandbox)
+        return _immediate_factory(
+            sandbox,
+            project_slug,
+            endpoint_getter=endpoint_getter,
+            event_sinks=event_sinks,
+        )
+
+    from dataclasses import replace
+
+    from robosprawl.hub.utils import load_hub
+
+    hub = replace(load_hub(), deployment=factory)
+    manager = _manager(hub.configure_deployment, hub_name="TestHub")
+    project = _tmp_project(tmp_path, "same-project")
+    try:
+        for _ in range(2):
+            run_id = manager.create(project)
+            _complete_run(manager, run_id)
+            assert manager.get_run(run_id)["status"] == "completed"
+        assert sandboxes[0] is not sandboxes[1]
+        assert all(sandbox is not project.sandbox for sandbox in sandboxes)
+        assert all(sandbox == project.sandbox for sandbox in sandboxes)
+        assert not project.root.exists()
+    finally:
+        assert manager.shutdown(timeout_s=5)
+
+
 def _immediate_factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
     del sandbox, project_slug, endpoint_getter
-    return RoboSprawlBundle(
+    return BuiltAgents(
         SimpleNamespace(pipe=EventPipe(event_sinks=event_sinks), invoke=lambda: None)
     )
 

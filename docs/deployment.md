@@ -7,17 +7,19 @@ Roboz and Roboshed primitives supply endpoint definitions and agent construction
 ## Ownership
 
 - The configuration file selects named endpoints, request policies, capabilities,
-  instructions, interaction mode, specialists, one sandbox layout,
+  interaction mode, specialists, one sandbox layout,
   health timings, transcription, and dependency registrations.
 - `robosprawl.hub.application.Hub` validates those inputs, derives projects, and
-  owns the runtime `ModelSelector`. It does not pick models or capabilities.
+  owns the runtime `ModelSelector`. It stores the configured deployment getter
+  and supplies runtime inputs without knowing the agent recipe.
 - `robosprawl.hub.utils` discovers and loads the file and normalizes project names.
 - `robosprawl.hub.logging.HubLoggingConfig` supplies logging defaults. This is the
   explicit exception to requiring deployment choices in the configuration file.
-- `roboshed.deployments.robosprawl.RoboSprawl` derives one policy from the
-  configured sandbox and project slug, binds the selected permission factories,
-  and composes the persistent orchestrator and Librarian.
-  `DeploymentFactory` handles fresh runtime construction and live model routing.
+- `Hub.configure_deployment()` creates a fresh scoped Sandbox and invokes the
+  stored getter with the project slug, model getter, and event sinks.
+- `roboshed.deployments.robosprawl.RoboSprawl` owns the concrete agent recipe:
+  the orchestrator, Librarian, recursive foreground names, and initial messages.
+  Shared `Deployment.build()` builds runtime agents and persistence sinks.
 - The API consumes Hub and owns HTTP, streaming, interruption, cancellation,
   background-thread observation, and shutdown.
 
@@ -29,15 +31,31 @@ Edit the constants directly. `MODELS` maps display labels to lazy endpoint objec
 switching. Each file load creates fresh lazy catalogs; runs within that Hub reuse
 its configured clients.
 
-`CAPABILITIES` is an ordered tuple of configured capabilities or factories that
-accept `PermissionPolicy`. For example, `(FileCommands, FileEditing,
-Compactification(threshold_percent=60))` binds file capabilities to each project's
-permissions while retaining the explicit compaction choice. The selected shared
-`robosprawl` skill owns orientation, HUD formatting, and artifact-link guidance. The shared deployment
-resolves its project context from the configured `Sandbox` and current project
-slug when constructing a run, including configured persistence folders. Configuration does not repeat or pass
-back the deployment’s default context template. No paths or artifact-link syntax are repeated
-in the skill selection.
+`CAPABILITIES` is an ordered tuple of additional root capabilities: the shared
+`robosprawl` orientation/HUD skill and `Compactification(threshold_percent=60)`.
+The shared orchestrator already supplies file commands and editing, each taking
+only a `PermissionPolicy` derived from the run's Sandbox. Do not add duplicate
+file capabilities here. `SUBAGENTS` holds shared `DeployableAgent` definitions.
+
+The configuration constructs its deployment getter explicitly:
+
+```python
+from roboshed.deployments.robosprawl import RoboSprawl
+
+DEPLOYMENT = RoboSprawl(
+    memory_endpoint=MEMORY_ENDPOINT,
+    additional_capabilities=CAPABILITIES,
+    subagents=SUBAGENTS,
+    interaction_mode=INTERACTION_MODE,
+)
+```
+
+Hub loads only `DEPLOYMENT` for agent configuration. The four constants above are
+helpers used to construct that object; they are not required Hub exports.
+The recipe supplies the memory directory and generated project locations
+through the orchestrator's `initial_messages`. The shared system prompt
+is used unchanged. Project locations come from the same scoped Sandbox used for
+file permissions, the Librarian, and the Deployment.
 
 `LOGGING = HubLoggingConfig()` keeps the normal console/file behavior. Override
 individual fields, such as `console_level` or `max_bytes`, when needed. The default
@@ -66,15 +84,25 @@ project-relative and disjoint. The checked-in configuration places its sandbox
 at `../RoboSprawl`, outside the checkout; it does not move data from the former
 `.runtime/data` root automatically. Tier and persistence folder names are
 preserved. The host creates directories and `ProjectService` validates startup
-layout. `Sandbox.permissions(project_slug)` is the sole policy source: it allows
+layout. `sandbox.permissions()` is the sole policy source: it allows
 sandbox reads and current-project writes, asks for shared writes, and denies
 other writes.
 
-Custom deployments implement the shared `RunFactory` contract and are supplied as
-`DEPLOYMENT`. Python hosts and mocks can use `dataclasses.replace(hub, ...)` to
-supply explicit typed inputs before app construction. No app-level configuration
-overrides exist. Automatic inspection includes constructed agents, every
-advertised model, and transcription. Explicit registrations must match dependency
+`SANDBOX` is a layout template. `Hub.project()` uses `for_project(slug)` to derive
+project paths; `Hub.configure_deployment()` takes a fresh scoped copy for each
+independent run, including repeated runs of the same project. Permissions and
+graph construction use that instance throughout. It is never re-scoped during
+the graph's lifetime. File tools receive only its derived policy. Project
+symbolic-link aliases fail before graph construction.
+
+Python hosts and mocks can use `dataclasses.replace(hub, ...)` to supply explicit
+inputs before app construction. The required `deployment` callable receives
+the fresh scoped Sandbox, matching project slug, endpoint getter, and event
+sinks, and returns an unbuilt shared Deployment. Mocks supply a different
+callable through the same field. The host calls
+`build()` and owns the resulting root/background agents. No app-level
+configuration overrides exist. Automatic inspection includes constructed agents,
+every advertised model, and transcription. Explicit registrations must match dependency
 IDs and kinds exactly; custom kinds require explicit checkers.
 
 ## Behavior and verification
@@ -82,20 +110,16 @@ IDs and kinds exactly; custom kinds require explicit checkers.
 The checked-in choices retain API interaction, 60% compaction without an explicit
 timeout, independent root/memory reasoning, and the shared persistent prompt.
 Librarian snapshots, consolidation, retention, and 120-second cadence remain in
-shared deployment code. Construction starts no agents or threads and creates no
+the shared Librarian preset. Construction starts no agents or threads and creates no
 persistence directories. Mocks retain fresh scripts and their existing scenario
 controls.
 
-The full local gates have now run against merged Roboz `303384e`. See
-[deployment validation](deployment-validation.md) for results, the artifact-read
-assertion correction, browser policy, source revisions, and retained diagnostics.
+The dependency pins still select Roboz `0.1.2.dev3` and Roboshed `0.1.0a4`.
+The new `RoboSprawl` module is a source-only addition in
+[Tachion-Oy/roboz#34](https://github.com/Tachion-Oy/roboz/pull/34); it is not in
+the published Roboshed wheel yet. This branch is validated with the candidate
+Shed wheel and awaits a package release and dependency-pin update before normal
+locked installation or CI can consume it. No local dependency paths are committed.
 
-## Current code accounting
-
-Against RoboSprawl baseline `b68a8d1`, including the root Python configuration as
-production code and excluding generated files, locks, documentation, and binaries:
-
-| Scope | Additions | Deletions | Net |
-| --- | ---: | ---: | ---: |
-| Production Python | 639 | 2,247 | -1,608 |
-| Total maintained code | 1,880 | 3,890 | -2,010 |
+[Earlier deployment validation](deployment-validation.md) records the previous
+integration against Roboz `303384e`, not this change.

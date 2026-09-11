@@ -8,13 +8,14 @@ from pathlib import Path
 
 import pytest
 from config_support import write_config
+from deployment_support import BuiltAgents
 from fastapi.testclient import TestClient
 from roboshed.dependency_health import (
     DependencyCheckResult,
     DependencyReasonCode,
     check_executable,
+    inspect_dependencies,
 )
-from roboshed.deployments.robosprawl import RoboSprawlBundle, inspect_dependencies
 from roboz import Agent
 from roboz.dependencies import (
     DependencyContractError,
@@ -46,7 +47,7 @@ def _factory_for(*names: str):
         bound = dependency_tool(
             Ctx(dependencies=tuple(ExecutableDependency(name) for name in names))
         )
-        return RoboSprawlBundle(
+        return BuiltAgents(
             agent=Agent(
                 name="dependency_test",
                 event_sinks=event_sinks,
@@ -91,11 +92,15 @@ def _deployment_with_check(root, name, check):
 
 def test_standard_deployment_discovers_tools_and_every_selectable_model() -> None:
     deployment = load_hub()
+    project = deployment.project("inspection")
     discovered = inspect_dependencies(
-        deployment.deployment,
+        lambda sandbox: deployment.configure_deployment(
+            sandbox,
+            project.slug,
+            endpoint_getter=lambda: deployment.model_selector.selected_endpoint,
+            event_sinks=(),
+        ),
         sandbox=deployment.sandbox,
-        project_slug=deployment.project("inspection").slug,
-        endpoint_getter=lambda: deployment.model_selector.selected_endpoint,
         registrations=deployment.dependency_registry,
         additional_dependencies=tuple(deployment.model_selector.models.values()),
     )
@@ -110,7 +115,11 @@ def test_standard_deployment_discovers_tools_and_every_selectable_model() -> Non
         endpoint.dependency_id
         for endpoint in (
             *deployment.models.values(),
-            deployment.deployment.recipe.memory_endpoint,
+            deployment.configure_deployment(
+                project.sandbox,
+                project.slug,
+                endpoint_getter=lambda: deployment.model_selector.selected_endpoint,
+            ).agent.background_agents[0].agent_endpoint,
         )
     }
 
@@ -179,11 +188,15 @@ def test_inspection_uses_a_temporary_project_not_the_configured_sandbox(
     )
     configured_sandbox = tmp_path / "sandbox"
     hub_config = load_hub(start=tmp_path)
+    slug = hub_config.project(hub_config.name).slug
     inspect_dependencies(
-        _factory_for("bash"),
+        lambda sandbox: _factory_for("bash")(
+            sandbox.for_project(slug),
+            slug,
+            endpoint_getter=lambda: _TEST_ORCHESTRATOR_ENDPOINT,
+            event_sinks=(),
+        ),
         sandbox=hub_config.sandbox,
-        project_slug=hub_config.project(hub_config.name).slug,
-        endpoint_getter=lambda: _TEST_ORCHESTRATOR_ENDPOINT,
         registrations=[_registration("bash")],
     )
     assert not configured_sandbox.exists()

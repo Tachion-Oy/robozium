@@ -9,7 +9,7 @@ from collections.abc import Callable, Collection
 from functools import partial
 from uuid import uuid4
 
-from roboshed.deployments.robosprawl import RunFactory
+from roboshed.deployments import Deployment
 from roboz.dependencies import LazyExternalDependency
 from roboz.llm import LLMEndpoint
 from roboz.runtime import (
@@ -35,7 +35,7 @@ COMPLETED_TTL_S = 300.0
 class RunManager:
     def __init__(
         self,
-        root_agent_factory: RunFactory,
+        configure_deployment: Callable[..., Deployment],
         *,
         hub_name: str,
         default_orchestrator_endpoint: Callable[
@@ -61,7 +61,7 @@ class RunManager:
         self._lock = threading.RLock()
         self._runs: dict[str, RunControl] = {}
         self._closed = False
-        self._root_agent_factory = root_agent_factory
+        self._configure_deployment = configure_deployment
 
     def _control(self, run_id: str) -> RunControl:
         with self._lock:
@@ -111,14 +111,17 @@ class RunManager:
             control = self._control(run_id)
             return control.launch_worker(
                 partial(
-                    self._run_agent, run_id, control, factory=self._root_agent_factory
+                    self._run_agent,
+                    run_id,
+                    control,
+                    configure=self._configure_deployment,
                 ),
                 thread_name=f"{self._hub_name}-run-{run_id[:8]}",
             )
 
     @staticmethod
     def _run_agent(
-        run_id: str, control: RunControl, *, factory: RunFactory
+        run_id: str, control: RunControl, *, configure: Callable[..., Deployment]
     ) -> None:
         """Worker body: bind API context, construct and invoke the agent.
 
@@ -130,14 +133,15 @@ class RunManager:
             if control.cancel_requested:
                 control.finish(RunStatus.CANCELLED)
                 return
-            bundle = factory(
+            deployment = configure(
                 control.project.sandbox,
                 control.project.slug,
                 endpoint_getter=control.endpoint,
                 event_sinks=(control.dispatch,),
             )
-            if control.attach(bundle):
-                bundle.agent.invoke()
+            agents = deployment.build()
+            if control.attach(agents):
+                agents[0].invoke()
             control.finish(RunStatus.COMPLETED)
         except KeyboardInterrupt:
             control.finish(RunStatus.CANCELLED)

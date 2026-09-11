@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import os
 import time
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import SupportsIndex
 
@@ -16,10 +16,11 @@ from roboshed.capabilities import (
     MaintenanceCadence,
     MemoryConsolidation,
 )
-from roboshed.deployments.robosprawl import AgenticFactory, DeploymentFactory
+from roboshed.deployments import Deployment
 from roboshed.sandbox import Sandbox
-from roboz.deployment import AgentDefinition, Capability, SubAgentSpec
-from roboz.llm import EndpointLike, MockLLMEndpoint, MockProviderError
+from roboz.dependencies import DependencyRoute, LazyExternalDependency
+from roboz.deployment import Capability, DeployableAgent
+from roboz.llm import EndpointLike, LLMEndpoint, MockLLMEndpoint, MockProviderError
 from roboz.models import Empty, Message
 from roboz.runtime import EventPipe, Output, interact_with_user
 from roboz.runtime.events import EventSink, MessageDeltaEvent, PipeEvent
@@ -132,40 +133,41 @@ def _mock_recipe(
     with_librarian: bool,
     notification: str | None = None,
     prepare_artifact: bool = False,
-) -> AgenticFactory:
+) -> Deployment:
     """Fresh scripted definitions using the same shared construction as production."""
-    permissions = project.sandbox.permissions(project.slug)
+    permissions = project.sandbox.permissions()
     root = orchestrator(
+        project.sandbox,
         agent_endpoint=MockLLMEndpoint(responses=responses),
         interaction_mode=Output.API,
         subagents=(
-            SubAgentSpec(
-                definition=AgentDefinition(
-                    name="hello_world",
-                    system_prompt="Return Hello, World! and stop.",
-                    description="A deterministic specialist that returns Hello, World! and stops.",
-                    agent_endpoint=MockLLMEndpoint(
-                        [
-                            {
-                                "action": "stop",
-                                "rationale": "finished",
-                                "value": "Hello, World!",
-                            }
-                        ]
-                        * sum(
-                            isinstance(response, dict)
-                            and response.get("action") == "hello_world"
-                            for response in responses
-                        )
-                    ),
-                    interaction_mode=Output.API,
-                    capabilities=(Capability(tools=(stop,)),),
+            DeployableAgent(
+                name="hello_world",
+                system_prompt="Return Hello, World! and stop.",
+                description="Run a deterministic hello world specialist agent.",
+                agent_endpoint=MockLLMEndpoint(
+                    [
+                        {
+                            "action": "stop",
+                            "rationale": "finished",
+                            "value": "Hello, World!",
+                        }
+                    ]
+                    * sum(
+                        isinstance(response, dict)
+                        and response.get("action") == "hello_world"
+                        for response in responses
+                    )
                 ),
-                tool_name="hello_world",
-                tool_description="Run a deterministic hello world specialist agent.",
+                interaction_mode=Output.API,
+                capabilities=(Capability(tools=(stop,)),),
             ),
         ),
+    )
+    root = replace(
+        root,
         capabilities=(
+            root.capabilities[0],
             FileCommands(permissions, auto_load_skill=False),
             FileEditing(permissions, auto_load_skill=False),
             Capability(
@@ -188,59 +190,60 @@ def _mock_recipe(
     endpoint = MockLLMEndpoint(
         [{"value": "## E2E snapshot\n- Librarian generated this memory."}] * 12
     )
-    return AgenticFactory(
-        sandbox=project.sandbox,
-        project_slug=project.slug,
-        orchestrator=root,
-        seed_initial_messages_from_memory=False,
-        librarian=librarian(
-            agent_endpoint=endpoint,
-            capabilities=(
-                ConversationSnapshots(
-                    project.sandbox,
-                    project.slug,
-                    names,
-                    token_growth_threshold=1,
+    background = (
+        (
+            replace(
+                librarian(project.sandbox, names, agent_endpoint=endpoint),
+                capabilities=(
+                    ConversationSnapshots(
+                        project.sandbox,
+                        names,
+                        token_growth_threshold=1,
+                    ),
+                    MemoryConsolidation(
+                        project.sandbox,
+                        names,
+                        min_pending_snapshots=1,
+                        max_pending_age_seconds=0,
+                    ),
+                    ArtifactRetention(project.sandbox, max_log_files=4),
+                    MaintenanceCadence(project.sandbox, names, seconds=1),
+                    _LibrarianHold(project, endpoint),
                 ),
-                MemoryConsolidation(
-                    project.sandbox,
-                    project.slug,
-                    names,
-                    min_pending_snapshots=1,
-                    max_pending_age_seconds=0,
-                ),
-                ArtifactRetention(project.sandbox, project.slug, max_log_files=4),
-                MaintenanceCadence(project.sandbox, project.slug, names, seconds=1),
-                _LibrarianHold(project, endpoint),
             ),
         )
         if with_librarian
-        else None,
+        else ()
+    )
+    return Deployment(
+        sandbox=project.sandbox,
+        agent=replace(root, background_agents=background),
     )
 
 
-def mock_recipe(
+def mock_deployment(
     sandbox: Sandbox,
     project_slug: str,
     /,
     *,
-    orchestrator_endpoint: EndpointLike,
-) -> AgenticFactory:
+    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+    event_sinks: Sequence[EventSink] = (),
+) -> Deployment:
     project = Project(sandbox, project_slug)
     scenario = _mock_scenario(project)
     if scenario == "model-selection":
         from robosprawl.mock.model_selection import model_selection_endpoint
 
-        return AgenticFactory(
+        return Deployment(
             sandbox=sandbox,
-            project_slug=project_slug,
-            orchestrator=orchestrator(
+            agent=orchestrator(
+                sandbox,
                 agent_endpoint=model_selection_endpoint(
-                    orchestrator_endpoint, project.root
+                    DependencyRoute(endpoint_getter), project.root
                 ),
                 interaction_mode=Output.API,
             ),
-            seed_initial_messages_from_memory=False,
+            event_sinks=list(event_sinks),
         )
     responses = (
         _mock_orchestrator_error_responses()
@@ -275,12 +278,15 @@ def mock_recipe(
     # The bundle hands the librarian's pipe to the manager so cancel_project can
     # reach it — same wiring as production (the shed's standard deployment).
     # Without it, cancelling a SYNCING project is a no-op in the mock app.
-    return _mock_recipe(
-        project,
-        responses=responses,
-        with_librarian=True,
-        notification=notification,
-        prepare_artifact=True,
+    return replace(
+        _mock_recipe(
+            project,
+            responses=responses,
+            with_librarian=True,
+            notification=notification,
+            prepare_artifact=True,
+        ),
+        event_sinks=list(event_sinks),
     )
 
 
@@ -427,50 +433,50 @@ def _stream_responses(project: Project) -> list[ScriptedMockResponse]:
     )
 
 
-def stream_mock_recipe(
+def stream_mock_deployment(
     sandbox: Sandbox,
     project_slug: str,
     /,
     *,
-    orchestrator_endpoint: EndpointLike,
-) -> AgenticFactory:
+    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+    event_sinks: Sequence[EventSink] = (),
+) -> Deployment:
     """Local-viewing mock: streams visibly and persists nothing.
 
     The host supplies a temporary shared workspace; conversation logs stay there and the librarian is omitted, so
     nothing lands in the real hub data. Used only by ``stream_mock_app``; the e2e
     ``mock_app`` is untouched.
     """
-    del orchestrator_endpoint
+    del endpoint_getter
     project = Project(sandbox, project_slug)
     responses = _stream_responses(project)
-    return _mock_recipe(
-        project,
-        responses=responses,
-        with_librarian=False,
+    return replace(
+        _mock_recipe(project, responses=responses, with_librarian=False),
+        event_sinks=[*_paced_event_sinks(), *event_sinks],
     )
 
 
-def stream_sync_mock_recipe(
+def stream_sync_mock_deployment(
     sandbox: Sandbox,
     project_slug: str,
     /,
     *,
-    orchestrator_endpoint: EndpointLike,
-) -> AgenticFactory:
+    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+    event_sinks: Sequence[EventSink] = (),
+) -> Deployment:
     """Local-viewing sync mock: visible stream plus mocked background librarian.
 
     This is the cheap manual reproduction app for cancel-vs-sync behavior. It
     still uses only ``MockLLMEndpoint`` instances and an ephemeral project, but
-    unlike ``stream_mock_recipe`` it includes the librarian so the
+    unlike ``stream_mock_deployment`` it includes the librarian so the
     manager enters the same post-stop ``syncing`` state as production.
     """
-    del orchestrator_endpoint
+    del endpoint_getter
     project = Project(sandbox, project_slug)
     responses = _stream_responses(project)
-    return _mock_recipe(
-        project,
-        responses=responses,
-        with_librarian=True,
+    return replace(
+        _mock_recipe(project, responses=responses, with_librarian=True),
+        event_sinks=[*_paced_event_sinks(), *event_sinks],
     )
 
 
@@ -562,12 +568,3 @@ class _LibrarianHold:
             is_cancelled=lambda: pipe.cancelled,
         )
         return Capability()
-
-
-mock_deployment = DeploymentFactory(mock_recipe)
-stream_mock_deployment = DeploymentFactory(
-    stream_mock_recipe, event_sink_factory=_paced_event_sinks
-)
-stream_sync_mock_deployment = DeploymentFactory(
-    stream_sync_mock_recipe, event_sink_factory=_paced_event_sinks
-)

@@ -10,7 +10,7 @@ from collections.abc import Callable
 from contextvars import copy_context
 from uuid import uuid4
 
-from roboshed.deployments.robosprawl import RoboSprawlBundle
+from roboz.agent import Agent
 from roboz.dependencies import LazyExternalDependency
 from roboz.llm import LLMEndpoint
 from roboz.runtime.events import EventSink, PipeEvent, RunLifecycleEvent
@@ -146,11 +146,12 @@ class RunControl:
             raise failure
         return True
 
-    def attach(self, bundle: RoboSprawlBundle) -> bool:
+    def attach(self, agents: tuple[Agent, tuple[Agent, ...]]) -> bool:
+        agent, background_agents = agents
         with self._lock:
-            self._pipe = bundle.agent.pipe
+            self._pipe = agent.pipe
             self._background_pipes = tuple(
-                agent.pipe for agent in bundle.background_agents
+                background.pipe for background in background_agents
             )
             for pipe in self._background_pipes:
                 pipe.add_sink(self._background_observer(pipe))

@@ -9,6 +9,7 @@ from threading import Event, Thread
 from types import SimpleNamespace
 
 import pytest
+from deployment_support import configured_deployment
 from roboshed.capabilities import Compactification, FileCommands, FileEditing
 from roboshed.tools.compactification import CompactifyStatus
 from roboz.exceptions import LLMCallTimeoutError
@@ -51,32 +52,18 @@ def test_orchestrator_compacts_with_shed_and_persists_summary(tmp_path):
         ],
         max_context_tokens=10000,
     )
-    factory = replace(load_hub().deployment.recipe, memory_endpoint=MockLLMEndpoint([]))(
-        project.sandbox, project.slug, orchestrator_endpoint=endpoint
+    deployment = configured_deployment(project, endpoint, event_sinks=(events.append,))
+    deployment.additional_capabilities = (Compactification(threshold_percent=60),)
+    deployment.agent = replace(
+        deployment.agent,
+        background_agents=(),
+        capabilities=(
+            deployment.agent.capabilities[0],
+            FileCommands(project.sandbox.permissions(), auto_load_skill=False),
+            FileEditing(project.sandbox.permissions(), auto_load_skill=False),
+        ),
     )
-    agent = (
-        replace(
-            factory,
-            librarian=None,
-            orchestrator=replace(
-                factory.orchestrator,
-                capabilities=(
-                    factory.orchestrator.capabilities[0],
-                    FileCommands(
-                        project.sandbox.permissions(project.slug),
-                        auto_load_skill=False,
-                    ),
-                    FileEditing(
-                        project.sandbox.permissions(project.slug),
-                        auto_load_skill=False,
-                    ),
-                    Compactification(threshold_percent=60),
-                ),
-            ),
-        )
-        .build(event_sinks=(events.append,))
-        .agent
-    )
+    agent, _ = deployment.build()
     assert [tool.OutputModel for tool in agent.default_tools] == [CompactifyStatus]
     result, messages = agent.invoke()
     assert result.value == "done"
@@ -144,35 +131,20 @@ def test_orchestrator_controls_reach_compaction_provider(tmp_path, control):
         max_context_tokens=10000,
         stream=False,
     )
-    factory = replace(load_hub().deployment.recipe, memory_endpoint=MockLLMEndpoint([]))(
-        project.sandbox, project.slug, orchestrator_endpoint=endpoint
+    deployment = configured_deployment(project, endpoint)
+    deployment.additional_capabilities = (
+        Compactification(threshold_percent=60, timeout_s=0.1 if control == "timeout" else None),
     )
-    agent = (
-        replace(
-            factory,
-            librarian=None,
-            orchestrator=replace(
-                factory.orchestrator,
-                capabilities=(
-                    factory.orchestrator.capabilities[0],
-                    FileCommands(
-                        project.sandbox.permissions(project.slug),
-                        auto_load_skill=False,
-                    ),
-                    FileEditing(
-                        project.sandbox.permissions(project.slug),
-                        auto_load_skill=False,
-                    ),
-                    Compactification(
-                        threshold_percent=60,
-                        timeout_s=0.1 if control == "timeout" else None,
-                    ),
-                ),
-            ),
-        )
-        .build()
-        .agent
+    deployment.agent = replace(
+        deployment.agent,
+        background_agents=(),
+        capabilities=(
+            deployment.agent.capabilities[0],
+            FileCommands(project.sandbox.permissions(), auto_load_skill=False),
+            FileEditing(project.sandbox.permissions(), auto_load_skill=False),
+        ),
     )
+    agent, _ = deployment.build()
     errors = []
 
     def invoke():
@@ -236,13 +208,10 @@ def test_file_agent_loads_memory_writes_project_and_denies_escape(tmp_path):
             {"action": "stop", "rationale": "done", "value": "done"},
         ]
     )
-    bundle = replace(
-        replace(load_hub().deployment.recipe, memory_endpoint=MockLLMEndpoint([]))(
-            project.sandbox, project.slug, orchestrator_endpoint=endpoint
-        ),
-        librarian=None,
-    ).build()
-    result, messages = bundle.agent.invoke()
+    deployment = configured_deployment(project, endpoint)
+    deployment.agent = replace(deployment.agent, background_agents=())
+    agent, _ = deployment.build()
+    result, messages = agent.invoke()
     assert result.value == "done"
     assert (project.root / "note.txt").read_text() == "hello"
     assert outside.read_text() == "untouched"

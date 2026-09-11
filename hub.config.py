@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import Final
 
-from roboshed.capabilities import Compactification, FileCommands, FileEditing
-from roboshed.deployments.robosprawl import DeploymentFactory, RoboSprawl
+from roboshed.capabilities import Compactification
+from roboshed.deployments.robosprawl import RoboSprawl
 from roboshed.sandbox import Sandbox
 from roboshed.skills import robosprawl
 from roboz.deployment import Capability
@@ -43,19 +43,15 @@ MODELS: Final = {
 DEFAULT_MODEL: Final = GLM
 CAPABILITIES: Final = (
     Capability(auto_loaded_skills=(robosprawl,)),
-    FileCommands,
-    FileEditing,
     Compactification(threshold_percent=60.0),
 )
 SUBAGENTS: Final = ()
 INTERACTION_MODE: Final = Output.API
-DEPLOYMENT: Final = DeploymentFactory(
-    RoboSprawl(
-        capabilities=CAPABILITIES,
-        memory_endpoint=MEMORY_ENDPOINT,
-        subagents=SUBAGENTS,
-        interaction_mode=INTERACTION_MODE,
-    )
+DEPLOYMENT: Final = RoboSprawl(
+    memory_endpoint=MEMORY_ENDPOINT,
+    additional_capabilities=CAPABILITIES,
+    subagents=SUBAGENTS,
+    interaction_mode=INTERACTION_MODE,
 )
 TRANSCRIPTION_ENDPOINT: Final = None
 DEPENDENCY_REGISTRY: Final = None

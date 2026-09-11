@@ -9,8 +9,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from deployment_support import BuiltAgents
 from fastapi.testclient import TestClient
-from roboshed.deployments.robosprawl import RoboSprawlBundle, inspect_dependencies
+from roboshed.dependency_health import inspect_dependencies
 from roboz import Agent
 from roboz.tools import stop
 from roboz_endpoints.adapters.openai_compatible import OpenAICompatibleAdapter
@@ -65,7 +66,7 @@ def test_logging_uses_each_explicit_app_config(config_file):
 
     def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         del sandbox, project_slug, endpoint_getter
-        return RoboSprawlBundle(
+        return BuiltAgents(
             Agent(
                 name="root",
                 is_agentic=False,
@@ -110,16 +111,15 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
         hub,
         models={"Root": root, "Spare": spare},
         default_model=root,
-        deployment=replace(
-            hub.deployment,
-            recipe=replace(hub.deployment.recipe, memory_endpoint=memory),
-        ),
+        deployment=replace(hub.deployment, memory_endpoint=memory),
     )
     bound = inspect_dependencies(
-        hub.deployment,
+        lambda sandbox: hub.configure_deployment(
+            sandbox,
+            "demo",
+            endpoint_getter=lambda: hub.model_selector.selected_endpoint,
+        ),
         sandbox=hub.sandbox,
-        project_slug=hub.project("demo").slug,
-        endpoint_getter=lambda: hub.model_selector.selected_endpoint,
         registrations=hub.dependency_registry,
         additional_dependencies=tuple(hub.models.values()),
     )
@@ -134,7 +134,12 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
     }
     assert hub.model_selector.selected_endpoint is root
     hub.model_selector.select(spare.dependency_id)
-    assert hub.deployment.recipe.memory_endpoint is memory
+    configured = hub.configure_deployment(
+        hub.project("demo").sandbox,
+        "demo",
+        endpoint_getter=lambda: hub.model_selector.selected_endpoint,
+    )
+    assert configured.agent.background_agents[0].agent_endpoint is memory
 
 
 def test_explicit_config_path_wins_over_environment(config_file, monkeypatch):
@@ -147,10 +152,14 @@ def test_explicit_config_path_wins_over_environment(config_file, monkeypatch):
     assert load_hub().sandbox.root == expected
 
 
-def test_required_sandbox_choice_fails_during_load(config_file):
+@pytest.mark.parametrize(
+    "choice",
+    ["SANDBOX", "DEPLOYMENT"],
+)
+def test_required_choice_fails_during_load(config_file, choice):
     with config_file.open("a") as file:
-        file.write("\ndel SANDBOX\n")
-    with pytest.raises(RuntimeError, match="SANDBOX"):
+        file.write(f"\ndel {choice}\n")
+    with pytest.raises(RuntimeError, match=choice):
         load_hub(config_file=config_file)
 
 
@@ -200,7 +209,7 @@ def test_overlapping_app_lifespans_preserve_existing_logging(config_file, confli
 
     def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         del sandbox, project_slug, endpoint_getter
-        return RoboSprawlBundle(
+        return BuiltAgents(
             Agent(
                 name="root",
                 is_agentic=False,
@@ -274,30 +283,45 @@ def test_constants_control_the_complete_deployment(config_file, monkeypatch):
     monkeypatch.chdir(config_file.parent)
     with config_file.open("a") as file:
         file.write("""
+from roboz.deployment import DeployableAgent
+
 MODELS = {"Alternate": FLASH}
 DEFAULT_MODEL = FLASH
 DEPENDENCY_HEALTH = DependencyHealthSettings(interval_s=17, timeout_s=3)
-DEPLOYMENT = DeploymentFactory(RoboSprawl(
-    capabilities=(Compactification(threshold_percent=42),),
-    memory_endpoint=GPT_OSS,
-    interaction_mode=Output.API,
-    project_context="Configured project context for {project_slug}",
-))
+CAPABILITIES = (Compactification(threshold_percent=42),)
+MEMORY_ENDPOINT = GPT_OSS
+SUBAGENTS = (DeployableAgent(name="reviewer", agent_endpoint=GPT_OSS),)
+INTERACTION_MODE = None
+DEPLOYMENT = RoboSprawl(
+    memory_endpoint=MEMORY_ENDPOINT,
+    additional_capabilities=CAPABILITIES,
+    subagents=SUBAGENTS,
+    interaction_mode=INTERACTION_MODE,
+)
+del CAPABILITIES, MEMORY_ENDPOINT, SUBAGENTS, INTERACTION_MODE
 """)
     hub = load_hub(config_file=config_file)
     project = hub.project("custom")
-    factory = hub.deployment.recipe(
-        project.sandbox, project.slug, orchestrator_endpoint=hub.default_model
+    deployment = hub.configure_deployment(
+        project.sandbox, project.slug, endpoint_getter=lambda: hub.default_model
     )
     assert tuple(hub.models) == ("Alternate",)
     assert hub.model_selector.selected_endpoint is hub.models["Alternate"]
     assert (
         hub.dependency_health.interval_s == 17 and hub.dependency_health.timeout_s == 3
     )
-    assert factory.orchestrator.capabilities[-1].threshold_percent == 42
-    assert "Configured project context for custom" in factory.orchestrator.system_prompt
+    assert deployment.additional_capabilities[-1].threshold_percent == 42
+    assert deployment.agent.subagents == tuple(hub.deployment.subagents)
+    assert deployment.agent.agent_names(include_background=False) == {
+        "orchestrator", "reviewer"
+    }
+    assert hub.deployment.interaction_mode is None
+    assert deployment.agent.interaction_mode is None
+    assert deployment.agent.initial_messages[0] == project.memory
+    assert "Project: custom" in deployment.agent.initial_messages[1]
     assert (
-        factory.librarian.agent_endpoint.dependency_id == "model:cerebras:gpt-oss-120b"
+        deployment.agent.background_agents[0].agent_endpoint.dependency_id
+        == "model:cerebras:gpt-oss-120b"
     )
     assert not hub.sandbox.root.exists()
 
@@ -314,3 +338,9 @@ def test_checked_in_config_has_only_constant_declarations(config_file):
         isinstance(node, (ast.FunctionDef, ast.ClassDef, ast.Lambda))
         for node in ast.walk(tree)
     )
+
+
+@pytest.mark.parametrize("getter", [None, 42])
+def test_hub_requires_a_callable_deployment(config_file, getter):
+    with pytest.raises(TypeError, match="deployment must be callable"):
+        replace(load_hub(config_file=config_file), deployment=getter)

@@ -124,12 +124,15 @@ def main() -> None:
             (root / "hub.config.py").write_text(
                 (ROOT / "hub.config.py").read_text()
                 + "\nfrom dataclasses import replace\nfrom pathlib import Path\n"
-                + "WORKSPACE = replace(WORKSPACE, root=Path('hub_data'))\n"
+                + "SANDBOX = replace(SANDBOX, root=Path('hub_data'))\n"
                 + "LOGGING = replace(LOGGING, path=Path('technical_logs/backend.jsonl'))\n"
             )
             shutil.copyfile(
                 ROOT / "tests/unit/test_port_composition.py",
                 root / "test_composition.py",
+            )
+            shutil.copyfile(
+                ROOT / "tests/unit/deployment_support.py", root / "deployment_support.py"
             )
             shutil.copyfile(ROOT / "scripts/installed_smoke.py", root / "smoke.py")
             try:
