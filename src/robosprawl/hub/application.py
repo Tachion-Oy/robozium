@@ -9,12 +9,12 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import TypedDict
 
-from roboshed.deployments.robosprawl import RunFactory
 from roboshed.sandbox import Sandbox
 from roboz.dependencies import DependencyRegistration, LazyExternalDependency
 from roboz.llm import LLMEndpoint, ModelSelector, TranscriptionEndpointLike
 
 from robosprawl.api.projects import Project
+from robosprawl.hub.deployment import ConfigureDeployment
 from robosprawl.hub.logging import HubLoggingConfig
 from robosprawl.hub.utils import slugify_project_name
 
@@ -43,7 +43,7 @@ class HubValues(TypedDict):
     DEPENDENCY_HEALTH: DependencyHealthSettings
     MODELS: Mapping[str, LazyExternalDependency[LLMEndpoint]]
     DEFAULT_MODEL: LazyExternalDependency[LLMEndpoint]
-    DEPLOYMENT: RunFactory
+    DEPLOYMENT: ConfigureDeployment
     TRANSCRIPTION_ENDPOINT: TranscriptionEndpointLike | None
     DEPENDENCY_REGISTRY: tuple[DependencyRegistration, ...] | None
 
@@ -58,7 +58,7 @@ class Hub:
     dependency_health: DependencyHealthSettings
     models: Mapping[str, LazyExternalDependency[LLMEndpoint]]
     default_model: LazyExternalDependency[LLMEndpoint]
-    deployment: RunFactory
+    deployment: ConfigureDeployment
     transcription_endpoint: TranscriptionEndpointLike | None
     dependency_registry: tuple[DependencyRegistration, ...] | None
     model_selector: ModelSelector = field(init=False, repr=False, compare=False)
@@ -75,7 +75,7 @@ class Hub:
             ModelSelector(self.models, default=self.default_model),
         )
         if not callable(self.deployment):
-            raise TypeError("deployment must implement RunFactory")
+            raise TypeError("deployment must implement ConfigureDeployment")
         if self.dependency_registry is not None:
             object.__setattr__(
                 self, "dependency_registry", tuple(self.dependency_registry)
@@ -101,5 +101,4 @@ class Hub:
     def project(self, name: str) -> Project:
         """Derive a shared project without creating directories."""
         slug = slugify_project_name(name)
-        self.sandbox.project_memory_dir(slug)
-        return Project(sandbox=self.sandbox, slug=slug)
+        return Project(sandbox=self.sandbox.for_project(slug), slug=slug)

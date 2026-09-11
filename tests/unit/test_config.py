@@ -86,7 +86,7 @@ def test_orchestrator_sandbox_permits_writes_at_project_root(
     assert sandbox.root != project.root
     assert sandbox.shared_dir == project.sandbox.resolved_root / "workspace"
 
-    perms = sandbox.permissions(project.slug)
+    perms = sandbox.permissions()
 
     def _verdict(location: Path, op: Operation) -> ActionVerdict:
         return check_allow_deny_permission(

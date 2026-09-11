@@ -8,8 +8,8 @@ from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
+from deployment_support import BuiltAgents
 from fastapi.testclient import TestClient
-from roboshed.deployments.robosprawl import RoboSprawlBundle
 from roboz import Agent
 from roboz.runtime.io import interact_with_user
 from roboz.runtime.persistence import RunStatus as AgentStatus
@@ -63,7 +63,7 @@ def test_cancel_during_construction_never_invokes(config, project_cancel):
     def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         entered.set()
         assert release.wait(2)
-        return RoboSprawlBundle(
+        return BuiltAgents(
             SimpleNamespace(pipe=EventPipe(), invoke=lambda: invoked.append(True))
         )
 
@@ -101,7 +101,7 @@ def test_cancel_survives_pipe_initialization_reset(config):
             finally:
                 pipe.finalize_run(status=AgentStatus.CANCELLED)
 
-        return RoboSprawlBundle(SimpleNamespace(pipe=pipe, invoke=invoke))
+        return BuiltAgents(SimpleNamespace(pipe=pipe, invoke=invoke))
 
     manager = manager_for(factory)
     run_id = manager.create(config.project("demo"))
@@ -127,7 +127,7 @@ def test_prompt_registration_is_atomic_with_control(config, operation, monkeypat
         def invoke():
             replies.append(interact_with_user("question", with_reply=True))
 
-        return RoboSprawlBundle(SimpleNamespace(pipe=pipe, invoke=invoke))
+        return BuiltAgents(SimpleNamespace(pipe=pipe, invoke=invoke))
 
     manager = manager_for(factory)
     original_register = WaitRegistry.register
@@ -175,7 +175,7 @@ def test_factory_failure_closes_http_stream_and_late_subscribers(config):
     def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         if project_slug == "broken":
             raise RuntimeError("cannot construct this project")
-        return RoboSprawlBundle(
+        return BuiltAgents(
             Agent(
                 name="root",
                 is_agentic=False,
@@ -218,7 +218,7 @@ def test_snapshots_do_not_expose_mutable_event_state(config):
             entered.set()
             assert release.wait(3)
 
-        return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
+        return BuiltAgents(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
 
     manager = manager_for(factory)
     run_id = manager.create(config.project("demo"))
@@ -265,7 +265,7 @@ def test_deletion_serializes_against_start_and_create(config, monkeypatch, opera
 
     def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         invoked.append(True)
-        return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=lambda: None))
+        return BuiltAgents(SimpleNamespace(pipe=EventPipe(), invoke=lambda: None))
 
     manager = manager_for(factory)
     projects = ProjectService(config, manager)
@@ -322,7 +322,7 @@ def test_shutdown_tracks_background_thread_until_it_exits(config):
             threading.Thread(target=background.invoke, daemon=True).start()
             assert started.wait(2)
 
-        return RoboSprawlBundle(
+        return BuiltAgents(
             SimpleNamespace(pipe=EventPipe(), invoke=invoke), (background,)
         )
 
@@ -354,7 +354,7 @@ def test_lifespan_shutdown_releases_input_wait(config):
             ready.set()
             interact_with_user("question", with_reply=True)
 
-        return RoboSprawlBundle(
+        return BuiltAgents(
             SimpleNamespace(
                 pipe=EventPipe(), invoke=invoke, external_dependencies=lambda: ()
             )
@@ -407,7 +407,7 @@ def test_concurrent_starts_invoke_factory_once(config):
         calls.append(project_slug)
         entered.set()
         assert release.wait(3)
-        return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=lambda: None))
+        return BuiltAgents(SimpleNamespace(pipe=EventPipe(), invoke=lambda: None))
 
     manager = manager_for(factory)
     run_id = manager.create(config.project("demo"))
@@ -445,7 +445,7 @@ def test_worker_inherits_context_at_start(config):
         entered.set()
         assert release.wait(3)
         observed.append(request_id.get())
-        return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=lambda: None))
+        return BuiltAgents(SimpleNamespace(pipe=EventPipe(), invoke=lambda: None))
 
     manager = manager_for(factory)
     run_id = manager.create(config.project("demo"))
@@ -506,7 +506,7 @@ def test_replies_cannot_cross_run_prompt_boundaries(config):
         def invoke():
             replies[project_slug] = interact_with_user(project_slug, with_reply=True)
 
-        return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
+        return BuiltAgents(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
 
     manager = manager_for(factory)
     runs = {name: manager.create(config.project(name)) for name in ("first", "second")}

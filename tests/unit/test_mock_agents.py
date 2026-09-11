@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 
 from config_support import write_config
-from roboshed.deployments.robosprawl import RoboSprawlBundle
+from roboshed.deployments import Deployment
 from roboshed.identifiers import (
     CONSOLIDATE_MEMORY_TOOL_NAME,
     LIBRARIAN_AGENT_NAME,
@@ -33,12 +33,12 @@ def test_mock_librarian_is_non_agentic_workflow(tmp_path: Path) -> None:
     write_config(tmp_path, sandbox_root="hub_data", name="MockHub")
     project = load_hub(start=tmp_path).project("alpha")
 
-    (librarian,) = mock_deployment(
+    _, (librarian,) = mock_deployment(
         project.sandbox,
         project.slug,
         endpoint_getter=_endpoint_getter,
         event_sinks=(),
-    ).background_agents
+    ).build()
 
     assert librarian.name == LIBRARIAN_AGENT_NAME
     assert librarian.is_agentic is False
@@ -66,11 +66,12 @@ def test_mock_deployment_uses_background_agent_wiring(
         event_sinks=(),
     )
 
-    assert isinstance(bundle, RoboSprawlBundle)
-    assert len(bundle.background_agents) == 1
-    assert bundle.background_agents[0].name == LIBRARIAN_AGENT_NAME
+    assert isinstance(bundle, Deployment)
+    agent, background_agents = bundle.build()
+    assert len(background_agents) == 1
+    assert background_agents[0].name == LIBRARIAN_AGENT_NAME
     assert not project.root.exists()
-    assert [tool.name for tool in bundle.agent.default_tools] == [
+    assert [tool.name for tool in agent.default_tools] == [
         "prepare_mock_artifact",
         "start_background_agent_librarian",
     ]
@@ -89,7 +90,7 @@ def test_mock_deployment_selects_error_scenario_from_marker(
         project.slug,
         endpoint_getter=_endpoint_getter,
         event_sinks=(),
-    ).agent
+    ).build()[0]
 
     assert isinstance(orchestrator.agent_endpoint, MockLLMEndpoint)
     assert len(orchestrator.agent_endpoint.mock_responses) == 3
@@ -115,7 +116,7 @@ def test_mock_deployment_adds_notification_default_tool_for_scenario(
         project.slug,
         endpoint_getter=_endpoint_getter,
         event_sinks=(),
-    ).agent
+    ).build()[0]
 
     assert [tool.name for tool in orchestrator.default_tools] == [
         "prepare_mock_artifact",
@@ -137,9 +138,10 @@ def test_stream_sync_mock_factory_exposes_background_agent_for_syncing(
         event_sinks=(),
     )
 
-    assert isinstance(bundle, RoboSprawlBundle)
-    assert len(bundle.background_agents) == 1
-    assert bundle.background_agents[0].name == LIBRARIAN_AGENT_NAME
+    assert isinstance(bundle, Deployment)
+    _, background_agents = bundle.build()
+    assert len(background_agents) == 1
+    assert background_agents[0].name == LIBRARIAN_AGENT_NAME
 
 
 def test_holdable_endpoint_consumes_immediately_without_marker(tmp_path: Path) -> None:
@@ -279,7 +281,7 @@ def test_stream_mock_repeats_specialist_and_recreates_scripts_per_run(
                 endpoint_getter=_endpoint_getter,
                 event_sinks=(),
             )
-            result, _ = bundle.agent.invoke()
+            result, _ = bundle.build()[0].invoke()
             assert "end of the streaming mock walkthrough" in result.value
     finally:
         reset_api_user_io(token)

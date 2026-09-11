@@ -5,14 +5,15 @@ from dataclasses import replace
 from pathlib import Path
 from threading import Thread
 
+import pytest
+from deployment_support import configured_deployment
 from roboshed.agents.orchestrator import ORCHESTRATOR_PROMPT
 from roboshed.capabilities import Compactification, MaintenanceCadence
-from roboshed.deployments.robosprawl import AgenticFactory
+from roboshed.deployments import Deployment
 from roboshed.identifiers import COMPACTIFY_MESSAGES_TOOL_NAME
 from roboshed.sandbox import Sandbox
 from roboshed.skills import robosprawl as robosprawl_skill
-from roboz import DependencyRoute
-from roboz.deployment import AgentDefinition, Capability, SubAgentSpec
+from roboz.deployment import Capability, DeployableAgent
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
 from roboz.runtime import Output
 from roboz.tools import stop
@@ -29,7 +30,11 @@ def test_configured_models_apply_per_use_request_policy(monkeypatch):
     endpoints = [
         endpoint.materialize() for endpoint in hub.model_selector.models.values()
     ]
-    memory = hub.deployment.recipe.memory_endpoint.materialize()
+    project = hub.project("policy-test")
+    deployment = hub.deployment(
+        project.sandbox, project.slug, endpoint_getter=lambda: hub.default_model
+    )
+    memory = deployment.agent.background_agents[0].agent_endpoint.materialize()
     assert all(isinstance(endpoint, LLMEndpoint) for endpoint in endpoints)
     for endpoint in endpoints[:2]:
         assert endpoint.max_context_tokens == 1_310_720
@@ -45,7 +50,7 @@ def test_configured_models_apply_per_use_request_policy(monkeypatch):
 
 
 def _specialist(name, *, subagents=(), responses=None):
-    return AgentDefinition(
+    return DeployableAgent(
         name=name,
         interaction_mode=Output.API,
         system_prompt="Run specialists and stop.",
@@ -68,14 +73,13 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
         logs=Path("conversations"),
         snapshots=Path("summaries"),
         memory=Path("preferences"),
+        scope="demo",
     )
     project = Project(sandbox, "demo")
     root_endpoint = openrouter.z_ai__glm_5_3
     memory_endpoint = cerebras.gpt_oss_120b
-    nested = SubAgentSpec(_specialist("nested"), "nested", "Nested specialist")
-    spec = SubAgentSpec(
-        _specialist("specialist", subagents=(nested,)), "delegate", "Delegate"
-    )
+    nested = _specialist("nested")
+    spec = _specialist("specialist", subagents=(nested,))
 
     def reject(*args, **kwargs):
         raise AssertionError("construction started work")
@@ -83,28 +87,30 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
     monkeypatch.setattr(Thread, "start", reject)
     for key in ("OPENROUTER_API_KEY", "CEREBRAS_API_KEY", "OPENAI_API_KEY"):
         monkeypatch.delenv(key, raising=False)
-    factory = replace(
-        load_hub().deployment.recipe, memory_endpoint=memory_endpoint, subagents=(spec,)
-    )(project.sandbox, project.slug, orchestrator_endpoint=root_endpoint)
-    assert isinstance(factory, AgenticFactory)
-    assert factory.agent_names() == {"orchestrator", "specialist", "nested"}
-    assert factory.orchestrator.system_prompt.startswith(ORCHESTRATOR_PROMPT)
-    assert "<file src=" not in factory.orchestrator.system_prompt
-    assert str(project.sandbox.resolved_root) in factory.orchestrator.system_prompt
-    assert str(project.root) in factory.orchestrator.system_prompt
+    deployment = configured_deployment(
+        project, root_endpoint, memory_endpoint=memory_endpoint, subagents=(spec,)
+    )
+    assert isinstance(deployment, Deployment)
+    names = deployment.agent.agent_names(include_background=False)
+    assert names == {"orchestrator", "specialist", "nested"}
+    assert deployment.agent.system_prompt.startswith(ORCHESTRATOR_PROMPT)
+    assert "<file src=" not in deployment.agent.system_prompt
+    assert str(project.sandbox.resolved_root) in deployment.agent.system_prompt
+    assert str(project.root) in deployment.agent.system_prompt
     for location in (project.logs, project.snapshots, project.memory):
-        assert str(location) in factory.orchestrator.system_prompt
-    assert factory.orchestrator.interaction_mode == Output.API
+        assert str(location) in deployment.agent.system_prompt
+    assert deployment.agent.interaction_mode == Output.API
     compaction = next(
-        c for c in factory.orchestrator.capabilities if isinstance(c, Compactification)
+        c for c in deployment.additional_capabilities if isinstance(c, Compactification)
     )
     assert compaction.threshold_percent == 60 and compaction.timeout_s is None
-    snapshots, consolidation, retention, cadence = factory.librarian.capabilities
+    (librarian,) = deployment.agent.background_agents
+    snapshots, consolidation, retention, cadence = librarian.capabilities
     assert (
         snapshots.agent_names
         == consolidation.agent_names
         == cadence.agent_names
-        == factory.agent_names()
+        == names
     )
     assert snapshots.token_growth_threshold == 20_000
     assert consolidation.min_pending_snapshots == 3
@@ -115,14 +121,13 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
         retention.max_memory_files,
     ) == (500, 100, 10)
     assert isinstance(cadence, MaintenanceCadence) and cadence.seconds == 120
-    bundle = factory.build()
-    assert robosprawl_skill in bundle.agent.auto_loaded_skills
+    agent, (background,) = deployment.build()
+    assert robosprawl_skill in agent.auto_loaded_skills
     assert '<file src="relative/path.ext">' in robosprawl_skill.instructions
     assert "runtime-supplied" in robosprawl_skill.instructions
     assert not project.sandbox.root.exists()
-    assert bundle.agent.initial_messages == (project.memory,)
-    assert bundle.agent.pipe.data_path == project.logs / "orchestrator"
-    (background,) = bundle.background_agents
+    assert agent.initial_messages == (project.memory,)
+    assert agent.pipe.data_path == project.logs / "orchestrator"
     assert background.pipe.data_path == project.logs / "librarian"
     assert not background.is_agentic
     assert [tool.name for tool in background.default_tools] == [
@@ -134,7 +139,7 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
         "sleep_between_runs",
     ]
     compactifier = next(
-        t for t in bundle.agent.default_tools if t.name == COMPACTIFY_MESSAGES_TOOL_NAME
+        t for t in agent.default_tools if t.name == COMPACTIFY_MESSAGES_TOOL_NAME
     )
     assert compactifier.dependencies[0] is root_endpoint
     for tool in background.default_tools[:2]:
@@ -142,40 +147,34 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
 
 
 def test_nested_specialists_have_separate_persistence_and_seed_memory(tmp_path):
-    project = Project(Sandbox(tmp_path), "demo")
+    project = Project(Sandbox(tmp_path).for_project("demo"), "demo")
     project.memory.mkdir(parents=True)
     (project.memory / "remember.md").write_text("REMEMBER-PREFERENCES")
-    nested = SubAgentSpec(_specialist("nested"), "nested", "Nested")
-    specialist = SubAgentSpec(
-        _specialist(
-            "specialist",
-            subagents=(nested,),
-            responses=[
-                {"action": "nested", "rationale": "test action"},
-                {"action": "stop", "rationale": "test action", "value": "specialist"},
-            ],
-        ),
-        "delegate",
-        "Delegate",
+    nested = _specialist("nested")
+    specialist = _specialist(
+        "specialist",
+        subagents=(nested,),
+        responses=[
+            {"action": "nested", "rationale": "test action"},
+            {"action": "stop", "rationale": "test action", "value": "specialist"},
+        ],
     )
-    factory = replace(
-        load_hub().deployment.recipe,
-        memory_endpoint=MockLLMEndpoint([]),
-        subagents=(specialist,),
-    )(
-        project.sandbox,
-        project.slug,
-        orchestrator_endpoint=MockLLMEndpoint(
+    deployment = configured_deployment(
+        project,
+        MockLLMEndpoint(
             [
-                {"action": "delegate", "rationale": "test action"},
+                {"action": "specialist", "rationale": "test action"},
                 {"action": "stop", "rationale": "test action", "value": "done"},
             ]
         ),
+        subagents=(specialist,),
     )
-    result, _ = replace(factory, librarian=None).build().agent.invoke()
+    deployment.agent = replace(deployment.agent, background_agents=())
+    agent, _ = deployment.build()
+    result, _ = agent.invoke()
     assert result.value == "done"
-    assert {p.name for p in project.logs.iterdir()} == factory.agent_names()
-    for name in factory.agent_names():
+    assert {p.name for p in project.logs.iterdir()} == deployment.agent.agent_names()
+    for name in deployment.agent.agent_names():
         (log,) = (project.logs / name).rglob("*.json")
         data = json.loads(log.read_text())
         assert data["agent_name"] == name and data["status"] == "completed"
@@ -187,19 +186,90 @@ def test_route_discovery_and_compaction_follow_model_switch_without_rebuild(tmp_
     first, second = openrouter.z_ai__glm_5_3, openrouter.z_ai__glm_5_3_flash
     memory = cerebras.gpt_oss_120b
     selected = first
-    route = DependencyRoute(lambda: selected)
-    bundle = replace(load_hub().deployment.recipe, memory_endpoint=memory)(
-        Sandbox(tmp_path), "demo", orchestrator_endpoint=route
-    ).build()
-    compactifier = next(
-        t for t in bundle.agent.default_tools if t.name == COMPACTIFY_MESSAGES_TOOL_NAME
+    project = Project(Sandbox(tmp_path).for_project("demo"), "demo")
+    deployment = load_hub().deployment(
+        project.sandbox,
+        project.slug,
+        endpoint_getter=lambda: selected,
+        memory_endpoint=memory,
     )
-    assert bundle.agent.agent_endpoint is route
+    route = deployment.agent.agent_endpoint
+    agent, (background,) = deployment.build()
+    compactifier = next(
+        t for t in agent.default_tools if t.name == COMPACTIFY_MESSAGES_TOOL_NAME
+    )
+    assert agent.agent_endpoint is route
     assert compactifier.external_dependencies == (first,)
-    assert first in bundle.agent.external_dependencies()
+    assert first in agent.external_dependencies()
     selected = second
-    assert second in bundle.agent.external_dependencies()
-    assert first not in bundle.agent.external_dependencies()
+    assert second in agent.external_dependencies()
+    assert first not in agent.external_dependencies()
     assert route.external_dependencies() == (second,)
     assert compactifier.external_dependencies == (second,)
-    assert memory in bundle.background_agents[0].external_dependencies()
+    assert memory in background.external_dependencies()
+
+
+def test_project_binding_cannot_disagree_with_the_sandbox():
+    hub = load_hub()
+    project = hub.project("one")
+    with pytest.raises(ValueError, match="match the sandbox scope"):
+        Project(project.sandbox, "two")
+    with pytest.raises(ValueError, match="match the sandbox scope"):
+        hub.deployment(
+            project.sandbox, "two", endpoint_getter=lambda: hub.default_model
+        )
+
+
+def test_project_alias_cannot_bind_another_projects_sandbox(tmp_path):
+    hub = load_hub()
+    hub = replace(hub, sandbox=replace(hub.sandbox, root=tmp_path))
+    other = hub.project("other")
+    other.root.mkdir(parents=True)
+    (hub.sandbox.projects_dir / "alias").symlink_to(
+        other.root, target_is_directory=True
+    )
+
+    with pytest.raises(ValueError, match="symbolic link"):
+        hub.project("alias")
+    assert hub.sandbox.scope is None
+
+
+def test_interleaved_deployments_keep_project_paths_and_policies_separate(tmp_path):
+    from roboshed.models import ActionVerdict, Operation
+    from roboshed.tools.utils import check_allow_deny_permission
+
+    hub = load_hub()
+    hub = replace(hub, sandbox=replace(hub.sandbox, root=tmp_path / "sandbox"))
+    first, second = hub.project("one"), hub.project("two")
+    deployments = [
+        hub.deployment(p.sandbox, p.slug, endpoint_getter=lambda: hub.default_model)
+        for p in (first, second)
+    ]
+    assert first.sandbox is not second.sandbox
+    assert first.sandbox is not hub.sandbox
+    assert hub.sandbox.scope is None
+    for project, deployment in zip((first, second), deployments, strict=True):
+        agent, (background,) = deployment.build()
+        assert deployment.sandbox is project.sandbox
+        assert agent.pipe.data_path == project.logs / "orchestrator"
+        assert background.pipe.data_path == project.logs / "librarian"
+        assert agent.initial_messages == (project.memory,)
+        for capability in deployment.agent.background_agents[0].capabilities:
+            assert capability.sandbox is project.sandbox
+        for capability in deployment.agent.capabilities[1:]:
+            policy = capability.permissions
+            for target in (first, second):
+                verdict = check_allow_deny_permission(
+                    location=target.root / "note.txt",
+                    op_type=Operation.CREATE,
+                    takes_precedence=policy.takes_precedence,
+                    allow_rules=policy.allow,
+                    deny_rules=policy.deny,
+                    default_verdict=policy.default_verdict,
+                    base_path=policy.base,
+                )
+                expected = (
+                    ActionVerdict.allow if target is project else ActionVerdict.deny
+                )
+                assert verdict == expected
+    assert not hub.sandbox.root.exists()

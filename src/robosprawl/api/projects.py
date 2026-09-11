@@ -20,24 +20,29 @@ class Project:
     sandbox: Sandbox
     slug: str
 
+    def __post_init__(self) -> None:
+        if self.sandbox.scope != self.slug:
+            raise ValueError("project slug must match the sandbox scope")
+        self.sandbox.project_memory_dir()
+
     @property
     def root(self) -> Path:
-        return self.sandbox.project_dir(self.slug)
+        return self.sandbox.project_dir()
 
     @property
     def logs(self) -> Path:
-        return self.sandbox.project_logs_dir(self.slug)
+        return self.sandbox.project_logs_dir()
 
     @property
     def snapshots(self) -> Path:
-        return self.sandbox.project_snapshots_dir(self.slug)
+        return self.sandbox.project_snapshots_dir()
 
     @property
     def memory(self) -> Path:
-        return self.sandbox.project_memory_dir(self.slug)
+        return self.sandbox.project_memory_dir()
 
     def artifact_dir(self, name: str) -> Path:
-        return self.sandbox.artifact_dir(self.slug, name)
+        return self.sandbox.artifact_dir(name)
 
 
 class ProjectStatus(StrEnum):

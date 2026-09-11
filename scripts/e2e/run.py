@@ -124,7 +124,7 @@ def main() -> int:
             (workspace / "hub.config.py").write_text(
                 (ROOT / "hub.config.py").read_text()
                 + "\nfrom dataclasses import replace\nfrom pathlib import Path\n"
-                + "WORKSPACE = replace(WORKSPACE, root=Path('hub_data'))\n"
+                + "SANDBOX = replace(SANDBOX, root=Path('hub_data'))\n"
                 + "LOGGING = replace(LOGGING, path=Path('technical_logs/backend.jsonl'))\n"
             )
             env.update(

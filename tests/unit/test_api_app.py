@@ -15,10 +15,11 @@ from types import SimpleNamespace
 
 import pytest
 from config_support import write_config
+from deployment_support import BuiltAgents, configured_deployment
 from fastapi import Request
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
-from roboshed.deployments.robosprawl import RoboSprawlBundle, RunFactory
+from roboshed.deployments import Deployment
 from roboshed.identifiers import LIBRARIAN_AGENT_NAME
 from roboshed.sandbox import Sandbox
 from roboshed.tools.memory_files import (
@@ -52,6 +53,7 @@ from robosprawl.api.app import create_app
 from robosprawl.api.projects import Project
 from robosprawl.api.state import RunStatus
 from robosprawl.hub.application import Hub
+from robosprawl.hub.deployment import ConfigureDeployment
 from robosprawl.hub.utils import load_hub
 from robosprawl.mock.agents import mock_deployment
 
@@ -59,11 +61,11 @@ TEST_PROJECT_SLUG = "alpha"
 UNMANIFESTED_PROJECT_SLUG = "unmanifested-project"
 
 
-def _root_bundle(agent: Agent) -> RoboSprawlBundle:
-    return RoboSprawlBundle(agent=agent, background_agents=())
+def _root_bundle(agent: Agent) -> BuiltAgents:
+    return BuiltAgents(agent=agent, background_agents=())
 
 
-def _test_deployment(factory: RunFactory, config_start: Path) -> Hub:
+def _test_deployment(factory: ConfigureDeployment, config_start: Path) -> Hub:
     return replace(
         load_hub(start=config_start),
         deployment=factory,
@@ -90,7 +92,7 @@ def _minimal_factory(
     *,
     endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
     event_sinks: Sequence[EventSink],
-) -> RoboSprawlBundle:
+) -> BuiltAgents:
     del sandbox, project_slug, endpoint_getter
     endpoint = MockLLMEndpoint(
         responses=[
@@ -121,7 +123,7 @@ def _running_factory(
     *,
     endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
     event_sinks: Sequence[EventSink],
-) -> RoboSprawlBundle:
+) -> BuiltAgents:
     del sandbox, project_slug, endpoint_getter
     endpoint = MockLLMEndpoint(
         responses=[
@@ -149,7 +151,7 @@ def _stream_terminating_factory(
     *,
     endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
     event_sinks: Sequence[EventSink],
-) -> RoboSprawlBundle:
+) -> BuiltAgents:
     del sandbox, project_slug, endpoint_getter
     endpoint = MockLLMEndpoint(
         responses=[
@@ -176,7 +178,7 @@ def _syncing_after_stop_factory(
     *,
     endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
     event_sinks: Sequence[EventSink],
-) -> RoboSprawlBundle:
+) -> BuiltAgents:
     del sandbox, project_slug, endpoint_getter
     root = Agent(
         interaction_mode=Output.API,
@@ -196,7 +198,7 @@ def _syncing_after_stop_factory(
         system_prompt="stub background agent",
         agent_endpoint=MockLLMEndpoint(responses=[]),
     )
-    return RoboSprawlBundle(agent=root, background_agents=(background,))
+    return BuiltAgents(agent=root, background_agents=(background,))
 
 
 @pytest.fixture(autouse=True)
@@ -1237,7 +1239,7 @@ def test_api_run_view_serializes_script_output_trace_entry(tmp_path: Path) -> No
             for sink in event_sinks:
                 sink(event)
 
-        return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
+        return BuiltAgents(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
 
     application = create_app(deployment=_test_deployment(factory, tmp_path))
     client = TestClient(application)
@@ -1274,7 +1276,7 @@ def test_api_run_view_serializes_runtime_event_trace_entry(tmp_path: Path) -> No
             for sink in event_sinks:
                 sink(event)
 
-        return RoboSprawlBundle(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
+        return BuiltAgents(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
 
     application = create_app(deployment=_test_deployment(factory, tmp_path))
     client = TestClient(application)
@@ -1692,12 +1694,10 @@ def test_real_orchestrator_reads_top_level_workspace_file(
         *,
         endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
         event_sinks: Sequence[EventSink],
-    ) -> RoboSprawlBundle:
+    ) -> Deployment:
         del endpoint_getter
-        return replace(
-            load_hub().deployment.recipe, memory_endpoint=MockLLMEndpoint([])
-        )(sandbox, project_slug, orchestrator_endpoint=endpoint).build(
-            event_sinks=event_sinks
+        return configured_deployment(
+            Project(sandbox, project_slug), endpoint, event_sinks=event_sinks
         )
 
     application = create_app(

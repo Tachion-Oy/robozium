@@ -13,6 +13,7 @@ def _project(tmp_path: Path, slug: str = "alpha") -> Project:
             root=tmp_path,
             shared="workspace",
             logs=Path("conversation_logs"),
+            scope=slug,
         ),
         slug=slug,
     )
