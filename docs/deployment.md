@@ -114,12 +114,10 @@ the shared Librarian preset. Construction starts no agents or threads and create
 persistence directories. Mocks retain fresh scripts and their existing scenario
 controls.
 
-The dependency pins still select Roboz `0.1.2.dev3` and Roboshed `0.1.0a4`.
-The new `RoboSprawl` module is a source-only addition in
-[Tachion-Oy/roboz#34](https://github.com/Tachion-Oy/roboz/pull/34); it is not in
-the published Roboshed wheel yet. This branch is validated with the candidate
-Shed wheel and awaits a package release and dependency-pin update before normal
-locked installation or CI can consume it. No local dependency paths are committed.
+The dependency pins select Roboz `0.1.2.dev3` and Roboshed `0.1.1.dev1`.
+The published Shed development snapshot includes the `RoboSprawl` recipe, so
+locked installation and CI consume it directly from PyPI. No sibling checkout
+or local dependency paths are required.
 
 [Earlier deployment validation](deployment-validation.md) records the previous
 integration against Roboz `303384e`, not this change.

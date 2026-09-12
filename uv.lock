@@ -1328,15 +1328,15 @@ wheels = [
 
 [[package]]
 name = "roboshed"
-version = "0.1.0a4"
+version = "0.1.1.dev1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "roboz" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/c1/8afc7aff328f5dc4142ff15794d4ba279bc52d5da1ddea08efbd779b58c0/roboshed-0.1.0a4.tar.gz", hash = "sha256:7c818db4ab0a49df5715f1a12f9c382c9cfc4bc80eea5db32bf495034b9a773c", size = 139357, upload-time = "2026-09-11T15:02:04.33Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/56/6f/1be698e4650e5a49f01b5ceb3f0515830ee0356f5c91e25b5a2df0231bd6/roboshed-0.1.1.dev1.tar.gz", hash = "sha256:d867ef721f9c4e64afac922b79cd0294fa26d0429df97d45a3e3c9ed891b0b32", size = 140520, upload-time = "2026-09-12T07:53:15.183Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a2/7e/3c7c74d88a8b07d553b05611c0876dc84db853a7005093c71c780b91d400/roboshed-0.1.0a4-py3-none-any.whl", hash = "sha256:1340551057a9777a534c32d660b05f094c45871c26f7fd53898889294dd45b95", size = 112468, upload-time = "2026-09-11T15:02:02.773Z" },
+    { url = "https://files.pythonhosted.org/packages/13/c5/8642166be0b40cc095c2043b284ff94ca07f72585fa3c7d30c95ed053905/roboshed-0.1.1.dev1-py3-none-any.whl", hash = "sha256:f7fe23c5c6dc5344940ca767e2e9f8ca89465d7857bccb6b027c12cda028e6e0", size = 114178, upload-time = "2026-09-12T07:53:13.919Z" },
 ]
 
 [[package]]
@@ -1366,7 +1366,7 @@ dev = [
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.135.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
-    { name = "roboshed", specifier = "==0.1.0a4" },
+    { name = "roboshed", specifier = "==0.1.1.dev1" },
     { name = "roboz", specifier = "==0.1.2.dev3" },
     { name = "roboz-endpoints", extras = ["openai"], specifier = "==0.1.0a3" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },

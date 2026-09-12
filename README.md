@@ -6,7 +6,7 @@ A runnable project-agent application built on Roboz, with a FastAPI backend, str
 
 Use Linux with Bash, `setsid`, curl, uv 0.12.10 or newer (CI uses 0.12.10), Node.js 22, npm, and the read commands `grep`, `rg`, `pwd`, `cat`, `head`, `tail`, `find`, `ls`, `wc`, and `diff`. Python 3.13+ is required; uv downloads it into this checkout if needed. Playwright needs its usual Linux browser libraries already installed; installation scripts do not change system packages.
 
-RoboSprawl pins `roboz==0.1.2.dev3`, `roboshed==0.1.0a4`, and
+RoboSprawl pins `roboz==0.1.2.dev3`, `roboshed==0.1.1.dev1`, and
 `roboz-endpoints[openai]==0.1.0a3` from PyPI. No sibling Roboz checkout or
 package-index credentials are needed.
 From the RoboSprawl directory:
