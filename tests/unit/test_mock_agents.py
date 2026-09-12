@@ -3,7 +3,6 @@ import time
 from pathlib import Path
 
 from config_support import write_config
-from roboshed.deployments import Deployment
 from roboshed.identifiers import (
     CONSOLIDATE_MEMORY_TOOL_NAME,
     LIBRARIAN_AGENT_NAME,
@@ -38,7 +37,7 @@ def test_mock_librarian_is_non_agentic_workflow(tmp_path: Path) -> None:
         project.slug,
         endpoint_getter=_endpoint_getter,
         event_sinks=(),
-    ).build()
+    )
 
     assert librarian.name == LIBRARIAN_AGENT_NAME
     assert librarian.is_agentic is False
@@ -66,8 +65,7 @@ def test_mock_deployment_uses_background_agent_wiring(
         event_sinks=(),
     )
 
-    assert isinstance(bundle, Deployment)
-    agent, background_agents = bundle.build()
+    agent, background_agents = bundle
     assert len(background_agents) == 1
     assert background_agents[0].name == LIBRARIAN_AGENT_NAME
     assert not project.root.exists()
@@ -90,7 +88,7 @@ def test_mock_deployment_selects_error_scenario_from_marker(
         project.slug,
         endpoint_getter=_endpoint_getter,
         event_sinks=(),
-    ).build()[0]
+    )[0]
 
     assert isinstance(orchestrator.agent_endpoint, MockLLMEndpoint)
     assert len(orchestrator.agent_endpoint.mock_responses) == 3
@@ -116,7 +114,7 @@ def test_mock_deployment_adds_notification_default_tool_for_scenario(
         project.slug,
         endpoint_getter=_endpoint_getter,
         event_sinks=(),
-    ).build()[0]
+    )[0]
 
     assert [tool.name for tool in orchestrator.default_tools] == [
         "prepare_mock_artifact",
@@ -138,8 +136,7 @@ def test_stream_sync_mock_factory_exposes_background_agent_for_syncing(
         event_sinks=(),
     )
 
-    assert isinstance(bundle, Deployment)
-    _, background_agents = bundle.build()
+    _, background_agents = bundle
     assert len(background_agents) == 1
     assert background_agents[0].name == LIBRARIAN_AGENT_NAME
 
@@ -281,7 +278,7 @@ def test_stream_mock_repeats_specialist_and_recreates_scripts_per_run(
                 endpoint_getter=_endpoint_getter,
                 event_sinks=(),
             )
-            result, _ = bundle.build()[0].invoke()
+            result, _ = bundle[0].invoke()
             assert "end of the streaming mock walkthrough" in result.value
     finally:
         reset_api_user_io(token)

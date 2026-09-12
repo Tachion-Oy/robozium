@@ -6,10 +6,8 @@ from pathlib import Path
 from threading import Thread
 
 import pytest
-from deployment_support import configured_deployment
+from deployment_support import configured_deployment, foreground_agent
 from roboshed.agents.orchestrator import ORCHESTRATOR_PROMPT
-from roboshed.capabilities import Compactification, MaintenanceCadence
-from roboshed.deployments import Deployment
 from roboshed.identifiers import COMPACTIFY_MESSAGES_TOOL_NAME
 from roboshed.sandbox import Sandbox
 from roboshed.skills import robosprawl as robosprawl_skill
@@ -34,7 +32,7 @@ def test_configured_models_apply_per_use_request_policy(monkeypatch):
     deployment = hub.configure_deployment(
         project.sandbox, project.slug, endpoint_getter=lambda: hub.default_model
     )
-    memory = deployment.agent.background_agents[0].agent_endpoint.materialize()
+    memory = deployment[1][0].agent_endpoint.materialize()
     assert all(isinstance(endpoint, LLMEndpoint) for endpoint in endpoints)
     for endpoint in endpoints[:2]:
         assert endpoint.max_context_tokens == 1_310_720
@@ -50,17 +48,20 @@ def test_configured_models_apply_per_use_request_policy(monkeypatch):
 
 
 def _specialist(name, *, subagents=(), background_agents=(), responses=None):
-    return DeployableAgent(
+    definition = DeployableAgent(
         name=name,
-        interaction_mode=Output.API,
         system_prompt="Run specialists and stop.",
-        agent_endpoint=MockLLMEndpoint(
-            responses or [{"action": "stop", "rationale": "test action", "value": name}]
-        ),
-        capabilities=(Capability(tools=(stop,)),),
+        default_capabilities=(Capability(tools=(stop,)),),
         subagents=subagents,
         background_agents=background_agents,
     )
+    definition.set_interaction_mode(Output.API)
+    definition.set_agent_endpoint(
+        MockLLMEndpoint(
+            responses or [{"action": "stop", "rationale": "test action", "value": name}]
+        )
+    )
+    return definition
 
 
 def test_composition_uses_persistent_preset_and_has_no_construction_side_effects(
@@ -93,46 +94,22 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
     deployment = configured_deployment(
         project, root_endpoint, memory_endpoint=memory_endpoint, subagents=(spec,)
     )
-    assert isinstance(deployment, Deployment)
-    names = deployment.agent.agent_names(include_background=False)
-    assert names == {"orchestrator", "specialist", "nested"}
-    assert deployment.agent.system_prompt == ORCHESTRATOR_PROMPT
-    memory_path, context = deployment.agent.initial_messages
+    agent, (specialist_background, background) = deployment
+    assert agent.system_prompt == ORCHESTRATOR_PROMPT
+    assert "specialist" in {tool.name for tool in agent.tools}
+    memory_path, context = agent.initial_messages
     assert memory_path == project.memory
     assert "<file src=" not in context
     assert str(project.sandbox.resolved_root) in context
     assert str(project.root) in context
     for location in (project.logs, project.snapshots, project.memory):
         assert str(location) in context
-    assert deployment.agent.interaction_mode == Output.API
-    compaction = next(
-        c for c in deployment.additional_capabilities if isinstance(c, Compactification)
-    )
-    assert compaction.threshold_percent == 60 and compaction.timeout_s is None
-    (librarian,) = deployment.agent.background_agents
-    snapshots, consolidation, retention, cadence = librarian.capabilities
-    assert (
-        snapshots.agent_names
-        == consolidation.agent_names
-        == cadence.agent_names
-        == names
-    )
-    assert snapshots.token_growth_threshold == 20_000
-    assert consolidation.min_pending_snapshots == 3
-    assert consolidation.max_pending_age_seconds == 86_400
-    assert (
-        retention.max_log_files,
-        retention.max_snapshot_files,
-        retention.max_memory_files,
-    ) == (500, 100, 10)
-    assert isinstance(cadence, MaintenanceCadence) and cadence.seconds == 120
-    agent, (specialist_background, background) = deployment.build()
+    assert agent.interaction_mode == Output.API
     assert specialist_background.name == "specialist_maintenance"
     assert robosprawl_skill in agent.auto_loaded_skills
     assert '<file src="relative/path.ext">' in robosprawl_skill.instructions
     assert "runtime-supplied" in robosprawl_skill.instructions
     assert not project.sandbox.root.exists()
-    assert agent.initial_messages == deployment.agent.initial_messages
     assert agent.initial_messages[0] == project.memory
     assert agent.pipe.data_path == project.logs / "orchestrator"
     assert background.pipe.data_path == project.logs / "librarian"
@@ -148,9 +125,9 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
     compactifier = next(
         t for t in agent.default_tools if t.name == COMPACTIFY_MESSAGES_TOOL_NAME
     )
-    assert compactifier.dependencies[0] is root_endpoint
+    assert compactifier.external_dependencies == (root_endpoint,)
     for tool in background.default_tools[:2]:
-        assert tool.dependencies[0] is memory_endpoint
+        assert tool.external_dependencies == (memory_endpoint,)
 
 
 def test_nested_specialists_have_separate_persistence_and_seed_memory(tmp_path):
@@ -176,12 +153,12 @@ def test_nested_specialists_have_separate_persistence_and_seed_memory(tmp_path):
         ),
         subagents=(specialist,),
     )
-    deployment.agent = replace(deployment.agent, background_agents=())
-    agent, _ = deployment.build()
+    agent = foreground_agent(deployment)
     result, _ = agent.invoke()
     assert result.value == "done"
-    assert {p.name for p in project.logs.iterdir()} == deployment.agent.agent_names()
-    for name in deployment.agent.agent_names():
+    names = {"orchestrator", "specialist", "nested"}
+    assert {p.name for p in project.logs.iterdir()} == names
+    for name in names:
         (log,) = (project.logs / name).rglob("*.json")
         data = json.loads(log.read_text())
         assert data["agent_name"] == name and data["status"] == "completed"
@@ -197,14 +174,14 @@ def test_route_discovery_and_compaction_follow_model_switch_without_rebuild(tmp_
     selected = first
     project = Project(Sandbox(tmp_path).for_project("demo"), "demo")
     hub = load_hub()
-    hub = replace(hub, deployment=replace(hub.deployment, memory_endpoint=memory))
+    hub = replace(hub, memory_endpoint=memory)
     deployment = hub.configure_deployment(
         project.sandbox,
         project.slug,
         endpoint_getter=lambda: selected,
     )
-    route = deployment.agent.agent_endpoint
-    agent, (background,) = deployment.build()
+    agent, (background,) = deployment
+    route = agent.agent_endpoint
     compactifier = next(
         t for t in agent.default_tools if t.name == COMPACTIFY_MESSAGES_TOOL_NAME
     )
@@ -245,46 +222,56 @@ def test_project_alias_cannot_bind_another_projects_sandbox(tmp_path):
 
 
 def test_interleaved_deployments_keep_project_paths_and_policies_separate(tmp_path):
-    from roboshed.models import ActionVerdict, Operation
-    from roboshed.tools.utils import check_allow_deny_permission
-
     hub = load_hub()
     hub = replace(hub, sandbox=replace(hub.sandbox, root=tmp_path / "sandbox"))
     first, second = hub.project("one"), hub.project("two")
-    deployments = [
-        hub.configure_deployment(
-            p.sandbox, p.slug, endpoint_getter=lambda: hub.default_model
+    events = [[], []]
+    recipes = [
+        configured_deployment(
+            project,
+            MockLLMEndpoint(
+                [
+                    {
+                        "action": "apply_patch",
+                        "rationale": "own project",
+                        "path": f"projects/{project.slug}/note.txt",
+                        "old_string": "",
+                        "new_string": project.slug,
+                    },
+                    {
+                        "action": "apply_patch",
+                        "rationale": "other project",
+                        "path": f"projects/{other.slug}/note.txt",
+                        "old_string": "",
+                        "new_string": "wrong",
+                    },
+                    {"action": "stop", "rationale": "done", "value": project.slug},
+                ]
+            ),
+            event_sinks=(sink.append,),
         )
-        for p in (first, second)
+        for project, other, sink in (
+            (first, second, events[0]),
+            (second, first, events[1]),
+        )
     ]
+    assert recipes[0] is not recipes[1]
     assert first.sandbox is not second.sandbox
     assert first.sandbox is not hub.sandbox
     assert hub.sandbox.scope is None
-    for project, deployment in zip((first, second), deployments, strict=True):
-        agent, (background,) = deployment.build()
-        assert deployment.sandbox is not project.sandbox
-        assert deployment.sandbox == project.sandbox
+    assert not hub.sandbox.root.exists()
+    assert recipes[0][0].pipe is not recipes[1][0].pipe
+    for project, (agent, (background,)) in zip((first, second), recipes, strict=True):
         assert agent.pipe.data_path == project.logs / "orchestrator"
         assert background.pipe.data_path == project.logs / "librarian"
-        assert agent.initial_messages == deployment.agent.initial_messages
         assert agent.initial_messages[0] == project.memory
         assert str(project.root) in agent.initial_messages[1]
-        for capability in deployment.agent.background_agents[0].capabilities:
-            assert capability.sandbox is deployment.sandbox
-        for capability in deployment.agent.capabilities[1:]:
-            policy = capability.permissions
-            for target in (first, second):
-                verdict = check_allow_deny_permission(
-                    location=target.root / "note.txt",
-                    op_type=Operation.CREATE,
-                    takes_precedence=policy.takes_precedence,
-                    allow_rules=policy.allow,
-                    deny_rules=policy.deny,
-                    default_verdict=policy.default_verdict,
-                    base_path=policy.base,
-                )
-                expected = (
-                    ActionVerdict.allow if target is project else ActionVerdict.deny
-                )
-                assert verdict == expected
-    assert not hub.sandbox.root.exists()
+        project.root.mkdir(parents=True)
+    for index, recipe in enumerate(recipes):
+        foreground_agent(recipe).invoke()
+        assert events[index]
+        if index == 0:
+            assert not events[1]
+            assert not (second.root / "note.txt").exists()
+    assert (first.root / "note.txt").read_text() == "one"
+    assert (second.root / "note.txt").read_text() == "two"

@@ -9,18 +9,21 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import TypedDict
 
-from roboshed.deployments import Deployment
+from roboshed.deployments.robosprawl import RoboSprawl
 from roboshed.sandbox import Sandbox
+from roboz.agent import Agent
 from roboz.dependencies import (
     DependencyRegistration,
     LazyExternalDependency,
 )
+from roboz.deployment import AgentCapability, DeployableAgent
 from roboz.llm import (
+    EndpointLike,
     LLMEndpoint,
     ModelSelector,
     TranscriptionEndpointLike,
 )
-from roboz.runtime import EventSink
+from roboz.runtime import EventSink, Output
 
 from robosprawl.api.projects import Project
 from robosprawl.hub.logging import HubLoggingConfig
@@ -51,7 +54,10 @@ class HubValues(TypedDict):
     DEPENDENCY_HEALTH: DependencyHealthSettings
     MODELS: Mapping[str, LazyExternalDependency[LLMEndpoint]]
     DEFAULT_MODEL: LazyExternalDependency[LLMEndpoint]
-    DEPLOYMENT: Callable[..., Deployment]
+    MEMORY_ENDPOINT: EndpointLike
+    CAPABILITIES: tuple[AgentCapability, ...]
+    SUBAGENTS: tuple[DeployableAgent, ...]
+    INTERACTION_MODE: Output | None
     TRANSCRIPTION_ENDPOINT: TranscriptionEndpointLike | None
     DEPENDENCY_REGISTRY: tuple[DependencyRegistration, ...] | None
 
@@ -66,9 +72,13 @@ class Hub:
     dependency_health: DependencyHealthSettings
     models: Mapping[str, LazyExternalDependency[LLMEndpoint]]
     default_model: LazyExternalDependency[LLMEndpoint]
-    deployment: Callable[..., Deployment]
+    memory_endpoint: EndpointLike
+    additional_capabilities: tuple[AgentCapability, ...]
+    subagents: tuple[DeployableAgent, ...]
+    interaction_mode: Output | None
     transcription_endpoint: TranscriptionEndpointLike | None
     dependency_registry: tuple[DependencyRegistration, ...] | None
+    deployment: Callable[..., tuple[Agent, tuple[Agent, ...]]] | None = None
     model_selector: ModelSelector = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -82,8 +92,8 @@ class Hub:
             "model_selector",
             ModelSelector(self.models, default=self.default_model),
         )
-        if not callable(self.deployment):
-            raise TypeError("deployment must be callable")
+        if self.deployment is not None and not callable(self.deployment):
+            raise TypeError("deployment override must be callable")
         if self.dependency_registry is not None:
             object.__setattr__(
                 self, "dependency_registry", tuple(self.dependency_registry)
@@ -119,14 +129,24 @@ class Hub:
         *,
         endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
         event_sinks: Sequence[EventSink] = (),
-    ) -> Deployment:
-        """Invoke the configured getter with a fresh project-scoped sandbox."""
+    ) -> tuple[Agent, tuple[Agent, ...]]:
+        """Wire and build fresh agents with this Hub's choices and run inputs."""
         if sandbox.scope is not None and sandbox.scope != project_slug:
             raise ValueError("deployment project must match the sandbox scope")
         sandbox = sandbox.for_project(project_slug)
-        return self.deployment(
-            sandbox,
-            project_slug,
-            endpoint_getter=endpoint_getter,
-            event_sinks=event_sinks,
-        )
+        if self.deployment is not None:
+            return self.deployment(
+                sandbox,
+                project_slug,
+                endpoint_getter=endpoint_getter,
+                event_sinks=event_sinks,
+            )
+        recipe = RoboSprawl()
+        recipe.set_sandbox(sandbox)
+        recipe.set_endpoint_getter(endpoint_getter)
+        recipe.set_memory_endpoint(self.memory_endpoint)
+        recipe.set_additional_capabilities(self.additional_capabilities)
+        recipe.set_specialists(self.subagents)
+        recipe.set_interaction_mode(self.interaction_mode)
+        recipe.set_event_sinks(event_sinks)
+        return recipe.build()

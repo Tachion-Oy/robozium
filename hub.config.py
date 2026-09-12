@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Final
 
 from roboshed.capabilities import Compactification
-from roboshed.deployments.robosprawl import RoboSprawl
 from roboshed.sandbox import Sandbox
 from roboshed.skills import robosprawl
 from roboz.deployment import Capability
@@ -47,11 +46,5 @@ CAPABILITIES: Final = (
 )
 SUBAGENTS: Final = ()
 INTERACTION_MODE: Final = Output.API
-DEPLOYMENT: Final = RoboSprawl(
-    memory_endpoint=MEMORY_ENDPOINT,
-    additional_capabilities=CAPABILITIES,
-    subagents=SUBAGENTS,
-    interaction_mode=INTERACTION_MODE,
-)
 TRANSCRIPTION_ENDPOINT: Final = None
 DEPENDENCY_REGISTRY: Final = None
