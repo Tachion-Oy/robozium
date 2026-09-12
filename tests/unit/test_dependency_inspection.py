@@ -119,7 +119,7 @@ def test_standard_deployment_discovers_tools_and_every_selectable_model() -> Non
                 project.sandbox,
                 project.slug,
                 endpoint_getter=lambda: deployment.model_selector.selected_endpoint,
-            ).agent.background_agents[0].agent_endpoint,
+            )[1][0].agent_endpoint,
         )
     }
 

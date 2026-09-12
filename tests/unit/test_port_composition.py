@@ -9,8 +9,8 @@ from threading import Event, Thread
 from types import SimpleNamespace
 
 import pytest
-from deployment_support import configured_deployment
-from roboshed.capabilities import Compactification, FileCommands, FileEditing
+from deployment_support import configured_deployment, foreground_agent
+from roboshed.capabilities import Compactification
 from roboshed.tools.compactification import CompactifyStatus
 from roboz.exceptions import LLMCallTimeoutError
 from roboz.llm import LLMEndpoint, MockLLMEndpoint, estimate_conversation_tokens
@@ -52,18 +52,13 @@ def test_orchestrator_compacts_with_shed_and_persists_summary(tmp_path):
         ],
         max_context_tokens=10000,
     )
-    deployment = configured_deployment(project, endpoint, event_sinks=(events.append,))
-    deployment.additional_capabilities = (Compactification(threshold_percent=60),)
-    deployment.agent = replace(
-        deployment.agent,
-        background_agents=(),
-        capabilities=(
-            deployment.agent.capabilities[0],
-            FileCommands(project.sandbox.permissions(), auto_load_skill=False),
-            FileEditing(project.sandbox.permissions(), auto_load_skill=False),
-        ),
+    deployment = configured_deployment(
+        project,
+        endpoint,
+        event_sinks=(events.append,),
+        additional_capabilities=(Compactification(threshold_percent=60),),
     )
-    agent, _ = deployment.build()
+    agent = foreground_agent(deployment, omit_skills=True)
     assert [tool.OutputModel for tool in agent.default_tools] == [CompactifyStatus]
     result, messages = agent.invoke()
     assert result.value == "done"
@@ -131,20 +126,16 @@ def test_orchestrator_controls_reach_compaction_provider(tmp_path, control):
         max_context_tokens=10000,
         stream=False,
     )
-    deployment = configured_deployment(project, endpoint)
-    deployment.additional_capabilities = (
-        Compactification(threshold_percent=60, timeout_s=0.1 if control == "timeout" else None),
-    )
-    deployment.agent = replace(
-        deployment.agent,
-        background_agents=(),
-        capabilities=(
-            deployment.agent.capabilities[0],
-            FileCommands(project.sandbox.permissions(), auto_load_skill=False),
-            FileEditing(project.sandbox.permissions(), auto_load_skill=False),
+    deployment = configured_deployment(
+        project,
+        endpoint,
+        additional_capabilities=(
+            Compactification(
+                threshold_percent=60, timeout_s=0.1 if control == "timeout" else None
+            ),
         ),
     )
-    agent, _ = deployment.build()
+    agent = foreground_agent(deployment, omit_skills=True)
     errors = []
 
     def invoke():
@@ -209,8 +200,7 @@ def test_file_agent_loads_memory_writes_project_and_denies_escape(tmp_path):
         ]
     )
     deployment = configured_deployment(project, endpoint)
-    deployment.agent = replace(deployment.agent, background_agents=())
-    agent, _ = deployment.build()
+    agent = foreground_agent(deployment)
     result, messages = agent.invoke()
     assert result.value == "done"
     assert (project.root / "note.txt").read_text() == "hello"
@@ -230,7 +220,7 @@ from roboshed.deployments.robosprawl import RoboSprawl
 
 def reject(*args, **kwargs):
     raise AssertionError('live deployment constructed')
-RoboSprawl.__call__ = reject
+RoboSprawl.__init__ = reject
 from robosprawl.api.app import mock_app
 from fastapi.testclient import TestClient
 with TestClient(mock_app()) as client:

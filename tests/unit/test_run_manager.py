@@ -11,7 +11,6 @@ from typing import Any, cast
 
 import pytest
 from deployment_support import BuiltAgents
-from roboshed.deployments import Deployment
 from roboshed.identifiers import LIBRARIAN_AGENT_NAME
 from roboshed.sandbox import Sandbox
 from roboz import Agent, DependencyRoute
@@ -169,7 +168,10 @@ def _root_bundle(agent: Agent) -> BuiltAgents:
 
 
 def _manager(
-    factory: Callable[..., Deployment], *, hub_name: str, **kwargs: Any
+    factory: Callable[..., tuple[Agent, tuple[Agent, ...]]],
+    *,
+    hub_name: str,
+    **kwargs: Any,
 ) -> RunManager:
     return RunManager(
         factory,
@@ -875,7 +877,9 @@ def _stub_background_agent(name: str = "stub_librarian") -> Agent:
     )
 
 
-def _completed_root_with_background(background: Agent) -> Callable[..., Deployment]:
+def _completed_root_with_background(
+    background: Agent,
+) -> Callable[..., tuple[Agent, tuple[Agent, ...]]]:
     def factory(
         sandbox: Sandbox,
         project_slug: str,

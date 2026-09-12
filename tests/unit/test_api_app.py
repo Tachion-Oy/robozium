@@ -19,7 +19,6 @@ from deployment_support import BuiltAgents, configured_deployment
 from fastapi import Request
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
-from roboshed.deployments import Deployment
 from roboshed.identifiers import LIBRARIAN_AGENT_NAME
 from roboshed.sandbox import Sandbox
 from roboshed.tools.memory_files import (
@@ -64,7 +63,9 @@ def _root_bundle(agent: Agent) -> BuiltAgents:
     return BuiltAgents(agent=agent, background_agents=())
 
 
-def _test_deployment(factory: Callable[..., Deployment], config_start: Path) -> Hub:
+def _test_deployment(
+    factory: Callable[..., tuple[Agent, tuple[Agent, ...]]], config_start: Path
+) -> Hub:
     return replace(
         load_hub(start=config_start),
         deployment=factory,
@@ -1693,7 +1694,7 @@ def test_real_orchestrator_reads_top_level_workspace_file(
         *,
         endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
         event_sinks: Sequence[EventSink],
-    ) -> Deployment:
+    ) -> tuple[Agent, tuple[Agent, ...]]:
         del endpoint_getter
         return configured_deployment(
             Project(sandbox, project_slug), endpoint, event_sinks=event_sinks

@@ -111,7 +111,7 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
         hub,
         models={"Root": root, "Spare": spare},
         default_model=root,
-        deployment=replace(hub.deployment, memory_endpoint=memory),
+        memory_endpoint=memory,
     )
     bound = inspect_dependencies(
         lambda sandbox: hub.configure_deployment(
@@ -139,7 +139,7 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
         "demo",
         endpoint_getter=lambda: hub.model_selector.selected_endpoint,
     )
-    assert configured.agent.background_agents[0].agent_endpoint is memory
+    assert configured[1][0].agent_endpoint is memory
 
 
 def test_explicit_config_path_wins_over_environment(config_file, monkeypatch):
@@ -154,7 +154,7 @@ def test_explicit_config_path_wins_over_environment(config_file, monkeypatch):
 
 @pytest.mark.parametrize(
     "choice",
-    ["SANDBOX", "DEPLOYMENT"],
+    ["SANDBOX", "MEMORY_ENDPOINT", "CAPABILITIES", "SUBAGENTS", "INTERACTION_MODE"],
 )
 def test_required_choice_fails_during_load(config_file, choice):
     with config_file.open("a") as file:
@@ -284,21 +284,20 @@ def test_constants_control_the_complete_deployment(config_file, monkeypatch):
     with config_file.open("a") as file:
         file.write("""
 from roboz.deployment import DeployableAgent
+from roboz.tools import stop
 
 MODELS = {"Alternate": FLASH}
 DEFAULT_MODEL = FLASH
 DEPENDENCY_HEALTH = DependencyHealthSettings(interval_s=17, timeout_s=3)
 CAPABILITIES = (Compactification(threshold_percent=42),)
 MEMORY_ENDPOINT = GPT_OSS
-SUBAGENTS = (DeployableAgent(name="reviewer", agent_endpoint=GPT_OSS),)
-INTERACTION_MODE = None
-DEPLOYMENT = RoboSprawl(
-    memory_endpoint=MEMORY_ENDPOINT,
-    additional_capabilities=CAPABILITIES,
-    subagents=SUBAGENTS,
-    interaction_mode=INTERACTION_MODE,
+REVIEWER = DeployableAgent(
+    name="reviewer", system_prompt="Review the project.",
+    default_capabilities=(Capability(tools=(stop,)),),
 )
-del CAPABILITIES, MEMORY_ENDPOINT, SUBAGENTS, INTERACTION_MODE
+REVIEWER.set_agent_endpoint(GPT_OSS)
+SUBAGENTS = (REVIEWER,)
+INTERACTION_MODE = None
 """)
     hub = load_hub(config_file=config_file)
     project = hub.project("custom")
@@ -310,19 +309,13 @@ del CAPABILITIES, MEMORY_ENDPOINT, SUBAGENTS, INTERACTION_MODE
     assert (
         hub.dependency_health.interval_s == 17 and hub.dependency_health.timeout_s == 3
     )
-    assert deployment.additional_capabilities[-1].threshold_percent == 42
-    assert deployment.agent.subagents == tuple(hub.deployment.subagents)
-    assert deployment.agent.agent_names(include_background=False) == {
-        "orchestrator", "reviewer"
-    }
-    assert hub.deployment.interaction_mode is None
-    assert deployment.agent.interaction_mode is None
-    assert deployment.agent.initial_messages[0] == project.memory
-    assert "Project: custom" in deployment.agent.initial_messages[1]
-    assert (
-        deployment.agent.background_agents[0].agent_endpoint.dependency_id
-        == "model:cerebras:gpt-oss-120b"
-    )
+    assert hub.additional_capabilities[-1].threshold_percent == 42
+    assert hub.interaction_mode is None
+    agent, (background,) = deployment
+    assert "reviewer" in {tool.name for tool in agent.tools}
+    assert agent.initial_messages[0] == project.memory
+    assert "Project: custom" in agent.initial_messages[1]
+    assert background.agent_endpoint.dependency_id == "model:cerebras:gpt-oss-120b"
     assert not hub.sandbox.root.exists()
 
 
@@ -340,7 +333,7 @@ def test_checked_in_config_has_only_constant_declarations(config_file):
     )
 
 
-@pytest.mark.parametrize("getter", [None, 42])
-def test_hub_requires_a_callable_deployment(config_file, getter):
-    with pytest.raises(TypeError, match="deployment must be callable"):
+@pytest.mark.parametrize("getter", [42, "invalid"])
+def test_hub_requires_a_callable_deployment_override(config_file, getter):
+    with pytest.raises(TypeError, match="deployment override must be callable"):
         replace(load_hub(config_file=config_file), deployment=getter)

@@ -9,7 +9,7 @@ from collections.abc import Callable, Collection
 from functools import partial
 from uuid import uuid4
 
-from roboshed.deployments import Deployment
+from roboz.agent import Agent
 from roboz.dependencies import LazyExternalDependency
 from roboz.llm import LLMEndpoint
 from roboz.runtime import (
@@ -35,7 +35,7 @@ COMPLETED_TTL_S = 300.0
 class RunManager:
     def __init__(
         self,
-        configure_deployment: Callable[..., Deployment],
+        configure_deployment: Callable[..., tuple[Agent, tuple[Agent, ...]]],
         *,
         hub_name: str,
         default_orchestrator_endpoint: Callable[
@@ -121,7 +121,10 @@ class RunManager:
 
     @staticmethod
     def _run_agent(
-        run_id: str, control: RunControl, *, configure: Callable[..., Deployment]
+        run_id: str,
+        control: RunControl,
+        *,
+        configure: Callable[..., tuple[Agent, tuple[Agent, ...]]],
     ) -> None:
         """Worker body: bind API context, construct and invoke the agent.
 
@@ -133,13 +136,12 @@ class RunManager:
             if control.cancel_requested:
                 control.finish(RunStatus.CANCELLED)
                 return
-            deployment = configure(
+            agents = configure(
                 control.project.sandbox,
                 control.project.slug,
                 endpoint_getter=control.endpoint,
                 event_sinks=(control.dispatch,),
             )
-            agents = deployment.build()
             if control.attach(agents):
                 agents[0].invoke()
             control.finish(RunStatus.COMPLETED)
