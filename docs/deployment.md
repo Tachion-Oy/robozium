@@ -10,16 +10,18 @@ Roboz and Roboshed primitives supply endpoint definitions and agent construction
   interaction mode, specialists, one sandbox layout,
   health timings, transcription, and dependency registrations.
 - `robosprawl.hub.application.Hub` validates those inputs, derives projects, and
-  owns the runtime `ModelSelector`. It stores the configured deployment getter
-  and supplies runtime inputs without knowing the agent recipe.
+  owns the runtime `ModelSelector`. It creates a fresh Shed recipe and supplies
+  application choices and run inputs through that recipe's setters.
 - `robosprawl.hub.utils` discovers and loads the file and normalizes project names.
 - `robosprawl.hub.logging.HubLoggingConfig` supplies logging defaults. This is the
   explicit exception to requiring deployment choices in the configuration file.
-- `Hub.configure_deployment()` creates a fresh scoped Sandbox and invokes the
-  stored getter with the project slug, model getter, and event sinks.
+- `Hub.configure_deployment()` creates a fresh scoped Sandbox and `RoboSprawl`,
+  then sets the sandbox, live model getter, memory endpoint, additional
+  capabilities, specialists, interaction mode, and event sinks, then calls
+  `build()` and returns the root and background agents directly.
 - `roboshed.deployments.robosprawl.RoboSprawl` owns the concrete agent recipe:
   the orchestrator, Librarian, recursive foreground names, and initial messages.
-  Shared `Deployment.build()` builds runtime agents and persistence sinks.
+  Its argument-free `build()` builds runtime agents and persistence sinks.
 - The API consumes Hub and owns HTTP, streaming, interruption, cancellation,
   background-thread observation, and shutdown.
 
@@ -37,25 +39,16 @@ The shared orchestrator already supplies file commands and editing, each taking
 only a `PermissionPolicy` derived from the run's Sandbox. Do not add duplicate
 file capabilities here. `SUBAGENTS` holds shared `DeployableAgent` definitions.
 
-The configuration constructs its deployment getter explicitly:
-
-```python
-from roboshed.deployments.robosprawl import RoboSprawl
-
-DEPLOYMENT = RoboSprawl(
-    memory_endpoint=MEMORY_ENDPOINT,
-    additional_capabilities=CAPABILITIES,
-    subagents=SUBAGENTS,
-    interaction_mode=INTERACTION_MODE,
-)
-```
-
-Hub loads only `DEPLOYMENT` for agent configuration. The four constants above are
-helpers used to construct that object; they are not required Hub exports.
+Hub loads `MEMORY_ENDPOINT`, `CAPABILITIES`, `SUBAGENTS`, and `INTERACTION_MODE`
+directly from the configuration. There is no deployment factory constant or
+adapter function. Loading configuration does not create a shared mutable recipe.
+Hub calls `RoboSprawl()` and its setters for each new run, using the scoped
+sandbox, live endpoint getter, and caller sinks. Replies and stream reconnects
+continue using the existing run; they do not rebuild agents.
 The recipe supplies the memory directory and generated project locations
 through the orchestrator's `initial_messages`. The shared system prompt
 is used unchanged. Project locations come from the same scoped Sandbox used for
-file permissions, the Librarian, and the Deployment.
+file permissions, the Librarian, and persistence.
 
 `LOGGING = HubLoggingConfig()` keeps the normal console/file behavior. Override
 individual fields, such as `console_level` or `max_bytes`, when needed. The default
@@ -96,11 +89,12 @@ the graph's lifetime. File tools receive only its derived policy. Project
 symbolic-link aliases fail before graph construction.
 
 Python hosts and mocks can use `dataclasses.replace(hub, ...)` to supply explicit
-inputs before app construction. The required `deployment` callable receives
+inputs before app construction. The optional mock/test `deployment` override receives
 the fresh scoped Sandbox, matching project slug, endpoint getter, and event
-sinks, and returns an unbuilt shared Deployment. Mocks supply a different
-callable through the same field. The host calls
-`build()` and owns the resulting root/background agents. No app-level
+sinks, and returns the built root and background agents directly. Mocks
+supply a different callable through the same field and keep their intentionally
+shortened maintenance pipelines in mock-only definitions. The run manager
+attaches and invokes those agents without another build step. No app-level
 configuration overrides exist. Automatic inspection includes constructed agents,
 every advertised model, and transcription. Explicit registrations must match dependency
 IDs and kinds exactly; custom kinds require explicit checkers.
@@ -114,8 +108,8 @@ the shared Librarian preset. Construction starts no agents or threads and create
 persistence directories. Mocks retain fresh scripts and their existing scenario
 controls.
 
-The dependency pins select Roboz `0.1.2.dev3` and Roboshed `0.1.1.dev1`.
-The published Shed development snapshot includes the `RoboSprawl` recipe, so
+The dependency pins select Roboz `0.1.2.dev4` and Roboshed `0.1.1.dev2`.
+These published snapshots supply the setter-based recipe and core build API, so
 locked installation and CI consume it directly from PyPI. No sibling checkout
 or local dependency paths are required.
 

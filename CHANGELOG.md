@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Consume `roboz 0.1.2.dev4` and `roboshed 0.1.1.dev2` from PyPI. Wire a fresh
+  Shed `RoboSprawl` instance through its setters before each new run, then use
+  its argument-free `build()`. Project context, agent defaults, and persistence
+  stay in Shed; replies, model switching, cancellation, and streaming retain
+  their existing lifecycle. Update mock pipelines and dependency inspection to
+  the new core API without changing their scenarios.
+
 - Adopt shared `Deployment` and `DeployableAgent` composition with one fresh,
   project-scoped Sandbox per run. Paths and permissions come from that instance;
   the Python configuration retains all deployment choices and project context.
