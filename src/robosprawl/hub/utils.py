@@ -71,7 +71,7 @@ def load_hub(*, start: Path | None = None, config_file: Path | None = None) -> H
             subagents=values["SUBAGENTS"],
             interaction_mode=values["INTERACTION_MODE"],
             transcription_endpoint=values["TRANSCRIPTION_ENDPOINT"],
-            dependency_registry=values["DEPENDENCY_REGISTRY"],
+            additional_dependencies=values["ADDITIONAL_DEPENDENCIES"],
         )
     except Exception as exc:
         raise RuntimeError(f"Invalid hub config {path}: {exc}") from exc

@@ -7,9 +7,8 @@ from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
 from roboshed.dependency_health import (
     DependencyHealthMonitor,
     DependencyRecord,
-    inspect_dependencies,
 )
-from roboz.dependencies import ExternalDependency
+from roboz.dependencies import ExternalDependency, dedupe_external_dependencies
 
 from robosprawl.hub.application import Hub
 
@@ -27,16 +26,18 @@ def dependency_lifespan(
         if isinstance(hub.transcription_endpoint, ExternalDependency):
             hub_dependencies += (hub.transcription_endpoint,)
         project_slug = hub.project(hub.name).slug
-        dependencies = inspect_dependencies(
-            lambda sandbox: hub.configure_deployment(
-                sandbox,
-                project_slug,
-                endpoint_getter=lambda: hub.model_selector.selected_endpoint,
-                event_sinks=(),
-            ),
-            sandbox=hub.sandbox,
-            registrations=hub.dependency_registry,
-            additional_dependencies=hub_dependencies,
+        agent, _ = hub.configure_deployment(
+            hub.project(project_slug).sandbox,
+            project_slug,
+            endpoint_getter=lambda: hub.model_selector.selected_endpoint,
+            event_sinks=(),
+        )
+        dependencies = dedupe_external_dependencies(
+            (
+                *agent.external_dependencies(),
+                *hub_dependencies,
+                *(hub.additional_dependencies or ()),
+            )
         )
         monitor = DependencyHealthMonitor(
             dependencies,

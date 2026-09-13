@@ -15,11 +15,11 @@ Roboz and Roboshed primitives supply endpoint definitions and agent construction
 - `robosprawl.hub.utils` discovers and loads the file and normalizes project names.
 - `robosprawl.hub.logging.HubLoggingConfig` supplies logging defaults. This is the
   explicit exception to requiring deployment choices in the configuration file.
-- `Hub.configure_deployment()` creates a fresh scoped Sandbox and `RoboSprawl`,
+- `Hub.configure_deployment()` creates a fresh scoped Sandbox and calls `robosprawl()`,
   then sets the sandbox, live model getter, memory endpoint, additional
   capabilities, specialists, interaction mode, and event sinks, then calls
   `build()` and returns the root and background agents directly.
-- `roboshed.deployments.robosprawl.RoboSprawl` owns the concrete agent recipe:
+- `roboshed.deployments.robosprawl.robosprawl` owns the concrete agent recipe:
   the orchestrator, Librarian, recursive foreground names, and initial messages.
   Its argument-free `build()` builds runtime agents and persistence sinks.
 - The API consumes Hub and owns HTTP, streaming, interruption, cancellation,
@@ -42,7 +42,7 @@ file capabilities here. `SUBAGENTS` holds shared `DeployableAgent` definitions.
 Hub loads `MEMORY_ENDPOINT`, `CAPABILITIES`, `SUBAGENTS`, and `INTERACTION_MODE`
 directly from the configuration. There is no deployment factory constant or
 adapter function. Loading configuration does not create a shared mutable recipe.
-Hub calls `RoboSprawl()` and its setters for each new run, using the scoped
+Hub calls `robosprawl()` for each new run, using the scoped
 sandbox, live endpoint getter, and caller sinks. Replies and stream reconnects
 continue using the existing run; they do not rebuild agents.
 The recipe supplies the memory directory and generated project locations

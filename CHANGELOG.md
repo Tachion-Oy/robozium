@@ -2,12 +2,17 @@
 
 ## Unreleased
 
-- Consume `roboz 0.1.2.dev4` and `roboshed 0.1.1.dev2` from PyPI. Wire a fresh
-  Shed `RoboSprawl` instance through its setters before each new run, then use
-  its argument-free `build()`. Project context, agent defaults, and persistence
-  stay in Shed; replies, model switching, cancellation, and streaming retain
-  their existing lifecycle. Update mock pipelines and dependency inspection to
-  the new core API without changing their scenarios.
+- Migrate to concrete Roboz endpoints and typed `LLMEndpointRoute` selection.
+  Each run retains its live model getter while fixed memory endpoints remain
+  concrete. Replace dependency checker registrations with resources that own
+  `check()`, and combine built-agent dependencies with selectable models and
+  optional standalone resources in the health monitor. Deployment build,
+  invocation, model switching, persistence, and cancellation order are preserved.
+
+- Consume `roboz 0.1.2.dev4` and `roboshed 0.1.1.dev2` from PyPI. Call Shed's
+  `robosprawl()` recipe with the scoped project and deployment choices for each
+  new run. Project context, agent defaults, and persistence stay in Shed;
+  replies, model switching, cancellation, and streaming retain their lifecycle.
 
 - Adopt shared `Deployment` and `DeployableAgent` composition with one fresh,
   project-scoped Sandbox per run. Paths and permissions come from that instance;
@@ -35,8 +40,8 @@
 
 ### Fixed
 
-- Pin the published Roboshed `0.1.1.dev1` development snapshot so configuration
-  loading, tests, and frontend builds can import the concrete `RoboSprawl` recipe.
+- Pin the published Roboshed development snapshot so configuration loading,
+  tests, and frontend builds can import the concrete `robosprawl()` recipe.
 
 - Provision the frontend CI job with Python and the resolved Roboz dependencies before loading `hub.config.py`; keep transcription assertions and generated test configuration isolated.
 

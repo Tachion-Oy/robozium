@@ -10,7 +10,6 @@ from functools import partial
 from uuid import uuid4
 
 from roboz.agent import Agent
-from roboz.dependencies import LazyExternalDependency
 from roboz.llm import LLMEndpoint
 from roboz.runtime import (
     Output,
@@ -38,9 +37,7 @@ class RunManager:
         configure_deployment: Callable[..., tuple[Agent, tuple[Agent, ...]]],
         *,
         hub_name: str,
-        default_orchestrator_endpoint: Callable[
-            [], LazyExternalDependency[LLMEndpoint]
-        ],
+        default_orchestrator_endpoint: Callable[[], LLMEndpoint],
         message_history_limit: int | None = None,
         completed_ttl_s: float | None = None,
     ) -> None:
@@ -163,9 +160,7 @@ class RunManager:
     def get_orchestrator_model_id(self, run_id: str) -> str:
         return self._control(run_id).model_id
 
-    def replace_orchestrator_endpoint(
-        self, run_id: str, endpoint: LazyExternalDependency[LLMEndpoint]
-    ) -> None:
+    def replace_orchestrator_endpoint(self, run_id: str, endpoint: LLMEndpoint) -> None:
         self._control(run_id).replace_endpoint(endpoint)
 
     def run_view(self, run_id: str) -> RunView | None:

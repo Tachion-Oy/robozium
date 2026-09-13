@@ -13,13 +13,9 @@ import pytest
 from deployment_support import BuiltAgents
 from roboshed.identifiers import LIBRARIAN_AGENT_NAME
 from roboshed.sandbox import Sandbox
-from roboz import Agent, DependencyRoute
+from roboz import Agent
 from roboz.agent import run_subagent
-from roboz.dependencies import (
-    ExternalDependencyKind,
-    LazyExternalDependency,
-)
-from roboz.llm import LLMEndpoint, MockLLMEndpoint
+from roboz.llm import LLMEndpoint, LLMEndpointRoute, MockLLMEndpoint
 from roboz.models import Empty, Message, MessageKind, Role, Str
 from roboz.runtime import Output
 from roboz.runtime.events import (
@@ -37,7 +33,6 @@ from roboz.runtime.persistence import (
     utc_iso_z,
 )
 from roboz.runtime.pipe import EventPipe
-from roboz.tooling import Ctx
 from roboz.tooling.decorators import tool
 from roboz.tools import prompt_user_at_start, stop
 
@@ -68,7 +63,7 @@ def _busy_factory(
     project_slug: str,
     /,
     *,
-    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+    endpoint_getter: Callable[[], LLMEndpoint],
     event_sinks: Sequence[EventSink],
 ) -> BuiltAgents:
     """A run that gets stuck inside a tool, i.e. RUNNING (not awaiting input)."""
@@ -117,7 +112,7 @@ def _minimal_api_agent_for_manager_test(
     project_slug: str,
     /,
     *,
-    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+    endpoint_getter: Callable[[], LLMEndpoint],
     event_sinks: Sequence[EventSink],
 ) -> BuiltAgents:
     del sandbox, project_slug, endpoint_getter
@@ -127,7 +122,7 @@ def _minimal_api_agent_for_manager_test(
             {"action": "stop", "rationale": "done", "value": "ok"},
         ]
     )
-    start_only = prompt_user_at_start(Ctx(message="m"))
+    start_only = prompt_user_at_start("m")
     return _root_bundle(
         Agent(
             interaction_mode=Output.API,
@@ -143,24 +138,22 @@ def _minimal_api_agent_for_manager_test(
     )
 
 
-def _lazy_manager_endpoint(name: str) -> LazyExternalDependency[LLMEndpoint]:
-    return LazyExternalDependency(
-        dependency_id_value=f"model:test:{name}",
-        dependency_kind=ExternalDependencyKind.MODEL_ENDPOINT,
-        metadata={
-            "api_name": "test",
-            "model_name": name,
-            "endpoint_type": "llm",
-        },
-        resolver=lambda: LLMEndpoint(
-            client=object(),
-            api_name="test",
-            model_name=name,
+def _manager_endpoint(name: str) -> LLMEndpoint:
+    from types import SimpleNamespace
+
+    def forbidden():
+        raise AssertionError("Unused client was initialized")
+
+    return LLMEndpoint(
+        client=SimpleNamespace(
+            chat=object(), models=object(), close=forbidden, materialize=forbidden
         ),
+        api_name="test",
+        model_name=name,
     )
 
 
-_TEST_DEFAULT_ENDPOINT = _lazy_manager_endpoint("default")
+_TEST_DEFAULT_ENDPOINT = _manager_endpoint("default")
 
 
 def _root_bundle(agent: Agent) -> BuiltAgents:
@@ -182,9 +175,9 @@ def _manager(
 
 
 def test_manager_builds_a_route_that_closes_over_its_run_state() -> None:
-    first = _lazy_manager_endpoint("first")
-    second = _lazy_manager_endpoint("second")
-    static_route = DependencyRoute(lambda: first)
+    first = _manager_endpoint("first")
+    second = _manager_endpoint("second")
+    static_route = LLMEndpointRoute(lambda: first)
     waiting_for_change = Event()
     continue_run = Event()
     resolved_models: list[str] = []
@@ -194,10 +187,10 @@ def test_manager_builds_a_route_that_closes_over_its_run_state() -> None:
         project_slug: str,
         /,
         *,
-        endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+        endpoint_getter: Callable[[], LLMEndpoint],
         event_sinks: Sequence[EventSink],
     ) -> Any:
-        route = DependencyRoute(endpoint_getter)
+        route = LLMEndpointRoute(endpoint_getter)
 
         class ProbeAgent:
             def __init__(self) -> None:
@@ -206,10 +199,10 @@ def test_manager_builds_a_route_that_closes_over_its_run_state() -> None:
             def invoke(self) -> None:
                 waiting_for_change.set()
                 assert continue_run.wait(timeout=5.0)
-                resolved_models.append(route.materialize().model_name)
+                resolved_models.append(route.resolve().model_name)
 
         del sandbox, project_slug, event_sinks
-        resolved_models.append(route.materialize().model_name)
+        resolved_models.append(route.resolve().model_name)
         return BuiltAgents(
             agent=cast(Agent, ProbeAgent()),
             background_agents=(),
@@ -217,7 +210,7 @@ def test_manager_builds_a_route_that_closes_over_its_run_state() -> None:
 
     # Dependency inspection and other construction outside a run sees the
     # configured static default.
-    assert static_route.materialize().model_name == "first"
+    assert static_route.resolve().model_name == "first"
 
     manager = RunManager(
         run_factory,
@@ -241,7 +234,7 @@ def test_run_manager_api_user_io_unblocks_on_resolve() -> None:
         project_slug: str,
         /,
         *,
-        endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+        endpoint_getter: Callable[[], LLMEndpoint],
         event_sinks: Sequence[EventSink],
     ) -> BuiltAgents:
         return _minimal_api_agent_for_manager_test(
@@ -482,7 +475,7 @@ def test_nested_subagent_lifecycle_events_reach_run_event_listeners() -> None:
         project_slug: str,
         /,
         *,
-        endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+        endpoint_getter: Callable[[], LLMEndpoint],
         event_sinks: Sequence[EventSink],
     ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
@@ -502,7 +495,7 @@ def test_nested_subagent_lifecycle_events_reach_run_event_listeners() -> None:
                 ]
             ),
         )
-        run_child = run_subagent(Ctx(agent=child)).copy(name="delegate")
+        run_child = run_subagent(child).copy(name="delegate")
         return _root_bundle(
             Agent(
                 name="parent_orchestrator",
@@ -749,7 +742,7 @@ def test_manager_completes_immediately_after_root_exits_even_with_librarian() ->
         project_slug: str,
         /,
         *,
-        endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+        endpoint_getter: Callable[[], LLMEndpoint],
         event_sinks: Sequence[EventSink],
     ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
@@ -785,7 +778,7 @@ def test_manager_failed_root_does_not_transition_through_syncing() -> None:
         project_slug: str,
         /,
         *,
-        endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+        endpoint_getter: Callable[[], LLMEndpoint],
         event_sinks: Sequence[EventSink],
     ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
@@ -815,7 +808,7 @@ def test_manager_cancelled_run_does_not_enter_syncing_state() -> None:
         project_slug: str,
         /,
         *,
-        endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+        endpoint_getter: Callable[[], LLMEndpoint],
         event_sinks: Sequence[EventSink],
     ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
@@ -885,7 +878,7 @@ def _completed_root_with_background(
         project_slug: str,
         /,
         *,
-        endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+        endpoint_getter: Callable[[], LLMEndpoint],
         event_sinks: Sequence[EventSink],
     ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
@@ -948,7 +941,7 @@ def test_manager_cancel_does_not_fan_out_to_background_agents() -> None:
         project_slug: str,
         /,
         *,
-        endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+        endpoint_getter: Callable[[], LLMEndpoint],
         event_sinks: Sequence[EventSink],
     ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter

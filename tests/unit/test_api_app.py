@@ -27,7 +27,6 @@ from roboshed.tools.memory_files import (
     utc_now,
 )
 from roboz import Agent
-from roboz.dependencies import LazyExternalDependency
 from roboz.llm import LLMEndpoint, MockLLMEndpoint, MockTranscriptionEndpoint
 from roboz.models import Empty, Message, Str
 from roboz.runtime import Output
@@ -44,7 +43,6 @@ from roboz.runtime.persistence import (
     utc_iso_z,
 )
 from roboz.runtime.pipe import EventPipe
-from roboz.tooling import Ctx
 from roboz.tooling.decorators import tool
 from roboz.tools import prompt_user_at_start, stop
 
@@ -90,7 +88,7 @@ def _minimal_factory(
     project_slug: str,
     /,
     *,
-    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+    endpoint_getter: Callable[[], LLMEndpoint],
     event_sinks: Sequence[EventSink],
 ) -> BuiltAgents:
     del sandbox, project_slug, endpoint_getter
@@ -100,7 +98,7 @@ def _minimal_factory(
             {"action": "stop", "rationale": "done", "value": "ok"},
         ]
     )
-    start_only = prompt_user_at_start(Ctx(message="m"))
+    start_only = prompt_user_at_start("m")
     return _root_bundle(
         Agent(
             interaction_mode=Output.API,
@@ -121,7 +119,7 @@ def _running_factory(
     project_slug: str,
     /,
     *,
-    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+    endpoint_getter: Callable[[], LLMEndpoint],
     event_sinks: Sequence[EventSink],
 ) -> BuiltAgents:
     del sandbox, project_slug, endpoint_getter
@@ -149,7 +147,7 @@ def _stream_terminating_factory(
     project_slug: str,
     /,
     *,
-    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+    endpoint_getter: Callable[[], LLMEndpoint],
     event_sinks: Sequence[EventSink],
 ) -> BuiltAgents:
     del sandbox, project_slug, endpoint_getter
@@ -176,7 +174,7 @@ def _syncing_after_stop_factory(
     project_slug: str,
     /,
     *,
-    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+    endpoint_getter: Callable[[], LLMEndpoint],
     event_sinks: Sequence[EventSink],
 ) -> BuiltAgents:
     del sandbox, project_slug, endpoint_getter
@@ -1692,7 +1690,7 @@ def test_real_orchestrator_reads_top_level_workspace_file(
         project_slug: str,
         /,
         *,
-        endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+        endpoint_getter: Callable[[], LLMEndpoint],
         event_sinks: Sequence[EventSink],
     ) -> tuple[Agent, tuple[Agent, ...]]:
         del endpoint_getter

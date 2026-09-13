@@ -60,7 +60,14 @@ CAPABILITIES: Final = (
 
 The checked-in file supplies all deployment choices. Logging is the explicit exception: `LOGGING = HubLoggingConfig()` uses defaults from `robosprawl.hub.logging`; pass individual keyword arguments to customize them. See [deployment composition](docs/deployment.md) for the complete contract.
 
-`create_app(deployment=load_hub())` consumes a validated Hub directly. `robosprawl.hub.utils` owns discovery, loading, and slug normalization. Hub owns its inputs and runtime selector; there is no nested configuration wrapper. Shared inspection derives executable/model registrations from constructed agents and all advertised models, including unselected ones. Explicit registries retain exact validation. The shared orchestrator supplies guarded file capabilities; their boundaries come only from the run's scoped `sandbox.permissions()`.
+`create_app(deployment=load_hub())` consumes a validated Hub directly.
+`robosprawl.hub.utils` owns discovery, loading, and slug normalization. Hub owns
+its inputs and runtime selector; there is no nested configuration wrapper. The
+health monitor combines the constructed agent's dependencies with every
+advertised model, optional transcription, and `ADDITIONAL_DEPENDENCIES`. Each
+resource owns its availability check. The shared orchestrator supplies guarded
+file capabilities; their boundaries come only from the run's scoped
+`sandbox.permissions()`.
 
 Backend imports have no startup side effects. ASGI factories build an app; its lifespan registers use of process logging and recovers activity markers before accepting work. Overlapping apps in one process must share the same logging configuration. Shutdown cancels root and background work and waits up to ten seconds, logging a timeout if synchronous work cannot stop. Run registries are process-local: run one backend worker per data directory.
 

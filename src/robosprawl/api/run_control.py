@@ -11,7 +11,6 @@ from contextvars import copy_context
 from uuid import uuid4
 
 from roboz.agent import Agent
-from roboz.dependencies import LazyExternalDependency
 from roboz.llm import LLMEndpoint
 from roboz.runtime.events import EventSink, PipeEvent, RunLifecycleEvent
 from roboz.runtime.pipe import EventPipe
@@ -30,7 +29,7 @@ class RunControl:
     def __init__(
         self,
         project: Project,
-        endpoint: LazyExternalDependency[LLMEndpoint],
+        endpoint: LLMEndpoint,
         *,
         history_limit: int,
     ) -> None:
@@ -63,11 +62,11 @@ class RunControl:
         with self._lock:
             return self._endpoint.dependency_id
 
-    def endpoint(self) -> LazyExternalDependency[LLMEndpoint]:
+    def endpoint(self) -> LLMEndpoint:
         with self._lock:
             return self._endpoint
 
-    def replace_endpoint(self, endpoint: LazyExternalDependency[LLMEndpoint]) -> None:
+    def replace_endpoint(self, endpoint: LLMEndpoint) -> None:
         with self._lock:
             self._endpoint = endpoint
 

@@ -11,7 +11,6 @@ from types import SimpleNamespace
 import pytest
 from deployment_support import BuiltAgents
 from fastapi.testclient import TestClient
-from roboshed.dependency_health import inspect_dependencies
 from roboz import Agent
 from roboz.tools import stop
 from roboz_endpoints.adapters.openai_compatible import OpenAICompatibleAdapter
@@ -113,20 +112,14 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
         default_model=root,
         memory_endpoint=memory,
     )
-    bound = inspect_dependencies(
-        lambda sandbox: hub.configure_deployment(
-            sandbox,
-            "demo",
-            endpoint_getter=lambda: hub.model_selector.selected_endpoint,
-        ),
-        sandbox=hub.sandbox,
-        registrations=hub.dependency_registry,
-        additional_dependencies=tuple(hub.models.values()),
+    agent, _ = hub.configure_deployment(
+        hub.project("demo").sandbox,
+        "demo",
+        endpoint_getter=lambda: hub.model_selector.selected_endpoint,
     )
+    bound = (*agent.external_dependencies(), *hub.models.values())
     assert {
-        item.dependency.dependency_id
-        for item in bound
-        if item.dependency.dependency_id.startswith("model:")
+        item.dependency_id for item in bound if item.dependency_id.startswith("model:")
     } == {
         root.dependency_id,
         spare.dependency_id,
