@@ -6,7 +6,11 @@ The original port treated external repositories as read-only. Reusable capabilit
 
 CI resolves current Roboz `main` once per run. Merged PR #20 supplies model catalogs and completes the earlier upstream naming cleanup. RoboSprawl uses `roboz-endpoints[openai]`; it does not maintain provider metadata.
 
-RoboSprawl selects configuration and capabilities and hosts the runtime. Roboz owns agent definitions; Roboshed owns workspace types and permissions, reusable capabilities, persistent agent presets, and deployment construction. Tool contexts use `roboz.tooling.Ctx`. See [deployment composition](deployment.md) for the current interface.
+RoboSprawl selects configuration and capabilities and hosts the runtime. Roboz
+owns agent definitions and typed endpoint routes; Roboshed owns sandbox policies,
+reusable capabilities, persistent agent presets, and deployment construction.
+Tool factories bind concrete typed contexts. See
+[deployment composition](deployment.md) for the current interface.
 
 ## Deferred integrations and their tests
 

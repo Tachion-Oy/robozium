@@ -119,7 +119,13 @@ def test_orchestrator_controls_reach_compaction_provider(tmp_path, control):
 
     endpoint = LLMEndpoint(
         client=SimpleNamespace(
-            chat=SimpleNamespace(completions=SimpleNamespace(create=create))
+            chat=SimpleNamespace(completions=SimpleNamespace(create=create)),
+            models=SimpleNamespace(
+                list=lambda **kwargs: (_ for _ in ()).throw(
+                    AssertionError("Model discovery was not requested")
+                )
+            ),
+            close=lambda: None,
         ),
         api_name="test",
         model_name="compaction",
@@ -216,11 +222,11 @@ def test_mock_import_never_constructs_live_deployment():
             sys.executable,
             "-c",
             """
-from roboshed.deployments.robosprawl import RoboSprawl
+import robosprawl.hub.application as application
 
 def reject(*args, **kwargs):
     raise AssertionError('live deployment constructed')
-RoboSprawl.__init__ = reject
+application.robosprawl = reject
 from robosprawl.api.app import mock_app
 from fastapi.testclient import TestClient
 with TestClient(mock_app()) as client:

@@ -1,31 +1,22 @@
 from __future__ import annotations
 
-import asyncio
 import threading
 import time
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from config_support import write_config
 from deployment_support import BuiltAgents
 from fastapi.testclient import TestClient
-from roboshed.dependency_health import (
-    DependencyCheckResult,
-    DependencyReasonCode,
-    check_executable,
-    inspect_dependencies,
-)
 from roboz import Agent
 from roboz.dependencies import (
-    DependencyContractError,
-    DependencyRegistration,
     ExecutableDependency,
+    ExternalDependency,
     ExternalDependencyKind,
 )
-from roboz.llm import MockTranscriptionEndpoint
 from roboz.models import Empty, Message
-from roboz.tooling import Ctx
 from roboz.tooling.decorators import factory
 from roboz_endpoints import openrouter
 
@@ -35,82 +26,99 @@ from robosprawl.hub.utils import load_hub
 _TEST_ORCHESTRATOR_ENDPOINT = openrouter.z_ai__glm_5_3
 
 
+@dataclass(frozen=True)
+class ResourceContext:
+    resources: tuple[ExternalDependency, ...]
+
+    def external_dependencies(self):
+        return self.resources
+
+
 @factory
-def dependency_tool(input: Empty, messages: list[Message], ctx: Ctx) -> Empty:
-    del messages, ctx
+def dependency_tool(
+    input: Empty, messages: list[Message], ctx: ResourceContext
+) -> Empty:
     return input
 
 
-def _factory_for(*names: str):
+def _factory_for(*resources):
     def build(sandbox, project_slug, /, *, endpoint_getter, event_sinks):
-        del sandbox, project_slug, endpoint_getter
-        bound = dependency_tool(
-            Ctx(dependencies=tuple(ExecutableDependency(name) for name in names))
-        )
+        bound = dependency_tool(ResourceContext(tuple(resources)))
         return BuiltAgents(
-            agent=Agent(
+            Agent(
                 name="dependency_test",
                 event_sinks=event_sinks,
                 is_agentic=False,
                 agent_endpoint=None,
                 default_tools=[bound],
-            ),
-            background_agents=(),
+            )
         )
 
     return build
 
 
-def _registration(
-    name: str,
-    *,
-    kind: ExternalDependencyKind = ExternalDependencyKind.EXECUTABLE,
-    check=check_executable,
-) -> DependencyRegistration:
-    return DependencyRegistration(f"executable:{name}", kind, check)
+def _offline_models(config, checked):
+    def endpoint(value):
+        def list_models(**kwargs):
+            checked.add(value.dependency_id)
+            return SimpleNamespace(data=[SimpleNamespace(id=value.model_name)])
+
+        def forbidden(**kwargs):
+            pytest.fail("Health observation must not generate completions")
+
+        client = SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=forbidden)),
+            models=SimpleNamespace(list=list_models),
+            close=forbidden,
+        )
+        return value.model_copy(update={"client": client})
+
+    return {key: endpoint(value) for key, value in config.models.items()}
 
 
 def _deployment_with_check(root, name, check):
-    hub = replace(
-        load_hub(start=root), deployment=_factory_for(name), transcription_endpoint=None
-    )
+    class CheckedExecutable(ExecutableDependency):
+        def check(self):
+            return check(self)
+
+    hub = load_hub(start=root)
+    models = _offline_models(hub, set())
     return replace(
         hub,
-        dependency_registry=(
-            _registration(name, check=check),
-            *(
-                DependencyRegistration(
-                    endpoint.dependency_id,
-                    endpoint.kind,
-                    lambda _: DependencyCheckResult.success(),
-                )
-                for endpoint in hub.model_selector.models.values()
-            ),
-        ),
+        models=models,
+        default_model=next(iter(models.values())),
+        deployment=_factory_for(CheckedExecutable(name)),
+        transcription_endpoint=None,
+    )
+
+
+def _inspect(hub, slug):
+    agent, _ = hub.configure_deployment(
+        hub.project(slug).sandbox,
+        slug,
+        endpoint_getter=lambda: hub.model_selector.selected_endpoint,
+        event_sinks=(),
+    )
+    from roboz.dependencies import dedupe_external_dependencies
+
+    return dedupe_external_dependencies(
+        (
+            *agent.external_dependencies(),
+            *hub.models.values(),
+            *(hub.additional_dependencies or ()),
+        )
     )
 
 
 def test_standard_deployment_discovers_tools_and_every_selectable_model() -> None:
     deployment = load_hub()
     project = deployment.project("inspection")
-    discovered = inspect_dependencies(
-        lambda sandbox: deployment.configure_deployment(
-            sandbox,
-            project.slug,
-            endpoint_getter=lambda: deployment.model_selector.selected_endpoint,
-            event_sinks=(),
-        ),
-        sandbox=deployment.sandbox,
-        registrations=deployment.dependency_registry,
-        additional_dependencies=tuple(deployment.model_selector.models.values()),
-    )
-    assert any(
-        item.dependency.kind == ExternalDependencyKind.EXECUTABLE for item in discovered
-    )
+    discovered = _inspect(deployment, project.slug)
+    assert any(item.kind == ExternalDependencyKind.EXECUTABLE for item in discovered)
     assert {
-        item.dependency.dependency_id
+        item.dependency_id
         for item in discovered
-        if item.dependency.kind == ExternalDependencyKind.MODEL_ENDPOINT
+        if item.kind == ExternalDependencyKind.MODEL_ENDPOINT
     } == {
         endpoint.dependency_id
         for endpoint in (
@@ -129,37 +137,22 @@ def test_mock_app_dependency_contract_allows_startup() -> None:
         assert client.get("/ready").status_code == 200
 
 
-def test_endpoint_catalog_drives_models_and_health_without_materialization(tmp_path):
+def test_endpoint_catalog_drives_models_and_health_without_completions(tmp_path):
     write_config(
         tmp_path, sandbox_root="sandbox", name="DependencyTestHub", interval_s=3600
     )
     config = load_hub(start=tmp_path)
-    endpoints = {
-        key: replace(value, resolver=lambda: pytest.fail("materialized"))
-        for key, value in config.models.items()
-    }
-    expected = {endpoint.dependency_id for endpoint in endpoints.values()}
     checked = set()
-
-    def checker(endpoint):
-        checked.add(endpoint.dependency_id)
-        return DependencyCheckResult.success()
-
+    endpoints = _offline_models(config, checked)
+    expected = {endpoint.dependency_id for endpoint in endpoints.values()}
     hub = replace(
         config,
         models=endpoints,
-        default_model=next(
-            endpoint
-            for endpoint in endpoints.values()
-            if endpoint.dependency_id == config.default_model.dependency_id
-        ),
+        default_model=next(iter(endpoints.values())),
         deployment=_factory_for(),
         transcription_endpoint=None,
-        dependency_registry=tuple(
-            DependencyRegistration(endpoint.dependency_id, endpoint.kind, checker)
-            for endpoint in endpoints.values()
-        ),
     )
+    assert checked == set()
     endpoints.clear()
     assert hub.model_selector.selected_endpoint is hub.default_model
     with pytest.raises(TypeError):
@@ -180,26 +173,22 @@ def test_endpoint_catalog_drives_models_and_health_without_materialization(tmp_p
         assert checked == expected
 
 
-def test_inspection_uses_a_temporary_project_not_the_configured_sandbox(
-    tmp_path: Path,
-) -> None:
+def test_inspection_builds_in_the_configured_scope_without_starting_agents(tmp_path):
     write_config(
         tmp_path, sandbox_root="sandbox", name="DependencyTestHub", interval_s=3600
     )
-    configured_sandbox = tmp_path / "sandbox"
-    hub_config = load_hub(start=tmp_path)
-    slug = hub_config.project(hub_config.name).slug
-    inspect_dependencies(
-        lambda sandbox: _factory_for("bash")(
-            sandbox.for_project(slug),
-            slug,
-            endpoint_getter=lambda: _TEST_ORCHESTRATOR_ENDPOINT,
-            event_sinks=(),
-        ),
-        sandbox=hub_config.sandbox,
-        registrations=[_registration("bash")],
-    )
-    assert not configured_sandbox.exists()
+    hub = load_hub(start=tmp_path)
+    observed = []
+
+    def build(sandbox, slug, /, **kwargs):
+        observed.append((sandbox.root, sandbox.scope, slug))
+        return _factory_for(ExecutableDependency("bash"))(sandbox, slug, **kwargs)
+
+    hub = replace(hub, deployment=build)
+    slug = hub.project(hub.name).slug
+    assert any(r.dependency_id == "executable:bash" for r in _inspect(hub, slug))
+    assert observed == [(hub.sandbox.root, slug, slug)]
+    assert not (tmp_path / "sandbox").exists()
 
 
 def test_api_reads_cached_state_and_dependency_failure_does_not_affect_ready(
@@ -214,7 +203,7 @@ def test_api_reads_cached_state_and_dependency_failure_does_not_affect_ready(
         nonlocal calls
         del dependency
         calls += 1
-        return DependencyCheckResult.failure(DependencyReasonCode.NOT_FOUND)
+        return False
 
     application = create_app(
         deployment=_deployment_with_check(tmp_path, "missing", checker),
@@ -252,11 +241,7 @@ def test_api_active_check_runs_checkers_and_returns_updated_cached_records(
         nonlocal calls
         del dependency
         calls += 1
-        return (
-            DependencyCheckResult.success()
-            if calls == 1
-            else DependencyCheckResult.failure(DependencyReasonCode.NOT_FOUND)
-        )
+        return True if calls == 1 else False
 
     application = create_app(
         deployment=_deployment_with_check(tmp_path, "sometimes", checker),
@@ -294,7 +279,7 @@ def test_api_active_check_preserves_no_overlap_behavior(tmp_path: Path) -> None:
         calls += 1
         entered.set()
         release.wait(timeout=5)
-        return DependencyCheckResult.success()
+        return True
 
     application = create_app(
         deployment=_deployment_with_check(tmp_path, "slow", checker),
@@ -308,21 +293,23 @@ def test_api_active_check_preserves_no_overlap_behavior(tmp_path: Path) -> None:
         release.set()
 
 
-def test_registry_mismatch_fails_testclient_lifespan(tmp_path: Path) -> None:
+def test_standalone_resource_is_monitored_without_an_agent_tool(tmp_path):
     write_config(
         tmp_path, sandbox_root="sandbox", name="DependencyTestHub", interval_s=3600
     )
-    application = create_app(
-        deployment=replace(
-            load_hub(start=tmp_path),
-            deployment=_factory_for("unregistered"),
-            transcription_endpoint=MockTranscriptionEndpoint(["unused"]),
-            dependency_registry=(),
-        ),
-    )
-    with pytest.raises(DependencyContractError, match="executable:unregistered"):
-        with TestClient(application):
-            pass
+
+    class Standalone(ExecutableDependency):
+        def check(self):
+            return True
+
+    hub = _deployment_with_check(tmp_path, "tool", lambda _: True)
+    standalone = Standalone("standalone")
+    hub = replace(hub, additional_dependencies=(standalone, standalone))
+    with TestClient(create_app(deployment=hub)) as client:
+        records = client.post("/admin/dependencies/check").json()
+        found = [r for r in records if r["dependency_id"] == standalone.dependency_id]
+        assert len(found) == 1
+        assert found[0]["status"] == "available"
 
 
 @pytest.mark.parametrize("setting", ["interval_s", "timeout_s"])
@@ -332,12 +319,12 @@ def test_hub_health_settings_control_runtime_checks(tmp_path, setting):
     )
     calls = 0
 
-    async def checker(dependency):
+    def checker(dependency):
         nonlocal calls
         calls += 1
         if setting == "timeout_s":
-            await asyncio.Event().wait()
-        return DependencyCheckResult.success()
+            time.sleep(0.15)
+        return True
 
     hub = _deployment_with_check(tmp_path, "configured", checker)
     hub = replace(

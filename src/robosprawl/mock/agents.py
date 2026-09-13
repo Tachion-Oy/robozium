@@ -18,13 +18,11 @@ from roboshed.capabilities import (
 )
 from roboshed.sandbox import Sandbox
 from roboz.agent import Agent
-from roboz.dependencies import DependencyRoute, LazyExternalDependency
 from roboz.deployment import Capability, DeployableAgent, RequiredAttributes
-from roboz.llm import LLMEndpoint, MockLLMEndpoint, MockProviderError
+from roboz.llm import LLMEndpoint, LLMEndpointRoute, MockLLMEndpoint, MockProviderError
 from roboz.models import Empty, Message
 from roboz.runtime import EventPipe, Output, default_event_sinks, interact_with_user
 from roboz.runtime.events import EventSink, MessageDeltaEvent, PipeEvent
-from roboz.tooling import Ctx
 from roboz.tooling.decorators import factory
 from roboz.tools import stop
 
@@ -61,10 +59,10 @@ ScriptedMockResponse = dict[str, object] | Exception
 
 
 @factory
-def mock_user_notification(input: Empty, messages: list[Message], ctx: Ctx) -> Empty:
+def mock_user_notification(input: Empty, messages: list[Message], ctx: str) -> Empty:
     """Send a deterministic one-way notification in the mock scenario."""
     del input, messages
-    interact_with_user(ctx.message, with_reply=False)
+    interact_with_user(ctx, with_reply=False)
     return Empty()
 
 
@@ -169,13 +167,9 @@ def _mock_recipe(
             FileEditing(auto_load_skill=False),
             Capability(
                 default_tools=(
+                    *((prepare_mock_artifact(project),) if prepare_artifact else ()),
                     *(
-                        (prepare_mock_artifact(Ctx(project=project)),)
-                        if prepare_artifact
-                        else ()
-                    ),
-                    *(
-                        (mock_user_notification(Ctx(message=notification)),)
+                        (mock_user_notification(notification),)
                         if notification is not None
                         else ()
                     ),
@@ -222,7 +216,7 @@ def mock_deployment(
     project_slug: str,
     /,
     *,
-    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+    endpoint_getter: Callable[[], LLMEndpoint],
     event_sinks: Sequence[EventSink] = (),
 ) -> tuple[Agent, tuple[Agent, ...]]:
     project = Project(sandbox, project_slug)
@@ -233,7 +227,7 @@ def mock_deployment(
         return orchestrator(
             sandbox,
             agent_endpoint=model_selection_endpoint(
-                DependencyRoute(endpoint_getter), project.root
+                LLMEndpointRoute(endpoint_getter), project.root
             ),
             interaction_mode=Output.API,
         ).build(
@@ -433,7 +427,7 @@ def stream_mock_deployment(
     project_slug: str,
     /,
     *,
-    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+    endpoint_getter: Callable[[], LLMEndpoint],
     event_sinks: Sequence[EventSink] = (),
 ) -> tuple[Agent, tuple[Agent, ...]]:
     """Local-viewing mock: streams visibly and persists nothing.
@@ -458,7 +452,7 @@ def stream_sync_mock_deployment(
     project_slug: str,
     /,
     *,
-    endpoint_getter: Callable[[], LazyExternalDependency[LLMEndpoint]],
+    endpoint_getter: Callable[[], LLMEndpoint],
     event_sinks: Sequence[EventSink] = (),
 ) -> tuple[Agent, tuple[Agent, ...]]:
     """Local-viewing sync mock: visible stream plus mocked background librarian.
@@ -539,10 +533,10 @@ def _holdable_endpoint(
 
 
 @factory
-def prepare_mock_artifact(input: Empty, messages: list[Message], ctx: Ctx) -> Empty:
+def prepare_mock_artifact(input: Empty, messages: list[Message], ctx: Project) -> Empty:
     """Create the mock artifact before presenting its link to the user."""
     del input, messages
-    artifact = ctx.project.artifact_dir("documents") / "generated-note.txt"
+    artifact = ctx.artifact_dir("documents") / "generated-note.txt"
     artifact.parent.mkdir(parents=True, exist_ok=True)
     if not artifact.exists():
         artifact.write_text(

@@ -25,14 +25,12 @@ def test_configured_models_apply_per_use_request_policy(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-only")
     monkeypatch.setenv("CEREBRAS_API_KEY", "test-only")
     hub = load_hub()
-    endpoints = [
-        endpoint.materialize() for endpoint in hub.model_selector.models.values()
-    ]
+    endpoints = [endpoint for endpoint in hub.model_selector.models.values()]
     project = hub.project("policy-test")
     deployment = hub.configure_deployment(
         project.sandbox, project.slug, endpoint_getter=lambda: hub.default_model
     )
-    memory = deployment[1][0].agent_endpoint.materialize()
+    memory = deployment[1][0].agent_endpoint
     assert all(isinstance(endpoint, LLMEndpoint) for endpoint in endpoints)
     for endpoint in endpoints[:2]:
         assert endpoint.max_context_tokens == 1_310_720
@@ -125,9 +123,9 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
     compactifier = next(
         t for t in agent.default_tools if t.name == COMPACTIFY_MESSAGES_TOOL_NAME
     )
-    assert compactifier.external_dependencies == (root_endpoint,)
+    assert compactifier.external_dependencies() == (root_endpoint,)
     for tool in background.default_tools[:2]:
-        assert tool.external_dependencies == (memory_endpoint,)
+        assert tool.external_dependencies() == (memory_endpoint,)
 
 
 def test_nested_specialists_have_separate_persistence_and_seed_memory(tmp_path):
@@ -186,13 +184,13 @@ def test_route_discovery_and_compaction_follow_model_switch_without_rebuild(tmp_
         t for t in agent.default_tools if t.name == COMPACTIFY_MESSAGES_TOOL_NAME
     )
     assert agent.agent_endpoint is route
-    assert compactifier.external_dependencies == (first,)
+    assert compactifier.external_dependencies() == (first,)
     assert first in agent.external_dependencies()
     selected = second
     assert second in agent.external_dependencies()
     assert first not in agent.external_dependencies()
     assert route.external_dependencies() == (second,)
-    assert compactifier.external_dependencies == (second,)
+    assert compactifier.external_dependencies() == (second,)
     assert memory in background.external_dependencies()
 
 

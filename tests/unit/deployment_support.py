@@ -5,7 +5,6 @@ from types import SimpleNamespace
 from typing import NamedTuple
 
 from roboz.agent import Agent
-from roboz.dependencies import LazyExternalDependency
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
 
 from robosprawl.hub.utils import load_hub
@@ -35,20 +34,14 @@ def configured_deployment(project, endpoint, **choices):
 
         endpoint = LLMEndpoint(
             client=SimpleNamespace(
-                chat=SimpleNamespace(completions=SimpleNamespace(create=create))
+                models=object(),
+                close=lambda: None,
+                chat=SimpleNamespace(completions=SimpleNamespace(create=create)),
             ),
             api_name=scripted.api_name,
             model_name=scripted.model_name,
             max_context_tokens=scripted.max_context_tokens,
             stream=False,
-        )
-    if isinstance(endpoint, LLMEndpoint):
-        resource = endpoint
-        endpoint = LazyExternalDependency(
-            resource.dependency_id,
-            resource.kind,
-            resource.redacted_metadata(),
-            lambda: resource,
         )
     event_sinks = choices.pop("event_sinks", ())
     choices.setdefault("memory_endpoint", MockLLMEndpoint([]))
