@@ -9,7 +9,8 @@
   optional standalone resources in the health monitor. Deployment build,
   invocation, model switching, persistence, and cancellation order are preserved.
 
-- Consume `roboz 0.1.2.dev4` and `roboshed 0.1.1.dev2` from PyPI. Call Shed's
+- Consume `roboz 0.1.2.dev5`, `roboshed 0.1.1.dev3`, and
+  `roboz-endpoints 0.1.0a4` from PyPI. Call Shed's
   `robosprawl()` recipe with the scoped project and deployment choices for each
   new run. Project context, agent defaults, and persistence stay in Shed;
   replies, model switching, cancellation, and streaming retain their lifecycle.
