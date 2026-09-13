@@ -108,7 +108,8 @@ the shared Librarian preset. Construction starts no agents or threads and create
 persistence directories. Mocks retain fresh scripts and their existing scenario
 controls.
 
-The dependency pins select Roboz `0.1.2.dev4` and Roboshed `0.1.1.dev2`.
+The dependency pins select Roboz `0.1.2.dev5`, Roboshed `0.1.1.dev3`, and
+Roboz Endpoints `0.1.0a4`.
 These published snapshots supply the setter-based recipe and core build API, so
 locked installation and CI consume it directly from PyPI. No sibling checkout
 or local dependency paths are required.
