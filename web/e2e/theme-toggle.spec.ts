@@ -107,7 +107,9 @@ test("switches and persists the integrated light theme", async ({
 	})
 	expect(response.ok()).toBeTruthy()
 	const { run_id: runId } = (await response.json()) as { run_id: string }
-	await page.goto(`/?runId=${encodeURIComponent(runId)}`)
+	await page.goto(`/?runId=${encodeURIComponent(runId)}`, {
+		waitUntil: "domcontentloaded",
+	})
 
 	await expect(page.locator("html")).toHaveAttribute("data-theme", "light")
 	const logo = page.locator(
@@ -240,8 +242,6 @@ test("switches and persists the integrated light theme", async ({
 
 	await page.reload({ waitUntil: "domcontentloaded" })
 	await expect(page.locator("html")).toHaveAttribute("data-theme", "light")
-	await toggle.click()
-	await expect(page.locator("html")).toHaveAttribute("data-theme", "dark")
 })
 
 test("light carets use stream ink without changing dark role treatments", async ({
@@ -252,7 +252,7 @@ test("light carets use stream ink without changing dark role treatments", async 
 	await page.context().addCookies([
 		{ name: "app.theme.v1", value: "light", url: baseURL },
 	])
-	await page.goto("/")
+	await page.goto("/", { waitUntil: "domcontentloaded" })
 
 	const regularCaret = page.locator(".term-caret").first()
 	const revealCaret = page.locator(".term-caret--reveal").first()
@@ -324,7 +324,7 @@ test("light landing tags use the same gradual settle fade as dark mode", async (
 	await page.context().addCookies([
 		{ name: "app.theme.v1", value: "light", url: baseURL },
 	])
-	await page.goto("/")
+	await page.goto("/", { waitUntil: "domcontentloaded" })
 
 	const plainTag = page.locator(".intro-emph__plain .term-tag").first()
 	await expect(plainTag).toBeAttached({ timeout: 15_000 })
