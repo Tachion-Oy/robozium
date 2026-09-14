@@ -45,7 +45,7 @@ HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=12 \
 CMD ["sh", "-c", "exec uvicorn \"robosprawl.api.app:${ROBOSPRAWL_MODE:-mock}_app\" --factory --host 0.0.0.0 --port 8000 --workers 1"]
 
 
-FROM node:22-bookworm-slim AS web-builder
+FROM node:26-bookworm-slim AS web-builder
 
 WORKDIR /app
 COPY web/package.json web/package-lock.json ./web/
@@ -57,7 +57,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
 RUN npm --prefix web run build
 
 
-FROM node:22-bookworm-slim AS web
+FROM node:26-bookworm-slim AS web
 
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
