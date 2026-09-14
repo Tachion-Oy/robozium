@@ -129,9 +129,7 @@ def main() -> int:
             )
             env.update(
                 {
-                    "ROBOSPRAWL_E2E_ALL_BROWSERS": "1",
                     "ROBOSPRAWL_CONFIG": str(workspace / "hub.config.py"),
-                    "ROBOSPRAWL_PYTHON": python,
                     "ROBOSPRAWL_E2E_HUB_BASE_DIR": str(hub),
                     "ROBOSPRAWL_E2E_CONVERSATION_LOGS_DIR": str(logs),
                     "ROBOSPRAWL_E2E_SNAPSHOT_DIR": str(snapshots),
@@ -141,7 +139,6 @@ def main() -> int:
                     "ROBOSPRAWL_E2E_OLDEST_SEED_PATH": str(logs / "seed-001.json"),
                     "ROBOSPRAWL_API_BASE_URL": f"http://127.0.0.1:{api_port}",
                     "ROBOSPRAWL_E2E_WEB_PORT": str(web_port),
-                    "ROBOSPRAWL_E2E_WEB_MANAGED": "1",
                     "ROBOSPRAWL_E2E_CONTROL_DIR": str(workspace),
                     "ROBOSPRAWL_E2E_REPORT_DIR": str(reports),
                     "PLAYWRIGHT_HTML_OPEN": "never",

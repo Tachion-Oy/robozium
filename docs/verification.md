@@ -1,10 +1,9 @@
 # Verification
 
 The records below preserve the source revisions and results originally
-verified. Their pinned-source procedures and reuse of downloaded CI builds are
-superseded for current acceptance: each new CI run installs the locked Roboz
-releases from PyPI and builds fresh application distributions and frontend assets. Fresh wheel
-and source-distribution installation checks remain required. See
+verified. Their triggers, job matrices, and artifact-transfer procedures are
+historical. PRs now run unit tests, lint, and type checks; the full browser,
+distribution, and Docker checks run after merges to main or on manual request. See
 [current validation instructions](testing.md) and
 [deployment composition](deployment.md).
 
@@ -108,8 +107,7 @@ editing either manifest or lockfile.
 | Complete Firefox suite, `--project=firefox --retries=0` | 35 passed |
 | Complete WebKit suite, `--project=webkit --retries=0` | 35 passed |
 | `actionlint .github/workflows/*.yml` | Passed |
-| `bash -n scripts/e2e/run-mock-playwright.sh scripts/test.sh scripts/verify-wheels.sh` | Passed |
-| `uv run python scripts/audit-port.py` | Naming and preserved-license checks passed |
+| `bash -n scripts/e2e/run-mock-playwright.sh` | Passed |
 | `git diff --check` | Passed |
 
 All final browser suites use `CI=1`, `ROBOSPRAWL_E2E_PREBUILT=1`, and
