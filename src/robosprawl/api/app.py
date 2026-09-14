@@ -35,6 +35,7 @@ from robosprawl.mock.agents import (
     stream_mock_deployment,
     stream_sync_mock_deployment,
 )
+from robosprawl.mock.model_selection import mock_model_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -375,9 +376,12 @@ def live_app() -> FastAPI:
 
 
 def mock_app() -> FastAPI:
+    endpoint = mock_model_endpoint()
     return create_app(
         deployment=replace(
             load_hub(),
+            models={"Mock": endpoint},
+            default_model=endpoint,
             deployment=mock_deployment,
             transcription_endpoint=MockTranscriptionEndpoint(["mock transcription"]),
         ),
@@ -386,9 +390,12 @@ def mock_app() -> FastAPI:
 
 def stream_mock_app() -> FastAPI:
     """Create the paced, ephemeral mock only when explicitly launched."""
+    endpoint = mock_model_endpoint()
     return create_app(
         deployment=replace(
             _ephemeral_hub(),
+            models={"Mock": endpoint},
+            default_model=endpoint,
             deployment=stream_mock_deployment,
             transcription_endpoint=MockTranscriptionEndpoint(["mock transcription"]),
         ),
@@ -397,9 +404,12 @@ def stream_mock_app() -> FastAPI:
 
 def stream_sync_mock_app() -> FastAPI:
     """Create the paced mock with a cancellable background Librarian."""
+    endpoint = mock_model_endpoint()
     return create_app(
         deployment=replace(
             _ephemeral_hub(),
+            models={"Mock": endpoint},
+            default_model=endpoint,
             deployment=stream_sync_mock_deployment,
             transcription_endpoint=MockTranscriptionEndpoint(["mock transcription"]),
         ),

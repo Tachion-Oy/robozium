@@ -135,6 +135,10 @@ def test_standard_deployment_discovers_tools_and_every_selectable_model() -> Non
 def test_mock_app_dependency_contract_allows_startup() -> None:
     with TestClient(mock_app()) as client:
         assert client.get("/ready").status_code == 200
+        assert client.get("/models").json() == {
+            "models": [{"model_id": "model:mock:mock", "label": "Mock"}],
+            "selected_model_id": "model:mock:mock",
+        }
 
 
 def test_endpoint_catalog_drives_models_and_health_without_completions(tmp_path):
