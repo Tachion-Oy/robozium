@@ -108,6 +108,21 @@ class _ScriptedClient:
         pass
 
 
+def mock_model_endpoint() -> LLMEndpoint:
+    """Return the local endpoint advertised by the mock application."""
+
+    def unexpected_completion(model: str, extra_body: object) -> OpenAIChatCompletion:
+        del model, extra_body
+        raise RuntimeError("the mock catalog endpoint does not generate completions")
+
+    return LLMEndpoint(
+        client=_ScriptedClient("mock", unexpected_completion),
+        api_name="mock",
+        model_name="mock",
+        stream=False,
+    )
+
+
 def model_selection_endpoint(
     endpoint: LLMEndpointRoute[LLMEndpoint], project_root: Path
 ) -> LLMEndpointRoute[LLMEndpoint]:

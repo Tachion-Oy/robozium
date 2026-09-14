@@ -1,18 +1,12 @@
-import { execFileSync } from "node:child_process"
+import { readFileSync } from "node:fs"
 import path from "node:path"
 import type { NextConfig } from "next"
 
 function readHubName(): string {
-	const python = process.env.ROBOSPRAWL_PYTHON
-		?? path.resolve(__dirname, "..", ".venv", "bin", "python")
-	return execFileSync(python, [
-		"-I",
-		"-c",
-		"from robosprawl.hub.utils import load_hub; print(load_hub().name)",
-	], {
-		cwd: path.resolve(__dirname, ".."),
-		encoding: "utf8",
-	}).trim()
+	const source = readFileSync(path.resolve(__dirname, "..", "hub.config.py"), "utf8")
+	const match = source.match(/^NAME:\s*Final\s*=\s*["']([^"']+)["']/m)
+	if (!match) throw new Error("hub.config.py must declare NAME: Final = \"...\"")
+	return match[1]
 }
 
 // Paths the client polls on a timer (run view every ~2s, projects every ~3s).
@@ -24,6 +18,7 @@ const POLLING_REQUEST_PATHS = [
 ]
 
 const nextConfig: NextConfig = {
+	output: "standalone",
 	// Next 16 blocks dev resources for hosts other than localhost; without this,
 	// opening the dev server via 127.0.0.1 hydrates a dead, non-interactive page.
 	allowedDevOrigins: ["127.0.0.1"],

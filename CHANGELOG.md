@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Reduce PR CI to one job for unit tests, lint, and type checks. Run the complete
+  browser, distribution, and Docker checks after merges to main or manually on
+  a selected branch. Reuse one browser setup/build, cancel superseded runs, and
+  upload only failure reports. Remove version/architecture matrices and WebKit
+  stress repetitions.
+
+- Add Docker Compose as the supported single-repository installation path on
+  Windows, macOS, and Linux. Production API and standalone web images run as
+  non-root users, persist mock and live hub state separately, publish only the web
+  port on `6969`, and include one start interface with an explicit `--mock` flag plus a containerized
+  first-use and restart-recovery browser gate. Startup remains attached for
+  logs and Ctrl+C shutdown; mock mode advertises only its local mock endpoint.
+  Remove the former native install, development, and aggregate-test launchers.
+
+- Update Next.js and its matching ESLint configuration from 16.2.4 to 16.3.5
+  to remove the critical production advisory reported for the previous pin.
+
 - Migrate to concrete Roboz endpoints and typed `LLMEndpointRoute` selection.
   Each run retains its live model getter while fixed memory endpoints remain
   concrete. Replace dependency checker registrations with resources that own
@@ -52,7 +69,7 @@
 
 ### Changed
 
-- Test each CI run against the exact Roboz releases locked from PyPI; record their versions and hashes alongside the RoboSprawl revision, and build fresh application candidates for installation and browser checks.
+- Test against the exact Roboz releases locked from PyPI. Full E2E builds fresh application candidates for installation and browser checks after merges or on manual request.
 
 - Use Roboz Shed for automatic context compaction, restoring the full continuation prompts and forwarding run cancellation and optional timeouts. Python consumers should import the builder from `roboshed.tools` instead of the removed `robosprawl.compaction` module.
 

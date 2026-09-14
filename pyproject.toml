@@ -9,7 +9,8 @@ dependencies = [
   "roboz==0.1.2.dev5",
   "roboshed==0.1.1.dev3",
   "roboz-endpoints[openai]==0.1.0a4",
-  "fastapi[standard]>=0.135.0",
+  "fastapi>=0.135.0",
+  "python-multipart>=0.0.20",
   "uvicorn[standard]>=0.30.0",
   "pydantic>=2.12.5",
 ]
@@ -17,7 +18,7 @@ dependencies = [
 requires = ["hatchling>=1.32"]
 build-backend = "hatchling.build"
 [tool.pytest.ini_options]
-addopts = "--cov=robosprawl --cov-report=term-missing --basetemp=.artifacts/pytest-tmp"
+addopts = "--cov=robosprawl --cov-report=term-missing"
 testpaths = ["tests"]
 [dependency-groups]
 dev = ["pytest>=8.4.1", "pytest-cov>=6.2.1", "httpx>=0.27.0", "ruff>=0.5.0", "pyright>=1.1.411", "twine>=6.2"]

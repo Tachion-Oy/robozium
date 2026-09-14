@@ -1,0 +1,51 @@
+name: "${COMPOSE_PROJECT_NAME:-robosprawl}"
+
+services:
+  api:
+    build:
+      context: .
+      target: api
+    environment:
+      CEREBRAS_API_KEY: "${CEREBRAS_API_KEY:-}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      ROBOSPRAWL_HUB_ROOT: /hub
+      ROBOSPRAWL_LOG_DIR: /logs
+      ROBOSPRAWL_MODE: "${ROBOSPRAWL_MODE:-mock}"
+    init: true
+    stop_grace_period: 30s
+    volumes:
+      - robosprawl-hub:/hub
+      - robosprawl-logs:/logs
+
+  web:
+    build:
+      context: .
+      target: web
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      ROBOSPRAWL_API_BASE_URL: http://api:8000
+    init: true
+    ports:
+      - "127.0.0.1:${ROBOSPRAWL_WEB_PORT:-6969}:6969"
+    stop_grace_period: 30s
+
+  verify:
+    build:
+      context: .
+      target: verify
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      ROBOSPRAWL_CONTAINER_BASE_URL: http://web:6969
+      ROBOSPRAWL_CONTAINER_PHASE: "${ROBOSPRAWL_CONTAINER_PHASE:-onboarding}"
+    init: true
+    profiles: [verify]
+
+volumes:
+  robosprawl-hub:
+    name: "${COMPOSE_PROJECT_NAME:-robosprawl}-${ROBOSPRAWL_MODE:-mock}-hub"
+  robosprawl-logs:
+    name: "${COMPOSE_PROJECT_NAME:-robosprawl}-${ROBOSPRAWL_MODE:-mock}-logs"

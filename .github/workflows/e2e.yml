@@ -1,0 +1,95 @@
+name: Full E2E
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  ROBOSPRAWL_API_BASE_URL: http://127.0.0.1:8000
+  ROBOSPRAWL_E2E_PREBUILT: "1"
+  ROBOSPRAWL_E2E_PYTHON: ${{ github.workspace }}/.artifacts/browser-backend/bin/python
+  PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.artifacts/browsers
+  COMPOSE_PROJECT_NAME: robosprawl-ci
+  ROBOSPRAWL_MODE: mock
+  ROBOSPRAWL_WEB_PORT: "0"
+
+jobs:
+  e2e:
+    name: Full E2E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+          python-version: "3.13"
+          enable-cache: true
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Verify packages and prepare browser tests
+        id: prepare
+        run: |
+          uv sync --locked --dev
+          uv run python scripts/roboz_wheels.py --dist .artifacts/distributions
+          uv build --no-sources --out-dir .artifacts/distributions
+          uv run twine check .artifacts/distributions/*
+          uv run python scripts/check_distributions.py --dist .artifacts/distributions --python-output .artifacts/browser-backend
+          npm --prefix web ci
+          npm --prefix web run build
+          npm --prefix web exec -- playwright install --with-deps chromium firefox webkit
+      - name: Check runner failure and interruption cleanup
+        run: uv run python scripts/e2e/check_runner.py
+      - name: Chromium
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        run: bash scripts/e2e/run-mock-playwright.sh --project=chromium
+      - name: Firefox
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        run: bash scripts/e2e/run-mock-playwright.sh --project=firefox
+      - name: WebKit
+        id: webkit
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        continue-on-error: true
+        run: bash scripts/e2e/run-mock-playwright.sh --project=webkit
+      - name: Evaluate advisory WebKit result
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        env:
+          BROWSER: webkit
+          SUITE: full
+          TEST_OUTCOME: ${{ steps.webkit.outcome }}
+          PLAYWRIGHT_EXIT_CODE: ${{ steps.webkit.outputs.playwright_exit_code }}
+        run: uv run python scripts/e2e/evaluate_result.py
+      - name: Docker onboarding and restart recovery
+        id: containers
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        run: |
+          docker compose up --build --wait
+          docker compose run --build --rm verify
+          docker compose restart api
+          docker compose run --rm -e ROBOSPRAWL_CONTAINER_PHASE=persistence verify
+      - name: Container logs
+        if: ${{ failure() && steps.containers.outcome == 'failure' }}
+        run: docker compose logs --no-color
+      - name: Remove disposable containers and volumes
+        if: always()
+        run: docker compose down --volumes --remove-orphans
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ failure() || steps.webkit.outcome == 'failure' }}
+        with:
+          name: e2e-failure-reports
+          path: |
+            .artifacts/e2e/
+            .artifacts/distribution-reports/
+          retention-days: 7

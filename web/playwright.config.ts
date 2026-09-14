@@ -19,7 +19,6 @@ const DESKTOP_PROJECTS = [
   },
 ] as const;
 
-const runAllBrowserProjects = process.env.ROBOSPRAWL_E2E_ALL_BROWSERS === '1';
 const isolatedHubRoot = process.env.ROBOSPRAWL_E2E_HUB_BASE_DIR;
 const webPort = process.env.ROBOSPRAWL_E2E_WEB_PORT ?? '3100';
 const webBaseUrl = `http://127.0.0.1:${webPort}`;
@@ -29,14 +28,6 @@ if (!isolatedHubRoot) {
     'Playwright requires an isolated E2E hub. Run `npm run test:e2e` instead of invoking Playwright directly.',
   );
 }
-
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -75,16 +66,5 @@ export default defineConfig({
     actionTimeout: process.env.CI ? 15_000 : 0,
   },
 
-  /* Configure projects for major browsers.
-   * Default to a single browser to avoid shared-backend cross-project artifacts.
-   * Opt into all desktop browsers with ROBOSPRAWL_E2E_ALL_BROWSERS=1.
-   */
-  projects: runAllBrowserProjects ? [...DESKTOP_PROJECTS] : [DESKTOP_PROJECTS[0]],
-
-  /* Run a non-watch server to avoid EMFILE from dev watcher load. */
-  webServer: process.env.ROBOSPRAWL_E2E_WEB_MANAGED === "1" ? undefined : {
-    command: `${process.env.ROBOSPRAWL_E2E_PREBUILT === "1" ? "" : "npm run build && "}npm run start -- --hostname 127.0.0.1 --port ${webPort}`,
-    url: webBaseUrl,
-    reuseExistingServer: false,
-  },
+  projects: [...DESKTOP_PROJECTS],
 });

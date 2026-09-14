@@ -1,241 +1,47 @@
 name: CI
+
 on:
+  pull_request:
   push:
     branches: [main]
-  pull_request:
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
-defaults:
-  run:
-    shell: bash
-    working-directory: robosprawl
 env:
   NEXT_TELEMETRY_DISABLED: "1"
-  ROBOSPRAWL_API_BASE_URL: http://127.0.0.1:8000
+
 jobs:
-  python:
+  ci:
+    name: CI
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        python: ["3.13", "3.14"]
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          path: robosprawl
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: ${{ matrix.python }}
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           version: "0.12.10"
-      - run: |
-          source scripts/env.sh
-          uv sync --locked --dev
-          uv run pytest --cov-fail-under=90 --cov-report=xml:.artifacts/reports/coverage.xml --junitxml=.artifacts/reports/pytest.xml
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
-        with:
-          name: python-${{ matrix.python }}
-          path: robosprawl/.artifacts/reports/
-          retention-days: 14
-  quality:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: robosprawl
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
           python-version: "3.13"
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+          enable-cache: true
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          version: "0.12.10"
-      - run: |
-          source scripts/env.sh
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Python tests, lint, and types
+        run: |
           uv sync --locked --dev
           uv run ruff check src tests scripts
           uv run pyright
-          uv run pytest tests/contract --no-cov
-  frontend:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: robosprawl
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.13"
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          version: "0.12.10"
-      - name: Install Python configuration dependencies
+          uv run pytest --cov-fail-under=90
+      - name: Frontend tests, lint, and types
         run: |
-          source scripts/env.sh
-          uv sync --locked --no-dev
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: robosprawl/web/package-lock.json
-      - run: npm --prefix web ci
-      - run: npm --prefix web run lint
-      - run: npm --prefix web run typecheck
-      - run: npm --prefix web run test:run -- --reporter=default --reporter=junit --outputFile.junit=../.artifacts/reports/vitest.xml
-      - run: npm --prefix web run build
-      - run: tar -czf web-build.tar.gz -C web .next
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: production-web
-          path: robosprawl/web-build.tar.gz
-          retention-days: 14
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
-        with:
-          name: frontend-reports
-          path: robosprawl/.artifacts/reports/
-          retention-days: 14
-  distribution:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: robosprawl
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.13"
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          version: "0.12.10"
-      - name: Record distribution sources
-        run: |
-          mkdir -p .artifacts/distribution-reports
-          {
-            echo "RoboSprawl: $(git rev-parse HEAD)"
-          } | tee .artifacts/distribution-reports/source-revisions.txt
-      - run: |
-          source scripts/env.sh
-          uv sync --locked --dev
-          candidate_dir="$(mktemp -d)"
-          echo "CANDIDATE_DIR=$candidate_dir" >> "$GITHUB_ENV"
-          uv run --locked python scripts/roboz_wheels.py --dist "$candidate_dir"
-          bash scripts/verify-wheels.sh "$candidate_dir"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always() && env.CANDIDATE_DIR != ''
-        with:
-          name: candidate-distributions
-          path: ${{ env.CANDIDATE_DIR }}/
-          if-no-files-found: error
-          retention-days: 14
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
-        with:
-          name: distribution-reports
-          path: robosprawl/.artifacts/distribution-reports/
-          retention-days: 14
-  browsers:
-    needs: [frontend, distribution]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        browser: [chromium, firefox, webkit]
-        suite: [full]
-        include:
-          - browser: webkit
-            suite: stress
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: robosprawl
-          persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: robosprawl/web/package-lock.json
-      - run: npm --prefix web ci
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.13"
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: candidate-distributions
-          path: robosprawl/.artifacts/distributions
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: production-web
-          path: robosprawl/.artifacts
-      - run: |
-          tar -xzf .artifacts/web-build.tar.gz -C web
-          backend_env="$(mktemp -d)"
-          python -m venv "$backend_env"
-          python scripts/roboz_wheels.py --dist .artifacts/distributions --check
-          PIP_CONFIG_FILE=/dev/null "$backend_env/bin/python" -I -m pip --isolated install --index-url https://pypi.org/simple/ .artifacts/distributions/{robosprawl,roboz,roboshed,roboz_endpoints}-*.whl
-          "$backend_env/bin/python" -I -m pip check
-          echo "ROBOSPRAWL_E2E_PYTHON=$backend_env/bin/python" >> "$GITHUB_ENV"
-          source scripts/env.sh
-          npm --prefix web exec -- playwright install --with-deps ${{ matrix.browser }}
-      - name: Verify runner failure and interruption cleanup
-        if: matrix.browser == 'chromium'
-        run: |
-          source scripts/env.sh
-          python scripts/e2e/check_runner.py
-      - name: Repeat repaired WebKit scenarios without retries
-        id: stress
-        if: matrix.suite == 'stress'
-        continue-on-error: ${{ matrix.browser == 'webkit' }}
-        env:
-          ROBOSPRAWL_E2E_PREBUILT: "1"
-        run: bash scripts/e2e/run-mock-playwright.sh --project=webkit --grep='opens compact on landing|an unknown run keeps' --repeat-each=10 --retries=0
-      - name: Complete browser suite
-        id: full
-        if: matrix.suite == 'full'
-        continue-on-error: ${{ matrix.browser == 'webkit' }}
-        env:
-          ROBOSPRAWL_E2E_PREBUILT: "1"
-        run: bash scripts/e2e/run-mock-playwright.sh --project=${{ matrix.browser }}
-      - name: Evaluate browser result
-        if: ${{ !cancelled() && (steps.full.outcome != 'skipped' || steps.stress.outcome != 'skipped') }}
-        env:
-          BROWSER: ${{ matrix.browser }}
-          SUITE: ${{ matrix.suite }}
-          TEST_OUTCOME: ${{ matrix.suite == 'full' && steps.full.outcome || steps.stress.outcome }}
-          PLAYWRIGHT_EXIT_CODE: ${{ matrix.suite == 'full' && steps.full.outputs.playwright_exit_code || steps.stress.outputs.playwright_exit_code }}
-        run: python scripts/e2e/evaluate_result.py
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
-        with:
-          name: browser-${{ matrix.browser }}-${{ matrix.suite }}
-          path: robosprawl/.artifacts/e2e/
-          retention-days: 14
-  ci:
-    name: CI
-    if: always()
-    needs: [python, quality, frontend, distribution, browsers]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - name: Require every gate to succeed
-        working-directory: .
-        env:
-          RESULTS: ${{ toJSON(needs) }}
-        run: |
-          python - <<'PYTHON'
-          import json, os
-          results = json.loads(os.environ["RESULTS"])
-          assert all(job["result"] == "success" for job in results.values()), results
-          PYTHON
+          npm --prefix web ci
+          npm --prefix web run lint
+          npm --prefix web run typecheck
+          npm --prefix web run test:run
