@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM python:3.13-slim-bookworm AS python-deps
+FROM python:3.14-slim-bookworm AS python-deps
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -13,7 +13,7 @@ COPY src ./src
 RUN uv sync --locked --no-dev --no-editable
 
 
-FROM python:3.13-slim-bookworm AS api
+FROM python:3.14-slim-bookworm AS api
 
 ENV PATH=/app/.venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
