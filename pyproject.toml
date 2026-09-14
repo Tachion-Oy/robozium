@@ -9,7 +9,8 @@ dependencies = [
   "roboz==0.1.2.dev5",
   "roboshed==0.1.1.dev3",
   "roboz-endpoints[openai]==0.1.0a4",
-  "fastapi[standard]>=0.135.0",
+  "fastapi>=0.135.0",
+  "python-multipart>=0.0.20",
   "uvicorn[standard]>=0.30.0",
   "pydantic>=2.12.5",
 ]

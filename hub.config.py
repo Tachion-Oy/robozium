@@ -1,3 +1,4 @@
+from os import environ
 from pathlib import Path
 from typing import Final
 
@@ -14,7 +15,7 @@ from robosprawl.hub.logging import HubLoggingConfig
 
 NAME: Final = "RoboSprawl"
 SANDBOX: Final = Sandbox(
-    root=Path(f"../{NAME}"),
+    root=Path(environ.get("ROBOSPRAWL_HUB_ROOT", f"../{NAME}")),
     readonly="readonly",
     shared="workspace",
     projects="projects",
@@ -22,7 +23,9 @@ SANDBOX: Final = Sandbox(
     snapshots=Path("conversation_snapshots"),
     memory=Path("persistent_memory"),
 )
-LOGGING: Final = HubLoggingConfig()
+LOGGING: Final = HubLoggingConfig(
+    path=Path(environ.get("ROBOSPRAWL_LOG_DIR", ".runtime/logs")) / "backend.jsonl"
+)
 DEPENDENCY_HEALTH: Final = DependencyHealthSettings(interval_s=60.0, timeout_s=20.0)
 
 OPENROUTER: Final = openrouter.configured()

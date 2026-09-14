@@ -145,6 +145,20 @@ def test_explicit_config_path_wins_over_environment(config_file, monkeypatch):
     assert load_hub().sandbox.root == expected
 
 
+def test_checked_in_config_accepts_container_paths(
+    config_file, monkeypatch, tmp_path
+):
+    hub_root = tmp_path / "container-hub"
+    logs = tmp_path / "container-logs"
+    monkeypatch.setenv("ROBOSPRAWL_HUB_ROOT", str(hub_root))
+    monkeypatch.setenv("ROBOSPRAWL_LOG_DIR", str(logs))
+
+    hub = load_hub(config_file=config_file)
+
+    assert hub.sandbox.root == hub_root
+    assert hub.logging.path == logs / "backend.jsonl"
+
+
 @pytest.mark.parametrize(
     "choice",
     ["SANDBOX", "MEMORY_ENDPOINT", "CAPABILITIES", "SUBAGENTS", "INTERACTION_MODE"],

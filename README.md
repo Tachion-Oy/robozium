@@ -2,52 +2,55 @@
 
 A runnable project-agent application built on Roboz, with a FastAPI backend, streaming Next.js terminal UI, and persistent Librarian memory.
 
-## Prerequisites and installation
+## Quick start
 
-Use Linux with Bash, `setsid`, curl, uv 0.12.10 or newer (CI uses 0.12.10), Node.js 22, npm, and the read commands `grep`, `rg`, `pwd`, `cat`, `head`, `tail`, `find`, `ls`, `wc`, and `diff`. Python 3.13+ is required; uv downloads it into this checkout if needed. Playwright needs its usual Linux browser libraries already installed; installation scripts do not change system packages.
-
-RoboSprawl pins `roboz==0.1.2.dev5`, `roboshed==0.1.1.dev3`, and
-`roboz-endpoints[openai]==0.1.0a4` from PyPI. No sibling Roboz checkout or
-package-index credentials are needed.
-From the RoboSprawl directory:
+Install Git and a current Docker Desktop on Windows or macOS, or Docker Engine
+with Docker Compose v2.24+ on Linux. Clone this repository only: RoboZ, Roboshed, and the
+endpoint package are installed from the releases pinned in `uv.lock`.
 
 ```bash
-./scripts/install.sh
-./scripts/dev.sh
+git clone https://github.com/Tachion-Oy/robosprawl.git
+cd robosprawl
+./start --mock
 ```
 
-Open http://127.0.0.1:3000. The default launch runs the deterministic mock agent without credentials or a `.env` file. Create a project, reply twice, inspect its specialist, and follow its generated file link. The mock uses real Roboz events, conversation logs, cancellation, snapshots, and memory. The decorative landing terminal is sample content.
+On Windows, run `start.cmd --mock` instead. This mode requires no API keys.
+
+Open http://127.0.0.1:6969. That launch runs the deterministic mock agent
+without credentials or a `.env` file. Create a project, reply twice, inspect its
+specialist, and follow its generated file link. The mock uses real RoboZ events,
+conversation logs, cancellation, snapshots, and memory; its model responses are
+scripted and do not prove that live providers work.
+
+The browser is the only published service. It forwards requests to the API on
+Compose's private network. If port 6969 is occupied, set `ROBOSPRAWL_WEB_PORT` in
+a `.env` file (for example, `ROBOSPRAWL_WEB_PORT=6970`), rerun the command, and
+open that port instead.
+
+Logs remain in the terminal. Press Ctrl+C once to stop both services; project
+data is preserved. See [deployment](docs/deployment.md) for backup and recovery.
 
 ## Real models
 
-```bash
-cp .env.example .env
-# Set OPENROUTER_API_KEY and, optionally, CEREBRAS_API_KEY in .env.
-./scripts/dev.sh --live
-```
+Copy `.env.example` to `.env` with your editor or file manager and supply the
+credentials for the configured providers. Then run `./start` on macOS/Linux or
+`start.cmd` on Windows. With no flag the launcher explicitly selects live mode;
+Docker Compose reads the ignored `.env` file automatically. In PowerShell the
+copy command is `Copy-Item .env.example .env`; in Bash it is
+`cp .env.example .env`.
 
-The model selector retains GLM-5.3, GLM-5.3 Flash (OpenRouter), and GPT-OSS-120B (Cerebras). The editable constants in `hub.config.py` select model labels, root/memory endpoints, and capabilities from shared primitives. Credentials stay in the environment. With the default configuration, OpenRouter is also required by the Librarian even when Cerebras is selected for the root agent. The dependency panel reports missing credentials or unavailable routes. Readiness means the application is initialized; provider health is reported independently. Model availability may depend on your provider account.
+The default configuration offers GLM-5.3, GLM-5.3 Flash through OpenRouter, and
+GPT-OSS-120B through Cerebras. OpenRouter is also required by the Librarian. The
+dependency panel reports missing credentials and unavailable providers.
 
-Live capabilities are interaction, guarded file reading, literal patch editing, automatic context compaction, and Librarian memory. Reads stay within the configured sandbox; the current project is writable, shared workspace writes prompt, and other locations are denied. These are application tool guards, not an OS sandbox. Live transcription returns a clear HTTP 503; mock transcription remains testable. See [deferred dependency work](docs/deferred-dependency-changes.md) for omitted integrations.
+Mock and live modes use distinct named volumes. Switching the mode does not mix
+scripted demonstration memory with real projects. Readiness means the processes
+are initialized; provider health remains visible in the dependency panel.
 
-The live orchestrator applies remembered preferences, delegates to configured specialists, and stays available across tasks. It stops when the user asks to end the session. See [deployment composition](docs/deployment.md) for the shared deployment and sandbox configuration.
+## Configuration
 
-Both launch modes use `fastapi dev`, showing the FastAPI startup banner, API documentation URL, and server logs in the terminal. Backend source changes reload automatically.
-
-The launcher waits up to 60 seconds for API readiness and stops both process groups when either service exits or Ctrl+C is pressed. Ports 8000 and 3000 must be free.
-
-## Backend configuration and launch
-
-For a backend-only development server:
-
-```bash
-source scripts/env.sh
-uv run uvicorn robosprawl.api.app:mock_app --factory --reload --reload-dir src
-# Live backend, with credentials from .env:
-uv run --env-file .env uvicorn robosprawl.api.app:live_app --factory --reload --reload-dir src
-```
-
-Set `ROBOSPRAWL_CONFIG=/absolute/path/hub.config.py` to choose configuration and data locations. The file contains named `Final` constants, with no builder or schema classes. Edit `MODELS`, `DEFAULT_MODEL`, `MEMORY_ENDPOINT`, `CAPABILITIES`, and the other declarations directly. Shared catalogs own provider URLs, credential variables, context limits, and lazy SDK construction. Set `OPENROUTER_API_KEY` and `CEREBRAS_API_KEY` for live inference.
+Edit the named constants in `hub.config.py`, then restart with `./start` or
+`start.cmd`. The image rebuild includes the edited file.
 
 ```python
 MODELS: Final = {"GLM": GLM, "Cerebras": GPT_OSS}
@@ -58,84 +61,18 @@ CAPABILITIES: Final = (
 )
 ```
 
-The checked-in file supplies all deployment choices. Logging is the explicit exception: `LOGGING = HubLoggingConfig()` uses defaults from `robosprawl.hub.logging`; pass individual keyword arguments to customize them. See [deployment composition](docs/deployment.md) for the complete contract.
+See [deployment configuration](docs/deployment.md) for every setting and
+[backend architecture](docs/backend-architecture.md) for runtime ownership.
 
-`create_app(deployment=load_hub())` consumes a validated Hub directly.
-`robosprawl.hub.utils` owns discovery, loading, and slug normalization. Hub owns
-its inputs and runtime selector; there is no nested configuration wrapper. The
-health monitor combines the constructed agent's dependencies with every
-advertised model, optional transcription, and `ADDITIONAL_DEPENDENCIES`. Each
-resource owns its availability check. The shared orchestrator supplies guarded
-file capabilities; their boundaries come only from the run's scoped
-`sandbox.permissions()`.
+## Hub state and isolation
 
-Backend imports have no startup side effects. ASGI factories build an app; its lifespan registers use of process logging and recovers activity markers before accepting work. Overlapping apps in one process must share the same logging configuration. Shutdown cancels root and background work and waits up to ten seconds, logging a timeout if synchronous work cannot stop. Run registries are process-local: run one backend worker per data directory.
-
-See [Backend ownership](docs/backend-architecture.md) for the intent and boundaries of the runtime.
-
-## Data and isolation
-
-`hub.config.py` is the single runnable configuration example. Its one `SANDBOX`
-value owns the tier names and project persistence folder names. Runtime data
-lives in the adjacent `../RoboSprawl` sandbox and technical logs remain in
-`.runtime/logs`. Projects retain `conversation_logs`, `conversation_snapshots`,
-and `persistent_memory`.
-Configuration lookup uses `ROBOSPRAWL_CONFIG` when set, otherwise the current
-directory and its parents. Relative sandbox and technical-log paths resolve
-against the selected file. Python callers can pass
-`load_hub(config_file=Path(...))`, which takes precedence over the environment.
-There is no checkout fallback or JSON loader. The frontend reads its build-time
-title through the same loader, using `.venv/bin/python` or the interpreter
-selected by `ROBOSPRAWL_PYTHON`.
-
-
-The scripts source `scripts/env.sh`, keeping temporary files, environments, Python bytecode, uv/npm caches, and downloaded browsers inside `.artifacts`, `.venv`, or `web`. Next.js build output and browser reports also remain inside this checkout. These generated directories are gitignored. Before running tools directly, use:
-
-```bash
-source scripts/env.sh
-```
-
-Installed-package checks and E2E create disposable configuration/data directories
-outside the source checkout, then remove them after shutdown. Keep those
-runner-owned directories separate from real user data. `.env` and runtime data are never tracked. The existing Git repository and Apache-2.0 license are preserved.
+Projects, workspace files, conversation history, snapshots, and memory persist
+in the hub volume. Operational logs persist separately. Mock and live modes use
+different volumes. Pressing Ctrl+C and starting again preserves both. See
+[deployment](docs/deployment.md) for backup and restore commands.
 
 ## Verification
 
-```bash
-./scripts/test.sh             # Python, quality, frontend, all three browsers
-./scripts/verify-wheels.sh    # fresh archives, pip installs, composition and HTTP E2E
-```
-
-E2E covers projects, replies, streaming, specialist views, file links,
-cancel/delete, recovery, themes, Librarian activity, and persisted-project
-recovery after a backend crash/restart. Chromium and Firefox are required in CI;
-WebKit is temporarily advisory, including its stress run.
-The repaired WebKit layout and toast scenarios are repeated ten times without
-retries in CI. Flaky tests fail their browser job even if a diagnostic retry
-passes. Completed WebKit test failures produce advisory warnings and successful
-job checks; setup, service, interruption, and cleanup failures remain required.
-
-Set `ROBOSPRAWL_E2E_API_PORT` and `ROBOSPRAWL_E2E_WEB_PORT` if ports 8000 and 3100
-are occupied. Each invocation owns its backend, frontend, temporary data, and
-unique `.artifacts/e2e/run-*` reports. The runner stops process groups after
-failure or interruption; readiness failure and occupied ports fail explicitly.
-
-For CI-equivalent installed E2E, provide `ROBOSPRAWL_E2E_PYTHON` with the absolute
-path to an installed candidate interpreter and set `ROBOSPRAWL_E2E_PREBUILT=1`
-after building the frontend. The default command remains a convenient developer
-wrapper. See [testing commands and artifact contracts](docs/testing.md).
-
-For a paced stream demonstration, source `scripts/env.sh` and run `uv run uvicorn robosprawl.api.app:stream_sync_mock_app --factory`; its temporary data stays inside the checkout.
-
-Visual baselines live under `web/e2e/visual-regression.spec.ts-snapshots`. Update them intentionally with `--project=chromium --update-snapshots`, then review the images. [Verification notes](docs/verification.md) record the port's results and visual review. Credential-backed live inference is reported separately from automated configuration tests.
-
-CI installs the exact dependency releases recorded in `uv.lock`. The three
-Roboz packages and ordinary dependencies come from PyPI.
-The distribution job downloads dependency wheels from their locked registry
-URLs, verifies SHA-256 hashes, and builds the application archives fresh.
-Browser jobs verify and install those same wheels with pip. Dependency versions,
-URLs, and hashes are recorded with distribution reports. Require the aggregate
-**CI** check for branch protection.
-Actions are pinned to immutable commits and maintained by Dependabot. CI needs
-no access token for the Roboz repository. Reports and candidate archives are
-retained for 14 days. See [testing commands and artifact contracts](docs/testing.md).
+PRs run unit tests, lint, and type checks. Merges to main run the full browser,
+package, and Docker onboarding checks; these can also be started manually on a
+selected branch. See [testing](docs/testing.md).

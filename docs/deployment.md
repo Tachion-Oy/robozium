@@ -50,9 +50,32 @@ through the orchestrator's `initial_messages`. The shared system prompt
 is used unchanged. Project locations come from the same scoped Sandbox used for
 file permissions, the Librarian, and persistence.
 
-`LOGGING = HubLoggingConfig()` keeps the normal console/file behavior. Override
-individual fields, such as `console_level` or `max_bytes`, when needed. The default
-technical-log path is `.runtime/logs/backend.jsonl` relative to the selected file.
+`LOGGING = HubLoggingConfig(...)` keeps the normal console/file behavior. Override
+individual fields, such as `console_level` or `max_bytes`, when needed. The native
+technical-log path defaults to `.runtime/logs/backend.jsonl` relative to the
+selected file; containers set `ROBOSPRAWL_LOG_DIR` to their persistent log directory.
+
+### Container backup and restore
+
+Export the persistent hub workspace while the application is running:
+
+```text
+docker compose cp api:/hub ./robosprawl-backup
+```
+
+Restore into a separate Compose project so the existing installation is not
+overwritten. Stop the original project first, or assign the restored project a
+different `ROBOSPRAWL_WEB_PORT`.
+
+```text
+docker compose -p robosprawl-restored create --build api
+docker compose -p robosprawl-restored cp ./robosprawl-backup/. api:/hub
+docker compose -p robosprawl-restored run --rm --user root --entrypoint chown api -R 10001:10001 /hub
+docker compose -p robosprawl-restored up --build --wait
+```
+
+These commands copy only RoboSprawl's persistent files. They do not copy image
+layers, provider credentials, or `.env`.
 
 ```python
 from robosprawl.api.app import create_app
@@ -71,12 +94,13 @@ validation. Errors identify the selected file and retain their
 cause. No JSON schema, builder export, nested HubConfig, or checkout fallback is
 supported.
 
-Sandbox and technical-log paths are anchored to that file. The single `SANDBOX`
+Relative sandbox and technical-log paths are anchored to that file. The single `SANDBOX`
 constant owns tier names and persistence folder names; persistence stays
 project-relative and disjoint. The checked-in configuration places its sandbox
 at `../RoboSprawl`, outside the checkout; it does not move data from the former
 `.runtime/data` root automatically. Tier and persistence folder names are
-preserved. The host creates directories and `ProjectService` validates startup
+preserved. Containers override only the hub root and technical-log directory
+through `ROBOSPRAWL_HUB_ROOT` and `ROBOSPRAWL_LOG_DIR`. The host creates directories and `ProjectService` validates startup
 layout. `sandbox.permissions()` is the sole policy source: it allows
 sandbox reads and current-project writes, asks for shared writes, and denies
 other writes.
