@@ -6,10 +6,12 @@ import {
 	expectLibrarianSettledOnDisk,
 	gotoLanding,
 	holdLibrarian,
+	holdLibrarianConsolidation,
 	holdLibrarianCancellation,
 	librarianIsRunningOnDisk,
 	projectRow,
 	releaseLibrarian,
+	releaseLibrarianConsolidation,
 	releaseLibrarianCancellation,
 	trackCancelPosts,
 	waitFor,
@@ -109,7 +111,7 @@ test("happy path: syncing blocks actions and only settles once the librarian's r
 }) => {
 	const slug = await createProject(request, `Lifecycle Sync E2E ${Date.now()}`)
 	const paths = e2eProjectPaths(slug)
-	await holdLibrarian(slug)
+	await holdLibrarianConsolidation(slug)
 
 	try {
 		await openAndCompleteRun(page, slug)
@@ -130,10 +132,18 @@ test("happy path: syncing blocks actions and only settles once the librarian's r
 		expect(createWhileSyncing.status()).toBe(409)
 
 		expect(await librarianIsRunningOnDisk(paths.logs)).toBe(true)
-		expect(await walkFiles(paths.snapshots, ".md")).toHaveLength(0)
+		const pendingSnapshotPath = await waitFor(
+			"snapshot published before held final consolidation",
+			async () => {
+				const files = await walkFiles(paths.snapshots, ".md")
+				return files[0] ?? null
+			},
+		)
+		await expect.poll(() => fs.readFile(pendingSnapshotPath, "utf8"))
+			.toContain("# Conversation Snapshot")
 		expect(await walkFiles(paths.memory, ".md")).toHaveLength(0)
 
-		await releaseLibrarian(slug)
+		await releaseLibrarianConsolidation(slug)
 
 		const snapshotPath = await waitFor("librarian snapshot markdown", async () => {
 			const files = await walkFiles(paths.snapshots, ".md")
@@ -159,7 +169,7 @@ test("happy path: syncing blocks actions and only settles once the librarian's r
 		await expect(deleteButton).toBeEnabled()
 		await expect(cancelButton).toBeDisabled()
 	} finally {
-		await releaseLibrarian(slug)
+		await releaseLibrarianConsolidation(slug)
 	}
 })
 

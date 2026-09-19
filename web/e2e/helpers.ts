@@ -115,10 +115,11 @@ export function e2eProjectPaths(slug: string) {
 }
 
 const LIBRARIAN_HOLD_MARKER = ".librarian-hold"
+const LIBRARIAN_CONSOLIDATION_HOLD_MARKER = ".librarian-consolidation-hold"
 const LIBRARIAN_CANCEL_HOLD_MARKER = ".librarian-cancel-hold"
 const LIBRARIAN_AGENT_NAME = "librarian"
 
-/** Blocks the mock librarian's LLM endpoint so the project stays SYNCING. */
+/** Blocks snapshot generation so cancellation tests can hold the Librarian open. */
 export async function holdLibrarian(slug: string): Promise<void> {
 	const { root } = e2eProjectPaths(slug)
 	await fs.mkdir(root, { recursive: true })
@@ -128,6 +129,24 @@ export async function holdLibrarian(slug: string): Promise<void> {
 export async function releaseLibrarian(slug: string): Promise<void> {
 	const { root } = e2eProjectPaths(slug)
 	await fs.rm(path.join(root, LIBRARIAN_HOLD_MARKER), { force: true })
+}
+
+/** Blocks final memory consolidation while snapshotting remains available. */
+export async function holdLibrarianConsolidation(slug: string): Promise<void> {
+	const { root } = e2eProjectPaths(slug)
+	await fs.mkdir(root, { recursive: true })
+	await fs.writeFile(
+		path.join(root, LIBRARIAN_CONSOLIDATION_HOLD_MARKER),
+		"",
+		"utf8",
+	)
+}
+
+export async function releaseLibrarianConsolidation(slug: string): Promise<void> {
+	const { root } = e2eProjectPaths(slug)
+	await fs.rm(path.join(root, LIBRARIAN_CONSOLIDATION_HOLD_MARKER), {
+		force: true,
+	})
 }
 
 export async function holdLibrarianCancellation(slug: string): Promise<void> {

@@ -43,11 +43,10 @@ MOCK_SCENARIO_MARKER = ".mock-scenario"
 MOCK_SCENARIO_LLM_ERROR = "llm-error"
 MOCK_SCENARIO_USER_NOTIFICATION = "user-notification"
 
-# While this marker exists in the project root, the mock librarian's LLM
-# endpoint blocks before answering, pinning the project in SYNCING so e2e tests
-# can assert the syncing-phase invariants deterministically. Absent by default,
-# so every other spec sees the usual fast librarian.
+# These opt-in markers hold the snapshot endpoint for cancellation tests or only
+# the memory endpoint for finalization tests. They are absent on the normal path.
 LIBRARIAN_HOLD_MARKER = ".librarian-hold"
+LIBRARIAN_CONSOLIDATION_HOLD_MARKER = ".librarian-consolidation-hold"
 LIBRARIAN_CANCEL_HOLD_MARKER = ".librarian-cancel-hold"
 # Generous ceiling so a leaked marker can't wedge the shared e2e backend, while
 # leaving ample headroom for a loaded browser to run every syncing-phase
@@ -182,10 +181,13 @@ def _mock_recipe(
     root.set_attributes(permissions=project.sandbox.permissions())
     if with_librarian:
         names = root.agent_names(include_background=False)
-        endpoint = MockLLMEndpoint(
+        snapshot_endpoint = MockLLMEndpoint(
             [{"value": "## E2E snapshot\n- Librarian generated this memory."}] * 12
         )
-        preset = librarian(project.sandbox, names, agent_endpoint=endpoint)
+        memory_endpoint = MockLLMEndpoint(
+            [{"value": "## E2E memory\n- Librarian generated this memory."}] * 12
+        )
+        preset = librarian(project.sandbox, names, agent_endpoint=snapshot_endpoint)
         background = DeployableAgent(
             name=preset.name,
             description=preset.description,
@@ -193,10 +195,14 @@ def _mock_recipe(
             automatic_tool_prompt=preset.automatic_tool_prompt,
             default_capabilities=(
                 ConversationSnapshots(token_growth_threshold=1),
-                MemoryConsolidation(min_pending_snapshots=1, max_pending_age_seconds=0),
+                MemoryConsolidation(
+                    endpoint=memory_endpoint,
+                    min_pending_snapshots=100,
+                    max_pending_age_seconds=86_400,
+                ),
                 ArtifactRetention(max_log_files=4),
                 MaintenanceCadence(seconds=1),
-                _LibrarianHold(project, endpoint),
+                _LibrarianHold(project, snapshot_endpoint, memory_endpoint),
             ),
         )
         background.set_agent_endpoint(preset.agent_endpoint)
@@ -517,7 +523,7 @@ def _holdable_endpoint(
 ) -> MockLLMEndpoint:
     """Make a mock endpoint block before consuming each scripted response.
 
-    Blocking on the librarian's own thread keeps its conversation log in
+    Blocking on the Librarian's own thread keeps its conversation log in
     ``running`` until the marker is deleted, the pipe is cancelled, or the
     safety timeout elapses.
     """
@@ -548,18 +554,25 @@ def prepare_mock_artifact(input: Empty, messages: list[Message], ctx: Project) -
 @dataclass(frozen=True)
 class _LibrarianHold:
     project: Project
-    endpoint: MockLLMEndpoint
+    snapshot_endpoint: MockLLMEndpoint
+    memory_endpoint: MockLLMEndpoint
 
     @property
     def required_attributes(self) -> RequiredAttributes:
         return {}
 
     def build(self, agent: DeployableAgent, pipe: EventPipe) -> Capability:
+        """Bind independent snapshot and consolidation test holds."""
         del agent
         _holdable_endpoint(
-            self.endpoint,
+            self.snapshot_endpoint,
             hold_marker=self.project.root / LIBRARIAN_HOLD_MARKER,
             cancel_hold_marker=self.project.root / LIBRARIAN_CANCEL_HOLD_MARKER,
+            is_cancelled=lambda: pipe.cancelled,
+        )
+        _holdable_endpoint(
+            self.memory_endpoint,
+            hold_marker=self.project.root / LIBRARIAN_CONSOLIDATION_HOLD_MARKER,
             is_cancelled=lambda: pipe.cancelled,
         )
         return Capability()
