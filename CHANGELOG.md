@@ -26,11 +26,14 @@
   optional standalone resources in the health monitor. Deployment build,
   invocation, model switching, persistence, and cancellation order are preserved.
 
-- Consume `roboz 0.1.2.dev5`, `roboshed 0.1.1.dev3`, and
+- Consume `roboz 0.1.2.dev7`, `roboshed 0.1.1.dev4`, and
   `roboz-endpoints 0.1.0a4` from PyPI. Call Shed's
   `robosprawl()` recipe with the scoped project and deployment choices for each
   new run. Project context, agent defaults, and persistence stay in Shed;
   replies, model switching, cancellation, and streaming retain their lifecycle.
+  Remove the obsolete `INTERACTION_MODE` configuration value; interaction is
+  now bound by the API host per invocation, and deterministic agents use the
+  explicit Roboz agent mode.
 
 - Adopt shared `Deployment` and `DeployableAgent` composition with one fresh,
   project-scoped Sandbox per run. Paths and permissions come from that instance;
@@ -57,6 +60,10 @@
 - `create_app` accepts only Hub. Configure capabilities, policies, paths, health timings, transcription, and dependency registrations through the Python constants. JSON, builder exports, HubConfig wrappers, local endpoint schemas, and app-level overrides are removed.
 
 ### Fixed
+
+- Keep projects syncing until the Librarian's final snapshot and memory
+  consolidation complete after foreground agents stop, so terminal conversation
+  facts are persisted before project actions resume.
 
 - Pin the published Roboshed development snapshot so configuration loading,
   tests, and frontend builds can import the concrete `robosprawl()` recipe.

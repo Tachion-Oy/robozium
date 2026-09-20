@@ -6,8 +6,8 @@ readme = "README.md"
 requires-python = ">=3.13"
 license = "Apache-2.0"
 dependencies = [
-  "roboz==0.1.2.dev5",
-  "roboshed==0.1.1.dev3",
+  "roboz==0.1.2.dev7",
+  "roboshed==0.1.1.dev4",
   "roboz-endpoints[openai]==0.1.0a4",
   "fastapi>=0.135.0",
   "python-multipart>=0.0.20",

@@ -16,7 +16,7 @@ from roboz.dependencies import (
     ExternalDependency,
     ExternalDependencyKind,
 )
-from roboz.models import Empty, Message
+from roboz.models import AgentMode, Empty, Message
 from roboz.tooling.decorators import factory
 from roboz_endpoints import openrouter
 
@@ -48,7 +48,7 @@ def _factory_for(*resources):
             Agent(
                 name="dependency_test",
                 event_sinks=event_sinks,
-                is_agentic=False,
+                mode=AgentMode.DETERMINISTIC,
                 agent_endpoint=None,
                 default_tools=[bound],
             )

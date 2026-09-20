@@ -13,7 +13,7 @@ from roboshed.sandbox import Sandbox
 from roboshed.skills import robosprawl as robosprawl_skill
 from roboz.deployment import Capability, DeployableAgent
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
-from roboz.runtime import Output
+from roboz.models import AgentMode
 from roboz.tools import stop
 from roboz_endpoints import cerebras, openrouter
 
@@ -53,7 +53,6 @@ def _specialist(name, *, subagents=(), background_agents=(), responses=None):
         subagents=subagents,
         background_agents=background_agents,
     )
-    definition.set_interaction_mode(Output.API)
     definition.set_agent_endpoint(
         MockLLMEndpoint(
             responses or [{"action": "stop", "rationale": "test action", "value": name}]
@@ -102,7 +101,7 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
     assert str(project.root) in context
     for location in (project.logs, project.snapshots, project.memory):
         assert str(location) in context
-    assert agent.interaction_mode == Output.API
+    assert agent.mode is AgentMode.STEERABLE
     assert specialist_background.name == "specialist_maintenance"
     assert robosprawl_skill in agent.auto_loaded_skills
     assert '<file src="relative/path.ext">' in robosprawl_skill.instructions
@@ -111,13 +110,14 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
     assert agent.initial_messages[0] == project.memory
     assert agent.pipe.data_path == project.logs / "orchestrator"
     assert background.pipe.data_path == project.logs / "librarian"
-    assert not background.is_agentic
+    assert background.mode is AgentMode.DETERMINISTIC
     assert [tool.name for tool in background.default_tools] == [
         "snapshot_conversations",
         "consolidate_memory",
         "purge_logs",
         "purge_snapshots",
         "purge_memory",
+        "stop_when_watched_agents_inactive",
         "sleep_between_runs",
     ]
     compactifier = next(

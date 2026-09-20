@@ -39,9 +39,10 @@ The shared orchestrator already supplies file commands and editing, each taking
 only a `PermissionPolicy` derived from the run's Sandbox. Do not add duplicate
 file capabilities here. `SUBAGENTS` holds shared `DeployableAgent` definitions.
 
-Hub loads `MEMORY_ENDPOINT`, `CAPABILITIES`, `SUBAGENTS`, and `INTERACTION_MODE`
-directly from the configuration. There is no deployment factory constant or
-adapter function. Loading configuration does not create a shared mutable recipe.
+Hub loads `MEMORY_ENDPOINT`, `CAPABILITIES`, and `SUBAGENTS` directly from the
+configuration. There is no deployment factory constant or adapter function.
+Loading configuration does not create a shared mutable recipe. The API host binds
+its interaction adapter for each invocation.
 Hub calls `robosprawl()` for each new run, using the scoped
 sandbox, live endpoint getter, and caller sinks. Replies and stream reconnects
 continue using the existing run; they do not rebuild agents.
@@ -132,9 +133,9 @@ the shared Librarian preset. Construction starts no agents or threads and create
 persistence directories. Mocks retain fresh scripts and their existing scenario
 controls.
 
-The dependency pins select Roboz `0.1.2.dev5`, Roboshed `0.1.1.dev3`, and
+The dependency pins select Roboz `0.1.2.dev7`, Roboshed `0.1.1.dev4`, and
 Roboz Endpoints `0.1.0a4`.
-These published snapshots supply the setter-based recipe and core build API, so
+These published snapshots supply the agent-mode recipe and core build API, so
 locked installation and CI consume it directly from PyPI. No sibling checkout
 or local dependency paths are required.
 

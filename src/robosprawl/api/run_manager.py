@@ -11,13 +11,7 @@ from uuid import uuid4
 
 from roboz.agent import Agent
 from roboz.llm import LLMEndpoint
-from roboz.runtime import (
-    Output,
-    bind_api_user_io,
-    bind_output,
-    reset_api_user_io,
-    reset_output,
-)
+from roboz.runtime import bind_api_user_io, reset_api_user_io
 from roboz.runtime.events import EventSink
 
 from robosprawl.api.errors import ProjectBusyError, ProjectCancellationInProgressError
@@ -128,7 +122,6 @@ class RunManager:
         Report outcomes through the control without accessing manager state.
         """
         token = bind_api_user_io(ApiUserIO(control))
-        output_token = bind_output(Output.API)
         try:
             if control.cancel_requested:
                 control.finish(RunStatus.CANCELLED)
@@ -150,7 +143,6 @@ class RunManager:
             control.finish(RunStatus.FAILED, error=str(exc))
         finally:
             reset_api_user_io(token)
-            reset_output(output_token)
 
     def get_run(self, run_id: str) -> RunState | None:
         with self._lock:

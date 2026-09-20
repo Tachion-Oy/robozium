@@ -17,7 +17,6 @@ from roboz import Agent
 from roboz.agent import run_subagent
 from roboz.llm import LLMEndpoint, LLMEndpointRoute, MockLLMEndpoint
 from roboz.models import Empty, Message, MessageKind, Role, Str
-from roboz.runtime import Output
 from roboz.runtime.events import (
     EventSink,
     MessageDeltaEvent,
@@ -71,7 +70,6 @@ def _busy_factory(
     endpoint = MockLLMEndpoint(responses=[{"action": "busy", "rationale": "spin"}])
     return _root_bundle(
         Agent(
-            interaction_mode=Output.API,
             event_sinks=event_sinks,
             name="busy_test",
             tools=[busy, stop],
@@ -125,7 +123,6 @@ def _minimal_api_agent_for_manager_test(
     start_only = prompt_user_at_start("m")
     return _root_bundle(
         Agent(
-            interaction_mode=Output.API,
             event_sinks=event_sinks,
             name="manager_api_test",
             tools=[entry, stop],
@@ -481,7 +478,6 @@ def test_nested_subagent_lifecycle_events_reach_run_event_listeners() -> None:
         del sandbox, project_slug, endpoint_getter
         child = Agent(
             name="child_agent",
-            interaction_mode=Output.API,
             event_sinks=event_sinks,
             tools=[stop],
             system_prompt="Child agent.",
@@ -499,7 +495,6 @@ def test_nested_subagent_lifecycle_events_reach_run_event_listeners() -> None:
         return _root_bundle(
             Agent(
                 name="parent_orchestrator",
-                interaction_mode=Output.API,
                 event_sinks=event_sinks,
                 tools=[run_child, stop],
                 system_prompt="Parent.",
@@ -747,7 +742,6 @@ def test_manager_completes_immediately_after_root_exits_even_with_librarian() ->
     ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
         root = Agent(
-            interaction_mode=Output.API,
             event_sinks=event_sinks,
             name="syncing_root",
             tools=[stop],
@@ -783,7 +777,6 @@ def test_manager_failed_root_does_not_transition_through_syncing() -> None:
     ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
         root = Agent(
-            interaction_mode=Output.API,
             event_sinks=event_sinks,
             name="failing_root",
             tools=[boom],
@@ -813,7 +806,6 @@ def test_manager_cancelled_run_does_not_enter_syncing_state() -> None:
     ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
         root = Agent(
-            interaction_mode=Output.API,
             event_sinks=event_sinks,
             name="busy_root",
             tools=[busy, stop],
@@ -863,7 +855,6 @@ def _stub_background_agent(name: str = "stub_librarian") -> Agent:
     """A minimal Agent standing in for a background daemon; only its pipe matters."""
     return Agent(
         name=name,
-        interaction_mode=Output.API,
         tools=[stop],
         system_prompt="stub background agent",
         agent_endpoint=MockLLMEndpoint(responses=[]),
@@ -883,7 +874,6 @@ def _completed_root_with_background(
     ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
         root = Agent(
-            interaction_mode=Output.API,
             event_sinks=event_sinks,
             name="syncing_root",
             tools=[stop],
@@ -946,7 +936,6 @@ def test_manager_cancel_does_not_fan_out_to_background_agents() -> None:
     ) -> BuiltAgents:
         del sandbox, project_slug, endpoint_getter
         root = Agent(
-            interaction_mode=Output.API,
             event_sinks=event_sinks,
             name="busy_root",
             tools=[busy, stop],
