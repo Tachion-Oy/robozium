@@ -69,7 +69,6 @@ def load_hub(*, start: Path | None = None, config_file: Path | None = None) -> H
             memory_endpoint=values["MEMORY_ENDPOINT"],
             additional_capabilities=values["CAPABILITIES"],
             subagents=values["SUBAGENTS"],
-            interaction_mode=values["INTERACTION_MODE"],
             transcription_endpoint=values["TRANSCRIPTION_ENDPOINT"],
             additional_dependencies=values["ADDITIONAL_DEPENDENCIES"],
         )

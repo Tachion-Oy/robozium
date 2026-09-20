@@ -20,7 +20,7 @@ from roboz.llm import (
     ModelSelector,
     TranscriptionEndpointLike,
 )
-from roboz.runtime import EventSink, Output
+from roboz.runtime import EventSink
 
 from robosprawl.api.projects import Project
 from robosprawl.hub.logging import HubLoggingConfig
@@ -54,7 +54,6 @@ class HubValues(TypedDict):
     MEMORY_ENDPOINT: EndpointLike
     CAPABILITIES: tuple[AgentCapability, ...]
     SUBAGENTS: tuple[DeployableAgent, ...]
-    INTERACTION_MODE: Output | None
     TRANSCRIPTION_ENDPOINT: TranscriptionEndpointLike | None
     ADDITIONAL_DEPENDENCIES: tuple[ExternalDependency, ...] | None
 
@@ -72,7 +71,6 @@ class Hub:
     memory_endpoint: EndpointLike
     additional_capabilities: tuple[AgentCapability, ...]
     subagents: tuple[DeployableAgent, ...]
-    interaction_mode: Output | None
     transcription_endpoint: TranscriptionEndpointLike | None
     additional_dependencies: tuple[ExternalDependency, ...] | None
     deployment: Callable[..., tuple[Agent, tuple[Agent, ...]]] | None = None
@@ -144,6 +142,5 @@ class Hub:
             memory_endpoint=self.memory_endpoint,
             additional_capabilities=self.additional_capabilities,
             specialists=self.subagents,
-            interaction_mode=self.interaction_mode,
             event_sinks=event_sinks,
         )

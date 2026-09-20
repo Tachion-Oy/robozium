@@ -20,8 +20,8 @@ from roboshed.sandbox import Sandbox
 from roboz.agent import Agent
 from roboz.deployment import Capability, DeployableAgent, RequiredAttributes
 from roboz.llm import LLMEndpoint, LLMEndpointRoute, MockLLMEndpoint, MockProviderError
-from roboz.models import Empty, Message
-from roboz.runtime import EventPipe, Output, default_event_sinks, interact_with_user
+from roboz.models import AgentMode, Empty, Message
+from roboz.runtime import EventPipe, default_event_sinks, interact_with_user
 from roboz.runtime.events import EventSink, MessageDeltaEvent, PipeEvent
 from roboz.tooling.decorators import factory
 from roboz.tools import stop
@@ -148,17 +148,16 @@ def _mock_recipe(
             )
         )
     )
-    specialist.set_interaction_mode(Output.API)
     preset = orchestrator(
         project.sandbox,
         agent_endpoint=MockLLMEndpoint(responses=responses),
-        interaction_mode=Output.API,
         subagents=(specialist,),
     )
     root = DeployableAgent(
         name=preset.name,
         description=preset.description,
         system_prompt=preset.system_prompt,
+        mode=preset.mode,
         subagents=preset.subagents,
         default_capabilities=(
             preset.default_capabilities[0],
@@ -177,7 +176,6 @@ def _mock_recipe(
         ),
     )
     root.set_agent_endpoint(preset.agent_endpoint)
-    root.set_interaction_mode(preset.interaction_mode)
     root.set_attributes(permissions=project.sandbox.permissions())
     if with_librarian:
         names = root.agent_names(include_background=False)
@@ -191,7 +189,7 @@ def _mock_recipe(
         background = DeployableAgent(
             name=preset.name,
             description=preset.description,
-            is_agentic=preset.is_agentic,
+            mode=AgentMode.DETERMINISTIC,
             automatic_tool_prompt=preset.automatic_tool_prompt,
             default_capabilities=(
                 ConversationSnapshots(token_growth_threshold=1),
@@ -206,7 +204,6 @@ def _mock_recipe(
             ),
         )
         background.set_agent_endpoint(preset.agent_endpoint)
-        background.set_interaction_mode(preset.interaction_mode)
         background.set_attributes(sandbox=project.sandbox, watched_agent_names=names)
         root.add_background_agents(background)
     return root.build(
@@ -235,7 +232,6 @@ def mock_deployment(
             agent_endpoint=model_selection_endpoint(
                 LLMEndpointRoute(endpoint_getter), project.root
             ),
-            interaction_mode=Output.API,
         ).build(
             event_sinks=tuple(event_sinks),
             event_sink_factory=lambda name: default_event_sinks(

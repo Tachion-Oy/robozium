@@ -14,6 +14,7 @@ from roboshed.identifiers import (
     STOP_WHEN_WATCHED_AGENTS_INACTIVE_TOOL_NAME,
 )
 from roboz.llm import MockLLMEndpoint, MockProviderError
+from roboz.models import AgentMode
 from roboz_endpoints import openrouter
 
 from robosprawl.hub.utils import load_hub
@@ -41,8 +42,7 @@ def test_mock_librarian_is_non_agentic_workflow(tmp_path: Path) -> None:
     )
 
     assert librarian.name == LIBRARIAN_AGENT_NAME
-    assert librarian.is_agentic is False
-    assert librarian.is_agentic is False
+    assert librarian.mode is AgentMode.DETERMINISTIC
     assert [tool.name for tool in librarian.default_tools] == [
         SNAPSHOT_CONVERSATIONS_TOOL_NAME,
         CONSOLIDATE_MEMORY_TOOL_NAME,

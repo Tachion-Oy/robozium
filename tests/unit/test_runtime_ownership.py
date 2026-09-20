@@ -11,6 +11,7 @@ import pytest
 from deployment_support import BuiltAgents
 from fastapi.testclient import TestClient
 from roboz import Agent
+from roboz.models import AgentMode
 from roboz.runtime.io import interact_with_user
 from roboz.runtime.persistence import RunStatus as AgentStatus
 from roboz.runtime.pipe import EventPipe
@@ -178,7 +179,7 @@ def test_factory_failure_closes_http_stream_and_late_subscribers(config):
         return BuiltAgents(
             Agent(
                 name="root",
-                is_agentic=False,
+                mode=AgentMode.DETERMINISTIC,
                 agent_endpoint=None,
                 default_tools=[stop],
                 event_sinks=event_sinks,

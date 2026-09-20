@@ -12,6 +12,7 @@ import pytest
 from deployment_support import BuiltAgents
 from fastapi.testclient import TestClient
 from roboz import Agent
+from roboz.models import AgentMode
 from roboz.tools import stop
 from roboz_endpoints.adapters.openai_compatible import OpenAICompatibleAdapter
 
@@ -68,7 +69,7 @@ def test_logging_uses_each_explicit_app_config(config_file):
         return BuiltAgents(
             Agent(
                 name="root",
-                is_agentic=False,
+                mode=AgentMode.DETERMINISTIC,
                 agent_endpoint=None,
                 default_tools=[stop],
                 event_sinks=event_sinks,
@@ -161,7 +162,7 @@ def test_checked_in_config_accepts_container_paths(
 
 @pytest.mark.parametrize(
     "choice",
-    ["SANDBOX", "MEMORY_ENDPOINT", "CAPABILITIES", "SUBAGENTS", "INTERACTION_MODE"],
+    ["SANDBOX", "MEMORY_ENDPOINT", "CAPABILITIES", "SUBAGENTS"],
 )
 def test_required_choice_fails_during_load(config_file, choice):
     with config_file.open("a") as file:
@@ -219,7 +220,7 @@ def test_overlapping_app_lifespans_preserve_existing_logging(config_file, confli
         return BuiltAgents(
             Agent(
                 name="root",
-                is_agentic=False,
+                mode=AgentMode.DETERMINISTIC,
                 agent_endpoint=None,
                 default_tools=[stop],
                 event_sinks=event_sinks,
@@ -304,7 +305,6 @@ REVIEWER = DeployableAgent(
 )
 REVIEWER.set_agent_endpoint(GPT_OSS)
 SUBAGENTS = (REVIEWER,)
-INTERACTION_MODE = None
 """)
     hub = load_hub(config_file=config_file)
     project = hub.project("custom")
@@ -317,7 +317,6 @@ INTERACTION_MODE = None
         hub.dependency_health.interval_s == 17 and hub.dependency_health.timeout_s == 3
     )
     assert hub.additional_capabilities[-1].threshold_percent == 42
-    assert hub.interaction_mode is None
     agent, (background,) = deployment
     assert "reviewer" in {tool.name for tool in agent.tools}
     assert agent.initial_messages[0] == project.memory

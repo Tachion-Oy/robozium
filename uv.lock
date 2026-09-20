@@ -958,15 +958,15 @@ wheels = [
 
 [[package]]
 name = "roboshed"
-version = "0.1.1.dev3"
+version = "0.1.1.dev4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "roboz" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/78/3a/729a55ad4ee8879ff4b31164bf052083855569bc198bbd181ee9b689d2dd/roboshed-0.1.1.dev3.tar.gz", hash = "sha256:f3f90b9962cf1201779988cc486bc8bc6ba768550f0d4a206a94691fbef473f8", size = 146185 }
+sdist = { url = "https://files.pythonhosted.org/packages/ab/20/da6a07ae4602598c49e9d10ffa6217de4e6edef639d2640394d41d68ef42/roboshed-0.1.1.dev4.tar.gz", hash = "sha256:d58bbf149469dc0907e63e95b159f4e2e5746b24a25ea4cf1f5f2e17c1f9314e", size = 149820 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7f/92/e5ee179be251b6030fe83174c4732a3a17c3013430ee5a68c0338eb92561/roboshed-0.1.1.dev3-py3-none-any.whl", hash = "sha256:cc53b1f471ccc2aa6eaefe33db7aa24fc8cfdb39ca66aa1e9e0a8efdd7902247", size = 115537 },
+    { url = "https://files.pythonhosted.org/packages/f8/ae/b2866ce8247f5642961cac6b758f5ff3832d38489a98585629a5b3bbde59/roboshed-0.1.1.dev4-py3-none-any.whl", hash = "sha256:f064efbb0d265279f9970c6b9347681da762568bceca184330820374d7f3f437", size = 117047 },
 ]
 
 [[package]]
@@ -998,8 +998,8 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.135.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "python-multipart", specifier = ">=0.0.20" },
-    { name = "roboshed", specifier = "==0.1.1.dev3" },
-    { name = "roboz", specifier = "==0.1.2.dev5" },
+    { name = "roboshed", specifier = "==0.1.1.dev4" },
+    { name = "roboz", specifier = "==0.1.2.dev7" },
     { name = "roboz-endpoints", extras = ["openai"], specifier = "==0.1.0a4" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },
 ]
@@ -1016,16 +1016,16 @@ dev = [
 
 [[package]]
 name = "roboz"
-version = "0.1.2.dev5"
+version = "0.1.2.dev7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "rich" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8f/18/b1f939ca02f44078262765199f12702ddbf27ac413234ff1848ea4a1680e/roboz-0.1.2.dev5.tar.gz", hash = "sha256:37077174335317f417715795002db746754cf93460bbf39a3b035f775b0d000c", size = 81195 }
+sdist = { url = "https://files.pythonhosted.org/packages/de/ac/cef326cb9574a69aa3c5187b97ac7a8916474fdb8dd6a447ceb78df3dc51/roboz-0.1.2.dev7.tar.gz", hash = "sha256:e2b6a1918e07ba8a1bc276bb9bb34f96b6d61f4a8e908c0fb6cca5d7d1d121d3", size = 86136 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/76/8d/327dfa5aa5d2186f7d53ff363e02a17e944ad5e7b6708e554540d494e869/roboz-0.1.2.dev5-py3-none-any.whl", hash = "sha256:35d94f1f68a3f06d30063783456364952d3c05e056e622b338ca7e09b9bd270f", size = 102028 },
+    { url = "https://files.pythonhosted.org/packages/7c/f7/c9b66cbd22224a6b9885b4f3306b9cc3fe0f23e398b8d55b7dfaad536940/roboz-0.1.2.dev7-py3-none-any.whl", hash = "sha256:426afa022726ef17e4d35faa136ce5b69779e295d542f5ee36443619f8acb7f5", size = 107011 },
 ]
 
 [[package]]

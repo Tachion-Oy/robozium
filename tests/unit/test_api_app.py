@@ -29,7 +29,6 @@ from roboshed.tools.memory_files import (
 from roboz import Agent
 from roboz.llm import LLMEndpoint, MockLLMEndpoint, MockTranscriptionEndpoint
 from roboz.models import Empty, Message, Str
-from roboz.runtime import Output
 from roboz.runtime.events import (
     EventSink,
     MessageEvent,
@@ -101,7 +100,6 @@ def _minimal_factory(
     start_only = prompt_user_at_start("m")
     return _root_bundle(
         Agent(
-            interaction_mode=Output.API,
             event_sinks=event_sinks,
             name="api_http_test",
             tools=[entry, stop],
@@ -131,7 +129,6 @@ def _running_factory(
     )
     return _root_bundle(
         Agent(
-            interaction_mode=Output.API,
             event_sinks=event_sinks,
             name="api_running_test",
             tools=[pause, stop],
@@ -158,7 +155,6 @@ def _stream_terminating_factory(
     )
     return _root_bundle(
         Agent(
-            interaction_mode=Output.API,
             event_sinks=event_sinks,
             name="api_stream_terminating_test",
             tools=[stop],
@@ -179,7 +175,6 @@ def _syncing_after_stop_factory(
 ) -> BuiltAgents:
     del sandbox, project_slug, endpoint_getter
     root = Agent(
-        interaction_mode=Output.API,
         event_sinks=event_sinks,
         name="api_syncing_root",
         tools=[stop],
@@ -190,7 +185,6 @@ def _syncing_after_stop_factory(
         initial_messages=None,
     )
     background = Agent(
-        interaction_mode=Output.API,
         name=LIBRARIAN_AGENT_NAME,
         tools=[stop],
         system_prompt="stub background agent",

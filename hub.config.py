@@ -7,7 +7,6 @@ from roboshed.sandbox import Sandbox
 from roboshed.skills import robosprawl
 from roboz.deployment import Capability
 from roboz.llm import with_openrouter_policy
-from roboz.runtime import Output
 from roboz_endpoints import cerebras, openrouter
 
 from robosprawl.hub.application import DependencyHealthSettings
@@ -48,6 +47,5 @@ CAPABILITIES: Final = (
     Compactification(threshold_percent=60.0),
 )
 SUBAGENTS: Final = ()
-INTERACTION_MODE: Final = Output.API
 TRANSCRIPTION_ENDPOINT: Final = None
 ADDITIONAL_DEPENDENCIES: Final = None
