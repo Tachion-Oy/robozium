@@ -93,7 +93,7 @@ class CredentialGateMiddleware:
         ):
             response = JSONResponse(
                 {"detail": "Unlock API keys before using providers"},
-                status_code=409,
+                status_code=423,
                 headers={"Cache-Control": "no-store"},
             )
             await response(scope, receive, send)

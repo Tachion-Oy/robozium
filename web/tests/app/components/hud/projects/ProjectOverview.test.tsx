@@ -5,6 +5,7 @@ import type { Project } from "../../../../../lib/robozium/wire"
 
 const mocks = vi.hoisted(() => ({
 	cancelProject: vi.fn(),
+	createProject: vi.fn(),
 	createRun: vi.fn(),
 	deleteProject: vi.fn(),
 	listProjects: vi.fn(),
@@ -16,9 +17,10 @@ vi.mock("next/navigation", () => ({
 	useRouter: () => ({ push: mocks.routerPush }),
 }))
 
-vi.mock("../../../../../lib/robozium/client", () => ({
+vi.mock("../../../../../lib/robozium/client", async (importOriginal) => ({
+	...(await importOriginal<typeof import("../../../../../lib/robozium/client")>()),
 	cancelProject: mocks.cancelProject,
-	createProject: vi.fn(),
+	createProject: mocks.createProject,
 	createRun: mocks.createRun,
 	deleteProject: mocks.deleteProject,
 	listProjects: mocks.listProjects,
@@ -32,12 +34,14 @@ vi.mock("../../../../../app/components/hud/projects/ProjectOverviewPanel", () =>
 	ProjectOverviewPanel: ({
 		projects,
 		isStarting,
+		onCreateRunSubmit,
 		onCancelRun,
 		onDeleteProject,
 		onProjectClick,
 	}: {
 		projects: ProjectRow[]
 		isStarting: boolean
+		onCreateRunSubmit: (projectName: string) => void
 		onCancelRun: (project: ProjectRow) => void
 		onDeleteProject: (project: ProjectRow) => void
 		onProjectClick: (project: ProjectRow) => void
@@ -45,6 +49,12 @@ vi.mock("../../../../../app/components/hud/projects/ProjectOverviewPanel", () =>
 		const project = projects[0]
 		return (
 			<div>
+				<button
+					type="button"
+					disabled={isStarting}
+					onClick={() => onCreateRunSubmit("new")}>
+					Create run
+				</button>
 				<span data-testid="status">{project?.status ?? "missing"}</span>
 				{projects.map((row) => (
 					<span key={row.slug} data-testid={`status-${row.slug}`}>
@@ -83,6 +93,7 @@ vi.mock("../../../../../app/components/hud/projects/ProjectOverviewPanel", () =>
 }))
 
 import { ProjectOverview } from "../../../../../app/components/hud/projects/ProjectOverview"
+import { AgentApiError } from "../../../../../lib/robozium/client"
 
 const syncingProject: Project = {
 	slug: "alpha",
@@ -202,6 +213,64 @@ describe("ProjectOverview cancellation", () => {
 })
 
 describe("ProjectOverview opening", () => {
+	it("shows a toast when locked keys block a new project's run", async () => {
+		mocks.createProject.mockResolvedValueOnce({ slug: "new" })
+		mocks.createRun.mockRejectedValueOnce(
+			new AgentApiError(423, "Backend wording may change"),
+		)
+		render(<ProjectOverview initialProjects={[dormantProject]} />)
+
+		fireEvent.click(screen.getByRole("button", { name: "Create run" }))
+
+		await waitFor(() =>
+			expect(mocks.showErrorToast).toHaveBeenCalledWith({
+				title: "API keys locked",
+				message: "Unlock API keys before starting a run.",
+				detail: "Open the API keys locked menu and enter your password.",
+			}),
+		)
+		expect(mocks.createRun).toHaveBeenCalledWith({ project: "new" })
+		expect(mocks.routerPush).not.toHaveBeenCalled()
+		expect(
+			screen.getByRole("button", { name: "Create run" }).hasAttribute("disabled"),
+		).toBe(false)
+	})
+
+	it("shows the same toast when locked keys block a dormant project's run", async () => {
+		mocks.listProjects.mockResolvedValue([dormantProject])
+		mocks.createRun.mockRejectedValueOnce(
+			new AgentApiError(423, "Backend wording may change"),
+		)
+		render(<ProjectOverview initialProjects={[dormantProject]} />)
+
+		fireEvent.click(screen.getByRole("button", { name: "Open" }))
+
+		await waitFor(() =>
+			expect(mocks.showErrorToast).toHaveBeenCalledWith({
+				title: "API keys locked",
+				message: "Unlock API keys before starting a run.",
+				detail: "Open the API keys locked menu and enter your password.",
+			}),
+		)
+		expect(screen.getByTestId("status").textContent).toBe("dormant")
+		expect(mocks.routerPush).not.toHaveBeenCalled()
+	})
+
+	it("does not label a busy-project 409 as locked keys", async () => {
+		mocks.listProjects.mockResolvedValue([dormantProject])
+		mocks.createRun.mockRejectedValueOnce(
+			new AgentApiError(409, "project has an active run"),
+		)
+		render(<ProjectOverview initialProjects={[dormantProject]} />)
+
+		fireEvent.click(screen.getByRole("button", { name: "Open" }))
+
+		await waitFor(() => expect(mocks.routerPush).toHaveBeenCalledWith(
+			"/?error=Unable%20to%20resume%20project",
+		))
+		expect(mocks.showErrorToast).not.toHaveBeenCalled()
+	})
+
 	it.each(["cancelling", "dormant"] as const)(
 		"waits for the initial poll and mounts its fresh %s result",
 		async (freshStatus) => {

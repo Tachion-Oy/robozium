@@ -36,7 +36,7 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch):
         client.get("/run/unknown/stream"),
         client.post("/transcribe"),
     ]
-    assert all(response.status_code == 409 for response in blocked)
+    assert all(response.status_code == 423 for response in blocked)
     assert all(
         response.json()["detail"] == "Unlock API keys before using providers"
         for response in blocked
@@ -67,7 +67,7 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch):
     assert cleared.status_code == 200
     assert cleared.json() == {"available": True, "locked": True, "removable": False}
     assert "TEST_UNLOCK_FIRST_API_KEY" not in os.environ
-    assert client.post("/run/create", json={"project": "demo"}).status_code == 409
+    assert client.post("/run/create", json={"project": "demo"}).status_code == 423
     assert (
         client.post("/credentials/unlock", json={"password": "test-password"}).json()[
             "locked"
@@ -87,7 +87,7 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch):
     assert "TEST_UNLOCK_FIRST_API_KEY" not in os.environ
     assert "TEST_UNLOCK_SECOND_API_KEY" not in os.environ
     assert os.environ["TEST_UNLOCK_EXTERNAL_API_KEY"] == "external-synthetic"
-    assert client.post("/run/create", json={"project": "demo"}).status_code == 409
+    assert client.post("/run/create", json={"project": "demo"}).status_code == 423
     assert (
         client.post("/credentials/unlock", json={"password": "test-password"}).json()[
             "locked"

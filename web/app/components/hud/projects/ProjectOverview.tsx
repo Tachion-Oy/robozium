@@ -3,6 +3,7 @@
 import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
+	AgentApiError,
 	cancelProject,
 	createProject,
 	createRun,
@@ -61,9 +62,17 @@ export function ProjectOverview({
 			const { slug: project } = await createProject({ name: projectName })
 			const { run_id } = await createRun({ project })
 			router.push(`/?runId=${encodeURIComponent(run_id)}`)
-		} catch {
+		} catch (error) {
 			releaseNavigation()
-			router.push("/?error=Unable%20to%20start%20run")
+			if (error instanceof AgentApiError && error.status === 423) {
+				showErrorToast({
+					title: "API keys locked",
+					message: "Unlock API keys before starting a run.",
+					detail: "Open the API keys locked menu and enter your password.",
+				})
+			} else {
+				router.push("/?error=Unable%20to%20start%20run")
+			}
 		}
 	}
 
@@ -134,10 +143,18 @@ export function ProjectOverview({
 		try {
 			const { run_id } = await createRun({ project: project.slug })
 			router.push(`/?runId=${encodeURIComponent(run_id)}`)
-		} catch {
+		} catch (error) {
 			projects.clearOpening(project.slug)
 			releaseNavigation()
-			router.push("/?error=Unable%20to%20resume%20project")
+			if (error instanceof AgentApiError && error.status === 423) {
+				showErrorToast({
+					title: "API keys locked",
+					message: "Unlock API keys before starting a run.",
+					detail: "Open the API keys locked menu and enter your password.",
+				})
+			} else {
+				router.push("/?error=Unable%20to%20resume%20project")
+			}
 		}
 	}
 

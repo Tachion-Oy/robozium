@@ -32,6 +32,30 @@ test("HUD unlocks encrypted keys after a failed attempt", async ({ page }) => {
 	expect(attempts).toBe(2)
 })
 
+test("starting with locked keys shows the shared error toast", async ({ page }) => {
+	await page.route("**/api/credentials", (route) => route.fulfill({
+		status: 200,
+		contentType: "application/json",
+		body: JSON.stringify({ available: true, locked: true, removable: false }),
+	}))
+	await page.route("**/api/runs/create", (route) => route.fulfill({
+		status: 423,
+		contentType: "application/json",
+		body: JSON.stringify({ detail: "Unlock API keys before using providers" }),
+	}))
+	await page.goto("/?from=app")
+	await page.getByRole("button", { name: "New Project", exact: true }).click()
+	await page.getByRole("textbox", { name: "Project name" }).fill("locked-test")
+	await page.getByRole("button", { name: "Create Project", exact: true }).click()
+
+	const toast = page.locator(".agent-error-toast.agent-error-toast--error")
+	await expect(toast).toBeVisible()
+	await expect(toast.locator(".agent-error-toast__title")).toHaveText("API keys locked")
+	await expect(toast.locator(".agent-error-toast__message")).toHaveText("Unlock API keys before starting a run.")
+	await expect(toast.getByRole("button", { name: "Dismiss error notification" })).toBeVisible()
+	expect(new URL(page.url()).searchParams.has("error")).toBe(false)
+})
+
 test("unlock request reaches the API through the web proxy", async ({ page }) => {
 	await page.goto("/?from=app")
 	const result = await page.evaluate(async () => {
