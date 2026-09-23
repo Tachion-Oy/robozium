@@ -75,7 +75,7 @@ export function TerminalLog({
 		.join(" ")
 
 	return (
-		<div className="flex flex-1 min-h-0 w-full items-end pb-[3vh]">
+		<div className="flex flex-1 min-h-0 w-full items-start pb-[3vh]">
 			<div ref={boxRef} className={logClasses}>
 				<div className="mx-auto flex w-full max-w-336 flex-col">
 					{children}

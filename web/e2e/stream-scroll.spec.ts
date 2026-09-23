@@ -30,6 +30,7 @@ async function startRunFromLanding(
 
 test("landing demo log is never scrollable", async ({ page }) => {
 	await gotoLanding(page)
+	await page.setViewportSize({ width: 1551, height: 1982 })
 	const log = page.locator(".term-log").first()
 	await expect(log).toBeVisible()
 	await expect(log).toHaveCSS("overflow-y", "hidden")
@@ -46,12 +47,14 @@ test("landing demo log is never scrollable", async ({ page }) => {
 		return {
 			logHeight: logBox.height,
 			railHeight: railBox.height,
+			topGap: logBox.top - railBox.top,
 			bottomGap: railBox.bottom - logBox.bottom,
 		}
 	})
 	expect(layout).not.toBeNull()
 	expect(layout!.logHeight).toBeGreaterThan(0)
 	expect(layout!.logHeight).toBeLessThan(layout!.railHeight)
+	expect(layout!.topGap).toBeLessThan(2)
 	expect(layout!.bottomGap).toBeGreaterThan(0)
 })
 
