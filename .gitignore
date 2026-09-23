@@ -1,4 +1,5 @@
 .env
+.env.encrypt
 .venv/
 .artifacts/
 .runtime/

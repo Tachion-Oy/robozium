@@ -40,6 +40,12 @@ class ModelSelectionView(BaseModel):
     selected_model_id: str
 
 
+class CredentialStatus(BaseModel):
+    available: bool
+    locked: bool
+    removable: bool
+
+
 class ReplyBody(BaseModel):
     prompt_id: str | None = Field(
         None,

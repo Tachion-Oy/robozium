@@ -5,7 +5,11 @@ cd /d "%~dp0"
 set "ROBOZIUM_MODE=live"
 if "%~1"=="--mock" set "ROBOZIUM_MODE=mock"
 if not "%~1"=="" if not "%~1"=="--mock" goto usage
-docker compose up --build
+if exist ".env.encrypt" (
+  docker compose -f compose.yaml -f compose.encrypted.yaml up --build
+) else (
+  docker compose up --build
+)
 exit /b %errorlevel%
 
 :usage

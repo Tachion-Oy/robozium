@@ -18,6 +18,8 @@ from roboz.llm.calls import call_transcription_api
 from roboz.runtime import log_with_data
 from roboz.runtime.events import PipeEvent
 
+from robozium.api.credentials import CredentialGateMiddleware, LoadedCredentials
+from robozium.api.credentials import router as credential_router
 from robozium.api.dependencies import router as dependency_router
 from robozium.api.errors import ProjectBusyError, ProjectCancellationInProgressError
 from robozium.api.files import serve_hub_file
@@ -93,7 +95,10 @@ def create_app(*, deployment: Hub) -> FastAPI:
     app.state.run_manager = manager
     app.state.projects = projects
     app.state.transcription_endpoint = deployment.transcription_endpoint
+    app.state.loaded_credentials = LoadedCredentials()
+    app.add_middleware(CredentialGateMiddleware, loaded=app.state.loaded_credentials)
     app.include_router(dependency_router)
+    app.include_router(credential_router)
 
     @app.get("/models", response_model=ModelSelectionView)
     def models_get(request: Request, run_id: str | None = None) -> ModelSelectionView:

@@ -8,4 +8,8 @@ case "${1:-}" in
   *) echo "Usage: ./start [--mock]" >&2; exit 2 ;;
 esac
 
-docker compose up --build
+if [ -f .env.encrypt ]; then
+  docker compose -f compose.yaml -f compose.encrypted.yaml up --build
+else
+  docker compose up --build
+fi

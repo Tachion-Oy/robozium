@@ -44,6 +44,20 @@ The default configuration offers GLM-5.3, GLM-5.3 Flash through OpenRouter, and
 GPT-OSS-120B through Cerebras. OpenRouter is also required by the Librarian. The
 dependency panel reports missing credentials and unavailable providers.
 
+To keep provider keys encrypted on disk, create `.env.encrypt` using RoboZ's
+`python -m roboz.endpoints env encrypt` command after filling `.env` (or use
+`uv run python -m roboz.endpoints env encrypt`). Check that the encrypted file
+exists, then remove the API key entries from `.env` before starting. The start
+scripts mount `.env.encrypt` read-only into the API container. The HUD displays
+**API keys locked**; open that menu and enter the encryption password before
+starting a run. After unlocking, **Remove API keys** clears the keys loaded
+through that control from the API process environment, even during a run.
+Provider clients may retain
+copies in memory until the API process restarts.
+The password is sent to the API only for decryption and must be entered again
+after an API restart. Decrypted API keys reside in the API process environment,
+as required by RoboZ's current loader.
+
 Mock and live modes use distinct named volumes. Switching the mode does not mix
 scripted demonstration memory with real projects. Readiness means the processes
 are initialized; provider health remains visible in the dependency panel.

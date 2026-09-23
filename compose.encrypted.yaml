@@ -1,0 +1,7 @@
+services:
+  api:
+    volumes:
+      - type: bind
+        source: ./.env.encrypt
+        target: /app/.env.encrypt
+        read_only: true
