@@ -771,29 +771,6 @@
   text-shadow: var(--term-glow-error);
 }
 
-/* Fresh-load intro entrances: the HUD panel and the nav bar fade in. Gated on
-   no-preference so reduced-motion users get the content with no animation. */
-
-@media (prefers-reduced-motion: no-preference) {
-
-  @keyframes nav-appear {
-    from {
-      opacity: 0;
-      transform: translateY(-6px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  /* Runs once when the nav first mounts (initial document load). Client-side
-     navigations reuse the same element, so it never re-fires on nav-clicks. */
-  .app-nav--enter {
-    animation: nav-appear var(--intro-nav-fade) ease both;
-  }
-}
-
 /* Light theme */
 
 :root[data-theme="light"] .agent-hud__logo[data-agent-state="working"],

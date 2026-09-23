@@ -195,7 +195,6 @@
   --live-emphasis-fade: 810ms;         /* faster settle fade for the live stream log */
   --intro-hud-backdrop-fade: 1000ms; /* HUD dim backdrop fade-in */
   --intro-hud-box-fade: 500ms;    /* HUD box fade/rise-in */
-  --intro-nav-fade: 4000ms;       /* nav-bar fade-in on a fresh load */
 
 }
 

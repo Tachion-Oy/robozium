@@ -21,7 +21,7 @@ function AppNavBrand({ label }: { label: string }) {
 function AppNavContent({ label }: { label: string }) {
 	return (
 		<div className="app-nav__row relative z-60 h-[8vh] shrink-0">
-			<nav className="app-nav--enter flex h-full items-center justify-center px-12">
+			<nav className="flex h-full items-center justify-center px-12">
 				<Link
 					href={{
 						pathname: "/",

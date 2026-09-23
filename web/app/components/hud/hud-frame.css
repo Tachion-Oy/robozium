@@ -524,8 +524,8 @@
   }
 }
 
-/* Fresh-load intro entrances: the HUD panel and the nav bar fade in. Gated on
-   no-preference so reduced-motion users get the content with no animation. */
+/* Fresh-load HUD entrance. Gated on no-preference so reduced-motion users
+   get the content with no animation. */
 
 @media (prefers-reduced-motion: no-preference) {
   .agent-hud__box--intro {
