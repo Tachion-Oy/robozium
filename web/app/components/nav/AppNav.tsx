@@ -18,7 +18,13 @@ function AppNavBrand({ label }: { label: string }) {
 	)
 }
 
-function AppNavContent({ label }: { label: string }) {
+function AppNavContent({
+	label,
+	playLandingIntro,
+}: {
+	label: string
+	playLandingIntro: boolean
+}) {
 	return (
 		<div className="app-nav__row relative z-60 h-[8vh] shrink-0">
 			<nav className="flex h-full items-center justify-center px-12">
@@ -30,7 +36,7 @@ function AppNavContent({ label }: { label: string }) {
 					prefetch
 					aria-label={HUB_HOME_ARIA_LABEL}
 					data-hud-ignore-dismiss
-					className="app-nav__brand app-nav__brand--bar pointer-events-auto p-0">
+					className={`app-nav__brand app-nav__brand--bar pointer-events-auto p-0${playLandingIntro ? " app-nav__brand--enter" : ""}`}>
 					<AppNavBrand label={label} />
 				</Link>
 			</nav>
@@ -41,7 +47,12 @@ function AppNavContent({ label }: { label: string }) {
 function RoutedAppNav() {
 	const searchParams = useSearchParams()
 	if (searchParams.has("runId")) return null
-	return <AppNavContent label={HUB_BRAND} />
+	return (
+		<AppNavContent
+			label={HUB_BRAND}
+			playLandingIntro={searchParams.get("from") !== "app"}
+		/>
+	)
 }
 
 export function AppNav() {

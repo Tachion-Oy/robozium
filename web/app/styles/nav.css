@@ -68,6 +68,15 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  @keyframes app-nav-title-appear {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .app-nav__brand--enter {
+    animation: app-nav-title-appear var(--intro-nav-fade) ease-out both;
+  }
+
   @keyframes app-nav-pending-breathe {
     from { opacity: 1; }
     to { opacity: 0.58; }
