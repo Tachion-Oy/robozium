@@ -245,6 +245,10 @@
   margin-bottom: var(--hud-section-gap);
 }
 
+:root[data-theme="dark"] .agent-hud__header--landing {
+  margin-bottom: 3.75rem;
+}
+
 /* Run and status modes keep the control in normal flow. Its real rendered
    height therefore defines the header row, and the margin exactly mirrors the
    gap between the lower panel and the action buttons. */
