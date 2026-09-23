@@ -46,8 +46,8 @@ The existing runner owns and cleans up its temporary hub and processes; the
 workflow removes only its disposable Compose volumes.
 
 Package verification and browser runner scripts remain internal test tools.
-`ROBOSPRAWL_E2E_PYTHON` selects the installed candidate interpreter and
-`ROBOSPRAWL_E2E_PREBUILT=1` reuses the prepared frontend. Tests use isolated
+`ROBOZIUM_E2E_PYTHON` selects the installed candidate interpreter and
+`ROBOZIUM_E2E_PREBUILT=1` reuses the prepared frontend. Tests use isolated
 configuration and hub directories. No test-control route is added to the API.
 
 ## Docker Desktop host checks

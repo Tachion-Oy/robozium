@@ -1,7 +1,7 @@
 # Deployment validation against merged Roboz
 
 Validated locally on Linux on 2026-09-09 against Roboz `303384eda389e2193af43a7dbec38d3193cd6741`
-(merged PR #22). Runtime sources and candidate archives are from RoboSprawl
+(merged PR #22). Runtime sources and candidate archives are from Robozium
 `c98757121ad00e4f9e73661bef3320742e3bd11f`; final browser tests include the test-only
 artifact assertion correction in `781f085`. No runtime sources, dependency
 versions, lockfiles, timeouts, visual baselines, or CI failure policies changed
@@ -71,7 +71,7 @@ and pytest/coverage output paths, then:
   suites and the 20-case WebKit stress command, all with `--retries=0`.
 
 Logs, coverage XML, JUnit reports, exact archive SHA-256 hashes, and source revisions
-are under `.artifacts/merged-validation-303384e/robosprawl/.artifacts/reports/`.
+are under `.artifacts/merged-validation-303384e/robozium/.artifacts/reports/`.
 Browser traces, screenshots, logs, and cleanup results are in the adjacent `e2e/`
 directory. `source-and-archive-manifest.json` and `final-browser-results.json`
 identify the exact inputs and final browser reports. This records local gate

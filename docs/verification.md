@@ -14,10 +14,10 @@ setup and runner failures remain required. Historical results are unchanged.
 
 ## Private dependency CI repair — 2026-09-05
 
-The [PR #6 merge run](https://github.com/Tachion-Oy/robosprawl/actions/runs/33970513925)
-and the [preceding main run](https://github.com/Tachion-Oy/robosprawl/actions/runs/33961363513)
+The [PR #6 merge run](https://github.com/Tachion-Oy/robozium/actions/runs/33970513925)
+and the [preceding main run](https://github.com/Tachion-Oy/robozium/actions/runs/33961363513)
 both failed while checking out private `Tachion-Oy/roboz`. The pinned commit
-exists, but RoboSprawl's default workflow token cannot read another private
+exists, but Robozium's default workflow token cannot read another private
 repository. Python 3.13/3.14, quality, and distribution stopped before tests;
 browser jobs were skipped. The merge's frontend job passed lint, typechecking,
 331 tests across 44 files, and its production build.
@@ -32,10 +32,10 @@ secrets; see [retiring the dependency token](testing.md#retiring-the-dependency-
 
 `actionlint` 1.7.12 and `git diff --check` pass for this repair. Both secret entries
 were confirmed through GitHub metadata after setup; secret values were not read.
-The [credential-enabled rerun](https://github.com/Tachion-Oy/robosprawl/actions/runs/33971837032/attempts/2)
+The [credential-enabled rerun](https://github.com/Tachion-Oy/robozium/actions/runs/33971837032/attempts/2)
 successfully checked out Roboz and passed Python 3.13/3.14, quality, and distribution
 validation, allowing the three browser suites to run. Full job results are linked
-from [the repair PR's checks](https://github.com/Tachion-Oy/robosprawl/pull/8/checks).
+from [the repair PR's checks](https://github.com/Tachion-Oy/robozium/pull/8/checks).
 Dependabot's secret entry exists, but its end-to-end validation requires a
 Dependabot PR containing the repaired workflow; existing Dependabot PRs still
 use the earlier workflow on `main`.
@@ -62,7 +62,7 @@ per-assertion limits. Flaky-only retry success still fails its browser job.
 Both scenarios then passed three local repetitions each without retries (six
 passes in 1.9 minutes), with lint, TypeScript, and workflow validation passing.
 
-The [next GitHub run](https://github.com/Tachion-Oy/robosprawl/actions/runs/33975430070)
+The [next GitHub run](https://github.com/Tachion-Oy/robozium/actions/runs/33975430070)
 passed Python 3.13/3.14, quality, frontend, distribution, Chromium, Firefox, and
 WebKit stress. WebKit's full suite reported 35 passes and one flaky terminal-log
 style assertion (`terminal-log.spec.ts:65`, empty transition property on the first
@@ -81,7 +81,7 @@ These are local Linux results, not GitHub Actions results. Tooling: Python
 3.13.3 and stable 3.14.7, Node 22.22.2, uv 0.12.10, the locked Playwright package,
 and actionlint 1.7.12. The final application archives were built with the
 reviewed Roboz dependency pin `f148023af667dc58c842d11f5a93843c2b0f1a8e`.
-The sibling-checkout layout was reproduced in `/tmp/robosprawl-ci-repro` without
+The sibling-checkout layout was reproduced in `/tmp/robozium-ci-repro` without
 editing either manifest or lockfile.
 
 | Command/check | Local result |
@@ -96,7 +96,7 @@ editing either manifest or lockfile.
 | `npm --prefix web run typecheck` | Passed; all ten TypeScript test errors resolved without loosening validation |
 | `npm --prefix web run test:run` | 310 passed across 42 files |
 | `npm --prefix web run lint` | Passed |
-| `ROBOSPRAWL_API_BASE_URL=http://127.0.0.1:8000 npm --prefix web run build` | Production build passed |
+| `ROBOZIUM_API_BASE_URL=http://127.0.0.1:8000 npm --prefix web run build` | Production build passed |
 | `uv build --no-sources --all-packages --project ../roboz --out-dir <fresh-dir>` | Eight dependency archives built from the exact pin, once |
 | `uv build --no-sources --out-dir <fresh-dir>` | Application wheel and source archive built; source archive contains 40 intended files and no local editor reports |
 | `uv run twine check <fresh-dir>/*` | All ten archives passed |
@@ -110,8 +110,8 @@ editing either manifest or lockfile.
 | `bash -n scripts/e2e/run-mock-playwright.sh` | Passed |
 | `git diff --check` | Passed |
 
-All final browser suites use `CI=1`, `ROBOSPRAWL_E2E_PREBUILT=1`, and
-`ROBOSPRAWL_E2E_PYTHON=/tmp/robosprawl-final-browser-venv/bin/python`, with separate
+All final browser suites use `CI=1`, `ROBOZIUM_E2E_PREBUILT=1`, and
+`ROBOZIUM_E2E_PYTHON=/tmp/robozium-final-browser-venv/bin/python`, with separate
 local API/web port pairs. Chromium visual baselines were not changed. The new
 restart scenario verifies persisted projects, stale running-state cleanup, and
 opening a fresh run after the backend process is crashed and restarted.
@@ -121,7 +121,7 @@ Detailed local output is in `.artifacts/ci-*`, including Python/JUnit reports,
 `ci-webkit-repeat-verified.log`, and the final per-browser logs. Each browser
 invocation records a unique `.artifacts/e2e/run-*` directory containing traces,
 screenshots on failure, HTML/JUnit reports, service logs, and cleanup results.
-Candidate archives are in `/tmp/robosprawl-final-candidates`. CI retains its
+Candidate archives are in `/tmp/robozium-final-candidates`. CI retains its
 corresponding reports and artifacts for 14 days.
 
 README, contributor/testing instructions, the dependency-deferral notes, and
@@ -137,7 +137,7 @@ findings (nine high, one low). The direct Next.js dependency is among them;
 full advisory details are in `.artifacts/ci-npm-audit.json`. No dependency
 upgrades or automatic audit fixes were performed.
 
-`web/lib/robosprawl/wire.ts` imports Zod at runtime, but `web/package.json` does
+`web/lib/robozium/wire.ts` imports Zod at runtime, but `web/package.json` does
 not directly declare it. `npm ls zod --all` shows it is currently supplied via
 ESLint's dependency tree. The locked development install passes; dependency
 ownership needs a separately scoped correction before a broader production
@@ -182,7 +182,7 @@ Tests run without service credentials. Automated live configuration checks verif
 
 ## Visual review
 
-The desktop dark/light landing views retain the existing terminal and HUD layouts. Intentional changes are RoboSprawl branding, a generic `robosprawl@local` terminal prompt, a robot favicon, and dependency fixtures showing retained read tools/model endpoints. The header, project rows, controls, and dependency-table layout were visually inspected. Baseline changes are stored under `web/e2e/visual-regression.spec.ts-snapshots`.
+The desktop dark/light landing views retain the existing terminal and HUD layouts. Intentional changes are Robozium branding, a generic `robozium@local` terminal prompt, a robot favicon, and dependency fixtures showing retained read tools/model endpoints. The header, project rows, controls, and dependency-table layout were visually inspected. Baseline changes are stored under `web/e2e/visual-regression.spec.ts-snapshots`.
 
 Two inherited CSS probes were made deterministic: assertions resolve current animated landing rows, and the hover-paint probe has its own stable DOM container. The theme-hover check reacquires the pointer target after streamed content moves the HUD. No production CSS behavior was weakened for these checks.
 
@@ -197,6 +197,6 @@ These were advisory in the initial port; the release-quality CI now requires all
 
 ## Local artifacts
 
-Detailed command output is gitignored under `.artifacts`: `pytest.log`, `vitest.log`, `ruff.log`, `eslint.log`, `e2e-chromium.log`, `e2e-firefox.log`, `e2e-webkit.log`, `visual-check.log`, `launch-check.log`, `wheels.log`, and `ci-path-check.log`. Browser reports live in `web/playwright-report` and `web/test-results`. Environments, caches, browser binaries, wheel staging, and temporary projects all remain inside RoboSprawl.
+Detailed command output is gitignored under `.artifacts`: `pytest.log`, `vitest.log`, `ruff.log`, `eslint.log`, `e2e-chromium.log`, `e2e-firefox.log`, `e2e-webkit.log`, `visual-check.log`, `launch-check.log`, `wheels.log`, and `ci-path-check.log`. Browser reports live in `web/playwright-report` and `web/test-results`. Environments, caches, browser binaries, wheel staging, and temporary projects all remain inside Robozium.
 
 The CI workflow has been adapted and its path rewrite checked locally; it has not been executed on GitHub during this session. At that time Chromium and Firefox were required and WebKit was advisory. The current policy and results are recorded above.

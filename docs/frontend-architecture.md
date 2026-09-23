@@ -20,7 +20,7 @@ web/app/components/
 
 `RunHud` selects the displayed agent message once and passes it through the form to the copy controls. The display and clipboard therefore use the same message, including history and streaming output. Frame controls live in `HudCornerControls`; run actions live in `run/HudControls`.
 
-The terminal and HUD consume the same session. Transport, polling, and state reduction belong in `lib/robosprawl/session`; hooks connect that state to React. Navigation, feedback, and theme components retain their own folders.
+The terminal and HUD consume the same session. Transport, polling, and state reduction belong in `lib/robozium/session`; hooks connect that state to React. Navigation, feedback, and theme components retain their own folders.
 
 ## Placement rules
 

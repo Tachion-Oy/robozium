@@ -2,24 +2,24 @@
 
 `hub.config.py` contains the application's editable choices as named `Final`
 constants. It contains no builder, schema classes, or runtime helpers. Shared
-Roboz and Roboshed primitives supply endpoint definitions and agent construction.
+RoboZ supplies endpoint definitions and its Shed agent constructors.
 
 ## Ownership
 
 - The configuration file selects named endpoints, request policies, capabilities,
   interaction mode, specialists, one sandbox layout,
   health timings, transcription, and dependency registrations.
-- `robosprawl.hub.application.Hub` validates those inputs, derives projects, and
+- `robozium.hub.application.Hub` validates those inputs, derives projects, and
   owns the runtime `ModelSelector`. It creates a fresh Shed recipe and supplies
   application choices and run inputs through that recipe's setters.
-- `robosprawl.hub.utils` discovers and loads the file and normalizes project names.
-- `robosprawl.hub.logging.HubLoggingConfig` supplies logging defaults. This is the
+- `robozium.hub.utils` discovers and loads the file and normalizes project names.
+- `robozium.hub.logging.HubLoggingConfig` supplies logging defaults. This is the
   explicit exception to requiring deployment choices in the configuration file.
-- `Hub.configure_deployment()` creates a fresh scoped Sandbox and calls `robosprawl()`,
+- `Hub.configure_deployment()` creates a fresh scoped Sandbox and calls `robozium()`,
   then sets the sandbox, live model getter, memory endpoint, additional
   capabilities, specialists, interaction mode, and event sinks, then calls
   `build()` and returns the root and background agents directly.
-- `roboshed.deployments.robosprawl.robosprawl` owns the concrete agent recipe:
+- `roboz.shed.deployments.robozium.robozium` owns the concrete agent recipe:
   the orchestrator, Librarian, recursive foreground names, and initial messages.
   Its argument-free `build()` builds runtime agents and persistence sinks.
 - The API consumes Hub and owns HTTP, streaming, interruption, cancellation,
@@ -34,7 +34,7 @@ switching. Each file load creates fresh lazy catalogs; runs within that Hub reus
 its configured clients.
 
 `CAPABILITIES` is an ordered tuple of additional root capabilities: the shared
-`robosprawl` orientation/HUD skill and `Compactification(threshold_percent=60)`.
+`robozium` orientation/HUD skill and `Compactification(threshold_percent=60)`.
 The shared orchestrator already supplies file commands and editing, each taking
 only a `PermissionPolicy` derived from the run's Sandbox. Do not add duplicate
 file capabilities here. `SUBAGENTS` holds shared `DeployableAgent` definitions.
@@ -43,7 +43,7 @@ Hub loads `MEMORY_ENDPOINT`, `CAPABILITIES`, and `SUBAGENTS` directly from the
 configuration. There is no deployment factory constant or adapter function.
 Loading configuration does not create a shared mutable recipe. The API host binds
 its interaction adapter for each invocation.
-Hub calls `robosprawl()` for each new run, using the scoped
+Hub calls `robozium()` for each new run, using the scoped
 sandbox, live endpoint getter, and caller sinks. Replies and stream reconnects
 continue using the existing run; they do not rebuild agents.
 The recipe supplies the memory directory and generated project locations
@@ -54,39 +54,63 @@ file permissions, the Librarian, and persistence.
 `LOGGING = HubLoggingConfig(...)` keeps the normal console/file behavior. Override
 individual fields, such as `console_level` or `max_bytes`, when needed. The native
 technical-log path defaults to `.runtime/logs/backend.jsonl` relative to the
-selected file; containers set `ROBOSPRAWL_LOG_DIR` to their persistent log directory.
+selected file; containers set `ROBOZIUM_LOG_DIR` to their persistent log directory.
 
 ### Container backup and restore
 
 Export the persistent hub workspace while the application is running:
 
 ```text
-docker compose cp api:/hub ./robosprawl-backup
+docker compose cp api:/hub ./robozium-backup
 ```
 
 Restore into a separate Compose project so the existing installation is not
 overwritten. Stop the original project first, or assign the restored project a
-different `ROBOSPRAWL_WEB_PORT`.
+different `ROBOZIUM_WEB_PORT`.
 
 ```text
-docker compose -p robosprawl-restored create --build api
-docker compose -p robosprawl-restored cp ./robosprawl-backup/. api:/hub
-docker compose -p robosprawl-restored run --rm --user root --entrypoint chown api -R 10001:10001 /hub
-docker compose -p robosprawl-restored up --build --wait
+docker compose -p robozium-restored create --build api
+docker compose -p robozium-restored cp ./robozium-backup/. api:/hub
+docker compose -p robozium-restored run --rm --user root --entrypoint chown api -R 10001:10001 /hub
+docker compose -p robozium-restored up --build --wait
 ```
 
-These commands copy only RoboSprawl's persistent files. They do not copy image
+These commands copy only Robozium's persistent files. They do not copy image
 layers, provider credentials, or `.env`.
 
+### Moving data to the renamed Compose volumes
+
+The new Compose project uses new hub and log volumes. Existing volumes remain
+untouched and are not imported automatically. Stop the old containers, then use
+`docker volume ls` to identify their hub and log volume names. For each mode,
+copy into the corresponding **fresh, empty** Robozium volumes before starting
+the new application. For mock mode, replace `OLD_HUB_VOLUME` and
+`OLD_LOG_VOLUME` with the names you found:
+
+```text
+docker volume inspect OLD_HUB_VOLUME OLD_LOG_VOLUME
+docker run --rm --user 0 --mount type=volume,source=OLD_HUB_VOLUME,target=/old,readonly --mount type=volume,source=robozium-mock-hub,target=/new alpine:3.20 sh -c "cp -a /old/. /new/"
+docker run --rm --user 0 --mount type=volume,source=OLD_LOG_VOLUME,target=/old,readonly --mount type=volume,source=robozium-mock-logs,target=/new alpine:3.20 sh -c "cp -a /old/. /new/"
+```
+
+Run the copy commands only if `docker volume inspect` succeeds for both source
+volumes. Docker creates a missing named source volume during `docker run`, which
+would silently copy no data.
+
+For live mode, use the live source volumes and replace `mock` with `live` in
+both target names. If `COMPOSE_PROJECT_NAME` was customized, use its new value
+in the target names. Keep the old volumes as a rollback backup; never remove
+them as part of the rename.
+
 ```python
-from robosprawl.api.app import create_app
-from robosprawl.hub.utils import load_hub
+from robozium.api.app import create_app
+from robozium.hub.utils import load_hub
 
 app = create_app(deployment=load_hub())
 ```
 
 An explicit `load_hub(config_file=...)` path wins over the environment.
-`ROBOSPRAWL_CONFIG` selects a file when no explicit starting directory is supplied;
+`ROBOZIUM_CONFIG` selects a file when no explicit starting directory is supplied;
 otherwise discovery searches the starting directory and its parents for
 `hub.config.py`. Loading executes the file in a fresh namespace and requires its
 named configuration constants described by the `HubValues` TypedDict. Its keys
@@ -98,10 +122,10 @@ supported.
 Relative sandbox and technical-log paths are anchored to that file. The single `SANDBOX`
 constant owns tier names and persistence folder names; persistence stays
 project-relative and disjoint. The checked-in configuration places its sandbox
-at `../RoboSprawl`, outside the checkout; it does not move data from the former
+at `../Robozium`, outside the checkout; it does not move data from the former
 `.runtime/data` root automatically. Tier and persistence folder names are
 preserved. Containers override only the hub root and technical-log directory
-through `ROBOSPRAWL_HUB_ROOT` and `ROBOSPRAWL_LOG_DIR`. The host creates directories and `ProjectService` validates startup
+through `ROBOZIUM_HUB_ROOT` and `ROBOZIUM_LOG_DIR`. The host creates directories and `ProjectService` validates startup
 layout. `sandbox.permissions()` is the sole policy source: it allows
 sandbox reads and current-project writes, asks for shared writes, and denies
 other writes.
@@ -133,9 +157,8 @@ the shared Librarian preset. Construction starts no agents or threads and create
 persistence directories. Mocks retain fresh scripts and their existing scenario
 controls.
 
-The dependency pins select Roboz `0.1.2.dev7`, Roboshed `0.1.1.dev4`, and
-Roboz Endpoints `0.1.0a4`.
-These published snapshots supply the agent-mode recipe and core build API, so
+The dependency pin selects RoboZ `0.1.2a2`, including Shed and Endpoints.
+This package supplies the agent-mode recipe and core build API, so
 locked installation and CI consume it directly from PyPI. No sibling checkout
 or local dependency paths are required.
 

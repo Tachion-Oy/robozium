@@ -1,16 +1,17 @@
-# RoboSprawl
+# Robozium
 
 A runnable project-agent application built on Roboz, with a FastAPI backend, streaming Next.js terminal UI, and persistent Librarian memory.
 
 ## Quick start
 
 Install Git and a current Docker Desktop on Windows or macOS, or Docker Engine
-with Docker Compose v2.24+ on Linux. Clone this repository only: RoboZ, Roboshed, and the
-endpoint package are installed from the releases pinned in `uv.lock`.
+with Docker Compose v2.24+ on Linux. Clone this repository only: RoboZ,
+including its Shed and Endpoints modules, is installed from the version pinned
+in `uv.lock`.
 
 ```bash
-git clone https://github.com/Tachion-Oy/robosprawl.git
-cd robosprawl
+git clone https://github.com/Tachion-Oy/robozium.git
+cd robozium
 ./start --mock
 ```
 
@@ -23,8 +24,8 @@ conversation logs, cancellation, snapshots, and memory; its model responses are
 scripted and do not prove that live providers work.
 
 The browser is the only published service. It forwards requests to the API on
-Compose's private network. If port 6969 is occupied, set `ROBOSPRAWL_WEB_PORT` in
-a `.env` file (for example, `ROBOSPRAWL_WEB_PORT=6970`), rerun the command, and
+Compose's private network. If port 6969 is occupied, set `ROBOZIUM_WEB_PORT` in
+a `.env` file (for example, `ROBOZIUM_WEB_PORT=6970`), rerun the command, and
 open that port instead.
 
 Logs remain in the terminal. Press Ctrl+C once to stop both services; project
@@ -56,7 +57,7 @@ Edit the named constants in `hub.config.py`, then restart with `./start` or
 MODELS: Final = {"GLM": GLM, "Cerebras": GPT_OSS}
 DEFAULT_MODEL: Final = GLM
 CAPABILITIES: Final = (
-    Capability(auto_loaded_skills=(robosprawl,)),
+    Capability(auto_loaded_skills=(robozium,)),
     Compactification(threshold_percent=60),
 )
 ```
