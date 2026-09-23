@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { checkDependencies, listDependencies } from "@/lib/robosprawl/client"
-import type { DependencyRecord, DependencyStatus } from "@/lib/robosprawl/wire"
+import { checkDependencies, listDependencies } from "@/lib/robozium/client"
+import type { DependencyRecord, DependencyStatus } from "@/lib/robozium/wire"
 import { showErrorToast } from "@/app/components/feedback/ErrorToast"
+import { DisplayArt } from "@/app/components/branding/DisplayArt"
 
 type SortField = "dependency_id" | "status"
 type SortDirection = "ascending" | "descending"
@@ -272,7 +273,7 @@ export function DependencyPanel() {
 							className="app-nav__cta disabled:cursor-wait disabled:opacity-50"
 							disabled={isLoading || isChecking}
 							onClick={handleCheck}>
-							{isChecking ? "Checking…" : "Check Now"}
+							<DisplayArt name={isChecking ? "checking" : "check-now"} />
 						</button>
 					</div>
 					{isLoading ? (

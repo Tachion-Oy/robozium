@@ -7,9 +7,9 @@ test("shows LLM failure toast when mock scenario is llm-error", async ({
 	page,
 	request,
 }) => {
-	const hubBaseDir = process.env.ROBOSPRAWL_E2E_HUB_BASE_DIR
+	const hubBaseDir = process.env.ROBOZIUM_E2E_HUB_BASE_DIR
 	if (!hubBaseDir) {
-		throw new Error("ROBOSPRAWL_E2E_HUB_BASE_DIR is required for this test.")
+		throw new Error("ROBOZIUM_E2E_HUB_BASE_DIR is required for this test.")
 	}
 
 	const slug = await createProject(request, "LLM Error E2E")
@@ -63,10 +63,10 @@ test("shows LLM failure toast when mock scenario is llm-error", async ({
 	await page
 		.locator(".agent-hud__model-selector:not(.agent-hud__view-selector) .agent-hud__model-trigger")
 		.click()
-	await page
-		.locator('.agent-hud__model-option[aria-selected="false"]')
-		.first()
-		.click()
+	await expect(
+		page.getByRole("listbox", { name: "Base model" }).getByRole("option"),
+	).toHaveCount(1)
+	await page.getByRole("option", { name: "Mock", exact: true }).click()
 	await page.locator(".agent-hud__textarea").fill("retry")
 	await expect(sendButton).toBeEnabled()
 	await sendButton.click()

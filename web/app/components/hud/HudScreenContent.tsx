@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react"
-import type { Project } from "@/lib/robosprawl/wire"
+import type { Project } from "@/lib/robozium/wire"
 import type { LayoutMode } from "./HudCornerControls"
 import { RunHud } from "./run/RunHud"
 import { ProjectOverview } from "./projects/ProjectOverview"

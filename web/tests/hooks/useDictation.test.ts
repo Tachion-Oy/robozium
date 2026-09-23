@@ -2,9 +2,9 @@ import { act, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { useDictation } from "../../hooks/useDictation"
-import { transcribeAudio } from "../../lib/robosprawl/client"
+import { transcribeAudio } from "../../lib/robozium/client"
 
-vi.mock("../../lib/robosprawl/client", () => ({
+vi.mock("../../lib/robozium/client", () => ({
 	transcribeAudio: vi.fn(),
 }))
 

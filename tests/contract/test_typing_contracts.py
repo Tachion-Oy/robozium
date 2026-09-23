@@ -6,8 +6,8 @@ import pytest
 from pydantic import ValidationError
 from roboz.runtime.observability import RuntimeEventLevel
 
-from robosprawl.api.models import RunViewRuntimeEventPayload
-from robosprawl.mock.agents import _HoldableResponses
+from robozium.api.models import RunViewRuntimeEventPayload
+from robozium.mock.agents import _HoldableResponses
 
 
 @pytest.mark.parametrize("level", list(RuntimeEventLevel))

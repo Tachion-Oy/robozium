@@ -12,12 +12,12 @@ import pytest
 from deployment_support import BuiltAgents
 from fastapi.testclient import TestClient
 from roboz import Agent
+from roboz.endpoints.adapters.openai_compatible import OpenAICompatibleAdapter
 from roboz.models import AgentMode
 from roboz.tools import stop
-from roboz_endpoints.adapters.openai_compatible import OpenAICompatibleAdapter
 
-from robosprawl.api.app import create_app
-from robosprawl.hub.utils import load_hub
+from robozium.api.app import create_app
+from robozium.hub.utils import load_hub
 
 
 @pytest.fixture
@@ -37,19 +37,19 @@ root = pathlib.Path.cwd()
 logs = root / 'logs'
 mark_conversation_active(agent_dir=logs / 'orchestrator', conversation_id='existing')
 before_temp = tempfile.gettempdir()
-before_handlers = list(logging.getLogger('robosprawl').handlers)
-import robosprawl.api.app
-import robosprawl.api.run_manager
+before_handlers = list(logging.getLogger('robozium').handlers)
+import robozium.api.app
+import robozium.api.run_manager
 assert len(active_marker_paths(logs, {'orchestrator'})) == 1
 assert tempfile.gettempdir() == before_temp
-assert logging.getLogger('robosprawl').handlers == before_handlers
+assert logging.getLogger('robozium').handlers == before_handlers
 assert not (root / '.artifacts').exists()
-assert callable(robosprawl.api.app.mock_app)
+assert callable(robozium.api.app.mock_app)
 """
     env = {
         **os.environ,
-        "ROBOSPRAWL_CONFIG": str(tmp_path / "missing.json"),
-        "ROBOSPRAWL_ROOT": str(tmp_path),
+        "ROBOZIUM_CONFIG": str(tmp_path / "missing.json"),
+        "ROBOZIUM_ROOT": str(tmp_path),
         "PYTHONDONTWRITEBYTECODE": "1",
     }
     subprocess.run(
@@ -86,7 +86,7 @@ def test_logging_uses_each_explicit_app_config(config_file):
         )
         assert not path.exists(), "app construction must not configure logging"
         with TestClient(app):
-            logging.getLogger("robosprawl.test").info("message-%s", name)
+            logging.getLogger("robozium.test").info("message-%s", name)
         assert f"message-{name}" in path.read_text()
     assert (
         "message-second" not in (config_file.parent / "first/backend.jsonl").read_text()
@@ -137,12 +137,12 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
 
 
 def test_explicit_config_path_wins_over_environment(config_file, monkeypatch):
-    monkeypatch.setenv("ROBOSPRAWL_CONFIG", str(config_file.parent / "missing.json"))
-    assert load_hub(config_file=config_file).name == "RoboSprawl"
+    monkeypatch.setenv("ROBOZIUM_CONFIG", str(config_file.parent / "missing.json"))
+    assert load_hub(config_file=config_file).name == "Robozium"
     with pytest.raises(RuntimeError, match="Missing hub config"):
         load_hub()
-    monkeypatch.setenv("ROBOSPRAWL_CONFIG", str(config_file))
-    expected = (config_file.parent / "../RoboSprawl").resolve()
+    monkeypatch.setenv("ROBOZIUM_CONFIG", str(config_file))
+    expected = (config_file.parent / "../Robozium").resolve()
     assert load_hub().sandbox.root == expected
 
 
@@ -151,8 +151,8 @@ def test_checked_in_config_accepts_container_paths(
 ):
     hub_root = tmp_path / "container-hub"
     logs = tmp_path / "container-logs"
-    monkeypatch.setenv("ROBOSPRAWL_HUB_ROOT", str(hub_root))
-    monkeypatch.setenv("ROBOSPRAWL_LOG_DIR", str(logs))
+    monkeypatch.setenv("ROBOZIUM_HUB_ROOT", str(hub_root))
+    monkeypatch.setenv("ROBOZIUM_LOG_DIR", str(logs))
 
     hub = load_hub(config_file=config_file)
 
@@ -249,13 +249,13 @@ def test_overlapping_app_lifespans_preserve_existing_logging(config_file, confli
         else:
             with TestClient(app(config)) as second:
                 assert second.get("/ready").status_code == 200
-        logging.getLogger("robosprawl.test").info("first-app-still-active")
+        logging.getLogger("robozium.test").info("first-app-still-active")
         assert first.get("/ready").status_code == 200
         assert "first-app-still-active" in config.logging.path.read_text()
 
 
 def test_project_service_owns_startup_layout_validation(config_file):
-    from robosprawl.api.project_service import ProjectService
+    from robozium.api.project_service import ProjectService
 
     config = load_hub(config_file=config_file)
     unexpected = config.sandbox.root / "misplaced"

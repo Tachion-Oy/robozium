@@ -1,8 +1,8 @@
 "use client"
 
 import { use, useState } from "react"
-import { getModelSelection, selectModel } from "@/lib/robosprawl/client"
-import type { ModelSelection } from "@/lib/robosprawl/wire"
+import { getModelSelection, selectModel } from "@/lib/robozium/client"
+import type { ModelSelection } from "@/lib/robozium/wire"
 import { showErrorToast } from "@/app/components/feedback/ErrorToast"
 import { SelectorDropdown } from "./SelectorDropdown"
 

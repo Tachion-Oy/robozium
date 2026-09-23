@@ -2,19 +2,19 @@ from os import environ
 from pathlib import Path
 from typing import Final
 
-from roboshed.capabilities import Compactification
-from roboshed.sandbox import Sandbox
-from roboshed.skills import robosprawl
 from roboz.deployment import Capability
+from roboz.endpoints.inventory import cerebras, openrouter
 from roboz.llm import with_openrouter_policy
-from roboz_endpoints import cerebras, openrouter
+from roboz.shed.capabilities import Compactification
+from roboz.shed.sandbox import Sandbox
+from roboz.shed.skills import robozium
 
-from robosprawl.hub.application import DependencyHealthSettings
-from robosprawl.hub.logging import HubLoggingConfig
+from robozium.hub.application import DependencyHealthSettings
+from robozium.hub.logging import HubLoggingConfig
 
-NAME: Final = "RoboSprawl"
+NAME: Final = "Robozium"
 SANDBOX: Final = Sandbox(
-    root=Path(environ.get("ROBOSPRAWL_HUB_ROOT", f"../{NAME}")),
+    root=Path(environ.get("ROBOZIUM_HUB_ROOT", f"../{NAME}")),
     readonly="readonly",
     shared="workspace",
     projects="projects",
@@ -23,7 +23,7 @@ SANDBOX: Final = Sandbox(
     memory=Path("persistent_memory"),
 )
 LOGGING: Final = HubLoggingConfig(
-    path=Path(environ.get("ROBOSPRAWL_LOG_DIR", ".runtime/logs")) / "backend.jsonl"
+    path=Path(environ.get("ROBOZIUM_LOG_DIR", ".runtime/logs")) / "backend.jsonl"
 )
 DEPENDENCY_HEALTH: Final = DependencyHealthSettings(interval_s=60.0, timeout_s=20.0)
 
@@ -43,7 +43,7 @@ MODELS: Final = {
 }
 DEFAULT_MODEL: Final = GLM
 CAPABILITIES: Final = (
-    Capability(auto_loaded_skills=(robosprawl,)),
+    Capability(auto_loaded_skills=(robozium,)),
     Compactification(threshold_percent=60.0),
 )
 SUBAGENTS: Final = ()

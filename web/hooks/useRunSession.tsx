@@ -9,10 +9,10 @@ import {
 } from "react"
 import { createStore } from "zustand/vanilla"
 import { useStore } from "zustand"
-import { createRunSession, type RunSession } from "@/lib/robosprawl/session"
-import type { RunSessionState } from "@/lib/robosprawl/session/reducer"
-import { createInitialRunSessionState } from "@/lib/robosprawl/session/reducer"
-import type { RunView } from "@/lib/robosprawl/wire"
+import { createRunSession, type RunSession } from "@/lib/robozium/session"
+import type { RunSessionState } from "@/lib/robozium/session/reducer"
+import { createInitialRunSessionState } from "@/lib/robozium/session/reducer"
+import type { RunView } from "@/lib/robozium/wire"
 
 const RunSessionContext = createContext<RunSession | null>(null)
 const EMPTY_SESSION_STORE = createStore<RunSessionState>(() =>

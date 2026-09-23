@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { ProjectStatus, type ProjectRow } from "@/lib/robosprawl/landing"
+import { ProjectStatus, type ProjectRow } from "@/lib/robozium/landing"
+import { DisplayArt } from "@/app/components/branding/DisplayArt"
 import { CreateRunForm } from "./CreateRunForm"
 
 type ProjectOverviewPanelProps = {
@@ -275,7 +276,7 @@ export function ProjectOverviewPanel({
 						onClick={() => setIsCreatingRun(true)}
 						disabled={isStarting}
 						className="app-nav__cta agent-hud__start">
-						New Project
+						<DisplayArt name="new-project" />
 					</button>
 				)}
 			</div>

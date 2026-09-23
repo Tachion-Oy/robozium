@@ -2,7 +2,7 @@
  * Top nav
  *
  * Layout is wired with Tailwind utilities on the component (flex, padding).
- * This block only owns the display font + per-token phosphor glow.
+ * This block owns the display artwork and phosphor glow.
  *
  * The nav itself is transparent -- the CRT scanlines + vignette live on the
  * <body> so they flow uniformly across the entire viewport. The nav reads as
@@ -12,6 +12,9 @@
 
 
 .app-nav__brand {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
   --nav-brand-glow:
     0 0 1px white,
     0 0 4px var(--term-lime),
@@ -27,30 +30,41 @@
     0 0 60px color-mix(in oklab, var(--term-lime) 80%, transparent),
     0 0 110px color-mix(in oklab, var(--term-lime) 55%, transparent),
     0 0 170px color-mix(in oklab, var(--term-lime) 32%, transparent);
-  font-family: "Anurati Pro", var(--font-display);
-  font-weight: 400;
-  font-variation-settings: "SCAN" -40;
-  font-size: clamp(3rem, 7.5vw, 6rem);
-  letter-spacing: 0.8em;
+  font-size: clamp(2rem, 6vw, 5rem);
   line-height: 1;
   color: white;
   text-shadow: var(--nav-brand-glow);
+  filter:
+    drop-shadow(0 0 0.07em var(--term-lime))
+    drop-shadow(0 0 0.25em color-mix(in oklab, var(--term-lime) 80%, transparent))
+    drop-shadow(0 0 0.48em color-mix(in oklab, var(--term-lime) 50%, transparent));
   text-decoration: none;
   user-select: none;
   white-space: nowrap;
   cursor: pointer;
-  transition: text-shadow 180ms ease, color 180ms ease;
+  transition: text-shadow 180ms ease, color 180ms ease, filter 180ms ease;
 }
 
 /* Top-bar instance renders smaller / tighter than the shared base. (Kept in CSS
    rather than Tailwind because the unlayered base rule would outrank a utility.) */
 .app-nav__brand--bar {
-  font-size: clamp(2.4rem, 4.5vw, 4rem);
-  letter-spacing: 0.42em;
+  font-size: clamp(28px, 3.84vw, 40px);
+  transform: translateY(0.24em);
+}
+
+@media (max-height: 800px) {
+  .app-nav__row {
+    min-height: var(--landing-nav-compact-height);
+  }
 }
 
 .app-nav__brand-label {
   display: inline-block;
+  max-width: min(100%, calc(100vw - 6rem));
+}
+
+.app-nav__brand .display-art {
+  max-width: min(100%, calc(100vw - 6rem));
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -76,17 +90,17 @@
   cursor: pointer;
   color: white;
   text-shadow: var(--nav-brand-glow-hover);
+  filter:
+    drop-shadow(0 0 0.1em var(--term-lime))
+    drop-shadow(0 0 0.32em color-mix(in oklab, var(--term-lime) 95%, transparent))
+    drop-shadow(0 0 0.6em color-mix(in oklab, var(--term-lime) 72%, transparent));
 }
 
 .app-nav__cta {
   --app-nav-cta-ink: color-mix(in oklab, var(--term-lime) 80%, white 20%);
   -webkit-appearance: none;
   appearance: none;
-  font-family: "Anurati Pro", var(--font-display);
-  font-weight: 100;
-  font-variation-settings: "SCAN" -50;
   font-size: clamp(2rem, 2.7vw, 2.1rem); 
-  letter-spacing: 0.18em;
   line-height: 1;
   padding: 0.7rem 1.6rem;
   color: var(--app-nav-cta-ink);
@@ -105,6 +119,11 @@
     border-color 140ms ease;
   cursor: pointer;
   user-select: none; 
+}
+
+.app-nav__cta .display-art {
+  font-size: 0.55em;
+  filter: drop-shadow(0 0 0.28em var(--term-lime));
 }
 
 .app-nav__cta:hover,

@@ -1,5 +1,5 @@
-import { fetchAgentUpstream, passthroughResponse } from "@/lib/robosprawl/http"
-import { slog, swarn } from "@/lib/robosprawl/log"
+import { fetchAgentUpstream, passthroughResponse } from "@/lib/robozium/http"
+import { slog, swarn } from "@/lib/robozium/log"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"

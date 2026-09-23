@@ -1,7 +1,7 @@
 import { createElement } from "react"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { AgentActivityState } from "../../../../../lib/robosprawl/session/reducer"
+import { AgentActivityState } from "../../../../../lib/robozium/session/reducer"
 import { HudControls } from "../../../../../app/components/hud/run/HudControls"
 
 type Props = Parameters<typeof HudControls>[0]

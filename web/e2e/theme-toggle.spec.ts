@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test"
-import { AgentActivityState } from "../lib/robosprawl/session/reducer"
+import { AgentActivityState } from "../lib/robozium/session/reducer"
 import { createProject, gotoLanding } from "./helpers"
 
 test.use({ viewport: { width: 1920, height: 1080 } })
@@ -214,22 +214,20 @@ test("switches and persists the integrated light theme", async ({
 	await page.locator(".agent-hud__mini-expand").click()
 	await expect(page.getByRole("button", { name: "Minimize" })).toBeVisible()
 
-	await page.route("**/api/models", async (route) => {
-		if (route.request().method() !== "POST") {
-			await route.continue()
-			return
-		}
+	await page.route("**/api/admin/dependencies", async (route) => {
+		if (route.request().method() !== "POST") return route.continue()
 		await route.fulfill({
 			status: 500,
 			contentType: "application/json",
-			body: JSON.stringify({ detail: "Synthetic model failure" }),
+			body: JSON.stringify({ detail: "Synthetic dependency failure" }),
 		})
 	})
-	await page.getByRole("button", { name: /OpenRouter/ }).click()
-	await page.locator('[role="option"]:not([aria-selected="true"])').first().click()
+	await page.locator(".agent-hud__view-trigger").click()
+	await page.getByRole("option", { name: "Dependencies", exact: true }).click()
+	await page.getByRole("button", { name: "Check Now", exact: true }).click()
 	const toast = page.locator(".agent-error-toast")
 	await expect(toast).toBeVisible()
-	await expect(toast).toContainText("Model change failed")
+	await expect(toast).toContainText("Dependency Check Failed")
 	const toastStyle = await toast.evaluate((element) => {
 		const style = getComputedStyle(element)
 		return {

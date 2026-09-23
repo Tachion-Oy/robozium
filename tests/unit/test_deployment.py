@@ -7,18 +7,18 @@ from threading import Thread
 
 import pytest
 from deployment_support import configured_deployment, foreground_agent
-from roboshed.agents.orchestrator import ORCHESTRATOR_PROMPT
-from roboshed.identifiers import COMPACTIFY_MESSAGES_TOOL_NAME
-from roboshed.sandbox import Sandbox
-from roboshed.skills import robosprawl as robosprawl_skill
 from roboz.deployment import Capability, DeployableAgent
+from roboz.endpoints.inventory import cerebras, openrouter
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
 from roboz.models import AgentMode
+from roboz.shed.agents.orchestrator import ORCHESTRATOR_PROMPT
+from roboz.shed.identifiers import COMPACTIFY_MESSAGES_TOOL_NAME
+from roboz.shed.sandbox import Sandbox
+from roboz.shed.skills import robozium as robozium_skill
 from roboz.tools import stop
-from roboz_endpoints import cerebras, openrouter
 
-from robosprawl.api.projects import Project
-from robosprawl.hub.utils import load_hub
+from robozium.api.projects import Project
+from robozium.hub.utils import load_hub
 
 
 def test_configured_models_apply_per_use_request_policy(monkeypatch):
@@ -103,9 +103,9 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
         assert str(location) in context
     assert agent.mode is AgentMode.STEERABLE
     assert specialist_background.name == "specialist_maintenance"
-    assert robosprawl_skill in agent.auto_loaded_skills
-    assert '<file src="relative/path.ext">' in robosprawl_skill.instructions
-    assert "runtime-supplied" in robosprawl_skill.instructions
+    assert robozium_skill in agent.auto_loaded_skills
+    assert '<file src="relative/path.ext">' in robozium_skill.instructions
+    assert "runtime-supplied" in robozium_skill.instructions
     assert not project.sandbox.root.exists()
     assert agent.initial_messages[0] == project.memory
     assert agent.pipe.data_path == project.logs / "orchestrator"

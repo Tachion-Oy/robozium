@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
-import { AgentActivityState } from "../lib/robosprawl/session/reducer"
+import { AgentActivityState } from "../lib/robozium/session/reducer"
 import { gotoLanding, selectHudView } from "./helpers"
 
 test.describe.configure({ mode: "serial" })
@@ -36,6 +36,7 @@ test("HUD closes through Minimize or Escape and reopens via the minimized widget
 	const hud = page.locator(".agent-hud")
 	const mini = page.locator(".agent-hud__mini")
 	const miniLogo = page.locator(".agent-hud__logo--mini")
+	await expect(miniLogo).toHaveText("A")
 	const expand = page.locator(".agent-hud__mini-expand")
 
 	// The composer appears immediately; the indicator is authoritative for the

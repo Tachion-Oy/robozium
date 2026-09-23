@@ -1,19 +1,8 @@
-/* ---------------------------------------------------------------------------
- * Fonts -- @font-face declarations.
- * ------------------------------------------------------------------------- */
-
+/* The HUD status mark retains its original Anurati A. */
 @font-face {
   font-family: "Anurati Pro";
   src: url("/fonts/Anurati-Pro-Regular.woff2") format("woff2");
   font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Anurati Pro";
-  src: url("/fonts/Anurati-Pro-Outline.woff2") format("woff2");
-  font-weight: 100;
   font-style: normal;
   font-display: swap;
 }

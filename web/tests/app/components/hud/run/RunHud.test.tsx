@@ -6,12 +6,12 @@ import {
 	RunHudPhase,
 	type HudMessageNavigationDirection,
 	type RunSessionState,
-} from "../../../../../lib/robosprawl/session/reducer"
+} from "../../../../../lib/robozium/session/reducer"
 import {
 	StreamLogItemKind,
 	StreamLogRole,
 	type StreamLogItem,
-} from "../../../../../lib/robosprawl/view-model"
+} from "../../../../../lib/robozium/view-model"
 
 const mocks = vi.hoisted(() => ({
 	state: null as RunSessionState | null,

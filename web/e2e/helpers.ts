@@ -101,9 +101,9 @@ export async function waitFor<T>(
 
 /** Folders the mock backend derives from `hub.config.py` (see scripts/e2e/run.py). */
 export function e2eProjectPaths(slug: string) {
-	const hubBaseDir = process.env.ROBOSPRAWL_E2E_HUB_BASE_DIR
+	const hubBaseDir = process.env.ROBOZIUM_E2E_HUB_BASE_DIR
 	if (!hubBaseDir) {
-		throw new Error("ROBOSPRAWL_E2E_HUB_BASE_DIR is not set")
+		throw new Error("ROBOZIUM_E2E_HUB_BASE_DIR is not set")
 	}
 	const root = path.join(hubBaseDir, "projects", slug)
 	return {

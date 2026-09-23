@@ -7,9 +7,9 @@ import {
 	createProject,
 	createRun,
 	deleteProject,
-} from "@/lib/robosprawl/client"
-import { ProjectStatus, type ProjectRow } from "@/lib/robosprawl/landing"
-import type { Project } from "@/lib/robosprawl/wire"
+} from "@/lib/robozium/client"
+import { ProjectStatus, type ProjectRow } from "@/lib/robozium/landing"
+import type { Project } from "@/lib/robozium/wire"
 import { showErrorToast } from "@/app/components/feedback/ErrorToast"
 import { ProjectOverviewPanel } from "./ProjectOverviewPanel"
 import { useProjectOverview } from "./useProjectOverview"

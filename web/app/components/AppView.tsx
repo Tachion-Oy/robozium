@@ -2,13 +2,13 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import type { ModelSelection, Project, RunView } from "@/lib/robosprawl/wire"
+import type { ModelSelection, Project, RunView } from "@/lib/robozium/wire"
 import { useRunNotifications } from "@/hooks/useRunNotifications"
 import {
 	RunSessionProvider,
 	useRunSessionSelector,
 } from "@/hooks/useRunSession"
-import { shouldExitRunView } from "@/lib/robosprawl/session/reducer"
+import { shouldExitRunView } from "@/lib/robozium/session/reducer"
 import { TerminalFrame } from "@/app/components/terminal/TerminalFrame"
 import { TerminalRunView } from "@/app/components/terminal/TerminalRunView"
 import { AgentHUD } from "./hud/AgentHUD"

@@ -11,21 +11,21 @@ import pytest
 from deployment_support import BuiltAgents
 from fastapi.testclient import TestClient
 from roboz import Agent
+from roboz.endpoints.inventory import openrouter
 from roboz.models import AgentMode
 from roboz.runtime.io import interact_with_user
 from roboz.runtime.persistence import RunStatus as AgentStatus
 from roboz.runtime.pipe import EventPipe
 from roboz.tools import stop
-from roboz_endpoints import openrouter
 
-from robosprawl.api.app import create_app
-from robosprawl.api.errors import ProjectBusyError
-from robosprawl.api.project_service import ProjectService
-from robosprawl.api.run_control import RunControl
-from robosprawl.api.run_manager import RunManager
-from robosprawl.api.state import RunStatus
-from robosprawl.api.wait_registry import WaitRegistry
-from robosprawl.hub.utils import load_hub
+from robozium.api.app import create_app
+from robozium.api.errors import ProjectBusyError
+from robozium.api.project_service import ProjectService
+from robozium.api.run_control import RunControl
+from robozium.api.run_manager import RunManager
+from robozium.api.state import RunStatus
+from robozium.api.wait_registry import WaitRegistry
+from robozium.hub.utils import load_hub
 
 _TEST_ENDPOINT = openrouter.z_ai__glm_5_3
 
@@ -255,7 +255,7 @@ def test_snapshots_do_not_expose_mutable_event_state(config):
 
 @pytest.mark.parametrize("operation", ["start", "create"])
 def test_deletion_serializes_against_start_and_create(config, monkeypatch, operation):
-    import robosprawl.api.project_service as module
+    import robozium.api.project_service as module
 
     entered, release, attempted = (
         threading.Event(),
@@ -390,7 +390,7 @@ def test_interrupted_input_releases_its_wait_slot(config, monkeypatch):
 
 
 def test_wait_slot_accepts_exactly_one_reply():
-    from robosprawl.api.wait_registry import WaitRegistry
+    from robozium.api.wait_registry import WaitRegistry
 
     registry = WaitRegistry()
     registry.register("prompt")

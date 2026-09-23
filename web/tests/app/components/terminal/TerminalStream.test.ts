@@ -5,8 +5,8 @@ import {
 	StreamLogItemKind,
 	StreamLogRole,
 	type MessageLogItem,
-} from "../../../../lib/robosprawl/view-model"
-import { hudVisibilityStore } from "../../../../lib/robosprawl/hud-visibility"
+} from "../../../../lib/robozium/view-model"
+import { hudVisibilityStore } from "../../../../lib/robozium/hud-visibility"
 import { TerminalStream } from "../../../../app/components/terminal/TerminalStream"
 
 describe("TerminalStream", () => {
@@ -34,7 +34,7 @@ describe("TerminalStream", () => {
 		)
 		expect(document.querySelector('[data-role="agent"]')).not.toBeNull()
 		expect(screen.queryByLabelText("Terminal prompt")).toBeNull()
-		expect(screen.queryByText("robosprawl@local")).toBeNull()
+		expect(screen.queryByText("robozium@local")).toBeNull()
 	})
 
 	it("skips typewriter reveal for assistant prompt_user messages", () => {

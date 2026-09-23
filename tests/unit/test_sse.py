@@ -13,7 +13,7 @@ from roboz.runtime.events import (
     ScriptOutputEvent,
 )
 
-from robosprawl.api.sse import event_to_sse_frame
+from robozium.api.sse import event_to_sse_frame
 
 
 def test_event_to_sse_frame_serializes_message_event() -> None:

@@ -17,6 +17,16 @@
   background: var(--hud-dim-bg);
 }
 
+@media (max-height: 800px) {
+  .agent-hud--landing {
+    padding-top: var(--landing-nav-compact-height);
+  }
+
+  .agent-hud--landing .agent-hud__box {
+    max-height: calc(100dvh - var(--landing-nav-compact-height) - var(--landing-hud-edge-gap));
+  }
+}
+
 /* Live run modal: fade the dim backdrop + box in/out across streaming ↔ passive
    instead of mounting/unmounting, so a quick stream → tool-call → stream
    succession doesn't flicker. */

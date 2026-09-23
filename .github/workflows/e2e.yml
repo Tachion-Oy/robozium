@@ -12,13 +12,13 @@ concurrency:
   cancel-in-progress: true
 env:
   NEXT_TELEMETRY_DISABLED: "1"
-  ROBOSPRAWL_API_BASE_URL: http://127.0.0.1:8000
-  ROBOSPRAWL_E2E_PREBUILT: "1"
-  ROBOSPRAWL_E2E_PYTHON: ${{ github.workspace }}/.artifacts/browser-backend/bin/python
+  ROBOZIUM_API_BASE_URL: http://127.0.0.1:8000
+  ROBOZIUM_E2E_PREBUILT: "1"
+  ROBOZIUM_E2E_PYTHON: ${{ github.workspace }}/.artifacts/browser-backend/bin/python
   PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.artifacts/browsers
-  COMPOSE_PROJECT_NAME: robosprawl-ci
-  ROBOSPRAWL_MODE: mock
-  ROBOSPRAWL_WEB_PORT: "0"
+  COMPOSE_PROJECT_NAME: robozium-ci
+  ROBOZIUM_MODE: mock
+  ROBOZIUM_WEB_PORT: "0"
 
 jobs:
   e2e:
@@ -78,13 +78,13 @@ jobs:
           docker compose up --build --wait
           docker compose run --build --rm verify
           docker compose restart api
-          docker compose run --rm -e ROBOSPRAWL_CONTAINER_PHASE=persistence verify
+          docker compose run --rm -e ROBOZIUM_CONTAINER_PHASE=persistence verify
       - name: Container logs
         if: ${{ failure() && steps.containers.outcome == 'failure' }}
         run: docker compose logs --no-color
-      - name: Remove disposable containers and volumes
+      - name: Remove disposable containers
         if: always()
-        run: docker compose down --volumes --remove-orphans
+        run: docker compose down --remove-orphans
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ failure() || steps.webkit.outcome == 'failure' }}
         with:

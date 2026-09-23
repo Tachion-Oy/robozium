@@ -16,6 +16,8 @@
      based HUD bounds read the numeric value in HudResizeHandle. */
   --app-ui-scale: 0.75;
   --app-ui-root-font-size: 75%;
+  --landing-nav-compact-height: 96px;
+  --landing-hud-edge-gap: 12px;
 
   /* Base surface */
   --term-bg: #07080a;

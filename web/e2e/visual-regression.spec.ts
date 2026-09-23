@@ -105,7 +105,7 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 	request,
 }) => {
 	test.setTimeout(120_000)
-	const collectCssCoverage = process.env.ROBOSPRAWL_CSS_COVERAGE === "1"
+	const collectCssCoverage = process.env.ROBOZIUM_CSS_COVERAGE === "1"
 	if (collectCssCoverage) await page.coverage.startCSSCoverage()
 	await page.route("**/api/projects", async (route) => {
 		if (route.request().method() === "GET") {
@@ -114,9 +114,12 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 		}
 		await route.continue()
 	})
-	await page.route("**/api/admin/dependencies", (route) =>
-		route.fulfill({ json: VISUAL_DEPENDENCIES }),
-	)
+	await page.route("**/api/admin/dependencies", (route) => {
+		if (route.request().method() === "POST") {
+			return route.fulfill({ status: 500, json: { detail: "Visual dependency failure" } })
+		}
+		return route.fulfill({ json: VISUAL_DEPENDENCIES })
+	})
 
 	await gotoLanding(page)
 	await stabilize(page)
@@ -214,19 +217,8 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 	)
 	await page.locator(".agent-hud__mini-expand").click()
 
-	await page.route("**/api/models", async (route) => {
-		if (route.request().method() === "POST") {
-			await route.fulfill({
-				status: 500,
-				contentType: "application/json",
-				body: JSON.stringify({ detail: "Visual model failure" }),
-			})
-			return
-		}
-		await route.continue()
-	})
-	await page.locator(".agent-hud__model-trigger").first().click()
-	await page.getByRole("option", { selected: false }).first().click()
+	await selectHudView(page, "Dependencies")
+	await page.getByRole("button", { name: "Check Now", exact: true }).click()
 	await expect(page.locator(".agent-error-toast")).toBeVisible()
 	await expectThemePair(
 		page,

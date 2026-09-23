@@ -1,6 +1,6 @@
 "use client"
 
-import type { AgentActivityState } from "@/lib/robosprawl/session/reducer"
+import type { AgentActivityState } from "@/lib/robozium/session/reducer"
 
 type MinimizedHudControlProps = {
 	/** Visible only while the HUD is dismissed; hidden (faded out) when open. */

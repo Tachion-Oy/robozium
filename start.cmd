@@ -2,8 +2,8 @@
 setlocal
 cd /d "%~dp0"
 
-set "ROBOSPRAWL_MODE=live"
-if "%~1"=="--mock" set "ROBOSPRAWL_MODE=mock"
+set "ROBOZIUM_MODE=live"
+if "%~1"=="--mock" set "ROBOZIUM_MODE=mock"
 if not "%~1"=="" if not "%~1"=="--mock" goto usage
 docker compose up --build
 exit /b %errorlevel%

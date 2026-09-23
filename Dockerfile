@@ -18,7 +18,7 @@ FROM python:3.13-slim-bookworm AS api
 ENV PATH=/app/.venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    ROBOSPRAWL_CONFIG=/app/hub.config.py
+    ROBOZIUM_CONFIG=/app/hub.config.py
 WORKDIR /app
 
 RUN apt-get update \
@@ -30,19 +30,19 @@ RUN apt-get update \
         grep \
         ripgrep \
     && rm -rf /var/lib/apt/lists/* \
-    && groupadd --gid 10001 robosprawl \
-    && useradd --uid 10001 --gid robosprawl --no-create-home --home-dir /nonexistent robosprawl \
+    && groupadd --gid 10001 robozium \
+    && useradd --uid 10001 --gid robozium --no-create-home --home-dir /nonexistent robozium \
     && mkdir -p /hub /logs \
-    && chown -R robosprawl:robosprawl /hub /logs
+    && chown -R robozium:robozium /hub /logs
 
 COPY --from=python-deps /app/.venv /app/.venv
 COPY hub.config.py ./hub.config.py
 
-USER robosprawl
+USER robozium
 EXPOSE 8000
 HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=12 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=2).read()"]
-CMD ["sh", "-c", "exec uvicorn \"robosprawl.api.app:${ROBOSPRAWL_MODE:-mock}_app\" --factory --host 0.0.0.0 --port 8000 --workers 1"]
+CMD ["sh", "-c", "exec uvicorn \"robozium.api.app:${ROBOZIUM_MODE:-mock}_app\" --factory --host 0.0.0.0 --port 8000 --workers 1"]
 
 
 FROM node:22-bookworm-slim AS web-builder
@@ -53,7 +53,7 @@ RUN npm --prefix web ci
 COPY hub.config.py ./
 COPY web ./web
 ENV NEXT_TELEMETRY_DISABLED=1 \
-    ROBOSPRAWL_API_BASE_URL=http://api:8000
+    ROBOZIUM_API_BASE_URL=http://api:8000
 RUN npm --prefix web run build
 
 
@@ -65,21 +65,21 @@ ENV NODE_ENV=production \
     PORT=6969
 WORKDIR /app
 
-RUN groupadd --gid 10001 robosprawl \
-    && useradd --uid 10001 --gid robosprawl --no-create-home --home-dir /nonexistent robosprawl
+RUN groupadd --gid 10001 robozium \
+    && useradd --uid 10001 --gid robozium --no-create-home --home-dir /nonexistent robozium
 
-COPY --from=web-builder --chown=robosprawl:robosprawl /app/web/.next/standalone ./
-COPY --from=web-builder --chown=robosprawl:robosprawl /app/web/.next/static ./.next/static
-COPY --from=web-builder --chown=robosprawl:robosprawl /app/web/public ./public
+COPY --from=web-builder --chown=robozium:robozium /app/web/.next/standalone ./
+COPY --from=web-builder --chown=robozium:robozium /app/web/.next/static ./.next/static
+COPY --from=web-builder --chown=robozium:robozium /app/web/public ./public
 
-USER robosprawl
+USER robozium
 EXPOSE 6969
 HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=12 \
     CMD ["node", "-e", "fetch('http://127.0.0.1:6969').then(r=>{if(!r.ok)throw Error(r.status)}).catch(e=>{console.error(e);process.exit(1)})"]
 CMD ["node", "server.js"]
 
 
-FROM mcr.microsoft.com/playwright:v1.63.0-noble AS verify
+FROM mcr.microsoft.com/playwright:v1.59.1-noble AS verify
 
 WORKDIR /tests
 COPY web/package.json web/package-lock.json ./

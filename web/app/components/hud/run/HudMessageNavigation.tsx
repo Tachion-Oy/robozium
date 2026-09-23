@@ -1,7 +1,7 @@
 import type {
 	AgentActivityState,
 	HudMessageNavigationDirection,
-} from "@/lib/robosprawl/session/reducer"
+} from "@/lib/robozium/session/reducer"
 import { MessageWedge } from "./MessageWedge"
 
 export type HudMessageNavigationModel = {

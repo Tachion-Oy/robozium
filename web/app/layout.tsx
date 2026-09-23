@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { cookies } from "next/headers"
 import { preload } from "react-dom"
 import localFont from "next/font/local"
-import { HUB_NAME } from "@/lib/robosprawl/public-config"
+import { HUB_NAME } from "@/lib/robozium/public-config"
 import { APP_THEME_COOKIE_NAME, parseAppTheme } from "@/lib/theme"
 import { AppNav } from "./components/nav"
 import { AppToaster } from "./components/feedback/AppToaster"
@@ -49,7 +49,7 @@ const sixtyfour = localFont({
 
 export const metadata: Metadata = {
 	title: HUB_NAME,
-	description: "RoboSprawl project agent terminal",
+	description: "Robozium project agent terminal",
 }
 
 export default async function RootLayout({
@@ -59,16 +59,12 @@ export default async function RootLayout({
 }>) {
 	const cookieStore = await cookies()
 	const theme = parseAppTheme(cookieStore.get(APP_THEME_COOKIE_NAME)?.value)
+	preload("/fonts/Anurati-Pro-Regular.woff2", {
+		as: "font",
+		type: "font/woff2",
+		crossOrigin: "anonymous",
+	})
 
-	// Anurati is a plain @font-face (not next/font), so it gets no automatic
-	// preload; fetch it eagerly or the brand glyphs flash their fallback face.
-	for (const file of ["Anurati-Pro-Regular", "Anurati-Pro-Outline"]) {
-		preload(`/fonts/${file}.woff2`, {
-			as: "font",
-			type: "font/woff2",
-			crossOrigin: "anonymous",
-		})
-	}
 	return (
 		<html
 			lang="en"

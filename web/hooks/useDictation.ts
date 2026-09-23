@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { transcribeAudio } from "@/lib/robosprawl/client"
+import { transcribeAudio } from "@/lib/robozium/client"
 
 export type UseDictationResult = {
 	/** Mic is open and capturing. */

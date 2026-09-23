@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
 	fetchSeed: vi.fn(),
 }))
 
-vi.mock("../../lib/robosprawl/http", () => ({
+vi.mock("../../lib/robozium/http", () => ({
 	fetchSeed: mocks.fetchSeed,
 }))
 

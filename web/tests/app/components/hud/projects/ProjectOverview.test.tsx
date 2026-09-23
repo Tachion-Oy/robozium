@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type { ProjectRow } from "../../../../../lib/robosprawl/landing"
-import type { Project } from "../../../../../lib/robosprawl/wire"
+import type { ProjectRow } from "../../../../../lib/robozium/landing"
+import type { Project } from "../../../../../lib/robozium/wire"
 
 const mocks = vi.hoisted(() => ({
 	cancelProject: vi.fn(),
@@ -16,7 +16,7 @@ vi.mock("next/navigation", () => ({
 	useRouter: () => ({ push: mocks.routerPush }),
 }))
 
-vi.mock("../../../../../lib/robosprawl/client", () => ({
+vi.mock("../../../../../lib/robozium/client", () => ({
 	cancelProject: mocks.cancelProject,
 	createProject: vi.fn(),
 	createRun: mocks.createRun,

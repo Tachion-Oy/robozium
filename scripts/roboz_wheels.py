@@ -1,4 +1,4 @@
-"""Download or verify the three indexed Roboz wheels selected by uv.lock."""
+"""Download or verify the indexed RoboZ wheel selected by uv.lock."""
 
 import argparse
 import hashlib
@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGES = ("roboz", "roboshed", "roboz-endpoints")
+PACKAGES = ("roboz",)
 INDEX_HOSTS = {
     "https://test.pypi.org/simple": "test-files.pythonhosted.org",
     "https://pypi.org/simple": "files.pythonhosted.org",

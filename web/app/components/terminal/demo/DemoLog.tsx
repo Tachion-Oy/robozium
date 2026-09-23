@@ -5,7 +5,7 @@ import {
 	StreamLogItemKind,
 	type MessageLogItem,
 	type StreamLogItem,
-} from "@/lib/robosprawl/view-model"
+} from "@/lib/robozium/view-model"
 import { TerminalLog } from "../TerminalLog"
 import { getRevealText } from "../TerminalStream"
 import { placeholderLogItems } from "../placeholders"

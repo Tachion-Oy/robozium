@@ -19,13 +19,6 @@ from deployment_support import BuiltAgents, configured_deployment
 from fastapi import Request
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
-from roboshed.identifiers import LIBRARIAN_AGENT_NAME
-from roboshed.sandbox import Sandbox
-from roboshed.tools.memory_files import (
-    TIMESTAMP_STEM_FORMAT,
-    load_conversation_run,
-    utc_now,
-)
 from roboz import Agent
 from roboz.llm import LLMEndpoint, MockLLMEndpoint, MockTranscriptionEndpoint
 from roboz.models import Empty, Message, Str
@@ -42,15 +35,22 @@ from roboz.runtime.persistence import (
     utc_iso_z,
 )
 from roboz.runtime.pipe import EventPipe
+from roboz.shed.identifiers import LIBRARIAN_AGENT_NAME
+from roboz.shed.sandbox import Sandbox
+from roboz.shed.tools.memory_files import (
+    TIMESTAMP_STEM_FORMAT,
+    load_conversation_run,
+    utc_now,
+)
 from roboz.tooling.decorators import tool
 from roboz.tools import prompt_user_at_start, stop
 
-from robosprawl.api.app import create_app
-from robosprawl.api.projects import Project
-from robosprawl.api.state import RunStatus
-from robosprawl.hub.application import Hub
-from robosprawl.hub.utils import load_hub
-from robosprawl.mock.agents import mock_deployment
+from robozium.api.app import create_app
+from robozium.api.projects import Project
+from robozium.api.state import RunStatus
+from robozium.hub.application import Hub
+from robozium.hub.utils import load_hub
+from robozium.mock.agents import mock_deployment
 
 TEST_PROJECT_SLUG = "alpha"
 UNMANIFESTED_PROJECT_SLUG = "unmanifested-project"
@@ -456,7 +456,7 @@ def test_api_projects_reads_one_lifecycle_snapshot_not_conversation_history(
             "{not-needed-on-the-hot-path", encoding="utf-8"
         )
 
-    app_module = importlib.import_module("robosprawl.api.project_service")
+    app_module = importlib.import_module("robozium.api.project_service")
     original_activity_reader = app_module.active_marker_paths
     activity_reads: list[Path] = []
 
@@ -1003,7 +1003,7 @@ def test_api_stream_autostarts_run_and_emits_first_event(tmp_path: Path) -> None
 def test_api_stream_logs_the_terminal_status(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    app_module = importlib.import_module("robosprawl.api.app")
+    app_module = importlib.import_module("robozium.api.app")
     records: list[tuple[str, dict[str, object]]] = []
 
     def capture_log(
@@ -1037,7 +1037,7 @@ def test_api_stream_logs_the_terminal_status(
 def test_api_stream_emits_keepalive_comment_while_idle(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    app_module = importlib.import_module("robosprawl.api.app")
+    app_module = importlib.import_module("robozium.api.app")
     monkeypatch.setattr(app_module, "SSE_KEEPALIVE_INTERVAL_S", 0.05)
     application = create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     client = TestClient(application)
@@ -1297,7 +1297,7 @@ def test_api_run_view_serializes_runtime_event_trace_entry(tmp_path: Path) -> No
 def test_api_run_view_message_trace_respects_history_limit(
     tmp_path: Path, monkeypatch
 ) -> None:
-    manager_module = importlib.import_module("robosprawl.api.run_manager")
+    manager_module = importlib.import_module("robozium.api.run_manager")
     monkeypatch.setattr(manager_module, "MESSAGE_HISTORY_LIMIT", 1)
     application = create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     client = TestClient(application)
@@ -1744,7 +1744,7 @@ def test_project_operations_reject_shared_path_validation_errors(tmp_path, opera
 def test_active_model_api_switch_changes_next_request_and_isolates_runs(
     tmp_path: Path,
 ) -> None:
-    from robosprawl.mock.model_selection import MODEL_REQUESTS_FILE
+    from robozium.mock.model_selection import MODEL_REQUESTS_FILE
 
     hub = _test_deployment(mock_deployment, tmp_path)
     application = create_app(deployment=hub)

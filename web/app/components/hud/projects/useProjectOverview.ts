@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { listProjects } from "@/lib/robosprawl/client"
+import { listProjects } from "@/lib/robozium/client"
 import {
 	markProjectsCancelling,
 	markProjectsDeleting,
@@ -9,8 +9,8 @@ import {
 	mergeProjects,
 	ProjectStatus,
 	type ProjectRow,
-} from "@/lib/robosprawl/landing"
-import type { Project } from "@/lib/robosprawl/wire"
+} from "@/lib/robozium/landing"
+import type { Project } from "@/lib/robozium/wire"
 
 const DEFAULT_POLL_INTERVAL_MS = 3000
 const CANCELLATION_POLL_INTERVAL_MS = 250

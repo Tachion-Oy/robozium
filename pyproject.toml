@@ -1,14 +1,12 @@
 [project]
-name = "robosprawl"
+name = "robozium"
 version = "0.1.0"
-description = "RoboSprawl: a project agent application built on Roboz"
+description = "Robozium: a project agent application built on Roboz"
 readme = "README.md"
 requires-python = ">=3.13"
 license = "Apache-2.0"
 dependencies = [
-  "roboz==0.1.2.dev7",
-  "roboshed==0.1.1.dev4",
-  "roboz-endpoints[openai]==0.1.0a4",
+  "roboz==0.1.2a2",
   "fastapi>=0.135.0",
   "python-multipart>=0.0.20",
   "uvicorn[standard]>=0.30.0",
@@ -18,7 +16,7 @@ dependencies = [
 requires = ["hatchling>=1.32"]
 build-backend = "hatchling.build"
 [tool.pytest.ini_options]
-addopts = "--cov=robosprawl --cov-report=term-missing"
+addopts = "--cov=robozium --cov-report=term-missing"
 testpaths = ["tests"]
 [dependency-groups]
 dev = ["pytest>=8.4.1", "pytest-cov>=6.2.1", "httpx>=0.27.0", "ruff>=0.5.0", "pyright>=1.1.411", "twine>=6.2"]
@@ -26,7 +24,7 @@ dev = ["pytest>=8.4.1", "pytest-cov>=6.2.1", "httpx>=0.27.0", "ruff>=0.5.0", "py
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]
 [tool.ruff.lint.per-file-ignores]
-"src/robosprawl/api/app.py" = ["F403", "F405"]
+"src/robozium/api/app.py" = ["F403", "F405"]
 
 [tool.hatch.build.targets.sdist]
-include = ["/src/robosprawl", "/README.md", "/CHANGELOG.md", "/LICENSE", "/pyproject.toml", "/hub.config.py"]
+include = ["/src/robozium", "/README.md", "/CHANGELOG.md", "/LICENSE", "/pyproject.toml", "/hub.config.py"]

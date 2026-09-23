@@ -22,10 +22,10 @@ def validate(wheel: Path) -> None:
         metadata = email.message_from_bytes(
             archive.read(next(n for n in names if n.endswith("/METADATA")))
         )
-        assert metadata["Name"] == "robosprawl"
+        assert metadata["Name"] == "robozium"
         assert metadata["License-Expression"] == "Apache-2.0"
         assert any(n.endswith(".dist-info/licenses/LICENSE") for n in names)
-        assert all(n.startswith(("robosprawl/", "robosprawl-")) for n in names)
+        assert all(n.startswith(("robozium/", "robozium-")) for n in names)
         assert all(
             "@" not in req and "file:" not in req
             for req in metadata.get_all("Requires-Dist", [])
@@ -56,10 +56,10 @@ def main() -> None:
     env["PIP_CONFIG_FILE"] = os.devnull
     dependencies = verify_wheels(dist)
     with tempfile.TemporaryDirectory(
-        prefix="robosprawl-install-", dir=os.environ.get("RUNNER_TEMP", "/tmp")
+        prefix="robozium-install-", dir=os.environ.get("RUNNER_TEMP", "/tmp")
     ) as directory:
         root = Path(directory)
-        env["ROBOSPRAWL_CONFIG"] = str(root / "hub.config.py")
+        env["ROBOZIUM_CONFIG"] = str(root / "hub.config.py")
         # Installed checks must not inherit a source checkout's pytest options,
         # including when RUNNER_TEMP is placed inside that checkout.
         (root / "pytest.ini").write_text("[pytest]\n")
@@ -67,9 +67,9 @@ def main() -> None:
         def run(*command):
             subprocess.run(command, cwd=root, env=env, check=True)
 
-        original = next(dist.glob("robosprawl-*.whl"))
+        original = next(dist.glob("robozium-*.whl"))
         validate(original)
-        with tarfile.open(next(dist.glob("robosprawl-*.tar.gz"))) as archive:
+        with tarfile.open(next(dist.glob("robozium-*.tar.gz"))) as archive:
             names = [Path(name).parts[1:] for name in archive.getnames()]
             allowed = {
                 "src",

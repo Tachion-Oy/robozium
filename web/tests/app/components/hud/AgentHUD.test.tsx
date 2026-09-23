@@ -8,10 +8,10 @@ import {
 } from "@testing-library/react"
 import type { ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { hudSizeStore } from "../../../../lib/robosprawl/hud-size"
-import { hudVisibilityStore } from "../../../../lib/robosprawl/hud-visibility"
-import { RunHudPhase } from "../../../../lib/robosprawl/session/reducer"
-import type { Project, RunStatus } from "../../../../lib/robosprawl/wire"
+import { hudSizeStore } from "../../../../lib/robozium/hud-size"
+import { hudVisibilityStore } from "../../../../lib/robozium/hud-visibility"
+import { RunHudPhase } from "../../../../lib/robozium/session/reducer"
+import type { Project, RunStatus } from "../../../../lib/robozium/wire"
 
 const mocks = vi.hoisted(() => ({
 	projectSlug: "alpha" as string | null,

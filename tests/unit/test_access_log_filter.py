@@ -1,6 +1,6 @@
 import logging
 
-from robosprawl.backend_logging import keep_access_log
+from robozium.backend_logging import keep_access_log
 
 
 def _record(*, method: str, path: str, status: int | str = 200) -> logging.LogRecord:

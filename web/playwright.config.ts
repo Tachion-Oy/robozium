@@ -19,8 +19,8 @@ const DESKTOP_PROJECTS = [
   },
 ] as const;
 
-const isolatedHubRoot = process.env.ROBOSPRAWL_E2E_HUB_BASE_DIR;
-const webPort = process.env.ROBOSPRAWL_E2E_WEB_PORT ?? '3100';
+const isolatedHubRoot = process.env.ROBOZIUM_E2E_HUB_BASE_DIR;
+const webPort = process.env.ROBOZIUM_E2E_WEB_PORT ?? '3100';
 const webBaseUrl = `http://127.0.0.1:${webPort}`;
 
 if (!isolatedHubRoot) {
@@ -42,11 +42,11 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   failOnFlakyTests: !!process.env.CI,
   updateSnapshots: 'none',
-  outputDir: `${process.env.ROBOSPRAWL_E2E_REPORT_DIR}/test-results`,
+  outputDir: `${process.env.ROBOZIUM_E2E_REPORT_DIR}/test-results`,
   /* Opt out of parallel tests on CI. */
   workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: [['list'], ['html', { outputFolder: `${process.env.ROBOSPRAWL_E2E_REPORT_DIR}/playwright-report`, open: 'never' }], ['junit', { outputFile: `${process.env.ROBOSPRAWL_E2E_REPORT_DIR}/playwright.xml` }]],
+  reporter: [['list'], ['html', { outputFolder: `${process.env.ROBOZIUM_E2E_REPORT_DIR}/playwright-report`, open: 'never' }], ['junit', { outputFile: `${process.env.ROBOZIUM_E2E_REPORT_DIR}/playwright.xml` }]],
   /* CI runners (esp. WebKit, which is software-rendered on Linux) are
    * meaningfully slower than a local machine. Give actions/assertions more
    * room there so a loaded runner doesn't fail on wall-clock alone. */

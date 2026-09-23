@@ -11,8 +11,6 @@ from typing import Any, cast
 
 import pytest
 from deployment_support import BuiltAgents
-from roboshed.identifiers import LIBRARIAN_AGENT_NAME
-from roboshed.sandbox import Sandbox
 from roboz import Agent
 from roboz.agent import run_subagent
 from roboz.llm import LLMEndpoint, LLMEndpointRoute, MockLLMEndpoint
@@ -32,16 +30,18 @@ from roboz.runtime.persistence import (
     utc_iso_z,
 )
 from roboz.runtime.pipe import EventPipe
+from roboz.shed.identifiers import LIBRARIAN_AGENT_NAME
+from roboz.shed.sandbox import Sandbox
 from roboz.tooling.decorators import tool
 from roboz.tools import prompt_user_at_start, stop
 
-from robosprawl.api.errors import ProjectBusyError, ProjectCancellationInProgressError
-from robosprawl.api.projects import Project
-from robosprawl.api.run_control import RunControl
-from robosprawl.api.run_events import RunEvents
-from robosprawl.api.run_manager import RunManager
-from robosprawl.api.user_io import ApiUserIO
-from robosprawl.api.wait_registry import WaitRegistry
+from robozium.api.errors import ProjectBusyError, ProjectCancellationInProgressError
+from robozium.api.projects import Project
+from robozium.api.run_control import RunControl
+from robozium.api.run_events import RunEvents
+from robozium.api.run_manager import RunManager
+from robozium.api.user_io import ApiUserIO
+from robozium.api.wait_registry import WaitRegistry
 
 
 @tool
@@ -1088,7 +1088,7 @@ def test_each_run_gets_a_fresh_sandbox_even_when_reusing_a_project(tmp_path):
 
     from dataclasses import replace
 
-    from robosprawl.hub.utils import load_hub
+    from robozium.hub.utils import load_hub
 
     hub = replace(load_hub(), deployment=factory)
     manager = _manager(hub.configure_deployment, hub_name="TestHub")

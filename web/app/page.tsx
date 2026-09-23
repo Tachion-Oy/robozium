@@ -1,6 +1,6 @@
 import { AppView } from "./components/AppView"
-import { fetchSeed } from "@/lib/robosprawl/http"
-import type { ModelSelection, Project, RunView } from "@/lib/robosprawl/wire"
+import { fetchSeed } from "@/lib/robozium/http"
+import type { ModelSelection, Project, RunView } from "@/lib/robozium/wire"
 
 type HomePageProps = {
 	searchParams: Promise<{ runId?: string; error?: string; from?: string }>

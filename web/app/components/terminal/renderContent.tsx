@@ -4,9 +4,9 @@ import {
 	type LifecycleLogItem,
 	type MessageLogItem,
 	type StreamLogItem,
-} from "@/lib/robosprawl/view-model"
-import { RunLifecycleKind } from "@/lib/robosprawl/wire"
-import { stringifyValue } from "@/lib/robosprawl/stream"
+} from "@/lib/robozium/view-model"
+import { RunLifecycleKind } from "@/lib/robozium/wire"
+import { stringifyValue } from "@/lib/robozium/stream"
 import { renderDemoContent } from "./demo"
 import { TerminalBanner, bannerRevealText } from "./TerminalBanner"
 import { TerminalCursor } from "./TerminalCursor"

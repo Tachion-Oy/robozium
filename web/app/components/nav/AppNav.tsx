@@ -3,7 +3,8 @@
 import { Suspense } from "react"
 import Link, { useLinkStatus } from "next/link"
 import { useSearchParams } from "next/navigation"
-import { HUB_BRAND, HUB_HOME_ARIA_LABEL } from "@/lib/robosprawl/public-config"
+import { HUB_BRAND, HUB_HOME_ARIA_LABEL } from "@/lib/robozium/public-config"
+import { DisplayArt } from "../branding/DisplayArt"
 
 function AppNavBrand({ label }: { label: string }) {
 	const { pending } = useLinkStatus()
@@ -12,14 +13,14 @@ function AppNavBrand({ label }: { label: string }) {
 		<span
 			className="app-nav__brand-label"
 			data-pending={pending || undefined}>
-			{label}
+			<DisplayArt name="robozium" label={label} />
 		</span>
 	)
 }
 
 function AppNavContent({ label }: { label: string }) {
 	return (
-		<div className="relative z-60 h-[8vh] shrink-0">
+		<div className="app-nav__row relative z-60 h-[8vh] shrink-0">
 			<nav className="app-nav--enter flex h-full items-center justify-center px-12">
 				<Link
 					href={{

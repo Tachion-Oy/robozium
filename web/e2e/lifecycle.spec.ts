@@ -26,7 +26,7 @@ import {
 	WireRuntimeEventCategory,
 	WireRuntimeEventKind,
 	WireRunStatus,
-} from "../lib/robosprawl/wire"
+} from "../lib/robozium/wire"
 
 test.describe.configure({ mode: "serial" })
 test.setTimeout(90_000)
@@ -37,7 +37,7 @@ const PROMPT_USER_TOOL_NAME = "prompt_user"
 /**
  * Opens a dormant project and drives the scripted mock orchestrator to
  * completion: prompt_user -> hello_world -> prompt_user -> stop (see
- * `_mock_orchestrator_responses` in src/robosprawl/mock/agents.py). Once "stop"
+ * `_mock_orchestrator_responses` in src/robozium/mock/agents.py). Once "stop"
  * runs, the completed run route is replaced by the landing route.
  */
 async function openAndCompleteRun(page: Page, slug: string): Promise<void> {
@@ -352,7 +352,7 @@ test("landing cancel follows real backend cancellation events without navigation
 		expect(
 			browserWarnings.some(
 				(message) =>
-					message.includes("[robosprawl:sse] reader error") &&
+					message.includes("[robozium:sse] reader error") &&
 					message.includes("AbortError"),
 			),
 		).toBe(false)

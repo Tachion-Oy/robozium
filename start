@@ -3,8 +3,8 @@ set -eu
 cd "$(dirname "$0")"
 
 case "${1:-}" in
-  --mock) export ROBOSPRAWL_MODE=mock ;;
-  "") export ROBOSPRAWL_MODE=live ;;
+  --mock) export ROBOZIUM_MODE=mock ;;
+  "") export ROBOZIUM_MODE=live ;;
   *) echo "Usage: ./start [--mock]" >&2; exit 2 ;;
 esac
 

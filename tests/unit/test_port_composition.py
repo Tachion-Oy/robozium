@@ -10,14 +10,14 @@ from types import SimpleNamespace
 
 import pytest
 from deployment_support import configured_deployment, foreground_agent
-from roboshed.capabilities import Compactification
-from roboshed.tools.compactification import CompactifyStatus
 from roboz.exceptions import LLMCallTimeoutError
 from roboz.llm import LLMEndpoint, MockLLMEndpoint, estimate_conversation_tokens
 from roboz.models import MessageKind
 from roboz.runtime.events import MessageEvent
+from roboz.shed.capabilities import Compactification
+from roboz.shed.tools.compactification import CompactifyStatus
 
-from robosprawl.hub.utils import load_hub
+from robozium.hub.utils import load_hub
 
 
 def _compaction_project(tmp_path):
@@ -222,18 +222,18 @@ def test_mock_import_never_constructs_live_deployment():
             sys.executable,
             "-c",
             """
-import robosprawl.hub.application as application
+import robozium.hub.application as application
 
 def reject(*args, **kwargs):
     raise AssertionError('live deployment constructed')
-application.robosprawl = reject
-from robosprawl.api.app import mock_app
+application.robozium = reject
+from robozium.api.app import mock_app
 from fastapi.testclient import TestClient
 with TestClient(mock_app()) as client:
     assert client.get('/ready').status_code == 200
     import logging
-    from robosprawl.hub.utils import load_hub
-    assert any(getattr(handler, "baseFilename", None) == str(load_hub().logging.path) for handler in logging.getLogger("robosprawl").handlers)
+    from robozium.hub.utils import load_hub
+    assert any(getattr(handler, "baseFilename", None) == str(load_hub().logging.path) for handler in logging.getLogger("robozium").handlers)
     records = client.get('/admin/dependencies').json()
     assert {row['dependency_id'] for row in records if row['kind'] == 'model_endpoint'} == {model['model_id'] for model in client.get('/models').json()['models']}
 """,

@@ -25,9 +25,9 @@ vi.mock("next/navigation", () => ({
 	useSearchParams: () => new URLSearchParams(mocks.searchParams),
 }))
 
-vi.mock("../../../../lib/robosprawl/public-config", () => ({
-	HUB_BRAND: "ROBOSPRAWL",
-	HUB_HOME_ARIA_LABEL: "robosprawl home",
+vi.mock("../../../../lib/robozium/public-config", () => ({
+	HUB_BRAND: "ROBOZIUM",
+	HUB_HOME_ARIA_LABEL: "robozium home",
 }))
 
 import { AppNav } from "../../../../app/components/nav/AppNav"
@@ -53,20 +53,20 @@ describe("AppNav", () => {
 
 	it("marks only a pending title navigation", () => {
 		const idle = render(<AppNav />)
-		expect(screen.getByText("ROBOSPRAWL").hasAttribute("data-pending")).toBe(false)
+		expect(screen.getByText("ROBOZIUM").parentElement?.hasAttribute("data-pending")).toBe(false)
 
 		idle.unmount()
 		mocks.pending = true
 		render(<AppNav />)
 
-		expect(screen.getByText("ROBOSPRAWL").getAttribute("data-pending")).toBe("true")
+		expect(screen.getByText("ROBOZIUM").parentElement?.getAttribute("data-pending")).toBe("true")
 	})
 
 	it("does not render home navigation in a run view", () => {
 		mocks.searchParams = "runId=run-1"
 		render(<AppNav />)
 
-		expect(screen.queryByText("ROBOSPRAWL")).toBeNull()
+		expect(screen.queryByText("ROBOZIUM")).toBeNull()
 		expect(mocks.linkProps).toBeNull()
 	})
 })

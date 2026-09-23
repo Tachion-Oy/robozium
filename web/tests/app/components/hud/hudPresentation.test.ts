@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { RunHudPhase } from "../../../../lib/robosprawl/session/reducer"
+import { RunHudPhase } from "../../../../lib/robozium/session/reducer"
 import {
 	DEFAULT_HUD_SCREEN_SELECTIONS,
 	resolveHudPresentation,

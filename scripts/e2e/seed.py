@@ -8,8 +8,8 @@ from roboz.models import Message, Role
 from roboz.models.truncation import DEFAULT
 from roboz.runtime.persistence.schema import ConversationRun, message_to_logged_row
 
-conversation_root = Path(os.environ["ROBOSPRAWL_E2E_CONVERSATION_LOGS_DIR"])
-seed_conversation_id = os.environ["ROBOSPRAWL_E2E_SEED_CONVERSATION_ID"]
+conversation_root = Path(os.environ["ROBOZIUM_E2E_CONVERSATION_LOGS_DIR"])
+seed_conversation_id = os.environ["ROBOZIUM_E2E_SEED_CONVERSATION_ID"]
 
 # DEFAULT (not NO_MESSAGE) keeps the message in context: NO_MESSAGE removes it,
 # leaving the conversation with zero in-context tokens, which the librarian

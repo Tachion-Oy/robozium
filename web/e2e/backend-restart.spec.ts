@@ -4,8 +4,8 @@ import path from "node:path"
 import { createProject, waitForProjectRowStatus } from "./helpers"
 
 test("backend restart preserves projects and clears stale running state", async ({ page, request }) => {
-    const control = process.env.ROBOSPRAWL_E2E_CONTROL_DIR
-    const hub = process.env.ROBOSPRAWL_E2E_HUB_BASE_DIR
+    const control = process.env.ROBOZIUM_E2E_CONTROL_DIR
+    const hub = process.env.ROBOZIUM_E2E_HUB_BASE_DIR
     if (!control || !hub) throw new Error("Restart test requires the isolated runner")
     const slug = await createProject(request, `Restart recovery ${Date.now()}`)
     await page.goto("/?from=app")

@@ -1,5 +1,5 @@
 import type { KeyboardEvent, ReactNode } from "react";
-import { logRoleToRowLabel, StreamLogRole } from "@/lib/robosprawl/view-model";
+import { logRoleToRowLabel, StreamLogRole } from "@/lib/robozium/view-model";
 
 type TerminalMessageProps = {
   role: StreamLogRole;

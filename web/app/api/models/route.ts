@@ -1,4 +1,4 @@
-import { fetchAgentUpstream, passthroughResponse } from "@/lib/robosprawl/http"
+import { fetchAgentUpstream, passthroughResponse } from "@/lib/robozium/http"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"

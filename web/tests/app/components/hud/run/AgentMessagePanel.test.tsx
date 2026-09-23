@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
-vi.mock("@/lib/robosprawl/public-config", () => ({
+vi.mock("@/lib/robozium/public-config", () => ({
 	HUB_HOME_ARIA_LABEL: "Hub home",
 }))
 const { showErrorToast } = vi.hoisted(() => ({

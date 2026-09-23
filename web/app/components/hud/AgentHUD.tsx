@@ -7,10 +7,10 @@ import {
 	agentActivityStateForPhase,
 	hasPermanentRunFailure,
 	RunHudPhase,
-} from "@/lib/robosprawl/session/reducer"
-import type { ModelSelection, Project } from "@/lib/robosprawl/wire"
-import { hudVisibilityStore } from "@/lib/robosprawl/hud-visibility"
-import { setHudSizeProgress } from "@/lib/robosprawl/hud-size"
+} from "@/lib/robozium/session/reducer"
+import type { ModelSelection, Project } from "@/lib/robozium/wire"
+import { hudVisibilityStore } from "@/lib/robozium/hud-visibility"
+import { setHudSizeProgress } from "@/lib/robozium/hud-size"
 import { useHudEscapeDismiss } from "@/hooks/useHudEscapeDismiss"
 import { useRunSessionSelector } from "@/hooks/useRunSession"
 import {
@@ -172,6 +172,7 @@ export function AgentHUD({
 
 	const hudClassName = [
 		"agent-hud",
+		isLanding ? "agent-hud--landing" : "",
 		enteredViaIntro && isLanding ? "agent-hud--intro" : "",
 		!isLanding ? "agent-hud--fade" : "",
 		!isLanding && !isOpen ? "agent-hud--hidden" : "",

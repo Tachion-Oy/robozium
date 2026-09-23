@@ -3,13 +3,13 @@
 import { Fragment, memo, useCallback, useEffect, useState } from "react"
 import { useStore } from "zustand"
 import { useRunSessionSelector } from "@/hooks/useRunSession"
-import { hudVisibilityStore } from "@/lib/robosprawl/hud-visibility"
+import { hudVisibilityStore } from "@/lib/robozium/hud-visibility"
 import {
 	isPromptUserAssistantMessage,
 	StreamLogItemKind,
 	type MessageLogItem,
 	type StreamLogItem,
-} from "@/lib/robosprawl/view-model"
+} from "@/lib/robozium/view-model"
 import { TerminalLog } from "./TerminalLog"
 import {
 	EXPANDED_MESSAGE_MAX_CHARS,

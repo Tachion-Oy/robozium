@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { AgentActivityState } from "../../../../../lib/robosprawl/session/reducer"
+import { AgentActivityState } from "../../../../../lib/robozium/session/reducer"
 import { HudMessageNavigation } from "../../../../../app/components/hud/run/HudMessageNavigation"
 
 const allDirections = {
@@ -41,6 +41,7 @@ describe("HudMessageNavigation", () => {
 		expect(
 			container.querySelectorAll(".agent-hud__message-direction"),
 		).toHaveLength(4)
+		expect(container.querySelector(".agent-hud__logo--actions")?.textContent).toBe("A")
 		for (const jumpButton of [
 			screen.getByRole("button", { name: "Jump to first agent message" }),
 			screen.getByRole("button", { name: "Jump to latest agent message" }),

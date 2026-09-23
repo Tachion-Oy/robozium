@@ -1,4 +1,4 @@
-name: "${COMPOSE_PROJECT_NAME:-robosprawl}"
+name: "${COMPOSE_PROJECT_NAME:-robozium}"
 
 services:
   api:
@@ -8,14 +8,14 @@ services:
     environment:
       CEREBRAS_API_KEY: "${CEREBRAS_API_KEY:-}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
-      ROBOSPRAWL_HUB_ROOT: /hub
-      ROBOSPRAWL_LOG_DIR: /logs
-      ROBOSPRAWL_MODE: "${ROBOSPRAWL_MODE:-mock}"
+      ROBOZIUM_HUB_ROOT: /hub
+      ROBOZIUM_LOG_DIR: /logs
+      ROBOZIUM_MODE: "${ROBOZIUM_MODE:-mock}"
     init: true
     stop_grace_period: 30s
     volumes:
-      - robosprawl-hub:/hub
-      - robosprawl-logs:/logs
+      - robozium-hub:/hub
+      - robozium-logs:/logs
 
   web:
     build:
@@ -25,10 +25,10 @@ services:
       api:
         condition: service_healthy
     environment:
-      ROBOSPRAWL_API_BASE_URL: http://api:8000
+      ROBOZIUM_API_BASE_URL: http://api:8000
     init: true
     ports:
-      - "127.0.0.1:${ROBOSPRAWL_WEB_PORT:-6969}:6969"
+      - "127.0.0.1:${ROBOZIUM_WEB_PORT:-6969}:6969"
     stop_grace_period: 30s
 
   verify:
@@ -39,13 +39,13 @@ services:
       web:
         condition: service_healthy
     environment:
-      ROBOSPRAWL_CONTAINER_BASE_URL: http://web:6969
-      ROBOSPRAWL_CONTAINER_PHASE: "${ROBOSPRAWL_CONTAINER_PHASE:-onboarding}"
+      ROBOZIUM_CONTAINER_BASE_URL: http://web:6969
+      ROBOZIUM_CONTAINER_PHASE: "${ROBOZIUM_CONTAINER_PHASE:-onboarding}"
     init: true
     profiles: [verify]
 
 volumes:
-  robosprawl-hub:
-    name: "${COMPOSE_PROJECT_NAME:-robosprawl}-${ROBOSPRAWL_MODE:-mock}-hub"
-  robosprawl-logs:
-    name: "${COMPOSE_PROJECT_NAME:-robosprawl}-${ROBOSPRAWL_MODE:-mock}-logs"
+  robozium-hub:
+    name: "${COMPOSE_PROJECT_NAME:-robozium}-${ROBOZIUM_MODE:-mock}-hub"
+  robozium-logs:
+    name: "${COMPOSE_PROJECT_NAME:-robozium}-${ROBOZIUM_MODE:-mock}-logs"

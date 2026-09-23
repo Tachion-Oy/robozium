@@ -86,9 +86,9 @@ def main() -> int:
         for k, v in os.environ.items()
         if k not in {"PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"}
     }
-    api_port = int(env.get("ROBOSPRAWL_E2E_API_PORT", "8000"))
-    web_port = int(env.get("ROBOSPRAWL_E2E_WEB_PORT", "3100"))
-    python = str(Path(env.get("ROBOSPRAWL_E2E_PYTHON", sys.executable)).absolute())
+    api_port = int(env.get("ROBOZIUM_E2E_API_PORT", "8000"))
+    web_port = int(env.get("ROBOZIUM_E2E_WEB_PORT", "3100"))
+    python = str(Path(env.get("ROBOZIUM_E2E_PYTHON", sys.executable)).absolute())
     status = 1
 
     def launch(command: list[str], cwd: Path, log: str) -> subprocess.Popen:
@@ -104,7 +104,7 @@ def main() -> int:
         )
 
     with tempfile.TemporaryDirectory(
-        prefix="robosprawl-e2e-", dir=env.get("RUNNER_TEMP", "/tmp")
+        prefix="robozium-e2e-", dir=env.get("RUNNER_TEMP", "/tmp")
     ) as directory:
         workspace = Path(directory)
         try:
@@ -129,18 +129,18 @@ def main() -> int:
             )
             env.update(
                 {
-                    "ROBOSPRAWL_CONFIG": str(workspace / "hub.config.py"),
-                    "ROBOSPRAWL_E2E_HUB_BASE_DIR": str(hub),
-                    "ROBOSPRAWL_E2E_CONVERSATION_LOGS_DIR": str(logs),
-                    "ROBOSPRAWL_E2E_SNAPSHOT_DIR": str(snapshots),
-                    "ROBOSPRAWL_E2E_MEMORY_DIR": str(memory),
-                    "ROBOSPRAWL_E2E_PROJECT_SLUG": "e2e-project",
-                    "ROBOSPRAWL_E2E_SEED_CONVERSATION_ID": "seed-conversation",
-                    "ROBOSPRAWL_E2E_OLDEST_SEED_PATH": str(logs / "seed-001.json"),
-                    "ROBOSPRAWL_API_BASE_URL": f"http://127.0.0.1:{api_port}",
-                    "ROBOSPRAWL_E2E_WEB_PORT": str(web_port),
-                    "ROBOSPRAWL_E2E_CONTROL_DIR": str(workspace),
-                    "ROBOSPRAWL_E2E_REPORT_DIR": str(reports),
+                    "ROBOZIUM_CONFIG": str(workspace / "hub.config.py"),
+                    "ROBOZIUM_E2E_HUB_BASE_DIR": str(hub),
+                    "ROBOZIUM_E2E_CONVERSATION_LOGS_DIR": str(logs),
+                    "ROBOZIUM_E2E_SNAPSHOT_DIR": str(snapshots),
+                    "ROBOZIUM_E2E_MEMORY_DIR": str(memory),
+                    "ROBOZIUM_E2E_PROJECT_SLUG": "e2e-project",
+                    "ROBOZIUM_E2E_SEED_CONVERSATION_ID": "seed-conversation",
+                    "ROBOZIUM_E2E_OLDEST_SEED_PATH": str(logs / "seed-001.json"),
+                    "ROBOZIUM_API_BASE_URL": f"http://127.0.0.1:{api_port}",
+                    "ROBOZIUM_E2E_WEB_PORT": str(web_port),
+                    "ROBOZIUM_E2E_CONTROL_DIR": str(workspace),
+                    "ROBOZIUM_E2E_REPORT_DIR": str(reports),
                     "PLAYWRIGHT_HTML_OPEN": "never",
                     "NEXT_TELEMETRY_DISABLED": "1",
                 }
@@ -151,13 +151,13 @@ def main() -> int:
                 env=env,
                 check=True,
             )
-            if env.get("ROBOSPRAWL_E2E_PREBUILT") != "1":
+            if env.get("ROBOZIUM_E2E_PREBUILT") != "1":
                 build = launch(["npm", "run", "build"], ROOT / "web", "build.log")
                 if build.wait(timeout=180) != 0:
                     raise RuntimeError("Frontend build failed")
             elif not (ROOT / "web/.next/BUILD_ID").is_file():
                 raise RuntimeError(
-                    "ROBOSPRAWL_E2E_PREBUILT requires web/.next/BUILD_ID"
+                    "ROBOZIUM_E2E_PREBUILT requires web/.next/BUILD_ID"
                 )
 
             def start_backend() -> subprocess.Popen:
@@ -167,7 +167,7 @@ def main() -> int:
                         "-I",
                         "-m",
                         "uvicorn",
-                        "robosprawl.api.app:mock_app",
+                        "robozium.api.app:mock_app",
                         "--factory",
                         "--host",
                         "127.0.0.1",
@@ -181,8 +181,8 @@ def main() -> int:
             backend = start_backend()
             ready(
                 backend,
-                env["ROBOSPRAWL_API_BASE_URL"] + "/ready",
-                float(env.get("ROBOSPRAWL_API_READY_TIMEOUT_SECONDS", "60")),
+                env["ROBOZIUM_API_BASE_URL"] + "/ready",
+                float(env.get("ROBOZIUM_API_READY_TIMEOUT_SECONDS", "60")),
             )
             frontend = launch(
                 [
@@ -212,7 +212,7 @@ def main() -> int:
                     (workspace / "restart.request").unlink()
                     stop(backend, crash=True)
                     backend = start_backend()
-                    ready(backend, env["ROBOSPRAWL_API_BASE_URL"] + "/ready", 60)
+                    ready(backend, env["ROBOZIUM_API_BASE_URL"] + "/ready", 60)
                     (workspace / "restart.done").write_text("ready")
                 if backend.poll() is not None or frontend.poll() is not None:
                     raise RuntimeError("A service exited during browser tests")

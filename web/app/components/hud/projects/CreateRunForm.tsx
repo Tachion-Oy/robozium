@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, type ComponentProps } from "react"
+import { DisplayArt } from "@/app/components/branding/DisplayArt"
 
 type FormSubmitHandler = NonNullable<ComponentProps<"form">["onSubmit"]>
 
@@ -29,7 +30,7 @@ export function CreateRunForm({
 
 	return (
 		<form
-			className="flex items-center gap-4"
+			className="flex flex-wrap items-center justify-center gap-4"
 			onSubmit={handleSubmit}>
 			<label
 				className="sr-only"
@@ -50,14 +51,14 @@ export function CreateRunForm({
 				type="submit"
 				disabled={isCreating || !trimmedProjectName}
 				className="app-nav__cta agent-hud__start">
-				Create Project
+				<DisplayArt name="create-project" />
 			</button>
 			<button
 				type="button"
 				onClick={onCancel}
 				disabled={isCreating}
 				className="app-nav__cta agent-hud__start">
-				Cancel
+				<DisplayArt name="cancel" />
 			</button>
 		</form>
 	)

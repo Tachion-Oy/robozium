@@ -7,7 +7,7 @@ import {
 	within,
 } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type { DependencyRecord } from "../../../../../lib/robosprawl/wire"
+import type { DependencyRecord } from "../../../../../lib/robozium/wire"
 
 const mocks = vi.hoisted(() => ({
 	checkDependencies: vi.fn(),
@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
 	showErrorToast: vi.fn(),
 }))
 
-vi.mock("../../../../../lib/robosprawl/client", () => ({
+vi.mock("../../../../../lib/robozium/client", () => ({
 	checkDependencies: mocks.checkDependencies,
 	listDependencies: mocks.listDependencies,
 }))

@@ -1,0 +1,50 @@
+.display-art {
+  display: inline-block;
+  flex: none;
+  width: calc(var(--display-art-ratio) * 1em);
+  max-width: 100%;
+  height: 1em;
+  background: currentColor;
+  -webkit-mask: var(--display-art-source) center / contain no-repeat;
+  mask: var(--display-art-source) center / contain no-repeat;
+}
+
+.display-art--robozium {
+  --display-art-source: url("/branding/robozium.svg");
+  --display-art-ratio: 13.97;
+}
+
+.display-art--start {
+  --display-art-source: url("/branding/start.svg");
+  --display-art-ratio: 6.75;
+}
+
+.display-art--new-project {
+  --display-art-source: url("/branding/new-project.svg");
+  --display-art-ratio: 13.89;
+}
+
+.display-art--create-project {
+  --display-art-source: url("/branding/create-project.svg");
+  --display-art-ratio: 17.11;
+}
+
+.display-art--cancel {
+  --display-art-source: url("/branding/cancel.svg");
+  --display-art-ratio: 7.81;
+}
+
+.display-art--check-now {
+  --display-art-source: url("/branding/check-now.svg");
+  --display-art-ratio: 11.98;
+}
+
+.display-art--checking {
+  --display-art-source: url("/branding/checking.svg");
+  --display-art-ratio: 10.79;
+}
+
+:root[data-theme="light"] .app-nav__cta .display-art {
+  font-size: 0.95em;
+  filter: none;
+}

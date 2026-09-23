@@ -1,4 +1,4 @@
-import { RunHudPhase } from "@/lib/robosprawl/session/reducer"
+import { RunHudPhase } from "@/lib/robozium/session/reducer"
 
 export type HudScreen = "projects" | "run" | "dependencies"
 

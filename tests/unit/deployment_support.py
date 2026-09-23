@@ -7,7 +7,7 @@ from typing import NamedTuple
 from roboz.agent import Agent
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
 
-from robosprawl.hub.utils import load_hub
+from robozium.hub.utils import load_hub
 
 
 class BuiltAgents(NamedTuple):

@@ -34,11 +34,11 @@ async function startRunForProject(
 }
 
 test("librarian generates snapshot and purges logs", async ({ page, request }) => {
-	const conversationRoot = process.env.ROBOSPRAWL_E2E_CONVERSATION_LOGS_DIR
-	const snapshotRoot = process.env.ROBOSPRAWL_E2E_SNAPSHOT_DIR
-	const seedConversationId = process.env.ROBOSPRAWL_E2E_SEED_CONVERSATION_ID
-	const oldestSeedPath = process.env.ROBOSPRAWL_E2E_OLDEST_SEED_PATH
-	const seededSlug = process.env.ROBOSPRAWL_E2E_PROJECT_SLUG ?? "e2e-project"
+	const conversationRoot = process.env.ROBOZIUM_E2E_CONVERSATION_LOGS_DIR
+	const snapshotRoot = process.env.ROBOZIUM_E2E_SNAPSHOT_DIR
+	const seedConversationId = process.env.ROBOZIUM_E2E_SEED_CONVERSATION_ID
+	const oldestSeedPath = process.env.ROBOZIUM_E2E_OLDEST_SEED_PATH
+	const seededSlug = process.env.ROBOZIUM_E2E_PROJECT_SLUG ?? "e2e-project"
 
 	expect(conversationRoot).toBeTruthy()
 	expect(snapshotRoot).toBeTruthy()

@@ -1,6 +1,6 @@
 "use client"
 
-import { StreamLogRole } from "@/lib/robosprawl/view-model"
+import { StreamLogRole } from "@/lib/robozium/view-model"
 import { TerminalLog } from "./TerminalLog"
 import { TerminalMessage } from "./TerminalMessage"
 import { TerminalStream } from "./TerminalStream"

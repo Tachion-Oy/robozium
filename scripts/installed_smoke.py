@@ -1,4 +1,4 @@
-"""Installed RoboSprawl HTTP run/reply/completion contract; no service credentials."""
+"""Installed Robozium HTTP run/reply/completion contract; no service credentials."""
 
 import json
 import socket
@@ -11,13 +11,12 @@ from pathlib import Path
 
 
 def main() -> None:
-    import roboshed
     import roboz
-    import roboz_endpoints
+    import roboz.endpoints
 
-    import robosprawl
+    import robozium
 
-    for module in (robosprawl, roboz, roboshed, roboz_endpoints):
+    for module in (robozium, roboz):
         assert (
             Path(module.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
         )
@@ -41,7 +40,7 @@ def main() -> None:
                 "-I",
                 "-m",
                 "uvicorn",
-                "robosprawl.api.app:mock_app",
+                "robozium.api.app:mock_app",
                 "--factory",
                 "--host",
                 "127.0.0.1",

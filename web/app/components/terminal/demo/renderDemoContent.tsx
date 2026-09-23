@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react"
-import type { MessageLogItem } from "@/lib/robosprawl/view-model"
+import type { MessageLogItem } from "@/lib/robozium/view-model"
 import { TerminalEmphasis } from "../TerminalEmphasis"
 import { TerminalTag } from "../TerminalTag"
 

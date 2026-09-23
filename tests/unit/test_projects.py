@@ -1,10 +1,10 @@
 from pathlib import Path
 
 import pytest
-from roboshed.sandbox import Sandbox
+from roboz.shed.sandbox import Sandbox
 
-from robosprawl.api.projects import Project, ProjectStatus, compose_project_list
-from robosprawl.api.state import ProjectRunItem, RunStatus
+from robozium.api.projects import Project, ProjectStatus, compose_project_list
+from robozium.api.state import ProjectRunItem, RunStatus
 
 
 def _project(tmp_path: Path, slug: str = "alpha") -> Project:

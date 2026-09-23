@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react"
 
 import { ProjectOverviewPanel } from "../../../../../app/components/hud/projects/ProjectOverviewPanel"
-import { ProjectStatus, type ProjectRow } from "../../../../../lib/robosprawl/landing"
+import { ProjectStatus, type ProjectRow } from "../../../../../lib/robozium/landing"
 
 function row(overrides: Partial<ProjectRow>): ProjectRow {
 	return {

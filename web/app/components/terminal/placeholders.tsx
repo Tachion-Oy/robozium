@@ -2,8 +2,8 @@ import {
 	StreamLogItemKind,
 	StreamLogRole,
 	type StreamLogItem,
-} from "@/lib/robosprawl/view-model"
-import { RunLifecycleKind } from "@/lib/robosprawl/wire"
+} from "@/lib/robozium/view-model"
+import { RunLifecycleKind } from "@/lib/robozium/wire"
 
 /**
  * Visual fixture data for the home page. Structured exactly like the live

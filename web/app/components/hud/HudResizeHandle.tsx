@@ -10,7 +10,7 @@ import {
 	useState,
 } from "react"
 import { useStore } from "zustand"
-import { hudSizeStore, setHudSizeProgress } from "@/lib/robosprawl/hud-size"
+import { hudSizeStore, setHudSizeProgress } from "@/lib/robozium/hud-size"
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value))
 

@@ -10,9 +10,9 @@ from pathlib import Path
 import pytest
 from roboz.runtime import LOG_DATE_FORMAT, LOG_FORMAT, log_with_data
 
-from robosprawl import backend_logging
-from robosprawl.backend_logging import _APPLICATION_LOGGERS, backend_logging_context
-from robosprawl.hub.logging import HubLoggingConfig
+from robozium import backend_logging
+from robozium.backend_logging import _APPLICATION_LOGGERS, backend_logging_context
+from robozium.hub.logging import HubLoggingConfig
 
 
 def _config(tmp_path: Path) -> HubLoggingConfig:
@@ -359,7 +359,7 @@ def test_failed_logging_setup_restores_partial_changes(
 
     def attach(logger, handler):
         original_attach(logger, handler)
-        if logger.name == "roboshed":
+        if logger.name == "roboz":
             raise RuntimeError("partial attachment failure")
 
     monkeypatch.setattr(backend_logging, "_build_console_handler", console)

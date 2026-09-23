@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
 	showErrorToast: vi.fn(),
 }))
 
-vi.mock("../../../../lib/robosprawl/client", () => ({
+vi.mock("../../../../lib/robozium/client", () => ({
 	getModelSelection: mocks.getModelSelection,
 	selectModel: mocks.selectModel,
 }))

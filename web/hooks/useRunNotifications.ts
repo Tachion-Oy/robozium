@@ -5,7 +5,7 @@ import { showNotificationToast } from "@/app/components/feedback/ErrorToast"
 import {
 	formatNotification,
 	shouldToast,
-} from "@/lib/robosprawl/session/notification-format"
+} from "@/lib/robozium/session/notification-format"
 import { useRunSessionSelector } from "./useRunSession"
 
 export function useRunNotifications() {

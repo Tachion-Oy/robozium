@@ -1,4 +1,4 @@
-import { logRoleToCaret, StreamLogRole } from "@/lib/robosprawl/view-model"
+import { logRoleToCaret, StreamLogRole } from "@/lib/robozium/view-model"
 
 type TerminalCursorProps = {
 	role?: StreamLogRole

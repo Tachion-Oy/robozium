@@ -1,5 +1,5 @@
-import { fetchAgentUpstream, passthroughResponse } from "@/lib/robosprawl/http";
-import type { ReplyBody } from "@/lib/robosprawl/wire";
+import { fetchAgentUpstream, passthroughResponse } from "@/lib/robozium/http";
+import type { ReplyBody } from "@/lib/robozium/wire";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

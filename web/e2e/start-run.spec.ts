@@ -31,13 +31,13 @@ async function startRunFromLanding(
 test("shows the New Project button on landing", async ({ page }) => {
 	await gotoLanding(page)
 
-	await expect(page.getByText("New Project", { exact: true })).toBeVisible()
+	await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible()
 })
 
 test("startup reaps stale preboot running logs so seeded project is not syncing", async ({
 	page,
 }) => {
-	const seededSlug = process.env.ROBOSPRAWL_E2E_PROJECT_SLUG ?? "e2e-project"
+	const seededSlug = process.env.ROBOZIUM_E2E_PROJECT_SLUG ?? "e2e-project"
 	await gotoLanding(page)
 	const row = projectRow(page, seededSlug)
 	await expect(row).toBeVisible({ timeout: 20_000 })

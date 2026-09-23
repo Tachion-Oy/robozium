@@ -23,7 +23,7 @@ const nextConfig: NextConfig = {
 	// opening the dev server via 127.0.0.1 hydrates a dead, non-interactive page.
 	allowedDevOrigins: ["127.0.0.1"],
 	env: {
-		NEXT_PUBLIC_ROBOSPRAWL_NAME: readHubName(),
+		NEXT_PUBLIC_ROBOZIUM_NAME: readHubName(),
 	},
 	logging: {
 		incomingRequests: {

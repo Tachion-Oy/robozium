@@ -31,7 +31,7 @@ def user_files() -> dict[str, str]:
 
 def main() -> None:
     before = user_files()
-    base = os.environ | {"ROBOSPRAWL_E2E_PREBUILT": "1"}
+    base = os.environ | {"ROBOZIUM_E2E_PREBUILT": "1"}
     for case in (
         "occupied-api",
         "occupied-web",
@@ -43,8 +43,8 @@ def main() -> None:
         while api_port == web_port:
             web_port = free_port()
         env = base | {
-            "ROBOSPRAWL_E2E_API_PORT": str(api_port),
-            "ROBOSPRAWL_E2E_WEB_PORT": str(web_port),
+            "ROBOZIUM_E2E_API_PORT": str(api_port),
+            "ROBOZIUM_E2E_WEB_PORT": str(web_port),
         }
         occupied = None
         if case.startswith("occupied"):
@@ -54,7 +54,7 @@ def main() -> None:
             )
             occupied.listen()
         if case == "startup":
-            env["ROBOSPRAWL_API_READY_TIMEOUT_SECONDS"] = "0"
+            env["ROBOZIUM_API_READY_TIMEOUT_SECONDS"] = "0"
         args = [
             "--project=chromium",
             "--grep=an unknown run keeps",

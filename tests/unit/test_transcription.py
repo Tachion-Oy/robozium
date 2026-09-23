@@ -11,11 +11,11 @@ from config_support import write_config
 from fastapi.testclient import TestClient
 from roboz.llm import MockTranscriptionEndpoint
 
-from robosprawl.api.app import create_app
-from robosprawl.hub.application import Hub
-from robosprawl.hub.utils import load_hub
+from robozium.api.app import create_app
+from robozium.hub.application import Hub
+from robozium.hub.utils import load_hub
 
-app_module = importlib.import_module("robosprawl.api.app")
+app_module = importlib.import_module("robozium.api.app")
 
 
 def _deployment(transcription_endpoint, config_start: Path) -> Hub:
@@ -38,7 +38,7 @@ def test_live_transcription_returns_clear_service_unavailable(tmp_path: Path) ->
     )
     assert response.status_code == 503
     assert response.json() == {
-        "detail": "Live transcription is not available in RoboSprawl."
+        "detail": "Live transcription is not available in Robozium."
     }
 
 

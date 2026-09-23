@@ -1,15 +1,15 @@
 "use client"
 
 import { useState, type Dispatch, type SetStateAction } from "react"
-import { streamingDisplayText } from "@/lib/robosprawl/streaming-text"
+import { streamingDisplayText } from "@/lib/robozium/streaming-text"
 import {
 	agentActivityStateForPhase,
 	getActiveStreamingMessage,
 	RunHudPhase,
-} from "@/lib/robosprawl/session/reducer"
+} from "@/lib/robozium/session/reducer"
 import { useRunSession, useRunSessionSelector } from "@/hooks/useRunSession"
 import { useDictation } from "@/hooks/useDictation"
-import { getHudMessages } from "@/lib/robosprawl/hud-messages"
+import { getHudMessages } from "@/lib/robozium/hud-messages"
 import { showErrorToast } from "@/app/components/feedback/ErrorToast"
 import type { AgentMessage } from "./AgentMessagePanel"
 import type { LayoutMode } from "../HudCornerControls"

@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test"
 
-const baseURL = process.env.ROBOSPRAWL_CONTAINER_BASE_URL
-if (!baseURL) throw new Error("ROBOSPRAWL_CONTAINER_BASE_URL is required")
+const baseURL = process.env.ROBOZIUM_CONTAINER_BASE_URL
+if (!baseURL) throw new Error("ROBOZIUM_CONTAINER_BASE_URL is required")
 
 export default defineConfig({
 	testDir: "./container",

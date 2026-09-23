@@ -8,7 +8,7 @@ const passthroughResponse = vi.fn((upstream: Response) => {
 	})
 })
 
-vi.mock("../../../../../lib/robosprawl/http", () => ({
+vi.mock("../../../../../lib/robozium/http", () => ({
 	fetchAgentUpstream,
 	passthroughResponse,
 }))

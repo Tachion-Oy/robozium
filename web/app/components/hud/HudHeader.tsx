@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import type { ModelSelection } from "@/lib/robosprawl/wire"
+import type { ModelSelection } from "@/lib/robozium/wire"
 import { HudScreenSelector } from "./HudScreenSelector"
 import {
 	ModelSelector,

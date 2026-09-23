@@ -3,7 +3,10 @@ import time
 from pathlib import Path
 
 from config_support import write_config
-from roboshed.identifiers import (
+from roboz.endpoints.inventory import openrouter
+from roboz.llm import MockLLMEndpoint, MockProviderError
+from roboz.models import AgentMode
+from roboz.shed.identifiers import (
     CONSOLIDATE_MEMORY_TOOL_NAME,
     LIBRARIAN_AGENT_NAME,
     PURGE_LOGS_TOOL_NAME,
@@ -13,12 +16,9 @@ from roboshed.identifiers import (
     SNAPSHOT_CONVERSATIONS_TOOL_NAME,
     STOP_WHEN_WATCHED_AGENTS_INACTIVE_TOOL_NAME,
 )
-from roboz.llm import MockLLMEndpoint, MockProviderError
-from roboz.models import AgentMode
-from roboz_endpoints import openrouter
 
-from robosprawl.hub.utils import load_hub
-from robosprawl.mock.agents import (
+from robozium.hub.utils import load_hub
+from robozium.mock.agents import (
     MOCK_SCENARIO_USER_NOTIFICATION,
     _holdable_endpoint,
     mock_deployment,
@@ -257,10 +257,10 @@ def test_stream_mock_repeats_specialist_and_recreates_scripts_per_run(
 
     from roboz.runtime import bind_api_user_io, reset_api_user_io
 
-    from robosprawl.mock.agents import stream_mock_deployment
+    from robozium.mock.agents import stream_mock_deployment
 
-    monkeypatch.setenv("ROBOSPRAWL_STREAM_MOCK_DELAY_S", "0")
-    monkeypatch.setenv("ROBOSPRAWL_STREAM_MOCK_START_DELAY_S", "0")
+    monkeypatch.setenv("ROBOZIUM_STREAM_MOCK_DELAY_S", "0")
+    monkeypatch.setenv("ROBOZIUM_STREAM_MOCK_START_DELAY_S", "0")
     write_config(tmp_path, sandbox_root="hub_data", name="MockHub")
     project = load_hub(start=tmp_path).project("stream")
     replies = []

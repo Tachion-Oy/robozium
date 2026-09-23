@@ -1,8 +1,8 @@
 import { createElement } from "react"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { AgentActivityState } from "../../../../../lib/robosprawl/session/reducer"
-vi.mock("@/lib/robosprawl/public-config", () => ({
+import { AgentActivityState } from "../../../../../lib/robozium/session/reducer"
+vi.mock("@/lib/robozium/public-config", () => ({
 	HUB_HOME_ARIA_LABEL: "Hub home",
 }))
 import { ReplyForm } from "../../../../../app/components/hud/run/ReplyForm"

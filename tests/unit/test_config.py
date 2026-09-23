@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 from config_support import write_config
-from roboshed.models import ActionVerdict, Operation
-from roboshed.tools.utils import check_allow_deny_permission
+from roboz.shed.models import ActionVerdict, Operation
+from roboz.shed.tools.utils import check_allow_deny_permission
 
-from robosprawl.hub.utils import load_hub
+from robozium.hub.utils import load_hub
 
 
 def test_load_hub_resolves_base_and_relative_paths(tmp_path):

@@ -1,5 +1,6 @@
 import Link from "next/link"
-import { HUB_BRAND, HUB_HOME_ARIA_LABEL } from "@/lib/robosprawl/public-config"
+import { HUB_BRAND, HUB_HOME_ARIA_LABEL } from "@/lib/robozium/public-config"
+import { DisplayArt } from "../branding/DisplayArt"
 
 type AppNavControlsProps = {
 	brandClassName?: string
@@ -24,12 +25,12 @@ export function AppNavControls({
 				href="/"
 				aria-label={hubHomeAriaLabel}
 				className={joinClasses("app-nav__brand", brandClassName)}>
-				{hubBrand}
+				<DisplayArt name="robozium" label={hubBrand} />
 			</Link>
 			<Link
 				href="/"
 				className={joinClasses("app-nav__cta", ctaClassName)}>
-				START
+				<DisplayArt name="start" />
 			</Link>
 		</div>
 	)

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest"
 const fetchAgentUpstream = vi.fn()
 const passthroughResponse = vi.fn()
 
-vi.mock("../../../../lib/robosprawl/http", () => ({
+vi.mock("../../../../lib/robozium/http", () => ({
 	fetchAgentUpstream,
 	passthroughResponse,
 }))
