@@ -1,6 +1,6 @@
 "use client"
 
-import type { FormEventHandler } from "react"
+import type { SubmitEventHandler } from "react"
 import {
 	AgentMessagePanel,
 	type AgentMessage,
@@ -44,7 +44,7 @@ export function ReplyForm({
 			!controls.interrupt?.isPending,
 	)
 
-	const handleSubmit: FormEventHandler<HTMLFormElement> = (event) => {
+	const handleSubmit: SubmitEventHandler<HTMLFormElement> = (event) => {
 		event.preventDefault()
 		if (canSubmit) void composer.onSubmit()
 	}

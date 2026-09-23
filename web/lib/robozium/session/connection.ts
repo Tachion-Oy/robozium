@@ -31,7 +31,12 @@ async function openRunEventStream(runId: string, signal: AbortSignal) {
 }
 
 async function readRunEventStreamError(response: Response): Promise<string> {
-	const detail = await response.text().catch(() => "")
+	let detail = ""
+	try {
+		detail = await response.text()
+	} catch {
+		// Preserve the status fallback if the error body cannot be read.
+	}
 	return detail || `stream request failed (${response.status})`
 }
 
@@ -254,5 +259,9 @@ function maximumSequence(frames: PipeEventFrame[]): number {
 }
 
 async function cancelStream(body: ReadableStream<Uint8Array>) {
-	await body.cancel().catch(() => undefined)
+	try {
+		await body.cancel()
+	} catch {
+		// Stream cleanup is best effort after a terminal run.
+	}
 }

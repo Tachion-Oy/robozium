@@ -42,6 +42,14 @@ const AUDIO_LEVEL_SEGMENTS = 6
 const AUDIO_NOISE_FLOOR = 0.02
 const AUDIO_LEVEL_CEILING = 0.2
 
+async function ignoreAudioContextError(operation: () => Promise<void> | undefined) {
+	try {
+		await operation()
+	} catch {
+		// The optional level monitor must not block recording or cleanup.
+	}
+}
+
 function startAudioLevelMonitor(
 	stream: MediaStream,
 	onLevel: (level: number) => void,
@@ -62,7 +70,7 @@ function startAudioLevelMonitor(
 		source = audioContext.createMediaStreamSource(stream)
 		source.connect(analyser)
 	} catch {
-		void audioContext?.close().catch(() => {})
+		void ignoreAudioContextError(() => audioContext?.close())
 		return null
 	}
 	if (!audioContext) return null
@@ -111,7 +119,7 @@ function startAudioLevelMonitor(
 		monitor.frameId = requestAnimationFrame(sample)
 	}
 
-	void audioContext.resume().catch(() => {})
+	void ignoreAudioContextError(() => audioContext.resume())
 	monitor.frameId = requestAnimationFrame(sample)
 	return monitor
 }
@@ -122,7 +130,7 @@ function stopAudioLevelMonitor(monitor: AudioLevelMonitor | null) {
 	cancelAnimationFrame(monitor.frameId)
 	monitor.source.disconnect()
 	monitor.analyser.disconnect()
-	void monitor.audioContext.close().catch(() => {})
+	void ignoreAudioContextError(() => monitor.audioContext.close())
 }
 
 function stopTracks(stream: MediaStream | null) {

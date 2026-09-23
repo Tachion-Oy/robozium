@@ -40,7 +40,8 @@ function moveOptionFocus(
 	const currentIndex = options.indexOf(event.target as HTMLButtonElement)
 	if (currentIndex < 0) return
 
-	const nextIndex = (currentIndex + direction + options.length) % options.length
+	const nextIndex =
+		(currentIndex + direction + options.length) % options.length
 	options[nextIndex]?.focus()
 }
 
@@ -67,7 +68,8 @@ export function SelectorDropdown<Value extends string>({
 		if (!isOpen) return
 
 		const closeOnOutsidePointer = (event: PointerEvent) => {
-			if (!rootRef.current?.contains(event.target as Node)) setIsOpen(false)
+			if (!rootRef.current?.contains(event.target as Node))
+				setIsOpen(false)
 		}
 		const closeOnEscape = (event: KeyboardEvent) => {
 			if (event.key !== "Escape") return
@@ -108,9 +110,12 @@ export function SelectorDropdown<Value extends string>({
 			if (shouldClose) setIsOpen(false)
 			return
 		}
-		void shouldClose.then((close) => {
-			if (close) setIsOpen(false)
-		})
+		const settleSelection = async () => {
+			try {
+				if (await shouldClose) setIsOpen(false)
+			} catch {}
+		}
+		void settleSelection()
 	}
 
 	const isViewSelector = variant === "view"
@@ -146,9 +151,16 @@ export function SelectorDropdown<Value extends string>({
 					role="listbox"
 					aria-label={listboxLabel}
 					onKeyDown={(event) => {
-						if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return
+						if (
+							event.key !== "ArrowDown" &&
+							event.key !== "ArrowUp"
+						)
+							return
 						event.preventDefault()
-						moveOptionFocus(event, event.key === "ArrowDown" ? 1 : -1)
+						moveOptionFocus(
+							event,
+							event.key === "ArrowDown" ? 1 : -1,
+						)
 					}}>
 					{options.map((option) => (
 						<button
@@ -160,7 +172,9 @@ export function SelectorDropdown<Value extends string>({
 							disabled={option.disabled}
 							onClick={() => selectOption(option.value)}>
 							<span>{option.label}</span>
-							{option.value === value ? <span aria-hidden="true">●</span> : null}
+							{option.value === value ? (
+								<span aria-hidden="true">●</span>
+							) : null}
 						</button>
 					))}
 					{options.length === 0 ? emptyContent : null}
