@@ -1,11 +1,13 @@
 import { Suspense } from "react"
 import type { ModelSelection } from "@/lib/robozium/wire"
+import { ThemeToggle } from "../theme/ThemeToggle"
 import { HudScreenSelector } from "./HudScreenSelector"
 import {
 	ModelSelector,
 	ModelSelectorLoading,
 } from "./ModelSelector"
 import type { HudPresentation, HudScreen } from "./hudPresentation"
+import { UnlockApiKeys } from "./UnlockApiKeys"
 
 type HudHeaderProps = {
 	presentation: HudPresentation
@@ -39,6 +41,8 @@ export function HudHeader({
 				)}
 			</Suspense>
 			<div className="agent-hud__header-actions flex shrink-0 items-start gap-(--hud-actions-gap)">
+				<ThemeToggle />
+				<UnlockApiKeys />
 				<HudScreenSelector
 					screen={presentation.screen}
 					options={presentation.screenOptions}

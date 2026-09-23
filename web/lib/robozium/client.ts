@@ -2,6 +2,8 @@ import type {
 	CancelResponse,
 	CreateBody,
 	CreateResponse,
+	CredentialStatus,
+	CredentialUnlockBody,
 	DeleteProjectResponse,
 	DependencyRecord,
 	ModelSelectBody,
@@ -81,6 +83,39 @@ export async function listDependencies(init?: {
 			Accept: "application/json",
 		},
 		signal: init?.signal,
+	})
+}
+
+export async function getCredentialStatus(init?: {
+	signal?: AbortSignal
+}): Promise<CredentialStatus> {
+	return fetchJson<CredentialStatus>("/api/credentials", {
+		method: "GET",
+		cache: "no-store",
+		headers: { Accept: "application/json" },
+		signal: init?.signal,
+	})
+}
+
+export async function unlockApiKeys(
+	body: CredentialUnlockBody,
+): Promise<CredentialStatus> {
+	return fetchJson<CredentialStatus>("/api/credentials/unlock", {
+		method: "POST",
+		cache: "no-store",
+		headers: {
+			Accept: "application/json",
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify(body),
+	})
+}
+
+export async function clearApiKeys(): Promise<CredentialStatus> {
+	return fetchJson<CredentialStatus>("/api/credentials/clear", {
+		method: "POST",
+		cache: "no-store",
+		headers: { Accept: "application/json" },
 	})
 }
 

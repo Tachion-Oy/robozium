@@ -6,7 +6,6 @@ import { HUB_NAME } from "@/lib/robozium/public-config"
 import { APP_THEME_COOKIE_NAME, parseAppTheme } from "@/lib/theme"
 import { AppNav } from "./components/nav"
 import { AppToaster } from "./components/feedback/AppToaster"
-import { ThemeToggle } from "./components/theme/ThemeToggle"
 import "./globals.css"
 
 const vt323 = localFont({
@@ -80,7 +79,6 @@ export default async function RootLayout({
 					context and -- if that was the cause -- clears the moire. */}
 				<div className="term-scanlines term-vignette relative flex flex-1 flex-col min-h-0">
 					<AppNav />
-					<ThemeToggle />
 					<AppToaster />
 					{children}
 				</div>

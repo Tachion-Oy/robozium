@@ -121,6 +121,12 @@ export type ReplyResponse = { ok: boolean }
 export type CancelResponse = { ok: boolean }
 export type DeleteProjectResponse = { ok: boolean }
 export type TranscribeResponse = { text: string }
+export type CredentialStatus = {
+	available: boolean
+	locked: boolean
+	removable: boolean
+}
+export type CredentialUnlockBody = { password: string }
 
 export type AvailableModel = {
 	model_id: string

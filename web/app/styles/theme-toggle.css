@@ -1,48 +1,31 @@
-.theme-controls {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 90;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.42rem;
-}
-
-.theme-toggle {
+/* Match the selector beside it; use the HUD size controls' blue palette. */
+.theme-toggle.agent-hud__selector-trigger {
+  --btn-accent: var(--term-blue);
+  --btn-edge: color-mix(in oklab, var(--term-blue) 62%, transparent);
+  --btn-fill-strength: 10%;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.55rem;
-  min-height: 2.3rem;
-  padding: 0.48rem 0.7rem;
-  border: 1px solid color-mix(in oklab, var(--term-blue) 52%, transparent);
-  border-radius: 0.32rem;
-  background: color-mix(in oklab, var(--hud-input-bg) 82%, transparent);
-  color: color-mix(in oklab, var(--term-blue) 62%, white 38%);
-  font-family: var(--font-agent-input);
-  font-size: 0.76rem;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  text-shadow: var(--term-glow-blue);
-  box-shadow: 0 0 14px color-mix(in oklab, var(--term-blue) 14%, transparent);
-  backdrop-filter: blur(8px);
-  cursor: pointer;
-  transition:
-    color 140ms ease,
-    border-color 140ms ease,
-    background 140ms ease,
-    box-shadow 140ms ease;
+  flex: 0 0 auto;
+  width: auto;
+  color: color-mix(in oklab, var(--term-blue) 76%, white 24%);
+  font-size: inherit;
 }
 
-.theme-toggle:hover,
+.theme-toggle.agent-hud__selector-trigger:hover {
+  --btn-edge: color-mix(in oklab, var(--term-blue) 88%, white 12%);
+  --btn-fill-strength: 24%;
+  color: color-mix(in oklab, var(--term-blue) 76%, white 24%);
+}
+
 .theme-toggle:focus-visible {
-  border-color: color-mix(in oklab, var(--term-blue) 82%, white 18%);
-  background: color-mix(in oklab, var(--term-blue) 18%, var(--hud-input-bg));
-  outline: none;
+  outline: 2px solid color-mix(in oklab, var(--term-blue) 80%, white 20%);
+  outline-offset: 2px;
 }
 
 .theme-toggle__indicator {
+  flex: 0 0 auto;
   width: 0.62rem;
   height: 0.62rem;
   border: 1px solid currentColor;
@@ -63,34 +46,42 @@
   display: inline;
 }
 
-:root[data-theme="light"] .theme-toggle {
-  border-color: color-mix(
-    in oklab,
-    var(--term-blue) 54%,
-    var(--hud-input-border)
-  );
-  background: color-mix(in oklab, var(--term-blue) 10%, var(--hud-input-bg));
+:root[data-theme="light"] .theme-toggle.agent-hud__selector-trigger {
+  --btn-tone: var(--term-blue);
+  --btn-edge: color-mix(in oklab, var(--btn-tone) 58%, var(--hud-input-border));
+  --btn-fill: color-mix(in oklab, var(--btn-tone) 13%, var(--hud-input-bg));
+  --btn-ring: 0.08rem;
+  min-height: 2.35rem;
+  padding: 0.5rem 0.78rem;
   color: var(--hud-control-ink);
+  border: 1px solid var(--btn-edge);
+  border-radius: 0.3rem;
+  background:
+    linear-gradient(
+      to top,
+      color-mix(in oklab, var(--btn-tone) 68%, transparent) 0 0.16rem,
+      transparent 0.16rem
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, white 30%, var(--btn-fill)),
+      color-mix(in oklab, var(--btn-fill) 88%, var(--hud-input-bg))
+    );
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 68%, transparent),
+    0 0.13rem 0.2rem
+      color-mix(in oklab, var(--hud-control-ink) 11%, transparent);
+  letter-spacing: 0.045em;
   text-shadow: none;
-  box-shadow:
-    inset 0 1px 0 color-mix(in oklab, white 58%, transparent),
-    0 0.3rem 0.9rem
-      color-mix(in oklab, var(--hud-control-ink) 14%, transparent);
 }
 
-:root[data-theme="light"] .theme-toggle:hover,
-:root[data-theme="light"] .theme-toggle:focus-visible {
-  border-color: color-mix(
-    in oklab,
-    var(--term-blue) 72%,
-    var(--hud-control-ink)
-  );
-  background: color-mix(in oklab, var(--term-blue) 17%, var(--hud-input-bg));
+:root[data-theme="light"] .theme-toggle::before,
+:root[data-theme="light"] .theme-toggle::after {
+  content: none;
 }
 
-@media (max-width: 640px) {
-  .theme-controls {
-    top: 0.6rem;
-    right: 0.6rem;
-  }
+:root[data-theme="light"] .theme-toggle.agent-hud__selector-trigger:hover,
+:root[data-theme="light"] .theme-toggle.agent-hud__selector-trigger:focus-visible {
+  border-color: color-mix(in oklab, var(--term-blue) 72%, var(--hud-control-ink));
+  background: color-mix(in oklab, var(--term-blue) 16%, var(--hud-input-bg));
+  color: var(--hud-control-ink);
 }

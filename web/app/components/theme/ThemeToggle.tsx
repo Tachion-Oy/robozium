@@ -44,34 +44,29 @@ export function ThemeToggle() {
 	}, [])
 
 	return (
-		<div className="theme-controls">
-			<button
-				type="button"
-				className="theme-toggle"
-				data-hud-ignore-dismiss
-				aria-label="Toggle color theme"
-				onClick={() => {
-					const nextTheme: AppTheme =
-						readDocumentTheme() === "dark" ? "light" : "dark"
-					applyTheme(nextTheme)
-					try {
-						persistTheme(nextTheme)
-					} catch {
-						// Theme still changes for this page when cookies are unavailable.
-					}
-					themeChannelRef.current?.postMessage(nextTheme)
-				}}>
-				<span
-					className="theme-toggle__indicator"
-					aria-hidden="true"
-				/>
-				<span className="theme-toggle__label theme-toggle__label--light">
-					Light
-				</span>
-				<span className="theme-toggle__label theme-toggle__label--dark">
-					Dark
-				</span>
-			</button>
-		</div>
+		<button
+			type="button"
+			className="theme-toggle agent-hud__selector-trigger"
+			data-hud-ignore-dismiss
+			aria-label="Toggle color theme"
+			onClick={() => {
+				const nextTheme: AppTheme =
+					readDocumentTheme() === "dark" ? "light" : "dark"
+				applyTheme(nextTheme)
+				try {
+					persistTheme(nextTheme)
+				} catch {
+					// Theme still changes for this page when cookies are unavailable.
+				}
+				themeChannelRef.current?.postMessage(nextTheme)
+			}}>
+			<span className="theme-toggle__indicator" aria-hidden="true" />
+			<span className="theme-toggle__label theme-toggle__label--light">
+				Light
+			</span>
+			<span className="theme-toggle__label theme-toggle__label--dark">
+				Dark
+			</span>
+		</button>
 	)
 }
