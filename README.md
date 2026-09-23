@@ -62,6 +62,24 @@ Mock and live modes use distinct named volumes. Switching the mode does not mix
 scripted demonstration memory with real projects. Readiness means the processes
 are initialized; provider health remains visible in the dependency panel.
 
+## Linux development without Docker
+
+Install `uv`, Node.js, and npm, then run both hot-reloading servers from the
+repository root:
+
+```bash
+./scripts/dev.sh --mock
+```
+
+Open http://127.0.0.1:3000. Mock mode needs no credentials. For live provider
+development, create `.env` or `.env.encrypt` as described above and run
+`./scripts/dev.sh`. The script installs web packages with `npm ci` on first use,
+loads `.env` only into the API process, and stops both servers with Ctrl+C.
+The API listens on 127.0.0.1:8000; the web server proxies to it. Set
+`ROBOZIUM_DEV_API_PORT` or `ROBOZIUM_DEV_WEB_PORT` to change either port.
+Local mock and live hub state is kept separately under `.runtime/`, outside
+the persistent Docker Compose volumes.
+
 ## Configuration
 
 Edit the named constants in `hub.config.py`, then restart with `./start` or
