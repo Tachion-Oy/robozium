@@ -39,6 +39,10 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: web/package-lock.json
+      - name: Free unused runner toolchains
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          df -h /
       - name: Verify packages and prepare browser tests
         id: prepare
         run: |
@@ -71,6 +75,11 @@ jobs:
           TEST_OUTCOME: ${{ steps.webkit.outcome }}
           PLAYWRIGHT_EXIT_CODE: ${{ steps.webkit.outputs.playwright_exit_code }}
         run: uv run python scripts/e2e/evaluate_result.py
+      - name: Reclaim browser test caches before Docker
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        run: |
+          rm -rf .artifacts/browsers .artifacts/npm-cache .artifacts/uv-cache
+          df -h /
       - name: Docker onboarding and restart recovery
         id: containers
         if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
