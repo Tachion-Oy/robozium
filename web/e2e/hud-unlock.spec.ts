@@ -74,6 +74,8 @@ test("unlock request reaches the API through the web proxy", async ({ page }) =>
 })
 
 test("credential menu uses the red selector treatment in both themes", async ({ page }) => {
+	// Measure the menu against a settled HUD, not the fresh landing entrance.
+	await page.emulateMedia({ reducedMotion: "reduce" })
 	let locked = true
 	await page.route("**/api/credentials", (route) => route.fulfill({
 		status: 200,
@@ -82,7 +84,7 @@ test("credential menu uses the red selector treatment in both themes", async ({ 
 	}))
 	for (const state of ["locked", "unlocked"] as const) {
 		locked = state === "locked"
-		await page.goto("/")
+		await page.goto("/?from=app")
 		await expect(page.getByRole("button", { name: `API keys ${state}` })).toBeVisible()
 		await expect(page.locator(".agent-hud__table-scroll")).toBeVisible()
 		const tableTopByTheme = { dark: 0, light: 0 }
