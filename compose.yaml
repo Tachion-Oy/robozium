@@ -6,16 +6,33 @@ services:
       context: .
       target: api
     environment:
-      CEREBRAS_API_KEY: "${CEREBRAS_API_KEY:-}"
-      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      CEREBRAS_API_KEY: "${CEREBRAS_API_KEY_SECRET:-${CEREBRAS_API_KEY:-}}"
+      GROQ_API_KEY: "${GROQ_API_KEY_SECRET:-${GROQ_API_KEY:-}}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY_SECRET:-${OPENROUTER_API_KEY:-}}"
+      PEFFAHUB_PROTON_BRIDGE_USERNAME: "${PEFFAHUB_PROTON_BRIDGE_USERNAME:-}"
+      PEFFAHUB_PROTON_BRIDGE_PASSWORD: "${PEFFAHUB_PROTON_BRIDGE_PASSWORD_SECRET:-${PEFFAHUB_PROTON_BRIDGE_PASSWORD:-}}"
+      PEFFAHUB_PROTON_BRIDGE_IMAP_HOST: "${PEFFAHUB_PROTON_BRIDGE_IMAP_HOST:-}"
+      PEFFAHUB_PROTON_BRIDGE_IMAP_PORT: "${PEFFAHUB_PROTON_BRIDGE_IMAP_PORT:-}"
+      PEFFAHUB_PROTON_BRIDGE_TLS_MODE: "${PEFFAHUB_PROTON_BRIDGE_TLS_MODE:-}"
+      PEFFAHUB_PROTON_BRIDGE_ACCOUNT_ADDRESS: "${PEFFAHUB_PROTON_BRIDGE_ACCOUNT_ADDRESS:-}"
+      PEFFAHUB_PROTON_BRIDGE_CERTIFICATE_SHA256: "${PEFFAHUB_PROTON_BRIDGE_CERTIFICATE_SHA256:-}"
       ROBOZIUM_HUB_ROOT: /hub
       ROBOZIUM_LOG_DIR: /logs
       ROBOZIUM_MODE: "${ROBOZIUM_MODE:-mock}"
     init: true
     stop_grace_period: 30s
+    user: "${ROBOZIUM_API_USER:-10001:10001}"
     volumes:
-      - robozium-hub:/hub
-      - robozium-logs:/logs
+      - type: bind
+        source: "${ROBOZIUM_HOST_HUB_DIR:-./.runtime/mock-hub}"
+        target: /hub
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${ROBOZIUM_HOST_LOG_DIR:-./.runtime/mock-logs}"
+        target: /logs
+        bind:
+          create_host_path: false
 
   web:
     build:
@@ -43,9 +60,3 @@ services:
       ROBOZIUM_CONTAINER_PHASE: "${ROBOZIUM_CONTAINER_PHASE:-onboarding}"
     init: true
     profiles: [verify]
-
-volumes:
-  robozium-hub:
-    name: "${COMPOSE_PROJECT_NAME:-robozium}-${ROBOZIUM_MODE:-mock}-hub"
-  robozium-logs:
-    name: "${COMPOSE_PROJECT_NAME:-robozium}-${ROBOZIUM_MODE:-mock}-logs"

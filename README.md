@@ -15,21 +15,38 @@ cd robozium
 
 On Windows, run `start.cmd --mock` instead. Open http://127.0.0.1:6969.
 Mock mode needs no provider keys. To use live models, copy `.env.example` to
-`.env`, add your keys, and run `./start` or `start.cmd` without `--mock`.
-OpenRouter is needed for the Librarian; a Cerebras key is needed only for the
-Cerebras model. To keep keys encrypted on disk, follow [RoboZ's encrypted-key
-instructions](https://github.com/Tachion-Oy/roboz#endpoints-and-model-catalogues),
-place `.env.encrypt` here, remove the plaintext keys from `.env`, and unlock
-**API keys** in the HUD after starting live mode.
-If both files exist, `.env.encrypt` does not override plaintext API keys in
-`.env`. Those keys are loaded directly, and the unlock button can stay hidden.
-Remove the API key entries from `.env` to use encrypted-key unlocking and avoid
-keeping plaintext provider keys on disk.
+`.env`, fill in the needed `_SECRET` credentials, and run `./start` or
+`start.cmd` without `--mock`. OpenRouter is needed for the Librarian. Groq,
+Cerebras, and Proton Bridge settings are also in the example.
 
-Set `ROBOZIUM_WEB_PORT` in `.env` if port 6969 is busy. Mock and live projects
-persist in separate Docker volumes. Ctrl+C stops the app without deleting them;
-`docker compose down --volumes` deletes persistent state. For problems, run
-`docker compose ps` and `docker compose logs --tail=200 api web`.
+For encrypted storage, run `uv run python -m robozium.secret_env encrypt`,
+then delete `.env`. The resulting `.env.encrypt` keeps nonsecret settings and
+encrypts API keys and the Proton password; unlock **API keys** in the HUD.
+The API strips `_SECRET` from runtime names. Recreate older encrypted files
+after renaming password entries to `_SECRET`; the old encryptor left them plain.
+
+Set `ROBOZIUM_WEB_PORT` before encrypting if port 6969 is busy. Ctrl+C stops the app
+without deleting project files. For problems, run `docker compose ps` and
+`docker compose logs --tail=200 api web`.
+
+## Hub files
+
+The live hub sits beside the clone, mounted at `/hub` inside the API container.
+The launcher creates it if missing and reuses it when present.
+
+```text
+parent/
+├── robozium/             # cloned repository
+│   └── .runtime/         # mock data and technical logs
+└── Robozium-Hub/         # live hub, mounted at /hub
+    ├── readonly/
+    ├── workspace/
+    └── projects/         # project files, history, snapshots, memory
+```
+
+Set `ROBOZIUM_HUB_ROOT` before encrypting to choose another live location. Mock runs
+use `.runtime/mock-hub`. `docker compose down --volumes` does not delete these
+host folders, though older Docker named volumes may still hold data.
 
 On Linux, `./scripts/dev.sh --mock` runs the development servers at
 http://127.0.0.1:3000 (requires `uv`, Node.js, and npm). Omit `--mock` for live
