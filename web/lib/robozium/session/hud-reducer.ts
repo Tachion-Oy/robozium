@@ -219,25 +219,6 @@ function navigateMessage(
 	return messages[selectedIndex + 1]?.id ?? null
 }
 
-function eventAddsHudMessage(
-	event: SessionEvent,
-	logItems: StreamLogItem[],
-): boolean {
-	if (
-		event.class !== "stream" ||
-		event.type !== "frame_received" ||
-		event.frame.type !== PipeEventType.Message
-	) {
-		return false
-	}
-
-	const addedItem = logItems.at(-1)
-	return (
-		addedItem?.kind === StreamLogItemKind.Message &&
-		addedItem.hudText !== undefined
-	)
-}
-
 function retainedSelection(
 	previous: HudState,
 	messages: HudMessage[],
@@ -387,6 +368,7 @@ function reduceStreamHud(
 	hud: HudState,
 	event: StreamEvent,
 	logItems: StreamLogItem[],
+	previousLogLength: number,
 ): HudState {
 	if (event.type !== "frame_received") return hud
 
@@ -401,7 +383,10 @@ function reduceStreamHud(
 			isMessageHistoryPinned: false,
 		}
 	}
-	if (!eventAddsHudMessage(event, logItems)) return nextHud
+	const hasDisplayableItem = logItems.slice(previousLogLength).some(
+		(item) => item.kind === StreamLogItemKind.Message && item.hudText !== undefined,
+	)
+	if (!hasDisplayableItem) return nextHud
 
 	const messages = buildHudMessages(
 		logItems,
@@ -440,6 +425,7 @@ export function reduceHudState(
 	hud: HudState,
 	event: SessionEvent,
 	logItems: StreamLogItem[],
+	previousLogLength: number,
 ): HudState {
 	let nextHud: HudState
 
@@ -451,7 +437,7 @@ export function reduceHudState(
 			nextHud = reduceControlHud(hud, event, logItems)
 			break
 		case "stream":
-			nextHud = reduceStreamHud(hud, event, logItems)
+			nextHud = reduceStreamHud(hud, event, logItems, previousLogLength)
 			break
 	}
 

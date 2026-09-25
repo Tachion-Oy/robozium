@@ -411,6 +411,7 @@ describe("mapFrameToLogItems", () => {
         kind: StreamLogItemKind.Message,
         role: StreamLogRole.Script,
         content: "script line",
+        hudText: "script line",
       },
     ]);
   });

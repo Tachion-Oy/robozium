@@ -1,5 +1,6 @@
 import { WireLifecycleStatus } from "@/lib/robozium/wire"
 import { describe, expect, it } from "vitest"
+import { reduceHudState } from "../../../../lib/robozium/session/hud-reducer"
 import {
 	createInitialRunSessionState,
 	hasPermanentRunFailure,
@@ -8,6 +9,7 @@ import {
 	shouldExitRunView,
 } from "../../../../lib/robozium/session/reducer"
 import { PipeEventType, RunLifecycleKind, WireRole } from "../../../../lib/robozium/wire"
+import { StreamLogItemKind, StreamLogRole } from "../../../../lib/robozium/view-model"
 
 function reduce(
 	events: Parameters<typeof reduceRunSessionState>[1][],
@@ -20,6 +22,80 @@ function reduce(
 }
 
 describe("run session reducer", () => {
+	it("finds displayable rows anywhere among the rows added by one frame", () => {
+		const hud = createInitialRunSessionState("run-1").hud
+		const next = reduceHudState(
+			hud,
+			{
+				class: "stream",
+				type: "frame_received",
+				receivedAt: "2026-09-25T12:00:00.000Z",
+				frame: {
+					type: PipeEventType.Message,
+					sequence: 1,
+					payload: { role: WireRole.Assistant, content: "Report", truncation: {} },
+				},
+			},
+			[
+				{ kind: StreamLogItemKind.Message, role: StreamLogRole.Agent, content: "Report", hudText: "Report" },
+				{ kind: StreamLogItemKind.Message, role: StreamLogRole.Tool, content: "Trace" },
+			],
+			0,
+		)
+		expect(next.messages).toEqual([{ id: "log:0", text: "Report", replyId: null }])
+	})
+
+	it("shows output events immediately, preserves pinned history, and restores them from snapshots", () => {
+		const frames = ["First output", "Second output", "Third output"].map(
+			(content, index) => ({
+				type: PipeEventType.ScriptOutput as const,
+				sequence: index + 1,
+				payload: { content },
+			}),
+		)
+		const received = (frame: typeof frames[number]) => ({
+			class: "stream" as const,
+			type: "frame_received" as const,
+			receivedAt: "2026-09-25T12:00:00.000Z",
+			frame,
+		})
+		let state = createInitialRunSessionState("run-1")
+		for (const frame of frames.slice(0, 2)) {
+			state = reduceRunSessionState(state, received(frame))
+			expect(state.hud.messages.at(-1)?.text).toBe(frame.payload.content)
+			expect(state.hud.selectedMessageId).toBe(state.hud.messages.at(-1)?.id)
+		}
+		state = reduceRunSessionState(state, {
+			class: "control",
+			type: "hud_message_navigated",
+			direction: "first",
+		})
+		state = reduceRunSessionState(state, received(frames[2]))
+		expect(state.hud.selectedMessageId).toBe("log:0")
+		expect(state.hud.isMessageHistoryPinned).toBe(true)
+		expect(state.hud.messages.map((message) => message.text)).toEqual(
+			frames.map((frame) => frame.payload.content),
+		)
+
+		const restored = reduce([{
+			class: "runView",
+			type: "received",
+			source: "initial",
+			runView: {
+				project: "alpha",
+				status: "running",
+				current_agent_name: "root",
+				parent_agent_name: null,
+				message_trace: frames,
+				current_prompt_id: null,
+				current_prompt: null,
+				error: null,
+			},
+		}])
+		expect(restored.hud.messages).toEqual(state.hud.messages)
+		expect(restored.hud.selectedMessageId).toBe("log:2")
+	})
+
 	it("restores a tagged notification from the initial run trace", () => {
 		const state = reduce([
 			{

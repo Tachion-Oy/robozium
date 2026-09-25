@@ -232,6 +232,7 @@ function scriptOutputFrameToItem(
 		kind: StreamLogItemKind.Message,
 		role: StreamLogRole.Script,
 		content: frame.payload.content,
+		hudText: frame.payload.content,
 	}
 }
 

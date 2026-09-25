@@ -101,7 +101,7 @@ export function reduceRunSessionState(
 						? event.runView.project
 						: state.projectSlug,
 				log,
-				hud: reduceHudState(state.hud, event, log.items),
+				hud: reduceHudState(state.hud, event, log.items, state.log.items.length),
 				notifications: reduceNotifications(
 					state.notifications,
 					state.runId,
