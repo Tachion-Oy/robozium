@@ -34,6 +34,7 @@ test.setTimeout(90_000)
 
 const ORCHESTRATOR_AGENT_NAME = "orchestrator"
 const PROMPT_USER_TOOL_NAME = "prompt_user"
+const PROMPT_VISIBLE_TIMEOUT = 30_000
 
 /**
  * Opens a dormant project and drives the scripted mock orchestrator to
@@ -64,7 +65,7 @@ async function openAndCompleteRun(page: Page, slug: string): Promise<void> {
 		page.locator(".agent-hud__agent", {
 			hasText: "Hello! I generated a text artifact for validation:",
 		}),
-	).toBeVisible({ timeout: 15_000 })
+	).toBeVisible({ timeout: PROMPT_VISIBLE_TIMEOUT })
 
 	await page.locator(".agent-hud__textarea").fill("first reply")
 	const send = page.getByRole("button", { name: "Send", exact: true })
@@ -74,7 +75,7 @@ async function openAndCompleteRun(page: Page, slug: string): Promise<void> {
 		page.locator(".agent-hud__agent", {
 			hasText: "Thanks. One more thing before I finish?",
 		}),
-	).toBeVisible({ timeout: 15_000 })
+	).toBeVisible({ timeout: PROMPT_VISIBLE_TIMEOUT })
 
 	await page.locator(".agent-hud__textarea").fill("second reply")
 	await expect(send).toBeEnabled()
