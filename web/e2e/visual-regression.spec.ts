@@ -209,7 +209,15 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 		const boxBounds = await page.locator(".agent-hud__box").boundingBox()
 		expect(badgeBounds && actionsBounds && boxBounds).toBeTruthy()
 		if (badgeBounds && actionsBounds && boxBounds) {
-			expect(actionsBounds.y).toBeGreaterThanOrEqual(badgeBounds.y + badgeBounds.height)
+			const rem = await page.evaluate(() =>
+				Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+			)
+			expect(actionsBounds.y - badgeBounds.y - badgeBounds.height).toBeGreaterThan(
+				0.4 * rem,
+			)
+			const badgeCenter = badgeBounds.y + badgeBounds.height / 2
+			expect(badgeCenter).toBeGreaterThan(boxBounds.y)
+			expect(badgeCenter).toBeLessThan(boxBounds.y + rem)
 			expect(badgeBounds.x + badgeBounds.width / 2).toBeCloseTo(
 				boxBounds.x + boxBounds.width / 2,
 				0,
@@ -223,6 +231,16 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 		"active-run-awaiting-input",
 		{ maxDiffPixels: 5 },
 	)
+	const agentContentInset = async () => {
+		const panel = await page.locator(".agent-hud__replyBox--agent").boundingBox()
+		const content = await page.locator(".agent-hud__replyBox--agent .agent-hud__agent").boundingBox()
+		expect(panel && content).toBeTruthy()
+		return panel && content ? content.y - panel.y : 0
+	}
+	const lightInset = await agentContentInset()
+	await setTheme(page, "dark")
+	const darkInset = await agentContentInset()
+	expect(Math.abs(lightInset - darkInset)).toBeLessThanOrEqual(5)
 
 	await selectHudView(page, "Runs Overview")
 	await expect(page.getByText("atlas-console", { exact: true })).toBeVisible()
