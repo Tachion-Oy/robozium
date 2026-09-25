@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./fixtures"
 import { createProject, selectHudView } from "./helpers"
 
 test("shows all agents inside a run and returns through the current row", async ({

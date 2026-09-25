@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./fixtures"
 import { AgentActivityState } from "../lib/robozium/session/reducer"
 import { createProject, gotoLanding } from "./helpers"
 

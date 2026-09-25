@@ -1,4 +1,5 @@
-import { expect, test, type Locator, type Page } from "@playwright/test"
+import { expect, test } from "./fixtures"
+import { type Locator, type Page } from "@playwright/test"
 import { createProject, gotoLanding, selectHudView, waitFor } from "./helpers"
 
 const VIEWPORT = { width: 1920, height: 1080 }

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./fixtures"
 import { gotoLanding } from "./helpers"
 
 test("fresh landing keeps its entrance animation", async ({ page }) => {

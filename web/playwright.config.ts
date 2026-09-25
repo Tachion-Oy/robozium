@@ -39,14 +39,15 @@ export default defineConfig({
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 1 : 0,
+  maxFailures: process.env.CI ? 3 : 0,
   failOnFlakyTests: !!process.env.CI,
   updateSnapshots: 'none',
   outputDir: `${process.env.ROBOZIUM_E2E_REPORT_DIR}/test-results`,
   /* Opt out of parallel tests on CI. */
   workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: [['list'], ['html', { outputFolder: `${process.env.ROBOZIUM_E2E_REPORT_DIR}/playwright-report`, open: 'never' }], ['junit', { outputFile: `${process.env.ROBOZIUM_E2E_REPORT_DIR}/playwright.xml` }]],
+  reporter: [['list'], ['html', { outputFolder: `${process.env.ROBOZIUM_E2E_REPORT_DIR}/playwright-report`, open: 'never' }], ['junit', { outputFile: `${process.env.ROBOZIUM_E2E_REPORT_DIR}/playwright.xml` }], ['./e2e/completion-reporter.ts']],
   /* CI runners (esp. WebKit, which is software-rendered on Linux) are
    * meaningfully slower than a local machine. Give actions/assertions more
    * room there so a loaded runner doesn't fail on wall-clock alone. */

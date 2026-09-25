@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./fixtures"
 import { gotoLanding } from "./helpers"
 
 let projectSlug: string | undefined
@@ -604,6 +604,16 @@ test("keeps chosen size on run entry while content uses the available space", as
 			}),
 		)
 		.toBe(true)
+	await expect.poll(() => page.evaluate(() => [
+		".agent-hud__box",
+		".agent-hud__replyBox--agent",
+		".agent-hud__replyBox--user",
+		".agent-hud__actions",
+	].map((selector) => {
+		const bounds = document.querySelector(selector)?.getBoundingClientRect()
+		return Boolean(bounds && bounds.left >= 0 && bounds.top >= 0 &&
+			bounds.right <= window.innerWidth && bounds.bottom <= window.innerHeight)
+	}))).toEqual([true, true, true, true])
 	const zoomEquivalentLayout = await page.evaluate(() => {
 		const viewport = { width: window.innerWidth, height: window.innerHeight }
 		const selectors = [

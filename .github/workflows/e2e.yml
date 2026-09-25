@@ -16,15 +16,26 @@ env:
   ROBOZIUM_E2E_PREBUILT: "1"
   ROBOZIUM_E2E_PYTHON: ${{ github.workspace }}/.artifacts/browser-backend/bin/python
   PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.artifacts/browsers
-  COMPOSE_PROJECT_NAME: robozium-ci
-  ROBOZIUM_MODE: mock
-  ROBOZIUM_WEB_PORT: "0"
-
 jobs:
-  e2e:
-    name: Full E2E
+  browsers:
+    name: ${{ matrix.browser }} browser
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: ${{ matrix.job_timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - browser: chromium
+            deadline: 900
+            job_timeout: 25
+          - browser: firefox
+            deadline: 900
+            job_timeout: 25
+          - browser: webkit
+            deadline: 1500
+            job_timeout: 35
+    env:
+      ROBOZIUM_E2E_DEADLINE_SECONDS: ${{ matrix.deadline }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -39,50 +50,67 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - name: Free unused runner toolchains
-        run: |
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
-          df -h /
       - name: Verify packages and prepare browser tests
         id: prepare
+        env:
+          BROWSER: ${{ matrix.browser }}
         run: |
           uv sync --locked --dev
-          uv run python scripts/roboz_wheels.py --dist .artifacts/distributions
-          uv build --no-sources --out-dir .artifacts/distributions
-          uv run twine check .artifacts/distributions/*
-          uv run python scripts/check_distributions.py --dist .artifacts/distributions --python-output .artifacts/browser-backend
+          if [[ "$BROWSER" == chromium ]]; then
+            uv run python scripts/roboz_wheels.py --dist .artifacts/distributions
+            uv build --no-sources --out-dir .artifacts/distributions
+            uv run twine check .artifacts/distributions/*
+            uv run python scripts/check_distributions.py --dist .artifacts/distributions --python-output .artifacts/browser-backend
+          else
+            uv build --wheel --no-sources --out-dir .artifacts/distributions
+            uv venv --python 3.13 .artifacts/browser-backend
+            uv export --locked --no-dev --no-emit-project --output-file .artifacts/browser-requirements.txt >/dev/null
+            uv pip install --python .artifacts/browser-backend/bin/python --requirement .artifacts/browser-requirements.txt
+            uv pip install --python .artifacts/browser-backend/bin/python --no-deps .artifacts/distributions/*.whl
+          fi
           npm --prefix web ci
           npm --prefix web run build
-          npm --prefix web exec -- playwright install --with-deps chromium firefox webkit
+          npm --prefix web exec -- playwright install --with-deps "$BROWSER"
       - name: Check runner failure and interruption cleanup
+        id: runner_check
+        if: ${{ matrix.browser == 'chromium' }}
         run: uv run python scripts/e2e/check_runner.py
-      - name: Chromium
-        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
-        run: bash scripts/e2e/run-mock-playwright.sh --project=chromium
-      - name: Firefox
-        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
-        run: bash scripts/e2e/run-mock-playwright.sh --project=firefox
-      - name: WebKit
-        id: webkit
-        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+      - name: Run ${{ matrix.browser }} suite
+        id: browser
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' && (matrix.browser != 'chromium' || steps.runner_check.outcome == 'success') }}
         continue-on-error: true
-        run: bash scripts/e2e/run-mock-playwright.sh --project=webkit
-      - name: Evaluate advisory WebKit result
-        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        run: bash scripts/e2e/run-mock-playwright.sh --project=${{ matrix.browser }}
+      - name: Evaluate browser result
+        if: ${{ always() && steps.browser.outcome != 'skipped' }}
         env:
-          BROWSER: webkit
+          BROWSER: ${{ matrix.browser }}
           SUITE: full
-          TEST_OUTCOME: ${{ steps.webkit.outcome }}
-          PLAYWRIGHT_EXIT_CODE: ${{ steps.webkit.outputs.playwright_exit_code }}
+          TEST_OUTCOME: ${{ steps.browser.outcome }}
+          REPORT_DIR: ${{ steps.browser.outputs.report_dir }}
         run: uv run python scripts/e2e/evaluate_result.py
-      - name: Reclaim browser test caches before Docker
-        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
-        run: |
-          rm -rf .artifacts/browsers .artifacts/npm-cache .artifacts/uv-cache
-          df -h /
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() && (failure() || steps.browser.outcome == 'failure') }}
+        with:
+          name: e2e-${{ matrix.browser }}-reports
+          path: |
+            .artifacts/e2e/
+            .artifacts/distribution-reports/
+          retention-days: 7
+
+  docker:
+    name: Docker onboarding and restart recovery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      COMPOSE_PROJECT_NAME: robozium-ci
+      ROBOZIUM_MODE: mock
+      ROBOZIUM_WEB_PORT: "0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Docker onboarding and restart recovery
         id: containers
-        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
         run: |
           mkdir -p .runtime/mock-hub .runtime/mock-logs
           echo "ROBOZIUM_API_USER=$(id -u):$(id -g)" >> "$GITHUB_ENV"
@@ -97,11 +125,3 @@ jobs:
       - name: Remove disposable containers
         if: always()
         run: docker compose down --remove-orphans
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ failure() || steps.webkit.outcome == 'failure' }}
-        with:
-          name: e2e-failure-reports
-          path: |
-            .artifacts/e2e/
-            .artifacts/distribution-reports/
-          retention-days: 7

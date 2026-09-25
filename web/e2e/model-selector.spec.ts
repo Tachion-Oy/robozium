@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./fixtures"
 import { gotoLanding } from "./helpers"
 
 test("mock mode exposes only the mock model", async ({ page, request }) => {

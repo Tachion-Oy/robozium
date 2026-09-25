@@ -8,6 +8,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -86,10 +87,15 @@ def main() -> int:
         for k, v in os.environ.items()
         if k not in {"PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"}
     }
-    api_port = int(env.get("ROBOZIUM_E2E_API_PORT", "8000"))
-    web_port = int(env.get("ROBOZIUM_E2E_WEB_PORT", "3100"))
+    api_port_raw = env.get("ROBOZIUM_E2E_API_PORT", "8000")
+    web_port_raw = env.get("ROBOZIUM_E2E_WEB_PORT", "3100")
     python = str(Path(env.get("ROBOZIUM_E2E_PYTHON", sys.executable)).absolute())
     status = 1
+    runner_error = None
+    cleanup_errors = []
+    deadline_reached = False
+    browser_log_thread = None
+    first_failure = threading.Event()
 
     def launch(command: list[str], cwd: Path, log: str) -> subprocess.Popen:
         handle = (reports / log).open("a")
@@ -103,11 +109,64 @@ def main() -> int:
             start_new_session=True,
         )
 
+    def browser_output(process: subprocess.Popen) -> None:
+        with (reports / "playwright.log").open("a", buffering=1) as log:
+            assert process.stdout is not None
+            for line in process.stdout:
+                log.write(line)
+                print(line, end="", flush=True)
+                if "✘" in line and not first_failure.is_set():
+                    first_failure.set()
+
+    def snapshot_resources() -> None:
+        with (reports / "resources.log").open("a") as log:
+            log.write(f"time={time.time()}\n")
+            for name, process in (
+                ("backend", backend),
+                ("frontend", frontend),
+                ("browser", browser),
+            ):
+                if process is None:
+                    continue
+                try:
+                    status_text = Path(f"/proc/{process.pid}/status").read_text()
+                    selected = [
+                        line
+                        for line in status_text.splitlines()
+                        if line.startswith(("VmRSS:", "Threads:"))
+                    ]
+                    log.write(
+                        f"{name} pid={process.pid} returncode={process.poll()} {' '.join(selected)}\n"
+                    )
+                except OSError as error:
+                    log.write(f"{name}: {error}\n")
+            for endpoint in ("/ready", "/projects"):
+                started = time.monotonic()
+                try:
+                    with urllib.request.urlopen(
+                        env["ROBOZIUM_API_BASE_URL"] + endpoint, timeout=2
+                    ) as response:
+                        payload = response.read()
+                        log.write(
+                            f"{endpoint} status={response.status} bytes={len(payload)} seconds={time.monotonic() - started:.3f}\n"
+                        )
+                        if endpoint == "/projects":
+                            projects = json.loads(payload)
+                            log.write(
+                                f"projects={len(projects)} states={[row.get('status') for row in projects]}\n"
+                            )
+                except Exception as error:
+                    log.write(
+                        f"{endpoint} error={error} seconds={time.monotonic() - started:.3f}\n"
+                    )
+
     with tempfile.TemporaryDirectory(
         prefix="robozium-e2e-", dir=env.get("RUNNER_TEMP", "/tmp")
     ) as directory:
         workspace = Path(directory)
         try:
+            api_port = int(api_port_raw)
+            web_port = int(web_port_raw)
             if api_port == web_port:
                 raise ValueError("API and web ports must differ")
             for port in (api_port, web_port):
@@ -156,9 +215,7 @@ def main() -> int:
                 if build.wait(timeout=180) != 0:
                     raise RuntimeError("Frontend build failed")
             elif not (ROOT / "web/.next/BUILD_ID").is_file():
-                raise RuntimeError(
-                    "ROBOZIUM_E2E_PREBUILT requires web/.next/BUILD_ID"
-                )
+                raise RuntimeError("ROBOZIUM_E2E_PREBUILT requires web/.next/BUILD_ID")
 
             def start_backend() -> subprocess.Popen:
                 return launch(
@@ -198,16 +255,51 @@ def main() -> int:
                 "frontend.log",
             )
             ready(frontend, f"http://127.0.0.1:{web_port}", 60)
-            browser = launch(
+            browser = subprocess.Popen(
                 ["node", "node_modules/@playwright/test/cli.js", "test", *args],
-                ROOT / "web",
-                "playwright.log",
+                cwd=ROOT / "web",
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                start_new_session=True,
             )
+            browser_log_thread = threading.Thread(
+                target=browser_output, args=(browser,), daemon=True
+            )
+            browser_log_thread.start()
             print(
                 f"Services ready; browser output: {reports / 'playwright.log'}",
                 flush=True,
             )
+            browser_deadline = (
+                time.monotonic() + float(env.get("ROBOZIUM_E2E_DEADLINE_SECONDS", "0"))
+                if env.get("ROBOZIUM_E2E_DEADLINE_SECONDS")
+                else None
+            )
+            last_sample = 0.0
+            sampled_failure = False
             while browser.poll() is None:
+                if (
+                    env.get("ROBOZIUM_E2E_RUNNER_PROBE") == "1"
+                    and (workspace / "kill-backend.request").exists()
+                ):
+                    (workspace / "kill-backend.request").unlink()
+                    stop(backend, crash=True)
+                    raise RuntimeError("Probe requested backend exit")
+                if (
+                    browser_deadline is not None
+                    and time.monotonic() >= browser_deadline
+                ):
+                    deadline_reached = True
+                    raise TimeoutError("Browser suite exceeded its runner deadline")
+                if time.monotonic() - last_sample >= 5 or (
+                    first_failure.is_set() and not sampled_failure
+                ):
+                    snapshot_resources()
+                    last_sample = time.monotonic()
+                    sampled_failure |= first_failure.is_set()
                 if (workspace / "restart.request").exists():
                     (workspace / "restart.request").unlink()
                     stop(backend, crash=True)
@@ -218,21 +310,47 @@ def main() -> int:
                     raise RuntimeError("A service exited during browser tests")
                 time.sleep(0.1)
             status = browser.returncode
-            return status
         except BaseException as error:
-            (reports / "failure.txt").write_text(f"{type(error).__name__}: {error}\n")
-            raise
+            runner_error = f"{type(error).__name__}: {error}"
+            status = (
+                error.code
+                if isinstance(error, SystemExit) and isinstance(error.code, int)
+                else 1
+            )
+            (reports / "failure.txt").write_text(runner_error + "\n")
         finally:
             for process in (browser, frontend, backend, build):
-                stop(process)
-            if (workspace / "technical_logs").exists():
-                shutil.copytree(
-                    workspace / "technical_logs", reports / "technical_logs"
+                try:
+                    stop(process)
+                except BaseException as error:
+                    cleanup_errors.append(
+                        f"stop {process.pid if process else 'none'}: {error}"
+                    )
+            if browser_log_thread:
+                browser_log_thread.join(timeout=10)
+                if browser_log_thread.is_alive():
+                    cleanup_errors.append("browser output thread did not finish")
+            try:
+                if (workspace / "technical_logs").exists():
+                    shutil.copytree(
+                        workspace / "technical_logs", reports / "technical_logs"
+                    )
+            except BaseException as error:
+                cleanup_errors.append(f"copy technical logs: {error}")
+            if env.get("ROBOZIUM_E2E_PROBE_CLEANUP_FAILURE") == "1":
+                cleanup_errors.append("Probe requested cleanup failure")
+            if cleanup_errors:
+                (reports / "cleanup-failure.txt").write_text(
+                    "\n".join(cleanup_errors) + "\n"
                 )
             (reports / "result.json").write_text(
                 json.dumps(
                     {
                         "status": status,
+                        "runner_error": runner_error,
+                        "deadline_reached": deadline_reached,
+                        "cleanup_errors": cleanup_errors,
+                        "completion_present": (reports / "completion.json").exists(),
                         "workspace": str(workspace),
                         "processes": [
                             {"pid": p.pid, "returncode": p.poll()}
@@ -245,18 +363,14 @@ def main() -> int:
             )
             for handle in handles:
                 handle.close()
-            if (reports / "playwright.log").exists():
-                print((reports / "playwright.log").read_text(), flush=True)
+            if os.environ.get("GITHUB_OUTPUT"):
+                with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
+                    output.write(f"report_dir={reports}\n")
+            if runner_error or cleanup_errors:
+                status = 1
+    return status
 
 
 if __name__ == "__main__":
     (ROOT / ".artifacts/e2e").mkdir(parents=True, exist_ok=True)
-    exit_code = main()
-    # Exceptions (including setup, interruption, and cleanup failures) never
-    # reach here. Only a completed single-browser invocation can be advisory.
-    if os.environ.get("GITHUB_OUTPUT") and any(
-        arg == "--project" or arg.startswith("--project=") for arg in sys.argv[1:]
-    ):
-        with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
-            output.write(f"playwright_exit_code={exit_code}\n")
-    raise SystemExit(exit_code)
+    raise SystemExit(main())
