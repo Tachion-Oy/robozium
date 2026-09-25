@@ -28,10 +28,10 @@ test("dictation failures use a toast, preserve the draft and layout, and allow r
 	const { run_id: runId } = await response.json() as { run_id: string }
 	await page.goto(`/?runId=${encodeURIComponent(runId)}`)
 	const editor = page.locator(".agent-hud__textarea")
-	await editor.fill("Keep my draft.")
 	await expect(page.locator(".agent-hud__agent", {
 		hasText: "Hello! I generated a text artifact for validation:",
 	})).toBeVisible({ timeout: 15_000 })
+	await editor.fill("Keep my draft.")
 	const hud = page.locator(".agent-hud__box")
 	await expect(hud).toHaveAttribute("style", /width:/)
 	await hud.evaluate((element) => Promise.all(
