@@ -279,7 +279,7 @@ describe("AgentHUD status mode", () => {
 				.getAttribute("data-run-id"),
 		).toBe("run-1")
 		expect(modeButton.closest(".agent-hud__header")?.className).toBe(
-			"agent-hud__header agent-hud__header--row",
+			"agent-hud__header agent-hud__header--row agent-hud__header--project",
 		)
 		expect(modeButton.closest(".agent-hud__header")?.querySelector(
 			".agent-hud__copy-controls",
