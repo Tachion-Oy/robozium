@@ -52,7 +52,6 @@ function createProps(overrides: Overrides = {}): Props {
 			dictation: {
 				isRecording: false,
 				isTranscribing: false,
-				error: null,
 				onToggle: () => {},
 				...overrides.controls?.dictation,
 			},
@@ -198,15 +197,4 @@ describe("ReplyForm", () => {
 		expect(onChange).toHaveBeenCalledWith("")
 	})
 
-	it("presents dictation errors from the controls model", () => {
-		renderForm({
-			controls: {
-				dictation: { error: "Could not transcribe audio." },
-			},
-		})
-
-		expect(screen.getByRole("status").textContent).toBe(
-			"Could not transcribe audio.",
-		)
-	})
 })

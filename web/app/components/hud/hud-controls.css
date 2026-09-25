@@ -762,15 +762,6 @@
   cursor: default;
 }
 
-.agent-hud__dictation-error {
-  margin-top: 0.4rem;
-  color: var(--term-error);
-  font-family: var(--font-agent-input);
-  font-size: 0.85rem;
-  letter-spacing: 0.06em;
-  text-shadow: var(--term-glow-error);
-}
-
 /* Light theme */
 
 :root[data-theme="light"] .agent-hud__logo[data-agent-state="working"],

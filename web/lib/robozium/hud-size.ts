@@ -4,7 +4,7 @@ type HudSizeState = {
 	progress: number
 }
 
-/** Shared for this client runtime; each landing/run transition sets its default. */
+/** User-selected size, shared across views for this client runtime. */
 export const hudSizeStore = createStore<HudSizeState>(() => ({
 	progress: 0,
 }))

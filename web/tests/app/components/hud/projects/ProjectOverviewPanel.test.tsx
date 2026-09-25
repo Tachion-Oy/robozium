@@ -22,14 +22,14 @@ function renderPanel(
 		onCancelRun: (p: ProjectRow) => void
 		onDeleteProject: (p: ProjectRow) => void
 	}> = {},
-	currentProjectSlug: string | null = null,
-	isStarting = false,
+	currentRunId: string | null = null,
+	navigationPending = false,
 ) {
 	return render(
 		<ProjectOverviewPanel
 			projects={projects}
-			currentProjectSlug={currentProjectSlug}
-			isStarting={isStarting}
+			currentRunId={currentRunId}
+			navigationPending={navigationPending}
 			onProjectClick={handlers.onProjectClick ?? (() => {})}
 			onCreateRunSubmit={() => {}}
 			onCancelRun={handlers.onCancelRun ?? (() => {})}
@@ -70,7 +70,7 @@ describe("ProjectOverviewPanel row actions", () => {
 				row({ slug: "beta", status: ProjectStatus.Running, runId: "run-2" }),
 			],
 			{},
-			"alpha",
+			"run-1",
 		)
 
 		const current = screen.getByRole("button", { name: "Return to alpha" })
@@ -85,18 +85,34 @@ describe("ProjectOverviewPanel row actions", () => {
 		)
 	})
 
-	it("keeps the current row return control enabled while syncing", () => {
+	it("opens a newer run in the same project instead of returning to the old one", () => {
+		render(
+			<ProjectOverviewPanel
+				projects={[row({ status: ProjectStatus.Running, runId: "run-2" })]}
+				currentRunId="run-1"
+				navigationPending={false}
+				onProjectClick={() => {}}
+				onCreateRunSubmit={() => {}}
+				onCancelRun={() => {}}
+				onDeleteProject={() => {}}
+			/>,
+		)
+		expect(screen.getByRole("button", { name: "Open alpha" })).not.toBeNull()
+		expect(screen.queryByRole("button", { name: "Return to alpha" })).toBeNull()
+	})
+
+	it("does not link a syncing row to the expired run", () => {
 		renderPanel(
 			[row({ status: ProjectStatus.Syncing, runId: "run-1" })],
 			{},
-			"alpha",
+			"run-1",
 		)
 
 		expect(
 			(screen.getByRole("button", {
-				name: "Return to alpha",
+				name: "Open alpha",
 			}) as HTMLButtonElement).disabled,
-		).toBe(false)
+		).toBe(true)
 	})
 
 	it("enables Cancel and Open but disables Delete on a live run row", () => {

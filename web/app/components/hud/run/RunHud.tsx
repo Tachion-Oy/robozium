@@ -52,7 +52,6 @@ export function RunHud({
 
 	const {
 		audioLevel,
-		error: dictationError,
 		isRecording,
 		isTranscribing,
 		toggle: toggleDictation,
@@ -137,7 +136,6 @@ export function RunHud({
 					isRecording,
 					audioLevel,
 					isTranscribing,
-					error: dictationError,
 					onToggle: toggleDictation,
 				},
 				cancel: {

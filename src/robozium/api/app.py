@@ -218,7 +218,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
         if endpoint is None:
             raise HTTPException(
                 status_code=503,
-                detail="Live transcription is not available in Robozium.",
+                detail="Voice transcription is not configured for this server.",
             )
         try:
             text = await asyncio.to_thread(

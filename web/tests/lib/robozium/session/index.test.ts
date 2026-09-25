@@ -85,6 +85,21 @@ describe("createRunSession transport lifetime", () => {
 		},
 	)
 
+	it("ignores late snapshots after completion and disposal", () => {
+		mockedStartRunSessionConnection.mockReturnValueOnce(vi.fn())
+		mockedStartRunSessionPoller.mockReturnValueOnce(vi.fn())
+		const session = createRunSession("run-1", seededRunView())
+		session.start()
+		const dispatch = mockedStartRunSessionConnection.mock.calls[0][1]
+		dispatch({ class: "runView", type: "received", source: "poll", runView: seededRunView("completed") })
+		const completedState = session.store.getState()
+		dispatch({ class: "runView", type: "received", source: "poll", runView: seededRunView("running") })
+		expect(session.store.getState()).toBe(completedState)
+		session.dispose()
+		dispatch({ class: "runView", type: "received", source: "poll", runView: seededRunView("running") })
+		expect(session.store.getState()).toBe(completedState)
+	})
+
 	it("stops both transports after a permanent run-open failure", () => {
 		const stopConnection = vi.fn()
 		const stopPoller = vi.fn()

@@ -10,7 +10,7 @@ test.afterEach(async ({ request }) => {
 	}
 })
 
-test("an unknown run keeps its toast, returns home, and stops polling", async ({
+test("an unknown run returns to the static placeholder, keeps its toast, and stops polling", async ({
 	page,
 	request,
 }) => {
@@ -46,15 +46,20 @@ test("an unknown run keeps its toast, returns home, and stops polling", async ({
 		page.getByRole("button", { name: "New Project", exact: true }),
 	).toBeVisible()
 	await expect(page.locator(".app-nav__brand")).toBeVisible()
+	await expect(page.locator(".app-nav__brand")).not.toHaveClass(
+		/app-nav__brand--enter/,
+	)
 	await expect(page.locator(".agent-hud__view-trigger")).toHaveText(
 		"Runs Overview",
 	)
 	await expect(
 		page.getByRole("slider", { name: "Resize HUD" }),
 	).toHaveAttribute("aria-valuenow", "0")
+	await expect(page.getByText("apply_euclidean_path_integral")).toBeVisible()
 	await expect(page.locator(".term-log")).not.toHaveClass(
-		/term-log--scrollable/,
+		/term-log--(?:enter|scrollable)/,
 	)
+	await expect(page.locator(".term-caret--reveal")).toHaveCount(0)
 
 	const requestsAfterLanding = runViewRequests
 	await page.waitForTimeout(2_200)
@@ -67,4 +72,5 @@ test("an unknown run keeps its toast, returns home, and stops polling", async ({
 	await expect(page.locator(".agent-hud__textarea")).toBeVisible({
 		timeout: 20_000,
 	})
+	await expect(page.getByText("apply_euclidean_path_integral")).toHaveCount(0)
 })

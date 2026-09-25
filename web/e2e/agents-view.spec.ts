@@ -19,6 +19,8 @@ test("shows all agents inside a run and returns through the current row", async 
 	await expect(page.locator(".agent-hud__event-text")).toHaveText(slug)
 	const runUrl = page.url()
 	const resizeHandle = page.getByRole("slider", { name: "Resize HUD" })
+	await expect(resizeHandle).toHaveAttribute("aria-valuenow", "0")
+	await resizeHandle.press("End")
 	await expect(resizeHandle).toHaveAttribute("aria-valuenow", "100")
 
 	await selectHudView(page, "Runs Overview")

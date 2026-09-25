@@ -13,7 +13,7 @@ test.afterEach(async ({ request }) => {
 
 test.use({ viewport: { width: 1920, height: 1080 } })
 
-test("opens compact on landing and wide in a run while content uses the available space", async ({
+test("keeps chosen size on run entry while content uses the available space", async ({
 	page,
 }) => {
 	// This scenario covers landing, run resizing, both themes, zoom-equivalent
@@ -173,6 +173,9 @@ test("opens compact on landing and wide in a run while content uses the availabl
 	await expect(
 		page.getByRole("button", { name: "Current Run", exact: true }),
 	).toBeVisible()
+	await expect(handle).toHaveAttribute("aria-valuenow", String(draggedProgress))
+	await handle.focus()
+	await page.keyboard.press("End")
 	await expect(handle).toHaveAttribute("aria-valuenow", "100")
 	const runViewport = page.viewportSize()
 	if (!runViewport) throw new Error("expected a fixed E2E viewport")
@@ -442,8 +445,7 @@ test("opens compact on landing and wide in a run while content uses the availabl
 		document.documentElement.dataset.theme = "dark"
 	})
 
-	// Run entry chooses the wide route default regardless of the landing size.
-	// The old open-HUD Expand/Collapse button remains absent; the minimized
+	// The user selected the wide size above. The minimized
 	// widget is a separate control.
 	await expect(handle).toHaveAttribute("aria-valuenow", "100")
 	await expect(
@@ -473,9 +475,6 @@ test("opens compact on landing and wide in a run while content uses the availabl
 
 	await page.reload()
 	await expect(handle).toBeVisible({ timeout: 15_000 })
-	await expect(handle).toHaveAttribute("aria-valuenow", "100")
-
-	await handle.click()
 	await expect(handle).toHaveAttribute("aria-valuenow", "0")
 	await page.waitForTimeout(250)
 	for (const theme of ["dark", "light"] as const) {

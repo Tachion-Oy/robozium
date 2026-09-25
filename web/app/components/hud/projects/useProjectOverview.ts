@@ -50,9 +50,10 @@ export function useProjectOverview(initialProjects: Project[] | null) {
 	useEffect(() => {
 		let active = true
 		let timeoutId: number | null = null
-		const intervalMs = pendingCancels.size > 0
-			? CANCELLATION_POLL_INTERVAL_MS
-			: DEFAULT_POLL_INTERVAL_MS
+		const intervalMs =
+			pendingCancels.size > 0
+				? CANCELLATION_POLL_INTERVAL_MS
+				: DEFAULT_POLL_INTERVAL_MS
 
 		const poll = async () => {
 			try {
@@ -61,28 +62,30 @@ export function useProjectOverview(initialProjects: Project[] | null) {
 				const statusBySlug = new Map(
 					nextRows.map((row) => [row.slug, row.status] as const),
 				)
-				setPendingCancels(
-					(current) => {
-						const retained = new Set(
-							[...current].filter((slug) => {
-								const status = statusBySlug.get(slug)
-								return (
-									status !== undefined &&
-									status !== ProjectStatus.Dormant
-								)
-							}),
-						)
-						return retained.size === current.size ? current : retained
-					},
-				)
+				setPendingCancels((current) => {
+					const retained = new Set(
+						[...current].filter((slug) => {
+							const status = statusBySlug.get(slug)
+							return (
+								status !== undefined &&
+								status !== ProjectStatus.Dormant
+							)
+						}),
+					)
+					return retained.size === current.size ? current : retained
+				})
 				setPendingDeletes(
 					(current) =>
-						new Set([...current].filter((slug) => statusBySlug.has(slug))),
+						new Set(
+							[...current].filter((slug) =>
+								statusBySlug.has(slug),
+							),
+						),
 				)
 				setPolledRows(nextRows)
 			} catch {
 				if (!active) return
-				setPolledRows([])
+				// Keep the last successful table through a transient refresh failure.
 			} finally {
 				if (active) {
 					setIsInitialLoading(false)
@@ -104,7 +107,9 @@ export function useProjectOverview(initialProjects: Project[] | null) {
 		refresh: () => setRefreshNonce((nonce) => nonce + 1),
 		markOpening: (slug: string) => setPendingOpenSlug(slug),
 		clearOpening: (slug: string) =>
-			setPendingOpenSlug((current) => (current === slug ? null : current)),
+			setPendingOpenSlug((current) =>
+				current === slug ? null : current,
+			),
 		markCancelling: (slug: string) =>
 			setPendingCancels((current) => new Set(current).add(slug)),
 		clearCancelling: (slug: string) =>

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { RunHudPhase } from "../../../../lib/robozium/session/reducer"
 import {
-	DEFAULT_HUD_SCREEN_SELECTIONS,
 	resolveHudPresentation,
 	selectHudScreen,
 } from "../../../../app/components/hud/hudPresentation"
@@ -53,7 +52,7 @@ describe("HUD presentation", () => {
 		({ options, screen, modelScope, headerVariant, ...input }) => {
 			const presentation = resolveHudPresentation({
 				...input,
-				selections: DEFAULT_HUD_SCREEN_SELECTIONS,
+				selectedScreen: input.hasRun ? "run" : "projects",
 			})
 
 			expect(presentation.screen).toBe(screen)
@@ -63,18 +62,21 @@ describe("HUD presentation", () => {
 		},
 	)
 
-	it("keeps independent screen selections for landing, active run, and recovery", () => {
-		const selected = selectHudScreen(
-			selectHudScreen(DEFAULT_HUD_SCREEN_SELECTIONS, "active-run", "projects"),
-			"recovery",
-			"dependencies",
-		)
-
-		expect(selected).toEqual({
-			landing: "projects",
-			"active-run": "projects",
-			recovery: "dependencies",
-		})
+	it("preserves the selected panel when a run finishes", () => {
+		const selected = selectHudScreen("run", "active-run", "dependencies")
+		expect(selected).toBe("dependencies")
+		expect(resolveHudPresentation({
+			hasRun: true,
+			phase: RunHudPhase.Done,
+			runUnavailable: false,
+			selectedScreen: selected,
+		}).screen).toBe("dependencies")
+		expect(resolveHudPresentation({
+			hasRun: false,
+			phase: RunHudPhase.Passive,
+			runUnavailable: false,
+			selectedScreen: selected,
+		}).headerVariant).toBe("row")
 		expect(selectHudScreen(selected, "landing", "run")).toBe(selected)
 	})
 })

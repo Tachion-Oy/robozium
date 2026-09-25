@@ -67,10 +67,9 @@ export function createRunSession(
 	}
 
 	const dispatch = (event: SessionEvent) => {
+		if (shouldExitRunView(store.getState())) return
 		store.setState((state) => reduceRunSessionState(state, event))
-		// Do not leave the fallback poller alive while route navigation waits for
-		// fresh landing data. Completed runs may be removed by the backend during
-		// that window, which otherwise produces an endless unknown-run warning.
+		// Preserve the final snapshot and stop requests for a finished run.
 		if (shouldExitRunView(store.getState())) stopTransports()
 	}
 

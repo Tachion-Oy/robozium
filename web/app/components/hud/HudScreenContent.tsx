@@ -11,7 +11,6 @@ type HudScreenContentProps = {
 	runId: string | null
 	replyDraft: string
 	onReplyDraftChange: Dispatch<SetStateAction<string>>
-	projectSlug: string | null
 	initialProjects: Project[] | null
 	layoutMode: LayoutMode
 	onReturnToRun: () => void
@@ -22,7 +21,6 @@ export function HudScreenContent({
 	runId,
 	replyDraft,
 	onReplyDraftChange,
-	projectSlug,
 	initialProjects,
 	layoutMode,
 	onReturnToRun,
@@ -35,8 +33,8 @@ export function HudScreenContent({
 				initialProjects={
 					presentation.context === "landing" ? initialProjects : null
 				}
-				currentProjectSlug={
-					presentation.context === "active-run" ? projectSlug : null
+				currentRunId={
+					presentation.context === "active-run" ? runId : null
 				}
 				onCurrentProjectClick={
 					presentation.context === "active-run" ? onReturnToRun : undefined

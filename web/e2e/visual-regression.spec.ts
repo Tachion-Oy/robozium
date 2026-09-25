@@ -174,6 +174,10 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 				)
 	await page.goto(`/?runId=${encodeURIComponent(runId)}`)
 	await stabilize(page)
+	// These snapshots cover the manually expanded HUD.
+	const resizeHandle = page.getByRole("slider", { name: "Resize HUD" })
+	await resizeHandle.press("End")
+	await resizeHandle.blur()
 	await expect(
 		page.locator(".agent-hud__agent", {
 			hasText: "Hello! I generated a text artifact for validation",

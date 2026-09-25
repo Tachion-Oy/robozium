@@ -38,7 +38,7 @@ def test_live_transcription_returns_clear_service_unavailable(tmp_path: Path) ->
     )
     assert response.status_code == 503
     assert response.json() == {
-        "detail": "Live transcription is not available in Robozium."
+        "detail": "Voice transcription is not configured for this server."
     }
 
 

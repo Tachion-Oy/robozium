@@ -5,21 +5,21 @@ import type { SessionEvent } from "./reducer"
 type Dispatch = (event: SessionEvent) => void
 
 export function startRunSessionPoller(runId: string, dispatch: Dispatch) {
-	// Per-poller lifecycle flag in this closure.
 	let active = true
+	let timeoutId: number | null = null
+	const controller = new AbortController()
 
+	// Schedule only after a request settles, so an older snapshot cannot arrive
+	// after a newer poll and restore stale status or prompts.
 	const pollRunView = async () => {
 		if (!active) return
 		try {
-			const runView = await fetchRunView(runId)
+			const runView = await fetchRunView(runId, { signal: controller.signal })
 			if (!active) return
 			dispatch({ class: "runView", type: "received", runView, source: "poll" })
 		} catch (error) {
 			if (!active) return
 			if (error instanceof AgentApiError && error.status === 404) {
-				// A missing run is permanent. Publish the same durable transport
-				// failure used by the stream so the session stops both transports
-				// and the route returns home instead of warning every two seconds.
 				dispatch({
 					class: "stream",
 					type: "open_failed",
@@ -28,17 +28,15 @@ export function startRunSessionPoller(runId: string, dispatch: Dispatch) {
 				return
 			}
 			swarn("hud", `run view poll failed runId=${runId}`, error)
+		} finally {
+			if (active) timeoutId = window.setTimeout(() => void pollRunView(), 2000)
 		}
 	}
 
 	void pollRunView()
-	const intervalId = window.setInterval(() => {
-		void pollRunView()
-	}, 2000)
-
 	return () => {
-		// One-way teardown for this poller instance.
 		active = false
-		window.clearInterval(intervalId)
+		controller.abort()
+		if (timeoutId !== null) window.clearTimeout(timeoutId)
 	}
 }

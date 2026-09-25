@@ -24,6 +24,25 @@ export type ProjectRow = {
 	createdAt: number | null
 }
 
+export function isActiveRunStatus(status: ProjectStatus): boolean {
+	return (
+		status === ProjectStatus.Running ||
+		status === ProjectStatus.AwaitingUserInput
+	)
+}
+
+/** A completed run can remain mounted while its row moves out of an active status. */
+export function isCurrentRunRow(
+	row: ProjectRow,
+	currentRunId: string | null,
+): boolean {
+	return (
+		currentRunId !== null &&
+		row.runId === currentRunId &&
+		isActiveRunStatus(row.status)
+	)
+}
+
 /**
  * Convert the backend-composed project list into the UI's row shape.
  * The backend owns status precedence; the client only renders it.

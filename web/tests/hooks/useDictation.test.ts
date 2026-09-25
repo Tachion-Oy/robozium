@@ -2,12 +2,19 @@ import { act, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { useDictation } from "../../hooks/useDictation"
-import { transcribeAudio } from "../../lib/robozium/client"
+import { AgentApiError, transcribeAudio } from "../../lib/robozium/client"
 
-vi.mock("../../lib/robozium/client", () => ({
+vi.mock("../../lib/robozium/client", async (importOriginal) => ({
+	...(await importOriginal<typeof import("../../lib/robozium/client")>()),
 	transcribeAudio: vi.fn(),
 }))
 
+vi.mock("../../app/components/feedback/ErrorToast", () => ({
+	showErrorToast: vi.fn(),
+}))
+import { showErrorToast } from "../../app/components/feedback/ErrorToast"
+
+const showErrorToastMock = vi.mocked(showErrorToast)
 const transcribeAudioMock = vi.mocked(transcribeAudio)
 
 let animationFrameCallback: FrameRequestCallback | null = null
@@ -77,6 +84,7 @@ const trackStop = vi.fn()
 
 beforeEach(() => {
 	transcribeAudioMock.mockReset()
+	showErrorToastMock.mockReset()
 	trackStop.mockReset()
 	animationFrameCallback = null
 	animationFrameId = 0
@@ -174,8 +182,29 @@ describe("useDictation", () => {
 			result.current.toggle()
 		})
 
-		await waitFor(() => expect(result.current.error).toBe("Transcription failed."))
+		await waitFor(() => expect(showErrorToastMock).toHaveBeenCalledWith({
+			title: "Transcription failed",
+			message: "Could not transcribe audio. Try again.",
+		}))
 		expect(onTranscript).not.toHaveBeenCalled()
+	})
+
+	it.each([
+		[503, "Voice transcription is not configured for this server."],
+		[423, "Unlock API keys before using providers"],
+	])("preserves the API explanation for %s on each failed recording", async (status, message) => {
+		transcribeAudioMock.mockRejectedValue(new AgentApiError(status, message))
+		const { result } = renderHook(() => useDictation({ onTranscript: vi.fn() }))
+		for (let attempt = 0; attempt < 2; attempt += 1) {
+			await act(async () => result.current.toggle())
+			await act(async () => result.current.toggle())
+		}
+		expect(showErrorToastMock).toHaveBeenCalledTimes(2)
+		expect(showErrorToastMock).toHaveBeenLastCalledWith({
+			title: "Transcription failed",
+			message,
+		})
+		expect(result.current.isTranscribing).toBe(false)
 	})
 
 	it("reports an error when no microphone is available", async () => {
@@ -188,9 +217,10 @@ describe("useDictation", () => {
 		})
 
 		await waitFor(() =>
-			expect(result.current.error).toBe(
-				"Microphone is not available in this browser.",
-			),
+			expect(showErrorToastMock).toHaveBeenCalledWith({
+				title: "Recording failed",
+				message: "Microphone is not available in this browser.",
+			}),
 		)
 		expect(result.current.isRecording).toBe(false)
 	})
@@ -205,9 +235,10 @@ describe("useDictation", () => {
 		})
 
 		await waitFor(() =>
-			expect(result.current.error).toBe(
-				"Audio recording is not available in this browser.",
-			),
+			expect(showErrorToastMock).toHaveBeenCalledWith({
+				title: "Recording failed",
+				message: "Audio recording is not available in this browser.",
+			}),
 		)
 		expect(result.current.isRecording).toBe(false)
 	})
@@ -216,7 +247,9 @@ describe("useDictation", () => {
 		let signal: AbortSignal | undefined
 		transcribeAudioMock.mockImplementation((_audio, init) => {
 			signal = init?.signal
-			return new Promise(() => {})
+			return new Promise((_resolve, reject) => {
+				signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")))
+			})
 		})
 		const onTranscript = vi.fn()
 		const { result, unmount } = renderHook(() => useDictation({ onTranscript }))
@@ -230,9 +263,10 @@ describe("useDictation", () => {
 		})
 		await waitFor(() => expect(signal).toBeDefined())
 
-		unmount()
+		await act(async () => unmount())
 
 		expect(signal?.aborted).toBe(true)
+		expect(showErrorToastMock).not.toHaveBeenCalled()
 	})
 
 	it("does not reset active recording when the parent rerenders", async () => {

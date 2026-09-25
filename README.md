@@ -21,6 +21,10 @@ Cerebras model. To keep keys encrypted on disk, follow [RoboZ's encrypted-key
 instructions](https://github.com/Tachion-Oy/roboz#endpoints-and-model-catalogues),
 place `.env.encrypt` here, remove the plaintext keys from `.env`, and unlock
 **API keys** in the HUD after starting live mode.
+If both files exist, `.env.encrypt` does not override plaintext API keys in
+`.env`. Those keys are loaded directly, and the unlock button can stay hidden.
+Remove the API key entries from `.env` to use encrypted-key unlocking and avoid
+keeping plaintext provider keys on disk.
 
 Set `ROBOZIUM_WEB_PORT` in `.env` if port 6969 is busy. Mock and live projects
 persist in separate Docker volumes. Ctrl+C stops the app without deleting them;

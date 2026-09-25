@@ -1,14 +1,19 @@
 "use client"
 
 import { useState } from "react"
-import { ProjectStatus, type ProjectRow } from "@/lib/robozium/landing"
+import {
+	isActiveRunStatus,
+	isCurrentRunRow,
+	ProjectStatus,
+	type ProjectRow,
+} from "@/lib/robozium/landing"
 import { DisplayArt } from "@/app/components/branding/DisplayArt"
 import { CreateRunForm } from "./CreateRunForm"
 
 type ProjectOverviewPanelProps = {
 	projects: ProjectRow[]
-	currentProjectSlug?: string | null
-	isStarting: boolean
+	currentRunId?: string | null
+	navigationPending: boolean
 	onProjectClick: (project: ProjectRow) => void
 	onCreateRunSubmit: (projectName: string) => void
 	onCancelRun: (project: ProjectRow) => void
@@ -73,8 +78,6 @@ function statusDisplay(status: ProjectStatus): {
 	}
 }
 
-const ACTIONS = "w-44 shrink-0"
-
 function RowActions({
 	project,
 	onCancelRun,
@@ -87,14 +90,13 @@ function RowActions({
 	const [confirmingDelete, setConfirmingDelete] = useState(false)
 
 	const canCancel =
-		project.status === ProjectStatus.Running ||
-		project.status === ProjectStatus.AwaitingUserInput ||
+		isActiveRunStatus(project.status) ||
 		project.status === ProjectStatus.Syncing
 	const canDelete = project.status === ProjectStatus.Dormant
 
 	return (
 		<span
-			className={`${ACTIONS} agent-hud__row-actions flex justify-end gap-2`}>
+			className="w-44 shrink-0 agent-hud__row-actions flex justify-end gap-2">
 			<button
 				type="button"
 				disabled={!canCancel}
@@ -141,9 +143,7 @@ function ProjectRowItem({
 }) {
 	const display = statusDisplay(project.status)
 	const canOpen =
-		isCurrent ||
-		project.status === ProjectStatus.Running ||
-		project.status === ProjectStatus.AwaitingUserInput ||
+		isActiveRunStatus(project.status) ||
 		project.status === ProjectStatus.Dormant
 
 	return (
@@ -188,13 +188,13 @@ function ProjectRowItem({
 
 function ProjectsTable({
 	projects,
-	currentProjectSlug,
+	currentRunId,
 	onProjectClick,
 	onCancelRun,
 	onDeleteProject,
 }: {
 	projects: ProjectRow[]
-	currentProjectSlug: string | null
+	currentRunId: string | null
 	onProjectClick: (project: ProjectRow) => void
 	onCancelRun: (project: ProjectRow) => void
 	onDeleteProject: (project: ProjectRow) => void
@@ -210,7 +210,7 @@ function ProjectsTable({
 					<span>Started</span>
 				</span>
 				<span
-					className={ACTIONS}
+					className="w-44 shrink-0"
 					aria-hidden="true"
 				/>
 			</div>
@@ -219,7 +219,7 @@ function ProjectsTable({
 					<ProjectRowItem
 						key={project.slug}
 						project={project}
-						isCurrent={project.slug === currentProjectSlug}
+						isCurrent={isCurrentRunRow(project, currentRunId)}
 						onProjectClick={onProjectClick}
 						onCancelRun={onCancelRun}
 						onDeleteProject={onDeleteProject}
@@ -232,8 +232,8 @@ function ProjectsTable({
 
 export function ProjectOverviewPanel({
 	projects,
-	currentProjectSlug = null,
-	isStarting,
+	currentRunId = null,
+	navigationPending,
 	onProjectClick,
 	onCreateRunSubmit,
 	onCancelRun,
@@ -244,13 +244,13 @@ export function ProjectOverviewPanel({
 	return (
 		<div className="agent-hud__project-view flex min-h-0 w-full flex-1 flex-col gap-8">
 			<fieldset
-				disabled={isStarting}
-				aria-busy={isStarting}
+				disabled={navigationPending}
+				aria-busy={navigationPending}
 				className="agent-hud__table-scroll m-0 min-h-0 min-w-0 flex-1 overflow-y-auto border-0 px-2 py-0">
 				{projects.length > 0 ? (
 					<ProjectsTable
 						projects={projects}
-						currentProjectSlug={currentProjectSlug}
+						currentRunId={currentRunId}
 						onProjectClick={onProjectClick}
 						onCancelRun={onCancelRun}
 						onDeleteProject={onDeleteProject}
@@ -266,7 +266,7 @@ export function ProjectOverviewPanel({
 			<div className="flex justify-center">
 				{isCreatingRun ? (
 					<CreateRunForm
-						isCreating={isStarting}
+						disabled={navigationPending}
 						onCancel={() => setIsCreatingRun(false)}
 						onSubmit={onCreateRunSubmit}
 					/>
@@ -274,7 +274,7 @@ export function ProjectOverviewPanel({
 					<button
 						type="button"
 						onClick={() => setIsCreatingRun(true)}
-						disabled={isStarting}
+						disabled={navigationPending}
 						className="app-nav__cta agent-hud__start">
 						<DisplayArt name="new-project" />
 					</button>

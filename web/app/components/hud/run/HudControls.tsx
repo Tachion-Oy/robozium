@@ -10,7 +10,6 @@ export type HudDictationControls = {
 	isRecording: boolean
 	audioLevel?: number
 	isTranscribing: boolean
-	error: string | null
 	onToggle: () => void
 }
 

@@ -1,7 +1,8 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useStore } from "zustand"
 import { useRouter } from "next/navigation"
+import { hudVisibilityStore } from "@/lib/robozium/hud-visibility"
 import {
 	AgentApiError,
 	cancelProject,
@@ -9,7 +10,12 @@ import {
 	createRun,
 	deleteProject,
 } from "@/lib/robozium/client"
-import { ProjectStatus, type ProjectRow } from "@/lib/robozium/landing"
+import {
+	isActiveRunStatus,
+	isCurrentRunRow,
+	ProjectStatus,
+	type ProjectRow,
+} from "@/lib/robozium/landing"
 import type { Project } from "@/lib/robozium/wire"
 import { showErrorToast } from "@/app/components/feedback/ErrorToast"
 import { ProjectOverviewPanel } from "./ProjectOverviewPanel"
@@ -18,18 +24,20 @@ import { useProjectOverview } from "./useProjectOverview"
 type ProjectOverviewProps = {
 	/** Server-fetched seed so the table paints on first render. */
 	initialProjects?: Project[] | null
-	currentProjectSlug?: string | null
+	currentRunId?: string | null
 	onCurrentProjectClick?: () => void
 }
 
 export function ProjectOverview({
 	initialProjects = null,
-	currentProjectSlug = null,
+	currentRunId = null,
 	onCurrentProjectClick,
 }: ProjectOverviewProps) {
 	const router = useRouter()
-	const [isStarting, setIsStarting] = useState(false)
-	const navigationPendingRef = useRef(false)
+	const navigationPending = useStore(
+		hudVisibilityStore,
+		(state) => state.navigationPending,
+	)
 	const projects = useProjectOverview(initialProjects)
 	if (projects.isInitialLoading) {
 		return (
@@ -46,14 +54,12 @@ export function ProjectOverview({
 		)
 	}
 	const beginNavigation = () => {
-		if (navigationPendingRef.current) return false
-		navigationPendingRef.current = true
-		setIsStarting(true)
+		if (hudVisibilityStore.getState().navigationPending) return false
+		hudVisibilityStore.setState({ navigationPending: true })
 		return true
 	}
 	const releaseNavigation = () => {
-		navigationPendingRef.current = false
-		setIsStarting(false)
+		hudVisibilityStore.setState({ navigationPending: false })
 	}
 
 	const handleCreateRunSubmit = async (projectName: string) => {
@@ -63,8 +69,8 @@ export function ProjectOverview({
 			const { run_id } = await createRun({ project })
 			router.push(`/?runId=${encodeURIComponent(run_id)}`)
 		} catch (error) {
-			releaseNavigation()
 			if (error instanceof AgentApiError && error.status === 423) {
+				releaseNavigation()
 				showErrorToast({
 					title: "API keys locked",
 					message: "Unlock API keys before starting a run.",
@@ -118,16 +124,12 @@ export function ProjectOverview({
 	}
 
 	const handleProjectClick = async (project: ProjectRow) => {
-		if (navigationPendingRef.current) return
-		if (project.slug === currentProjectSlug && onCurrentProjectClick) {
+		if (hudVisibilityStore.getState().navigationPending) return
+		if (isCurrentRunRow(project, currentRunId) && onCurrentProjectClick) {
 			onCurrentProjectClick()
 			return
 		}
-		if (
-			(project.status === ProjectStatus.Running ||
-				project.status === ProjectStatus.AwaitingUserInput) &&
-			project.runId
-		) {
+		if (isActiveRunStatus(project.status) && project.runId) {
 			if (!beginNavigation()) return
 			projects.markOpening(project.slug)
 			router.push(`/?runId=${encodeURIComponent(project.runId)}`)
@@ -145,8 +147,8 @@ export function ProjectOverview({
 			router.push(`/?runId=${encodeURIComponent(run_id)}`)
 		} catch (error) {
 			projects.clearOpening(project.slug)
-			releaseNavigation()
 			if (error instanceof AgentApiError && error.status === 423) {
+				releaseNavigation()
 				showErrorToast({
 					title: "API keys locked",
 					message: "Unlock API keys before starting a run.",
@@ -161,8 +163,8 @@ export function ProjectOverview({
 	return (
 		<ProjectOverviewPanel
 			projects={projects.rows}
-			currentProjectSlug={currentProjectSlug}
-			isStarting={isStarting}
+			currentRunId={currentRunId}
+			navigationPending={navigationPending}
 			onProjectClick={handleProjectClick}
 			onCreateRunSubmit={handleCreateRunSubmit}
 			onCancelRun={handleCancelRun}

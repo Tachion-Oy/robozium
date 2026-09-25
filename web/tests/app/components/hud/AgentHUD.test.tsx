@@ -82,11 +82,11 @@ vi.mock("../../../../app/components/hud/HudResizeHandle", () => ({
 vi.mock("../../../../app/components/hud/projects/ProjectOverview", () => ({
 	ProjectOverview: ({
 		initialProjects,
-		currentProjectSlug,
+		currentRunId,
 		onCurrentProjectClick,
 	}: {
 		initialProjects?: Project[] | null
-		currentProjectSlug?: string | null
+		currentRunId?: string | null
 		onCurrentProjectClick?: () => void
 	}) => (
 		<div>
@@ -94,7 +94,7 @@ vi.mock("../../../../app/components/hud/projects/ProjectOverview", () => ({
 			<span data-testid="landing-initial-status">
 				{initialProjects?.[0]?.status ?? "missing"}
 			</span>
-			{currentProjectSlug ? <span>Current {currentProjectSlug}</span> : null}
+			{currentRunId ? <span>Current {currentRunId}</span> : null}
 			{onCurrentProjectClick ? (
 				<button type="button" onClick={onCurrentProjectClick}>
 					Current project
@@ -171,7 +171,8 @@ async function chooseHudScreen(currentLabel: string, nextLabel: string) {
 }
 
 describe("AgentHUD status mode", () => {
-	it("uses compact landing and wide run defaults on route transitions", () => {
+	it("keeps the chosen HUD size across route transitions", () => {
+		hudSizeStore.setState({ progress: 0.45 })
 		const view = render(
 			<AgentHUD
 				runId={null}
@@ -179,7 +180,7 @@ describe("AgentHUD status mode", () => {
 				modelSelectionPromise={Promise.resolve(null)}
 			/>,
 		)
-		expect(hudSizeStore.getState().progress).toBe(0)
+		expect(hudSizeStore.getState().progress).toBe(0.45)
 
 		view.rerender(
 			<AgentHUD
@@ -188,7 +189,7 @@ describe("AgentHUD status mode", () => {
 				modelSelectionPromise={Promise.resolve(null)}
 			/>,
 		)
-		expect(hudSizeStore.getState().progress).toBe(1)
+		expect(hudSizeStore.getState().progress).toBe(0.45)
 
 		view.rerender(
 			<AgentHUD
@@ -197,7 +198,7 @@ describe("AgentHUD status mode", () => {
 				modelSelectionPromise={Promise.resolve(null)}
 			/>,
 		)
-		expect(hudSizeStore.getState().progress).toBe(0)
+		expect(hudSizeStore.getState().progress).toBe(0.45)
 	})
 
 	it("removes the app-entry marker without another router navigation", () => {
@@ -342,7 +343,7 @@ describe("AgentHUD status mode", () => {
 		expect(hudSizeStore.getState().progress).toBe(0.45)
 		expect(screen.queryByText("Run HUD content")).toBeNull()
 		expect(screen.getByText("Landing HUD content")).not.toBeNull()
-		expect(screen.getByText("Current alpha")).not.toBeNull()
+		expect(screen.getByText("Current run-1")).not.toBeNull()
 		expect(
 			screen
 				.getByRole("button", { name: "Model selector" })
@@ -410,7 +411,7 @@ describe("AgentHUD status mode", () => {
 				.getAttribute("data-run-id"),
 		).toBe("default")
 		expect(screen.queryByRole("button", { name: "Current project" })).toBeNull()
-		expect(screen.queryByText("Current alpha")).toBeNull()
+		expect(screen.queryByText("Current run-1")).toBeNull()
 		expect(document.querySelector(".agent-hud__event-text")).toBeNull()
 		expect(screen.getByRole("button", { name: "Expand" })).not.toBeNull()
 		expect(
@@ -418,7 +419,7 @@ describe("AgentHUD status mode", () => {
 				.querySelector(".agent-hud__logo--mini")
 				?.hasAttribute("data-agent-state"),
 		).toBe(false)
-		expect(hudVisibilityStore.getState().runActive).toBe(true)
+		expect(hudVisibilityStore.getState().runActive).toBe(false)
 
 		act(() => hudVisibilityStore.setState({ open: false }))
 		expect(document.querySelector(".agent-hud")?.className).toContain(
@@ -434,6 +435,17 @@ describe("AgentHUD status mode", () => {
 		expect(screen.getByText("Status panel content")).not.toBeNull()
 		await chooseHudScreen("Dependencies", "Runs Overview")
 		expect(screen.getByText("Landing HUD content")).not.toBeNull()
+	})
+
+	it("keeps a minimized HUD minimized when its run finishes", () => {
+		const view = render(<AgentHUD runId="run-1" introDone modelSelectionPromise={Promise.resolve(null)} />)
+		act(() => hudVisibilityStore.setState({ open: false }))
+		mocks.phase = RunHudPhase.Done
+		view.rerender(<AgentHUD runId="run-1" introDone modelSelectionPromise={Promise.resolve(null)} />)
+		expect(hudVisibilityStore.getState().open).toBe(false)
+		expect(document.querySelector(".agent-hud")?.className).toContain("agent-hud--hidden")
+		expect(screen.getByRole("button", { name: "Expand" })).not.toBeNull()
+		expect(document.querySelector(".agent-hud__logo--mini")?.hasAttribute("data-agent-state")).toBe(false)
 	})
 
 	it("uses the same recovery matrix for a permanent run-open failure", async () => {
@@ -506,6 +518,6 @@ describe("AgentHUD status mode", () => {
 
 		expect(screen.getByText("Run HUD content")).not.toBeNull()
 		expect(screen.queryByText("Landing HUD content")).toBeNull()
-		expect(hudSizeStore.getState().progress).toBe(1)
+		expect(hudSizeStore.getState().progress).toBe(0)
 	})
 })
