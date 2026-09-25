@@ -14,7 +14,7 @@ from robozium.hub.logging import HubLoggingConfig
 
 NAME: Final = "Robozium"
 SANDBOX: Final = Sandbox(
-    root=Path(environ.get("ROBOZIUM_HUB_ROOT", f"../{NAME}")),
+    root=Path(environ.get("ROBOZIUM_HUB_ROOT", f"../{NAME}-Hub")),
     readonly="readonly",
     shared="workspace",
     projects="projects",

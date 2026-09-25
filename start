@@ -3,13 +3,66 @@ set -eu
 cd "$(dirname "$0")"
 
 case "${1:-}" in
-  --mock) export ROBOZIUM_MODE=mock ;;
-  "") export ROBOZIUM_MODE=live ;;
+  --mock) mode=mock ;;
+  "") mode=live ;;
   *) echo "Usage: ./start [--mock]" >&2; exit 2 ;;
 esac
+if [ "$#" -gt 1 ]; then
+  echo "Usage: ./start [--mock]" >&2
+  exit 2
+fi
 
 if [ -f .env.encrypt ]; then
-  docker compose -f compose.yaml -f compose.encrypted.yaml up --build
+  set -- --env-file .env.encrypt
+  if [ -f .env ]; then
+    set -- "$@" --env-file .env
+  fi
 else
-  docker compose up --build
+  set --
+fi
+
+if [ "$mode" = mock ]; then
+  hub_dir="$PWD/.runtime/mock-hub"
+  log_dir="$PWD/.runtime/mock-logs"
+else
+  configured_root=${ROBOZIUM_HUB_ROOT:-}
+  if [ -z "$configured_root" ]; then
+    compose_environment=$(docker compose "$@" config --environment)
+    configured_root=$(printf '%s\n' "$compose_environment" | sed -n 's/^ROBOZIUM_HUB_ROOT=//p' | head -n 1)
+  fi
+  configured_root=${configured_root:-../Robozium-Hub}
+  case "$configured_root" in
+    /*) hub_dir=$configured_root ;;
+    *) hub_dir="$PWD/$configured_root" ;;
+  esac
+  log_dir="$PWD/.runtime/logs"
+fi
+
+for directory in "$hub_dir" "$log_dir"; do
+  if [ -e "$directory" ] && [ ! -d "$directory" ]; then
+    echo "Storage path is not a directory: $directory" >&2
+    exit 1
+  fi
+  mkdir -p "$directory"
+  if [ ! -w "$directory" ]; then
+    echo "Storage directory is not writable: $directory" >&2
+    exit 1
+  fi
+done
+
+hub_dir=$(cd "$hub_dir" && pwd -P)
+log_dir=$(cd "$log_dir" && pwd -P)
+export ROBOZIUM_HOST_HUB_DIR=$hub_dir
+export ROBOZIUM_HOST_LOG_DIR=$log_dir
+export ROBOZIUM_MODE=$mode
+if docker info --format '{{json .SecurityOptions}}' | grep -q 'rootless'; then
+  export ROBOZIUM_API_USER=0:0
+else
+  export ROBOZIUM_API_USER="$(id -u):$(id -g)"
+fi
+
+if [ -f .env.encrypt ]; then
+  docker compose "$@" -f compose.yaml -f compose.encrypted.yaml up --build
+else
+  docker compose "$@" up --build
 fi
