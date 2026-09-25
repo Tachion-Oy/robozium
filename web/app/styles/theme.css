@@ -11,6 +11,11 @@
  * ------------------------------------------------------------------------- */
 
 :root {
+  --font-vt323: "VT323";
+  --font-share-tech-mono: "Share Tech Mono";
+  --font-source-code-pro: "Source Code Pro";
+  --font-sixtyfour: "Sixtyfour Variable";
+
   /* Desktop density. Keep the unitless value paired with the root percentage:
      CSS uses the percentage to scale every rem-based surface, while viewport-
      based HUD bounds read the numeric value in HudResizeHandle. */
