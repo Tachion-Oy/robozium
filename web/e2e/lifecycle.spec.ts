@@ -78,8 +78,8 @@ async function openAndCompleteRun(page: Page, slug: string): Promise<void> {
 	await page.locator(".agent-hud__textarea").fill("second reply")
 	await expect(send).toBeEnabled()
 	await send.click()
-	// "stop" drives the run to COMPLETED. The run URL is replaced, so the
-	// session unmounts and its old fallback poller cannot outlive the run.
+	// "stop" drives the run to COMPLETED. Its URL is replaced and transports
+	// stop, while the final transcript remains mounted behind the HUD.
 	await expect
 		.poll(() => new URL(page.url()).searchParams.get("runId"), {
 			timeout: 15_000,
@@ -89,13 +89,16 @@ async function openAndCompleteRun(page: Page, slug: string): Promise<void> {
 		timeout: 15_000,
 	})
 	await expect(page.locator(".app-nav__brand")).toBeVisible()
+	await expect(page.locator(".app-nav__brand")).not.toHaveClass(
+		/app-nav__brand--enter/,
+	)
 	await expect(page.locator(".agent-hud__view-trigger")).toHaveText(
 		"Runs Overview",
 	)
 	await expect(
 		page.getByRole("slider", { name: "Resize HUD" }),
 	).toHaveAttribute("aria-valuenow", "0")
-	await expect(page.locator(".term-log")).not.toHaveClass(
+	await expect(page.locator(".term-log")).toHaveClass(
 		/term-log--scrollable/,
 	)
 
@@ -103,6 +106,138 @@ async function openAndCompleteRun(page: Page, slug: string): Promise<void> {
 	await page.waitForTimeout(2_200)
 	expect(runViewRequests).toBe(requestsAfterLanding)
 	page.off("request", countRunViewRequest)
+}
+
+for (const boundary of ["creation", "navigation"] as const) {
+	test(`a finished run cannot replace a newer run during ${boundary}`, async ({ page, request }) => {
+		const firstSlug = await createProject(request, `Finishing Run ${Date.now()}`)
+		const secondSlug = await createProject(request, `Next Run ${Date.now()}`)
+		await gotoLanding(page)
+		await projectRow(page, firstSlug).getByRole("button", { name: `Open ${firstSlug}` }).click()
+		await expect(page).toHaveURL(/[?&]runId=/)
+		const firstRunId = new URL(page.url()).searchParams.get("runId")
+		if (!firstRunId) throw new Error("missing first run ID")
+		await expect(page.locator(".agent-hud__agent", {
+			hasText: "Hello! I generated a text artifact for validation:",
+		})).toBeVisible({ timeout: 15_000 })
+		await page.locator(".agent-hud__textarea").fill("first reply")
+		await page.getByRole("button", { name: "Send", exact: true }).click()
+		await expect(page.locator(".agent-hud__agent", {
+			hasText: "Thanks. One more thing before I finish?",
+		})).toBeVisible({ timeout: 15_000 })
+		const viewResponse = await request.get(`/api/runs/${encodeURIComponent(firstRunId)}/view`)
+		expect(viewResponse.ok()).toBe(true)
+		const runView = (await viewResponse.json()) as { current_prompt_id: string | null }
+		if (!runView.current_prompt_id) throw new Error("missing second prompt")
+
+		await page.getByRole("button", { name: "Current Run", exact: true }).click()
+		await page.getByRole("option", { name: "Runs Overview", exact: true }).click()
+		await expect(projectRow(page, secondSlug)).toBeVisible()
+		let releaseNavigation!: () => void
+		let markPending!: () => void
+		const navigationGate = new Promise<void>((resolve) => { releaseNavigation = resolve })
+		const pending = new Promise<void>((resolve) => { markPending = resolve })
+		await page.route(
+			boundary === "creation"
+				? "**/api/runs/create"
+				: (url) => url.pathname === "/" && url.searchParams.has("runId") && url.searchParams.get("runId") !== firstRunId,
+			async (route) => {
+				markPending()
+				await navigationGate
+				await route.continue()
+			},
+		)
+		try {
+			await projectRow(page, secondSlug).getByRole("button", { name: `Open ${secondSlug}` }).click()
+			await expect(projectRow(page, secondSlug).getByText("OPENING", { exact: true })).toBeVisible()
+			await pending
+			const reply = await request.post(`/api/runs/${encodeURIComponent(firstRunId)}/reply`, {
+				data: { prompt_id: runView.current_prompt_id, content: "second reply" },
+			})
+			expect(reply.ok()).toBe(true)
+			await expect.poll(async () => {
+				const view = await request.get(`/api/runs/${encodeURIComponent(firstRunId)}/view`)
+				return ((await view.json()) as { status: string }).status
+			}).toBe("completed")
+			await expect(projectRow(page, firstSlug).getByRole("button", { name: `Return to ${firstSlug}` })).toHaveCount(0)
+			expect(new URL(page.url()).searchParams.get("runId")).toBe(firstRunId)
+			releaseNavigation()
+			await expect.poll(() => {
+				const runId = new URL(page.url()).searchParams.get("runId")
+				return runId && runId !== firstRunId ? runId : null
+			}).not.toBeNull()
+			await expect(page.getByRole("button", { name: "Current Run", exact: true })).toBeVisible()
+			await page.waitForTimeout(2_200)
+			await expect(page).toHaveURL(/[?&]runId=/)
+			expect(new URL(page.url()).searchParams.get("runId")).not.toBe(firstRunId)
+		} finally {
+			releaseNavigation()
+		}
+	})
+}
+
+for (const panel of ["Runs Overview", "Dependencies"] as const) {
+	test(`finishing in the background preserves ${panel} and the chosen HUD size`, async ({ page, request }) => {
+		const slug = await createProject(request, `Background Finish ${panel} ${Date.now()}`)
+		await gotoLanding(page)
+		await projectRow(page, slug).getByRole("button", { name: `Open ${slug}` }).click()
+		await expect(page).toHaveURL(/[?&]runId=/)
+		const runId = new URL(page.url()).searchParams.get("runId")
+		if (!runId) throw new Error("missing run ID")
+		await expect(page.locator(".agent-hud__agent", {
+			hasText: "Hello! I generated a text artifact for validation:",
+		})).toBeVisible({ timeout: 15_000 })
+		await page.locator(".agent-hud__textarea").fill("first reply")
+		await page.getByRole("button", { name: "Send", exact: true }).click()
+		await expect(page.locator(".agent-hud__agent", {
+			hasText: "Thanks. One more thing before I finish?",
+		})).toBeVisible({ timeout: 15_000 })
+
+		const viewResponse = await request.get(`/api/runs/${encodeURIComponent(runId)}/view`)
+		expect(viewResponse.ok()).toBe(true)
+		const runView = (await viewResponse.json()) as { current_prompt_id: string | null }
+		if (!runView.current_prompt_id) throw new Error("missing second prompt")
+
+		const size = page.getByRole("slider", { name: "Resize HUD" })
+		await size.focus()
+		await page.keyboard.press("End")
+		await page.keyboard.press("ArrowDown")
+		await expect(size).toHaveAttribute("aria-valuenow", "95")
+		await page.getByRole("button", { name: "Current Run", exact: true }).click()
+		await page.getByRole("option", { name: panel, exact: true }).click()
+		const panelSelector = panel === "Runs Overview"
+			? ".agent-hud__project-view"
+			: ".agent-hud__status-view"
+		const focusTarget = panel === "Runs Overview"
+			? page.getByRole("button", { name: "New Project", exact: true })
+			: page.getByRole("button", { name: "Status", exact: true })
+		await focusTarget.focus()
+		await page.evaluate((selector) => {
+			;(window as Window & { __activePanel?: Element | null }).__activePanel =
+				document.querySelector(selector)
+		}, panelSelector)
+		const beforeBounds = await page.locator(".agent-hud__box").boundingBox()
+
+		const reply = await request.post(`/api/runs/${encodeURIComponent(runId)}/reply`, {
+			data: { prompt_id: runView.current_prompt_id, content: "second reply" },
+		})
+		expect(reply.ok()).toBe(true)
+		await expect.poll(() => new URL(page.url()).searchParams.get("runId")).toBeNull()
+		await expect(page.locator(".agent-hud__view-trigger")).toHaveText(panel)
+		await expect(size).toHaveAttribute("aria-valuenow", "95")
+		const afterBounds = await page.locator(".agent-hud__box").boundingBox()
+		expect(beforeBounds).not.toBeNull()
+		expect(afterBounds).not.toBeNull()
+		if (beforeBounds && afterBounds) {
+			expect(Math.abs(afterBounds.width - beforeBounds.width)).toBeLessThan(1)
+			expect(Math.abs(afterBounds.height - beforeBounds.height)).toBeLessThan(1)
+		}
+		await expect(page.locator(".term-log")).toContainText("Thanks. One more thing before I finish?")
+		await expect.poll(() => page.evaluate((selector) =>
+			(window as Window & { __activePanel?: Element | null }).__activePanel ===
+				document.querySelector(selector), panelSelector)).toBe(true)
+		await expect(focusTarget).toBeFocused()
+	})
 }
 
 test("happy path: syncing blocks actions and only settles once the librarian's real files land", async ({

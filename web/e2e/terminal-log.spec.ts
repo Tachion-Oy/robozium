@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test"
 import { gotoLanding } from "./helpers"
 
+test("fresh landing keeps its entrance animation", async ({ page }) => {
+	await page.goto("/")
+	await expect(page.locator(".app-nav__brand")).toHaveClass(
+		/app-nav__brand--enter/,
+	)
+})
+
 test("shows mock terminal message on landing", async ({ page }) => {
 	await gotoLanding(page)
 

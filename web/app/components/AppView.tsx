@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useStore } from "zustand"
+import { hudVisibilityStore } from "@/lib/robozium/hud-visibility"
 import type { ModelSelection, Project, RunView } from "@/lib/robozium/wire"
 import { useRunNotifications } from "@/hooks/useRunNotifications"
 import {
@@ -51,11 +52,12 @@ export function AppView({
 	if (!hasEverHadRun && runId) setHasEverHadRun(true)
 
 	useEffect(() => {
-		// App Router navigation preserves this client module, so returning home
-		// through the app nav skips the already-seen entrance. A real browser
-		// refresh reloads the module and restores the fresh-landing intro.
-		if (runId === null) landingIntroSeenInClientRuntime = true
-	}, [runId])
+		// Only the first page load in this client runtime can play the intro.
+		// A direct run load counts too, so returning to landing skips it.
+		landingIntroSeenInClientRuntime = true
+		// A fresh server seed also commits navigation back to the same run ID.
+		hudVisibilityStore.setState({ navigationPending: false })
+	}, [runId, initialRunView])
 
 	return (
 		<RunSessionProvider
@@ -100,24 +102,20 @@ function AppViewContent({
 	defaultModelSelectionPromise,
 }: AppViewContentProps) {
 	useRunNotifications()
-	const router = useRouter()
+	const navigationPending = useStore(
+		hudVisibilityStore,
+		(state) => state.navigationPending,
+	)
 	const shouldReturnHome = useRunSessionSelector(shouldExitRunView, false)
-	const redirectedRunId = useRef<string | null>(null)
 
 	useEffect(() => {
-		if (
-			!runId ||
-			!shouldReturnHome ||
-			redirectedRunId.current === runId
-		) {
-			return
-		}
-		redirectedRunId.current = runId
-		// Replacement keeps Back from reopening a run that the backend may have
-		// already discarded. The app marker reuses the established no-boot-intro
-		// landing path and is cleaned from the visible URL by AgentHUD.
-		router.replace("/?from=app", { scroll: false })
-	}, [router, runId, shouldReturnHome])
+		if (!runId || !shouldReturnHome || navigationPending) return
+		// Keep the stopped session and mounted panels; a route fetch would reset
+		// their state. Defer during user navigation because Next history updates
+		// can interrupt it, and only replace a URL that still belongs to this run.
+		if (new URL(window.location.href).searchParams.get("runId") !== runId) return
+		window.history.replaceState(null, "", "/")
+	}, [runId, shouldReturnHome, navigationPending])
 
 	return (
 		<>

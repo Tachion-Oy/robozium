@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { useStore } from "zustand"
 import {
@@ -10,7 +10,6 @@ import {
 } from "@/lib/robozium/session/reducer"
 import type { ModelSelection, Project } from "@/lib/robozium/wire"
 import { hudVisibilityStore } from "@/lib/robozium/hud-visibility"
-import { setHudSizeProgress } from "@/lib/robozium/hud-size"
 import { useHudEscapeDismiss } from "@/hooks/useHudEscapeDismiss"
 import { useRunSessionSelector } from "@/hooks/useRunSession"
 import {
@@ -21,9 +20,9 @@ import {
 import { HudHeader } from "./HudHeader"
 import { HudProjectBadge } from "./HudProjectBadge"
 import {
-	DEFAULT_HUD_SCREEN_SELECTIONS,
 	resolveHudPresentation,
 	selectHudScreen,
+	type HudScreen,
 } from "./hudPresentation"
 import { HudScreenContent } from "./HudScreenContent"
 import { ResizableHudBox } from "./HudResizeHandle"
@@ -45,15 +44,15 @@ export function AgentHUD({
 	defaultModelSelectionPromise = null,
 }: AgentHUDProps) {
 	const [layoutMode, setLayoutMode] = useState<LayoutMode>("top")
-	const [screenSelections, setScreenSelections] = useState(
-		DEFAULT_HUD_SCREEN_SELECTIONS,
+	const [selectedScreen, setSelectedScreen] = useState<HudScreen>(
+		runId ? "run" : "projects",
 	)
 	const [replyDraft, setReplyDraft] = useState("")
 	const [prevRunId, setPrevRunId] = useState(runId)
 	if (runId !== prevRunId) {
 		setPrevRunId(runId)
 		setLayoutMode("top")
-		setScreenSelections(DEFAULT_HUD_SCREEN_SELECTIONS)
+		setSelectedScreen(runId ? "run" : "projects")
 		setReplyDraft("")
 	}
 	const phase = useRunSessionSelector(
@@ -85,7 +84,7 @@ export function AgentHUD({
 		hasRun: Boolean(runId),
 		phase,
 		runUnavailable,
-		selections: screenSelections,
+		selectedScreen,
 	})
 	const { context } = presentation
 	const isLanding = context === "landing"
@@ -124,22 +123,11 @@ export function AgentHUD({
 	}, [runId])
 
 	useEffect(() => {
-		if (isRecovery) hudVisibilityStore.setState({ open: true })
-	}, [isRecovery])
-
-	// Apply the route/recovery size default before paint. User-selected screens are
-	// deliberately absent from these dependencies so checking Runs Overview from
-	// a live run preserves the current size.
-	useLayoutEffect(() => {
-		setHudSizeProgress(runId && !isRecovery ? 1 : 0)
-	}, [isRecovery, runId])
-
-	useEffect(() => {
 		hudVisibilityStore.setState({
-			runActive: !isLanding,
+			runActive: context === "active-run",
 			prompting: phase === RunHudPhase.Prompting,
 		})
-	}, [isLanding, phase])
+	}, [context, phase])
 
 	// Reset only on unmount. Clearing inside the phase effect's cleanup would
 	// briefly publish runActive=false on every phase change and unlock the log.
@@ -156,7 +144,7 @@ export function AgentHUD({
 	const showHud = isLanding || Boolean(runId)
 	if (!showHud) return null
 	const selectScreen = (screen: typeof presentation.screen) =>
-		setScreenSelections((current) =>
+		setSelectedScreen((current) =>
 			selectHudScreen(current, context, screen),
 		)
 	// Intro entrance classes must not leak into the run view: their finished
@@ -203,7 +191,7 @@ export function AgentHUD({
 						{presentation.showProjectBadge ? (
 							<HudProjectBadge projectSlug={projectSlug} />
 						) : null}
-						{isLanding || isRecovery || isOpen ? (
+						{isLanding || isOpen ? (
 							<HudHeader
 								presentation={presentation}
 								runId={runId}
@@ -216,7 +204,6 @@ export function AgentHUD({
 							runId={runId}
 							replyDraft={replyDraft}
 							onReplyDraftChange={setReplyDraft}
-							projectSlug={projectSlug}
 							initialProjects={initialProjects}
 							layoutMode={layoutMode}
 							onReturnToRun={() => selectScreen("run")}

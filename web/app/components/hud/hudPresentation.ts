@@ -19,8 +19,6 @@ export type HudPresentation = {
 	enableCornerControls: boolean
 }
 
-export type HudScreenSelections = Record<HudContext, HudScreen>
-
 const SCREEN_OPTIONS: Record<HudContext, readonly HudScreenOption[]> = {
 	landing: [
 		{ value: "projects", label: "Runs Overview" },
@@ -37,44 +35,26 @@ const SCREEN_OPTIONS: Record<HudContext, readonly HudScreenOption[]> = {
 	],
 }
 
-export const DEFAULT_HUD_SCREEN_SELECTIONS: HudScreenSelections = {
-	landing: "projects",
-	"active-run": "run",
-	recovery: "projects",
-}
-
-function getHudContext({
-	hasRun,
-	phase,
-	runUnavailable,
-}: {
-	hasRun: boolean
-	phase: RunHudPhase
-	runUnavailable: boolean
-}): HudContext {
-	if (!hasRun) return "landing"
-	return phase === RunHudPhase.Done || runUnavailable
-		? "recovery"
-		: "active-run"
-}
-
 export function resolveHudPresentation({
 	hasRun,
 	phase,
 	runUnavailable,
-	selections,
+	selectedScreen,
 }: {
 	hasRun: boolean
 	phase: RunHudPhase
 	runUnavailable: boolean
-	selections: HudScreenSelections
+	selectedScreen: HudScreen
 }): HudPresentation {
-	const context = getHudContext({ hasRun, phase, runUnavailable })
+	const context: HudContext = !hasRun
+		? "landing"
+		: phase === RunHudPhase.Done || runUnavailable
+			? "recovery"
+			: "active-run"
 	const screenOptions = SCREEN_OPTIONS[context]
-	const requestedScreen = selections[context]
-	const screen = screenOptions.some(({ value }) => value === requestedScreen)
-		? requestedScreen
-		: DEFAULT_HUD_SCREEN_SELECTIONS[context]
+	const screen = screenOptions.some(({ value }) => value === selectedScreen)
+		? selectedScreen
+		: "projects"
 
 	return {
 		context,
@@ -89,12 +69,11 @@ export function resolveHudPresentation({
 }
 
 export function selectHudScreen(
-	selections: HudScreenSelections,
+	selectedScreen: HudScreen,
 	context: HudContext,
 	screen: HudScreen,
-): HudScreenSelections {
-	if (!SCREEN_OPTIONS[context].some(({ value }) => value === screen)) {
-		return selections
-	}
-	return { ...selections, [context]: screen }
+): HudScreen {
+	return SCREEN_OPTIONS[context].some(({ value }) => value === screen)
+		? screen
+		: selectedScreen
 }

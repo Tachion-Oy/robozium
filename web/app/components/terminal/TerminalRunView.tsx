@@ -1,5 +1,7 @@
 "use client"
 
+import { useRunSessionSelector } from "@/hooks/useRunSession"
+import { hasPermanentRunFailure } from "@/lib/robozium/session/reducer"
 import { StreamLogRole } from "@/lib/robozium/view-model"
 import { TerminalLog } from "./TerminalLog"
 import { TerminalMessage } from "./TerminalMessage"
@@ -29,6 +31,9 @@ export function TerminalRunView({
 	onIntroDone,
 	fadeInPlaceholder = false,
 }: TerminalRunViewProps) {
+	const runUnavailable = useRunSessionSelector(hasPermanentRunFailure, false)
+	if (runUnavailable && !error) return <PlaceholderLog />
+
 	if (!runId && !error) {
 		if (playIntro && onIntroDone) {
 			return <IntroStream onIntroDone={onIntroDone} />

@@ -33,14 +33,14 @@ vi.mock("../../../../../app/components/feedback/ErrorToast", () => ({
 vi.mock("../../../../../app/components/hud/projects/ProjectOverviewPanel", () => ({
 	ProjectOverviewPanel: ({
 		projects,
-		isStarting,
+		navigationPending,
 		onCreateRunSubmit,
 		onCancelRun,
 		onDeleteProject,
 		onProjectClick,
 	}: {
 		projects: ProjectRow[]
-		isStarting: boolean
+		navigationPending: boolean
 		onCreateRunSubmit: (projectName: string) => void
 		onCancelRun: (project: ProjectRow) => void
 		onDeleteProject: (project: ProjectRow) => void
@@ -51,7 +51,7 @@ vi.mock("../../../../../app/components/hud/projects/ProjectOverviewPanel", () =>
 			<div>
 				<button
 					type="button"
-					disabled={isStarting}
+					disabled={navigationPending}
 					onClick={() => onCreateRunSubmit("new")}>
 					Create run
 				</button>
@@ -71,7 +71,7 @@ vi.mock("../../../../../app/components/hud/projects/ProjectOverviewPanel", () =>
 						</button>
 						<button
 							type="button"
-							disabled={isStarting}
+							disabled={navigationPending}
 							onClick={() => onProjectClick(project)}>
 							Open
 						</button>
@@ -94,6 +94,7 @@ vi.mock("../../../../../app/components/hud/projects/ProjectOverviewPanel", () =>
 
 import { ProjectOverview } from "../../../../../app/components/hud/projects/ProjectOverview"
 import { AgentApiError } from "../../../../../lib/robozium/client"
+import { hudVisibilityStore } from "../../../../../lib/robozium/hud-visibility"
 
 const syncingProject: Project = {
 	slug: "alpha",
@@ -138,6 +139,7 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+	hudVisibilityStore.setState({ navigationPending: false })
 	vi.clearAllMocks()
 	mocks.listProjects.mockResolvedValue([syncingProject])
 })
@@ -268,6 +270,7 @@ describe("ProjectOverview opening", () => {
 		await waitFor(() => expect(mocks.routerPush).toHaveBeenCalledWith(
 			"/?error=Unable%20to%20resume%20project",
 		))
+		expect(hudVisibilityStore.getState().navigationPending).toBe(true)
 		expect(mocks.showErrorToast).not.toHaveBeenCalled()
 	})
 
@@ -314,7 +317,7 @@ describe("ProjectOverview opening", () => {
 		render(
 			<ProjectOverview
 				initialProjects={[runningProject]}
-				currentProjectSlug="alpha"
+				currentRunId="run-1"
 				onCurrentProjectClick={onCurrentProjectClick}
 			/>,
 		)
@@ -376,6 +379,13 @@ describe("ProjectOverview opening", () => {
 })
 
 describe("ProjectOverview polling and deletion", () => {
+	it("keeps the last project rows when a refresh fails", async () => {
+		mocks.listProjects.mockRejectedValueOnce(new Error("offline"))
+		render(<ProjectOverview initialProjects={[runningProject]} />)
+		await waitFor(() => expect(mocks.listProjects).toHaveBeenCalledTimes(1))
+		expect(screen.getByTestId("status").textContent).toBe("running")
+	})
+
 	it("accepts the backend's first dormant sample after a run", async () => {
 		mocks.listProjects.mockResolvedValueOnce([dormantProject])
 		render(<ProjectOverview initialProjects={[runningProject]} />)

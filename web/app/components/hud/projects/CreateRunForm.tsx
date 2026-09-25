@@ -6,7 +6,7 @@ import { DisplayArt } from "@/app/components/branding/DisplayArt"
 type FormSubmitHandler = NonNullable<ComponentProps<"form">["onSubmit"]>
 
 type CreateRunFormProps = {
-	isCreating: boolean
+	disabled: boolean
 	onCancel: () => void
 	onSubmit: (projectName: string) => void
 }
@@ -15,7 +15,7 @@ const HUD_TEXT =
 	"font-[family-name:var(--font-agent-input)] text-[color:var(--hud-input-text)]"
 
 export function CreateRunForm({
-	isCreating,
+	disabled,
 	onCancel,
 	onSubmit,
 }: CreateRunFormProps) {
@@ -24,7 +24,7 @@ export function CreateRunForm({
 
 	const handleSubmit: FormSubmitHandler = (event) => {
 		event.preventDefault()
-		if (!trimmedProjectName || isCreating) return
+		if (!trimmedProjectName || disabled) return
 		onSubmit(trimmedProjectName)
 	}
 
@@ -43,20 +43,20 @@ export function CreateRunForm({
 				autoFocus
 				value={projectName}
 				onChange={(event) => setProjectName(event.target.value)}
-				disabled={isCreating}
+				disabled={disabled}
 				placeholder="Project name"
 				className={`agent-hud__project-input ${HUD_TEXT}`}
 			/>
 			<button
 				type="submit"
-				disabled={isCreating || !trimmedProjectName}
+				disabled={disabled || !trimmedProjectName}
 				className="app-nav__cta agent-hud__start">
 				<DisplayArt name="create-project" />
 			</button>
 			<button
 				type="button"
 				onClick={onCancel}
-				disabled={isCreating}
+				disabled={disabled}
 				className="app-nav__cta agent-hud__start">
 				<DisplayArt name="cancel" />
 			</button>

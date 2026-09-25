@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense } from "react"
+import { Suspense, useState } from "react"
 import Link, { useLinkStatus } from "next/link"
 import { useSearchParams } from "next/navigation"
 import { HUB_BRAND, HUB_HOME_ARIA_LABEL } from "@/lib/robozium/public-config"
@@ -46,11 +46,17 @@ function AppNavContent({
 
 function RoutedAppNav() {
 	const searchParams = useSearchParams()
-	if (searchParams.has("runId")) return null
+	const runId = searchParams.get("runId")
+	const [intro, setIntro] = useState(() => ({
+		runId,
+		play: runId === null && searchParams.get("from") !== "app",
+	}))
+	if (intro.runId !== runId) setIntro({ runId, play: false })
+	if (runId !== null) return null
 	return (
 		<AppNavContent
 			label={HUB_BRAND}
-			playLandingIntro={searchParams.get("from") !== "app"}
+			playLandingIntro={intro.play}
 		/>
 	)
 }
