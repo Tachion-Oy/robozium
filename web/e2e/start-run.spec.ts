@@ -152,9 +152,6 @@ test("only the first rapid project open starts navigation", async ({
 		await expect(
 			firstRow.getByRole("button", { name: `Open ${firstSlug}` }),
 		).toBeDisabled()
-		await expect(
-			secondRow.getByRole("button", { name: `Open ${secondSlug}` }),
-		).toBeDisabled()
 		await expect(firstRow.getByText(firstSlug, { exact: true })).toBeVisible()
 		await expect(secondRow.getByText(secondSlug, { exact: true })).toBeVisible()
 

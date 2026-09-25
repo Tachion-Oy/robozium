@@ -7,9 +7,21 @@ export { expect }
 type Project = { slug: string; run_id: string | null; status: string }
 
 async function projects(request: APIRequestContext): Promise<Project[]> {
-	const response = await request.get("/api/projects", { timeout: 15_000 })
-	expect(response.ok()).toBeTruthy()
-	return await response.json() as Project[]
+	let lastError: unknown
+	for (let attempt = 0; attempt < 3; attempt += 1) {
+		let response
+		try {
+			response = await request.get("/api/projects", { timeout: 15_000 })
+		} catch (error) {
+			lastError = error
+			if (attempt === 2) throw error
+			await new Promise((resolve) => setTimeout(resolve, 250))
+			continue
+		}
+		expect(response.ok()).toBeTruthy()
+		return await response.json() as Project[]
+	}
+	throw lastError
 }
 
 async function recordFixtureError(phase: string, error: unknown): Promise<void> {
