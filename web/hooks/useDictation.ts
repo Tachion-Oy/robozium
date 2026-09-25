@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { transcribeAudio } from "@/lib/robozium/client"
+import { AgentApiError, transcribeAudio } from "@/lib/robozium/client"
+import { showErrorToast } from "@/app/components/feedback/ErrorToast"
 
 export type UseDictationResult = {
 	/** Mic is open and capturing. */
@@ -10,8 +11,6 @@ export type UseDictationResult = {
 	audioLevel: number
 	/** Audio captured; waiting on the transcript. */
 	isTranscribing: boolean
-	/** Last error (permission denied, no mic, transcription failure). */
-	error: string | null
 	/** Start on first call, stop-and-transcribe on the next. */
 	toggle: () => void
 }
@@ -210,7 +209,6 @@ export function useDictation({
 	const [isRecording, setIsRecording] = useState(false)
 	const [audioLevel, setAudioLevel] = useState(0)
 	const [isTranscribing, setIsTranscribing] = useState(false)
-	const [error, setError] = useState<string | null>(null)
 
 	const sessionRef = useRef<RecordingSession | null>(null)
 	const audioLevelMonitorRef = useRef<AudioLevelMonitor | null>(null)
@@ -227,9 +225,14 @@ export function useDictation({
 				signal: controller.signal,
 			})
 			if (text.trim()) onTranscript(text.trim())
-		} catch {
+		} catch (error) {
 			if (!controller.signal.aborted && !cancelledRef.current) {
-				setError("Transcription failed.")
+				showErrorToast({
+					title: "Transcription failed",
+					message: error instanceof AgentApiError
+						? error.message
+						: "Could not transcribe audio. Try again.",
+				})
 			}
 		} finally {
 			if (abortControllerRef.current === controller) {
@@ -253,7 +256,7 @@ export function useDictation({
 		const audio = createAudioBlob(chunksRef.current, session.recorder)
 		chunksRef.current = []
 		if (audio.size === 0) {
-			setError("No audio was recorded.")
+			showErrorToast({ title: "Recording failed", message: "No audio was recorded." })
 			return
 		}
 
@@ -261,7 +264,6 @@ export function useDictation({
 	}
 
 	async function start() {
-		setError(null)
 		cancelledRef.current = false
 
 		chunksRef.current = []
@@ -271,7 +273,9 @@ export function useDictation({
 		})
 
 		if ("error" in result) {
-			setError(result.error)
+			if (!cancelledRef.current) {
+				showErrorToast({ title: "Recording failed", message: result.error })
+			}
 			return
 		}
 		if (cancelledRef.current) {
@@ -310,5 +314,5 @@ export function useDictation({
 		}
 	}
 
-	return { isRecording, audioLevel, isTranscribing, error, toggle }
+	return { isRecording, audioLevel, isTranscribing, toggle }
 }

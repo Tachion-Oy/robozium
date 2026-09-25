@@ -26,7 +26,6 @@ function createProps(overrides: Overrides = {}): Props {
 		dictation: {
 			isRecording: false,
 			isTranscribing: false,
-			error: null,
 			onToggle: () => {},
 			...overrides.dictation,
 		},

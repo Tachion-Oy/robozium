@@ -38,7 +38,6 @@ vi.mock("../../../../../hooks/useRunSession", () => ({
 vi.mock("../../../../../hooks/useDictation", () => ({
 	useDictation: () => ({
 		audioLevel: 0,
-		error: null,
 		isRecording: false,
 		isTranscribing: false,
 		toggle: vi.fn(),

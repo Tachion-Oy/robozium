@@ -77,13 +77,6 @@ export function ReplyForm({
 					isSubmitting: composer.isSubmitting,
 				}}
 			/>
-			{controls.dictation.error ? (
-				<p
-					className="agent-hud__dictation-error"
-					role="status">
-					{controls.dictation.error}
-				</p>
-			) : null}
 		</form>
 	)
 }
