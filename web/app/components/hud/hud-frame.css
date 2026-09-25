@@ -249,13 +249,16 @@
   margin-bottom: 3.75rem;
 }
 
-/* Run and status modes keep the control in normal flow. Its real rendered
-   height therefore defines the header row, and the margin exactly mirrors the
-   gap between the lower panel and the action buttons. */
+/* Run and status controls stay in normal flow, so their rendered height
+   defines the header row. */
 
 .agent-hud__header--row {
   flex: 0 0 auto;
   margin-bottom: var(--hud-section-gap);
+}
+
+:root[data-theme="dark"] .agent-hud__header--runs-overview {
+  margin-bottom: 3rem;
 }
 
 .agent-hud__run-view {
@@ -544,10 +547,12 @@
 :root[data-theme="light"] .agent-hud__header--row {
   margin-bottom: 0.85rem;
 }
+:root[data-theme="light"] .agent-hud__header--project {
+  margin-top: 2rem;
+}
 :root[data-theme="light"] .agent-hud__event-edge {
   max-width: calc(100% - 4.5rem);
-  /* Keep the run label on the header row with the two selectors. Sitting
-     across the outer shell edge exposed the rounded rail behind its corners. */
+  /* Keep the project badge above the controls and inside the shell rail. */
   top: var(--hud-pad-top);
   left: 50%;
   transform: translateX(-50%);

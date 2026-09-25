@@ -24,11 +24,18 @@ export function HudHeader({
 }: HudHeaderProps) {
 	return (
 		<div
-			className={
+			className={[
+				"agent-hud__header",
 				presentation.headerVariant === "landing"
-					? "agent-hud__header agent-hud__header--landing"
-					: "agent-hud__header agent-hud__header--row"
-			}>
+					? "agent-hud__header--landing"
+					: "agent-hud__header--row",
+				presentation.showProjectBadge ? "agent-hud__header--project" : "",
+				presentation.context === "active-run" && presentation.screen === "projects"
+					? "agent-hud__header--runs-overview"
+					: "",
+			]
+					.filter(Boolean)
+					.join(" ")}>
 			<Suspense fallback={<ModelSelectorLoading />}>
 				{modelSelectionPromise ? (
 					<ModelSelector

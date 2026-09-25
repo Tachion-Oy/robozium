@@ -173,6 +173,11 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 					},
 					30_000,
 				)
+	await page.route("**/api/credentials", (route) =>
+		route.fulfill({
+			json: { available: true, locked: true, removable: false },
+		}),
+	)
 	await page.goto(`/?runId=${encodeURIComponent(runId)}`)
 	await stabilize(page)
 	// These snapshots cover the manually expanded HUD.
@@ -189,6 +194,29 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 		"awaiting-input",
 		{ timeout: 20_000 },
 	)
+	await setTheme(page, "light")
+	for (const width of [1920, 1200, 1050]) {
+		await page.setViewportSize({ width, height: VIEWPORT.height })
+		const badge = page.locator(".agent-hud__event-edge")
+		const actions = page.locator(".agent-hud__header-actions")
+		await expect(badge).toBeVisible()
+		await expect(actions.locator(":scope > *")).toHaveCount(3)
+		for (const control of await actions.locator(":scope > *").all()) {
+			await expect(control).toBeVisible()
+		}
+		const badgeBounds = await badge.boundingBox()
+		const actionsBounds = await actions.boundingBox()
+		const boxBounds = await page.locator(".agent-hud__box").boundingBox()
+		expect(badgeBounds && actionsBounds && boxBounds).toBeTruthy()
+		if (badgeBounds && actionsBounds && boxBounds) {
+			expect(actionsBounds.y).toBeGreaterThanOrEqual(badgeBounds.y + badgeBounds.height)
+			expect(badgeBounds.x + badgeBounds.width / 2).toBeCloseTo(
+				boxBounds.x + boxBounds.width / 2,
+				0,
+			)
+		}
+	}
+	await page.setViewportSize(VIEWPORT)
 	await expectThemePair(
 		page,
 		page.locator(".agent-hud__box"),
@@ -198,6 +226,16 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 
 	await selectHudView(page, "Runs Overview")
 	await expect(page.getByText("atlas-console", { exact: true })).toBeVisible()
+	await setTheme(page, "dark")
+	const headerBounds = await page.locator(".agent-hud__header").boundingBox()
+	const tableBounds = await page.locator(".agent-hud__project-view").boundingBox()
+	const controlsBounds = await page.locator(".agent-hud__header-actions").boundingBox()
+	expect(headerBounds && tableBounds && controlsBounds).toBeTruthy()
+	if (headerBounds && tableBounds && controlsBounds) {
+		expect(tableBounds.y - headerBounds.y - headerBounds.height).toBeGreaterThanOrEqual(
+			controlsBounds.height,
+		)
+	}
 	await expectThemePair(
 		page,
 		page.locator(".agent-hud__box"),
