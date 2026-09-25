@@ -44,13 +44,11 @@ def _runtime_name(name: str) -> str:
 
 
 def _credential_names(path: Path) -> set[str]:
-    names = {name for name in os.environ if name.endswith("_API_KEY")}
-    names.update(
+    return {
         _runtime_name(name)
         for name in dotenv_values(path, interpolate=False)
-        if name.endswith("_SECRET")
-    )
-    return names
+        if name.endswith(("_API_KEY", "_SECRET"))
+    }
 
 
 def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStatus:
