@@ -1,6 +1,8 @@
+import { rm, writeFile } from "node:fs/promises"
+import { join } from "node:path"
 import { expect, test } from "./fixtures"
 import { AgentActivityState } from "../lib/robozium/session/reducer"
-import { createProject, gotoLanding } from "./helpers"
+import { createProject, e2eProjectPaths, gotoLanding } from "./helpers"
 
 test.use({ viewport: { width: 1920, height: 1080 } })
 
@@ -102,6 +104,14 @@ test("switches and persists the integrated light theme", async ({
 		)
 		.not.toBe("none")
 	const slug = await createProject(request, `Theme Toggle ${Date.now()}`)
+	const { root: projectRoot } = e2eProjectPaths(slug)
+	const firstMessageHold = join(projectRoot, ".mock-first-message-hold")
+	await writeFile(
+		join(projectRoot, ".mock-scenario"),
+		"held-first-message",
+		"utf-8",
+	)
+	await writeFile(firstMessageHold, "", "utf-8")
 	const response = await request.post("/api/runs/create", {
 		data: { project: slug },
 	})
@@ -115,44 +125,50 @@ test("switches and persists the integrated light theme", async ({
 	const logo = page.locator(
 		'.agent-hud__logo[data-agent-state="working"]',
 	).first()
-	await expect(logo).toBeVisible({ timeout: 15_000 })
-	await page.evaluate(() => {
-		document.documentElement.dataset.theme = "dark"
-	})
-	const darkWorkingPanels = await page.evaluate(() => {
-		const agent = document.querySelector(".agent-hud__replyBox--agent")
-		const user = document.querySelector(".agent-hud__replyBox--user")
-		if (!agent || !user) return null
-		return {
-			agentOpacity: Number.parseFloat(getComputedStyle(agent).opacity),
-			userOpacity: Number.parseFloat(getComputedStyle(user).opacity),
-			agentFill: getComputedStyle(agent, "::before").backgroundColor,
-			userFill: getComputedStyle(user, "::before").backgroundColor,
-		}
-	})
-	expect(darkWorkingPanels).not.toBeNull()
-	expect(darkWorkingPanels?.agentOpacity).toBeLessThan(1)
-	expect(darkWorkingPanels?.userOpacity).toBe(1)
-	expect(darkWorkingPanels?.agentFill).not.toBe(darkWorkingPanels?.userFill)
-	const darkWorkingIndicator = await logo.evaluate((element) => {
-		const style = getComputedStyle(element)
-		return {
-			animationName: style.animationName,
-			boxShadow: style.boxShadow,
-		}
-	})
-	expect(darkWorkingIndicator.animationName).toContain("hud-agent-working-pulse")
-	expect(darkWorkingIndicator.boxShadow).toContain("0px 0px 9px 0px")
-	expect(darkWorkingIndicator.boxShadow).not.toContain("0px 0px 0px 1px")
-	await page.evaluate(() => {
-		document.documentElement.dataset.theme = "light"
-	})
-	const logoMotion = await logo.evaluate((element) => ({
-		animationName: getComputedStyle(element).animationName,
-		prefersReducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
-	}))
-	expect(logoMotion.prefersReducedMotion).toBe(false)
-	expect(logoMotion.animationName).toContain("hud-light-agent-working-invert")
+	try {
+		await expect(logo).toBeVisible({ timeout: 15_000 })
+		await page.evaluate(() => {
+			document.documentElement.dataset.theme = "dark"
+		})
+		const darkWorkingPanels = await page.evaluate(() => {
+			const agent = document.querySelector(".agent-hud__replyBox--agent")
+			const user = document.querySelector(".agent-hud__replyBox--user")
+			if (!agent || !user) return null
+			return {
+				agentOpacity: Number.parseFloat(getComputedStyle(agent).opacity),
+				userOpacity: Number.parseFloat(getComputedStyle(user).opacity),
+				agentFill: getComputedStyle(agent, "::before").backgroundColor,
+				userFill: getComputedStyle(user, "::before").backgroundColor,
+			}
+		})
+		expect(darkWorkingPanels).not.toBeNull()
+		expect(darkWorkingPanels?.agentOpacity).toBeLessThan(1)
+		expect(darkWorkingPanels?.userOpacity).toBe(1)
+		expect(darkWorkingPanels?.agentFill).not.toBe(darkWorkingPanels?.userFill)
+		const darkWorkingIndicator = await logo.evaluate((element) => {
+			const style = getComputedStyle(element)
+			return {
+				animationName: style.animationName,
+				boxShadow: style.boxShadow,
+			}
+		})
+		expect(darkWorkingIndicator.animationName).toContain(
+			"hud-agent-working-pulse",
+		)
+		expect(darkWorkingIndicator.boxShadow).toContain("0px 0px 9px 0px")
+		expect(darkWorkingIndicator.boxShadow).not.toContain("0px 0px 0px 1px")
+		await page.evaluate(() => {
+			document.documentElement.dataset.theme = "light"
+		})
+		const logoMotion = await logo.evaluate((element) => ({
+			animationName: getComputedStyle(element).animationName,
+			prefersReducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
+		}))
+		expect(logoMotion.prefersReducedMotion).toBe(false)
+		expect(logoMotion.animationName).toContain("hud-light-agent-working-invert")
+	} finally {
+		await rm(firstMessageHold, { force: true })
+	}
 	await expect(page.getByRole("textbox", { name: "Type your reply..." })).toBeVisible()
 	const centeredHistoryControls = await page.evaluate(() => {
 		const actions = document.querySelector(".agent-hud__actions")

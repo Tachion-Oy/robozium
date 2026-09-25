@@ -40,8 +40,11 @@ DEFAULT_STREAM_MOCK_DELAY_S = 0.1
 # filling in. Override with ``ROBOZIUM_STREAM_MOCK_START_DELAY_S``.
 DEFAULT_STREAM_MOCK_START_DELAY_S = 4.0
 MOCK_SCENARIO_MARKER = ".mock-scenario"
+MOCK_SCENARIO_HELD_FIRST_MESSAGE = "held-first-message"
 MOCK_SCENARIO_LLM_ERROR = "llm-error"
 MOCK_SCENARIO_USER_NOTIFICATION = "user-notification"
+MOCK_FIRST_MESSAGE_HOLD_MARKER = ".mock-first-message-hold"
+MOCK_FIRST_MESSAGE_HOLD_MAX_S = 30.0
 
 # These opt-in markers hold the snapshot endpoint for cancellation tests or only
 # the memory endpoint for finalization tests. They are absent on the normal path.
@@ -121,6 +124,21 @@ def _mock_scenario(project: Project) -> str | None:
     if not marker.exists():
         return None
     return marker.read_text(encoding="utf-8").strip() or None
+
+
+def _held_first_message_sink(hold_marker: Path) -> EventSink:
+    """Hold a mock run at its first message until an E2E test releases it."""
+    first_delta = True
+
+    def sink(event: PipeEvent) -> None:
+        nonlocal first_delta
+        if first_delta and isinstance(event, MessageDeltaEvent):
+            first_delta = False
+            deadline = time.monotonic() + MOCK_FIRST_MESSAGE_HOLD_MAX_S
+            while hold_marker.exists() and time.monotonic() < deadline:
+                time.sleep(0.05)
+
+    return sink
 
 
 def _mock_recipe(
@@ -271,13 +289,18 @@ def mock_deployment(
     # The bundle hands the librarian's pipe to the manager so cancel_project can
     # reach it — same wiring as production (the shed's standard deployment).
     # Without it, cancelling a SYNCING project is a no-op in the mock app.
+    scenario_sinks: tuple[EventSink, ...] = ()
+    if scenario == MOCK_SCENARIO_HELD_FIRST_MESSAGE:
+        scenario_sinks = (
+            _held_first_message_sink(project.root / MOCK_FIRST_MESSAGE_HOLD_MARKER),
+        )
     return _mock_recipe(
         project,
         responses=responses,
         with_librarian=True,
         notification=notification,
         prepare_artifact=True,
-        event_sinks=event_sinks,
+        event_sinks=[*scenario_sinks, *event_sinks],
     )
 
 
