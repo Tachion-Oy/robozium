@@ -2,12 +2,20 @@
 
 import os
 
+import pytest
 from config_support import write_config
+from dotenv import dotenv_values
 from fastapi.testclient import TestClient
 from roboz.endpoints import encrypt_env
 
 from robozium.api.app import create_app
+from robozium.api.credentials import credential_status
 from robozium.hub.utils import load_hub
+from robozium.secret_env import (
+    encrypt_credential_env,
+    expose_plain_secrets,
+    load_credential_env,
+)
 
 
 def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch):
@@ -110,6 +118,63 @@ def test_plaintext_only_keys_never_offer_control(tmp_path, monkeypatch):
     }
     assert client.post("/credentials/clear").status_code == 200
     assert os.environ["TEST_PLAINTEXT_API_KEY"] == "synthetic"
+
+
+def test_secret_suffix_is_encrypted_and_loaded_with_api_keys(tmp_path, monkeypatch):
+    source = tmp_path / ".env"
+    source.write_text(
+        "TEST_MAIL_PASSWORD_SECRET=mail-synthetic\n"
+        "TEST_GROQ_API_KEY_SECRET=groq-synthetic\n"
+        "TEST_MAIL_HOST=mail.example\n"
+    )
+    encrypted = encrypt_credential_env(source, password="test-password")
+    assert source.read_text().startswith("TEST_MAIL_PASSWORD_SECRET=mail-synthetic")
+    assert "mail-synthetic" not in encrypted.read_text()
+    assert "groq-synthetic" not in encrypted.read_text()
+    values = dotenv_values(encrypted, interpolate=False)
+    assert values["TEST_MAIL_PASSWORD_SECRET"].startswith("roboz:")
+    assert values["TEST_GROQ_API_KEY_SECRET"].startswith("roboz:")
+    assert values["TEST_MAIL_HOST"] == "mail.example"
+
+    monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(encrypted))
+    monkeypatch.setenv("ROBOZIUM_MODE", "live")
+    monkeypatch.delenv("TEST_MAIL_PASSWORD", raising=False)
+    monkeypatch.setenv("TEST_GROQ_API_KEY", values["TEST_GROQ_API_KEY_SECRET"])
+    assert credential_status().locked is True
+    load_credential_env(encrypted, password="test-password")
+    assert os.environ["TEST_MAIL_PASSWORD"] == "mail-synthetic"
+    assert os.environ["TEST_GROQ_API_KEY"] == "groq-synthetic"
+    assert "TEST_MAIL_PASSWORD_SECRET" not in os.environ
+    assert "TEST_GROQ_API_KEY_SECRET" not in os.environ
+    assert credential_status().locked is False
+
+    monkeypatch.delenv("TEST_MAIL_PASSWORD")
+    monkeypatch.delenv("TEST_GROQ_API_KEY")
+    assert "TEST_MAIL_PASSWORD" not in os.environ
+    assert "TEST_GROQ_API_KEY" not in os.environ
+    assert credential_status().locked is True
+
+
+def test_plain_secret_suffix_uses_runtime_name(monkeypatch):
+    monkeypatch.setenv("TEST_MAIL_PASSWORD_SECRET", "plaintext-synthetic")
+    monkeypatch.delenv("TEST_MAIL_PASSWORD", raising=False)
+    expose_plain_secrets()
+    assert os.environ["TEST_MAIL_PASSWORD"] == "plaintext-synthetic"
+
+
+def test_secret_only_file_requires_password_before_loading(tmp_path, monkeypatch):
+    source = tmp_path / ".env"
+    source.write_text("TEST_ONLY_PASSWORD_SECRET=synthetic\n")
+    encrypted = encrypt_credential_env(source, password="correct")
+    monkeypatch.setenv("ROBOZIUM_MODE", "live")
+    monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(encrypted))
+    monkeypatch.delenv("TEST_ONLY_PASSWORD", raising=False)
+    assert credential_status().locked is True
+    with pytest.raises(ValueError):
+        load_credential_env(encrypted, password="wrong")
+    assert "TEST_ONLY_PASSWORD" not in os.environ
+    load_credential_env(encrypted, password="correct")
+    assert os.environ["TEST_ONLY_PASSWORD"] == "synthetic"
 
 
 def test_mock_mode_never_offers_unlock(tmp_path, monkeypatch):
