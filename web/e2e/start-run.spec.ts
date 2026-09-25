@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test"
+import { expect, test } from "./fixtures"
+import { type Page } from "@playwright/test"
 import { createProject, gotoLanding, projectRow, waitForAnyRowStatus } from "./helpers"
 
 test.describe.configure({ mode: "serial" })
@@ -66,30 +67,34 @@ test("dormant project on disk is listed and resumes on click", async ({
 		await route.continue()
 	})
 
-	await gotoLanding(page)
+	try {
+		await gotoLanding(page)
+		const dormantRow = page.locator("ul > li", { hasText: slug })
+		await expect(dormantRow).toBeVisible({ timeout: 15_000 })
+		await expect(dormantRow.getByText("DORMANT", { exact: true })).toBeVisible({
+			timeout: 15_000,
+		})
 
-	const dormantRow = page.locator("ul > li", { hasText: slug })
-	await expect(dormantRow).toBeVisible({ timeout: 15_000 })
-	await expect(dormantRow.getByText("DORMANT", { exact: true })).toBeVisible({
-		timeout: 15_000,
-	})
+		// Clicking a dormant project mints a run (loading its memory) and attaches.
+		await dormantRow.getByRole("button", { name: `Open ${slug}` }).click()
+		await expect(dormantRow.getByText("OPENING", { exact: true })).toHaveCount(1)
+		await expect(
+			dormantRow.getByRole("button", { name: `Open ${slug}` }),
+		).toBeDisabled()
+		await expect(dormantRow.getByRole("button", { name: "Cancel" })).toBeDisabled()
+		await expect(dormantRow.getByRole("button", { name: "Delete" })).toBeDisabled()
+		await page.waitForTimeout(1_100)
+		await expect(dormantRow.getByText("OPENING", { exact: true })).toHaveCount(1)
 
-	// Clicking a dormant project mints a run (loading its memory) and attaches.
-	await dormantRow.getByRole("button", { name: `Open ${slug}` }).click()
-	await expect(dormantRow.getByText("OPENING", { exact: true })).toHaveCount(1)
-	await expect(
-		dormantRow.getByRole("button", { name: `Open ${slug}` }),
-	).toBeDisabled()
-	await expect(dormantRow.getByRole("button", { name: "Cancel" })).toBeDisabled()
-	await expect(dormantRow.getByRole("button", { name: "Delete" })).toBeDisabled()
-	await page.waitForTimeout(1_100)
-	await expect(dormantRow.getByText("OPENING", { exact: true })).toHaveCount(1)
-
-	releaseCreate()
-	await expect(page).toHaveURL(/[?&]runId=/, { timeout: 10_000 })
-	await expect(page.locator(".agent-hud__textarea")).toBeVisible({
-		timeout: 15_000,
-	})
+		releaseCreate()
+		await expect(page).toHaveURL(/[?&]runId=/, { timeout: 10_000 })
+		await expect(page.locator(".agent-hud__textarea")).toBeVisible({
+			timeout: 15_000,
+		})
+	} finally {
+		releaseCreate()
+		await page.unrouteAll({ behavior: "wait" })
+	}
 })
 
 test("only the first rapid project open starts navigation", async ({
@@ -157,6 +162,7 @@ test("only the first rapid project open starts navigation", async ({
 		await expect(page).toHaveURL(/[?&]runId=/, { timeout: 10_000 })
 	} finally {
 		releaseCreate()
+		await page.unrouteAll({ behavior: "wait" })
 	}
 })
 

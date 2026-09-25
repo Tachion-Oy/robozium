@@ -51,6 +51,7 @@ host folders, though older Docker named volumes may still hold data.
 On Linux, `./scripts/dev.sh --mock` runs the development servers at
 http://127.0.0.1:3000 (requires `uv`, Node.js, and npm). Omit `--mock` for live
 development. Change models and other app settings in `hub.config.py`.
+Contributor checks and the Full E2E policy are in [Testing](docs/testing.md).
 
 ## File permissions
 

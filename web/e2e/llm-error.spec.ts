@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./fixtures"
 import { createProject } from "./helpers"
 
 test("shows LLM failure toast when mock scenario is llm-error", async ({

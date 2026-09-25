@@ -5,7 +5,6 @@ import path from "node:path"
 export async function gotoLanding(page: Page): Promise<void> {
 	// `from=app` bypasses first-load intro while preserving normal landing behavior.
 	await page.goto("/?from=app")
-	await page.waitForLoadState("networkidle")
 	await expect(
 		page.getByRole("button", { name: "New Project", exact: true }),
 	).toBeVisible({ timeout: 15_000 })

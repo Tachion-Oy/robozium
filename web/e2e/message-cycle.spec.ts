@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./fixtures"
 import { createProject, gotoLanding, projectRow } from "./helpers"
 
 test("replies to the active prompt while an older message is displayed", async ({

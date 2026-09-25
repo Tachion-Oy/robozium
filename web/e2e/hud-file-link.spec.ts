@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./fixtures"
 import { createProject, e2eProjectPaths } from "./helpers"
 
 test("follows the newest HUD message while preserving selected history", async ({

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./fixtures"
 import { createProject } from "./helpers"
 
 test("dictation failures use a toast, preserve the draft and layout, and allow retry", async ({ page, request }) => {
