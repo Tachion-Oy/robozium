@@ -717,9 +717,6 @@
       var(--hud-reply-pad-block-end) + 2px
   );
 }
-:root[data-theme="light"] .agent-hud__replyBox--agent {
-  padding-top: 2.8rem;
-}
 :root[data-theme="light"]
   .agent-hud__replySection[data-agent-state="working"]
   .agent-hud__replyBox--agent {

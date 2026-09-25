@@ -548,14 +548,12 @@
   margin-bottom: 0.85rem;
 }
 :root[data-theme="light"] .agent-hud__header--project {
-  margin-top: 2rem;
+  margin-top: 1rem;
 }
 :root[data-theme="light"] .agent-hud__event-edge {
   max-width: calc(100% - 4.5rem);
-  /* Keep the project badge above the controls and inside the shell rail. */
-  top: var(--hud-pad-top);
-  left: 50%;
-  transform: translateX(-50%);
+  /* Place the badge over the shell's inset rail. */
+  top: 0.6rem;
   z-index: 24;
   filter: none;
 }
