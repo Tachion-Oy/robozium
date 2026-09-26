@@ -112,7 +112,7 @@ jobs:
       - name: Docker onboarding and restart recovery
         id: containers
         run: |
-          mkdir -p .runtime/mock-hub .runtime/mock-logs
+          mkdir -p .runtime/mock-hub .runtime/mock-logs local
           echo "ROBOZIUM_API_USER=$(id -u):$(id -g)" >> "$GITHUB_ENV"
           export ROBOZIUM_API_USER="$(id -u):$(id -g)"
           docker compose up --build --wait

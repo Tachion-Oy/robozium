@@ -50,6 +50,12 @@ for directory in "$hub_dir" "$log_dir"; do
   fi
 done
 
+if [ -e local ] && [ ! -d local ]; then
+  echo "Local capability path is not a directory: $PWD/local" >&2
+  exit 1
+fi
+mkdir -p local
+
 hub_dir=$(cd "$hub_dir" && pwd -P)
 log_dir=$(cd "$log_dir" && pwd -P)
 export ROBOZIUM_HOST_HUB_DIR=$hub_dir

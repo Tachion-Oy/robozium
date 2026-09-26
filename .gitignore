@@ -3,6 +3,7 @@
 .venv/
 .artifacts/
 .runtime/
+/local/
 __pycache__/
 .pytest_cache/
 .coverage

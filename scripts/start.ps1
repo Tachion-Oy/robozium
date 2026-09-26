@@ -68,6 +68,13 @@ foreach ($directory in @($hubDir, $logDir)) {
     }
 }
 
+$localDir = Join-Path $repoRoot "local"
+if ((Test-Path -LiteralPath $localDir) -and
+    -not (Test-Path -LiteralPath $localDir -PathType Container)) {
+    throw "Local capability path is not a directory: $localDir"
+}
+[System.IO.Directory]::CreateDirectory($localDir) | Out-Null
+
 $env:ROBOZIUM_HOST_HUB_DIR = $hubDir
 $env:ROBOZIUM_HOST_LOG_DIR = $logDir
 $env:ROBOZIUM_MODE = $mode

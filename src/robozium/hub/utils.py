@@ -10,6 +10,8 @@ from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+from robozium.hub.local import load_local_capabilities
+
 if TYPE_CHECKING:
     from robozium.hub.application import Hub
 
@@ -67,7 +69,10 @@ def load_hub(*, start: Path | None = None, config_file: Path | None = None) -> H
             models=values["MODELS"],
             default_model=values["DEFAULT_MODEL"],
             memory_endpoint=values["MEMORY_ENDPOINT"],
-            additional_capabilities=values["CAPABILITIES"],
+            additional_capabilities=(
+                *values["CAPABILITIES"],
+                *load_local_capabilities(path.parent),
+            ),
             subagents=values["SUBAGENTS"],
             transcription_endpoint=values["TRANSCRIPTION_ENDPOINT"],
             additional_dependencies=values["ADDITIONAL_DEPENDENCIES"],
