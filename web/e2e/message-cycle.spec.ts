@@ -49,9 +49,11 @@ test("replies to the active prompt while an older message is displayed", async (
 			)
 		expect(hitTargets).toHaveLength(4)
 		for (const target of hitTargets) {
-			expect(target.width).toBeGreaterThanOrEqual(36)
-				expect(target.height).toBeGreaterThanOrEqual(36)
-			}
+			// Browser transforms can report a fractional subpixel below the 36px CSS
+			// target even though the hit area is configured at 36px.
+			expect(target.width).toBeGreaterThanOrEqual(35.9)
+			expect(target.height).toBeGreaterThanOrEqual(35.9)
+		}
 		const disabledArrowOpacity = await first
 			.locator(".agent-hud__message-wedge")
 			.evaluate((wedge) => Number.parseFloat(getComputedStyle(wedge).opacity))
