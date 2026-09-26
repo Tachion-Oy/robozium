@@ -39,10 +39,13 @@ npm --prefix web run test:run
 git diff --check
 ```
 
-Pytest collects backend unit and contract tests under `tests/`, with coverage
-for `robozium` and a 90% CI minimum. Vitest collects frontend tests under
-`web/tests/`. Pyright checks the Python source and hub configuration; TypeScript
-checks the frontend.
+The default pytest run collects `tests/unit/` and `tests/contract/`, with coverage
+for `robozium` and a 90% CI minimum. Installation tests live in
+`tests/integration/`; browser orchestration and lifecycle tests live in
+`tests/e2e/`. These heavier suites run explicitly. Shared process helpers live
+in `tests/support/`, and Python checks are pytest modules rather than scripts.
+Vitest collects frontend tests under `web/tests/`. Pyright checks the Python
+source, hub configuration, and E2E/process support; TypeScript checks the frontend.
 
 During development, run a focused test or file first, for example
 `uv run pytest tests/unit/test_config.py` or
@@ -50,6 +53,21 @@ During development, run a focused test or file first, for example
 applicable complete checks before submitting. For documentation-only changes,
 review links, command accuracy, and Markdown rendering, then run
 `git diff --check`; new behavior tests are unnecessary.
+
+## Installation checks
+
+Build and install the wheel and source archive in disposable environments:
+
+```sh
+uv run pytest tests/integration --no-cov -q
+```
+
+The tests use `uv export --locked` and install dependencies with lockfile hashes
+and a published RoboZ wheel. They check archive contents and installed imports,
+then run composition, private-capability, and HTTP stream/reply checks outside
+the source tree. Diagnostic logs and JUnit results are retained in
+`.artifacts/distribution-reports/`. Set `ROBOZIUM_DIST_DIR` to test already-built
+archives. These checks require package-index access.
 
 ## Browser checks
 
@@ -71,14 +89,31 @@ npm --prefix web exec -- playwright install --with-deps chromium firefox webkit
 npm --prefix web run test:e2e:all-browsers
 ```
 
-The runner builds the production frontend, starts a mock backend with a
-disposable hub, and uses one API worker and one Playwright worker. It owns
-startup and cleanup; invoking Playwright directly bypasses that setup and is
-rejected by the browser configuration. Ensure the default test ports 8000 and
-3100 are free, or set `ROBOZIUM_E2E_API_PORT` and `ROBOZIUM_E2E_WEB_PORT`.
+The npm commands invoke `tests/e2e/test_browser.py` through pytest. Its fixtures
+build the production frontend once, start a mock backend with a disposable hub,
+and use one API worker and one Playwright worker. They own startup and cleanup;
+invoking Playwright directly bypasses that setup and is rejected by the browser
+configuration. Ensure the default test ports 8000 and 3100 are free, or set
+`ROBOZIUM_E2E_API_PORT` and `ROBOZIUM_E2E_WEB_PORT`.
+
+Select a browser or forward Playwright arguments directly through pytest:
+
+```sh
+uv run pytest tests/e2e/test_browser.py --no-cov -s --browser=firefox
+npm --prefix web run test:e2e -- --playwright-arg=--grep=restart
+uv run pytest tests/e2e/test_lifecycle.py --no-cov -s
+```
+
+`--project` is an alias for `--browser`; without either option the suite runs
+each browser sequentially. Use `--playwright-arg` for each Playwright argument,
+including file filters. `ROBOZIUM_E2E_PREBUILT=1` reuses an existing frontend
+build, and `ROBOZIUM_E2E_PYTHON` selects an installed candidate backend. The
+lifecycle suite covers occupied ports, failed startup, suite and runner
+deadlines, service exit, interruption, retries, and cleanup errors. Its
+checked-in Playwright probes are excluded from ordinary browser runs.
 
 Diagnostics are written beneath `.artifacts/e2e/`, including browser, backend,
-frontend, resource, and technical logs. These files are ignored by Git.
+frontend, and technical logs. These files are ignored by Git.
 
 ## Full E2E policy
 
@@ -95,14 +130,15 @@ Chromium and Firefox have 15-minute browser runner deadlines and 25-minute job
 limits. WebKit has a 25-minute runner deadline and a 35-minute job limit. Docker
 has a 15-minute job limit. Browser jobs allow one retry and stop after three
 failed tests. Flaky tests fail. Playwright output streams to Actions; browser,
-backend, frontend, resource, and technical logs remain in the diagnostic artifact.
+backend, frontend, and technical logs remain in the diagnostic artifact.
 
-An ordinary, fully completed WebKit test failure is advisory. An interrupted or
+Chromium, Firefox, and WebKit are all required. Any test failure, interrupted or
 timed-out suite, three-failure termination, top-level Playwright error, missing
 completion report, service exit, or runner or browser-fixture setup/cleanup
-error fails the job for every browser. The browser runner writes `result.json`
-and Playwright writes `completion.json` so the evaluator can distinguish these
-outcomes. Failure reports upload before the job limit.
+error fails the job for every browser. E2E support writes `result.json` and
+Playwright writes `completion.json`; the pytest test applies the shared policy
+after service cleanup. CI uses pytest's exit status directly for every browser.
+Failure reports upload before the job limit.
 
 Changes to deployment should exercise Docker onboarding and restart recovery;
 changes to runs, persistence, or browser interactions should exercise the

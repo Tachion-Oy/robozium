@@ -1,17 +1,10 @@
-"""A WebKit exception applies only after the whole suite completes normally."""
+"""Every browser requires a successful, complete suite and clean teardown."""
 
-import importlib.util
 import json
-from pathlib import Path
 
 import pytest
 
-SPEC = importlib.util.spec_from_file_location(
-    "evaluate_result", Path(__file__).parents[2] / "scripts/e2e/evaluate_result.py"
-)
-assert SPEC is not None and SPEC.loader is not None
-POLICY = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(POLICY)
+from tests.e2e.policy import evaluate
 
 
 def report(tmp_path, *, runner=None, completion=None):
@@ -34,8 +27,7 @@ def report(tmp_path, *, runner=None, completion=None):
     return str(tmp_path)
 
 
-@pytest.mark.parametrize("browser", ["chromium", "firefox", "webkit"])
-def test_success_requires_consistent_completed_report(tmp_path, browser):
+def test_success_requires_consistent_completed_report(tmp_path):
     directory = report(
         tmp_path,
         runner={"status": 0},
@@ -44,13 +36,12 @@ def test_success_requires_consistent_completed_report(tmp_path, browser):
             "outcomes": {"expected": 2, "unexpected": 0, "flaky": 0, "skipped": 0},
         },
     )
-    assert POLICY.evaluate(browser, "success", directory)[0] == 0
+    assert evaluate("success", directory)[0] == 0
 
 
-@pytest.mark.parametrize("browser", ["chromium", "firefox", "webkit"])
-def test_only_completed_webkit_failures_are_advisory(tmp_path, browser):
+def test_completed_test_failures_are_required(tmp_path):
     directory = report(tmp_path)
-    assert POLICY.evaluate(browser, "failure", directory)[0] == (browser != "webkit")
+    assert evaluate("failure", directory)[0] == 1
 
 
 @pytest.mark.parametrize(
@@ -69,18 +60,18 @@ def test_only_completed_webkit_failures_are_advisory(tmp_path, browser):
 )
 def test_incomplete_or_runner_failures_are_required(tmp_path, runner, completion):
     directory = report(tmp_path, runner=runner, completion=completion)
-    assert POLICY.evaluate("webkit", "failure", directory)[0] == 1
+    assert evaluate("failure", directory)[0] == 1
 
 
 def test_missing_completion_or_step_output_is_required(tmp_path):
     directory = report(tmp_path)
     (tmp_path / "completion.json").unlink()
-    assert POLICY.evaluate("webkit", "failure", directory)[0] == 1
-    assert POLICY.evaluate("webkit", "failure", "")[0] == 1
-    assert POLICY.evaluate("webkit", "cancelled", directory)[0] == 1
+    assert evaluate("failure", directory)[0] == 1
+    assert evaluate("failure", "")[0] == 1
+    assert evaluate("cancelled", directory)[0] == 1
 
 
 def test_browser_fixture_cleanup_failure_is_required(tmp_path):
     directory = report(tmp_path)
     (tmp_path / "fixture-errors.log").write_text("cleanup: cancelled request\n")
-    assert POLICY.evaluate("webkit", "failure", directory)[0] == 1
+    assert evaluate("failure", directory)[0] == 1

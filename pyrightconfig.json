@@ -2,7 +2,11 @@
   "pythonVersion": "3.13",
   "include": [
     "src",
-    "hub.config.py"
+    "hub.config.py",
+    "tests/support",
+    "tests/e2e/services.py",
+    "tests/e2e/seed.py",
+    "tests/e2e/policy.py"
   ],
   "venvPath": ".",
   "venv": ".venv",

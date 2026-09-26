@@ -50,46 +50,37 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - name: Verify packages and prepare browser tests
+      - name: Prepare installed backend
+        run: |
+          uv sync --locked --dev
+          uv build --no-sources --out-dir .artifacts/distributions
+          uv venv --python 3.13 .artifacts/browser-backend
+          uv export --locked --no-dev --no-emit-project --output-file .artifacts/browser-requirements.txt >/dev/null
+          uv pip install --python .artifacts/browser-backend/bin/python --require-hashes --only-binary roboz --requirement .artifacts/browser-requirements.txt
+          uv pip install --python .artifacts/browser-backend/bin/python --no-deps .artifacts/distributions/*.whl
+      - name: Check wheel and source archive
+        if: ${{ matrix.browser == 'chromium' }}
+        run: |
+          uv run twine check .artifacts/distributions/*
+          ROBOZIUM_DIST_DIR=.artifacts/distributions uv run pytest tests/integration --no-cov -q
+      - name: Prepare browser tests
         id: prepare
         env:
           BROWSER: ${{ matrix.browser }}
         run: |
-          uv sync --locked --dev
-          if [[ "$BROWSER" == chromium ]]; then
-            uv run python scripts/roboz_wheels.py --dist .artifacts/distributions
-            uv build --no-sources --out-dir .artifacts/distributions
-            uv run twine check .artifacts/distributions/*
-            uv run python scripts/check_distributions.py --dist .artifacts/distributions --python-output .artifacts/browser-backend
-          else
-            uv build --wheel --no-sources --out-dir .artifacts/distributions
-            uv venv --python 3.13 .artifacts/browser-backend
-            uv export --locked --no-dev --no-emit-project --output-file .artifacts/browser-requirements.txt >/dev/null
-            uv pip install --python .artifacts/browser-backend/bin/python --requirement .artifacts/browser-requirements.txt
-            uv pip install --python .artifacts/browser-backend/bin/python --no-deps .artifacts/distributions/*.whl
-          fi
           npm --prefix web ci
           npm --prefix web run build
           npm --prefix web exec -- playwright install --with-deps "$BROWSER"
       - name: Check runner failure and interruption cleanup
         id: runner_check
         if: ${{ matrix.browser == 'chromium' }}
-        run: uv run python scripts/e2e/check_runner.py
+        run: uv run pytest tests/e2e/test_lifecycle.py --no-cov -s
       - name: Run ${{ matrix.browser }} suite
         id: browser
         if: ${{ !cancelled() && steps.prepare.outcome == 'success' && (matrix.browser != 'chromium' || steps.runner_check.outcome == 'success') }}
-        continue-on-error: true
         run: bash scripts/e2e/run-mock-playwright.sh --project=${{ matrix.browser }}
-      - name: Evaluate browser result
-        if: ${{ always() && steps.browser.outcome != 'skipped' }}
-        env:
-          BROWSER: ${{ matrix.browser }}
-          SUITE: full
-          TEST_OUTCOME: ${{ steps.browser.outcome }}
-          REPORT_DIR: ${{ steps.browser.outputs.report_dir }}
-        run: uv run python scripts/e2e/evaluate_result.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ always() && (failure() || steps.browser.outcome == 'failure') }}
+        if: ${{ always() && failure() }}
         with:
           name: e2e-${{ matrix.browser }}-reports
           path: |

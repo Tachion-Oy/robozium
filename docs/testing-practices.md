@@ -46,7 +46,7 @@ meaningful user-visible outcomes rather than component implementation details.
 
 Use Playwright for browser interactions across the real frontend and mock
 backend, and container tests for Docker onboarding and restart recovery. Use
-the repository's runner so the hub is isolated and processes are cleaned up.
+the pytest E2E fixtures so the hub is isolated and processes are cleaned up.
 Keep browser assertions tolerant of normal asynchronous rendering, while
 checking the final state and errors explicitly. Avoid fixed sleeps when a
 condition can be awaited.

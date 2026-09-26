@@ -461,6 +461,7 @@ def test_run_events_forwards_message_deltas_without_trace_pollution() -> None:
     assert view is not None
     assert len(view["message_trace"]) == 1
     assert view["message_trace"][0]["type"] == "message"
+    assert view["message_trace"][0]["message_id"] == "m1"
 
 
 def test_nested_subagent_lifecycle_events_reach_run_event_listeners() -> None:
