@@ -25,7 +25,6 @@ describe("TerminalStream", () => {
 			createElement(TerminalStream, {
 				items: [
 					{
-						contentType: "markdown",
 						kind: StreamLogItemKind.Message,
 						role: StreamLogRole.Agent,
 						content: "stream output",
@@ -43,7 +42,6 @@ describe("TerminalStream", () => {
 			createElement(TerminalStream, {
 				items: [
 					{
-						contentType: "markdown",
 						kind: StreamLogItemKind.Message,
 						role: StreamLogRole.Agent,
 						content:
@@ -69,7 +67,6 @@ describe("TerminalStream", () => {
 			createElement(TerminalStream, {
 				items: [
 					{
-						contentType: "markdown",
 						kind: StreamLogItemKind.Message,
 						role: StreamLogRole.Agent,
 						content:
@@ -92,7 +89,6 @@ describe("TerminalStream", () => {
 	it("expands and collapses truncated rows only while the HUD is dismissed", () => {
 		const rationale = "x".repeat(800)
 		const item: MessageLogItem = {
-			contentType: "markdown",
 			kind: StreamLogItemKind.Message,
 			role: StreamLogRole.Agent,
 			content: JSON.stringify({ action: "prompt_user", rationale }),
@@ -149,7 +145,6 @@ describe("TerminalStream", () => {
 			createElement(TerminalStream, {
 				items: [
 					{
-						contentType: "markdown",
 						kind: StreamLogItemKind.Message,
 						role: StreamLogRole.Agent,
 						content: "short complete message",

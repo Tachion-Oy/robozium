@@ -64,7 +64,6 @@ function TestRunHud() {
 
 function promptItem(text: string): StreamLogItem {
 	return {
-		contentType: "markdown",
 		kind: StreamLogItemKind.Message,
 		role: StreamLogRole.Agent,
 		content: JSON.stringify({
@@ -83,7 +82,6 @@ function promptItem(text: string): StreamLogItem {
 
 function notificationItem(text: string): StreamLogItem {
 	return {
-		contentType: "markdown",
 		kind: StreamLogItemKind.Message,
 		role: StreamLogRole.Agent,
 		content: text,

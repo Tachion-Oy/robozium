@@ -10,6 +10,7 @@ import {
 	StreamLogRole,
 	USER_NOTIFICATION_MESSAGE_KIND,
 	type LifecycleLogItem,
+	type MessageLogItem,
 	type StreamLogItem,
 	type ContentType,
 } from "./view-model"
@@ -198,32 +199,36 @@ function parseContentPayload(
 
 function messageFrameToItem(
 	frame: Extract<PipeEventFrame, { type: `${PipeEventType.Message}` }>,
-): StreamLogItem {
+): MessageLogItem {
 	const parsed = parseContentPayload(frame.payload)
-	let hudText: string | undefined
+	const item: MessageLogItem = {
+		kind: StreamLogItemKind.Message,
+		role: mapRole(frame.payload.role),
+		content: frame.payload.content,
+	}
+	if (frame.payload.message_kind) {
+		item.messageKind = frame.payload.message_kind
+	}
+	if (parsed) {
+		item.parsed = parsed
+	}
+
 	if (
 		frame.payload.role === WireRole.Assistant &&
 		frame.payload.message_kind === USER_NOTIFICATION_MESSAGE_KIND
 	) {
-		hudText = frame.payload.content
-	} else if (
+		item.hudContent = { text: frame.payload.content, contentType: "markdown" }
+		return item
+	}
+	if (
 		parsed?.kind === "assistant" &&
 		parsed.action === PROMPT_USER_ACTION &&
 		typeof parsed.extra.value === "string"
 	) {
-		hudText = parsed.extra.value
+		item.hudContent = { text: parsed.extra.value, contentType: "markdown" }
 	}
-	return {
-		kind: StreamLogItemKind.Message,
-		role: mapRole(frame.payload.role),
-		content: frame.payload.content,
-		contentType: "markdown",
-		...(hudText !== undefined ? { hudText } : {}),
-		...(frame.payload.message_kind
-			? { messageKind: frame.payload.message_kind }
-			: {}),
-		...(parsed ? { parsed } : {}),
-	}
+
+	return item
 }
 
 export function scriptOutputToItem(content: string): StreamLogItem {
@@ -231,15 +236,14 @@ export function scriptOutputToItem(content: string): StreamLogItem {
 		kind: StreamLogItemKind.Message,
 		role: StreamLogRole.Script,
 		content,
-		contentType: "plain-text",
-		hudText: content,
+		hudContent: { text: content, contentType: "plain-text" },
 	}
 }
 
 function lifecycleFrameToItem(
 	frame: Extract<PipeEventFrame, { type: `${PipeEventType.RunLifecycle}` }>,
 	receivedAt: string,
-): LifecycleLogItem | null {
+): LifecycleLogItem {
 	const policy = LIFECYCLE_DETAIL_POLICY[frame.payload.kind]
 	const details = toLifecycleDetails(frame.payload, policy)
 	const lifecycleDetails = policy.detailTimestampKey
@@ -275,23 +279,21 @@ function lifecycleFrameToItem(
 	}
 }
 
-export function mapFrameToLogItems(
+export function mapFrameToLogItem(
 	frame: Exclude<
 		PipeEventFrame,
 		| { type: `${PipeEventType.MessageDelta}` }
 		| { type: `${PipeEventType.RuntimeEvent}` }
 	>,
 	receivedAt: string,
-): StreamLogItem[] {
+): StreamLogItem {
 	switch (frame.type) {
-		case PipeEventType.RunLifecycle: {
-			const item = lifecycleFrameToItem(frame, receivedAt)
-			return item ? [item] : []
-		}
+		case PipeEventType.RunLifecycle:
+			return lifecycleFrameToItem(frame, receivedAt)
 		case PipeEventType.Message:
-			return [messageFrameToItem(frame)]
+			return messageFrameToItem(frame)
 		case PipeEventType.ScriptOutput:
-			return [scriptOutputToItem(frame.payload.content)]
+			return scriptOutputToItem(frame.payload.content)
 		default:
 			throw new Error(`Unhandled frame type: ${JSON.stringify(frame)}`)
 	}
@@ -315,7 +317,9 @@ export function accumulateStreamingDelta(
 ): StreamingMessage {
 	return {
 		...delta,
-		text: prev?.messageId === delta.messageId ? prev.text + delta.text : delta.text,
+		text: prev?.messageId === delta.messageId && prev.role === delta.role
+			? prev.text + delta.text
+			: delta.text,
 	}
 }
 

@@ -1,5 +1,5 @@
 import type { StreamingDelta, StreamingMessage } from "../stream"
-import type { PipeEventFrame, RunLifecycleEventFrame, RuntimeEventFrame, RunStatus, RunView } from "../wire"
+import type { PipeEventFrame, RunStatus, RunView } from "../wire"
 import type { ContentType, StreamLogItem } from "../view-model"
 
 export type HudMessageNavigationDirection =
@@ -14,8 +14,6 @@ export type RunViewEvent =
 			class: "runView"
 			type: "received"
 			runView: RunView
-			source: "initial" | "poll"
-			minSequence?: number
 	  }
 
 /** SSE transport events (frames + connection lifecycle errors). */
@@ -45,13 +43,8 @@ export type ControlEvent =
 /** Frontend content events, independent of the backend protocol. */
 export type ContentEvent =
 	| { class: "content"; type: "delta"; delta: StreamingDelta }
-	| { class: "content"; type: "completed"; messageId: string | null; item: StreamLogItem | null }
+	| { class: "content"; type: "completed"; messageId: string }
 	| { class: "content"; type: "reset" }
-
-/** Raw token and script frames cannot reach the presentation reducers. */
-export type PresentationEvent = RunViewEvent | ControlEvent | ContentEvent
-	| Exclude<StreamEvent, { type: "frame_received" }>
-	| { class: "stream"; type: "frame_received"; frame: RunLifecycleEventFrame | RuntimeEventFrame; receivedAt: string }
 
 /** Single dispatch contract used by the root reducer. */
 export type SessionEvent = RunViewEvent | StreamEvent | ControlEvent
@@ -80,7 +73,7 @@ export type RuntimeErrorNotification = {
 
 export type LogState = {
 	items: StreamLogItem[]
-	minSequence: number
+	appliedSequence: number
 }
 
 export type HudMessage = {

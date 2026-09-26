@@ -29,8 +29,8 @@ const view = (trace: PipeEventFrame[], overrides: Partial<RunView> = {}): RunVie
 	project: "alpha", status: "running", current_agent_name: "root", parent_agent_name: null,
 	message_trace: trace, current_prompt_id: null, current_prompt: null, error: null, ...overrides,
 })
-const snapshot = (trace: PipeEventFrame[], overrides: Partial<RunView> = {}, source: "initial" | "poll" = "initial"): SessionEvent => ({
-	class: "runView", type: "received", source, runView: view(trace, overrides),
+const snapshot = (trace: PipeEventFrame[], overrides: Partial<RunView> = {}): SessionEvent => ({
+	class: "runView", type: "received", runView: view(trace, overrides),
 })
 const apply = (frames: PipeEventFrame[], state = createInitialRunSessionState("run")) => frames.reduce((s, f) => reduceRunSessionState(s, received(f)), state)
 const displayed = (state: RunSessionState) => getHudMessages(state.hud.messages, state.hud.selectedMessageId, {
@@ -50,7 +50,7 @@ describe("session script groups", () => {
 		expect(state.hud.streaming).toMatchObject({ messageId: "script:1", chunkIndex: 3, agentName: null, role: StreamLogRole.Script, contentType: "plain-text", text: exact })
 		expect(displayed(state)?.contentType).toBe("plain-text")
 		state = apply([message(13)], state)
-		expect(state.log.items[0]).toEqual({ kind: "message", role: StreamLogRole.Script, content: exact, hudText: exact, contentType: "plain-text" })
+		expect(state.log.items[0]).toEqual({ kind: "message", role: StreamLogRole.Script, content: exact, hudContent: { text: exact, contentType: "plain-text" } })
 		expect(state.hud.messages).toHaveLength(1)
 		expect(displayed(state)).toMatchObject({ content: exact, contentType: "plain-text", mode: "history" })
 	})
@@ -68,9 +68,9 @@ describe("session script groups", () => {
 		["message", received(message(3))], ["native delta", received(native(3))],
 		["agent started", received(lifecycle(3, RunLifecycleKind.Started))],
 		["agent stopped", received(lifecycle(3, RunLifecycleKind.Stopped))],
-		["new prompt", snapshot([], { status: "awaiting_user_input", current_prompt: "Reply?", current_prompt_id: "p" }, "poll")],
+		["new prompt", snapshot([], { status: "awaiting_user_input", current_prompt: "Reply?", current_prompt_id: "p" })],
 		["reply submitted", { class: "control", type: "reply_submitted", promptId: "p" }],
-		...["completed", "failed", "cancelled"].map((status) => [status, snapshot([], { status: status as RunView["status"] }, "poll")] as [string, SessionEvent]),
+		...["completed", "failed", "cancelled"].map((status) => [status, snapshot([], { status: status as RunView["status"] })] as [string, SessionEvent]),
 	]
 	it.each(boundaries)("completes once before %s", (_, boundary) => {
 		let state = apply([script(1, chunks[0]), script(2, chunks[1])])
@@ -87,6 +87,17 @@ describe("session script groups", () => {
 		expect(state.hud.streaming).toMatchObject({ messageId: "script:1", role: StreamLogRole.Agent, chunkIndex: 7, agentName: "root", contentType: "markdown", text: '{"action":"LLM"}' })
 		expect(displayed(state)?.content).toBe("action:LLM")
 		expect(apply([runtime(3, true)], state).hud.streaming).toBeNull()
+	})
+
+	it("starts exact script output after a native stream with the same ID", () => {
+		const state = apply([native(1, "script:2"), script(2, "literal script")])
+		expect(state.hud.streaming).toMatchObject({
+			messageId: "script:2",
+			role: StreamLogRole.Script,
+			contentType: "plain-text",
+			text: "literal script",
+		})
+		expect(displayed(state)?.content).toBe("literal script")
 	})
 
 	it("replays history and unfinished output directly, and ignores repeated snapshots", () => {
@@ -113,9 +124,9 @@ describe("session script groups", () => {
 		const initial = reduceRunSessionState(createInitialRunSessionState("run"), snapshot([script(1, "a")]))
 		const state = reduceRunSessionState(initial, snapshot([script(1, "a"), script(2, "b")], {
 			status, ...(status === "awaiting_user_input" ? { current_prompt_id: "p", current_prompt: "ab" } : {}),
-		}, "poll"))
+		}))
 		expect(state.log.items).toHaveLength(1)
-		expect(state.log.items[0]).toMatchObject({ content: "ab", contentType: "plain-text" })
+		expect(state.log.items[0]).toMatchObject({ content: "ab", hudContent: { text: "ab", contentType: "plain-text" } })
 		expect(state.hud.streaming).toBeNull()
 		expect(state.hud.messages).toHaveLength(status === "awaiting_user_input" ? 2 : 1)
 	})
@@ -124,7 +135,7 @@ describe("session script groups", () => {
 		let state = apply([script(1, "old"), message(2)])
 		state = reduceRunSessionState(state, { class: "control", type: "hud_message_navigated", direction: "first" })
 		state = apply([script(3, "new")], state)
-		state = reduceRunSessionState(state, snapshot([script(1, "old"), message(2), script(3, "new"), script(4, " output")], {}, "poll"))
+		state = reduceRunSessionState(state, snapshot([script(1, "old"), message(2), script(3, "new"), script(4, " output")], {}))
 		expect(displayed(state)?.content).toBe("old")
 		state = apply([message(5)], state)
 		expect(state.hud.isMessageHistoryPinned).toBe(true)

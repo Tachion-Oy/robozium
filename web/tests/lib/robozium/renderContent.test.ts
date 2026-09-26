@@ -23,7 +23,6 @@ describe("cleanText", () => {
 
 describe("message display budgets", () => {
 	const longMessage: MessageLogItem = {
-		contentType: "markdown",
 		kind: StreamLogItemKind.Message,
 		role: StreamLogRole.System,
 		content: "x".repeat(EXPANDED_MESSAGE_MAX_CHARS + 20),
@@ -44,7 +43,6 @@ describe("message display budgets", () => {
 
 	it("does not make complete messages interactive", () => {
 		const shortMessage: MessageLogItem = {
-			contentType: "markdown",
 			kind: StreamLogItemKind.Message,
 			role: StreamLogRole.System,
 			content: "complete message",
@@ -56,7 +54,6 @@ describe("message display budgets", () => {
 describe("renderContent", () => {
 	it("renders assistant action as a tag and rationale as plain text", () => {
 		const item: MessageLogItem = {
-			contentType: "markdown",
 			kind: StreamLogItemKind.Message,
 			role: StreamLogRole.Agent,
 			content: '{"action":"run_repo_command","rationale":"inspect tree"}',
@@ -74,7 +71,6 @@ describe("renderContent", () => {
 
 	it("renders parsed extra values with glow emphasis in live mode", () => {
 		const item: MessageLogItem = {
-			contentType: "markdown",
 			kind: StreamLogItemKind.Message,
 			role: StreamLogRole.Tool,
 			content: '{"caller":"run_repo_command","status":"ok","count":3}',
@@ -145,7 +141,6 @@ describe("renderContent", () => {
 
 	it("falls back to cleaned raw content when no parsed payload exists", () => {
 		const item: MessageLogItem = {
-			contentType: "markdown",
 			kind: StreamLogItemKind.Message,
 			role: StreamLogRole.System,
 			content: "<raw>",
@@ -156,7 +151,6 @@ describe("renderContent", () => {
 
 	it("renders script output with a script badge", () => {
 		const item: MessageLogItem = {
-			contentType: "plain-text",
 			kind: StreamLogItemKind.Message,
 			role: StreamLogRole.Script,
 			content: "script line",
@@ -168,7 +162,6 @@ describe("renderContent", () => {
 
 	it("renders parsed system payload value", () => {
 		const item: MessageLogItem = {
-			contentType: "markdown",
 			kind: StreamLogItemKind.Message,
 			role: StreamLogRole.System,
 			content: "ignored-when-parsed",
@@ -183,7 +176,6 @@ describe("renderContent", () => {
 
 	it("renders parsed error payload value as plain text", () => {
 		const item: MessageLogItem = {
-			contentType: "markdown",
 			kind: StreamLogItemKind.Message,
 			role: StreamLogRole.Error,
 			content: "bad {agent} output",

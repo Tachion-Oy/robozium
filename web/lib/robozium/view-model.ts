@@ -70,8 +70,7 @@ export type MessageLogItem = {
 	kind: StreamLogItemKind.Message
 	role: StreamLogRole
 	content: string
-	contentType: ContentType
-	hudText?: string
+	hudContent?: { text: string; contentType: ContentType }
 	label?: string
 	parsed?: ParsedMessageContent
 	messageKind?: string

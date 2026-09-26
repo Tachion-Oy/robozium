@@ -1,6 +1,6 @@
 import { WireLifecycleStatus } from "@/lib/robozium/wire"
 import { describe, expect, it } from "vitest"
-import { reduceHudState } from "../../../../lib/robozium/session/hud-reducer"
+import { reconcileHudState } from "../../../../lib/robozium/session/hud-reducer"
 import {
 	createInitialRunSessionState,
 	hasPermanentRunFailure,
@@ -22,27 +22,26 @@ function reduce(
 }
 
 describe("run session reducer", () => {
-	it("finds displayable rows anywhere among the rows added by one frame", () => {
+	it("reconciles displayable history among terminal-only rows", () => {
 		const hud = createInitialRunSessionState("run-1").hud
-		const next = reduceHudState(
+		const next = reconcileHudState(
 			hud,
-			{ class: "content", type: "completed", messageId: null, item: null },
+			hud,
 			[
 				{
-					contentType: "markdown",
 					kind: StreamLogItemKind.Message,
 					role: StreamLogRole.Agent,
 					content: "Report",
-					hudText: "Report",
+					hudContent: { text: "Report", contentType: "markdown" },
 				},
 				{
-					contentType: "markdown",
 					kind: StreamLogItemKind.Message,
 					role: StreamLogRole.Tool,
 					content: "Trace",
 				},
 			],
 			0,
+			{ class: "control", type: "cancel_failed" },
 		)
 		expect(next.messages).toEqual([{ contentType: "markdown", id: "log:0", text: "Report", replyId: null }])
 	})
@@ -52,7 +51,6 @@ describe("run session reducer", () => {
 			{
 				class: "runView",
 				type: "received",
-				source: "initial",
 				runView: {
 					project: "alpha",
 					status: "running",
@@ -79,11 +77,10 @@ describe("run session reducer", () => {
 
 		expect(state.log.items).toEqual([
 			{
-				contentType: "markdown",
 				kind: "message",
 				role: "agent",
 				content: "### Restored report",
-				hudText: "### Restored report",
+				hudContent: { text: "### Restored report", contentType: "markdown" },
 				messageKind: "user_notification",
 			},
 		])
@@ -120,7 +117,6 @@ describe("run session reducer", () => {
 		const polled = reduceRunSessionState(state, {
 			class: "runView",
 			type: "received",
-			source: "poll",
 			runView: {
 				project: "alpha",
 				status: "running",
@@ -234,7 +230,6 @@ describe("run session reducer", () => {
 			{
 				class: "runView",
 				type: "received",
-				source: "poll",
 				runView: {
 					project: "alpha",
 					status: "awaiting_user_input",
@@ -472,14 +467,14 @@ describe("run session reducer", () => {
 			{
 				class: "runView",
 				type: "received",
-				source: "initial",
-				minSequence: 3,
 				runView: {
 					project: "alpha",
 					status: "awaiting_user_input",
 					current_agent_name: "root",
 					parent_agent_name: null,
-					message_trace: [],
+					message_trace: [{
+						type: PipeEventType.ScriptOutput, sequence: 3, payload: { content: "restored" },
+					}],
 					current_prompt_id: "p-1",
 					current_prompt: "Need confirmation",
 					error: null,
@@ -487,7 +482,7 @@ describe("run session reducer", () => {
 			},
 		])
 
-		expect(state.log.minSequence).toBe(3)
+		expect(state.log.appliedSequence).toBe(3)
 		expect(state.projectSlug).toBe("alpha")
 		expect(state.hud.promptId).toBe("p-1")
 		expect(state.hud.phase).toBe(RunHudPhase.Prompting)
@@ -530,7 +525,6 @@ describe("run session reducer", () => {
 			{
 				class: "runView",
 				type: "received",
-				source: "poll",
 				runView: {
 					project: "alpha",
 					status: "awaiting_user_input",
@@ -545,7 +539,6 @@ describe("run session reducer", () => {
 			{
 				class: "runView",
 				type: "received",
-				source: "poll",
 				runView: {
 					project: "alpha",
 					status: "awaiting_user_input",
@@ -742,7 +735,6 @@ describe("run session reducer", () => {
 
 		expect(state.log.items).toEqual([
 			{
-				contentType: "markdown",
 				kind: "message",
 				role: "error",
 				content: "stream request failed (503)",
@@ -899,7 +891,6 @@ describe("run session reducer", () => {
 				{
 					class: "runView",
 					type: "received",
-					source: "poll",
 					runView: {
 						project: "alpha",
 						status,
@@ -933,7 +924,6 @@ describe("run session reducer", () => {
 				{
 					class: "runView",
 					type: "received",
-					source: "poll",
 					runView: {
 						project: "alpha",
 						status,

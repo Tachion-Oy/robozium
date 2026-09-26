@@ -44,7 +44,7 @@ export function reduceNotifications(
 ): RuntimeErrorNotification[] {
 	switch (event.class) {
 		case "runView":
-			return event.source === "initial" ? [] : notifications
+			return notifications
 		case "control":
 			return notifications
 		case "stream": {
