@@ -37,8 +37,10 @@ and process cleanup even when a test fails or is cancelled.
 Backend unit tests cover project paths and permissions, configuration,
 deployment, prompts, model routing, credentials, events, persistence, and run
 lifecycle. Drive real agent behavior with scripted endpoints and assert outputs,
-selected tools, emitted events, or persisted data. Contract tests protect shared
-wire, typing, dependency, and CI policy behavior.
+selected tools, emitted events, or persisted data. Contract tests protect API
+serialization, schemas, and validation at component boundaries. Repository
+configuration and browser-result evaluation belong in unit tests. See
+[Testing](testing.md#what-each-part-checks) for the test categories and examples.
 
 Frontend Vitest tests cover state transitions, hooks, parsing, and rendering.
 Use controlled transport data for ordering, refresh, and failure cases. Verify
@@ -46,7 +48,7 @@ meaningful user-visible outcomes rather than component implementation details.
 
 Use Playwright for browser interactions across the real frontend and mock
 backend, and container tests for Docker onboarding and restart recovery. Use
-the pytest E2E fixtures so the hub is isolated and processes are cleaned up.
+the browser support launcher so the hub is isolated and processes are cleaned up.
 Keep browser assertions tolerant of normal asynchronous rendering, while
 checking the final state and errors explicitly. Avoid fixed sleeps when a
 condition can be awaited.

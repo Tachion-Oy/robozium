@@ -4,7 +4,8 @@ import json
 
 import pytest
 
-from tests.e2e.policy import evaluate
+from tests.support.browser import __main__ as browser_command
+from tests.support.browser.results import evaluate
 
 
 def report(tmp_path, *, runner=None, completion=None):
@@ -75,3 +76,36 @@ def test_browser_fixture_cleanup_failure_is_required(tmp_path):
     directory = report(tmp_path)
     (tmp_path / "fixture-errors.log").write_text("cleanup: cancelled request\n")
     assert evaluate("failure", directory)[0] == 1
+
+
+@pytest.mark.parametrize("statuses", [(0, 0), (1, 0), (0, 1)])
+def test_browser_command_preserves_any_selected_browser_failure(
+    tmp_path, monkeypatch, statuses
+):
+    commands = []
+    monkeypatch.setattr(browser_command, "ROOT", tmp_path)
+
+    def build(env, directory):
+        directory.mkdir(parents=True)
+
+    def run(args, directory, env):
+        status = statuses[len(commands)]
+        commands.append(args)
+        completion = (
+            {"status": "passed", "outcomes": {"expected": 2, "unexpected": 0}}
+            if status == 0
+            else {}
+        )
+        report(directory, runner={"status": status}, completion=completion)
+        return status
+
+    monkeypatch.setattr(browser_command, "build_frontend", build)
+    monkeypatch.setattr(browser_command, "run_browser", run)
+    status = browser_command.main(
+        ["--project=chromium", "--browser=firefox", "--playwright-arg=--grep=history"]
+    )
+    assert status == int(any(statuses))
+    assert commands == [
+        ["--project=chromium", "--grep=history"],
+        ["--project=firefox", "--grep=history"],
+    ]

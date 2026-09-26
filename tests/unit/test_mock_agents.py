@@ -21,6 +21,7 @@ from robozium.hub.utils import load_hub
 from robozium.mock.agents import (
     MOCK_SCENARIO_USER_NOTIFICATION,
     _holdable_endpoint,
+    _HoldableResponses,
     mock_deployment,
     stream_sync_mock_deployment,
 )
@@ -286,3 +287,19 @@ def test_stream_mock_repeats_specialist_and_recreates_scripts_per_run(
         reset_api_user_io(token)
     assert len(replies) == 4
     assert len(list((project.logs / "hello_world").rglob("*.json"))) == 6
+
+
+def test_holdable_response_accepts_index_protocol(tmp_path: Path) -> None:
+    class Index:
+        def __index__(self) -> int:
+            return 0
+
+    responses = _HoldableResponses(
+        ["first", "second"],
+        hold_marker=tmp_path / "absent",
+        cancel_hold_marker=None,
+        is_cancelled=lambda: False,
+        max_hold_s=0,
+    )
+    assert responses.pop(Index()) == "first"
+    assert responses == ["second"]

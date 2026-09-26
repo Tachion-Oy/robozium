@@ -25,6 +25,56 @@ keys or live services. Docker onboarding requires Docker Compose v2.24 or newer.
 Native browser-runner commands use Bash and POSIX process groups; use Linux or
 a suitable Linux development environment for those checks.
 
+## What each part checks
+
+Application tests, the code supporting those tests, and tests of that support
+code have different responsibilities:
+
+| Location | Purpose | Execution |
+| --- | --- | --- |
+| `tests/unit/` | Fast Python behavior checks, including configuration and browser-result handling | Default pytest and CI |
+| `tests/contract/` | API serialization, schemas, and validation at component boundaries | Default pytest and CI |
+| `tests/integration/` | Fresh Python package installations and their backend behavior | Explicit pytest command; Full E2E |
+| `tests/support/` | Shared code for building, starting, seeding, and stopping test services | Used by tests and the browser launcher |
+| `tests/infrastructure/` | Startup, failure, interruption, and cleanup of the test machinery | Explicit pytest command; Full E2E |
+| `web/tests/` | Frontend state, hooks, parsing, and component behavior through Vitest | CI |
+| `web/e2e/` | Application interactions in real browsers through Playwright | Browser commands; Full E2E |
+| `tests/container/` | Docker onboarding and restart recovery | Full E2E |
+
+Unit tests include such behavior as project paths, run state transitions, and
+mock-agent response handling. Repository configuration checks also live here.
+For example, the RoboZ dependency check enforces an exact release (`roboz==...`),
+an allowed package index, and a wheel entry in the lockfile. It reads local
+configuration; it does not compare against PyPI's latest version. CI's
+`uv sync --locked` already detects mismatched manifest and lockfile versions.
+
+Contract tests protect an interface between components. The runtime-event
+checks verify that HTTP payloads serialize event levels correctly, expose the
+expected values in their JSON schema, and reject invalid values. Library
+version rules and decisions about browser success are ordinary unit checks.
+
+Integration tests create fresh virtual environments instead of using the
+repository's existing `.venv`. They install the built application and run from
+outside the repository's source directory, so missing packaged files cannot be
+silently supplied by source imports. This verifies a fresh Python package
+installation. Docker onboarding separately verifies the supported user path of
+building and starting the application through Docker Compose.
+
+There is one application browser suite: `web/e2e/`. It starts with a production
+frontend and mock backend, then Playwright acts as a user: creating projects,
+starting runs, replying to prompts, navigating message history, cancelling,
+and recovering after restart. The mock supplies scripted model responses, but
+the browser, frontend, and backend work together through real HTTP and SSE.
+
+The Python package `tests/support/browser/` builds and manages those services
+and invokes Playwright. It contains no application test cases and is not used
+by the application itself. Shared process helpers find a free port, wait for
+readiness, and stop process groups. Infrastructure tests verify this support
+code by deliberately causing failures and checking that processes stop, ports
+are released, temporary data is removed, and diagnostic logs are retained.
+Their Playwright probes live under `web/tests/fixtures/browser-runner/` and are
+selected only for infrastructure checks, outside the application browser suite.
+
 ## PR checks
 
 Run the same checks as CI:
@@ -40,12 +90,11 @@ git diff --check
 ```
 
 The default pytest run collects `tests/unit/` and `tests/contract/`, with coverage
-for `robozium` and a 90% CI minimum. Installation tests live in
-`tests/integration/`; browser orchestration and lifecycle tests live in
-`tests/e2e/`. These heavier suites run explicitly. Shared process helpers live
-in `tests/support/`, and Python checks are pytest modules rather than scripts.
-Vitest collects frontend tests under `web/tests/`. Pyright checks the Python
-source, hub configuration, and E2E/process support; TypeScript checks the frontend.
+for `robozium` and a 90% CI minimum. Installation and infrastructure suites run
+explicitly; a default run launches no browser services. Vitest collects
+`web/tests/**/*.test.ts` and `.test.tsx`, excluding runner probes. Pyright checks
+the Python source, hub configuration, and test support; TypeScript checks the
+frontend and Playwright files.
 
 During development, run a focused test or file first, for example
 `uv run pytest tests/unit/test_config.py` or
@@ -89,31 +138,54 @@ npm --prefix web exec -- playwright install --with-deps chromium firefox webkit
 npm --prefix web run test:e2e:all-browsers
 ```
 
-The npm commands invoke `tests/e2e/test_browser.py` through pytest. Its fixtures
-build the production frontend once, start a mock backend with a disposable hub,
-and use one API worker and one Playwright worker. They own startup and cleanup;
-invoking Playwright directly bypasses that setup and is rejected by the browser
-configuration. Ensure the default test ports 8000 and 3100 are free, or set
-`ROBOZIUM_E2E_API_PORT` and `ROBOZIUM_E2E_WEB_PORT`.
+The npm commands invoke `python -m tests.support.browser` through a thin shell
+launcher. This support package builds the production frontend once, starts a
+mock backend with a disposable hub, and uses one API worker and one Playwright
+worker. It owns startup and cleanup; invoking Playwright directly bypasses that
+setup and is rejected by the browser configuration. Ensure the default test
+ports 8000 and 3100 are free, or set `ROBOZIUM_E2E_API_PORT` and
+`ROBOZIUM_E2E_WEB_PORT`.
 
-Select a browser or forward Playwright arguments directly through pytest:
+Select a browser or forward Playwright arguments through the support package:
 
 ```sh
-uv run pytest tests/e2e/test_browser.py --no-cov -s --browser=firefox
+uv run python -m tests.support.browser --browser=firefox
 npm --prefix web run test:e2e -- --playwright-arg=--grep=restart
-uv run pytest tests/e2e/test_lifecycle.py --no-cov -s
 ```
 
 `--project` is an alias for `--browser`; without either option the suite runs
 each browser sequentially. Use `--playwright-arg` for each Playwright argument,
 including file filters. `ROBOZIUM_E2E_PREBUILT=1` reuses an existing frontend
-build, and `ROBOZIUM_E2E_PYTHON` selects an installed candidate backend. The
-lifecycle suite covers occupied ports, failed startup, suite and runner
-deadlines, service exit, interruption, retries, and cleanup errors. Its
-checked-in Playwright probes are excluded from ordinary browser runs.
+build, and `ROBOZIUM_E2E_PYTHON` selects an installed candidate backend. Any
+selected browser failure makes the command fail, even if a later browser
+passes. Interruption cleans up and stops the command before later browsers
+start. The old direct pytest browser wrapper has been removed; use the npm
+commands or package entry point above.
 
 Diagnostics are written beneath `.artifacts/e2e/`, including browser, backend,
 frontend, and technical logs. These files are ignored by Git.
+
+## Checks of test infrastructure
+
+With Chromium installed, run:
+
+```sh
+source scripts/env.sh
+uv run pytest tests/infrastructure --no-cov -s
+```
+
+These checks test the runner rather than application interactions. They cover
+occupied ports, failed startup, suite and runner deadlines, service exit,
+interruption, retries, and cleanup errors. They share the browser support
+package and build the frontend once unless `ROBOZIUM_E2E_PREBUILT=1` is set.
+
+Fast browser-result unit tests use synthetic runner and Playwright reports,
+without starting browsers. They verify that completed success is accepted and
+failed tests, flakes, missing reports, timeouts, and cleanup errors are rejected.
+The infrastructure suite exercises those same decisions with real processes
+and intentional Playwright failures. A deliberately failing probe is expected
+to make its browser invocation fail; the infrastructure test passes only when
+the runner reports that failure and cleans up correctly.
 
 ## Full E2E policy
 
@@ -135,10 +207,10 @@ backend, frontend, and technical logs remain in the diagnostic artifact.
 Chromium, Firefox, and WebKit are all required. Any test failure, interrupted or
 timed-out suite, three-failure termination, top-level Playwright error, missing
 completion report, service exit, or runner or browser-fixture setup/cleanup
-error fails the job for every browser. E2E support writes `result.json` and
-Playwright writes `completion.json`; the pytest test applies the shared policy
-after service cleanup. CI uses pytest's exit status directly for every browser.
-Failure reports upload before the job limit.
+error fails the job for every browser. Browser support writes `result.json` and
+Playwright writes `completion.json`; the support package evaluates both after
+service cleanup. CI uses the browser command's exit status directly. Failure
+reports upload before the job limit.
 
 Changes to deployment should exercise Docker onboarding and restart recovery;
 changes to runs, persistence, or browser interactions should exercise the

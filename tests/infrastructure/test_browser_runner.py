@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from tests.e2e import services
-from tests.e2e.policy import evaluate
+from tests.support.browser import services
+from tests.support.browser.results import evaluate
 from tests.support.processes import free_port, stop
 
 
@@ -76,7 +76,7 @@ def test_lifecycle(case, browser_run, probe_env):
     }.get(case, "probe passing")
     args = [
         "--project=chromium",
-        "e2e/runner-probe.spec.ts",
+        "runner-probe.spec.ts",
         f"--grep={pattern}",
         "--retries=1" if case == "flaky-retry" else "--retries=0",
     ]
@@ -129,7 +129,7 @@ def test_cleanup_failure_is_required_and_other_services_still_stop(
 
     monkeypatch.setattr(services, "stop", failed_stop)
     status, reports = browser_run(
-        ["--project=chromium", "e2e/runner-probe.spec.ts", "--grep=probe passing"],
+        ["--project=chromium", "runner-probe.spec.ts", "--grep=probe passing"],
         probe_env,
     )
     assert status == 1
@@ -148,11 +148,8 @@ def test_sigterm_cleans_services_and_keeps_diagnostics(
             [
                 sys.executable,
                 "-m",
-                "pytest",
-                "tests/e2e/test_browser.py",
-                "--no-cov",
-                "-s",
-                "--playwright-arg=e2e/runner-probe.spec.ts",
+                "tests.support.browser",
+                "--playwright-arg=runner-probe.spec.ts",
                 "--playwright-arg=--grep=probe sleeping",
                 "--playwright-arg=--retries=0",
             ],

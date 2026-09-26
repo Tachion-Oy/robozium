@@ -98,7 +98,7 @@ export async function waitFor<T>(
 	throw new Error(`Timed out waiting for ${description}`)
 }
 
-/** Folders the mock backend derives from `hub.config.py` (see tests/e2e/services.py). */
+/** Folders the mock backend derives from `hub.config.py` (see tests/support/browser/services.py). */
 export function e2eProjectPaths(slug: string) {
 	const hubBaseDir = process.env.ROBOZIUM_E2E_HUB_BASE_DIR
 	if (!hubBaseDir) {

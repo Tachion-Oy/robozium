@@ -3,10 +3,7 @@
   "include": [
     "src",
     "hub.config.py",
-    "tests/support",
-    "tests/e2e/services.py",
-    "tests/e2e/seed.py",
-    "tests/e2e/policy.py"
+    "tests/support"
   ],
   "venvPath": ".",
   "venv": ".venv",

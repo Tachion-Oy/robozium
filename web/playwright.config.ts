@@ -1,7 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const probeIgnore = process.env.ROBOZIUM_E2E_RUNNER_PROBE === '1'
-  ? [] : ['**/runner-probe.spec.ts'];
+const runnerProbe = process.env.ROBOZIUM_E2E_RUNNER_PROBE === '1';
 
 const DESKTOP_PROJECTS = [
   {
@@ -10,13 +9,13 @@ const DESKTOP_PROJECTS = [
   },
   {
     name: 'firefox',
-    testIgnore: [...probeIgnore, '**/visual-regression.spec.ts'],
+    testIgnore: '**/visual-regression.spec.ts',
     timeout: 60_000,
     use: { ...devices['Desktop Firefox'] },
   },
   {
     name: 'webkit',
-    testIgnore: [...probeIgnore, '**/visual-regression.spec.ts'],
+    testIgnore: '**/visual-regression.spec.ts',
     timeout: 60_000,
     use: { ...devices['Desktop Safari'] },
   },
@@ -36,8 +35,7 @@ if (!isolatedHubRoot) {
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
-  testDir: './e2e',
-  testIgnore: probeIgnore,
+  testDir: runnerProbe ? './tests/fixtures/browser-runner' : './e2e',
   /* Run tests in files in parallel */
   fullyParallel: false,
   /* Fail the build on CI if you accidentally left test.only in the source code. */

@@ -1,4 +1,4 @@
-"""Services and disposable hub shared by the browser suite and lifecycle tests."""
+"""Services and disposable hub for Playwright and runner infrastructure checks."""
 
 import json
 import shutil
@@ -12,17 +12,42 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from tests.e2e.seed import seed_conversations
+from tests.support.browser.seed import seed_conversations
 from tests.support.processes import ready, stop
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
+
+
+def build_frontend(env: dict[str, str], reports: Path) -> None:
+    """Build once for an invocation, or validate its explicitly reused build."""
+    reports.mkdir(parents=True, exist_ok=True)
+    if env.get("ROBOZIUM_E2E_PREBUILT") == "1":
+        if not (ROOT / "web/.next/BUILD_ID").is_file():
+            raise RuntimeError("ROBOZIUM_E2E_PREBUILT requires a frontend build")
+        return
+    with (reports / "build.log").open("w") as log, termination_signals():
+        build = subprocess.Popen(
+            ["npm", "run", "build"],
+            cwd=ROOT / "web",
+            env=env
+            | {
+                "ROBOZIUM_API_BASE_URL": f"http://127.0.0.1:{env.get('ROBOZIUM_E2E_API_PORT', '8000')}"
+            },
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        try:
+            if build.wait(timeout=180) != 0:
+                raise RuntimeError(f"Frontend build failed; inspect {log.name}")
+        finally:
+            stop(build)
 
 
 @contextmanager
 def termination_signals() -> Iterator[None]:
     def interrupted(signum: int, _frame: object) -> None:
-        # Pytest stops the entire session on KeyboardInterrupt; SystemExit would
-        # be recorded as one failed test and allow later browsers to start.
+        # Unwind service cleanup and stop the entire browser invocation.
         raise KeyboardInterrupt(f"signal {signum}")
 
     previous = {
