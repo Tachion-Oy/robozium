@@ -65,6 +65,7 @@ class RunViewMessageEntry(BaseModel):
     type: Literal["message"]
     sequence: int
     payload: RunViewMessagePayload
+    message_id: str | None = None
 
 
 class RunViewLifecyclePayload(BaseModel):

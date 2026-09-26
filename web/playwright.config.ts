@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const runnerProbe = process.env.ROBOZIUM_E2E_RUNNER_PROBE === '1';
+
 const DESKTOP_PROJECTS = [
   {
     name: 'chromium',
@@ -17,7 +19,7 @@ const DESKTOP_PROJECTS = [
     timeout: 60_000,
     use: { ...devices['Desktop Safari'] },
   },
-] as const;
+];
 
 const isolatedHubRoot = process.env.ROBOZIUM_E2E_HUB_BASE_DIR;
 const webPort = process.env.ROBOZIUM_E2E_WEB_PORT ?? '3100';
@@ -33,7 +35,7 @@ if (!isolatedHubRoot) {
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
-  testDir: './e2e',
+  testDir: runnerProbe ? './tests/fixtures/browser-runner' : './e2e',
   /* Run tests in files in parallel */
   fullyParallel: false,
   /* Fail the build on CI if you accidentally left test.only in the source code. */

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 from roboz.models import MessageKind, Role
 from roboz.runtime.observability import RuntimeEventLevel
@@ -48,6 +48,7 @@ class RunViewMessageEntry(TypedDict):
     type: Literal["message"]
     sequence: int
     payload: RunViewMessagePayload
+    message_id: NotRequired[str]
 
 
 class RunViewLifecycleEntry(TypedDict):

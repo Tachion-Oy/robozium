@@ -40,6 +40,28 @@ const chunks = [' \n{"value":', '"quoted \\"text\\"", ', '"markdown":"**# _ [x]`
 const exact = chunks.join("")
 
 describe("session script groups", () => {
+	it("closes an LLM stream recovered by polling before SSE completion and preserves history navigation", () => {
+		const notification: PipeEventFrame = {
+			type: PipeEventType.Message, sequence: 1,
+			payload: { role: WireRole.Assistant, content: "Report ready", message_kind: "user_notification", truncation: {} },
+		}
+		const completion: PipeEventFrame = {
+			type: PipeEventType.Message, sequence: 3, message_id: "prompt-message",
+			payload: { role: WireRole.Assistant, content: JSON.stringify({ action: "prompt_user", value: "Reply?" }), truncation: {} },
+		}
+		let state = apply([notification, native(2, "prompt-message")])
+		expect(state.hud.streaming).not.toBeNull()
+		const polled = snapshot([completion], { status: "awaiting_user_input", current_prompt: "Reply?", current_prompt_id: "p" })
+		state = reduceRunSessionState(state, polled)
+		expect(state.hud.streaming).toBeNull()
+		expect(displayed(state)?.content).toBe("Reply?")
+		state = reduceRunSessionState(state, { class: "control", type: "hud_message_navigated", direction: "previous" })
+		expect(displayed(state)?.content).toBe("Report ready")
+		state = apply([completion], state)
+		state = reduceRunSessionState(state, polled)
+		expect(displayed(state)?.content).toBe("Report ready")
+		expect(state.hud.isMessageHistoryPinned).toBe(true)
+	})
 	it("concatenates exact chunks across runtime information and LLM retries", () => {
 		let state = createInitialRunSessionState("run")
 		chunks.forEach((chunk, i) => {

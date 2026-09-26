@@ -2,7 +2,8 @@
   "pythonVersion": "3.13",
   "include": [
     "src",
-    "hub.config.py"
+    "hub.config.py",
+    "tests/support"
   ],
   "venvPath": ".",
   "venv": ".venv",
