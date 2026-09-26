@@ -1,48 +1,101 @@
 <div align="center">
-  <img alt="Robozium" src="web/public/branding/robozium.svg" width="560">
-  <p><strong>Persistent project agents, with a browser HUD.</strong></p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/robozium-title-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/robozium-title-light.svg">
+    <img alt="Robozium" src="docs/assets/robozium-title-light.svg" width="95%">
+  </picture>
+
+  <p><strong>Durable agentic projects with custom tools</strong></p>
 </div>
 
-# Robozium
-
-Robozium is a project-agent application built on
-[RoboZ](https://github.com/Tachion-Oy/roboz). Create a project, give its agent a
-task, and follow its work in the browser. Each project keeps its files,
-conversation history, snapshots, and memory between runs.
+Robozium is a multi-agent application built on [RoboZ](https://github.com/Tachion-Oy/roboz). It allows the creation and parallel execution of agentic projects each with their individual memory and scoped tools that prevent unwanted cross-pollination by using a guard layer introduced by RoboZ's tool chaining. The API is built on FastAPI and the UI using NEXT.js. It supports custom tools and their injection as the agent's capabilities.
 
 [![CI](https://github.com/Tachion-Oy/robozium/actions/workflows/ci.yml/badge.svg)](https://github.com/Tachion-Oy/robozium/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-
-Robozium is run from this repository, using Docker Compose on Windows, macOS,
-and Linux. Clone it to use the application; a fork is optional. Robozium is not
-distributed through PyPI. RoboZ is installed at the version pinned in
-[uv.lock](uv.lock), including Shed and Endpoints, so no second checkout is needed.
 
 > [!NOTE]
 > Robozium and its RoboZ dependency are early-stage software. Configuration,
 > behavior, and interfaces may change. See the [changelog](CHANGELOG.md) and
 > [known issues](#known-issues).
 
+## Table of contents
+
+- [How it works](#how-it-works)
+- [What is it for?](#what-is-it-for)
+- [Hub files and permissions](#hub-files-and-permissions)
+- [Run](#run)
+  - [Optional encrypted credentials](#optional-encrypted-credentials)
+  - [Run with API keys](#run-with-api-keys)
+- [Configuration](#configuration)
+- [Private capabilities](#private-capabilities)
+- [Development and contributions](#development-and-contributions)
+- [Module map](#module-map)
+- [Troubleshooting](#troubleshooting)
+- [Known issues](#known-issues)
+- [License and credits](#license-and-credits)
+
 ## How it works
 
-The project agent uses RoboZ's orchestrator to work on a task, call tools, and
-ask for input or confirmation. The browser HUD shows project and run status,
-agent activity, model selection, dependency health, and replies. Generated files
-can be opened through links in agent messages.
+When the user creates or restarts a project it launches an orchestrator agent along with its librarian background agent with [scoped tool permissions](#hub-files-and-permissions), allowing to work on a specific task. The browser Head-Up-Display (HUD) allows launching several agents in parallel and navigating between their respective runs.
 
-A background Librarian snapshots conversations and consolidates persistent
-memory. That memory supplies context for later runs in the same project. Its
-maintenance is asynchronous, so the newest conversation may not appear in memory
-immediately.
+The background librarian continuously snapshots conversations and consolidates a persistent
+memory, which supplies context for later runs in the same project.
 
 RoboZ supplies the agent runtime and tool composition. Shed supplies the
-orchestrator, Librarian, guarded file tools, skills, and deployment recipe.
+orchestrator, librarian, guarded file tools, skills, and deployment recipe.
 Endpoints supplies provider adapters and model catalogues. Robozium owns the
 browser interface, HTTP API, run lifecycle, credentials, and application choices.
 See [RoboZ's documentation](https://github.com/Tachion-Oy/roboz#shed) for the
 underlying agent and tool concepts.
 
+All projects are organized within a [hub with the individual project folders as well as a shared workspace and a readonly folder](#hub-files-and-permissions). Files outside the hub are strictly off limits.
+
+Custom tools created with RoboZ can straightforwardly be introduced, see [Private capabilities](#private-capabilities).
+
+## What is it for?
+
+Robozium allows for having long lived specific projects focussed on a specific theme or task, with memory specific to that task and no fear of contamination from other agents due to the fine-grained tool policies preventing unwanted changes. A [shared workspace and readonly locations](#hub-files-and-permissions) allow collaboration of agents in a regimented manner.
+
+With Roboz' tool chaining the user may create their specific tools and (mostly) deterministic workflows and do not have to rely on an off-the-self agent using low level tools with multiple back and forth steps and risking that rules and guidelines given in system prompts and skills are correctly followed.
+
+## Hub files and permissions
+
+The live hub sits beside the clone and is mounted at `/hub` in the API container.
+The launcher creates it if missing and reuses it when present.
+
+```text
+parent/
+├── robozium/             # cloned repository
+│   └── .runtime/         # mock data and technical logs
+└── Robozium-Hub/         # live hub, mounted at /hub
+    ├── readonly/         # reference files
+    ├── workspace/        # shared working files
+    └── projects/         # project files, history, snapshots, memory
+```
+
+Set `ROBOZIUM_HUB_ROOT` in `.env` to choose another live location. It may be
+absolute or relative to the repository. Mock runs use `.runtime/mock-hub` and
+`.runtime/mock-logs`; live technical logs use `.runtime/logs`.
+
+Each project's file tools can read within the hub and write in that project's
+folder. Writes to `workspace/` ask for confirmation. Writes to other projects
+and `readonly/` are denied. These are agent file-tool permissions, not an
+operating-system sandbox; custom Python code must apply its own appropriate
+guards.
+
+![Three example projects and their permitted, prompted, and denied file paths inside the hub sandbox](docs/assets/sandbox-permissions.svg)
+
+Hub files live outside Git history; `.runtime/` is also ignored. Back up these
+host directories separately. `docker compose down --volumes` does not delete
+them, but older Docker named volumes may still contain user data. Do not use that
+command as routine cleanup without identifying and authorizing the exact target.
+
 ## Run
+
+Robozium is run from this repository, using Docker Compose on Windows, macOS,
+and Linux. Clone it to use the application; a fork is optional. Robozium is not
+distributed through PyPI. RoboZ is installed at the version pinned in
+[uv.lock](uv.lock), including Shed and Endpoints, so no second checkout is needed.
 
 Install Docker with Docker Compose v2.24 or newer, then clone this repository:
 
@@ -97,7 +150,7 @@ credentials needed by your configured models, then start without `--mock`:
 ```
 
 On Windows, use `start.cmd`. The default configuration offers OpenRouter and
-Cerebras models. OpenRouter is also needed for the Librarian's memory model.
+Cerebras models. OpenRouter is also needed for the librarian's memory model.
 The environment example includes Groq and Proton Bridge settings for capabilities
 you configure; live transcription is disabled by default.
 
@@ -113,40 +166,6 @@ Set `ROBOZIUM_WEB_PORT` in `.env` if port 6969 is busy. The web port binds to
 `127.0.0.1`; the API remains on the private Compose network. The launcher stays
 attached for logs, and Ctrl+C stops the application without deleting hub files.
 
-
-
-## Hub files and permissions
-
-The live hub sits beside the clone and is mounted at `/hub` in the API container.
-The launcher creates it if missing and reuses it when present.
-
-```text
-parent/
-├── robozium/             # cloned repository
-│   └── .runtime/         # mock data and technical logs
-└── Robozium-Hub/         # live hub, mounted at /hub
-    ├── readonly/         # reference files
-    ├── workspace/        # shared working files
-    └── projects/         # project files, history, snapshots, memory
-```
-
-Set `ROBOZIUM_HUB_ROOT` in `.env` to choose another live location. It may be
-absolute or relative to the repository. Mock runs use `.runtime/mock-hub` and
-`.runtime/mock-logs`; live technical logs use `.runtime/logs`.
-
-Each project's file tools can read within the hub and write in that project's
-folder. Writes to `workspace/` ask for confirmation. Writes to other projects
-and `readonly/` are denied. These are agent file-tool permissions, not an
-operating-system sandbox; custom Python code must apply its own appropriate
-guards.
-
-![Three example projects and their permitted, prompted, and denied file paths inside the hub sandbox](docs/assets/sandbox-permissions.svg)
-
-Hub files live outside Git history; `.runtime/` is also ignored. Back up these
-host directories separately. `docker compose down --volumes` does not delete
-them, but older Docker named volumes may still contain user data. Do not use that
-command as routine cleanup without identifying and authorizing the exact target.
-
 ## Configuration
 
 [hub.config.py](hub.config.py) contains the application choices:
@@ -155,7 +174,7 @@ command as routine cleanup without identifying and authorizing the exact target.
 | --- | --- |
 | `NAME`, `SANDBOX` | Application name, hub layout, and persistence folders. |
 | `MODELS`, `DEFAULT_MODEL` | Models offered in the HUD and the initial selection. |
-| `MEMORY_ENDPOINT` | The Librarian's model, independent of the project model. |
+| `MEMORY_ENDPOINT` | The librarian's model, independent of the project model. |
 | `CAPABILITIES`, `SUBAGENTS` | Additional tool/skill capabilities and specialist agent definitions. |
 | `TRANSCRIPTION_ENDPOINT` | Optional speech-to-text endpoint; `None` disables live transcription. |
 | `ADDITIONAL_DEPENDENCIES`, `DEPENDENCY_HEALTH` | Extra monitored resources and health-check timing. |
