@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Document repository-based use and public contributions. Expand the README
+  with application concepts, configuration, module boundaries, and license
+  information; add contribution, code-style, testing-practices, and security
+  guides plus a PR template. Clarify validation and maintainer branch protection
+  setup without changing runtime behavior.
+
 - Rename the application and its runtime identifiers to Robozium. Replace the
   bundled display webfont with complete Pirulen outline artwork while retaining
   the Anurati A in the HUD. Pin RoboZ `0.1.2a2`, which includes the renamed
