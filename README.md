@@ -5,13 +5,17 @@
     <img alt="Robozium" src="docs/assets/robozium-title-light.svg" width="95%">
   </picture>
 
+  <br><br>
+
   <p><strong>Durable agentic projects with custom tools</strong></p>
+
+  <p>
+    <a href="https://github.com/Tachion-Oy/robozium/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Tachion-Oy/robozium/actions/workflows/ci.yml/badge.svg"></a>
+    <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/License-Apache--2.0-blue.svg"></a>
+  </p>
 </div>
 
 Robozium is a multi-agent application built on [RoboZ](https://github.com/Tachion-Oy/roboz). It allows the creation and parallel execution of agentic projects each with their individual memory and scoped tools that prevent unwanted cross-pollination by using a guard layer introduced by RoboZ's tool chaining. The API is built on FastAPI and the UI using NEXT.js. It supports custom tools and their injection as the agent's capabilities.
-
-[![CI](https://github.com/Tachion-Oy/robozium/actions/workflows/ci.yml/badge.svg)](https://github.com/Tachion-Oy/robozium/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
 > [!NOTE]
 > Robozium and its RoboZ dependency are early-stage software. Configuration,
