@@ -1,11 +1,5 @@
 import { accumulateStreamingDelta, type StreamingMessage } from "../stream"
-import {
-	PipeEventType,
-	RunLifecycleKind,
-	type RunStatus,
-	type RunView,
-	type PipeEventFrame,
-} from "../wire"
+import type { RunStatus, RunView } from "../wire"
 import { StreamLogItemKind, type StreamLogItem } from "../view-model"
 import { RunHudPhase } from "./reducer.types"
 import type {
@@ -13,9 +7,9 @@ import type {
 	HudMessage,
 	HudMessageNavigationDirection,
 	HudState,
+	ContentEvent,
 	RunViewEvent,
 	SessionEvent,
-	StreamEvent,
 } from "./reducer.types"
 
 const TERMINAL_STATUSES = new Set<RunStatus>([
@@ -44,29 +38,11 @@ function derivePhase(hud: HudState): RunHudPhase {
 }
 
 /**
- * Streaming lifecycle contract:
- * - `message_delta` appends text for a specific `message_id`
- * - final `message` with the same `message_id` closes that in-flight stream
- * - lifecycle `stopped` also forces stream close
+ * Project the server-owned run state machine into the HUD. The server remains
+ * authoritative for status, the current agent, and the replyable prompt.
+ * The session applies recovered content before synchronizing this snapshot,
+ * then reconciles history and selection once against the final HUD state.
  */
-function clearCompletedStreamingByMessageId(
-	frame: PipeEventFrame,
-	streaming: StreamingMessage | null,
-): StreamingMessage | null {
-	if (frame.type === PipeEventType.Message && frame.message_id) {
-		return streaming?.messageId === frame.message_id ? null : streaming
-	}
-
-	if (
-		frame.type === PipeEventType.RunLifecycle &&
-		frame.payload.kind === RunLifecycleKind.Stopped
-	) {
-		return null
-	}
-
-	return streaming
-}
-
 function pollApplied(
 	hud: HudState,
 	runView: Pick<
@@ -110,59 +86,6 @@ function pollApplied(
 	return next
 }
 
-function frameApplied(hud: HudState, frame: PipeEventFrame): HudState {
-	if (
-		frame.type === PipeEventType.RuntimeEvent &&
-		frame.payload.category === "llm" &&
-		frame.payload.kind === "retrying"
-	) {
-		return {
-			...hud,
-			streaming: null,
-			lastStreaming: null,
-			isSettling: false,
-		}
-	}
-
-	if (frame.type === PipeEventType.MessageDelta) {
-		const streamingAfterFrame = accumulateStreamingDelta(
-			hud.streaming,
-			frame,
-		)
-		return {
-			...hud,
-			streaming: streamingAfterFrame,
-			lastStreaming: streamingAfterFrame,
-			isSettling: false,
-			currentAgentName: frame.payload.agent_name,
-		}
-	}
-
-	const streamingAfterFrame = clearCompletedStreamingByMessageId(
-		frame,
-		hud.streaming,
-	)
-	const didStreamComplete =
-		hud.streaming !== null && streamingAfterFrame === null
-	let hudAfterFrame: HudState = {
-		...hud,
-		streaming: streamingAfterFrame,
-		lastStreaming: didStreamComplete ? hud.streaming : hud.lastStreaming,
-		isSettling: didStreamComplete ? true : hud.isSettling,
-	}
-
-	if (
-		frame.type === PipeEventType.RunLifecycle &&
-		frame.payload.kind === RunLifecycleKind.Stopped &&
-		frame.payload.parent_agent_name == null &&
-		frame.payload.status
-	) {
-		hudAfterFrame = { ...hudAfterFrame, status: frame.payload.status }
-	}
-
-	return hudAfterFrame
-}
-
 function buildHudMessages(
 	logItems: StreamLogItem[],
 	prompt: string | null,
@@ -171,24 +94,24 @@ function buildHudMessages(
 	let messages = logItems.flatMap((item, logIndex): HudMessage[] => {
 		if (
 			item.kind !== StreamLogItemKind.Message ||
-			item.hudText === undefined
+			item.hudContent === undefined
 		) {
 			return []
 		}
 
 		const id = `log:${logIndex}`
-		return [{ id, text: item.hudText, replyId: null }]
+		return [{ id, ...item.hudContent, replyId: null }]
 	})
 
 	if (prompt === null || promptId === null) return messages
 
 	const promptIndex = messages.findLastIndex(
-		(message) => message.text === prompt,
+		(message) => message.text === prompt && message.contentType === "markdown",
 	)
 	if (promptIndex < 0) {
 		return [
 			...messages,
-			{ id: `prompt:${promptId}`, text: prompt, replyId: promptId },
+			{ id: `prompt:${promptId}`, text: prompt, contentType: "markdown", replyId: promptId },
 		]
 	}
 	messages = [...messages]
@@ -242,82 +165,10 @@ function findActivePromptMessageId(
 	return messages.find((message) => message.replyId === promptId)?.id ?? null
 }
 
-/**
- * Project the server-owned run state machine into the HUD. The server remains
- * authoritative for run status, the current agent, and the currently replyable
- * prompt; this helper only synchronizes that snapshot into client state.
- * Initial views also hydrate message history, while later polls preserve the
- * existing timeline unless the active prompt actually changes.
- */
-function reduceRunViewHud(
-	hud: HudState,
-	event: RunViewEvent,
-	logItems: StreamLogItem[],
-): HudState {
-	const isInitial = event.source === "initial"
-	const baseHud = isInitial
-		? {
-				...hud,
-				streaming: null,
-				lastStreaming: null,
-				isSettling: false,
-			}
-		: hud
-	const nextHud = pollApplied(baseHud, event.runView)
-	const promptChanged =
-		hud.prompt !== nextHud.prompt || hud.promptId !== nextHud.promptId
-	if (!isInitial && !promptChanged) return nextHud
-
-	const messages = buildHudMessages(
-		logItems,
-		nextHud.prompt,
-		nextHud.promptId,
-	)
-	const activePromptMessageId = findActivePromptMessageId(
-		messages,
-		nextHud.promptId,
-	)
-	const selectedMessageId = retainedSelection(
-		hud,
-		messages,
-		activePromptMessageId,
-	)
-	const previousSelection = hud.messages.find(
-		(message) => message.id === hud.selectedMessageId,
-	)
-	const activePromptCleared =
-		hud.promptId !== null &&
-		nextHud.promptId === null &&
-		Boolean(previousSelection?.replyId)
-	const keepHistoryPinned =
-		hud.isMessageHistoryPinned &&
-		selectedMessageId !== null &&
-		selectedMessageId !== activePromptMessageId
-
-	let nextSelectedMessageId = activePromptMessageId ?? selectedMessageId
-	let isMessageHistoryPinned = false
-	if (isInitial) {
-		nextSelectedMessageId = messages.at(-1)?.id ?? null
-	} else if (activePromptCleared) {
-		nextSelectedMessageId = null
-	} else if (keepHistoryPinned) {
-		nextSelectedMessageId = selectedMessageId
-		isMessageHistoryPinned = true
-	}
-
-	return {
-		...nextHud,
-		messages,
-		selectedMessageId: nextSelectedMessageId,
-		isMessageHistoryPinned,
-	}
-}
-
 /** Apply immediate client-side state changes caused by HUD controls. */
 function reduceControlHud(
 	hud: HudState,
 	event: ControlEvent,
-	logItems: StreamLogItem[],
 ): HudState {
 	switch (event.type) {
 		case "reply_submitted":
@@ -326,7 +177,6 @@ function reduceControlHud(
 				dismissedPromptId: event.promptId,
 				prompt: null,
 				promptId: null,
-				messages: buildHudMessages(logItems, null, null),
 				selectedMessageId: null,
 				isMessageHistoryPinned: false,
 			}
@@ -336,17 +186,7 @@ function reduceControlHud(
 				hud.selectedMessageId,
 				event.direction,
 			)
-			const activePromptMessageId = findActivePromptMessageId(
-				hud.messages,
-				hud.promptId,
-			)
-			return {
-				...hud,
-				selectedMessageId,
-				isMessageHistoryPinned:
-					selectedMessageId !== null &&
-					selectedMessageId !== activePromptMessageId,
-			}
+			return { ...hud, selectedMessageId }
 		}
 		case "cancel_requested":
 			return { ...hud, isCancelling: true }
@@ -359,87 +199,77 @@ function reduceControlHud(
 	}
 }
 
-/**
- * Apply live SSE frames. Streaming deltas take over the live view, while
- * completed HUD messages join the timeline and become visible unless the user
- * deliberately pinned an older history entry.
- */
-function reduceStreamHud(
+/** Reconcile history and selection once after an external input, including replay. */
+export function reconcileHudState(
+	previous: HudState,
 	hud: HudState,
-	event: StreamEvent,
 	logItems: StreamLogItem[],
 	previousLogLength: number,
+	event: SessionEvent,
 ): HudState {
-	if (event.type !== "frame_received") return hud
-
-	const nextHud = frameApplied(hud, event.frame)
-	if (
-		event.frame.type === PipeEventType.MessageDelta &&
-		!hud.isMessageHistoryPinned
-	) {
-		return {
-			...nextHud,
-			selectedMessageId: null,
-			isMessageHistoryPinned: false,
+	if (event.class === "control" && event.type === "hud_message_navigated") {
+		hud = {
+			...hud,
+			isMessageHistoryPinned: hud.selectedMessageId !== null &&
+				hud.selectedMessageId !== findActivePromptMessageId(hud.messages, hud.promptId),
 		}
 	}
-	const hasDisplayableItem = logItems.slice(previousLogLength).some(
-		(item) => item.kind === StreamLogItemKind.Message && item.hudText !== undefined,
+	const promptChanged = previous.prompt !== hud.prompt || previous.promptId !== hud.promptId
+	const historyAdded = logItems.slice(previousLogLength).some(
+		(item) => item.kind === StreamLogItemKind.Message && item.hudContent !== undefined,
 	)
-	if (!hasDisplayableItem) return nextHud
-
-	const messages = buildHudMessages(
-		logItems,
-		nextHud.prompt,
-		nextHud.promptId,
-	)
-	const activePromptMessageId = findActivePromptMessageId(
-		messages,
-		nextHud.promptId,
-	)
-	const selectedMessageId = retainedSelection(
-		hud,
-		messages,
-		activePromptMessageId,
-	)
-	const keepHistoryPinned =
-		hud.isMessageHistoryPinned &&
-		selectedMessageId !== null &&
-		selectedMessageId !== activePromptMessageId
-
-	return {
-		...nextHud,
-		messages,
-		selectedMessageId: keepHistoryPinned
-			? selectedMessageId
-			: (messages.at(-1)?.id ?? null),
-		isMessageHistoryPinned: keepHistoryPinned,
+	if (promptChanged || historyAdded) {
+		const messages = buildHudMessages(logItems, hud.prompt, hud.promptId)
+		const activePromptMessageId = findActivePromptMessageId(messages, hud.promptId)
+		const selectedMessageId = retainedSelection(hud, messages, activePromptMessageId)
+		const keepHistoryPinned =
+			hud.isMessageHistoryPinned && selectedMessageId !== null &&
+			selectedMessageId !== activePromptMessageId
+		const previousSelection = previous.messages.find(
+			(message) => message.id === previous.selectedMessageId,
+		)
+		const promptCleared =
+			previous.promptId !== null && hud.promptId === null && Boolean(previousSelection?.replyId)
+		let nextSelection = activePromptMessageId ?? messages.at(-1)?.id ?? null
+		if (promptCleared || hud.streaming) nextSelection = null
+		if (keepHistoryPinned) nextSelection = selectedMessageId
+		hud = {
+			...hud,
+			messages,
+			selectedMessageId: nextSelection,
+			isMessageHistoryPinned: keepHistoryPinned,
+		}
 	}
+	return { ...hud, phase: derivePhase(hud) }
 }
 
-/**
- * Route each session event to the helper that owns that input source, then
- * derive the display phase once from the completed HUD state.
- */
+/** Streaming and controls mutate HUD state; history is reconciled by the session. */
 export function reduceHudState(
 	hud: HudState,
-	event: SessionEvent,
-	logItems: StreamLogItem[],
-	previousLogLength: number,
+	event: ContentEvent | ControlEvent | RunViewEvent,
 ): HudState {
-	let nextHud: HudState
-
 	switch (event.class) {
+		case "content":
+			if (event.type === "delta") {
+				const streaming = accumulateStreamingDelta(hud.streaming, event.delta)
+				return {
+					...hud,
+					streaming,
+					lastStreaming: streaming,
+					isSettling: false,
+					currentAgentName: streaming.agentName,
+					selectedMessageId: hud.isMessageHistoryPinned ? hud.selectedMessageId : null,
+				}
+			}
+			if (event.type === "reset") {
+				return { ...hud, streaming: null, lastStreaming: null, isSettling: false }
+			}
+			return hud.streaming?.messageId === event.messageId
+				? { ...hud, streaming: null, lastStreaming: hud.streaming, isSettling: true }
+				: hud
 		case "runView":
-			nextHud = reduceRunViewHud(hud, event, logItems)
-			break
+			return pollApplied(hud, event.runView)
 		case "control":
-			nextHud = reduceControlHud(hud, event, logItems)
-			break
-		case "stream":
-			nextHud = reduceStreamHud(hud, event, logItems, previousLogLength)
-			break
+			return reduceControlHud(hud, event)
 	}
-
-	return { ...nextHud, phase: derivePhase(nextHud) }
 }

@@ -19,7 +19,12 @@ from robozium.hub.logging import HubLoggingConfig
 
 _APPLICATION_LOGGERS = ("robozium", "roboz")
 _UVICORN_LOGGERS = ("uvicorn.access", "uvicorn.error")
-_POLLING_PATHS = (re.compile(r"/projects"), re.compile(r"/run/[^/]+"))
+_POLLING_PATHS = (
+    re.compile(r"/projects"),
+    re.compile(r"/run/[^/]+"),
+    re.compile(r"/ready"),
+    re.compile(r"/models"),
+)
 
 
 def _level(name: str) -> int:
@@ -94,7 +99,7 @@ def _attach(logger: logging.Logger, handler: logging.Handler | None) -> None:
 
 
 def keep_access_log(record: logging.LogRecord) -> bool:
-    """Hide successful UI status polls while retaining all other requests."""
+    """Hide successful UI status polls and health probes while retaining all other requests."""
     args = record.args
     if not isinstance(args, tuple) or len(args) < 5:
         return True
@@ -103,7 +108,7 @@ def keep_access_log(record: logging.LogRecord) -> bool:
         status_code = int(raw_status)
     except ValueError:
         return True
-    if method.upper() != "GET" or status_code >= 500:
+    if method.upper() != "GET" or not 200 <= status_code < 300:
         return True
     path = urlsplit(raw_path).path.rstrip("/") or "/"
     return not any(pattern.fullmatch(path) for pattern in _POLLING_PATHS)

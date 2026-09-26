@@ -23,6 +23,7 @@ type Overrides = {
 function createProps(overrides: Overrides = {}): Props {
 	return {
 		message: {
+			contentType: "markdown",
 			id: "live:passive",
 			content: "",
 			mode: "current",
@@ -68,7 +69,7 @@ function renderForm(overrides: Overrides = {}) {
 describe("ReplyForm", () => {
 	it("keeps history editable when newer messages are navigable", () => {
 		const { container } = renderForm({
-			message: { content: "Older prompt", mode: "history" },
+			message: { contentType: "markdown",  content: "Older prompt", mode: "history" },
 			composer: {
 				value: "saved draft",
 				isReplyAvailable: true,

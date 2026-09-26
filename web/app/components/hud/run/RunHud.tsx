@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, type Dispatch, type SetStateAction } from "react"
-import { streamingDisplayText } from "@/lib/robozium/streaming-text"
 import {
 	agentActivityStateForPhase,
 	getActiveStreamingMessage,
@@ -11,7 +10,6 @@ import { useRunSession, useRunSessionSelector } from "@/hooks/useRunSession"
 import { useDictation } from "@/hooks/useDictation"
 import { getHudMessages } from "@/lib/robozium/hud-messages"
 import { showErrorToast } from "@/app/components/feedback/ErrorToast"
-import type { AgentMessage } from "./AgentMessagePanel"
 import type { LayoutMode } from "../HudCornerControls"
 import { ReplyForm } from "./ReplyForm"
 
@@ -38,7 +36,6 @@ export function RunHud({
 		(state) => state.hud.selectedMessageId,
 		null,
 	)
-	const hudMessages = getHudMessages(messages, selectedMessageId)
 	const isCancelling = useRunSessionSelector(
 		(state) => state.hud.isCancelling,
 		false,
@@ -48,6 +45,7 @@ export function RunHud({
 		false,
 	)
 	const activeStream = useRunSessionSelector(getActiveStreamingMessage, null)
+	const hudMessages = getHudMessages(messages, selectedMessageId, { phase, stream: activeStream, prompt, promptId })
 	const [isSubmitting, setIsSubmitting] = useState(false)
 
 	const {
@@ -93,27 +91,7 @@ export function RunHud({
 
 	// Run phases only choose what the agent panel shows. The composer stays
 	// available for drafting and dictation until the run reaches a terminal state.
-	const liveMessage: AgentMessage =
-		phase === RunHudPhase.Streaming
-			? {
-					id: `live:${activeStream?.messageId ?? phase}`,
-					content: activeStream
-						? streamingDisplayText(activeStream.text)
-						: "",
-					mode: "streaming",
-				}
-			: phase === RunHudPhase.Prompting
-				? {
-						id: `live:${promptId ?? phase}`,
-						content: prompt ?? "",
-						mode: "current",
-					}
-				: {
-							id: `live:${phase}`,
-							content: "",
-							mode: "current",
-						}
-	const message = hudMessages.message ?? liveMessage
+	const message = hudMessages.message
 
 	return (
 		<ReplyForm

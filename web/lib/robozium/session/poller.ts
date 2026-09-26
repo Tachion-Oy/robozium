@@ -16,7 +16,7 @@ export function startRunSessionPoller(runId: string, dispatch: Dispatch) {
 		try {
 			const runView = await fetchRunView(runId, { signal: controller.signal })
 			if (!active) return
-			dispatch({ class: "runView", type: "received", runView, source: "poll" })
+			dispatch({ class: "runView", type: "received", runView })
 		} catch (error) {
 			if (!active) return
 			if (error instanceof AgentApiError && error.status === 404) {

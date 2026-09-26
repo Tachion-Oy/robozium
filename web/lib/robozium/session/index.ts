@@ -4,7 +4,6 @@ import {
 	submitReply as submitReplyApi,
 } from "../client"
 import { createStore, type StoreApi } from "zustand/vanilla"
-import { getFrameSequence } from "../stream"
 import type { RunView } from "../wire"
 import { startRunSessionConnection } from "./connection"
 import {
@@ -36,20 +35,10 @@ export function createRunSession(
 	const store = createStore<RunSessionState>(() => {
 		const base = createInitialRunSessionState(runId)
 		if (!initialRunView) return base
-		const minSequence =
-			initialRunView.message_trace.length > 0
-				? Math.max(
-						...initialRunView.message_trace.map((m) =>
-							getFrameSequence(m),
-						),
-					)
-				: 0
 		return reduceRunSessionState(base, {
 			class: "runView",
 			type: "received",
-			source: "initial",
 			runView: initialRunView,
-			minSequence,
 		})
 	})
 

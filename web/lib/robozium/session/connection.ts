@@ -84,7 +84,6 @@ export function startRunSessionConnection(runId: string, dispatch: Dispatch) {
 class RunSessionConnection {
 	private readonly controller = new AbortController()
 	private active = true
-	private hasInitialSnapshot = false
 	private lastSequence = 0
 	private consecutiveFailures = 0
 
@@ -172,39 +171,12 @@ class RunSessionConnection {
 		})
 		if (this.stopped) return null
 
-		this.applySnapshot(runView)
+		this.dispatch({ class: "runView", type: "received", runView })
 		slog(
 			"stream",
-			`session snapshot runId=${this.runId} entries=${runView.message_trace.length} minSequence=${this.lastSequence}`,
+			`session snapshot runId=${this.runId} entries=${runView.message_trace.length}`,
 		)
 		return runView
-	}
-
-	private applySnapshot(runView: RunView) {
-		const frames = [...runView.message_trace].sort(
-			(left, right) => getFrameSequence(left) - getFrameSequence(right),
-		)
-
-		if (!this.hasInitialSnapshot) {
-			this.lastSequence = Math.max(this.lastSequence, maximumSequence(frames))
-			this.dispatch({
-				class: "runView",
-				type: "received",
-				source: "initial",
-				runView,
-				minSequence: this.lastSequence,
-			})
-			this.hasInitialSnapshot = true
-			return
-		}
-
-		this.dispatch({
-			class: "runView",
-			type: "received",
-			source: "poll",
-			runView,
-		})
-		for (const frame of frames) this.dispatchFrameIfNew(frame)
 	}
 
 	private async consumeStream(body: ReadableStream<Uint8Array>): Promise<void> {
@@ -249,13 +221,6 @@ class RunSessionConnection {
 		)
 		await abortableDelay(delayMs, this.controller.signal)
 	}
-}
-
-function maximumSequence(frames: PipeEventFrame[]): number {
-	return frames.reduce(
-		(maximum, frame) => Math.max(maximum, getFrameSequence(frame)),
-		0,
-	)
 }
 
 async function cancelStream(body: ReadableStream<Uint8Array>) {

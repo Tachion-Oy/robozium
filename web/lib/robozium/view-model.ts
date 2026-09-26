@@ -63,12 +63,14 @@ export type LifecycleStoppedLogItem = {
 	details: Record<string, string>
 }
 
+export type ContentType = "plain-text" | "markdown"
+
 /** One message row in the terminal log. */
 export type MessageLogItem = {
 	kind: StreamLogItemKind.Message
 	role: StreamLogRole
 	content: string
-	hudText?: string
+	hudContent?: { text: string; contentType: ContentType }
 	label?: string
 	parsed?: ParsedMessageContent
 	messageKind?: string

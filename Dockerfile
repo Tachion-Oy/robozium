@@ -75,7 +75,7 @@ COPY --from=web-builder --chown=robozium:robozium /app/web/public ./public
 USER robozium
 EXPOSE 6969
 HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=12 \
-    CMD ["node", "-e", "(async()=>{try{const r=await fetch('http://127.0.0.1:6969');if(!r.ok)throw Error(r.status)}catch(e){console.error(e);process.exit(1)}})()"]
+    CMD ["node", "-e", "(async()=>{try{const r=await fetch('http://127.0.0.1:6969/api/health');if(!r.ok)throw Error(r.status)}catch(e){console.error(e);process.exit(1)}})()"]
 CMD ["node", "server.js"]
 
 

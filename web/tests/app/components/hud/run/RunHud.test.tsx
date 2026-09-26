@@ -98,6 +98,7 @@ function promptingState(prompts: string[]): RunSessionState {
 	state.hud.promptId = current ? `prompt-${prompts.length}` : null
 	state.hud.currentAgentName = "orchestrator"
 	state.hud.messages = prompts.map((text, index) => ({
+		contentType: "markdown",
 		id: `prompt:${index + 1}`,
 		text,
 		replyId: index === prompts.length - 1 ? state.hud.promptId : null,
@@ -165,6 +166,9 @@ describe("RunHud prompt history", () => {
 				const state = createInitialRunSessionState("run-1")
 				state.hud.phase = RunHudPhase.Streaming
 				state.hud.streaming = {
+					contentType: "markdown",
+					chunkIndex: 0,
+					role: StreamLogRole.Agent,
 					messageId: "stream-1",
 					text: "Streaming answer",
 					agentName: "orchestrator",
@@ -210,7 +214,7 @@ describe("RunHud prompt history", () => {
 		notified.log.items = [notificationItem(notification)]
 		notified.hud.currentAgentName = "orchestrator"
 		notified.hud.messages = [
-			{ id: "notification:1", text: notification, replyId: null },
+			{ contentType: "markdown",  id: "notification:1", text: notification, replyId: null },
 		]
 		notified.hud.selectedMessageId = "notification:1"
 		mocks.state = notified
@@ -225,7 +229,7 @@ describe("RunHud prompt history", () => {
 			promptItem("Approve these hours?"),
 		]
 		mocks.state.hud.messages = [
-			{ id: "notification:1", text: notification, replyId: null },
+			{ contentType: "markdown",  id: "notification:1", text: notification, replyId: null },
 			...mocks.state.hud.messages,
 		]
 		view.rerender(<TestRunHud />)
@@ -260,8 +264,9 @@ describe("RunHud prompt history", () => {
 		]
 		state.hud.currentAgentName = "orchestrator"
 		state.hud.messages = [
-			{ id: "notification:1", text: "First notification", replyId: null },
+			{ contentType: "markdown",  id: "notification:1", text: "First notification", replyId: null },
 			{
+				contentType: "markdown",
 				id: "notification:2",
 				text: report,
 				replyId: null,
@@ -372,6 +377,7 @@ describe("RunHud prompt history", () => {
 		mocks.state = promptingState(["First prompt", "Current prompt"])
 		mocks.state.log.items.push(notificationItem(notification))
 		mocks.state.hud.messages.push({
+			contentType: "markdown",
 			id: "notification:1",
 			text: notification,
 			replyId: null,
@@ -408,6 +414,9 @@ describe("RunHud prompt history", () => {
 		state.hud.prompt = null
 		state.hud.promptId = null
 		state.hud.streaming = {
+			contentType: "markdown",
+			chunkIndex: 0,
+			role: StreamLogRole.Agent,
 			messageId: "stream-1",
 			text: '{"action":"working"}',
 			agentName: "orchestrator",

@@ -39,6 +39,7 @@ describe("AgentMessagePanel", () => {
 		const { container, rerender } = render(
 			<AgentMessagePanel
 				message={{
+					contentType: "markdown",
 					id: "message:1",
 					content: "**Current**",
 					mode: "current",
@@ -50,6 +51,7 @@ describe("AgentMessagePanel", () => {
 		rerender(
 			<AgentMessagePanel
 				message={{
+					contentType: "markdown",
 					id: "message:2",
 					content: "_Archived_",
 					mode: "history",
@@ -57,6 +59,16 @@ describe("AgentMessagePanel", () => {
 			/>,
 		)
 		expect(container.querySelector("em")?.textContent).toBe("Archived")
+	})
+
+	it("preserves declared plain text in streaming and history", () => {
+		const content = ' \n{"quoted":"**literal**", "partial": [1,\t'
+		const message = { id: "opaque", content, contentType: "plain-text" as const, mode: "streaming" as const }
+		const { container, rerender } = render(<AgentMessagePanel message={message} />)
+		expect(container.querySelector("pre")?.textContent).toBe(content)
+		rerender(<AgentMessagePanel message={{ ...message, mode: "history" }} />)
+		expect(container.querySelector("pre")?.textContent).toBe(content)
+		expect(container.querySelector("strong")).toBeNull()
 	})
 
 	it("pins streaming content to the bottom and resets non-streaming messages", () => {
@@ -73,6 +85,7 @@ describe("AgentMessagePanel", () => {
 			const { container, rerender } = render(
 				<AgentMessagePanel
 					message={{
+						contentType: "plain-text",
 						id: "stream:1",
 						content: "partial",
 						mode: "streaming",
@@ -88,6 +101,7 @@ describe("AgentMessagePanel", () => {
 			rerender(
 				<AgentMessagePanel
 					message={{
+						contentType: "markdown",
 						id: "message:1",
 						content: "Finished",
 						mode: "current",

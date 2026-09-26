@@ -76,7 +76,6 @@ describe("createRunSession transport lifetime", () => {
 			dispatch({
 				class: "runView",
 				type: "received",
-				source: "poll",
 				runView: seededRunView(status),
 			})
 
@@ -91,12 +90,12 @@ describe("createRunSession transport lifetime", () => {
 		const session = createRunSession("run-1", seededRunView())
 		session.start()
 		const dispatch = mockedStartRunSessionConnection.mock.calls[0][1]
-		dispatch({ class: "runView", type: "received", source: "poll", runView: seededRunView("completed") })
+		dispatch({ class: "runView", type: "received", runView: seededRunView("completed") })
 		const completedState = session.store.getState()
-		dispatch({ class: "runView", type: "received", source: "poll", runView: seededRunView("running") })
+		dispatch({ class: "runView", type: "received", runView: seededRunView("running") })
 		expect(session.store.getState()).toBe(completedState)
 		session.dispose()
-		dispatch({ class: "runView", type: "received", source: "poll", runView: seededRunView("running") })
+		dispatch({ class: "runView", type: "received", runView: seededRunView("running") })
 		expect(session.store.getState()).toBe(completedState)
 	})
 
@@ -212,7 +211,7 @@ describe("createRunSession HUD messages", () => {
 			hud: {
 				...state.hud,
 				messages: [
-					{ id: "old-message", text: "Earlier update", replyId: null },
+					{ contentType: "markdown",  id: "old-message", text: "Earlier update", replyId: null },
 					...state.hud.messages,
 				],
 				selectedMessageId: "old-message",

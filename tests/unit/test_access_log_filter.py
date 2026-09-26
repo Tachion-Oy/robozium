@@ -30,9 +30,9 @@ def test_non_polling_paths_are_kept() -> None:
     assert keep_access_log(_record(method="GET", path="/files/projects/a/cv.txt"))
 
 
-def test_polling_404s_are_suppressed() -> None:
+def test_polling_404s_are_kept() -> None:
     assert (
-        keep_access_log(_record(method="GET", path="/run/abc123", status=404)) is False
+        keep_access_log(_record(method="GET", path="/run/abc123", status=404)) is True
     )
 
 

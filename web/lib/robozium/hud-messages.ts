@@ -1,3 +1,6 @@
+import { streamingDisplayText } from "./streaming-text"
+import type { StreamingMessage } from "./stream"
+import { RunHudPhase } from "./session/reducer"
 import type {
 	HudMessage,
 	HudMessageNavigationDirection,
@@ -7,6 +10,7 @@ import type {
 export function getHudMessages(
 	messages: HudMessage[],
 	selectedMessageId: string | null,
+	live: { phase: RunHudPhase; stream: StreamingMessage | null; prompt: string | null; promptId: string | null },
 ) {
 	const selectedIndex = messages.findIndex(
 		(message) => message.id === selectedMessageId,
@@ -30,18 +34,27 @@ export function getHudMessages(
 		} satisfies Record<HudMessageNavigationDirection, boolean>,
 	}
 
-	if (selectedMessage === null) {
+	if (selectedMessage) {
 		return {
-			message: null,
+			message: {
+				id: `message:${selectedMessage.id}`,
+				content: selectedMessage.text,
+				contentType: selectedMessage.contentType,
+				mode: selectedMessage.replyId === null ? "history" as const : "current" as const,
+			},
 			navigation,
 		}
 	}
 
+	const streaming = live.phase === RunHudPhase.Streaming ? live.stream : null
 	return {
 		message: {
-			id: `message:${selectedMessage.id}`,
-			content: selectedMessage.text,
-			mode: selectedMessage.replyId === null ? ("history" as const) : ("current" as const),
+			id: `live:${streaming?.messageId ?? live.promptId ?? live.phase}`,
+			content: streaming
+				? streaming.contentType === "markdown" ? streamingDisplayText(streaming.text) : streaming.text
+				: live.phase === RunHudPhase.Prompting ? live.prompt ?? "" : "",
+			contentType: streaming ? "plain-text" as const : "markdown" as const,
+			mode: streaming ? "streaming" as const : "current" as const,
 		},
 		navigation,
 	}

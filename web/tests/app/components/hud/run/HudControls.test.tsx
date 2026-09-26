@@ -19,6 +19,7 @@ type Overrides = {
 function createProps(overrides: Overrides = {}): Props {
 	return {
 		agentMessage: overrides.agentMessage ?? {
+			contentType: "markdown",
 			id: "agent:current",
 			content: "Agent output",
 			mode: "current",
