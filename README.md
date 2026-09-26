@@ -5,7 +5,18 @@
     <img alt="Robozium" src="docs/assets/robozium-title-light.svg" width="95%">
   </picture>
 
+  <br>
+
   <p><strong>Durable agentic projects with custom tools</strong></p>
+
+  <br>
+
+  <p>
+    <img src="https://raw.githubusercontent.com/Tachion-Oy/roboz/main/docs/assets/robozium-project-chat.png" alt="Robozium project chat" width="49%" align="top">
+    <img src="https://raw.githubusercontent.com/Tachion-Oy/roboz/main/docs/assets/robozium-runs-overview.png" alt="Robozium runs overview" width="49.43%" align="top">
+  </p>
+
+  <br>
 </div>
 
 Robozium is a multi-agent application built on [RoboZ](https://github.com/Tachion-Oy/roboz). It allows the creation and parallel execution of agentic projects each with their individual memory and scoped tools that prevent unwanted cross-pollination by using a guard layer introduced by RoboZ's tool chaining. The API is built on FastAPI and the UI using NEXT.js. It supports custom tools and their injection as the agent's capabilities.

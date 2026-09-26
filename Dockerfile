@@ -79,7 +79,8 @@ HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=12 \
 CMD ["node", "server.js"]
 
 
-FROM mcr.microsoft.com/playwright:v1.63.0-noble AS verify
+# Keep this version aligned with Playwright in web/package-lock.json.
+FROM mcr.microsoft.com/playwright:v1.59.1-noble AS verify
 
 WORKDIR /tests
 COPY web/package.json web/package-lock.json ./

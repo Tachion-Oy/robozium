@@ -1,5 +1,6 @@
-"""The framework dependency must remain an exact published release."""
+"""Repository dependencies must satisfy their installation contracts."""
 
+import json
 import re
 import tomllib
 from pathlib import Path
@@ -25,3 +26,23 @@ def test_roboz_uses_an_exact_indexed_release():
         "https://test.pypi.org/simple",
     }
     assert release["wheels"], "Installed checks require a published wheel"
+
+
+def test_playwright_container_matches_locked_browser_version() -> None:
+    lock = json.loads((ROOT / "web/package-lock.json").read_text())
+    packages = lock["packages"]
+    versions = {
+        packages[f"node_modules/{name}"]["version"]
+        for name in ("@playwright/test", "playwright", "playwright-core")
+    }
+    assert len(versions) == 1, "Playwright packages must use the same version"
+    image = re.search(
+        r"^FROM mcr\.microsoft\.com/playwright:v([^\s]+)-noble AS verify$",
+        (ROOT / "Dockerfile").read_text(),
+        re.MULTILINE,
+    )
+    assert image is not None, "Docker verification needs a pinned Playwright image"
+    assert image.group(1) == versions.pop(), (
+        "Update the Playwright Docker image and npm lockfile together; "
+        "mismatched versions cannot locate browser executables"
+    )
