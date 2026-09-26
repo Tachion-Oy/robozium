@@ -78,7 +78,6 @@ def test_app_logging_installs_shared_console_and_file_handlers(
     )
 
 
-
 def test_console_is_concise_while_jsonl_keeps_structured_metadata(
     logging_setup, monkeypatch, tmp_path: Path
 ) -> None:
@@ -103,7 +102,6 @@ def test_console_is_concise_while_jsonl_keeps_structured_metadata(
     payload = json.loads((tmp_path / "backend.jsonl").read_text(encoding="utf-8"))
     assert payload["message"] == "LLM call succeeded: fake/model (tokens: input=10)"
     assert payload["data"] == {"call_id": "full-uuid", "token_input": 10}
-
 
 
 def test_console_does_not_filter_librarian_tool_logs(
@@ -155,7 +153,6 @@ def test_console_keeps_internal_traceback_while_jsonl_omits_it(
     assert "internal boom" not in raw
     assert "exception" not in payload
     assert payload["data"] == {"error_type": "ValueError", "status": 401}
-
 
 
 def test_file_handler_creates_private_directory_and_file(
@@ -376,3 +373,33 @@ def test_failed_logging_setup_restores_partial_changes(
     logging_setup(_config(tmp_path))
     loggers[0].info("retry-succeeded")
     assert "retry-succeeded" in _config(tmp_path).path.read_text()
+
+
+@pytest.mark.parametrize(
+    "path", ["/ready", "/models", "/models?run_id=abc", "/projects", "/run/abc"]
+)
+@pytest.mark.parametrize("status", [200, 204, 400, 404, 503])
+def test_access_log_filters_only_successful_polls_and_health_probes(path, status):
+    record = logging.LogRecord(
+        "uvicorn.access",
+        logging.INFO,
+        __file__,
+        0,
+        "%s %s %s %s %s",
+        ("127.0.0.1", "GET", path, "1.1", status),
+        None,
+    )
+    assert backend_logging.keep_access_log(record) is (not 200 <= status < 300)
+
+
+def test_access_log_keeps_model_selection_requests():
+    record = logging.LogRecord(
+        "uvicorn.access",
+        logging.INFO,
+        __file__,
+        0,
+        "%s %s %s %s %s",
+        ("127.0.0.1", "POST", "/models", "1.1", 200),
+        None,
+    )
+    assert backend_logging.keep_access_log(record)
