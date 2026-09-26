@@ -212,7 +212,7 @@ describe("createRunSession HUD messages", () => {
 			hud: {
 				...state.hud,
 				messages: [
-					{ id: "old-message", text: "Earlier update", replyId: null },
+					{ contentType: "markdown",  id: "old-message", text: "Earlier update", replyId: null },
 					...state.hud.messages,
 				],
 				selectedMessageId: "old-message",

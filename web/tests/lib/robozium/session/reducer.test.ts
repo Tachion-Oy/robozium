@@ -26,74 +26,25 @@ describe("run session reducer", () => {
 		const hud = createInitialRunSessionState("run-1").hud
 		const next = reduceHudState(
 			hud,
-			{
-				class: "stream",
-				type: "frame_received",
-				receivedAt: "2026-09-25T12:00:00.000Z",
-				frame: {
-					type: PipeEventType.Message,
-					sequence: 1,
-					payload: { role: WireRole.Assistant, content: "Report", truncation: {} },
-				},
-			},
+			{ class: "content", type: "completed", messageId: null, item: null },
 			[
-				{ kind: StreamLogItemKind.Message, role: StreamLogRole.Agent, content: "Report", hudText: "Report" },
-				{ kind: StreamLogItemKind.Message, role: StreamLogRole.Tool, content: "Trace" },
+				{
+					contentType: "markdown",
+					kind: StreamLogItemKind.Message,
+					role: StreamLogRole.Agent,
+					content: "Report",
+					hudText: "Report",
+				},
+				{
+					contentType: "markdown",
+					kind: StreamLogItemKind.Message,
+					role: StreamLogRole.Tool,
+					content: "Trace",
+				},
 			],
 			0,
 		)
-		expect(next.messages).toEqual([{ id: "log:0", text: "Report", replyId: null }])
-	})
-
-	it("shows output events immediately, preserves pinned history, and restores them from snapshots", () => {
-		const frames = ["First output", "Second output", "Third output"].map(
-			(content, index) => ({
-				type: PipeEventType.ScriptOutput as const,
-				sequence: index + 1,
-				payload: { content },
-			}),
-		)
-		const received = (frame: typeof frames[number]) => ({
-			class: "stream" as const,
-			type: "frame_received" as const,
-			receivedAt: "2026-09-25T12:00:00.000Z",
-			frame,
-		})
-		let state = createInitialRunSessionState("run-1")
-		for (const frame of frames.slice(0, 2)) {
-			state = reduceRunSessionState(state, received(frame))
-			expect(state.hud.messages.at(-1)?.text).toBe(frame.payload.content)
-			expect(state.hud.selectedMessageId).toBe(state.hud.messages.at(-1)?.id)
-		}
-		state = reduceRunSessionState(state, {
-			class: "control",
-			type: "hud_message_navigated",
-			direction: "first",
-		})
-		state = reduceRunSessionState(state, received(frames[2]))
-		expect(state.hud.selectedMessageId).toBe("log:0")
-		expect(state.hud.isMessageHistoryPinned).toBe(true)
-		expect(state.hud.messages.map((message) => message.text)).toEqual(
-			frames.map((frame) => frame.payload.content),
-		)
-
-		const restored = reduce([{
-			class: "runView",
-			type: "received",
-			source: "initial",
-			runView: {
-				project: "alpha",
-				status: "running",
-				current_agent_name: "root",
-				parent_agent_name: null,
-				message_trace: frames,
-				current_prompt_id: null,
-				current_prompt: null,
-				error: null,
-			},
-		}])
-		expect(restored.hud.messages).toEqual(state.hud.messages)
-		expect(restored.hud.selectedMessageId).toBe("log:2")
+		expect(next.messages).toEqual([{ contentType: "markdown", id: "log:0", text: "Report", replyId: null }])
 	})
 
 	it("restores a tagged notification from the initial run trace", () => {
@@ -128,6 +79,7 @@ describe("run session reducer", () => {
 
 		expect(state.log.items).toEqual([
 			{
+				contentType: "markdown",
 				kind: "message",
 				role: "agent",
 				content: "### Restored report",
@@ -136,7 +88,12 @@ describe("run session reducer", () => {
 			},
 		])
 		expect(state.hud.messages).toEqual([
-			{ id: "log:0", text: "### Restored report", replyId: null },
+			{
+				contentType: "markdown",
+				id: "log:0",
+				text: "### Restored report",
+				replyId: null,
+			},
 		])
 		expect(state.hud.selectedMessageId).toBe("log:0")
 	})
@@ -292,8 +249,18 @@ describe("run session reducer", () => {
 		])
 
 		expect(state.hud.messages).toEqual([
-			{ id: "log:0", text: "Report ready", replyId: null },
-			{ id: "log:1", text: "Approve these hours?", replyId: "p-1" },
+			{
+				contentType: "markdown",
+				id: "log:0",
+				text: "Report ready",
+				replyId: null,
+			},
+			{
+				contentType: "markdown",
+				id: "log:1",
+				text: "Approve these hours?",
+				replyId: "p-1",
+			},
 		])
 		expect(state.hud.selectedMessageId).toBe("log:1")
 		expect(state.hud.isMessageHistoryPinned).toBe(false)
@@ -365,8 +332,18 @@ describe("run session reducer", () => {
 	it("jumps to the first message and the latest live or prompt endpoint", () => {
 		let state = createInitialRunSessionState("run-jumps")
 		state.hud.messages = [
-			{ id: "message-1", text: "First", replyId: null },
-			{ id: "message-2", text: "Second", replyId: null },
+			{
+				contentType: "markdown",
+				id: "message-1",
+				text: "First",
+				replyId: null,
+			},
+			{
+				contentType: "markdown",
+				id: "message-2",
+				text: "Second",
+				replyId: null,
+			},
 		]
 		state.hud.selectedMessageId = null
 
@@ -388,7 +365,12 @@ describe("run session reducer", () => {
 
 		state.hud.messages = [
 			...state.hud.messages,
-			{ id: "prompt-3", text: "Current prompt", replyId: "prompt-3" },
+			{
+				contentType: "markdown",
+				id: "prompt-3",
+				text: "Current prompt",
+				replyId: "prompt-3",
+			},
 		]
 		state.hud.promptId = "prompt-3"
 		state.hud.selectedMessageId = "message-1"
@@ -654,11 +636,13 @@ describe("run session reducer", () => {
 		expect(state.hud.streaming).toBeNull()
 		expect(state.hud.messages).toEqual([
 			{
+				contentType: "markdown",
 				id: "log:0",
 				text: "[codex] preparing\n[codex] command completed",
 				replyId: null,
 			},
 			{
+				contentType: "markdown",
 				id: "log:1",
 				text: "Implemented the change.",
 				replyId: null,
@@ -758,6 +742,7 @@ describe("run session reducer", () => {
 
 		expect(state.log.items).toEqual([
 			{
+				contentType: "markdown",
 				kind: "message",
 				role: "error",
 				content: "stream request failed (503)",

@@ -1,11 +1,8 @@
-import { getActiveStreamingMessageFromHud, reduceHudState } from "./hud-reducer"
-import { reduceLogState } from "./log-reducer"
-import { reduceNotifications } from "./notification-reducer"
+import { getActiveStreamingMessageFromHud } from "./hud-reducer"
 import {
 	AgentActivityState,
 	RunHudPhase,
 	type RunSessionState,
-	type SessionEvent,
 } from "./reducer.types"
 
 export { AgentActivityState, RunHudPhase } from "./reducer.types"
@@ -85,29 +82,4 @@ export function shouldExitRunView(state: RunSessionState): boolean {
 	)
 }
 
-export function reduceRunSessionState(
-	state: RunSessionState,
-	event: SessionEvent,
-): RunSessionState {
-	switch (event.class) {
-		case "runView":
-		case "stream":
-		case "control": {
-			const log = reduceLogState(state.log, event)
-			return {
-				...state,
-				projectSlug:
-					event.class === "runView"
-						? event.runView.project
-						: state.projectSlug,
-				log,
-				hud: reduceHudState(state.hud, event, log.items, state.log.items.length),
-				notifications: reduceNotifications(
-					state.notifications,
-					state.runId,
-					event,
-				),
-			}
-		}
-	}
-}
+export { reduceSessionEvent as reduceRunSessionState } from "./stream-adapter"

@@ -4,7 +4,6 @@ import {
 	RunLifecycleKind,
 	type RunStatus,
 	type RunView,
-	type PipeEventFrame,
 } from "../wire"
 import { StreamLogItemKind, type StreamLogItem } from "../view-model"
 import { RunHudPhase } from "./reducer.types"
@@ -14,8 +13,7 @@ import type {
 	HudMessageNavigationDirection,
 	HudState,
 	RunViewEvent,
-	SessionEvent,
-	StreamEvent,
+	PresentationEvent,
 } from "./reducer.types"
 
 const TERMINAL_STATUSES = new Set<RunStatus>([
@@ -41,30 +39,6 @@ function derivePhase(hud: HudState): RunHudPhase {
 	if (hasPrompt(hud)) return RunHudPhase.Prompting
 	if (getActiveStreamingMessageFromHud(hud)) return RunHudPhase.Streaming
 	return RunHudPhase.Passive
-}
-
-/**
- * Streaming lifecycle contract:
- * - `message_delta` appends text for a specific `message_id`
- * - final `message` with the same `message_id` closes that in-flight stream
- * - lifecycle `stopped` also forces stream close
- */
-function clearCompletedStreamingByMessageId(
-	frame: PipeEventFrame,
-	streaming: StreamingMessage | null,
-): StreamingMessage | null {
-	if (frame.type === PipeEventType.Message && frame.message_id) {
-		return streaming?.messageId === frame.message_id ? null : streaming
-	}
-
-	if (
-		frame.type === PipeEventType.RunLifecycle &&
-		frame.payload.kind === RunLifecycleKind.Stopped
-	) {
-		return null
-	}
-
-	return streaming
 }
 
 function pollApplied(
@@ -110,59 +84,6 @@ function pollApplied(
 	return next
 }
 
-function frameApplied(hud: HudState, frame: PipeEventFrame): HudState {
-	if (
-		frame.type === PipeEventType.RuntimeEvent &&
-		frame.payload.category === "llm" &&
-		frame.payload.kind === "retrying"
-	) {
-		return {
-			...hud,
-			streaming: null,
-			lastStreaming: null,
-			isSettling: false,
-		}
-	}
-
-	if (frame.type === PipeEventType.MessageDelta) {
-		const streamingAfterFrame = accumulateStreamingDelta(
-			hud.streaming,
-			frame,
-		)
-		return {
-			...hud,
-			streaming: streamingAfterFrame,
-			lastStreaming: streamingAfterFrame,
-			isSettling: false,
-			currentAgentName: frame.payload.agent_name,
-		}
-	}
-
-	const streamingAfterFrame = clearCompletedStreamingByMessageId(
-		frame,
-		hud.streaming,
-	)
-	const didStreamComplete =
-		hud.streaming !== null && streamingAfterFrame === null
-	let hudAfterFrame: HudState = {
-		...hud,
-		streaming: streamingAfterFrame,
-		lastStreaming: didStreamComplete ? hud.streaming : hud.lastStreaming,
-		isSettling: didStreamComplete ? true : hud.isSettling,
-	}
-
-	if (
-		frame.type === PipeEventType.RunLifecycle &&
-		frame.payload.kind === RunLifecycleKind.Stopped &&
-		frame.payload.parent_agent_name == null &&
-		frame.payload.status
-	) {
-		hudAfterFrame = { ...hudAfterFrame, status: frame.payload.status }
-	}
-
-	return hudAfterFrame
-}
-
 function buildHudMessages(
 	logItems: StreamLogItem[],
 	prompt: string | null,
@@ -177,18 +98,18 @@ function buildHudMessages(
 		}
 
 		const id = `log:${logIndex}`
-		return [{ id, text: item.hudText, replyId: null }]
+		return [{ id, text: item.hudText, contentType: item.contentType, replyId: null }]
 	})
 
 	if (prompt === null || promptId === null) return messages
 
 	const promptIndex = messages.findLastIndex(
-		(message) => message.text === prompt,
+		(message) => message.text === prompt && message.contentType === "markdown",
 	)
 	if (promptIndex < 0) {
 		return [
 			...messages,
-			{ id: `prompt:${promptId}`, text: prompt, replyId: promptId },
+			{ id: `prompt:${promptId}`, text: prompt, contentType: "markdown", replyId: promptId },
 		]
 	}
 	messages = [...messages]
@@ -255,15 +176,7 @@ function reduceRunViewHud(
 	logItems: StreamLogItem[],
 ): HudState {
 	const isInitial = event.source === "initial"
-	const baseHud = isInitial
-		? {
-				...hud,
-				streaming: null,
-				lastStreaming: null,
-				isSettling: false,
-			}
-		: hud
-	const nextHud = pollApplied(baseHud, event.runView)
+	const nextHud = pollApplied(hud, event.runView)
 	const promptChanged =
 		hud.prompt !== nextHud.prompt || hud.promptId !== nextHud.promptId
 	if (!isInitial && !promptChanged) return nextHud
@@ -297,7 +210,7 @@ function reduceRunViewHud(
 	let nextSelectedMessageId = activePromptMessageId ?? selectedMessageId
 	let isMessageHistoryPinned = false
 	if (isInitial) {
-		nextSelectedMessageId = messages.at(-1)?.id ?? null
+		nextSelectedMessageId = nextHud.streaming ? null : messages.at(-1)?.id ?? null
 	} else if (activePromptCleared) {
 		nextSelectedMessageId = null
 	} else if (keepHistoryPinned) {
@@ -359,43 +272,25 @@ function reduceControlHud(
 	}
 }
 
-/**
- * Apply live SSE frames. Streaming deltas take over the live view, while
- * completed HUD messages join the timeline and become visible unless the user
- * deliberately pinned an older history entry.
- */
-function reduceStreamHud(
+/** Refresh history once, regardless of which input completed a message. */
+function syncHistory(
 	hud: HudState,
-	event: StreamEvent,
 	logItems: StreamLogItem[],
 	previousLogLength: number,
 ): HudState {
-	if (event.type !== "frame_received") return hud
-
-	const nextHud = frameApplied(hud, event.frame)
-	if (
-		event.frame.type === PipeEventType.MessageDelta &&
-		!hud.isMessageHistoryPinned
-	) {
-		return {
-			...nextHud,
-			selectedMessageId: null,
-			isMessageHistoryPinned: false,
-		}
-	}
 	const hasDisplayableItem = logItems.slice(previousLogLength).some(
 		(item) => item.kind === StreamLogItemKind.Message && item.hudText !== undefined,
 	)
-	if (!hasDisplayableItem) return nextHud
+	if (!hasDisplayableItem) return hud
 
 	const messages = buildHudMessages(
 		logItems,
-		nextHud.prompt,
-		nextHud.promptId,
+		hud.prompt,
+		hud.promptId,
 	)
 	const activePromptMessageId = findActivePromptMessageId(
 		messages,
-		nextHud.promptId,
+		hud.promptId,
 	)
 	const selectedMessageId = retainedSelection(
 		hud,
@@ -408,7 +303,7 @@ function reduceStreamHud(
 		selectedMessageId !== activePromptMessageId
 
 	return {
-		...nextHud,
+		...hud,
 		messages,
 		selectedMessageId: keepHistoryPinned
 			? selectedMessageId
@@ -423,13 +318,33 @@ function reduceStreamHud(
  */
 export function reduceHudState(
 	hud: HudState,
-	event: SessionEvent,
+	event: PresentationEvent,
 	logItems: StreamLogItem[],
 	previousLogLength: number,
 ): HudState {
 	let nextHud: HudState
 
 	switch (event.class) {
+		case "content": {
+			if (event.type === "delta") {
+				const streaming = accumulateStreamingDelta(hud.streaming, event.delta)
+				nextHud = {
+					...hud,
+					streaming,
+					lastStreaming: streaming,
+					isSettling: false,
+					currentAgentName: streaming.agentName,
+					selectedMessageId: hud.isMessageHistoryPinned ? hud.selectedMessageId : null,
+				}
+			} else if (event.type === "reset") {
+				nextHud = { ...hud, streaming: null, lastStreaming: null, isSettling: false }
+			} else {
+				nextHud = hud.streaming?.messageId === event.messageId
+					? { ...hud, streaming: null, lastStreaming: hud.streaming, isSettling: true }
+					: hud
+			}
+			break
+		}
 		case "runView":
 			nextHud = reduceRunViewHud(hud, event, logItems)
 			break
@@ -437,9 +352,19 @@ export function reduceHudState(
 			nextHud = reduceControlHud(hud, event, logItems)
 			break
 		case "stream":
-			nextHud = reduceStreamHud(hud, event, logItems, previousLogLength)
+			nextHud = hud
+			if (
+				event.type === "frame_received" &&
+				event.frame.type === PipeEventType.RunLifecycle &&
+				event.frame.payload.kind === RunLifecycleKind.Stopped &&
+				event.frame.payload.parent_agent_name == null &&
+				event.frame.payload.status
+			) {
+				nextHud = { ...hud, status: event.frame.payload.status }
+			}
 			break
 	}
 
+	nextHud = syncHistory(nextHud, logItems, previousLogLength)
 	return { ...nextHud, phase: derivePhase(nextHud) }
 }

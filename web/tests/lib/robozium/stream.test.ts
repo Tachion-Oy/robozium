@@ -4,7 +4,6 @@ import {
   accumulateStreamingDelta,
   getFrameSequence,
   mapFrameToLogItems,
-  runViewTraceToLogItems,
 } from "../../../lib/robozium/stream";
 import type { MessageDeltaEventFrame } from "../../../lib/robozium/wire";
 import {
@@ -150,6 +149,7 @@ describe("mapFrameToLogItems", () => {
 
     expect(items).toEqual([
       {
+        contentType: "markdown",
         kind: StreamLogItemKind.Message,
         role: StreamLogRole.Agent,
         content: "hello",
@@ -174,6 +174,7 @@ describe("mapFrameToLogItems", () => {
 
     expect(items).toEqual([
       {
+        contentType: "markdown",
         kind: StreamLogItemKind.Message,
         role: StreamLogRole.Agent,
         content: "### Timesheet",
@@ -204,6 +205,7 @@ describe("mapFrameToLogItems", () => {
 
     expect(items).toEqual([
       {
+        contentType: "markdown",
         kind: StreamLogItemKind.Message,
         role: StreamLogRole.Agent,
         content,
@@ -234,6 +236,7 @@ describe("mapFrameToLogItems", () => {
 
     expect(items).toEqual([
       {
+        contentType: "markdown",
         kind: StreamLogItemKind.Message,
         role: StreamLogRole.Tool,
         content: '{"caller":"prompt_user_at_start","value":"hello"}',
@@ -266,6 +269,7 @@ describe("mapFrameToLogItems", () => {
 
     expect(items).toEqual([
       {
+        contentType: "markdown",
         kind: StreamLogItemKind.Message,
         role: StreamLogRole.Tool,
         content,
@@ -300,6 +304,7 @@ describe("mapFrameToLogItems", () => {
 
     expect(items).toEqual([
       {
+        contentType: "markdown",
         kind: StreamLogItemKind.Message,
         role: StreamLogRole.Agent,
         content,
@@ -333,6 +338,7 @@ describe("mapFrameToLogItems", () => {
 
     expect(items).toEqual([
       {
+        contentType: "markdown",
         kind: StreamLogItemKind.Message,
         role: StreamLogRole.Agent,
         content,
@@ -357,6 +363,7 @@ describe("mapFrameToLogItems", () => {
 
     expect(items).toEqual([
       {
+        contentType: "markdown",
         kind: StreamLogItemKind.Message,
         role: StreamLogRole.System,
         content,
@@ -385,6 +392,7 @@ describe("mapFrameToLogItems", () => {
 
     expect(items).toEqual([
       {
+        contentType: "markdown",
         kind: StreamLogItemKind.Message,
         role: StreamLogRole.Error,
         content,
@@ -408,6 +416,7 @@ describe("mapFrameToLogItems", () => {
 
     expect(items).toEqual([
       {
+        contentType: "plain-text",
         kind: StreamLogItemKind.Message,
         role: StreamLogRole.Script,
         content: "script line",
@@ -415,55 +424,17 @@ describe("mapFrameToLogItems", () => {
       },
     ]);
   });
-
-  it("drops non-loggable frames from run_view trace conversion", () => {
-    expect(
-      runViewTraceToLogItems([
-        deltaFrame({ delta: "tok" }),
-        {
-          type: PipeEventType.RuntimeEvent,
-          sequence: 88,
-          payload: {
-            category: "tool",
-            kind: "timeout",
-            level: "error",
-            message: "tool timed out",
-            agent_name: "root",
-            data: null,
-          },
-        },
-      ]),
-    ).toEqual([]);
-  });
 });
 
 describe("accumulateStreamingDelta", () => {
-  it("starts a new streaming message from the first delta", () => {
-    expect(
-      accumulateStreamingDelta(null, deltaFrame({ message_id: "m1", delta: "Hel" })),
-    ).toEqual({ messageId: "m1", text: "Hel", agentName: "robozium" });
+  const delta = { messageId: "m1", chunkIndex: 0, agentName: null, role: StreamLogRole.Agent, contentType: "markdown" as const, text: "Hel" };
+  it("copies explicit metadata and appends exact text", () => {
+    const first = accumulateStreamingDelta(null, delta);
+    const second = accumulateStreamingDelta(first, { ...delta, chunkIndex: 1, text: "lo" });
+    expect(second).toEqual({ ...delta, chunkIndex: 1, text: "Hello" });
   });
-
-  it("appends consecutive deltas for the same message", () => {
-    const first = accumulateStreamingDelta(
-      null,
-      deltaFrame({ message_id: "m1", delta: "Hel" }),
-    );
-    const second = accumulateStreamingDelta(
-      first,
-      deltaFrame({ message_id: "m1", delta: "lo" }),
-    );
-    expect(second).toEqual({ messageId: "m1", text: "Hello", agentName: "robozium" });
-  });
-
-  it("resets when a delta for a different message arrives", () => {
-    const prev = { messageId: "m1", text: "old", agentName: "robozium" };
-    expect(
-      accumulateStreamingDelta(
-        prev,
-        deltaFrame({ message_id: "m2", delta: "new", agent_name: "child" }),
-      ),
-    ).toEqual({ messageId: "m2", text: "new", agentName: "child" });
+  it("starts fresh for another identity", () => {
+    expect(accumulateStreamingDelta(delta, { ...delta, messageId: "m2", text: "new" })).toEqual({ ...delta, messageId: "m2", text: "new" });
   });
 });
 

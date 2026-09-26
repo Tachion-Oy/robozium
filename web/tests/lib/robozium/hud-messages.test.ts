@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest"
-import { getHudMessages } from "../../../lib/robozium/hud-messages"
-import type { HudMessage } from "../../../lib/robozium/session/reducer"
+import { getHudMessages as selectHudMessages } from "../../../lib/robozium/hud-messages"
+import { RunHudPhase, type HudMessage } from "../../../lib/robozium/session/reducer"
+
+const getHudMessages = (messages: HudMessage[], selectedMessageId: string | null) =>
+	selectHudMessages(messages, selectedMessageId, { phase: RunHudPhase.Passive, stream: null, prompt: null, promptId: null })
 
 const notificationMessages: HudMessage[] = [
-	{ id: "message-1", text: "First", replyId: null },
-	{ id: "message-2", text: "Second", replyId: null },
+	{ contentType: "markdown",  id: "message-1", text: "First", replyId: null },
+	{ contentType: "markdown",  id: "message-2", text: "Second", replyId: null },
 ]
 
 describe("getHudMessages navigation", () => {
@@ -32,6 +35,7 @@ describe("getHudMessages navigation", () => {
 			latest: true,
 		})
 		expect(message).toEqual({
+			contentType: "markdown",
 			id: "message:message-1",
 			content: "First",
 			mode: "history",
@@ -41,7 +45,7 @@ describe("getHudMessages navigation", () => {
 	it("treats the active prompt as the latest endpoint", () => {
 		const messages: HudMessage[] = [
 			...notificationMessages,
-			{ id: "prompt-3", text: "Current prompt", replyId: "prompt-3" },
+			{ contentType: "markdown",  id: "prompt-3", text: "Current prompt", replyId: "prompt-3" },
 		]
 		const { navigation, message } = getHudMessages(messages, "prompt-3")
 

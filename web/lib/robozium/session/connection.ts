@@ -198,13 +198,13 @@ class RunSessionConnection {
 			return
 		}
 
+		for (const frame of frames) this.dispatchFrameIfNew(frame)
 		this.dispatch({
 			class: "runView",
 			type: "received",
 			source: "poll",
 			runView,
 		})
-		for (const frame of frames) this.dispatchFrameIfNew(frame)
 	}
 
 	private async consumeStream(body: ReadableStream<Uint8Array>): Promise<void> {

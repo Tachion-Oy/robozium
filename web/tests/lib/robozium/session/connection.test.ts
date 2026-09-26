@@ -2,11 +2,10 @@ import { WireLifecycleStatus } from "@/lib/robozium/wire"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { startRunSessionConnection } from "../../../../lib/robozium/session/connection"
-import type { SessionEvent } from "../../../../lib/robozium/session/reducer"
+import { createInitialRunSessionState, reduceRunSessionState, type SessionEvent } from "../../../../lib/robozium/session/reducer"
 import {
 	PipeEventType,
 	RunLifecycleKind,
-	WireRole,
 	type PipeEventFrame,
 	type RunView,
 } from "../../../../lib/robozium/wire"
@@ -67,14 +66,14 @@ afterEach(() => {
 describe("run session stream connection", () => {
 	it("reconnects after early EOF and recovers snapshot frames exactly once", async () => {
 		const firstMessage = {
-			type: PipeEventType.Message,
+			type: PipeEventType.ScriptOutput,
 			sequence: 1,
-			payload: { role: WireRole.Assistant, content: "first", truncation: null },
+			payload: { content: "first" },
 		} satisfies PipeEventFrame
 		const missedMessage = {
-			type: PipeEventType.Message,
+			type: PipeEventType.ScriptOutput,
 			sequence: 2,
-			payload: { role: WireRole.Assistant, content: "missed", truncation: null },
+			payload: { content: "missed" },
 		} satisfies PipeEventFrame
 		const missedRetry = {
 			type: PipeEventType.RuntimeEvent,
@@ -125,9 +124,11 @@ describe("run session stream connection", () => {
 			}),
 		)
 		const events: SessionEvent[] = []
-		const dispose = startRunSessionConnection("run-1", (event) =>
-			events.push(event),
-		)
+		let state = createInitialRunSessionState("run-1")
+		const dispose = startRunSessionConnection("run-1", (event) => {
+			events.push(event)
+			state = reduceRunSessionState(state, event)
+		})
 
 		await waitUntil(() =>
 			events.some(
@@ -151,6 +152,10 @@ describe("run session stream connection", () => {
 		expect(streamRequests).toBe(2)
 		expect(viewRequests).toBe(2)
 		expect(receivedSequences).toEqual([2, 3, 4])
+		expect(state.hud.messages.map(message => message.text)).toEqual(["firstmissed"])
+		expect(state.log.items.filter(item => item.role === "script")).toHaveLength(1)
+		const pollIndex = events.findIndex(event => event.class === "runView" && event.source === "poll")
+		expect(events[pollIndex - 1]).toMatchObject({ class: "stream", frame: { sequence: 3 } })
 		expect(
 			events.some(
 				(event) =>
@@ -158,6 +163,30 @@ describe("run session stream connection", () => {
 					(event.type === "failed" || event.type === "open_failed"),
 			),
 		).toBe(false)
+	})
+
+	it("recovers missing output before a terminal reconnect snapshot", async () => {
+		const first = { type: PipeEventType.ScriptOutput, sequence: 1, payload: { content: "a" } } satisfies PipeEventFrame
+		const missed = { type: PipeEventType.ScriptOutput, sequence: 2, payload: { content: "b" } } satisfies PipeEventFrame
+		let views = 0
+		vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+			if (String(input).endsWith("/stream")) return streamResponse([])
+			views += 1
+			return viewResponse(views === 1 ? runningView([first]) : {
+				...runningView([first, missed]), status: "completed",
+			})
+		}))
+		let state = createInitialRunSessionState("run-1")
+		const dispose = startRunSessionConnection("run-1", event => {
+			state = reduceRunSessionState(state, event)
+		})
+		try {
+			await waitUntil(() => state.hud.status === "completed")
+			expect(state.hud.messages.map(message => message.text)).toEqual(["ab"])
+			expect(state.log.items).toHaveLength(1)
+		} finally {
+			dispose()
+		}
 	})
 
 	it("treats a 409 stream response as a terminal snapshot race", async () => {

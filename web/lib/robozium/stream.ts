@@ -2,7 +2,6 @@ import type {
 	Message,
 	PipeEventFrame,
 	RunLifecycleEventPayload,
-	RunView,
 } from "./wire"
 import { PipeEventType, RunLifecycleKind, WireRole } from "./wire"
 import {
@@ -12,6 +11,7 @@ import {
 	USER_NOTIFICATION_MESSAGE_KIND,
 	type LifecycleLogItem,
 	type StreamLogItem,
+	type ContentType,
 } from "./view-model"
 import {
 	zAssistantContentObject,
@@ -87,7 +87,7 @@ function toLifecycleDetails(
 	return details
 }
 
-function mapRole(role: Message["role"]): StreamLogRole {
+export function mapRole(role: Message["role"]): StreamLogRole {
 	switch (role) {
 		case WireRole.Assistant:
 			return StreamLogRole.Agent
@@ -217,6 +217,7 @@ function messageFrameToItem(
 		kind: StreamLogItemKind.Message,
 		role: mapRole(frame.payload.role),
 		content: frame.payload.content,
+		contentType: "markdown",
 		...(hudText !== undefined ? { hudText } : {}),
 		...(frame.payload.message_kind
 			? { messageKind: frame.payload.message_kind }
@@ -225,14 +226,13 @@ function messageFrameToItem(
 	}
 }
 
-function scriptOutputFrameToItem(
-	frame: Extract<PipeEventFrame, { type: `${PipeEventType.ScriptOutput}` }>,
-): StreamLogItem {
+export function scriptOutputToItem(content: string): StreamLogItem {
 	return {
 		kind: StreamLogItemKind.Message,
 		role: StreamLogRole.Script,
-		content: frame.payload.content,
-		hudText: frame.payload.content,
+		content,
+		contentType: "plain-text",
+		hudText: content,
 	}
 }
 
@@ -291,38 +291,31 @@ export function mapFrameToLogItems(
 		case PipeEventType.Message:
 			return [messageFrameToItem(frame)]
 		case PipeEventType.ScriptOutput:
-			return [scriptOutputFrameToItem(frame)]
+			return [scriptOutputToItem(frame.payload.content)]
 		default:
 			throw new Error(`Unhandled frame type: ${JSON.stringify(frame)}`)
 	}
 }
 
-/**
- * In-flight streaming message, accumulated from `MessageDelta` frames and shown
- * live in the HUD while the agent generates. This is *not* a `MessageLogItem`:
- * deltas never enter the background log.
- */
+/** Raw accumulated content; identity never determines its presentation. */
 export type StreamingMessage = {
 	messageId: string
+	chunkIndex: number
 	text: string
 	agentName: string | null
+	role: StreamLogRole
+	contentType: ContentType
 }
 
-/**
- * Fold a `MessageDelta` frame into the running streaming state. Appends to the
- * existing text when the `message_id` matches; otherwise starts fresh (a new
- * in-flight message supersedes the previous one).
- */
+export type StreamingDelta = StreamingMessage
+
 export function accumulateStreamingDelta(
 	prev: StreamingMessage | null,
-	frame: Extract<PipeEventFrame, { type: `${PipeEventType.MessageDelta}` }>,
+	delta: StreamingDelta,
 ): StreamingMessage {
-	const { message_id, delta, agent_name } = frame.payload
-	const sameMessage = prev?.messageId === message_id
 	return {
-		messageId: message_id,
-		text: sameMessage ? `${prev.text}${delta}` : delta,
-		agentName: agent_name,
+		...delta,
+		text: prev?.messageId === delta.messageId ? prev.text + delta.text : delta.text,
 	}
 }
 
@@ -339,19 +332,4 @@ export function getFrameSequence(frame: PipeEventFrame): number {
 		case PipeEventType.RuntimeEvent:
 			return frame.sequence
 	}
-}
-
-export function runViewTraceToLogItems(
-	trace: RunView["message_trace"],
-): StreamLogItem[] {
-	const receivedAt = new Date().toISOString()
-	return trace.flatMap((entry) => {
-		if (
-			entry.type === PipeEventType.MessageDelta ||
-			entry.type === PipeEventType.RuntimeEvent
-		) {
-			return []
-		}
-		return mapFrameToLogItems(entry, receivedAt)
-	})
 }
