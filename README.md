@@ -3,9 +3,7 @@
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/robozium-title-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/robozium-title-light.svg">
     <img alt="Robozium" src="docs/assets/robozium-title-light.svg" width="95%">
-  </picture>
-
-  <br>
+  </picture><br><br>
 
   <p><strong>Durable agentic projects with custom tools</strong></p>
 
