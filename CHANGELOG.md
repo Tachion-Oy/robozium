@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Require successful WebKit tests alongside Chromium and Firefox. Preserve
+  streamed message IDs in HTTP snapshots so recovered completion clears the
+  HUD stream and history navigation remains correct when polling arrives first.
+
 - Load private capabilities from a Git-ignored root `local/` package without
   editing tracked configuration. Mount the package read-only into the Docker
   API and keep it out of application images and distributions.
