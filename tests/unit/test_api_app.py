@@ -1221,6 +1221,31 @@ def test_api_run_view_includes_agent_fields_and_message_trace(tmp_path: Path) ->
     assert last["type"] in ("message", "run_lifecycle")
 
 
+def test_api_run_view_preserves_streamed_message_identity(tmp_path: Path) -> None:
+    event = MessageEvent(
+        Message(role="assistant", content='{"action":"prompt_user","value":"Reply?"}'),
+        sequence=0,
+        message_id="streamed-prompt",
+    )
+
+    def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
+        def invoke():
+            for sink in event_sinks:
+                sink(event)
+
+        return BuiltAgents(SimpleNamespace(pipe=EventPipe(), invoke=invoke))
+
+    application = create_app(deployment=_test_deployment(factory, tmp_path))
+    client = TestClient(application)
+    run_id = _create_run(client).json()["run_id"]
+    assert application.state.run_manager.start_run(run_id)
+    _wait_for_status(client, run_id, "completed")
+
+    response = client.get(f"/run/{run_id}")
+    assert response.status_code == 200
+    assert response.json()["message_trace"][0]["message_id"] == "streamed-prompt"
+
+
 def test_api_run_view_serializes_script_output_trace_entry(tmp_path: Path) -> None:
     event = ScriptOutputEvent(content="script line", sequence=0)
 

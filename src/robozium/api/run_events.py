@@ -154,6 +154,8 @@ class RunEvents:
             "sequence": event.sequence,
             "payload": payload,
         }
+        if event.message_id is not None:
+            message_entry["message_id"] = event.message_id
         self._append_trace_entry(state, message_entry)
 
     def _record_lifecycle_event(

@@ -1,11 +1,10 @@
 """Classify completed browser tests separately from runner failures."""
 
 import json
-import os
 from pathlib import Path
 
 
-def evaluate(browser: str, outcome: str, report_dir: str) -> tuple[int, str]:
+def evaluate(outcome: str, report_dir: str) -> tuple[int, str]:
     if outcome not in {"success", "failure"} or not report_dir:
         return 1, f"required failure (browser step={outcome}, report missing)"
     try:
@@ -52,31 +51,5 @@ def evaluate(browser: str, outcome: str, report_dir: str) -> tuple[int, str]:
         and runner.get("status") == 1
         and outcome == "failure"
     ):
-        if browser == "webkit":
-            return (
-                0,
-                f"advisory: {failed} completed test failure(s); inspect the browser artifact",
-            )
         return 1, f"required: {failed} test failure(s)"
     return 1, "required inconsistent or incomplete browser result"
-
-
-def main() -> int:
-    browser = os.environ["BROWSER"]
-    status, message = evaluate(
-        browser, os.environ["TEST_OUTCOME"], os.environ.get("REPORT_DIR", "")
-    )
-    summary = f"{browser} / {os.environ['SUITE']}: {message}"
-    print(summary)
-    if status:
-        print(f"::error::{summary}")
-    elif message != "passed":
-        print(f"::warning::{summary}")
-    if os.environ.get("GITHUB_STEP_SUMMARY"):
-        with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as output:
-            output.write(f"- {summary}\n")
-    return status
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
