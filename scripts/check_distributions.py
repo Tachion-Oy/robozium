@@ -97,6 +97,10 @@ def main() -> None:
         )
         rebuilt = next((root / "rebuilt").glob("*.whl"))
         validate(rebuilt)
+        unit_tests = root / "tests/unit"
+        unit_tests.mkdir(parents=True)
+        for filename in ("test_local_capabilities.py", "config_support.py"):
+            shutil.copyfile(ROOT / "tests/unit" / filename, unit_tests / filename)
         for label, wheel in (("wheel", original), ("sdist", rebuilt)):
             venv = (
                 args.python_output.resolve()
@@ -146,6 +150,7 @@ def main() -> None:
                     str(root / "pytest.ini"),
                     "-q",
                     str(root / "test_composition.py"),
+                    str(unit_tests / "test_local_capabilities.py"),
                     "--junitxml=" + str(reports / f"{label}-composition.xml"),
                 )
                 run(str(python), "-I", str(root / "smoke.py"))

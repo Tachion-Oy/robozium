@@ -5,6 +5,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 SOURCE = Path(__file__).resolve().parents[2] / "start"
 
 
@@ -62,11 +64,14 @@ def test_live_launcher_reuses_sibling_hub_and_resolves_configured_path(tmp_path)
     hub = tmp_path / "Hub with spaces"
     hub.mkdir()
     (hub / "keep.txt").write_text("existing data")
+    (checkout / "local").mkdir()
+    (checkout / "local/__init__.py").write_text("CAPABILITIES = ()\n")
 
     for _ in range(2):
         subprocess.run([str(checkout / "start")], env=env, check=True)
 
     assert (hub / "keep.txt").read_text() == "existing data"
+    assert (checkout / "local/__init__.py").read_text() == "CAPABILITIES = ()\n"
     assert (tmp_path / "result").read_text().splitlines() == [
         "live",
         str(hub),
@@ -84,6 +89,7 @@ def test_mock_launcher_uses_checkout_runtime_and_rejects_file_path(tmp_path):
         str(checkout / ".runtime/mock-logs"),
     ]
     assert not (tmp_path / "Robozium-Hub").exists()
+    assert list((checkout / "local").iterdir()) == []
 
     env["TEST_DOCKER_SECURITY"] = '["name=rootless"]'
     subprocess.run([str(checkout / "start"), "--mock"], env=env, check=True)
@@ -113,3 +119,37 @@ def test_live_launcher_uses_encrypted_file_after_env_is_deleted(tmp_path):
     assert (tmp_path / "result").read_text().splitlines()[1] == str(
         tmp_path / "Private Hub"
     )
+
+
+def test_launcher_rejects_a_file_at_local_package_path(tmp_path):
+    checkout, env = _launcher(tmp_path)
+    (checkout / "local").write_text("keep private data")
+    result = subprocess.run(
+        [str(checkout / "start"), "--mock"], env=env, capture_output=True, text=True
+    )
+    assert result.returncode != 0
+    assert "Local capability path is not a directory" in result.stderr
+    assert (checkout / "local").read_text() == "keep private data"
+    assert not (tmp_path / "result").exists()
+
+
+@pytest.mark.skipif(shutil.which("pwsh") is None, reason="PowerShell is not installed")
+def test_windows_launcher_preserves_local_package(tmp_path):
+    checkout, env = _launcher(tmp_path)
+    scripts = checkout / "scripts"
+    scripts.mkdir()
+    shutil.copy2(SOURCE.parent / "scripts/start.ps1", scripts / "start.ps1")
+    command = ["pwsh", "-NoProfile", "-File", str(scripts / "start.ps1"), "--mock"]
+    subprocess.run(command, env=env, check=True)
+    entrypoint = checkout / "local/__init__.py"
+    assert entrypoint.parent.is_dir()
+    entrypoint.write_text("CAPABILITIES = ()\n")
+    subprocess.run(command, env=env, check=True)
+    assert entrypoint.read_text() == "CAPABILITIES = ()\n"
+    entrypoint.unlink()
+    entrypoint.parent.rmdir()
+    (checkout / "local").write_text("keep private data")
+    result = subprocess.run(command, env=env, capture_output=True, text=True)
+    assert result.returncode != 0
+    assert "Local capability path is not a directory" in result.stderr
+    assert (checkout / "local").read_text() == "keep private data"

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Load private capabilities from a Git-ignored root `local/` package without
+  editing tracked configuration. Mount the package read-only into the Docker
+  API and keep it out of application images and distributions.
+
 - Document repository-based use and public contributions. Expand the README
   with application concepts, configuration, module boundaries, and license
   information; add contribution, code-style, testing-practices, and security

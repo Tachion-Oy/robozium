@@ -166,6 +166,53 @@ development after changing it, or rerun the start command to rebuild the Docker
 application. Use a branch or fork for source customizations you want to keep,
 and review configuration diffs before including them in an upstream PR.
 
+## Private capabilities
+
+Keep custom tools and skills in a root `local/` Python package. This folder is
+Git-ignored and excluded from Docker build context and application distributions.
+Start with the empty [example package](examples/local/__init__.py):
+
+```sh
+mkdir -p local
+cp examples/local/__init__.py local/__init__.py
+```
+
+On Windows, create `local` and copy the example's `__init__.py` there. Put your
+private modules inside that package, import them relatively, and export their
+RoboZ capabilities from `local/__init__.py`, for example:
+
+```python
+from .my_tools import MyCapability
+
+CAPABILITIES = (MyCapability(),)
+```
+
+`MyCapability` must implement RoboZ's `AgentCapability` interface. Existing tools
+can instead be grouped with `Capability(tools=(...))`; skills can use
+`Capability(skills=(...))` or `auto_loaded_skills`. Local capabilities are appended
+after `hub.config.py`'s configured capabilities and bound through the normal
+project deployment. No tracked configuration edits are needed.
+
+The API looks beside the selected `hub.config.py`, including when a native
+launch uses `ROBOZIUM_CONFIG`. A missing `local/__init__.py`, a missing
+`CAPABILITIES` export, or an empty list or tuple adds nothing. Other collection
+types and import errors fail configuration loading and identify the local file.
+Use relative imports such as `from .my_tools import MyCapability`; the loader
+does not add the private folder to Python's import search path.
+
+The launchers create an empty `local/` folder if needed. Docker mounts it
+read-only into the API at `/app/local`; private code stays on the host rather
+than inside the image. Direct Compose launches must create the folder first.
+Restart native development or run `docker compose restart api` after editing
+private code, which is imported once per API process. Mock mode keeps its
+scripted agents and does not execute private tools, though it still imports
+the package while loading configuration.
+
+Keep imports limited to declarations; bind run-specific state when the
+capability is built. Private modules use dependencies already installed in the
+API environment. Extra packages, host services, and local subagents are not
+configured by this scaffold. Back up `local/` separately from Git history.
+
 ## Development and contributions
 
 Bug reports, fixes, examples, and documentation improvements are welcome. Small
