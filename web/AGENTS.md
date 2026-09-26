@@ -7,3 +7,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Repository credentials
+
+Follow the [root credential guidance](../AGENTS.md#user-onboarding) for
+coding-agent access to the full checkout: encrypt API keys and remove plaintext
+`.env` before granting access. Do not read or decrypt credentials for ordinary
+frontend work, and keep keys and the unlock password out of frontend settings
+and agent prompts.
