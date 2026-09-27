@@ -11,15 +11,15 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from uuid import uuid4
 
 from dotenv import dotenv_values
-from roboz.endpoints import encrypt_env, load_api_keys
+from roboz.endpoints import encrypt_env, load_secrets
 
 
 def _aliases(names: Mapping[str, str | None]) -> dict[str, str]:
     nonce = uuid4().hex.upper()
     return {
-        name: f"ROBOZIUM_SECRET_{nonce}_{index}_API_KEY"
+        name: f"ROBOZIUM_{nonce}_{index}_SECRET"
         for index, name in enumerate(names)
-        if name.endswith("_SECRET")
+        if name.endswith(("_SECRET", "_API_KEY"))
     }
 
 
@@ -63,44 +63,60 @@ def encrypt_credential_env(path: str | Path = ".env", *, password: str) -> Path:
 
 
 def expose_plain_secrets() -> None:
-    """Expose plaintext ``*_SECRET`` inputs under their runtime names."""
+    """Expose plaintext secrets under current and legacy runtime names."""
     for name, value in tuple(os.environ.items()):
         if name.endswith("_SECRET") and value and not value.startswith("roboz:"):
             target = name[: -len("_SECRET")]
-            if not os.environ.get(target):
+            if not _usable_secret(os.environ.get(target)):
+                os.environ[target] = value
+        elif name.endswith("_API_KEY") and value and not value.startswith("roboz:"):
+            target = f"{name}_SECRET"
+            if not _usable_secret(os.environ.get(target)):
                 os.environ[target] = value
 
 
+def _usable_secret(value: str | None) -> bool:
+    return bool(value and value.strip() and not value.startswith("roboz:"))
+
+
+def _runtime_names(name: str) -> tuple[str, str]:
+    if name.endswith("_SECRET"):
+        return name, name[: -len("_SECRET")]
+    return f"{name}_SECRET", name
+
+
 def load_credential_env(path: str | Path, *, password: str) -> None:
-    """Load encrypted credentials, stripping ``_SECRET`` at runtime."""
+    """Load encrypted credentials under current and legacy runtime names."""
     values = dotenv_values(path, interpolate=False)
-    pending_secrets = {
+    credentials = {
         name: value
         for name, value in values.items()
-        if name.endswith("_SECRET")
+        if name.endswith(("_SECRET", "_API_KEY"))
         and value
-        and (
-            not (present := os.environ.get(name[: -len("_SECRET")]))
-            or not present.strip()
-            or present.startswith("roboz:")
+        and value.strip()
+    }
+    aliases = _aliases(credentials)
+    encoded = {}
+    for name, value in credentials.items():
+        present = next(
+            (
+                os.environ[target]
+                for target in _runtime_names(name)
+                if _usable_secret(os.environ.get(target))
+            ),
+            value,
         )
-    }
-    aliases = _aliases(pending_secrets)
-    encoded = {
-        aliases.get(name, name): value
-        for name, value in values.items()
-        if name.endswith(("_API_KEY", "_SECRET"))
-    }
+        encoded[aliases[name]] = present
     with TemporaryDirectory(prefix="robozium-env-") as directory:
         staged_source = Path(directory) / ".env.encrypt"
         _write_dotenv(staged_source, encoded)
         try:
-            load_api_keys(staged_source, password=password)
+            load_secrets(staged_source, password=password)
             for name, alias in aliases.items():
-                target = name[: -len("_SECRET")]
-                present = os.environ.get(target)
-                if not present or not present.strip() or present.startswith("roboz:"):
-                    os.environ[target] = os.environ[alias]
+                for target in _runtime_names(name):
+                    present = os.environ.get(target)
+                    if not _usable_secret(present):
+                        os.environ[target] = os.environ[alias]
         finally:
             for alias in aliases.values():
                 os.environ.pop(alias, None)

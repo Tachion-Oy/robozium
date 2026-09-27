@@ -45,9 +45,14 @@ def _runtime_name(name: str) -> str:
 
 def _credential_names(path: Path) -> set[str]:
     return {
-        _runtime_name(name)
+        target
         for name in dotenv_values(path, interpolate=False)
         if name.endswith(("_API_KEY", "_SECRET"))
+        for target in (
+            (_runtime_name(name), name)
+            if name.endswith("_SECRET")
+            else (name, f"{name}_SECRET")
+        )
     }
 
 

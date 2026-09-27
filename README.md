@@ -141,7 +141,8 @@ The command asks for a password and creates `.env.encrypt`. It encrypts
 `*_SECRET` values and legacy API-key entries while keeping nonsecret settings
 readable. After confirming the file was created, delete the plaintext `.env`.
 The launcher reads settings from `.env.encrypt`; unlock **API keys** in the HUD
-to load its credentials. Runtime names have the `_SECRET` suffix removed.
+to load its credentials. RoboZ reads the `*_SECRET` names; the application also
+exposes names without the suffix for existing private capabilities.
 
 Set the web port and hub location before encrypting. If both files remain,
 `.env` takes precedence for launcher settings. Recreate older encrypted files

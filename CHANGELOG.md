@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Update the pinned RoboZ dependency to `0.2.1a1` and adapt encrypted credential
+  loading to its `load_secrets` API. Preserve legacy credential names and files,
+  and check for future RoboZ updates daily with Dependabot.
+
 - Require successful WebKit tests alongside Chromium and Firefox. Preserve
   streamed message IDs in HTTP snapshots so recovered completion clears the
   HUD stream and history navigation remains correct when polling arrives first.
