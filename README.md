@@ -134,7 +134,7 @@ The encryption utility requires [uv](https://docs.astral.sh/uv/getting-started/i
 and Python 3.13 or newer on the host. From the repository root, run:
 
 ```sh
-uv run --locked python -m robozium.secret_env encrypt
+uv run --locked python -c "from getpass import getpass; from roboz.endpoints import encrypt_env; print(encrypt_env(password=getpass('Encryption password: ')))"
 ```
 
 The command asks for a password and creates `.env.encrypt`. It encrypts
@@ -282,7 +282,6 @@ installation, not PyPI publication.
 | `src/robozium/hub` | Configuration loading, project paths, and deployment bindings. |
 | `src/robozium/api` | HTTP routes, runs, prompts, SSE events, credentials, and dependency health. |
 | `src/robozium/mock` | Scripted agent and model behavior for demos and tests. |
-| `src/robozium/secret_env.py` | Command-line entry point for RoboZ's credential encryption. |
 | `web/app`, `web/hooks`, `web/lib` | Next.js HUD, API proxy routes, and browser session state. |
 | `hub.config.py`, `compose.yaml`, `Dockerfile` | Application choices and supported deployment. |
 | `scripts`, `tests`, `web/tests`, `web/e2e` | Development helpers, backend checks, frontend tests, and browser suites. |
