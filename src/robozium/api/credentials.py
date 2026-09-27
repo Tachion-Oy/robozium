@@ -12,7 +12,12 @@ from pathlib import Path
 from dotenv import dotenv_values
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
-from roboz.endpoints import load_secrets
+from roboz.endpoints import (
+    DEFAULT_ENCRYPTED_ENV_PATH,
+    ENCRYPTED_NAMESPACE,
+    SECRET_SUFFIX,
+    load_secrets,
+)
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from robozium.api.models import CredentialStatus
@@ -36,14 +41,16 @@ def _fingerprint(value: str) -> bytes:
 
 
 def _encrypted_path() -> Path:
-    return Path(os.environ.get("ROBOZIUM_ENCRYPTED_ENV_PATH", ".env.encrypt"))
+    return Path(
+        os.environ.get("ROBOZIUM_ENCRYPTED_ENV_PATH", str(DEFAULT_ENCRYPTED_ENV_PATH))
+    )
 
 
 def _credential_names(path: Path) -> set[str]:
     return {
         name
         for name in dotenv_values(path, interpolate=False)
-        if name.endswith("_SECRET")
+        if name.endswith(SECRET_SUFFIX)
     }
 
 
@@ -57,16 +64,16 @@ def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStat
     encrypted_names = [
         name
         for name, value in dotenv_values(path, interpolate=False).items()
-        if name.endswith("_SECRET")
+        if name.endswith(SECRET_SUFFIX)
         and value
-        and value.startswith("roboz:")
+        and value.startswith(ENCRYPTED_NAMESPACE)
     ]
     if not encrypted_names:
         return CredentialStatus(available=False, locked=False, removable=False)
     locked = any(
         not (value := os.environ.get(name))
         or not value.strip()
-        or value.startswith("roboz:")
+        or value.startswith(ENCRYPTED_NAMESPACE)
         for name in encrypted_names
     )
     tracked = bool(loaded and loaded.keys)

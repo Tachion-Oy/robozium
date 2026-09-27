@@ -6,7 +6,7 @@ import pytest
 from config_support import write_config
 from dotenv import dotenv_values
 from fastapi.testclient import TestClient
-from roboz.endpoints import encrypt_env, load_secrets
+from roboz.endpoints import ENCRYPTED_NAMESPACE, encrypt_env, load_secrets
 
 from robozium.api.app import create_app
 from robozium.api.credentials import credential_status
@@ -127,8 +127,8 @@ def test_secret_suffix_is_encrypted_and_loaded_with_api_keys(tmp_path, monkeypat
     assert "mail-synthetic" not in encrypted.read_text()
     assert "groq-synthetic" not in encrypted.read_text()
     values = dotenv_values(encrypted, interpolate=False)
-    assert values["TEST_MAIL_PASSWORD_SECRET"].startswith("roboz:")
-    assert values["TEST_GROQ_API_KEY_SECRET"].startswith("roboz:")
+    assert values["TEST_MAIL_PASSWORD_SECRET"].startswith(ENCRYPTED_NAMESPACE)
+    assert values["TEST_GROQ_API_KEY_SECRET"].startswith(ENCRYPTED_NAMESPACE)
     assert values["TEST_MAIL_HOST"] == "mail.example"
 
     monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(encrypted))
