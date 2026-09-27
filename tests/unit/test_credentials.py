@@ -18,13 +18,14 @@ from robozium.secret_env import (
 )
 
 
-def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch):
+@pytest.mark.parametrize("secret_suffix", ["", "_SECRET"])
+def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch, secret_suffix):
     write_config(tmp_path)
     source = tmp_path / ".env"
     source.write_text(
-        "TEST_UNLOCK_FIRST_API_KEY=first-synthetic\n"
-        "TEST_UNLOCK_SECOND_API_KEY=second-synthetic\n"
-        "TEST_UNLOCK_EXTERNAL_API_KEY=file-synthetic\n"
+        f"TEST_UNLOCK_FIRST_API_KEY{secret_suffix}=first-synthetic\n"
+        f"TEST_UNLOCK_SECOND_API_KEY{secret_suffix}=second-synthetic\n"
+        f"TEST_UNLOCK_EXTERNAL_API_KEY{secret_suffix}=file-synthetic\n"
     )
     encrypted = encrypt_credential_env(source, password="test-password")
     source.unlink()
