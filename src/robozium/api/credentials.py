@@ -5,12 +5,12 @@ import hashlib
 import json
 import logging
 import os
+import re
 import threading
-from http import HTTPMethod
 from pathlib import Path
 
 from dotenv import dotenv_values
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from roboz.endpoints import (
     DEFAULT_ENCRYPTED_ENV_PATH,
@@ -18,38 +18,14 @@ from roboz.endpoints import (
     SECRET_SUFFIX,
     load_secrets,
 )
-from starlette.routing import compile_path
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from robozium.api.models import CredentialStatus
-from robozium.api.routes import (
-    CREDENTIALS_CLEAR_PATH,
-    CREDENTIALS_PATH,
-    CREDENTIALS_UNLOCK_PATH,
-    RUN_CREATE_PATH,
-    RUN_REPLY_PATH,
-    RUN_STREAM_PATH,
-    TRANSCRIBE_PATH,
-)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 MAX_UNLOCK_BODY_BYTES = 4096
-MAX_UNLOCK_PASSWORD_CHARS = 1024
-ENCRYPTED_ENV_PATH_ENV = "ROBOZIUM_ENCRYPTED_ENV_PATH"
-MODE_ENV = "ROBOZIUM_MODE"
-LIVE_MODE = "live"
-CACHE_CONTROL_HEADER = "Cache-Control"
-NO_STORE_CACHE_CONTROL = "no-store"
-_PROVIDER_ROUTES = tuple(
-    (method, compile_path(path)[0])
-    for method, path in (
-        (HTTPMethod.POST, RUN_CREATE_PATH),
-        (HTTPMethod.POST, RUN_REPLY_PATH),
-        (HTTPMethod.GET, RUN_STREAM_PATH),
-        (HTTPMethod.POST, TRANSCRIBE_PATH),
-    )
-)
+_RUN_PROVIDER_PATH = re.compile(r"^/run/[^/]+/(reply|stream)$")
 
 
 class LoadedCredentials:
@@ -65,7 +41,9 @@ def _fingerprint(value: str) -> bytes:
 
 
 def _encrypted_path() -> Path:
-    return Path(os.environ.get(ENCRYPTED_ENV_PATH_ENV, str(DEFAULT_ENCRYPTED_ENV_PATH)))
+    return Path(
+        os.environ.get("ROBOZIUM_ENCRYPTED_ENV_PATH", str(DEFAULT_ENCRYPTED_ENV_PATH))
+    )
 
 
 def _credential_names(path: Path) -> set[str]:
@@ -78,7 +56,7 @@ def _credential_names(path: Path) -> set[str]:
 
 def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStatus:
     """Report only whether encrypted keys exist and are loaded."""
-    if os.environ.get(MODE_ENV) != LIVE_MODE:
+    if os.environ.get("ROBOZIUM_MODE") != "live":
         return CredentialStatus(available=False, locked=False, removable=False)
     path = _encrypted_path()
     if not path.is_file():
@@ -108,9 +86,12 @@ def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStat
 
 
 def _uses_provider(method: str, path: str) -> bool:
-    return any(
-        method == provider_method and pattern.fullmatch(path) is not None
-        for provider_method, pattern in _PROVIDER_ROUTES
+    if (method, path) in {("POST", "/run/create"), ("POST", "/transcribe")}:
+        return True
+    match = _RUN_PROVIDER_PATH.fullmatch(path)
+    return match is not None and (
+        (method == "POST" and match[1] == "reply")
+        or (method == "GET" and match[1] == "stream")
     )
 
 
@@ -129,50 +110,38 @@ class CredentialGateMiddleware:
         ):
             response = JSONResponse(
                 {"detail": "Unlock API keys before using providers"},
-                status_code=status.HTTP_423_LOCKED,
-                headers={CACHE_CONTROL_HEADER: NO_STORE_CACHE_CONTROL},
+                status_code=423,
+                headers={"Cache-Control": "no-store"},
             )
             await response(scope, receive, send)
             return
         await self.app(scope, receive, send)
 
 
-@router.get(CREDENTIALS_PATH, response_model=CredentialStatus)
+@router.get("/credentials", response_model=CredentialStatus)
 def get_credentials(request: Request, response: Response) -> CredentialStatus:
-    response.headers[CACHE_CONTROL_HEADER] = NO_STORE_CACHE_CONTROL
+    response.headers["Cache-Control"] = "no-store"
     return credential_status(request.app.state.loaded_credentials)
 
 
-@router.post(CREDENTIALS_UNLOCK_PATH, response_model=CredentialStatus)
+@router.post("/credentials/unlock", response_model=CredentialStatus)
 async def unlock_credentials(request: Request, response: Response) -> CredentialStatus:
     if not credential_status(request.app.state.loaded_credentials).available:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Encrypted API keys are unavailable",
+            status_code=404, detail="Encrypted API keys are unavailable"
         )
     body = bytearray()
     async for chunk in request.stream():
         body.extend(chunk)
         if len(body) > MAX_UNLOCK_BODY_BYTES:
-            raise HTTPException(
-                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                detail="Unlock request is too large",
-            )
+            raise HTTPException(status_code=413, detail="Unlock request is too large")
     try:
         payload = json.loads(body)
     except (UnicodeError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid unlock request"
-        ) from None
+        raise HTTPException(status_code=400, detail="Invalid unlock request") from None
     password = payload.get("password") if isinstance(payload, dict) else None
-    if (
-        not isinstance(password, str)
-        or not password
-        or len(password) > MAX_UNLOCK_PASSWORD_CHARS
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="A password is required"
-        )
+    if not isinstance(password, str) or not password or len(password) > 1024:
+        raise HTTPException(status_code=400, detail="A password is required")
     loaded: LoadedCredentials = request.app.state.loaded_credentials
 
     def load_and_track() -> None:
@@ -194,7 +163,7 @@ async def unlock_credentials(request: Request, response: Response) -> Credential
         await asyncio.to_thread(load_and_track)
     except (UnicodeError, ValueError):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Could not unlock API keys"
+            status_code=400, detail="Could not unlock API keys"
         ) from None
     monitor = request.app.state.dependency_health
     if monitor is not None:
@@ -203,11 +172,11 @@ async def unlock_credentials(request: Request, response: Response) -> Credential
         except Exception:
             # Dependency observations must not turn a successful unlock into a retry.
             logger.warning("Dependency refresh failed after API key unlock")
-    response.headers[CACHE_CONTROL_HEADER] = NO_STORE_CACHE_CONTROL
+    response.headers["Cache-Control"] = "no-store"
     return credential_status(loaded)
 
 
-@router.post(CREDENTIALS_CLEAR_PATH, response_model=CredentialStatus)
+@router.post("/credentials/clear", response_model=CredentialStatus)
 def clear_credentials(request: Request, response: Response) -> CredentialStatus:
     loaded: LoadedCredentials = request.app.state.loaded_credentials
 
@@ -220,5 +189,5 @@ def clear_credentials(request: Request, response: Response) -> CredentialStatus:
             loaded.keys.clear()
 
     clear()
-    response.headers[CACHE_CONTROL_HEADER] = NO_STORE_CACHE_CONTROL
+    response.headers["Cache-Control"] = "no-store"
     return credential_status(loaded)

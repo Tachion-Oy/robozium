@@ -26,12 +26,6 @@ from robozium.api.files import serve_hub_file
 from robozium.api.lifespan import application_lifespan
 from robozium.api.models import *
 from robozium.api.project_service import ProjectService
-from robozium.api.routes import (
-    RUN_CREATE_PATH,
-    RUN_REPLY_PATH,
-    RUN_STREAM_PATH,
-    TRANSCRIBE_PATH,
-)
 from robozium.api.run_manager import RunManager
 from robozium.api.sse import event_to_sse_frame
 from robozium.api.state import RunStatus
@@ -153,7 +147,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
         except (RuntimeError, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    @app.post(RUN_CREATE_PATH)
+    @app.post("/run/create")
     def run_create(body: CreateBody) -> dict[str, str]:
         return {"run_id": project_operation(lambda: projects.prepare_run(body.project))}
 
@@ -191,7 +185,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
             raise HTTPException(status_code=404, detail="unknown run_id") from None
         return {"ok": interrupted}
 
-    @app.post(RUN_REPLY_PATH)
+    @app.post("/run/{run_id}/reply")
     def run_reply(run_id: str, body: ReplyBody, request: Request) -> dict[str, bool]:
         manager: RunManager = request.app.state.run_manager
         try:
@@ -202,7 +196,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"ok": True}
 
-    @app.post(TRANSCRIBE_PATH)
+    @app.post("/transcribe")
     async def transcribe(file: UploadFile, request: Request) -> dict[str, str]:
         # Browsers attach codec parameters to the part's Content-Type (Chrome
         # sends "audio/webm;codecs=opus"); compare against the bare media type so
@@ -238,7 +232,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
             raise HTTPException(status_code=502, detail="transcription failed") from exc
         return {"text": text}
 
-    @app.get(RUN_STREAM_PATH)
+    @app.get("/run/{run_id}/stream")
     async def run_stream(run_id: str, request: Request) -> StreamingResponse:
         manager: RunManager = request.app.state.run_manager
         view = manager.run_view(run_id)
