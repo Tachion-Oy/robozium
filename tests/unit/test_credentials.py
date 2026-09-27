@@ -1,12 +1,13 @@
 """The unlock endpoint loads synthetic keys without exposing password or values."""
 
+import json
 import os
 
 import pytest
 from config_support import write_config
 from dotenv import dotenv_values
 from fastapi.testclient import TestClient
-from roboz.endpoints import encrypt_env, load_secrets
+from roboz.endpoints import ENCRYPTED_NAMESPACE, encrypt_env, load_secrets
 
 from robozium.api.app import create_app
 from robozium.api.credentials import credential_status
@@ -127,8 +128,8 @@ def test_secret_suffix_is_encrypted_and_loaded_with_api_keys(tmp_path, monkeypat
     assert "mail-synthetic" not in encrypted.read_text()
     assert "groq-synthetic" not in encrypted.read_text()
     values = dotenv_values(encrypted, interpolate=False)
-    assert values["TEST_MAIL_PASSWORD_SECRET"].startswith("roboz:")
-    assert values["TEST_GROQ_API_KEY_SECRET"].startswith("roboz:")
+    assert values["TEST_MAIL_PASSWORD_SECRET"].startswith(ENCRYPTED_NAMESPACE)
+    assert values["TEST_GROQ_API_KEY_SECRET"].startswith(ENCRYPTED_NAMESPACE)
     assert values["TEST_MAIL_HOST"] == "mail.example"
 
     monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(encrypted))
@@ -174,3 +175,92 @@ def test_mock_mode_never_offers_unlock(tmp_path, monkeypatch):
         "removable": False,
     }
     assert client.post("/credentials/unlock", json={"password": "x"}).status_code == 404
+
+
+@pytest.fixture
+def locked_credentials_client(tmp_path, monkeypatch):
+    write_config(tmp_path)
+    source = tmp_path / ".env"
+    source.write_text("TEST_VALIDATION_API_KEY_SECRET=synthetic\n")
+    encrypted = encrypt_env(source, password="p" * 1024)
+    monkeypatch.setenv("ROBOZIUM_MODE", "live")
+    monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(encrypted))
+    monkeypatch.setenv("TEST_VALIDATION_API_KEY_SECRET", "")
+    return TestClient(create_app(deployment=load_hub(start=tmp_path)))
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "expected_status"),
+    [
+        ("GET", "/run/create", 404),
+        ("GET", "/run/unknown/reply", 405),
+        ("POST", "/run/unknown/stream", 405),
+        ("POST", "/run/unknown/reply/extra", 404),
+        ("POST", "/run/unknown/interrupt", 404),
+    ],
+)
+def test_locked_gate_preserves_other_methods_and_paths(
+    locked_credentials_client, method, path, expected_status
+):
+    response = locked_credentials_client.request(method, path)
+    assert response.status_code == expected_status
+
+
+def test_default_encrypted_path_and_explicit_override(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ROBOZIUM_MODE", "live")
+    monkeypatch.delenv("ROBOZIUM_ENCRYPTED_ENV_PATH", raising=False)
+    monkeypatch.setenv("TEST_DEFAULT_PASSWORD_SECRET", "")
+    (tmp_path / ".env.encrypt").write_text(
+        "TEST_DEFAULT_PASSWORD_SECRET=roboz:v1:synthetic\n"
+    )
+    assert credential_status().locked is True
+
+    monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(tmp_path / "missing"))
+    assert credential_status().available is False
+
+
+def test_unsupported_ciphertext_version_stays_locked(
+    locked_credentials_client, tmp_path, monkeypatch
+):
+    (tmp_path / ".env.encrypt").write_text(
+        "TEST_VALIDATION_API_KEY_SECRET=roboz:v99:synthetic\n"
+    )
+    monkeypatch.setenv("TEST_VALIDATION_API_KEY_SECRET", "roboz:v99:synthetic")
+    assert locked_credentials_client.get("/credentials").json()["locked"] is True
+    response = locked_credentials_client.post(
+        "/credentials/unlock", json={"password": "p" * 1024}
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Could not unlock API keys"
+    assert locked_credentials_client.get("/credentials").json()["locked"] is True
+    assert os.environ["TEST_VALIDATION_API_KEY_SECRET"] == "roboz:v99:synthetic"
+
+
+@pytest.mark.parametrize(("size", "expected_status"), [(4096, 200), (4097, 413)])
+def test_unlock_body_size_boundary(locked_credentials_client, size, expected_status):
+    payload = json.dumps({"password": "p" * 1024}).encode()
+    response = locked_credentials_client.post(
+        "/credentials/unlock",
+        content=payload + b" " * (size - len(payload)),
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == expected_status
+    assert locked_credentials_client.get("/credentials").json()["locked"] is (
+        expected_status != 200
+    )
+
+
+def test_unlock_rejects_password_over_character_limit(locked_credentials_client):
+    response = locked_credentials_client.post(
+        "/credentials/unlock", json={"password": "p" * 1025}
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "A password is required"
+    assert locked_credentials_client.get("/credentials").json()["locked"] is True
+
+
+def test_unlock_rejects_malformed_json(locked_credentials_client):
+    response = locked_credentials_client.post("/credentials/unlock", content=b"{")
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid unlock request"
