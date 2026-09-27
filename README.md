@@ -134,18 +134,18 @@ The encryption utility requires [uv](https://docs.astral.sh/uv/getting-started/i
 and Python 3.13 or newer on the host. From the repository root, run:
 
 ```sh
-uv run --locked python -m robozium.secret_env encrypt
+uv run --locked python -c "from getpass import getpass; from roboz.endpoints import encrypt_env; print(encrypt_env(password=getpass('Encryption password: ')))"
 ```
 
 The command asks for a password and creates `.env.encrypt`. It encrypts
-`*_SECRET` values and legacy API-key entries while keeping nonsecret settings
+`*_SECRET` values while keeping nonsecret settings
 readable. After confirming the file was created, delete the plaintext `.env`.
 The launcher reads settings from `.env.encrypt`; unlock **API keys** in the HUD
-to load its credentials. Runtime names have the `_SECRET` suffix removed.
+to load its credentials. Runtime names retain the `_SECRET` suffix.
 
 Set the web port and hub location before encrypting. If both files remain,
 `.env` takes precedence for launcher settings. Recreate older encrypted files
-after renaming password entries to `_SECRET`; the older encryptor left those
+after renaming credential entries to end in `_SECRET`; the older encryptor left
 passwords plain. Both credential files are ignored by Git.
 
 ### Run with API keys
@@ -282,7 +282,6 @@ installation, not PyPI publication.
 | `src/robozium/hub` | Configuration loading, project paths, and deployment bindings. |
 | `src/robozium/api` | HTTP routes, runs, prompts, SSE events, credentials, and dependency health. |
 | `src/robozium/mock` | Scripted agent and model behavior for demos and tests. |
-| `src/robozium/secret_env.py` | Credential encryption and runtime loading. |
 | `web/app`, `web/hooks`, `web/lib` | Next.js HUD, API proxy routes, and browser session state. |
 | `hub.config.py`, `compose.yaml`, `Dockerfile` | Application choices and supported deployment. |
 | `scripts`, `tests`, `web/tests`, `web/e2e` | Development helpers, backend checks, frontend tests, and browser suites. |

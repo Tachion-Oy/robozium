@@ -38,7 +38,6 @@ from robozium.mock.agents import (
     stream_sync_mock_deployment,
 )
 from robozium.mock.model_selection import mock_model_endpoint
-from robozium.secret_env import expose_plain_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -378,7 +377,6 @@ def _ephemeral_hub() -> Hub:
 
 
 def live_app() -> FastAPI:
-    expose_plain_secrets()
     return create_app(deployment=load_hub())
 
 

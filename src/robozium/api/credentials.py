@@ -12,10 +12,10 @@ from pathlib import Path
 from dotenv import dotenv_values
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
+from roboz.endpoints import load_secrets
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from robozium.api.models import CredentialStatus
-from robozium.secret_env import load_credential_env
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -39,15 +39,11 @@ def _encrypted_path() -> Path:
     return Path(os.environ.get("ROBOZIUM_ENCRYPTED_ENV_PATH", ".env.encrypt"))
 
 
-def _runtime_name(name: str) -> str:
-    return name[: -len("_SECRET")] if name.endswith("_SECRET") else name
-
-
 def _credential_names(path: Path) -> set[str]:
     return {
-        _runtime_name(name)
+        name
         for name in dotenv_values(path, interpolate=False)
-        if name.endswith(("_API_KEY", "_SECRET"))
+        if name.endswith("_SECRET")
     }
 
 
@@ -61,14 +57,14 @@ def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStat
     encrypted_names = [
         name
         for name, value in dotenv_values(path, interpolate=False).items()
-        if name.endswith(("_API_KEY", "_SECRET"))
+        if name.endswith("_SECRET")
         and value
         and value.startswith("roboz:")
     ]
     if not encrypted_names:
         return CredentialStatus(available=False, locked=False, removable=False)
     locked = any(
-        not (value := os.environ.get(_runtime_name(name)))
+        not (value := os.environ.get(name))
         or not value.strip()
         or value.startswith("roboz:")
         for name in encrypted_names
@@ -147,7 +143,7 @@ async def unlock_credentials(request: Request, response: Response) -> Credential
                 name: os.environ.get(name)
                 for name in _credential_names(_encrypted_path())
             }
-            load_credential_env(_encrypted_path(), password=password)
+            load_secrets(_encrypted_path(), password=password)
             loaded.keys.update(
                 {
                     name: _fingerprint(value)
