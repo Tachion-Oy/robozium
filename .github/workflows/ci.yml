@@ -33,15 +33,74 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: web/package-lock.json
+      - name: Install tested Process Compose
+        run: |
+          version=v1.122.0
+          base="https://github.com/F1bonacc1/process-compose/releases/download/$version"
+          curl -fsSL "$base/process-compose_linux_amd64.tar.gz" -o "$RUNNER_TEMP/process-compose_linux_amd64.tar.gz"
+          curl -fsSL "$base/process-compose_checksums.txt" -o "$RUNNER_TEMP/process-compose_checksums.txt"
+          (cd "$RUNNER_TEMP" && sha256sum -c process-compose_checksums.txt --ignore-missing)
+          tar -xzf "$RUNNER_TEMP/process-compose_linux_amd64.tar.gz" -C "$RUNNER_TEMP" process-compose
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/process-compose" version
       - name: Python tests, lint, and types
         run: |
           uv sync --locked --dev
           uv run ruff check src tests scripts
           uv run pyright
           uv run pytest --cov-fail-under=90
+          uv run pytest tests/infrastructure/test_runtime_compose.py --no-cov -q
       - name: Frontend tests, lint, and types
         run: |
           npm --prefix web ci
           npm --prefix web run lint
           npm --prefix web run typecheck
           npm --prefix web run test:run
+
+  launcher-windows:
+    name: Windows launcher
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install tested Process Compose
+        shell: pwsh
+        run: |
+          $base = 'https://github.com/F1bonacc1/process-compose/releases/download/v1.122.0'
+          Invoke-WebRequest "$base/process-compose_windows_amd64.zip" -OutFile "$env:RUNNER_TEMP/process-compose_windows_amd64.zip"
+          Invoke-WebRequest "$base/process-compose_checksums.txt" -OutFile "$env:RUNNER_TEMP/process-compose_checksums.txt"
+          $expected = ((Get-Content "$env:RUNNER_TEMP/process-compose_checksums.txt" | Where-Object { $_ -match 'process-compose_windows_amd64.zip' }) -split '\s+')[0]
+          $actual = (Get-FileHash "$env:RUNNER_TEMP/process-compose_windows_amd64.zip" -Algorithm SHA256).Hash
+          if ($actual -ne $expected) { throw 'Process Compose checksum mismatch' }
+          Expand-Archive "$env:RUNNER_TEMP/process-compose_windows_amd64.zip" -DestinationPath "$env:RUNNER_TEMP/process-compose" -Force
+          "$env:RUNNER_TEMP/process-compose" | Out-File -FilePath $env:GITHUB_PATH -Append
+          & "$env:RUNNER_TEMP/process-compose/process-compose.exe" version
+      - name: Exercise Windows launchers
+        shell: pwsh
+        run: ./tests/infrastructure/check_windows_launcher.ps1
+
+  launcher-macos:
+    name: macOS launcher
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install tested Process Compose
+        run: |
+          version=v1.122.0
+          asset=process-compose_darwin_arm64.tar.gz
+          base="https://github.com/F1bonacc1/process-compose/releases/download/$version"
+          curl -fsSL "$base/$asset" -o "$RUNNER_TEMP/$asset"
+          curl -fsSL "$base/process-compose_checksums.txt" -o "$RUNNER_TEMP/process-compose_checksums.txt"
+          expected=$(awk -v asset="$asset" '$2 == asset {print $1}' "$RUNNER_TEMP/process-compose_checksums.txt")
+          actual=$(shasum -a 256 "$RUNNER_TEMP/$asset" | awk '{print $1}')
+          test "$actual" = "$expected"
+          tar -xzf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP" process-compose
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/process-compose" version
+      - name: Exercise macOS launchers
+        run: sh tests/infrastructure/check_macos_launcher.sh

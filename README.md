@@ -37,6 +37,7 @@ Robozium is a multi-agent application built on [RoboZ](https://github.com/Tachio
   - [Run with API keys](#run-with-api-keys)
 - [Configuration](#configuration)
 - [Private capabilities](#private-capabilities)
+- [Host scripts on Linux](#host-scripts-on-linux)
 - [Development and contributions](#development-and-contributions)
 - [Module map](#module-map)
 - [Troubleshooting](#troubleshooting)
@@ -106,7 +107,9 @@ and Linux. Clone it to use the application; a fork is optional. Robozium is not
 distributed through PyPI. RoboZ is installed at the version pinned in
 [uv.lock](uv.lock), including Shed and Endpoints, so no second checkout is needed.
 
-Install Docker with Docker Compose v2.24 or newer, then clone this repository:
+Install Docker with Docker Compose v2.24 or newer and
+[Process Compose v1.122.0](https://github.com/F1bonacc1/process-compose/releases/tag/v1.122.0),
+then clone this repository:
 
 ```sh
 git clone https://github.com/Tachion-Oy/robozium.git
@@ -140,8 +143,8 @@ uv run --locked python -c "from getpass import getpass; from roboz.endpoints imp
 The command asks for a password and creates `.env.encrypt`. It encrypts
 `*_SECRET` values while keeping nonsecret settings
 readable. After confirming the file was created, delete the plaintext `.env`.
-The launcher reads settings from `.env.encrypt`; unlock **API keys** in the HUD
-to load its credentials. Runtime names retain the `_SECRET` suffix.
+Compose receives encrypted values from `.env.encrypt` as environment inputs;
+unlock **API keys** in the HUD to load its credentials. Runtime names retain the `_SECRET` suffix.
 
 Set the web port and hub location before encrypting. If both files remain,
 `.env` takes precedence for launcher settings. Recreate older encrypted files
@@ -238,8 +241,34 @@ the package while loading configuration.
 
 Keep imports limited to declarations; bind run-specific state when the
 capability is built. Private modules use dependencies already installed in the
-API environment. Extra packages, host services, and local subagents are not
-configured by this scaffold. Back up `local/` separately from Git history.
+API environment. Private capability imports do not set up extra packages,
+host services, or local subagents. Back up `local/` separately from Git history.
+
+## Host scripts on Linux
+
+Docker Compose owns the API container and its read-only SafeScripts mounts.
+[process-compose.yaml](process-compose.yaml) owns host processes, dependencies,
+restart limits, shutdown, and log paths. The Linux live entry point
+explicitly enables RoboZ's SafeScripts; mock, macOS, and Windows do not. To add
+another RoboZ-owned host service, declare it there and add its dependency to
+the relevant application entry point. Third-party applications keep their own
+launchers.
+
+Install trusted `.sh` files in the live hub's `readonly/safe-scripts/`. The host
+needs Bash, [uv](https://docs.astral.sh/uv/), and Python 3.13 or newer. The
+service runs as your user with the hub as its working directory. The API uses a
+private Unix socket and cannot write to the mounted script directory. Ask the
+agent to call `run_shell_script` without a script name to list entries.
+`compose.yaml` sets `ROBOZIUM_HOST_SCRIPT_SOCKET=/host-scripts/scripts.sock`
+and binds `.runtime/host-socket` there. SafeScripts serves that directory's
+`scripts.sock` socket as declared in `process-compose.yaml`; no socket setting
+is needed in `.env` or `.env.encrypt`. RoboZ's existing dependency checks show
+service availability in the HUD, which remains accessible if SafeScripts fails.
+
+Start with `./start` or `./start --mock` (`start.cmd` on Windows). Process logs
+are in `.runtime/logs/` for live mode and `.runtime/mock-logs/` for mock mode;
+SafeScripts writes `.runtime/logs/safe-scripts.log`. Set machine-specific hub
+and port values in `.env` or `.env.encrypt` as described above.
 
 ## Development and contributions
 

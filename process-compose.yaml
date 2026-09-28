@@ -1,0 +1,54 @@
+version: "0.5"
+ordered_shutdown: true
+vars:
+  Platform: '${OS:-posix}'
+environment:
+  - ROBOZIUM_MODE=live
+  - 'ROBOZIUM_HOST_HUB_DIR=${ROBOZIUM_HUB_ROOT:-../Robozium-Hub}'
+  - ROBOZIUM_HOST_LOG_DIR=.runtime/logs
+  - ROBOZIUM_HOST_SOCKET_DIR=.runtime/host-socket
+
+x-app: &app
+  command: >-
+    {{if eq .Platform "Windows_NT"}}
+    powershell -NoProfile -Command
+    "New-Item -ItemType Directory -Force -Path ($$env:ROBOZIUM_HOST_HUB_DIR + '/readonly/safe-scripts'),$$env:ROBOZIUM_HOST_LOG_DIR,$$env:ROBOZIUM_HOST_SOCKET_DIR,'local' | Out-Null;
+    & scripts/compose.ps1 ROBOZIUM_API_USER compose.yaml .env.encrypt .env .runtime/launch.lock up --build --exit-code-from api; exit $$LASTEXITCODE"
+    {{else}}
+    umask 077; mkdir -p "$$ROBOZIUM_HOST_HUB_DIR/readonly/safe-scripts" "$$ROBOZIUM_HOST_LOG_DIR" "$$ROBOZIUM_HOST_SOCKET_DIR" local &&
+    exec sh scripts/compose.sh ROBOZIUM_API_USER compose.yaml .env.encrypt .env .runtime/launch.lock up --build --exit-code-from api
+    {{end}}
+  availability: {exit_on_end: true, exit_on_skipped: true}
+  shutdown: {signal: 15, timeout_seconds: 40}
+  log_location: .runtime/logs/compose-live.log
+
+processes:
+  safe-scripts:
+    command: >-
+      uv sync --locked --only-group host --no-install-project --python 3.13 &&
+      exec .runtime/host-scripts-venv/bin/python -m roboz.shed.tools.safe_scripts serve
+      --socket .runtime/host-socket/scripts.sock
+      --scripts "$$ROBOZIUM_HOST_HUB_DIR/readonly/safe-scripts" --cwd "$$ROBOZIUM_HOST_HUB_DIR"
+      --timeout-s 600
+      --allow-env HOME --allow-env USER --allow-env LOGNAME
+      --allow-env XDG_CONFIG_HOME --allow-env XDG_DATA_HOME --allow-env XDG_CACHE_HOME
+    environment: [UV_PROJECT_ENVIRONMENT=.runtime/host-scripts-venv]
+    is_dotenv_disabled: true
+    availability: {restart: on_failure, max_restarts: 2, backoff_seconds: 1}
+    shutdown: {signal: 15, timeout_seconds: 10}
+    log_location: .runtime/logs/safe-scripts.log
+
+  live-Linux:
+    <<: *app
+    depends_on:
+      safe-scripts: {condition: process_started}
+  live-Darwin: *app
+  live-windows: *app
+  mock:
+    <<: *app
+    environment:
+      - ROBOZIUM_MODE=mock
+      - ROBOZIUM_HOST_HUB_DIR=.runtime/mock-hub
+      - ROBOZIUM_HOST_LOG_DIR=.runtime/mock-logs
+      - ROBOZIUM_HOST_SOCKET_DIR=.runtime/mock-socket
+    log_location: .runtime/mock-logs/compose-mock.log

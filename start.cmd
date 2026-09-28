@@ -1,10 +1,17 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-set "ROBOZIUM_START_FLAG=%~1"
 if not "%~2"=="" goto usage
-if not "%ROBOZIUM_START_FLAG%"=="" if not "%ROBOZIUM_START_FLAG%"=="--mock" goto usage
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start.ps1" -ModeFlag "%ROBOZIUM_START_FLAG%"
+if "%~1"=="" goto live
+if "%~1"=="--mock" goto mock
+goto usage
+
+:live
+powershell -NoProfile -File "%~dp0scripts\start-live.ps1"
+exit /b %errorlevel%
+
+:mock
+powershell -NoProfile -File "%~dp0scripts\start-mock.ps1"
 exit /b %errorlevel%
 
 :usage
