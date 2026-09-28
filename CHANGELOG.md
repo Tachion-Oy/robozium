@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Pin RoboZ `0.3.1a1` and supervise its SafeScripts service on Linux live runs
+  through the Process Compose inventory. Keep mock runs isolated from host services.
+
+## Published (through 2026-09-27)
+
 - Update the pinned RoboZ dependency to `0.2.1a1` and adapt encrypted credential
   loading to its `load_secrets` API and native `*_SECRET` names. Check for future
   RoboZ updates daily with Dependabot.

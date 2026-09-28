@@ -9,19 +9,27 @@ services:
       CEREBRAS_API_KEY_SECRET: "${CEREBRAS_API_KEY_SECRET:-}"
       GROQ_API_KEY_SECRET: "${GROQ_API_KEY_SECRET:-}"
       OPENROUTER_API_KEY_SECRET: "${OPENROUTER_API_KEY_SECRET:-}"
-      PEFFAHUB_PROTON_BRIDGE_USERNAME: "${PEFFAHUB_PROTON_BRIDGE_USERNAME:-}"
-      PEFFAHUB_PROTON_BRIDGE_PASSWORD_SECRET: "${PEFFAHUB_PROTON_BRIDGE_PASSWORD_SECRET:-}"
-      PEFFAHUB_PROTON_BRIDGE_IMAP_HOST: "${PEFFAHUB_PROTON_BRIDGE_IMAP_HOST:-}"
-      PEFFAHUB_PROTON_BRIDGE_IMAP_PORT: "${PEFFAHUB_PROTON_BRIDGE_IMAP_PORT:-}"
-      PEFFAHUB_PROTON_BRIDGE_TLS_MODE: "${PEFFAHUB_PROTON_BRIDGE_TLS_MODE:-}"
-      PEFFAHUB_PROTON_BRIDGE_ACCOUNT_ADDRESS: "${PEFFAHUB_PROTON_BRIDGE_ACCOUNT_ADDRESS:-}"
-      PEFFAHUB_PROTON_BRIDGE_CERTIFICATE_SHA256: "${PEFFAHUB_PROTON_BRIDGE_CERTIFICATE_SHA256:-}"
+      ROBOZIUM_PROTON_BRIDGE_USERNAME: "${ROBOZIUM_PROTON_BRIDGE_USERNAME:-}"
+      ROBOZIUM_PROTON_BRIDGE_PASSWORD_SECRET: "${ROBOZIUM_PROTON_BRIDGE_PASSWORD_SECRET:-}"
+      ROBOZIUM_PROTON_BRIDGE_IMAP_HOST: "${ROBOZIUM_PROTON_BRIDGE_IMAP_HOST:-}"
+      ROBOZIUM_PROTON_BRIDGE_IMAP_PORT: "${ROBOZIUM_PROTON_BRIDGE_IMAP_PORT:-}"
+      ROBOZIUM_PROTON_BRIDGE_TLS_MODE: "${ROBOZIUM_PROTON_BRIDGE_TLS_MODE:-}"
+      ROBOZIUM_PROTON_BRIDGE_ACCOUNT_ADDRESS: "${ROBOZIUM_PROTON_BRIDGE_ACCOUNT_ADDRESS:-}"
+      ROBOZIUM_PROTON_BRIDGE_CERTIFICATE_SHA256: "${ROBOZIUM_PROTON_BRIDGE_CERTIFICATE_SHA256:-}"
+      # Paths inside the API container, not host paths or .env settings.
       ROBOZIUM_HUB_ROOT: /hub
       ROBOZIUM_LOG_DIR: /logs
+      # Process Compose selects live/mock; no .env entry is needed.
       ROBOZIUM_MODE: "${ROBOZIUM_MODE:-mock}"
+      # Container path to the mounted host socket; no .env entry is needed.
+      ROBOZIUM_HOST_SCRIPT_SOCKET: /host-scripts/scripts.sock
     init: true
     stop_grace_period: 30s
     user: "${ROBOZIUM_API_USER:-10001:10001}"
+    # Each source is on the host; each target is inside the container.
+    # Process Compose supplies ROBOZIUM_HOST_* paths for the selected mode.
+    # Optional ROBOZIUM_HUB_ROOT in .env/.env.encrypt changes the live host
+    # hub location only; the container still uses /hub.
     volumes:
       - type: bind
         source: ./local
@@ -37,6 +45,18 @@ services:
       - type: bind
         source: "${ROBOZIUM_HOST_LOG_DIR:-./.runtime/mock-logs}"
         target: /logs
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${ROBOZIUM_HOST_SOCKET_DIR:-./.runtime/mock-socket}"
+        target: /host-scripts
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${ROBOZIUM_HOST_HUB_DIR:-./.runtime/mock-hub}/readonly/safe-scripts"
+        target: /hub/readonly/safe-scripts
+        read_only: true
         bind:
           create_host_path: false
 

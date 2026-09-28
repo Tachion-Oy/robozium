@@ -194,7 +194,7 @@ def _mock_recipe(
         ),
     )
     root.set_agent_endpoint(preset.agent_endpoint)
-    root.set_attributes(permissions=project.sandbox.permissions())
+    root.set_attributes(sandbox=project.sandbox)
     if with_librarian:
         names = root.agent_names(include_background=False)
         snapshot_endpoint = MockLLMEndpoint(

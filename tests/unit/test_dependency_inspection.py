@@ -132,7 +132,8 @@ def test_standard_deployment_discovers_tools_and_every_selectable_model() -> Non
     }
 
 
-def test_mock_app_dependency_contract_allows_startup() -> None:
+def test_mock_app_dependency_contract_allows_startup(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("ROBOZIUM_HUB_ROOT", str(tmp_path / "mock-hub"))
     with TestClient(mock_app()) as client:
         assert client.get("/ready").status_code == 200
         assert client.get("/models").json() == {
