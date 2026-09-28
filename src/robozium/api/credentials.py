@@ -1,4 +1,4 @@
-"""Unlock an encrypted dotenv file in the API process."""
+"""Unlock encrypted credentials in the API process using RoboZ."""
 
 import asyncio
 import hashlib
@@ -20,6 +20,7 @@ from roboz.endpoints import (
 )
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from robozium import RUNTIME_MODE_ENV_VAR, RuntimeMode
 from robozium.api.models import CredentialStatus
 
 router = APIRouter()
@@ -34,6 +35,10 @@ class LoadedCredentials:
     def __init__(self) -> None:
         self.lock = threading.RLock()
         self.keys: dict[str, bytes] = {}
+        self.encrypted = {
+            name: value for name, value in os.environ.items()
+            if name.endswith(SECRET_SUFFIX) and value.startswith(ENCRYPTED_NAMESPACE)
+        }
 
 
 def _fingerprint(value: str) -> bytes:
@@ -56,14 +61,14 @@ def _credential_names(path: Path) -> set[str]:
 
 def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStatus:
     """Report only whether encrypted keys exist and are loaded."""
-    if os.environ.get("ROBOZIUM_MODE") != "live":
+    if os.environ.get(RUNTIME_MODE_ENV_VAR) != RuntimeMode.LIVE:
         return CredentialStatus(available=False, locked=False, removable=False)
     path = _encrypted_path()
-    if not path.is_file():
-        return CredentialStatus(available=False, locked=False, removable=False)
+    values = dict(dotenv_values(path, interpolate=False)) if path.is_file() else {}
+    values.update(loaded.encrypted if loaded else os.environ)
     encrypted_names = [
         name
-        for name, value in dotenv_values(path, interpolate=False).items()
+        for name, value in values.items()
         if name.endswith(SECRET_SUFFIX)
         and value
         and value.startswith(ENCRYPTED_NAMESPACE)
@@ -148,7 +153,7 @@ async def unlock_credentials(request: Request, response: Response) -> Credential
         with loaded.lock:
             before = {
                 name: os.environ.get(name)
-                for name in _credential_names(_encrypted_path())
+                for name in _credential_names(_encrypted_path()) | loaded.encrypted.keys()
             }
             load_secrets(_encrypted_path(), password=password)
             loaded.keys.update(
@@ -185,7 +190,10 @@ def clear_credentials(request: Request, response: Response) -> CredentialStatus:
             for name, fingerprint in loaded.keys.items():
                 value = os.environ.get(name)
                 if value is not None and _fingerprint(value) == fingerprint:
-                    os.environ.pop(name, None)
+                    if name in loaded.encrypted:
+                        os.environ[name] = loaded.encrypted[name]
+                    else:
+                        os.environ.pop(name, None)
             loaded.keys.clear()
 
     clear()

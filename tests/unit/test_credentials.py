@@ -13,7 +13,8 @@ from robozium.api.credentials import credential_status
 from robozium.hub.utils import load_hub
 
 
-def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch):
+@pytest.mark.parametrize("source_kind", ["file", "environment"])
+def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch, source_kind):
     write_config(tmp_path)
     source = tmp_path / ".env"
     source.write_text(
@@ -28,6 +29,13 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch):
     monkeypatch.delenv("TEST_UNLOCK_FIRST_API_KEY_SECRET", raising=False)
     monkeypatch.delenv("TEST_UNLOCK_SECOND_API_KEY_SECRET", raising=False)
     monkeypatch.setenv("TEST_UNLOCK_EXTERNAL_API_KEY_SECRET", "external-synthetic")
+    names = ("TEST_UNLOCK_FIRST_API_KEY_SECRET", "TEST_UNLOCK_SECOND_API_KEY_SECRET")
+    if source_kind == "environment":
+        values = dotenv_values(encrypted, interpolate=False)
+        for name in names:
+            monkeypatch.setenv(name, values[name])
+        encrypted.unlink()
+    original = {name: os.environ.get(name) for name in names}
     client = TestClient(create_app(deployment=load_hub(start=tmp_path)))
 
     status = client.get("/credentials")
@@ -49,8 +57,8 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch):
         client.post("/credentials/unlock", json={"password": "wrong"}).status_code
         == 400
     )
-    assert "TEST_UNLOCK_FIRST_API_KEY_SECRET" not in os.environ
-    assert "TEST_UNLOCK_SECOND_API_KEY_SECRET" not in os.environ
+    assert os.environ.get("TEST_UNLOCK_FIRST_API_KEY_SECRET") == original["TEST_UNLOCK_FIRST_API_KEY_SECRET"]
+    assert os.environ.get("TEST_UNLOCK_SECOND_API_KEY_SECRET") == original["TEST_UNLOCK_SECOND_API_KEY_SECRET"]
     assert os.environ["TEST_UNLOCK_EXTERNAL_API_KEY_SECRET"] == "external-synthetic"
 
     response = client.post("/credentials/unlock", json={"password": "test-password"})
@@ -69,7 +77,7 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch):
     cleared = client.post("/credentials/clear")
     assert cleared.status_code == 200
     assert cleared.json() == {"available": True, "locked": True, "removable": False}
-    assert "TEST_UNLOCK_FIRST_API_KEY_SECRET" not in os.environ
+    assert os.environ.get("TEST_UNLOCK_FIRST_API_KEY_SECRET") == original["TEST_UNLOCK_FIRST_API_KEY_SECRET"]
     assert client.post("/run/create", json={"project": "demo"}).status_code == 423
     assert (
         client.post("/credentials/unlock", json={"password": "test-password"}).json()[
@@ -87,8 +95,8 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch):
         assert cleared.status_code == 200
         assert cleared.json() == {"available": True, "locked": True, "removable": False}
     assert cleared.headers["cache-control"] == "no-store"
-    assert "TEST_UNLOCK_FIRST_API_KEY_SECRET" not in os.environ
-    assert "TEST_UNLOCK_SECOND_API_KEY_SECRET" not in os.environ
+    assert os.environ.get("TEST_UNLOCK_FIRST_API_KEY_SECRET") == original["TEST_UNLOCK_FIRST_API_KEY_SECRET"]
+    assert os.environ.get("TEST_UNLOCK_SECOND_API_KEY_SECRET") == original["TEST_UNLOCK_SECOND_API_KEY_SECRET"]
     assert os.environ["TEST_UNLOCK_EXTERNAL_API_KEY_SECRET"] == "external-synthetic"
     assert client.post("/run/create", json={"project": "demo"}).status_code == 423
     assert (
