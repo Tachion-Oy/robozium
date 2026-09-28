@@ -29,7 +29,11 @@ try {
     Set-Location -LiteralPath $checkout
     & cmd /c start.cmd --mock
     if ($LASTEXITCODE -ne 0) { throw "Mock launcher exited $LASTEXITCODE" }
-    if (-not (Test-Path -LiteralPath $dockerArgs)) { throw 'Mock launcher did not invoke Docker Compose' }
+    if (-not (Test-Path -LiteralPath $dockerArgs)) {
+        $log = Join-Path $checkout '.runtime/mock-logs/compose-mock.log'
+        if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log }
+        throw 'Mock launcher did not invoke Docker Compose'
+    }
     if ((Get-Content -LiteralPath $dockerArgs -Raw) -notmatch 'up --build --exit-code-from api') {
         throw 'Incorrect mock service selection'
     }
