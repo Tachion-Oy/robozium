@@ -5,7 +5,9 @@ $base, $encrypted, $plain, $lock = $args[1..4]
 foreach ($path in @($args[6], $args[7])) {
     [System.IO.Directory]::CreateDirectory([Environment]::GetEnvironmentVariable($path)) | Out-Null
 }
-[System.IO.Directory]::CreateDirectory($args[8]) | Out-Null
+foreach ($path in @($args[8], $args[9])) {
+    [System.IO.Directory]::CreateDirectory($path) | Out-Null
+}
 [System.IO.Directory]::CreateDirectory((Split-Path -Parent $lock)) | Out-Null
 try {
     $handle = [System.IO.File]::Open($lock, 'OpenOrCreate', 'ReadWrite', 'None')
@@ -21,7 +23,7 @@ try {
         $composeArguments += @('--env-file', $plain)
     }
     $composeArguments += @('-f', $base)
-    $composeArguments += $args[9..($args.Count - 1)]
+    $composeArguments += $args[10..($args.Count - 1)]
     & docker @composeArguments
     $code = $LASTEXITCODE
 } finally {
