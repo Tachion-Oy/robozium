@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Enable Groq Whisper voice transcription in the default live configuration.
+
 - Private `LocalTool` declarations now install their own Python requirements at
   API startup before their capabilities are loaded.
 

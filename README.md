@@ -163,8 +163,9 @@ credentials needed by your configured models, then start without `--mock`:
 
 On Windows, use `start.cmd`. The default configuration offers OpenRouter and
 Cerebras models. OpenRouter is also needed for the librarian's memory model.
-The environment example includes Groq and Proton Bridge settings for capabilities
-you configure; live transcription is disabled by default.
+Groq Whisper transcription is enabled by default. Supply `GROQ_API_KEY_SECRET`
+through `.env` or encrypted credentials to use voice input. The environment
+example also includes Proton Bridge settings for capabilities you configure.
 
 Keep credentials in `.env`, which is ignored by Git and excluded from Docker
 build context. Credentials are supplied to the API at runtime; never put them in
@@ -188,7 +189,7 @@ attached for logs, and Ctrl+C stops the application without deleting hub files.
 | `MODELS`, `DEFAULT_MODEL` | Models offered in the HUD and the initial selection. |
 | `MEMORY_ENDPOINT` | The librarian's model, independent of the project model. |
 | `CAPABILITIES`, `SUBAGENTS` | Additional tool/skill capabilities and specialist agent definitions. |
-| `TRANSCRIPTION_ENDPOINT` | Optional speech-to-text endpoint; `None` disables live transcription. |
+| `TRANSCRIPTION_ENDPOINT` | Groq Whisper speech-to-text by default; `None` disables live transcription. |
 | `ADDITIONAL_DEPENDENCIES`, `DEPENDENCY_HEALTH` | Extra monitored resources and health-check timing. |
 | `LOGGING` | Technical log location. |
 

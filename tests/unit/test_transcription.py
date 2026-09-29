@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from config_support import write_config
 from fastapi.testclient import TestClient
-from roboz.llm import MockTranscriptionEndpoint
+from roboz.llm import MockTranscriptionEndpoint, TranscriptionEndpoint
 
 from robozium.api.app import create_app
 from robozium.hub.application import Hub
@@ -30,8 +30,16 @@ def _isolated_hub_config(tmp_path: Path) -> None:
     write_config(tmp_path)
 
 
-def test_live_transcription_returns_clear_service_unavailable(tmp_path: Path) -> None:
-    assert load_hub(start=tmp_path).transcription_endpoint is None
+def test_default_transcription_uses_groq_whisper(tmp_path: Path) -> None:
+    endpoint = load_hub(start=tmp_path).transcription_endpoint
+    assert isinstance(endpoint, TranscriptionEndpoint)
+    assert endpoint.api_name == "groq"
+    assert endpoint.model_name == "whisper-large-v3-turbo"
+
+
+def test_disabled_transcription_returns_clear_service_unavailable(
+    tmp_path: Path,
+) -> None:
     client = TestClient(create_app(deployment=_deployment(None, tmp_path)))
     response = client.post(
         "/transcribe", files={"file": ("clip.webm", b"audio", "audio/webm")}

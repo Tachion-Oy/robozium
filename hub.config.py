@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Final
 
 from roboz.deployment import Capability
-from roboz.endpoints.inventory import cerebras, openrouter
+from roboz.endpoints.inventory import cerebras, groq, openrouter
 from roboz.llm import with_openrouter_policy
 from roboz.shed.capabilities import Compactification, SafeScripts
 from roboz.shed.sandbox import Sandbox
@@ -52,5 +52,5 @@ CAPABILITIES: Final = (
     ),
 )
 SUBAGENTS: Final = ()
-TRANSCRIPTION_ENDPOINT: Final = None
+TRANSCRIPTION_ENDPOINT: Final = groq.configured().whisper_large_v3_turbo
 ADDITIONAL_DEPENDENCIES: Final = None
