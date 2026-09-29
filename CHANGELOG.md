@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Include LibreOffice in the API container for document conversion tools.
+
 - Pin RoboZ `0.3.1a1` and supervise its SafeScripts service on Linux live runs
   through the Process Compose inventory. Keep mock runs isolated from host services.
 

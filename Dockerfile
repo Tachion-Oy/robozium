@@ -28,12 +28,17 @@ RUN apt-get update \
         diffutils \
         findutils \
         grep \
+        libreoffice \
         ripgrep \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 robozium \
     && useradd --uid 10001 --gid robozium --no-create-home --home-dir /nonexistent robozium \
     && mkdir -p /hub /logs \
     && chown -R robozium:robozium /hub /logs
+
+# The API UID may be overridden for bind-mount permissions; keep LO's profile writable.
+ENV HOME=/tmp \
+    UserInstallation=file:///tmp/robozium-libreoffice
 
 COPY --from=python-deps /app/.venv /app/.venv
 COPY hub.config.py ./hub.config.py
