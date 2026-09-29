@@ -199,50 +199,49 @@ and review configuration diffs before including them in an upstream PR.
 
 ## Private capabilities
 
-Keep custom tools and skills in a root `local/` Python package. This folder is
-Git-ignored and excluded from Docker build context and application distributions.
-Start with the empty [example package](examples/local/__init__.py):
+Keep private tools in the root `local/` package. It is Git-ignored and excluded
+from the image and application distributions. The contract and loader are part
+of the tracked application. Start with the [example package](examples/local/__init__.py):
 
 ```sh
 mkdir -p local
 cp examples/local/__init__.py local/__init__.py
 ```
 
-On Windows, create `local` and copy the example's `__init__.py` there. Put your
-private modules inside that package, import them relatively, and export their
-RoboZ capabilities from `local/__init__.py`, for example:
+On Windows, create `local` and copy the example's `__init__.py` there. For each
+tool, put its Python package and `requirements.txt` under `local/`, then add one
+declaration to `local/__init__.py`:
 
 ```python
-from .my_tools import MyCapability
+from robozium.hub.local import LocalTool
 
-CAPABILITIES = (MyCapability(),)
+CAPABILITIES = (
+    LocalTool("timesheet.capability:Timesheets", "timesheet/requirements.txt"),
+)
 ```
 
-`MyCapability` must implement RoboZ's `AgentCapability` interface. Existing tools
-can instead be grouped with `Capability(tools=(...))`; skills can use
-`Capability(skills=(...))` or `auto_loaded_skills`. Local capabilities are appended
-after `hub.config.py`'s configured capabilities and bound through the normal
-project deployment. No tracked configuration edits are needed.
+The named class or zero-argument factory must return a RoboZ `AgentCapability`.
+The requirements file must exist; leave it empty when the tool needs no extra
+packages. On API startup, Robozium validates every declaration, installs all
+registered requirements together into ignored `.runtime/local-deps/`, then
+imports and adds the capabilities to the normal project deployment. Dependencies
+must be compatible with each other and the application. No tracked config or
+main `pyproject.toml` edits are needed for a new private tool.
 
-The API looks beside the selected `hub.config.py`, including when a native
-launch uses `ROBOZIUM_CONFIG`. A missing `local/__init__.py`, a missing
-`CAPABILITIES` export, or an empty list or tuple adds nothing. Other collection
-types and import errors fail configuration loading and identify the local file.
-Use relative imports such as `from .my_tools import MyCapability`; the loader
-does not add the private folder to Python's import search path.
+The API loads `local/` beside [hub.config.py](hub.config.py). A missing
+`local/__init__.py` or empty `CAPABILITIES` adds nothing. Invalid declarations
+and installation failures stop startup with
+the affected tool and reason. Existing capability objects may still be exported
+directly when they use packages already installed in the API.
 
-The launchers create an empty `local/` folder if needed. Docker mounts it
-read-only into the API at `/app/local`; private code stays on the host rather
-than inside the image. Direct Compose launches must create the folder first.
-Restart native development or run `docker compose restart api` after editing
-private code, which is imported once per API process. Mock mode keeps its
-scripted agents and does not execute private tools, though it still imports
-the package while loading configuration.
+The launchers create `local/` and the dependency cache. Docker mounts the code
+read-only. For direct Compose launches, create both directories first. Restart
+the API after changing a private tool. Mock mode loads declarations but keeps
+its scripted agents, which do not execute private tools.
 
-Keep imports limited to declarations; bind run-specific state when the
-capability is built. Private modules use dependencies already installed in the
-API environment. Private capability imports do not set up extra packages,
-host services, or local subagents. Back up `local/` separately from Git history.
+Keep `local/__init__.py` limited to declarations so requirements install before
+tool code imports. Bind run-specific state in the capability's `build` method.
+Back up `local/` separately from Git history.
 
 ## Host scripts on Linux
 

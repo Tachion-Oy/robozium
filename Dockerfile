@@ -41,11 +41,12 @@ ENV HOME=/tmp \
     UserInstallation=file:///tmp/robozium-libreoffice
 
 COPY --from=python-deps /app/.venv /app/.venv
+COPY --from=python-deps /usr/local/bin/uv /usr/local/bin/uv
 COPY hub.config.py ./hub.config.py
 
 USER robozium
 EXPOSE 8000
-HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=12 \
+HEALTHCHECK --interval=5s --timeout=3s --start-period=180s --retries=12 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=2).read()"]
 CMD ["sh", "-c", "exec uvicorn \"robozium.api.app:${ROBOZIUM_MODE:-mock}_app\" --factory --host 0.0.0.0 --port 8000 --workers 1"]
 

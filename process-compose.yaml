@@ -13,10 +13,10 @@ x-app: &app
     {{if eq .Platform "Windows_NT"}}
     powershell -NoProfile -File ./scripts/compose.ps1
     ROBOZIUM_API_USER compose.yaml .env.encrypt .env .runtime/launch.lock
-    ROBOZIUM_HOST_HUB_DIR ROBOZIUM_HOST_LOG_DIR ROBOZIUM_HOST_SOCKET_DIR local
+    ROBOZIUM_HOST_HUB_DIR ROBOZIUM_HOST_LOG_DIR ROBOZIUM_HOST_SOCKET_DIR local .runtime/local-deps
     up --build --exit-code-from api
     {{else}}
-    umask 077; mkdir -p "$$ROBOZIUM_HOST_HUB_DIR/readonly/safe-scripts" "$$ROBOZIUM_HOST_LOG_DIR" "$$ROBOZIUM_HOST_SOCKET_DIR" local &&
+    umask 077; mkdir -p "$$ROBOZIUM_HOST_HUB_DIR/readonly/safe-scripts" "$$ROBOZIUM_HOST_LOG_DIR" "$$ROBOZIUM_HOST_SOCKET_DIR" local .runtime/local-deps &&
     exec sh scripts/compose.sh ROBOZIUM_API_USER compose.yaml .env.encrypt .env .runtime/launch.lock up --build --exit-code-from api
     {{end}}
   availability: {exit_on_end: true, exit_on_skipped: true}
