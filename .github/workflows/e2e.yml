@@ -105,7 +105,7 @@ jobs:
         run: |
           echo "ROBOZIUM_API_USER=$(id -u):$(id -g)" >> "$GITHUB_ENV"
           export ROBOZIUM_API_USER="$(id -u):$(id -g)"
-          mkdir -p .runtime/mock-hub/readonly/safe-scripts .runtime/mock-logs .runtime/mock-socket local
+          mkdir -p .runtime/mock-hub/readonly/safe-scripts .runtime/mock-logs .runtime/mock-socket .runtime/local-deps local
           docker compose up --build --wait
           docker compose run --build --rm verify
           docker compose restart api
