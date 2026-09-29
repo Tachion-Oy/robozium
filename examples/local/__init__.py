@@ -1,7 +1,7 @@
-"""Copy this package to root local/ and import private capabilities relatively."""
+"""Copy this package to root local/ to register private capabilities."""
 
-from roboz.deployment import AgentCapability
+from robozium.hub.local import LocalTool
 
-# For example: from .my_tools import MyCapability
-# Then export CAPABILITIES = (MyCapability(),)
-CAPABILITIES: tuple[AgentCapability, ...] = ()
+# For example, place code in local/my_tool/ with an empty requirements.txt:
+# CAPABILITIES = (LocalTool("my_tool.capability:MyCapability", "my_tool/requirements.txt"),)
+CAPABILITIES: tuple[LocalTool, ...] = ()

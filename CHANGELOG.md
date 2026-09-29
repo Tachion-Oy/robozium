@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Private `LocalTool` declarations now install their own Python requirements at
+  API startup before their capabilities are loaded.
+
 - Include LibreOffice in the API container for document conversion tools.
 
 - Pin RoboZ `0.3.1a1` and supervise its SafeScripts service on Linux live runs
