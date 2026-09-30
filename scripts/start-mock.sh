@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-exec process-compose -f process-compose.yaml --disable-dotenv --no-server -t=false up mock
+exec sh scripts/compose.sh mock ROBOZIUM_API_USER compose.yaml .env.encrypt .env .runtime/launch.lock up --build --exit-code-from api

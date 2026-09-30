@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-exec process-compose -f process-compose.yaml -e .env.encrypt -e .env --no-server -t=false up "live-$(uname -s)"
+exec sh scripts/compose.sh live ROBOZIUM_API_USER compose.yaml .env.encrypt .env .runtime/launch.lock up --build --exit-code-from api

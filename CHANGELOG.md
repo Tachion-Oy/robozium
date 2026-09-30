@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Start Docker Compose directly; missing Process Compose or failed optional host
+  processes no longer prevent live or mock application startup.
+
 - Add bottom padding to background message logs so the final badge and inline
   tag effects are not clipped in either theme.
 

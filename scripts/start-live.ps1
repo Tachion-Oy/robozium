@@ -1,4 +1,4 @@
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath (Join-Path $PSScriptRoot '..')
-& process-compose -f process-compose.yaml -e .env.encrypt -e .env --no-server '-t=false' up live-windows
+& ./scripts/compose.ps1 live ROBOZIUM_API_USER compose.yaml .env.encrypt .env .runtime/launch.lock up --build --exit-code-from api
 exit $LASTEXITCODE

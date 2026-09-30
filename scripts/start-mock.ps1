@@ -1,4 +1,4 @@
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath (Join-Path $PSScriptRoot '..')
-& process-compose -f process-compose.yaml --disable-dotenv --no-server '-t=false' up mock
+& ./scripts/compose.ps1 mock ROBOZIUM_API_USER compose.yaml .env.encrypt .env .runtime/launch.lock up --build --exit-code-from api
 exit $LASTEXITCODE

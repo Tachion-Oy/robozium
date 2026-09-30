@@ -11,8 +11,11 @@ cp -p "$source_dir/scripts/start-live.sh" "$source_dir/scripts/start-mock.sh" \
 cat > "$case_dir/bin/docker" <<'DOCKER'
 #!/bin/sh
 if [ "$1" = info ]; then printf '[]\n'; exit 0; fi
+case "$*" in *'config --environment')
+  sed -n "s/^ROBOZIUM_HUB_ROOT='\(.*\)'$/ROBOZIUM_HUB_ROOT=\1/p" .env.encrypt
+  exit 0;; esac
 printf '%s\n' "$@" > "$TEST_DOCKER_ARGS"
-printf '%s\n' "${ROBOZIUM_HUB_ROOT:-}" > "$TEST_DOCKER_ENV"
+printf '%s\n' "$ROBOZIUM_HOST_HUB_DIR" > "$TEST_DOCKER_ENV"
 exit 0
 DOCKER
 chmod +x "$case_dir/bin/docker"
