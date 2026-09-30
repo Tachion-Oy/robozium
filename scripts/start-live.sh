@@ -20,7 +20,6 @@ fi
 compose_pid=
 supervisor_pid=
 cleanup() {
-  trap - EXIT INT TERM
   for pid in "$compose_pid" "$supervisor_pid"; do
     if [ -n "$pid" ]; then
       kill -TERM "$pid" 2>/dev/null || :
@@ -43,6 +42,8 @@ if [ -n "$api_user" ]; then export ROBOZIUM_API_USER="$api_user"; fi
 export ROBOZIUM_HOST_HUB_DIR="${hub_root:-../Robozium-Hub}"
 export ROBOZIUM_HOST_LOG_DIR=.runtime/logs
 export ROBOZIUM_HOST_SOCKET_DIR=.runtime/host-socket
+# Docker needs these bind-mount sources before starting the container.
+# Python initializes the application directories inside the mounted hub.
 mkdir -p "$ROBOZIUM_HOST_HUB_DIR/readonly/safe-scripts" \
   "$ROBOZIUM_HOST_LOG_DIR" "$ROBOZIUM_HOST_SOCKET_DIR" \
   local .runtime/local-deps

@@ -19,7 +19,6 @@ fi
 
 compose_pid=
 cleanup() {
-  trap - EXIT INT TERM
   if [ -n "$compose_pid" ]; then
     kill -TERM "$compose_pid" 2>/dev/null || :
     wait "$compose_pid" 2>/dev/null || :
@@ -34,6 +33,8 @@ export ROBOZIUM_MODE=mock
 export ROBOZIUM_HOST_HUB_DIR=.runtime/mock-hub
 export ROBOZIUM_HOST_LOG_DIR=.runtime/mock-logs
 export ROBOZIUM_HOST_SOCKET_DIR=.runtime/mock-socket
+# Docker needs these bind-mount sources before starting the container.
+# Python initializes the application directories inside the mounted hub.
 mkdir -p "$ROBOZIUM_HOST_HUB_DIR/readonly/safe-scripts" \
   "$ROBOZIUM_HOST_LOG_DIR" "$ROBOZIUM_HOST_SOCKET_DIR" \
   local .runtime/local-deps

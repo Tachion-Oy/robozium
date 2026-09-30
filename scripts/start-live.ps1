@@ -28,6 +28,8 @@ try {
     $env:ROBOZIUM_HOST_HUB_DIR = if ($hubRoot) { $hubRoot } else { '../Robozium-Hub' }
     $env:ROBOZIUM_HOST_LOG_DIR = '.runtime/logs'
     $env:ROBOZIUM_HOST_SOCKET_DIR = '.runtime/host-socket'
+    # Docker needs these bind-mount sources before starting the container.
+    # Python initializes the application directories inside the mounted hub.
     $runtimeDirectories = @(
         (Join-Path $env:ROBOZIUM_HOST_HUB_DIR 'readonly/safe-scripts'),
         $env:ROBOZIUM_HOST_LOG_DIR,
