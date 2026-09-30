@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add bottom padding to background message logs so the final badge and inline
+  tag effects are not clipped in either theme.
+
 - Enable Groq Whisper voice transcription in the default live configuration.
 
 - Private `LocalTool` declarations now install their own Python requirements at

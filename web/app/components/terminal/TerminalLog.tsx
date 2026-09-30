@@ -77,7 +77,8 @@ export function TerminalLog({
 	return (
 		<div className="flex flex-1 min-h-0 w-full items-start pb-[3vh]">
 			<div ref={boxRef} className={logClasses}>
-				<div className="mx-auto flex w-full max-w-336 flex-col">
+				{/* Keep the final badge / tag halo inside the overflow clip. */}
+				<div className="mx-auto flex w-full max-w-336 flex-col pb-6">
 					{children}
 				</div>
 			</div>
