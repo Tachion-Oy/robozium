@@ -7,7 +7,7 @@ checkout="$case_dir/checkout with spaces"
 mkdir -p "$checkout/scripts" "$case_dir/bin"
 cp -p "$source_dir/start" "$source_dir/process-compose.yaml" "$checkout/"
 cp -p "$source_dir/scripts/start-live.sh" "$source_dir/scripts/start-mock.sh" \
-  "$source_dir/scripts/compose.sh" "$checkout/scripts/"
+  "$checkout/scripts/"
 cat > "$case_dir/bin/docker" <<'DOCKER'
 #!/bin/sh
 if [ "$1" = info ]; then printf '[]\n'; exit 0; fi
