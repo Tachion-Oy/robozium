@@ -107,9 +107,7 @@ and Linux. Clone it to use the application; a fork is optional. Robozium is not
 distributed through PyPI. RoboZ is installed at the version pinned in
 [uv.lock](uv.lock), including Shed and Endpoints, so no second checkout is needed.
 
-Install Docker with Docker Compose v2.24 or newer and
-[Process Compose v1.122.0](https://github.com/F1bonacc1/process-compose/releases/tag/v1.122.0),
-then clone this repository:
+Install Docker with Docker Compose v2.24 or newer, then clone this repository:
 
 ```sh
 git clone https://github.com/Tachion-Oy/robozium.git
@@ -247,12 +245,14 @@ Back up `local/` separately from Git history.
 ## Host scripts on Linux
 
 Docker Compose owns the API container and its read-only SafeScripts mounts.
-[process-compose.yaml](process-compose.yaml) owns host processes, dependencies,
-restart limits, shutdown, and log paths. The Linux live entry point
-explicitly enables RoboZ's SafeScripts; mock, macOS, and Windows do not. To add
-another RoboZ-owned host service, declare it there and add its dependency to
-the relevant application entry point. Third-party applications keep their own
-launchers.
+[process-compose.yaml](process-compose.yaml) owns optional host processes,
+dependencies, restart limits, shutdown, and log paths. When
+[Process Compose v1.122.0](https://github.com/F1bonacc1/process-compose/releases/tag/v1.122.0)
+is installed, the live launcher attempts every process in its platform namespace
+(`live-Linux`, `live-Darwin`, or `live-windows`). Only Linux currently has a
+service: RoboZ's SafeScripts. Mock mode skips host processes. To add another
+RoboZ-owned host service, declare it in the relevant namespace. Third-party
+applications keep their own launchers.
 
 Install trusted `.sh` files in the live hub's `readonly/safe-scripts/`. The host
 needs Bash, [uv](https://docs.astral.sh/uv/), and Python 3.13 or newer. The
@@ -263,11 +263,13 @@ agent to call `run_shell_script` without a script name to list entries.
 and binds `.runtime/host-socket` there. SafeScripts serves that directory's
 `scripts.sock` socket as declared in `process-compose.yaml`; no socket setting
 is needed in `.env` or `.env.encrypt`. RoboZ's existing dependency checks show
-service availability in the HUD, which remains accessible if SafeScripts fails.
+service availability in the HUD. Missing Process Compose or service prerequisites
+and failed host processes do not prevent application startup. An unavailable
+service reports a failure when its tool is used.
 
-Start with `./start` or `./start --mock` (`start.cmd` on Windows). Process logs
-are in `.runtime/logs/` for live mode and `.runtime/mock-logs/` for mock mode;
-SafeScripts writes `.runtime/logs/safe-scripts.log`. Set machine-specific hub
+Start with `./start` or `./start --mock` (`start.cmd` on Windows). The supervisor
+writes `.runtime/logs/host-services.log`; SafeScripts writes
+`.runtime/logs/safe-scripts.log`. Set machine-specific hub
 and port values in `.env` or `.env.encrypt` as described above.
 
 ## Development and contributions

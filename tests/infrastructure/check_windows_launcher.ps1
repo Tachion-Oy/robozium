@@ -9,7 +9,7 @@ $bin = Join-Path $case 'bin'
 foreach ($file in @('start.cmd', 'process-compose.yaml', 'compose.yaml')) {
     Copy-Item -LiteralPath (Join-Path $source $file) -Destination (Join-Path $checkout $file)
 }
-foreach ($file in @('start-live.ps1', 'start-mock.ps1', 'compose.ps1')) {
+foreach ($file in @('start-live.ps1', 'start-mock.ps1')) {
     Copy-Item -LiteralPath (Join-Path $source "scripts/$file") -Destination (Join-Path $checkout "scripts/$file")
 }
 $dockerArgs = Join-Path $case 'docker-args.txt'
@@ -17,8 +17,13 @@ $dockerEnv = Join-Path $case 'docker-env.txt'
 @'
 @echo off
 if not "%1"=="compose" exit /b 9
+echo %* | findstr /C:"config --environment" >nul
+if not errorlevel 1 (
+    echo ROBOZIUM_HUB_ROOT=%TEST_LIVE_HUB%
+    exit /b 0
+)
 echo %* > "%TEST_DOCKER_ARGS%"
-echo %ROBOZIUM_HUB_ROOT% > "%TEST_DOCKER_ENV%"
+echo %ROBOZIUM_HOST_HUB_DIR% > "%TEST_DOCKER_ENV%"
 exit /b 0
 '@ | Set-Content -LiteralPath (Join-Path $bin 'docker.cmd')
 $savedPath = $env:PATH
@@ -41,6 +46,7 @@ try {
     if ($LASTEXITCODE -ne 2) { throw 'Invalid arguments were accepted' }
 
     $hub = Join-Path $case 'Live Hub with spaces'
+    $env:TEST_LIVE_HUB = $hub
     "ROBOZIUM_HUB_ROOT='$hub'" | Set-Content -LiteralPath (Join-Path $checkout '.env.encrypt')
     & cmd /c start.cmd
     if ($LASTEXITCODE -ne 0) { throw "Live launcher exited $LASTEXITCODE" }

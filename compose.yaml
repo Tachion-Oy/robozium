@@ -19,7 +19,7 @@ services:
       # Paths inside the API container, not host paths or .env settings.
       ROBOZIUM_HUB_ROOT: /hub
       ROBOZIUM_LOG_DIR: /logs
-      # Process Compose selects live/mock; no .env entry is needed.
+      # The launcher selects live/mock; no .env entry is needed.
       ROBOZIUM_MODE: "${ROBOZIUM_MODE:-mock}"
       # Container path to the mounted host socket; no .env entry is needed.
       ROBOZIUM_HOST_SCRIPT_SOCKET: /host-scripts/scripts.sock
@@ -27,7 +27,7 @@ services:
     stop_grace_period: 30s
     user: "${ROBOZIUM_API_USER:-10001:10001}"
     # Each source is on the host; each target is inside the container.
-    # Process Compose supplies ROBOZIUM_HOST_* paths for the selected mode.
+    # The launcher supplies ROBOZIUM_HOST_* paths for the selected mode.
     # Optional ROBOZIUM_HUB_ROOT in .env/.env.encrypt changes the live host
     # hub location only; the container still uses /hub.
     volumes:

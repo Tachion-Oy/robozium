@@ -1,4 +1,4 @@
-"""Exercise the shipped launchers with Process Compose and disposable external tools."""
+"""Exercise the shipped launchers with disposable external tools."""
 
 import os
 import shutil
@@ -16,7 +16,6 @@ SUPERVISOR = shutil.which("process-compose")
 
 @pytest.fixture
 def launch(tmp_path: Path) -> tuple[Path, dict[str, str]]:
-    assert SUPERVISOR, "Install Process Compose v1.122.0 for launcher tests"
     checkout = tmp_path / "checkout with spaces"
     checkout.mkdir()
     for name in ("start", "process-compose.yaml", "compose.yaml"):
@@ -24,15 +23,32 @@ def launch(tmp_path: Path) -> tuple[Path, dict[str, str]]:
     shutil.copytree(ROOT / "scripts", checkout / "scripts")
     tools = tmp_path / "bin"
     tools.mkdir()
-    (tools / "process-compose").symlink_to(SUPERVISOR)
+    # Keep optional executables on the host out of the test's PATH.
+    for name in ("sh", "bash", "dirname", "mkdir", "rmdir", "sed", "printenv", "id", "uname", "sleep", "cat", "chmod", "rm"):
+        executable = shutil.which(name)
+        assert executable, name
+        (tools / name).symlink_to(executable)
+    if SUPERVISOR:
+        (tools / "process-compose").symlink_to(SUPERVISOR)
     docker = tools / "docker"
     docker.write_text(
         "#!/bin/sh\n"
         "set -eu\n"
         "if [ \"$1\" = info ]; then printf '[]\\n'; exit 0; fi\n"
         "[ \"$1\" = compose ] || exit 9\n"
+        "case \"$*\" in *'config --environment')\n"
+        "  hub=\n"
+        "  for file in .env.encrypt .env; do\n"
+        "    if [ -f \"$file\" ]; then\n"
+        "      value=$(sed -n \"s/^ROBOZIUM_HUB_ROOT='\\(.*\\)'$/\\1/p\" \"$file\")\n"
+        "      if [ -n \"$value\" ]; then hub=$value; fi\n"
+        "    fi\n"
+        "  done\n"
+        "  printf 'ROBOZIUM_HUB_ROOT=%s\\n' \"${ROBOZIUM_HUB_ROOT:-$hub}\"\n"
+        "  exit 0;; esac\n"
         "printf '%s\\n' \"$@\" > \"$TEST_DOCKER_ARGS\"\n"
-        "if [ \"${TEST_REQUIRE_EXAMPLE:-}\" = 1 ]; then [ -f \"$TEST_EXAMPLE_READY\" ] || exit 8; fi\n"
+        "printf '%s\\n' \"$ROBOZIUM_HOST_HUB_DIR\" > \"$TEST_DOCKER_HUB\"\n"
+        "printf '%s\\n' \"$ROBOZIUM_MODE\" > \"$TEST_DOCKER_MODE\"\n"
         "if [ \"${TEST_DOCKER_WAIT:-}\" = 1 ]; then\n"
         "  : > \"$TEST_DOCKER_READY\"\n"
         "  trap 'printf stopped > \"$TEST_DOCKER_STOPPED\"; exit 0' TERM INT\n"
@@ -65,8 +81,10 @@ def launch(tmp_path: Path) -> tuple[Path, dict[str, str]]:
     uv.chmod(0o755)
     env = {
         **os.environ,
-        "PATH": f"{tools}:{os.environ['PATH']}",
+        "PATH": str(tools),
         "TEST_DOCKER_ARGS": str(tmp_path / "docker-args"),
+        "TEST_DOCKER_HUB": str(tmp_path / "docker-hub"),
+        "TEST_DOCKER_MODE": str(tmp_path / "docker-mode"),
         "TEST_SIDECAR_HUB": str(tmp_path / "sidecar-hub"),
         "TEST_DOCKER_READY": str(tmp_path / "docker-ready"),
         "TEST_DOCKER_STOPPED": str(tmp_path / "docker-stopped"),
@@ -79,6 +97,13 @@ def launch(tmp_path: Path) -> tuple[Path, dict[str, str]]:
     for name in ("ROBOZIUM_HUB_ROOT", "OPENROUTER_API_KEY_SECRET", "TEST_DOCKER_WAIT"):
         env.pop(name, None)
     return checkout, env
+
+
+@pytest.fixture
+def host_launch(launch):
+    if not SUPERVISOR:
+        pytest.skip("Optional host-process integration needs Process Compose v1.122.0")
+    return launch
 
 
 def _run(checkout: Path, env: dict[str, str], *args: str) -> subprocess.CompletedProcess[str]:
@@ -112,12 +137,13 @@ def test_argument_validation_and_mock_isolation(launch):
         "up", "--build", "--exit-code-from", "api"
     ]
     assert not Path(env["TEST_SIDECAR_STARTS"]).exists()
+    assert Path(env["TEST_DOCKER_MODE"]).read_text().strip() == "mock"
     assert not (checkout / ".runtime/host-scripts-venv").exists()
     assert not (checkout / ".runtime/launch.lock").exists()
 
 
-def test_live_uses_explicit_sidecar_and_encrypted_settings(launch, tmp_path):
-    checkout, env = launch
+def test_live_uses_explicit_sidecar_and_encrypted_settings(host_launch, tmp_path):
+    checkout, env = host_launch
     hub = tmp_path / 'Hub with "quotes" and spaces'
     (checkout / ".env.encrypt").write_text(
         f"ROBOZIUM_HUB_ROOT='{hub}'\n"
@@ -129,6 +155,7 @@ def test_live_uses_explicit_sidecar_and_encrypted_settings(launch, tmp_path):
     assert Path(env["TEST_SIDECAR_HUB"]).read_text().strip() == str(hub)
     assert Path(env["TEST_SIDECAR_STARTS"]).read_text().splitlines() == ["started"]
     assert Path(env["TEST_SIDECAR_SECRET"]).read_text().strip() == "unset"
+    assert Path(env["TEST_DOCKER_MODE"]).read_text().strip() == "live"
     assert "--env-file\n.env.encrypt" in Path(env["TEST_DOCKER_ARGS"]).read_text()
     assert not (checkout / ".runtime/launch.lock").exists()
 
@@ -139,7 +166,7 @@ def test_plaintext_takes_precedence_for_host_path(launch, tmp_path):
     (checkout / ".env").write_text("ROBOZIUM_HUB_ROOT='../Right Hub'\n")
     result = _run(checkout, env)
     assert result.returncode == 0, result.stderr
-    assert Path(env["TEST_SIDECAR_HUB"]).read_text().strip() == "../Right Hub"
+    assert Path(env["TEST_DOCKER_HUB"]).read_text().strip() == "../Right Hub"
     assert Path(env["TEST_DOCKER_ARGS"]).read_text().splitlines()[:5] == [
         "compose", "--env-file", ".env.encrypt", "--env-file", ".env"
     ]
@@ -150,9 +177,30 @@ def test_mock_ignores_missing_live_sidecar_prerequisites(launch):
     (checkout / ".env.encrypt").write_text("OPENROUTER_API_KEY_SECRET='roboz:synthetic'\n")
     (checkout / ".runtime/mock-hub/readonly/safe-scripts").mkdir(parents=True)
     (Path(env["PATH"].split(os.pathsep)[0]) / "uv").unlink()
+    (Path(env["PATH"]) / "process-compose").unlink(missing_ok=True)
     result = _run(checkout, env, "--mock")
     assert result.returncode == 0, result.stderr
     assert not Path(env["TEST_SIDECAR_STARTS"]).exists()
+
+
+@pytest.mark.parametrize("missing", ["process-compose", "uv", "failed-supervisor"])
+def test_live_ignores_unavailable_optional_processes(launch, missing):
+    checkout, env = launch
+    tools = Path(env["PATH"])
+    if missing == "failed-supervisor":
+        supervisor = tools / "process-compose"
+        supervisor.unlink(missing_ok=True)
+        supervisor.write_text("#!/bin/sh\nexit 7\n")
+        supervisor.chmod(0o755)
+    else:
+        (tools / missing).unlink(missing_ok=True)
+    (checkout / ".env.encrypt").write_text("ROBOZIUM_HUB_ROOT='../Live Hub'\n")
+    result = _run(checkout, env)
+    assert result.returncode == 0, result.stderr
+    assert Path(env["TEST_DOCKER_HUB"]).read_text().strip() == "../Live Hub"
+    assert (checkout.parent / "Live Hub/readonly/safe-scripts").is_dir()
+    assert not Path(env["TEST_SIDECAR_STARTS"]).exists()
+    assert not (checkout / ".runtime/launch.lock").exists()
 
 
 def test_invalid_storage_stops_before_application(launch):
@@ -165,28 +213,39 @@ def test_invalid_storage_stops_before_application(launch):
     assert (checkout / ".runtime/mock-hub").read_text() == "keep me"
 
 
-def test_new_sidecar_needs_only_yaml_declaration_and_dependency(launch):
-    checkout, env = launch
+def test_new_sidecar_needs_only_yaml_declaration(host_launch):
+    checkout, env = host_launch
     config_path = checkout / "process-compose.yaml"
     config = yaml.safe_load(config_path.read_text())
     config["processes"]["example"] = {
+        "namespace": "live-Linux",
         "command": 'sh -c \': > "$$TEST_EXAMPLE_READY"; trap "exit 0" TERM INT; while :; do sleep 1 & wait $$! || :; done\'',
         "readiness_probe": {"exec": {"command": 'test -f "$$TEST_EXAMPLE_READY"'}, "period_seconds": 1},
         "availability": {"restart": "exit_on_failure"},
     }
-    config["processes"]["live-Linux"]["depends_on"]["example"] = {
-        "condition": "process_healthy"
-    }
     config_path.write_text(yaml.safe_dump(config))
-    env["TEST_REQUIRE_EXAMPLE"] = "1"
-    result = _run(checkout, env)
-    assert result.returncode == 0, result.stderr
-    assert Path(env["TEST_EXAMPLE_READY"]).exists()
+    env["TEST_DOCKER_WAIT"] = "1"
+    env["TEST_SIDECAR_FAIL"] = "startup"
+    process = subprocess.Popen(
+        [str(checkout / "start")], cwd=checkout, env=env,
+        text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True,
+    )
+    try:
+        _wait_for(Path(env["TEST_DOCKER_READY"]), process)
+        _wait_for(Path(env["TEST_EXAMPLE_READY"]), process)
+        assert process.poll() is None
+        os.kill(process.pid, signal.SIGINT)
+        process.communicate(timeout=12)
+        assert Path(env["TEST_DOCKER_STOPPED"]).exists()
+    finally:
+        if process.poll() is None:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.communicate(timeout=5)
 
 
 @pytest.mark.parametrize("failure", ["startup", "crash"])
-def test_sidecar_failure_is_bounded_and_keeps_dependency_ui_available(launch, failure):
-    checkout, env = launch
+def test_sidecar_failure_is_bounded_and_keeps_dependency_ui_available(host_launch, failure):
+    checkout, env = host_launch
     env["TEST_DOCKER_WAIT"] = "1"
     env["TEST_SIDECAR_FAIL"] = failure
     process = subprocess.Popen(
@@ -215,7 +274,8 @@ def test_sidecar_failure_is_bounded_and_keeps_dependency_ui_available(launch, fa
             process.communicate(timeout=5)
 
 
-def test_application_exit_and_duplicate_launch_cleanup(launch):
+@pytest.mark.parametrize("shutdown_signal", [signal.SIGINT, signal.SIGTERM])
+def test_application_exit_and_duplicate_launch_cleanup(launch, shutdown_signal):
     checkout, env = launch
     env["TEST_DOCKER_WAIT"] = "1"
     process = subprocess.Popen(
@@ -227,8 +287,9 @@ def test_application_exit_and_duplicate_launch_cleanup(launch):
         duplicate = _run(checkout, env, "--mock")
         assert duplicate.returncode != 0
         assert process.poll() is None
-        os.kill(process.pid, signal.SIGINT)
+        os.kill(process.pid, shutdown_signal)
         process.communicate(timeout=12)
+        assert process.returncode == 128 + shutdown_signal
         assert Path(env["TEST_DOCKER_STOPPED"]).exists()
         assert not (checkout / ".runtime/launch.lock").exists()
     finally:
@@ -237,8 +298,9 @@ def test_application_exit_and_duplicate_launch_cleanup(launch):
             process.communicate(timeout=5)
 
 
-def test_compose_exit_status_is_reported(launch):
+@pytest.mark.parametrize("args", [(), ("--mock",)])
+def test_compose_exit_status_is_reported(launch, args):
     checkout, env = launch
     env["TEST_DOCKER_EXIT"] = "17"
-    result = _run(checkout, env, "--mock")
+    result = _run(checkout, env, *args)
     assert result.returncode == 17
