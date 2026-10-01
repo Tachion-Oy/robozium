@@ -15,56 +15,70 @@
   display: inline-flex;
   align-items: center;
   max-width: 100%;
-  --nav-brand-glow:
-    0 0 1px white,
-    0 0 4px var(--term-lime),
-    0 0 16px color-mix(in oklab, var(--term-lime) 95%, transparent),
-    0 0 40px color-mix(in oklab, var(--term-lime) 75%, transparent),
-    0 0 80px color-mix(in oklab, var(--term-lime) 50%, transparent),
-    0 0 130px color-mix(in oklab, var(--term-lime) 28%, transparent);
-  --nav-brand-glow-hover:
-    0 0 2px white,
-    0 0 6px white,
-    0 0 12px var(--term-lime),
-    0 0 30px color-mix(in oklab, var(--term-lime) 95%, transparent),
-    0 0 60px color-mix(in oklab, var(--term-lime) 80%, transparent),
-    0 0 110px color-mix(in oklab, var(--term-lime) 55%, transparent),
-    0 0 170px color-mix(in oklab, var(--term-lime) 32%, transparent);
   font-size: clamp(2rem, 6vw, 5rem);
   line-height: 1;
   color: white;
-  text-shadow: var(--nav-brand-glow);
-  filter:
+  --nav-brand-filter:
     drop-shadow(0 0 0.07em var(--term-lime))
     drop-shadow(0 0 0.25em color-mix(in oklab, var(--term-lime) 80%, transparent))
     drop-shadow(0 0 0.48em color-mix(in oklab, var(--term-lime) 50%, transparent));
+  --nav-brand-filter-hover:
+    drop-shadow(0 0 0.1em var(--term-lime))
+    drop-shadow(0 0 0.32em color-mix(in oklab, var(--term-lime) 95%, transparent))
+    drop-shadow(0 0 0.6em color-mix(in oklab, var(--term-lime) 72%, transparent));
   text-decoration: none;
   user-select: none;
   white-space: nowrap;
   cursor: pointer;
-  transition: text-shadow 180ms ease, color 180ms ease, filter 180ms ease;
 }
 
 /* Top-bar instance renders smaller / tighter than the shared base. (Kept in CSS
    rather than Tailwind because the unlayered base rule would outrank a utility.) */
 .app-nav__brand--bar {
-  font-size: clamp(28px, 3.84vw, 40px);
+  font-size: var(--landing-title-size);
+  width: calc(13.97 * 1em);
   transform: translateY(0.24em);
 }
 
 @media (max-height: 800px) {
-  .app-nav__row {
-    min-height: var(--landing-nav-compact-height);
+  :root {
+    --landing-nav-height: max(
+      min(var(--landing-nav-compact-height), calc(var(--landing-viewport-height) * 0.25)),
+      calc(var(--landing-title-size) * 1.48 + 2 * var(--landing-hud-edge-gap))
+    );
   }
 }
 
+.app-nav__row {
+  width: var(--landing-viewport-width);
+  margin-left: var(--landing-viewport-left);
+  height: calc(var(--landing-nav-height) + var(--landing-viewport-top));
+  padding-top: var(--landing-viewport-top);
+}
+
 .app-nav__brand-label {
-  display: inline-block;
-  max-width: min(100%, calc(100vw - 6rem));
+  display: block;
+  width: 100%;
+}
+
+/* Filter an unmasked decorative wrapper, with no clipped accessibility text
+   inside it. The nav's z-index lets the bloom paint over the terminal below;
+   applying the filter to the masked artwork itself would clip the bloom. */
+.app-nav__brand-art {
+  display: block;
+  filter: var(--nav-brand-filter);
+}
+
+.app-nav__brand:hover .app-nav__brand-art,
+.app-nav__brand:focus-visible .app-nav__brand-art {
+  /* Render the new halo once per interaction rather than rastering a changing
+     blur on every transition frame. */
+  filter: var(--nav-brand-filter-hover);
 }
 
 .app-nav__brand .display-art {
-  max-width: min(100%, calc(100vw - 6rem));
+  display: block;
+  width: 100%;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -98,11 +112,6 @@
   outline: none;
   cursor: pointer;
   color: white;
-  text-shadow: var(--nav-brand-glow-hover);
-  filter:
-    drop-shadow(0 0 0.1em var(--term-lime))
-    drop-shadow(0 0 0.32em color-mix(in oklab, var(--term-lime) 95%, transparent))
-    drop-shadow(0 0 0.6em color-mix(in oklab, var(--term-lime) 72%, transparent));
 }
 
 .app-nav__cta {

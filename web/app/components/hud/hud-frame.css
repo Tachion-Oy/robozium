@@ -17,13 +17,27 @@
   background: var(--hud-dim-bg);
 }
 
+.agent-hud--landing {
+  top: var(--landing-viewport-top);
+  left: var(--landing-viewport-left);
+  right: auto;
+  bottom: auto;
+  height: var(--landing-viewport-height);
+  width: var(--landing-viewport-width);
+}
+
+.agent-hud--landing .agent-hud__box {
+  max-width: calc(var(--landing-viewport-width) * 0.78);
+  max-height: calc(var(--landing-viewport-height) - 2 * (var(--landing-nav-height) + var(--landing-hud-edge-gap)));
+}
+
 @media (max-height: 800px) {
   .agent-hud--landing {
-    padding-top: var(--landing-nav-compact-height);
+    padding-top: var(--landing-nav-height);
   }
 
   .agent-hud--landing .agent-hud__box {
-    max-height: calc(100dvh - var(--landing-nav-compact-height) - var(--landing-hud-edge-gap));
+    max-height: calc(var(--landing-viewport-height) - var(--landing-nav-height) - var(--landing-hud-edge-gap));
   }
 }
 

@@ -4,6 +4,7 @@ import { preload } from "react-dom"
 import { HUB_NAME } from "@/lib/robozium/public-config"
 import { APP_THEME_COOKIE_NAME, parseAppTheme } from "@/lib/theme"
 import { AppNav } from "./components/nav"
+import { ViewportBounds } from "./components/ViewportBounds"
 import { AppToaster } from "./components/feedback/AppToaster"
 import "./globals.css"
 
@@ -39,6 +40,7 @@ export default async function RootLayout({
 				    pseudo-element hosts down one level puts them on a normal stacking
 					context and -- if that was the cause -- clears the moire. */}
 				<div className="term-scanlines term-vignette relative flex flex-1 flex-col min-h-0">
+					<ViewportBounds />
 					<AppNav />
 					<AppToaster />
 					{children}

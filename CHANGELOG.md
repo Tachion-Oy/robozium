@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Render the landing title glow independently of clipped accessibility text.
+  Scale the title to narrow viewports and keep the landing HUD below it as
+  the browser's reported visible viewport changes. Keep hover glow updates
+  static to avoid animating blur filters.
+
 - Start Docker Compose directly; missing Process Compose or failed optional host
   processes no longer prevent live or mock application startup.
 

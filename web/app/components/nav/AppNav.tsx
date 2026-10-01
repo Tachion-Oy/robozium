@@ -13,7 +13,15 @@ function AppNavBrand({ label }: { label: string }) {
 		<span
 			className="app-nav__brand-label"
 			data-pending={pending || undefined}>
-			<DisplayArt name="robozium" label={label} />
+			<span
+				className="app-nav__brand-art"
+				aria-hidden="true">
+				<DisplayArt
+					name="robozium"
+					decorative
+				/>
+			</span>
+			<span className="sr-only">{label}</span>
 		</span>
 	)
 }
@@ -26,8 +34,8 @@ function AppNavContent({
 	playLandingIntro: boolean
 }) {
 	return (
-		<div className="app-nav__row relative z-60 h-[8vh] shrink-0">
-			<nav className="flex h-full items-center justify-center px-12">
+		<div className="app-nav__row relative z-60 shrink-0">
+			<nav className="flex h-full items-center justify-center px-(--landing-nav-inset)">
 				<Link
 					href={{
 						pathname: "/",
