@@ -20,14 +20,16 @@ const labels: Record<DisplayArtName, string> = {
 export function DisplayArt({
 	name,
 	label = labels[name],
+	decorative = false,
 }: {
 	name: DisplayArtName
 	label?: string
+	decorative?: boolean
 }) {
 	return (
 		<>
 			<span className={`display-art display-art--${name}`} aria-hidden="true" />
-			<span className="sr-only">{label}</span>
+			{!decorative && <span className="sr-only">{label}</span>}
 		</>
 	)
 }

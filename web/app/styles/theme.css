@@ -22,7 +22,25 @@
   --app-ui-scale: 0.75;
   --app-ui-root-font-size: 75%;
   --landing-nav-compact-height: 96px;
+  --landing-viewport-height: 100dvh;
+  --landing-viewport-top: 0px;
+  --landing-viewport-width: 100dvw;
+  --landing-viewport-left: 0px;
+  --landing-nav-inset: min(3rem, calc(var(--landing-viewport-width) * 0.05));
+  --landing-title-size: min(
+    clamp(28px, calc(var(--landing-viewport-width) * 0.0384), 40px),
+    calc((var(--landing-viewport-width) - 2 * var(--landing-nav-inset)) / 13.97),
+    calc(var(--landing-viewport-height) * 0.2)
+  );
+  /* The title's 0.24em downward offset needs 0.48em of centered row clearance. */
+  --landing-nav-height: max(
+    calc(var(--landing-viewport-height) * 0.08),
+    calc(var(--landing-title-size) * 1.48 + 2 * var(--landing-hud-edge-gap))
+  );
   --landing-hud-edge-gap: 12px;
+  --landing-hud-min-height: 40rem;
+  --landing-hud-clearance-top: var(--landing-nav-height);
+  --landing-hud-clearance-bottom: var(--landing-hud-clearance-top);
 
   /* Base surface */
   --term-bg: #07080a;
