@@ -17,23 +17,58 @@
   background: var(--hud-dim-bg);
 }
 
+/* The landing page can exceed the visible viewport when a keyboard appears.
+   Keep the HUD in page flow so document scrolling reaches its entire shell. */
+body:has(.agent-hud--landing) {
+  --landing-page-min-height: calc(
+    var(--landing-viewport-top) + var(--landing-hud-clearance-top) +
+    var(--landing-hud-min-height) + var(--landing-hud-clearance-bottom) +
+    2 * var(--landing-hud-edge-gap)
+  );
+  /* Root scrolling still uses the layout viewport when a keyboard only
+     shrinks the visual viewport. Reserve its obscured part below the page so
+     scrolling can bring the bottom of the HUD into the visible area. */
+  --landing-page-scroll-tail: max(
+    0px,
+    calc(100dvh - var(--landing-viewport-height) - var(--landing-viewport-top))
+  );
+  min-height: calc(var(--landing-page-min-height) + var(--landing-page-scroll-tail));
+  height: calc(
+    max(
+      calc(var(--landing-viewport-top) + var(--landing-viewport-height)),
+      var(--landing-page-min-height)
+    ) + var(--landing-page-scroll-tail)
+  );
+  padding-bottom: var(--landing-page-scroll-tail);
+  overflow: auto;
+}
+
+body:has(.agent-hud--landing) .term-frame {
+  position: absolute;
+  top: calc(var(--landing-viewport-top) + var(--landing-nav-height));
+  bottom: 0;
+}
+
 .agent-hud--landing {
-  top: var(--landing-viewport-top);
-  left: var(--landing-viewport-left);
-  right: auto;
-  bottom: auto;
-  height: var(--landing-viewport-height);
+  position: relative;
+  inset: auto;
+  flex: 1 0 auto;
+  margin-top: calc(-1 * var(--landing-nav-height));
+  margin-left: var(--landing-viewport-left);
   width: var(--landing-viewport-width);
+  padding-top: var(--landing-hud-clearance-top);
+  padding-bottom: var(--landing-hud-clearance-bottom);
 }
 
 .agent-hud--landing .agent-hud__box {
   max-width: calc(var(--landing-viewport-width) * 0.78);
+  min-height: var(--landing-hud-min-height);
   max-height: calc(var(--landing-viewport-height) - 2 * (var(--landing-nav-height) + var(--landing-hud-edge-gap)));
 }
 
 @media (max-height: 800px) {
-  .agent-hud--landing {
-    padding-top: var(--landing-nav-height);
+  :root {
+    --landing-hud-clearance-bottom: 0px;
   }
 
   .agent-hud--landing .agent-hud__box {

@@ -38,6 +38,9 @@
     calc(var(--landing-title-size) * 1.48 + 2 * var(--landing-hud-edge-gap))
   );
   --landing-hud-edge-gap: 12px;
+  --landing-hud-min-height: 40rem;
+  --landing-hud-clearance-top: var(--landing-nav-height);
+  --landing-hud-clearance-bottom: var(--landing-hud-clearance-top);
 
   /* Base surface */
   --term-bg: #07080a;

@@ -67,7 +67,7 @@ test("keeps the complete title above the expanded HUD in narrow and short viewpo
 				const art = document.querySelector(".app-nav__brand .display-art")!.getBoundingClientRect()
 				const hud = document.querySelector(".agent-hud__box")!.getBoundingClientRect()
 				return art.left >= 0 && art.right <= innerWidth && art.top >= 0 &&
-					art.bottom + 10 < hud.top && hud.bottom <= innerHeight + 1
+					art.bottom + 10 < hud.top
 			})).toBe(true)
 			const art = await page.locator(".app-nav__brand .display-art").boundingBox()
 			expect(art!.width / art!.height).toBeCloseTo(13.97, 1)
@@ -96,9 +96,72 @@ test("follows visible viewport changes without a layout viewport resize", async 
 				const hud = document.querySelector(".agent-hud__box")!.getBoundingClientRect()
 				return title.left >= 100 && title.right <= 400 &&
 					hud.left >= 100 && hud.right <= 400 &&
-					title.top >= top && title.bottom + 10 < hud.top && hud.bottom <= top + 401
+					title.top >= top && title.bottom + 10 < hud.top
 			}, { top })).toBe(true)
 		}
+	}
+})
+
+test("preserves normal landing layout without document scrolling", async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: "reduce" })
+	await gotoLanding(page)
+	for (const viewport of [{ width: 1920, height: 1080 }, { width: 1280, height: 720 }, { width: 1440, height: 900 }]) {
+		await page.setViewportSize(viewport)
+		for (const theme of ["dark", "light"] as const) {
+			await page.evaluate((value) => { document.documentElement.dataset.theme = value }, theme)
+			for (const size of ["Home", "End"] as const) {
+				await page.getByRole("slider", { name: "Resize HUD" }).focus()
+				await page.keyboard.press(size)
+				await expect.poll(() => page.evaluate(({ width, height, expanded }) => {
+					const hud = document.querySelector(".agent-hud__box")!.getBoundingClientRect()
+					const nav = document.querySelector(".app-nav__row")!.getBoundingClientRect()
+					const center = height <= 800 ? (height + nav.height) / 2 : height / 2
+					const maximumHeight = height <= 800 ? height - nav.height - 12 : height - 2 * (nav.height + 12)
+					const expectedHeight = expanded ? Math.min(height * 0.84, maximumHeight) : 480
+					const expectedWidth = expanded ? width * 0.78 : 816
+					return Math.abs(hud.y + hud.height / 2 - center) < 1 &&
+						Math.abs(hud.height - expectedHeight) < 1 && Math.abs(hud.width - expectedWidth) < 1 &&
+						document.documentElement.scrollHeight <= innerHeight + 1
+				}, { ...viewport, expanded: size === "End" })).toBe(true)
+			}
+		}
+	}
+})
+
+test("scrolls the page to reach HUD controls when a keyboard shrinks only the visible viewport", async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: "reduce" })
+	await page.setViewportSize({ width: 1280, height: 900 })
+	await page.addInitScript(() => {
+		const viewport = Object.assign(new EventTarget(), { height: innerHeight, width: innerWidth, offsetTop: 0, offsetLeft: 0, scale: 1 })
+		Object.defineProperty(window, "visualViewport", { value: viewport })
+	})
+	await gotoLanding(page)
+	for (const theme of ["dark", "light"] as const) {
+		await page.evaluate((value) => {
+			window.scrollTo(0, 0)
+			document.documentElement.dataset.theme = value
+			Object.assign(window.visualViewport!, { height: 300 })
+			window.visualViewport!.dispatchEvent(new Event("resize"))
+		}, theme)
+		await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight > innerHeight)).toBe(true)
+		const minimumHeight = await page.locator(".agent-hud__box").evaluate((element) => Number.parseFloat(getComputedStyle(element).minHeight))
+		expect(minimumHeight).toBe(480)
+		expect((await page.locator(".agent-hud__box").boundingBox())!.height).toBeGreaterThanOrEqual(minimumHeight)
+		await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+		await expect.poll(() => page.evaluate(() => {
+			const hud = document.querySelector(".agent-hud__box")!.getBoundingClientRect()
+			return scrollY > 0 && hud.bottom <= window.visualViewport!.height
+		})).toBe(true)
+		// Clicking proves that the real control is reachable, rather than merely
+		// checking that the shell has a scrollable bounding rectangle.
+		await page.getByRole("button", { name: "New Project", exact: true }).click()
+		await expect(page.getByRole("textbox", { name: "Project name" })).toBeVisible()
+		await page.locator("form").getByRole("button", { name: "Cancel", exact: true }).click()
+		await page.evaluate(() => {
+			Object.assign(window.visualViewport!, { height: innerHeight })
+			window.visualViewport!.dispatchEvent(new Event("resize"))
+		})
+		await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1 && scrollY === 0)).toBe(true)
 	}
 })
 

@@ -76,7 +76,7 @@
   filter: var(--nav-brand-filter-hover);
 }
 
-.app-nav__brand .display-art {
+.app-nav__brand--bar .display-art {
   display: block;
   width: 100%;
 }

@@ -6,6 +6,8 @@
   Scale the title to narrow viewports and keep the landing HUD below it as
   the browser's reported visible viewport changes. Keep hover glow updates
   static to avoid animating blur filters.
+  Let the landing page scroll when the visible viewport cannot fit the HUD's
+  minimum height, keeping its controls reachable when a keyboard appears.
 
 - Start Docker Compose directly; missing Process Compose or failed optional host
   processes no longer prevent live or mock application startup.
