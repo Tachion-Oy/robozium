@@ -302,9 +302,9 @@ the supported user runtime on all three operating systems.
 See [Code style](docs/code-style.md), [Testing](docs/testing.md), and
 [Testing practices](docs/testing-practices.md). The
 [CI workflow](.github/workflows/ci.yml) defines the PR checks; the
-[Full E2E workflow](.github/workflows/e2e.yml) runs after merges to `main` or
-manual dispatch. Its wheel and source archive checks validate internal
-installation, not PyPI publication.
+[Full E2E workflow](.github/workflows/e2e.yml) also runs on every PR, pushes to
+`main`, and manual dispatch. Both checks must pass before merging. Wheel and
+source archive checks validate internal installation, not PyPI publication.
 
 ## Module map
 

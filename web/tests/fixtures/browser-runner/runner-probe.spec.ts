@@ -10,6 +10,7 @@ for (let index = 0; index < 3; index++) {
   probe(`probe failure ${index}`, () => expect(1).toBe(2))
 }
 probe('probe passing', () => expect(1).toBe(1))
+probe('probe skipped', () => test.skip(true, 'unexpected infrastructure skip'))
 probe('probe sleeping', async () => {
   await new Promise((resolve) => setTimeout(resolve, 10_000))
 })

@@ -1,3 +1,4 @@
+import { waitForHudLayout } from "./hud-layout"
 import { expect, test } from "./fixtures"
 import { gotoLanding } from "./helpers"
 
@@ -462,7 +463,7 @@ test("keeps chosen size on run entry while content uses the available space", as
 			height: window.innerHeight * 0.84,
 		}
 	})
-	await page.waitForTimeout(250)
+	await waitForHudLayout(page)
 	const maximumSize = await box.evaluate((element) => {
 		const style = (element as HTMLElement).style
 		return {
@@ -476,7 +477,7 @@ test("keeps chosen size on run entry while content uses the available space", as
 	await page.reload()
 	await expect(handle).toBeVisible({ timeout: 15_000 })
 	await expect(handle).toHaveAttribute("aria-valuenow", "0")
-	await page.waitForTimeout(250)
+	await waitForHudLayout(page)
 	for (const theme of ["dark", "light"] as const) {
 		await page.evaluate((nextTheme) => {
 			document.documentElement.dataset.theme = nextTheme

@@ -28,6 +28,7 @@
 - Read [Code style](docs/code-style.md) before source changes, and
   [Testing practices](docs/testing-practices.md) when changing behavior or tests.
   [Testing](docs/testing.md) documents commands and the Full E2E policy.
+- **Full E2E must pass in CI before merging.**
 - Follow [Security](SECURITY.md) for private vulnerability reporting.
 - Inspect the working tree and preserve user changes. Do not create issues or
   PRs, bump versions, tag, or publish unless requested. At handoff, state what

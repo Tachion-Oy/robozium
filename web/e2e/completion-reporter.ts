@@ -26,6 +26,9 @@ export default class CompletionReporter implements Reporter {
 		const tests = this.suite?.allTests() ?? []
 		const outcomes = { expected: 0, unexpected: 0, flaky: 0, skipped: 0 }
 		for (const test of tests) outcomes[test.outcome()] += 1
+		const expectedSkipped = tests.filter((test) => test.outcome() === "skipped" &&
+			test.annotations.some((annotation) => annotation.type === "expected-skip" &&
+				annotation.description === "requires a synthetic encrypted file")).length
 		const failureLimit = this.config?.maxFailures ?? 0
 		const failureLimitReached = failureLimit > 0 &&
 			outcomes.unexpected + outcomes.flaky >= failureLimit &&
@@ -35,7 +38,8 @@ export default class CompletionReporter implements Reporter {
 			errors: this.errors,
 			outcomes,
 			total: tests.length,
-			started: this.started.size,
+			started: [...this.started].filter((test) => test.outcome() !== "skipped").length,
+			expected_skipped: expectedSkipped,
 			failure_limit_reached: failureLimitReached,
 			stopped_early: result.status === "timedout" || result.status === "interrupted" || failureLimitReached,
 		}

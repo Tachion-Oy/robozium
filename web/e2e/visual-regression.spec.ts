@@ -1,12 +1,9 @@
 import { expect, test } from "./fixtures"
-import { type Locator, type Page } from "@playwright/test"
+import { type APIRequestContext, type Locator, type Page } from "@playwright/test"
 import { createProject, gotoLanding, selectHudView, waitFor } from "./helpers"
+import { waitForHudLayout } from "./hud-layout"
 
 const VIEWPORT = { width: 1920, height: 1080 }
-// Containerized Chromium differs from the checked-in baselines by roughly
-// 2,200 stable antialiased raster pixels while preserving layout. Keep a
-// narrow absolute allowance so larger full-page regressions still fail.
-const CI_RASTER_MAX_DIFF_PIXELS = 2_500
 const VISUAL_PROJECTS = [
 	{
 		slug: "atlas-console",
@@ -54,7 +51,6 @@ const VISUAL_DEPENDENCIES = [
 ]
 
 test.use({ viewport: VIEWPORT })
-test.describe.configure({ mode: "serial" })
 
 async function stabilize(page: Page) {
 	await page.emulateMedia({ reducedMotion: "reduce" })
@@ -67,7 +63,7 @@ async function stabilize(page: Page) {
 			}
 		`,
 	})
-	await page.evaluate(() => document.fonts.ready)
+	await waitForHudLayout(page)
 }
 
 async function setTheme(page: Page, theme: "dark" | "light") {
@@ -82,32 +78,24 @@ async function expectThemePair(
 	page: Page,
 	locator: Locator,
 	name: string,
-	options: {
-		fullPage?: boolean
-		maxDiffPixelRatio?: number
-		maxDiffPixels?: number
-	} = {},
+	options: { fullPage?: boolean } = {},
 ) {
 	for (const theme of ["dark", "light"] as const) {
 		await setTheme(page, theme)
+		if (name !== "minimized-hud") await waitForHudLayout(page, [".agent-hud__header-actions"])
 		const target = options.fullPage ? page : locator
 		await expect(target).toHaveScreenshot(`${name}-${theme}.png`, {
 			animations: "disabled",
 			caret: "hide",
-			maxDiffPixelRatio: options.maxDiffPixelRatio,
-			maxDiffPixels: options.maxDiffPixels,
+			maxDiffPixelRatio: 0.002,
+			threshold: 0.2,
 			fullPage: options.fullPage,
 		})
 	}
 }
 
-test("freezes landing, menus, run views, minimized HUD, and warning toast", async ({
-	page,
-	request,
-}) => {
-	test.setTimeout(120_000)
-	const collectCssCoverage = process.env.ROBOZIUM_CSS_COVERAGE === "1"
-	if (collectCssCoverage) await page.coverage.startCSSCoverage()
+test.beforeEach(async ({ page }) => {
+	if (process.env.ROBOZIUM_CSS_COVERAGE === "1") await page.coverage.startCSSCoverage()
 	await page.route("**/api/projects", async (route) => {
 		if (route.request().method() === "GET") {
 			await route.fulfill({ json: VISUAL_PROJECTS })
@@ -121,33 +109,41 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 		}
 		return route.fulfill({ json: VISUAL_DEPENDENCIES })
 	})
+})
 
+test.afterEach(async ({ page }) => {
+	if (process.env.ROBOZIUM_CSS_COVERAGE === "1") {
+		const entries = await page.coverage.stopCSSCoverage()
+		const totals = entries.reduce(
+			(result, entry) => ({
+				used: result.used + entry.ranges.reduce(
+					(sum, range) => sum + range.end - range.start,
+					0,
+				),
+				total: result.total + (entry.text?.length ?? 0),
+			}),
+			{ used: 0, total: 0 },
+		)
+		console.info(
+			`CSS coverage: ${totals.used}/${totals.total} bytes (${(
+				(totals.used / totals.total) *
+				100
+			).toFixed(1)}%)`,
+		)
+	}
+})
+
+async function landing(page: Page) {
 	await gotoLanding(page)
 	await stabilize(page)
 	await selectHudView(page, "Dependencies")
 	await selectHudView(page, "Runs Overview")
 	await expect(page.getByText("atlas-console", { exact: true })).toBeVisible()
-	await expectThemePair(page, page.locator("html"), "landing-overview", {
-		fullPage: true,
-		maxDiffPixels: CI_RASTER_MAX_DIFF_PIXELS,
-	})
+}
 
-	await page.locator(".agent-hud__model-trigger").first().click()
-	await expectThemePair(
-		page,
-		page.locator(".agent-hud__header"),
-		"model-menu",
-	)
-	await page.keyboard.press("Escape")
-	await page.locator(".agent-hud__view-trigger").click()
-	await expectThemePair(
-		page,
-		page.locator(".agent-hud__header"),
-		"view-menu",
-	)
-	await page.keyboard.press("Escape")
-
-	const slug = await createProject(request, "Visual Regression")
+async function activeRun(page: Page, request: APIRequestContext) {
+	test.setTimeout(120_000)
+	const slug = await createProject(request, `Visual Regression ${Date.now()}`)
 	const projectsResponse = await request.get("/api/projects")
 	const projects = projectsResponse.ok()
 		? ((await projectsResponse.json()) as Array<{
@@ -194,9 +190,29 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 		"awaiting-input",
 		{ timeout: 20_000 },
 	)
+	await waitForHudLayout(page)
+}
+
+test("freezes landing overview", async ({ page }) => {
+	await landing(page)
+	await expectThemePair(page, page.locator("html"), "landing-overview", { fullPage: true })
+})
+
+for (const menu of ["model", "view"] as const) {
+	test(`freezes ${menu} menu`, async ({ page }) => {
+		await landing(page)
+		await page.locator(`.agent-hud__${menu}-trigger`).first().click()
+		await expectThemePair(page, page.locator(".agent-hud__header"), `${menu}-menu`)
+	})
+}
+
+test("freezes active run awaiting input and checks header geometry", async ({ page, request }) => {
+	await activeRun(page, request)
+
 	await setTheme(page, "light")
 	for (const width of [1920, 1200, 1050]) {
 		await page.setViewportSize({ width, height: VIEWPORT.height })
+		await waitForHudLayout(page)
 		const badge = page.locator(".agent-hud__event-edge")
 		const actions = page.locator(".agent-hud__header-actions")
 		await expect(badge).toBeVisible()
@@ -229,7 +245,6 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 		page,
 		page.locator(".agent-hud__box"),
 		"active-run-awaiting-input",
-		{ maxDiffPixels: 5 },
 	)
 	const agentContentInset = async () => {
 		const panel = await page.locator(".agent-hud__replyBox--agent").boundingBox()
@@ -237,14 +252,21 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 		expect(panel && content).toBeTruthy()
 		return panel && content ? content.y - panel.y : 0
 	}
+	await waitForHudLayout(page)
 	const lightInset = await agentContentInset()
 	await setTheme(page, "dark")
+	await waitForHudLayout(page)
 	const darkInset = await agentContentInset()
 	expect(Math.abs(lightInset - darkInset)).toBeLessThanOrEqual(5)
+})
+
+test("freezes runs overview", async ({ page, request }) => {
+	await activeRun(page, request)
 
 	await selectHudView(page, "Runs Overview")
 	await expect(page.getByText("atlas-console", { exact: true })).toBeVisible()
 	await setTheme(page, "dark")
+	await waitForHudLayout(page, [".agent-hud__project-view"])
 	const headerBounds = await page.locator(".agent-hud__header").boundingBox()
 	const tableBounds = await page.locator(".agent-hud__project-view").boundingBox()
 	const controlsBounds = await page.locator(".agent-hud__header-actions").boundingBox()
@@ -259,16 +281,24 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 		page.locator(".agent-hud__box"),
 		"runs-overview",
 	)
+})
+
+test("freezes dependencies", async ({ page, request }) => {
+	await activeRun(page, request)
+
 	await selectHudView(page, "Dependencies")
 	await expect(page.locator(".agent-hud__status-view")).toBeVisible()
 	await expectThemePair(
 		page,
 		page.locator(".agent-hud__box"),
 		"dependencies",
-		{ maxDiffPixels: 100 },
 	)
-	await selectHudView(page, "Current Run")
+})
 
+test("freezes minimized HUD", async ({ page, request }) => {
+	await activeRun(page, request)
+
+	await waitForHudLayout(page)
 	await page.getByRole("button", { name: "Minimize" }).click()
 	await expect(page.locator(".agent-hud__mini-box")).toBeVisible()
 	await expectThemePair(
@@ -276,7 +306,10 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 		page.locator(".agent-hud__mini-box"),
 		"minimized-hud",
 	)
-	await page.locator(".agent-hud__mini-expand").click()
+})
+
+test("freezes warning toast", async ({ page, request }) => {
+	await activeRun(page, request)
 
 	await selectHudView(page, "Dependencies")
 	await page.getByRole("button", { name: "Check Now", exact: true }).click()
@@ -286,26 +319,6 @@ test("freezes landing, menus, run views, minimized HUD, and warning toast", asyn
 		page.locator(".agent-error-toast"),
 		"warning-toast",
 	)
-
-	if (collectCssCoverage) {
-		const entries = await page.coverage.stopCSSCoverage()
-		const totals = entries.reduce(
-			(result, entry) => ({
-				used: result.used + entry.ranges.reduce(
-					(sum, range) => sum + range.end - range.start,
-					0,
-				),
-				total: result.total + (entry.text?.length ?? 0),
-			}),
-			{ used: 0, total: 0 },
-		)
-		console.info(
-			`CSS coverage: ${totals.used}/${totals.total} bytes (${(
-				(totals.used / totals.total) *
-				100
-			).toFixed(1)}%)`,
-		)
-	}
 })
 
 test("freezes light CRT rasterization at 1.25 device scale", async ({
@@ -339,7 +352,8 @@ test("freezes light CRT rasterization at 1.25 device scale", async ({
 			animations: "disabled",
 			caret: "hide",
 			fullPage: true,
-			maxDiffPixels: CI_RASTER_MAX_DIFF_PIXELS,
+			maxDiffPixelRatio: 0.002,
+			threshold: 0.2,
 		})
 	} finally {
 		await context.close()

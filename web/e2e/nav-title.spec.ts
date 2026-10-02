@@ -1,3 +1,4 @@
+import { waitForHudLayout } from "./hud-layout"
 import { expect, test } from "./fixtures"
 import { gotoLanding } from "./helpers"
 import nextConfig from "../next.config"
@@ -8,6 +9,7 @@ test.use({ viewport: { width: 1920, height: 1080 } })
 
 test("shows the large centered title and reserves the landing nav row", async ({ page }) => {
 	await gotoLanding(page)
+	await waitForHudLayout(page)
 
 	const title = page.locator(".app-nav__brand--bar")
 	await expect(title).toBeVisible()
@@ -37,6 +39,7 @@ test("shows the large centered title and reserves the landing nav row", async ({
 test("the title clears the stream at a high-zoom viewport", async ({ page }) => {
 	await page.setViewportSize({ width: 960, height: 500 })
 	await gotoLanding(page)
+	await waitForHudLayout(page)
 
 	const title = page.locator(".app-nav__brand--bar")
 	const frame = page.locator(".term-frame")
@@ -55,6 +58,7 @@ test("the title clears the stream at a high-zoom viewport", async ({ page }) => 
 test("keeps the complete title above the expanded HUD in narrow and short viewports", async ({ page }) => {
 	await page.emulateMedia({ reducedMotion: "reduce" })
 	await gotoLanding(page)
+	await waitForHudLayout(page)
 	const handle = page.getByRole("slider", { name: "Resize HUD" })
 	await handle.focus()
 	await page.keyboard.press("End")
@@ -82,6 +86,7 @@ test("follows visible viewport changes without a layout viewport resize", async 
 		Object.defineProperty(window, "visualViewport", { value: viewport })
 	})
 	await gotoLanding(page)
+	await waitForHudLayout(page)
 	for (const top of [80, 240, 0]) {
 		await page.evaluate((offset) => {
 			const viewport = window.visualViewport!
@@ -105,6 +110,7 @@ test("follows visible viewport changes without a layout viewport resize", async 
 test("preserves normal landing layout without document scrolling", async ({ page }) => {
 	await page.emulateMedia({ reducedMotion: "reduce" })
 	await gotoLanding(page)
+	await waitForHudLayout(page)
 	for (const viewport of [{ width: 1920, height: 1080 }, { width: 1280, height: 720 }, { width: 1440, height: 900 }]) {
 		await page.setViewportSize(viewport)
 		for (const theme of ["dark", "light"] as const) {
@@ -136,6 +142,7 @@ test("scrolls the page to reach HUD controls when a keyboard shrinks only the vi
 		Object.defineProperty(window, "visualViewport", { value: viewport })
 	})
 	await gotoLanding(page)
+	await waitForHudLayout(page)
 	for (const theme of ["dark", "light"] as const) {
 		await page.evaluate((value) => {
 			window.scrollTo(0, 0)
@@ -183,6 +190,7 @@ test("keeps viewport listeners when the landing navigation unmounts and returns"
 		Object.defineProperty(window, "viewportListenerCounts", { value: counts })
 	})
 	await gotoLanding(page)
+	await waitForHudLayout(page)
 	await page.evaluate(() => history.pushState(null, "", "/?runId=viewport-listener-test"))
 	await expect(page.locator(".app-nav__row")).toHaveCount(0)
 	await page.evaluate(() => history.pushState(null, "", "/?from=app"))

@@ -1,6 +1,7 @@
 name: Full E2E
 
 on:
+  pull_request:
   push:
     branches: [main]
   workflow_dispatch:
@@ -10,83 +11,42 @@ permissions:
 concurrency:
   group: e2e-${{ github.ref }}
   cancel-in-progress: true
-env:
-  NEXT_TELEMETRY_DISABLED: "1"
-  ROBOZIUM_API_BASE_URL: http://127.0.0.1:8000
-  ROBOZIUM_E2E_PREBUILT: "1"
-  ROBOZIUM_E2E_PYTHON: ${{ github.workspace }}/.artifacts/browser-backend/bin/python
-  PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.artifacts/browsers
+
 jobs:
-  browsers:
-    name: ${{ matrix.browser }} browser
-    runs-on: ubuntu-24.04
-    timeout-minutes: ${{ matrix.job_timeout }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - browser: chromium
-            deadline: 900
-            job_timeout: 25
-          - browser: firefox
-            deadline: 900
-            job_timeout: 25
-          - browser: webkit
-            deadline: 1500
-            job_timeout: 35
-    env:
-      ROBOZIUM_E2E_DEADLINE_SECONDS: ${{ matrix.deadline }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          version: "0.12.10"
-          python-version: "3.13"
-          enable-cache: true
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - name: Prepare installed backend
-        run: |
-          uv sync --locked --dev
-          uv build --no-sources --out-dir .artifacts/distributions
-          uv venv --python 3.13 .artifacts/browser-backend
-          uv export --locked --no-dev --no-emit-project --output-file .artifacts/browser-requirements.txt >/dev/null
-          uv pip install --python .artifacts/browser-backend/bin/python --require-hashes --only-binary roboz --requirement .artifacts/browser-requirements.txt
-          uv pip install --python .artifacts/browser-backend/bin/python --no-deps .artifacts/distributions/*.whl
-      - name: Check wheel and source archive
-        if: ${{ matrix.browser == 'chromium' }}
-        run: |
-          uv run twine check .artifacts/distributions/*
-          ROBOZIUM_DIST_DIR=.artifacts/distributions uv run pytest tests/integration --no-cov -q
-      - name: Prepare browser tests
-        id: prepare
-        env:
-          BROWSER: ${{ matrix.browser }}
-        run: |
-          npm --prefix web ci
-          npm --prefix web run build
-          npm --prefix web exec -- playwright install --with-deps "$BROWSER"
-      - name: Check runner failure and interruption cleanup
-        id: runner_check
-        if: ${{ matrix.browser == 'chromium' }}
-        run: uv run pytest tests/infrastructure --no-cov -s
-      - name: Run ${{ matrix.browser }} suite
-        id: browser
-        if: ${{ !cancelled() && steps.prepare.outcome == 'success' && (matrix.browser != 'chromium' || steps.runner_check.outcome == 'success') }}
-        run: bash scripts/e2e/run-mock-playwright.sh --project=${{ matrix.browser }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ always() && failure() }}
-        with:
-          name: e2e-${{ matrix.browser }}-reports
-          path: |
-            .artifacts/e2e/
-            .artifacts/distribution-reports/
-          retention-days: 7
+  chromium:
+    name: Chromium
+    uses: ./.github/workflows/e2e-browser.yml
+    with:
+      task: suite
+      browser: chromium
+
+  firefox:
+    name: Firefox
+    uses: ./.github/workflows/e2e-browser.yml
+    with:
+      task: suite
+      browser: firefox
+
+  webkit:
+    name: WebKit
+    uses: ./.github/workflows/e2e-browser.yml
+    with:
+      task: suite
+      browser: webkit
+      deadline: 1500
+      job_timeout: 35
+
+  installation:
+    name: Installation
+    uses: ./.github/workflows/e2e-browser.yml
+    with:
+      task: installation
+
+  runner:
+    name: Runner infrastructure
+    uses: ./.github/workflows/e2e-browser.yml
+    with:
+      task: runner
 
   docker:
     name: Docker onboarding and restart recovery
@@ -100,6 +60,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.10"
+          python-version: "3.13"
+          enable-cache: true
+      - name: Check Compose configuration
+        run: |
+          uv sync --locked --dev
+          uv run pytest tests/infrastructure/test_runtime_compose.py --no-cov -q
       - name: Docker onboarding and restart recovery
         id: containers
         run: |
@@ -116,3 +85,24 @@ jobs:
       - name: Remove disposable containers
         if: always()
         run: docker compose down --remove-orphans
+
+  full-e2e:
+    name: Full E2E
+    if: ${{ always() }}
+    needs: [chromium, firefox, webkit, installation, runner, docker]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every Full E2E job to succeed
+        env:
+          REQUIRED_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          results = json.loads(os.environ["REQUIRED_RESULTS"])
+          required = {"chromium", "firefox", "webkit", "installation", "runner", "docker"}
+          if results.keys() != required or any(job.get("result") != "success" for job in results.values()):
+              raise SystemExit(f"Required E2E jobs did not all succeed: {results}")
+          PY

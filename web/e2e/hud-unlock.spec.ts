@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures"
+import { credentialTableOffset, expectCredentialMenuLayout, waitForHudLayout } from "./hud-layout"
 
 test("HUD unlocks encrypted keys after a failed attempt", async ({ page }) => {
 	await page.route("**/api/credentials", (route) => route.fulfill({
@@ -87,18 +88,17 @@ test("credential menu uses the red selector treatment in both themes", async ({ 
 		await page.goto("/?from=app")
 		await expect(page.getByRole("button", { name: `API keys ${state}` })).toBeVisible()
 		await expect(page.locator(".agent-hud__table-scroll")).toBeVisible()
-		const tableTopByTheme = { dark: 0, light: 0 }
+		const tableOffsetByTheme = { dark: 0, light: 0 }
 		for (const theme of ["dark", "light"] as const) {
 			await page.evaluate((value) => { document.documentElement.dataset.theme = value }, theme)
+			tableOffsetByTheme[theme] = await credentialTableOffset(page)
 			const closed = await page.evaluate(() => {
 				const trigger = document.querySelector(".agent-hud__credential-selector .agent-hud__model-trigger")
 				const table = document.querySelector(".agent-hud__table-scroll")
 				return {
 					gap: trigger && table ? table.getBoundingClientRect().top - trigger.getBoundingClientRect().bottom : 0,
-					tableTop: table?.getBoundingClientRect().top ?? 0,
 				}
 			})
-			tableTopByTheme[theme] = closed.tableTop
 			if (theme === "dark") expect(closed.gap).toBeGreaterThanOrEqual(40)
 			await page.screenshot({ path: test.info().outputPath(`credential-${state}-closed-${theme}.png`), animations: "disabled" })
 		}
@@ -107,30 +107,21 @@ test("credential menu uses the red selector treatment in both themes", async ({ 
 			await page.evaluate((value) => { document.documentElement.dataset.theme = value }, theme)
 			const selector = page.locator(".agent-hud__credential-selector")
 			await expect(selector).toBeVisible()
-			await expect(page.getByRole("dialog", { name: "API keys" })).toBeVisible()
-			const labelFits = await selector.locator(".agent-hud__model-trigger > span").evaluate(
-				(element) => element.scrollWidth <= element.clientWidth,
-			)
-			expect(labelFits).toBe(true)
+			await expectCredentialMenuLayout(page, tableOffsetByTheme[theme])
 			const accent = await selector.evaluate((element) => getComputedStyle(element).getPropertyValue("--selector-accent").trim())
 			const red = await page.locator("html").evaluate((element) => getComputedStyle(element).getPropertyValue("--term-red").trim())
 			expect(accent).toBe(red)
 			const menuStyle = await page.evaluate(() => {
 				const trigger = document.querySelector<HTMLElement>(".agent-hud__credential-selector .agent-hud__model-trigger")
 				const menu = document.querySelector<HTMLElement>(".agent-hud__credential-menu")
-				const table = document.querySelector<HTMLElement>(".agent-hud__table-scroll")
 				const action = menu?.querySelector<HTMLElement>(".agent-hud__model-option")
 				const input = menu?.querySelector<HTMLInputElement>("input")
 				return {
-					gap: menu && table ? table.getBoundingClientRect().top - menu.getBoundingClientRect().bottom : 0,
-					tableTop: table?.getBoundingClientRect().top ?? 0,
 					triggerFont: trigger ? getComputedStyle(trigger).fontFamily : "",
 					actionFont: action ? getComputedStyle(action).fontFamily : "",
 					inputFont: input ? getComputedStyle(input).fontFamily : null,
 				}
 			})
-			expect(Math.abs(menuStyle.tableTop - tableTopByTheme[theme])).toBeLessThanOrEqual(1)
-			if (theme === "dark") expect(menuStyle.gap).toBeGreaterThanOrEqual(0)
 			expect(menuStyle.actionFont).toBe(menuStyle.triggerFont)
 			if (state === "locked") expect(menuStyle.inputFont).toBe(menuStyle.triggerFont)
 			await page.screenshot({ path: test.info().outputPath(`credential-${state}-${theme}.png`), animations: "disabled" })
@@ -139,7 +130,10 @@ test("credential menu uses the red selector treatment in both themes", async ({ 
 })
 
 test("unlocks a synthetic encrypted file through the real API", async ({ page }) => {
-	test.skip(process.env.ROBOZIUM_E2E_TEST_ENCRYPTED !== "1", "requires a synthetic encrypted file")
+	if (process.env.ROBOZIUM_E2E_TEST_ENCRYPTED !== "1") {
+		test.info().annotations.push({ type: "expected-skip", description: "requires a synthetic encrypted file" })
+		test.skip(true, "requires a synthetic encrypted file")
+	}
 	test.setTimeout(60_000)
 	await page.goto("/?from=app")
 	await page.getByRole("button", { name: "API keys locked" }).click()
@@ -157,3 +151,41 @@ test("unlocks a synthetic encrypted file through the real API", async ({ page })
 	await expect(page.getByRole("button", { name: "API keys locked" })).toBeVisible()
 	expect((await (await page.request.get("/api/credentials")).json()).locked).toBe(true)
 })
+
+test("credential geometry waits for delayed HUD hydration", async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: "reduce" })
+	await page.route("**/api/credentials", (route) => route.fulfill({
+		json: { available: true, locked: true, removable: false },
+	}))
+	await page.goto("/?from=app")
+	const offset = await credentialTableOffset(page)
+	await page.getByRole("button", { name: "API keys locked" }).click()
+	await page.evaluate(() => {
+		const hud = document.querySelector<HTMLElement>(".agent-hud__box")!
+		const width = hud.style.width
+		hud.style.width = ""
+		setTimeout(() => { hud.style.width = width }, 600)
+	})
+	await expectCredentialMenuLayout(page, offset)
+})
+
+for (const defect of ["overlap", "clipping", "missing content", "unreachable control"] as const) {
+	test(`credential geometry rejects ${defect}`, async ({ page }) => {
+		await page.emulateMedia({ reducedMotion: "reduce" })
+		await page.route("**/api/credentials", (route) => route.fulfill({
+			json: { available: true, locked: true, removable: false },
+		}))
+		await page.goto("/?from=app")
+		const offset = await credentialTableOffset(page)
+		await page.getByRole("button", { name: "API keys locked" }).click()
+		await waitForHudLayout(page, [".agent-hud__credential-menu"])
+		await page.evaluate((defect) => {
+			const menu = document.querySelector<HTMLElement>(".agent-hud__credential-menu")!
+			if (defect === "overlap") menu.style.transform = "translateY(100px)"
+			if (defect === "clipping") menu.style.transform = "translateX(2000px)"
+			if (defect === "missing content") menu.querySelector("button")!.remove()
+			if (defect === "unreachable control") menu.querySelector<HTMLElement>("button")!.style.pointerEvents = "none"
+		}, defect)
+		await expect(expectCredentialMenuLayout(page, offset, 2_000)).rejects.toThrow()
+	})
+}

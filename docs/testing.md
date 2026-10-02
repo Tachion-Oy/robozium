@@ -3,8 +3,8 @@
 The [CI workflow](../.github/workflows/ci.yml) runs Python tests, lint, and types,
 plus frontend tests, lint, and types on pull requests, pushes to `main`, and
 manual dispatch. Its check is named **CI**. The
-[Full E2E workflow](../.github/workflows/e2e.yml) runs on pushes to `main` and
-manual dispatch, not ordinary pull requests.
+[Full E2E workflow](../.github/workflows/e2e.yml) runs on every pull request,
+pushes to `main`, and manual dispatch.
 
 Follow [Testing practices](testing-practices.md) when adding tests and
 [Contributing](../CONTRIBUTING.md) for proposal and PR requirements. Workflow
@@ -123,6 +123,8 @@ archives. These checks require package-index access.
 
 ## Browser checks
 
+Local E2E is optional for development and debugging.
+
 Install the browsers in the same environment used by the runner. On Linux,
 `--with-deps` can require administrator access for browser system packages.
 From the repository root in Bash:
@@ -192,32 +194,33 @@ the runner reports that failure and cleans up correctly.
 
 ## Full E2E policy
 
-Full E2E starts four independent jobs: Chromium, Firefox, WebKit, and Docker
-onboarding with restart recovery. Browser jobs each build the production
-frontend, install the candidate backend and only their selected browser, then
-use one Playwright worker and one API worker with a temporary hub. Chromium
-additionally checks the wheel and source distribution and exercises runner
-cleanup paths. Those archives validate internal installation; Robozium is not
-published to PyPI. Docker uses its own fresh runner. A browser job finishing
-early or failing does not cancel the others.
+**Full E2E must pass in CI before merging.** Its aggregate check requires all six
+independent jobs to succeed: Chromium, Firefox, WebKit, installation, runner
+infrastructure, and Docker onboarding with restart recovery. Failed, cancelled,
+missing, or skipped jobs fail the gate. Fork PRs use read-only permissions and
+credential-free mocks.
+
+The [shared workflow](../.github/workflows/e2e-browser.yml) pins the Linux browser
+environment and installs locked dependencies. Browser jobs use the production
+frontend, installed candidate backend, and a temporary hub with one worker each.
+Review visual baselines in that pinned environment.
 
 Chromium and Firefox have 15-minute browser runner deadlines and 25-minute job
-limits. WebKit has a 25-minute runner deadline and a 35-minute job limit. Docker
+limits. WebKit has a 25-minute runner deadline and a 35-minute job limit.
+Installation and runner infrastructure have 25-minute job limits. Docker
 has a 15-minute job limit. Browser jobs allow one retry and stop after three
 failed tests. Flaky tests fail. Playwright output streams to Actions; browser,
 backend, frontend, and technical logs remain in the diagnostic artifact.
 
-Chromium, Firefox, and WebKit are all required. Any test failure, interrupted or
-timed-out suite, three-failure termination, top-level Playwright error, missing
-completion report, service exit, or runner or browser-fixture setup/cleanup
-error fails the job for every browser. Browser support writes `result.json` and
-Playwright writes `completion.json`; the support package evaluates both after
-service cleanup. CI uses the browser command's exit status directly. Failure
-reports upload before the job limit.
+Any test failure, interrupted or timed-out suite, three-failure termination,
+top-level Playwright error, missing
+completion report, unexpected skips, incomplete execution, service exit, or
+runner or browser-fixture setup/cleanup error fails the job for every browser.
+Browser support writes `result.json` and Playwright writes `completion.json`;
+the support package evaluates both after service cleanup. CI uses the browser
+command's exit status directly. The optional synthetic credential-file case is
+explicitly annotated as an expected skip unless its fixture is supplied; other
+skips fail result evaluation. Failure reports upload before the job limit.
 
-Changes to deployment should exercise Docker onboarding and restart recovery;
-changes to runs, persistence, or browser interactions should exercise the
-relevant browser suite. Maintainers can dispatch Full E2E for a candidate branch.
-The workflow defines the disposable Compose setup and cleanup; use a dedicated
-test checkout/project when reproducing it locally, rather than an existing user
-deployment.
+For local Docker reproduction, use a dedicated test checkout/project rather than
+an existing user deployment; the workflow defines setup and cleanup.
