@@ -1,11 +1,44 @@
 """Repository dependencies must satisfy their installation contracts."""
 
 import json
+import os
 import re
+import subprocess
 import tomllib
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.mark.parametrize("configured", [False, True])
+def test_browser_launcher_preserves_the_configured_browser_path(tmp_path, configured):
+    script = tmp_path / "scripts/env.sh"
+    script.parent.mkdir()
+    script.write_text((ROOT / "scripts/env.sh").read_text())
+    env = dict(os.environ)
+    env.pop("PLAYWRIGHT_BROWSERS_PATH", None)
+    expected = tmp_path / ".artifacts/browsers"
+    if configured:
+        expected = tmp_path / "pinned-browsers"
+        env["PLAYWRIGHT_BROWSERS_PATH"] = str(expected)
+    result = subprocess.run(
+        [
+            "bash",
+            "-eu",
+            "-c",
+            'source "$1"; printf "%s" "$PLAYWRIGHT_BROWSERS_PATH"',
+            "bash",
+            str(script),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=10,
+    )
+    assert result.stdout == str(expected)
 
 
 def test_roboz_uses_an_exact_indexed_release():
@@ -37,12 +70,17 @@ def test_playwright_container_matches_locked_browser_version() -> None:
     }
     assert len(versions) == 1, "Playwright packages must use the same version"
     image = re.search(
-        r"^FROM mcr\.microsoft\.com/playwright:v([^\s]+)-noble AS verify$",
+        r"^FROM mcr\.microsoft\.com/playwright:v([^\s]+)-noble@sha256:[a-f0-9]{64} AS verify$",
         (ROOT / "Dockerfile").read_text(),
         re.MULTILINE,
     )
     assert image is not None, "Docker verification needs a pinned Playwright image"
-    assert image.group(1) == versions.pop(), (
+    workflow_image = re.search(
+        r"image: mcr\.microsoft\.com/playwright:v([^\s]+)-noble@sha256:[a-f0-9]{64}",
+        (ROOT / ".github/workflows/e2e-browser.yml").read_text(),
+    )
+    assert workflow_image is not None, "Browser CI needs a digest-pinned test environment"
+    assert image.group(1) == workflow_image.group(1) == versions.pop(), (
         "Update the Playwright Docker image and npm lockfile together; "
         "mismatched versions cannot locate browser executables"
     )

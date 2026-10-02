@@ -1,0 +1,95 @@
+name: E2E browser environment
+
+on:
+  workflow_call:
+    inputs:
+      task:
+        type: string
+        required: true
+      browser:
+        type: string
+        default: chromium
+      deadline:
+        type: number
+        default: 900
+      job_timeout:
+        type: number
+        default: 25
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ inputs.task }} (${{ inputs.browser }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ inputs.job_timeout }}
+    # Pin browsers, system libraries, and fonts together. Match package-lock.json.
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-noble@sha256:eac9b0a5312cdab40ee8c2429df5bf19bffdccf8f3bf3c42268e173f97541645
+      options: --ipc=host
+    defaults:
+      run:
+        shell: bash
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      ROBOZIUM_API_BASE_URL: http://127.0.0.1:8000
+      ROBOZIUM_E2E_PREBUILT: "1"
+      ROBOZIUM_E2E_PYTHON: ${{ github.workspace }}/.artifacts/browser-backend/bin/python
+      ROBOZIUM_E2E_DEADLINE_SECONDS: ${{ inputs.deadline }}
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    steps:
+      - name: Validate requested checks
+        env:
+          TASK: ${{ inputs.task }}
+          BROWSER: ${{ inputs.browser }}
+        run: |
+          case "$TASK" in suite|installation|runner) ;; *) exit 1 ;; esac
+          case "$BROWSER" in chromium|firefox|webkit) ;; *) exit 1 ;; esac
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.10"
+          python-version: "3.13.3"
+          enable-cache: true
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Prepare installed backend
+        run: |
+          uv sync --locked --dev
+          uv build --no-sources --out-dir .artifacts/distributions
+          uv venv --python 3.13.3 .artifacts/browser-backend
+          uv export --locked --no-dev --no-emit-project --output-file .artifacts/browser-requirements.txt >/dev/null
+          uv pip install --python .artifacts/browser-backend/bin/python --require-hashes --only-binary roboz --requirement .artifacts/browser-requirements.txt
+          uv pip install --python .artifacts/browser-backend/bin/python --no-deps .artifacts/distributions/*.whl
+      - name: Check wheel and source archive
+        if: ${{ inputs.task == 'installation' }}
+        run: |
+          uv run twine check .artifacts/distributions/*
+          ROBOZIUM_DIST_DIR=.artifacts/distributions uv run pytest tests/integration --no-cov -q
+      - name: Prepare browser tests
+        if: ${{ inputs.task != 'installation' }}
+        run: |
+          # Firefox rejects a root process whose home belongs to another user.
+          chown "$(id -u):$(id -g)" "$HOME"
+          npm --prefix web ci
+          npm --prefix web run build
+      - name: Check runner failure and interruption cleanup
+        if: ${{ inputs.task == 'runner' }}
+        run: uv run pytest tests/infrastructure/test_browser_runner.py --no-cov -s
+      - name: Run ${{ inputs.browser }} suite
+        if: ${{ inputs.task == 'suite' }}
+        run: bash scripts/e2e/run-mock-playwright.sh --project=${{ inputs.browser }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() && !success() }}
+        with:
+          name: e2e-${{ inputs.task }}-${{ inputs.browser }}-reports
+          path: |
+            .artifacts/e2e/
+            .artifacts/distribution-reports/
+          retention-days: 7

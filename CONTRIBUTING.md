@@ -71,11 +71,8 @@ The [testing guide](docs/testing.md) gives the exact local commands, coverage ga
 and Full E2E policy. At minimum, check whitespace with `git diff --check`.
 
 The required **CI** check covers Python and frontend tests, lint, and types.
-Full E2E runs on pushes to `main` or manual dispatch; it is not the routine PR
-gate. For changes to deployment, run lifecycle, persistence, or browser flows,
-run the relevant integration checks described in the testing guide and report
-their results. Documentation-only changes need link and command review rather
-than new behavior tests.
+**Full E2E must pass in CI before merging.** Local E2E is optional for development
+and debugging. Documentation-only changes need link and command review.
 
 For approved Python dependency changes, run `uv lock` and review the lockfile.
 For approved frontend dependency changes, include the reviewed npm lockfile.
@@ -128,13 +125,12 @@ following RoboZ's policy. These settings enforce the PR process:
 - Require a pull request before merging, with **zero** mandatory approving
   reviews so a sole maintainer can merge their own PR. Maintainers still review
   community contributions. Dismiss stale approvals when new commits are pushed.
-- Require the GitHub Actions **CI** status check and an up-to-date branch.
+- Require the GitHub Actions **CI** and **Full E2E** status checks and an
+  up-to-date branch.
 - Require conversation resolution before merging.
 - Enforce the rules for administrators too; disable bypassing the requirements.
 - Keep force pushes and branch deletion disabled.
 
-Keep Full E2E as the existing post-merge/manual workflow, rather than requiring a
-check that is not triggered on ordinary PRs. Enable private vulnerability
-reporting for the process in [SECURITY.md](SECURITY.md). GitHub's
+Enable private vulnerability reporting for the process in [SECURITY.md](SECURITY.md). GitHub's
 [branch protection guide](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/managing-a-branch-protection-rule)
 describes the settings.

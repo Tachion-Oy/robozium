@@ -86,7 +86,7 @@ CMD ["node", "server.js"]
 
 
 # Keep this version aligned with Playwright in web/package-lock.json.
-FROM mcr.microsoft.com/playwright:v1.59.1-noble AS verify
+FROM mcr.microsoft.com/playwright:v1.59.1-noble@sha256:eac9b0a5312cdab40ee8c2429df5bf19bffdccf8f3bf3c42268e173f97541645 AS verify
 
 WORKDIR /tests
 COPY web/package.json web/package-lock.json ./
