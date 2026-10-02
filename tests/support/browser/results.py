@@ -31,10 +31,23 @@ def evaluate(outcome: str, report_dir: str) -> tuple[int, str]:
     if completion.get("status") in {"timedout", "interrupted"}:
         return 1, f"required suite {completion['status']}"
     outcomes = completion.get("outcomes", {})
-    if not isinstance(outcomes, dict) or sum(outcomes.values()) != completion.get(
-        "total"
+    if (
+        not isinstance(outcomes, dict)
+        or set(outcomes) != {"expected", "unexpected", "flaky", "skipped"}
+        or any(type(count) is not int or count < 0 for count in outcomes.values())
+        or sum(outcomes.values()) != completion.get("total")
+        or not completion.get("total")
     ):
         return 1, "required invalid test totals"
+    expected_skipped = completion.get("expected_skipped", 0)
+    if (
+        type(expected_skipped) is not int
+        or expected_skipped < 0
+        or outcomes["skipped"] != expected_skipped
+        or completion.get("started") != completion["total"] - expected_skipped
+        or outcomes["expected"] == 0
+    ):
+        return 1, "required unexpected skips or incomplete test execution"
     if outcomes.get("flaky", 0):
         return 1, f"required: {outcomes['flaky']} flaky test(s)"
     failed = outcomes.get("unexpected", 0) + outcomes.get("flaky", 0)

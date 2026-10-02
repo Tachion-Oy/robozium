@@ -20,6 +20,8 @@ def report(tmp_path, *, runner=None, completion=None):
         "errors": [],
         "outcomes": {"expected": 1, "unexpected": 1, "flaky": 0, "skipped": 0},
         "total": 2,
+        "started": 2,
+        "expected_skipped": 0,
         "stopped_early": False,
         "failure_limit_reached": False,
     } | (completion or {})
@@ -92,7 +94,7 @@ def test_browser_command_preserves_any_selected_browser_failure(
         status = statuses[len(commands)]
         commands.append(args)
         completion = (
-            {"status": "passed", "outcomes": {"expected": 2, "unexpected": 0}}
+            {"status": "passed", "outcomes": {"expected": 2, "unexpected": 0, "flaky": 0, "skipped": 0}}
             if status == 0
             else {}
         )
@@ -109,3 +111,29 @@ def test_browser_command_preserves_any_selected_browser_failure(
         ["--project=chromium", "--grep=history"],
         ["--project=firefox", "--grep=history"],
     ]
+
+
+@pytest.mark.parametrize("completion", [
+    {"outcomes": {"expected": 1, "unexpected": 0, "flaky": 0, "skipped": 1}, "started": 1},
+    {"started": 1},
+    {"started": None},
+    {"total": 0, "started": 0, "outcomes": {"expected": 0, "unexpected": 0, "flaky": 0, "skipped": 0}},
+    {"outcomes": {"expected": "2", "unexpected": 0, "flaky": 0, "skipped": 0}},
+    {"outcomes": {"expected": 2, "unexpected": 1, "flaky": 0, "skipped": -1}},
+])
+def test_success_rejects_skips_and_incomplete_execution(tmp_path, completion):
+    directory = report(tmp_path, runner={"status": 0}, completion={
+        "status": "passed",
+        "outcomes": {"expected": 2, "unexpected": 0, "flaky": 0, "skipped": 0},
+    } | completion)
+    assert evaluate("success", directory)[0] == 1
+
+
+def test_explicit_optional_synthetic_credentials_skip_is_accepted(tmp_path):
+    directory = report(tmp_path, runner={"status": 0}, completion={
+        "status": "passed",
+        "outcomes": {"expected": 1, "unexpected": 0, "flaky": 0, "skipped": 1},
+        "expected_skipped": 1,
+        "started": 1,
+    })
+    assert evaluate("success", directory)[0] == 0

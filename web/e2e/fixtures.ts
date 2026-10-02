@@ -1,6 +1,7 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import { test as base, expect, type APIRequestContext } from "@playwright/test"
+import { e2eProjectPaths, librarianIsRunningOnDisk } from "./helpers"
 
 export { expect }
 
@@ -31,12 +32,12 @@ async function recordFixtureError(phase: string, error: unknown): Promise<void> 
 	}
 }
 
-/** Keep one serial suite from loading the shared mock backend with earlier tests' agents. */
+/** Release test holds and await test-owned agents before the next case starts. */
 export const test = base.extend<{ cleanProjectRuns: void }>({
 	cleanProjectRuns: [async ({ request }, use) => {
-		let before: Map<string, string | null>
+		let before: Map<string, Project>
 		try {
-			before = new Map((await projects(request)).map((project) => [project.slug, project.run_id]))
+			before = new Map((await projects(request)).map((project) => [project.slug, project]))
 		} catch (error) {
 			await recordFixtureError("setup", error)
 			throw error
@@ -50,23 +51,38 @@ export const test = base.extend<{ cleanProjectRuns: void }>({
 				// Release holds first, even when the API is too slow to list projects.
 				if (hub) {
 					for (const slug of await fs.readdir(path.join(hub, "projects"))) {
-						for (const marker of [".librarian-hold", ".librarian-consolidation-hold", ".librarian-cancel-hold"]) {
+						for (const marker of [".librarian-hold", ".librarian-consolidation-hold", ".librarian-cancel-hold", ".mock-first-message-hold"]) {
 							await fs.rm(path.join(hub, "projects", slug, marker), { force: true })
 						}
 					}
 				}
-				const after = await projects(request)
-				for (const project of after) {
-					if (before.has(project.slug) && before.get(project.slug) === project.run_id) continue
-					if (["running", "awaiting_user_input", "syncing", "cancelling"].includes(project.status)) {
-						const response = await request.post(`/api/projects/${encodeURIComponent(project.slug)}/cancel`, { timeout: 15_000 })
-						expect(response.ok()).toBeTruthy()
-					}
-				}
+				const activeStatuses = ["running", "awaiting_user_input", "syncing", "cancelling"]
+				const owned = (await projects(request)).filter((project) => {
+					const previous = before.get(project.slug)
+					return !previous || previous.run_id !== project.run_id ||
+						(!activeStatuses.includes(previous.status) && activeStatuses.includes(project.status))
+				})
+				// Attempt every cancellation even if one request fails.
+				const cancellations = await Promise.allSettled(owned.map(async (project) => {
+					if (!activeStatuses.includes(project.status)) return
+					const response = await request.post(`/api/projects/${encodeURIComponent(project.slug)}/cancel`, { timeout: 15_000 })
+					expect(response.ok()).toBeTruthy()
+				}))
+				await expect.poll(async () => {
+					const current = await projects(request)
+					return (await Promise.all(owned.map(async (project) => {
+						const state = current.find((entry) => entry.slug === project.slug)
+						const { logs } = e2eProjectPaths(project.slug)
+						return !state || (!activeStatuses.includes(state.status) &&
+							!await librarianIsRunningOnDisk(logs))
+					}))).every(Boolean)
+				}, { timeout: 30_000 }).toBe(true)
+				const errors = cancellations.filter((result) => result.status === "rejected")
+				if (errors.length) throw new AggregateError(errors.map((result) => result.reason), "Run cleanup failed")
 			} catch (error) {
 				await recordFixtureError("cleanup", error)
 				throw error
 			}
 		}
-	}, { auto: true }],
+	}, { auto: true, timeout: 60_000 }],
 })

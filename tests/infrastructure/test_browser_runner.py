@@ -138,6 +138,16 @@ def test_cleanup_failure_is_required_and_other_services_still_stop(
     assert evaluate("failure", str(reports))[0] == 1
 
 
+def test_successful_playwright_exit_with_unexpected_skip_fails(browser_run, probe_env):
+    status, reports = browser_run(
+        ["--project=chromium", "runner-probe.spec.ts", "--grep=probe skipped"],
+        probe_env,
+    )
+    assert status == 0, "Playwright itself allows an explicitly skipped test"
+    assert_cleaned(reports, probe_env)
+    assert evaluate("success", str(reports))[0] == 1
+
+
 def test_sigterm_cleans_services_and_keeps_diagnostics(
     frontend_build, probe_env, tmp_path
 ):
