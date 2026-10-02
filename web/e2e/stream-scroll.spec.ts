@@ -1,8 +1,19 @@
 import { expect, test } from "./fixtures"
-import { type Page } from "@playwright/test"
+import { type Locator, type Page } from "@playwright/test"
 import { gotoLanding } from "./helpers"
 
 test.describe.configure({ mode: "serial" })
+
+async function waitForScrollToSettle(log: Locator): Promise<void> {
+	let previous = Number.NaN
+	let stable = 0
+	await expect.poll(async () => {
+		const position = await log.evaluate((element) => element.scrollTop)
+		stable = Math.abs(position - previous) < 0.1 ? stable + 1 : 0
+		previous = position
+		return stable >= 3
+	}, { timeout: 5_000, intervals: [100] }).toBe(true)
+}
 
 async function startRunFromLanding(
 	page: Page,
@@ -63,7 +74,7 @@ test("dismissing the HUD unlocks scrolling without shifting the log", async ({
 	page,
 }) => {
 	test.setTimeout(60_000)
-	await startRunFromLanding(page, `stream-scroll-e2e-${Date.now()}`)
+	const runId = await startRunFromLanding(page, `stream-scroll-e2e-${Date.now()}`)
 	const log = page.locator(".term-log").first()
 	const inner = page.locator(".term-log > div").first()
 	const hud = page.locator(".agent-hud")
@@ -166,7 +177,7 @@ test("dismissing the HUD unlocks scrolling without shifting the log", async ({
 	await expect.poll(() => log.evaluate((el) => el.scrollTop)).toBeLessThan(0)
 	// Wheel inertia (Chromium/WebKit) keeps gliding after mouse.wheel returns;
 	// wait it out before parking a reading position to measure against.
-	await page.waitForTimeout(1_000)
+	await waitForScrollToSettle(log)
 
 	// The reading position holds steady across re-renders: distance from the
 	// top of the history (scrollHeight + scrollTop) must not drift.
@@ -174,7 +185,9 @@ test("dismissing the HUD unlocks scrolling without shifting the log", async ({
 		el.scrollTop = -(el.scrollHeight - el.clientHeight) / 2
 		return el.scrollHeight + el.scrollTop
 	})
-	await page.waitForTimeout(500)
+	// Await an actual session refresh before checking that re-rendering preserved it.
+	await page.waitForResponse((response) => response.url().includes(`/api/runs/${runId}/view`) && response.ok())
+	await waitForScrollToSettle(log)
 	expect(await log.evaluate((el) => el.scrollHeight + el.scrollTop)).toBe(
 		readingPosition,
 	)
