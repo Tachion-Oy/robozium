@@ -28,7 +28,10 @@ function deferredResponse() {
 	return { promise, resolve }
 }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+	vi.restoreAllMocks()
+	vi.unstubAllGlobals()
+})
 
 describe("session snapshot loader", () => {
 	it("applies a snapshot before fetching a newer prompt with the same event index", async () => {
@@ -91,6 +94,36 @@ describe("session snapshot loader", () => {
 		})
 	})
 
+	it("times out a stalled poll so a queued recovery can fetch and apply its snapshot", async () => {
+		const timeout = new AbortController()
+		vi.spyOn(AbortSignal, "timeout").mockReturnValueOnce(timeout.signal)
+		const fetch = vi.fn()
+			.mockImplementationOnce((_url: string, init: RequestInit) =>
+				new Promise<Response>((_resolve, reject) => {
+					const signal = init.signal!
+					signal.addEventListener("abort", () => reject(signal.reason), { once: true })
+				}),
+			)
+			.mockResolvedValueOnce(Response.json(runningView))
+		vi.stubGlobal("fetch", fetch)
+		const dispatch = vi.fn<(event: SessionEvent) => void>()
+		const load = createRunViewLoader("run-1", dispatch)
+		const pollController = new AbortController()
+		const poll = load(pollController.signal)
+		const recovery = load(new AbortController().signal)
+		const failed = expect(poll).rejects.toMatchObject({ name: "TimeoutError" })
+		expect(fetch).toHaveBeenCalledTimes(1)
+
+		timeout.abort(new DOMException("The operation timed out.", "TimeoutError"))
+		await failed
+		await expect(recovery).resolves.toEqual(runningView)
+		expect(fetch).toHaveBeenCalledTimes(2)
+		expect(pollController.signal.aborted).toBe(false)
+		expect(dispatch).toHaveBeenCalledExactlyOnceWith({
+			class: "runView", type: "received", runView: runningView,
+		})
+	})
+
 	it("discards an aborted response and skips an aborted queued request", async () => {
 		const first = deferredResponse()
 		const fetch = vi.fn().mockReturnValueOnce(first.promise)
@@ -102,8 +135,9 @@ describe("session snapshot loader", () => {
 		const poll = load(pollController.signal)
 		const recovery = load(recoveryController.signal)
 		await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
-		expect(fetch.mock.calls[0][1].signal).toBe(pollController.signal)
+		const requestSignal = fetch.mock.calls[0][1].signal as AbortSignal
 		pollController.abort()
+		expect(requestSignal.aborted).toBe(true)
 		recoveryController.abort()
 		first.resolve(Response.json(runningView))
 		await expect(poll).resolves.toBeNull()

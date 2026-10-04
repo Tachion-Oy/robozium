@@ -2,6 +2,8 @@ import { fetchRunView } from "../client"
 import type { RunView } from "../wire"
 import type { SessionEvent } from "./reducer"
 
+const SNAPSHOT_TIMEOUT_MS = 10_000
+
 export type RunViewLoader = (signal: AbortSignal) => Promise<RunView | null>
 
 /** Fetch and apply snapshots one at a time across polling and stream recovery. */
@@ -19,10 +21,12 @@ export function createRunViewLoader(
 			}
 		}
 		if (signal.aborted) return null
-		pending = fetchRunView(runId, { signal })
+		// A stalled request must release the loader so recovery can proceed.
+		const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(SNAPSHOT_TIMEOUT_MS)])
+		pending = fetchRunView(runId, { signal: requestSignal })
 		try {
 			const runView = await pending
-			if (signal.aborted) return null
+			if (requestSignal.aborted) return null
 			dispatch({ class: "runView", type: "received", runView })
 			return runView
 		} finally {
