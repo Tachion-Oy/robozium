@@ -28,6 +28,7 @@ RUN apt-get update \
         diffutils \
         findutils \
         grep \
+        libglib2.0-bin \
         libreoffice \
         ripgrep \
     && rm -rf /var/lib/apt/lists/* \

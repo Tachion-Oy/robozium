@@ -3,8 +3,10 @@ from pathlib import Path
 
 import pytest
 from config_support import write_config
-from roboz.shed.models import ActionVerdict, Operation
-from roboz.shed.tools.utils import check_allow_deny_permission
+from roboz.models import Empty
+from roboz.shed.models import ActionVerdict, GuardFileSingle, Operation
+from roboz.shed.tools.contexts import GuardContext
+from roboz.shed.tools.guard import guard_items
 
 from robozium.hub.utils import load_hub
 
@@ -87,17 +89,24 @@ def test_orchestrator_sandbox_permits_writes_at_project_root(
     assert sandbox.shared_dir == project.sandbox.resolved_root / "workspace"
 
     perms = sandbox.permissions()
+    context = GuardContext(
+        base=perms.base,
+        takes_precedence=perms.takes_precedence,
+        allow=list(perms.allow),
+        deny=list(perms.deny),
+        ask=list(perms.ask),
+        default_verdict=perms.default_verdict,
+    )
 
     def _verdict(location: Path, op: Operation) -> ActionVerdict:
-        return check_allow_deny_permission(
-            location=location,
-            op_type=op,
-            takes_precedence=perms.takes_precedence,
-            allow_rules=perms.allow,
-            deny_rules=perms.deny,
-            default_verdict=perms.default_verdict,
-            base_path=perms.base,
+        result = guard_items(
+            items_to_guard=[
+                GuardFileSingle(location=location, operation=op, value=Empty())
+            ],
+            original_input=Empty(),
+            ctx=context,
         )
+        return result.items[0].verdict
 
     in_project = project.root / "draft.md"
     in_readonly = sandbox.readonly_dir / "ref.md"

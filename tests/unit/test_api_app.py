@@ -1695,9 +1695,8 @@ def test_real_orchestrator_reads_top_level_workspace_file(
             {
                 "action": "run_file_command",
                 "rationale": "read the CV marker the user asked about",
-                "chain": "&&",
-                "file_commands": [
-                    {"command": "cat", "argv": ["workspace/CV/cv-marker.txt"]}
+                "value": [
+                    ["cat", "CMD"], ["workspace/CV/cv-marker.txt", "PTH"]
                 ],
             },
             {"action": "stop", "rationale": "done", "value": "read the CV"},
