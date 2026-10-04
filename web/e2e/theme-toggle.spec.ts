@@ -54,7 +54,7 @@ test("switches and persists the integrated light theme", async ({
 		const rootStyle = getComputedStyle(document.documentElement)
 		return {
 			canvas: rootStyle.getPropertyValue("--term-bg").trim(),
-			backdrop: hud ? getComputedStyle(hud).backgroundColor : null,
+			backdrop: hud ? getComputedStyle(hud, "::before").backgroundColor : null,
 			gripDisplay: grip ? getComputedStyle(grip).display : null,
 			gripBorder: grip ? getComputedStyle(grip).borderTopStyle : null,
 			gripAfter: grip ? getComputedStyle(grip, "::after").content : null,

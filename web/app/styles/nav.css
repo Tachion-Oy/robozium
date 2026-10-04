@@ -91,6 +91,10 @@
     animation: app-nav-title-appear var(--intro-nav-fade) ease-out both;
   }
 
+  .app-nav__row--return {
+    animation: app-nav-title-appear var(--nav-return-fade) ease-out both;
+  }
+
   @keyframes app-nav-pending-breathe {
     from { opacity: 1; }
     to { opacity: 0.58; }

@@ -22,6 +22,7 @@
   --app-ui-scale: 0.75;
   --app-ui-root-font-size: 75%;
   --landing-nav-compact-height: 96px;
+  --nav-return-fade: 220ms;
   --landing-viewport-height: 100dvh;
   --landing-viewport-top: 0px;
   --landing-viewport-width: 100dvw;
@@ -176,6 +177,7 @@
   --term-glow-error: var(--term-glow-red);
 
   /* HUD */
+  --hud-shell-rgb: 9 20 38;
   --hud-dim-bg: rgba(4, 10, 18, 0.78);
   --hud-box-bg: rgba(6, 14, 26, 0.82); 
   --hud-box-border: color-mix(in oklab, var(--term-blue) 65%, var(--term-bg) 35%);
