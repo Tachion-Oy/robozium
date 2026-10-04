@@ -1,5 +1,5 @@
 import { WireLifecycleStatus } from "@/lib/robozium/wire"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { reconcileHudState } from "../../../../lib/robozium/session/hud-reducer"
 import {
 	createInitialRunSessionState,
@@ -7,6 +7,7 @@ import {
 	reduceRunSessionState,
 	RunHudPhase,
 	shouldExitRunView,
+	type SessionEvent,
 } from "../../../../lib/robozium/session/reducer"
 import { PipeEventType, RunLifecycleKind, WireRole } from "../../../../lib/robozium/wire"
 import { StreamLogItemKind, StreamLogRole } from "../../../../lib/robozium/view-model"
@@ -22,6 +23,43 @@ function reduce(
 }
 
 describe("run session reducer", () => {
+	it("recreates lifecycle history identically at different browser times", () => {
+		const snapshot: SessionEvent = {
+			class: "runView",
+			type: "received",
+			runView: {
+				project: "alpha",
+				status: "completed",
+				current_agent_name: null,
+				parent_agent_name: null,
+				current_prompt: null,
+				current_prompt_id: null,
+				error: null,
+				message_trace: [
+					{
+						type: PipeEventType.RunLifecycle,
+						payload: { kind: RunLifecycleKind.Started, agent_name: "root", sequence: 1, status: WireLifecycleStatus.Running },
+					},
+					{
+						type: PipeEventType.RunLifecycle,
+						payload: { kind: RunLifecycleKind.Stopped, agent_name: "root", sequence: 2, status: WireLifecycleStatus.Completed },
+					},
+				],
+			},
+		}
+		vi.useFakeTimers()
+		try {
+			vi.setSystemTime(new Date("2026-10-04T10:00:00Z"))
+			const first = reduce([snapshot])
+			vi.setSystemTime(new Date("2026-10-04T10:05:00Z"))
+			const recreated = reduce([snapshot])
+			expect(first.log.items).toHaveLength(2)
+			expect(recreated.log.items).toEqual(first.log.items)
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
 	it("reconciles displayable history among terminal-only rows", () => {
 		const hud = createInitialRunSessionState("run-1").hud
 		const next = reconcileHudState(
@@ -100,7 +138,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-08-14T12:00:00.000Z",
 				frame: {
 					type: PipeEventType.Message,
 					sequence: 1,
@@ -137,7 +174,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-08-14T12:00:00.000Z",
 				frame: {
 					type: PipeEventType.Message,
 					sequence: 1,
@@ -154,7 +190,6 @@ describe("run session reducer", () => {
 		const afterToolMessage = reduceRunSessionState(state, {
 			class: "stream",
 			type: "frame_received",
-			receivedAt: "2026-08-14T12:00:01.000Z",
 			frame: {
 				type: PipeEventType.Message,
 				sequence: 2,
@@ -174,7 +209,6 @@ describe("run session reducer", () => {
 		const afterTelemetry = reduceRunSessionState(afterToolMessage, {
 			class: "stream",
 			type: "frame_received",
-			receivedAt: "2026-08-14T12:00:02.000Z",
 			frame: {
 				type: PipeEventType.RuntimeEvent,
 				sequence: 3,
@@ -201,7 +235,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-08-14T12:00:00.000Z",
 				frame: {
 					type: PipeEventType.Message,
 					sequence: 1,
@@ -216,7 +249,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-08-14T12:00:01.000Z",
 				frame: {
 					type: PipeEventType.Message,
 					sequence: 2,
@@ -273,7 +305,6 @@ describe("run session reducer", () => {
 		const notification = (sequence: number, content: string) => ({
 			class: "stream" as const,
 			type: "frame_received" as const,
-			receivedAt: `2026-08-14T12:00:0${sequence}.000Z`,
 			frame: {
 				type: PipeEventType.Message as const,
 				sequence,
@@ -399,7 +430,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-08-14T12:00:00.000Z",
 				frame: {
 					type: PipeEventType.Message,
 					sequence: 1,
@@ -416,7 +446,6 @@ describe("run session reducer", () => {
 		state = reduceRunSessionState(state, {
 			class: "stream",
 			type: "frame_received",
-			receivedAt: "2026-08-14T12:00:01.000Z",
 			frame: {
 				type: PipeEventType.MessageDelta,
 				sequence: 2,
@@ -444,7 +473,6 @@ describe("run session reducer", () => {
 		state = reduceRunSessionState(state, {
 			class: "stream",
 			type: "frame_received",
-			receivedAt: "2026-08-14T12:00:02.000Z",
 			frame: {
 				type: PipeEventType.MessageDelta,
 				sequence: 3,
@@ -493,7 +521,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-07-02T12:00:00.000Z",
 				frame: {
 					type: PipeEventType.MessageDelta,
 					sequence: 4,
@@ -510,7 +537,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-07-02T12:00:01.000Z",
 				frame: {
 					type: PipeEventType.Message,
 					sequence: 5,
@@ -562,7 +588,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-08-24T12:00:00.000Z",
 				frame: {
 					type: PipeEventType.MessageDelta,
 					sequence: 1,
@@ -579,7 +604,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-08-24T12:00:01.000Z",
 				frame: {
 					type: PipeEventType.MessageDelta,
 					sequence: 2,
@@ -596,7 +620,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-08-24T12:00:02.000Z",
 				frame: {
 					type: PipeEventType.Message,
 					sequence: 3,
@@ -612,7 +635,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-08-24T12:00:03.000Z",
 				frame: {
 					type: PipeEventType.Message,
 					sequence: 4,
@@ -649,7 +671,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-07-02T12:00:00.000Z",
 				frame: {
 					type: PipeEventType.MessageDelta,
 					sequence: 4,
@@ -666,7 +687,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-07-02T12:00:01.000Z",
 				frame: {
 					type: PipeEventType.RuntimeEvent,
 					sequence: 5,
@@ -694,7 +714,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-07-02T12:00:00.000Z",
 				frame: {
 					type: PipeEventType.RuntimeEvent,
 					sequence: 6,
@@ -760,7 +779,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-08-16T12:00:00.000Z",
 				frame: {
 					type: PipeEventType.RuntimeEvent,
 					sequence: 1,
@@ -784,7 +802,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-07-02T12:00:00.000Z",
 				frame: {
 					type: PipeEventType.RuntimeEvent,
 					sequence: 6,
@@ -812,7 +829,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-07-02T12:00:00.000Z",
 				frame: {
 					type: PipeEventType.RuntimeEvent,
 					sequence: 7,
@@ -841,7 +857,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-07-02T12:00:00.000Z",
 				frame: {
 					type: PipeEventType.RunLifecycle,
 					payload: {
@@ -864,7 +879,6 @@ describe("run session reducer", () => {
 			{
 				class: "stream",
 				type: "frame_received",
-				receivedAt: "2026-07-02T12:00:00.000Z",
 				frame: {
 					type: PipeEventType.RunLifecycle,
 					payload: {

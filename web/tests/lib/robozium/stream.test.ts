@@ -37,7 +37,6 @@ import {
 
 describe("mapFrameToLogItem", () => {
   it("maps run_lifecycle started into a lifecycle item", () => {
-    const receivedAt = "2026-04-24T17:56:00.000Z";
     const item = mapFrameToLogItem(
       {
         type: PipeEventType.RunLifecycle,
@@ -48,7 +47,6 @@ describe("mapFrameToLogItem", () => {
           status: WireLifecycleStatus.Running,
         },
       },
-      receivedAt,
     );
 
     expect(item).toEqual({
@@ -56,7 +54,6 @@ describe("mapFrameToLogItem", () => {
       role: StreamLogRole.Lifecycle,
       phase: RunLifecycleKind.Started,
       agentName: "robozium",
-      startedAt: receivedAt,
       details: {
         status: "running",
       },
@@ -64,7 +61,6 @@ describe("mapFrameToLogItem", () => {
   });
 
   it("maps run_lifecycle started with all payload details into one lifecycle item", () => {
-    const receivedAt = "2026-04-24T18:00:00.000Z";
     const item = mapFrameToLogItem(
       {
         type: PipeEventType.RunLifecycle,
@@ -80,7 +76,6 @@ describe("mapFrameToLogItem", () => {
           output_format: "json",
         },
       },
-      receivedAt,
     );
 
     expect(item).toEqual({
@@ -88,7 +83,6 @@ describe("mapFrameToLogItem", () => {
       role: StreamLogRole.Lifecycle,
       phase: RunLifecycleKind.Started,
       agentName: "robozium",
-      startedAt: receivedAt,
       details: {
         model_name: "gpt-4",
         api_name: "openai",
@@ -99,7 +93,6 @@ describe("mapFrameToLogItem", () => {
   });
 
   it("maps run_lifecycle stopped into a lifecycle end row", () => {
-    const receivedAt = "2026-04-24T18:02:00.000Z";
     const item = mapFrameToLogItem(
       {
         type: PipeEventType.RunLifecycle,
@@ -110,7 +103,6 @@ describe("mapFrameToLogItem", () => {
           status: WireLifecycleStatus.Completed,
         },
       },
-      receivedAt,
     );
 
     expect(item).toEqual({
@@ -118,10 +110,8 @@ describe("mapFrameToLogItem", () => {
       role: StreamLogRole.Lifecycle,
       phase: RunLifecycleKind.Stopped,
       agentName: "robozium",
-      endedAt: receivedAt,
       status: "completed",
       details: {
-        ended_at: receivedAt,
         status: "completed",
       },
     });
@@ -138,7 +128,6 @@ describe("mapFrameToLogItem", () => {
           truncation: {},
         },
       },
-      "2026-04-24T17:56:00.000Z",
     );
 
     expect(item).toEqual({
@@ -160,7 +149,6 @@ describe("mapFrameToLogItem", () => {
           message_kind: "user_notification",
         },
       },
-      "2026-04-24T17:56:00.000Z",
     );
 
     expect(item).toEqual({
@@ -188,7 +176,6 @@ describe("mapFrameToLogItem", () => {
           truncation: {},
         },
       },
-      "2026-04-24T17:56:00.000Z",
     );
 
     expect(item).toEqual({
@@ -216,7 +203,6 @@ describe("mapFrameToLogItem", () => {
           truncation: {},
         },
       },
-      "2026-04-24T17:56:00.000Z",
     );
 
     expect(item).toEqual({
@@ -246,7 +232,6 @@ describe("mapFrameToLogItem", () => {
           message_kind: "startup_context",
         },
       },
-      "2026-04-24T17:56:00.000Z",
     );
 
     expect(item).toEqual({
@@ -278,7 +263,6 @@ describe("mapFrameToLogItem", () => {
           truncation: {},
         },
       },
-      "2026-04-24T17:56:00.000Z",
     );
 
     expect(item).toEqual({
@@ -309,7 +293,6 @@ describe("mapFrameToLogItem", () => {
           truncation: {},
         },
       },
-      "2026-04-24T17:56:00.000Z",
     );
 
     expect(item).toEqual({
@@ -331,7 +314,6 @@ describe("mapFrameToLogItem", () => {
           truncation: {},
         },
       },
-      "2026-04-24T17:56:00.000Z",
     );
 
     expect(item).toEqual({
@@ -357,7 +339,6 @@ describe("mapFrameToLogItem", () => {
           truncation: {},
         },
       },
-      "2026-04-24T17:56:00.000Z",
     );
 
     expect(item).toEqual({
@@ -378,7 +359,6 @@ describe("mapFrameToLogItem", () => {
         sequence: 8,
         payload: { content: "script line" },
       },
-      "2026-04-24T17:56:00.000Z",
     );
 
     expect(item).toEqual({

@@ -1,4 +1,3 @@
-import { fetchRunView } from "../client"
 import { slog, swarn } from "../log"
 import { parsePipeEventStream } from "../sse"
 import { getFrameSequence } from "../stream"
@@ -10,6 +9,7 @@ import {
 	type RunView,
 } from "../wire"
 import type { SessionEvent } from "./reducer"
+import type { RunViewLoader } from "./snapshot"
 
 type Dispatch = (event: SessionEvent) => void
 
@@ -75,8 +75,12 @@ function abortableDelay(delayMs: number, signal: AbortSignal): Promise<void> {
 	})
 }
 
-export function startRunSessionConnection(runId: string, dispatch: Dispatch) {
-	const connection = new RunSessionConnection(runId, dispatch)
+export function startRunSessionConnection(
+	runId: string,
+	dispatch: Dispatch,
+	loadRunView: RunViewLoader,
+) {
+	const connection = new RunSessionConnection(runId, dispatch, loadRunView)
 	connection.start()
 	return () => connection.dispose()
 }
@@ -90,6 +94,7 @@ class RunSessionConnection {
 	constructor(
 		private readonly runId: string,
 		private readonly dispatch: Dispatch,
+		private readonly loadRunView: RunViewLoader,
 	) {}
 
 	start() {
@@ -166,12 +171,10 @@ class RunSessionConnection {
 	}
 
 	private async synchronizeSnapshot(): Promise<RunView | null> {
-		const runView = await fetchRunView(this.runId, {
-			signal: this.controller.signal,
-		})
-		if (this.stopped) return null
-
-		this.dispatch({ class: "runView", type: "received", runView })
+		// Queue a fresh fetch after the stream opens; an earlier poll cannot
+		// cover events emitted before this stream subscribed.
+		const runView = await this.loadRunView(this.controller.signal)
+		if (this.stopped || runView === null) return null
 		slog(
 			"stream",
 			`session snapshot runId=${this.runId} entries=${runView.message_trace.length}`,
@@ -204,7 +207,6 @@ class RunSessionConnection {
 			class: "stream",
 			type: "frame_received",
 			frame,
-			receivedAt: new Date().toISOString(),
 		})
 	}
 

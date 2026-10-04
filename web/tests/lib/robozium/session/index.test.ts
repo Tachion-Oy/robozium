@@ -198,6 +198,21 @@ describe("createRunSession HUD messages", () => {
 		vi.clearAllMocks()
 	})
 
+	it("keeps the active prompt when a reply fails so the user can retry", async () => {
+		mockedSubmitReply.mockRejectedValueOnce(new Error("offline"))
+		const session = createRunSession("run-1", {
+			...seededRunView("awaiting_user_input"),
+			current_prompt_id: "prompt-1",
+			current_prompt: "Question",
+		})
+		const before = session.store.getState()
+		await expect(session.submitReply("answer")).rejects.toThrow("offline")
+		expect(session.store.getState()).toBe(before)
+		mockedSubmitReply.mockResolvedValueOnce({ ok: true })
+		await expect(session.submitReply("answer")).resolves.toBe(true)
+		expect(session.store.getState().hud.promptId).toBeNull()
+	})
+
 	it("submits the active prompt while a historical message is selected", async () => {
 		mockedSubmitReply.mockResolvedValueOnce({ ok: true })
 		const session = createRunSession("run-1", {

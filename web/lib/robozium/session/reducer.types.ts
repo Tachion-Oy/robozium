@@ -24,7 +24,6 @@ export type StreamEvent =
 			class: "stream"
 			type: "frame_received"
 			frame: PipeEventFrame
-			receivedAt: string
 	  }
 
 /** User-command lifecycle events emitted by session actions. */

@@ -82,6 +82,11 @@ export function RunHud({
 					current === submittedDraft ? "" : current,
 				)
 			}
+		} catch {
+			showErrorToast({
+				title: "Reply failed",
+				message: "Could not send your reply. Your draft has been kept.",
+			})
 		} finally {
 			setIsSubmitting(false)
 		}

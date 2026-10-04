@@ -100,7 +100,6 @@ describe("renderContent", () => {
 					role: StreamLogRole.Lifecycle,
 					phase: "started",
 					agentName: "robozium",
-					startedAt: "2026-04-24T18:00:00.000Z",
 					details: {
 						kind: "started",
 						agent_name: "robozium",
@@ -124,10 +123,8 @@ describe("renderContent", () => {
 					role: StreamLogRole.Lifecycle,
 					phase: "stopped",
 					agentName: "robozium",
-					endedAt: "2026-04-24T18:02:00.000Z",
 					status: "completed",
 					details: {
-						ended_at: "2026-04-24T18:02:00.000Z",
 						kind: "stopped",
 						status: "completed",
 					},

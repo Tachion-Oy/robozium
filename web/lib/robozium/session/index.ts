@@ -15,6 +15,7 @@ import {
 	type SessionEvent,
 } from "./reducer"
 import { startRunSessionPoller } from "./poller"
+import { createRunViewLoader } from "./snapshot"
 
 export type RunSession = {
 	store: StoreApi<RunSessionState>
@@ -65,9 +66,11 @@ export function createRunSession(
 	const start = () => {
 		if (started || shouldExitRunView(store.getState())) return
 		started = true
-		// Stream + poller each get the same dispatch pipeline.
-		stopConnection = startRunSessionConnection(runId, dispatch)
-		stopPoller = startRunSessionPoller(runId, dispatch)
+		// Status and prompts can change without advancing the event sequence.
+		// Both transports therefore share one ordered snapshot loader.
+		const loadRunView = createRunViewLoader(runId, dispatch)
+		stopConnection = startRunSessionConnection(runId, dispatch, loadRunView)
+		stopPoller = startRunSessionPoller(runId, dispatch, loadRunView)
 	}
 
 	const dispose = () => stopTransports()

@@ -24,7 +24,7 @@ const runtime = (sequence: number, retry = false): PipeEventFrame => ({
 	type: PipeEventType.RuntimeEvent, sequence,
 	payload: { category: retry ? "llm" : "tool", kind: retry ? "retrying" : "information", level: "info", message: "runtime", agent_name: "root", data: null },
 })
-const received = (frame: PipeEventFrame): SessionEvent => ({ class: "stream", type: "frame_received", receivedAt: "2026-09-26T12:00:00Z", frame })
+const received = (frame: PipeEventFrame): SessionEvent => ({ class: "stream", type: "frame_received", frame })
 const view = (trace: PipeEventFrame[], overrides: Partial<RunView> = {}): RunView => ({
 	project: "alpha", status: "running", current_agent_name: "root", parent_agent_name: null,
 	message_trace: trace, current_prompt_id: null, current_prompt: null, error: null, ...overrides,

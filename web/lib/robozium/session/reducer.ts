@@ -201,9 +201,8 @@ function reduceMessageDeltaState(
 function reduceMessageState(
 	state: RunSessionState,
 	frame: MessageEventFrame,
-	receivedAt: string,
 ): RunSessionState {
-	state = appendLogItem(completeScript(state), mapFrameToLogItem(frame, receivedAt))
+	state = appendLogItem(completeScript(state), mapFrameToLogItem(frame))
 	if (!frame.message_id) return state
 	return reduceContentState(state, {
 		class: "content",
@@ -215,9 +214,8 @@ function reduceMessageState(
 function reduceLifecycleState(
 	state: RunSessionState,
 	frame: RunLifecycleEventFrame,
-	receivedAt: string,
 ): RunSessionState {
-	state = appendLogItem(completeScript(state), mapFrameToLogItem(frame, receivedAt))
+	state = appendLogItem(completeScript(state), mapFrameToLogItem(frame))
 	if (frame.payload.kind !== RunLifecycleKind.Stopped) return state
 	const messageId = state.hud.streaming?.messageId
 	if (messageId) {
@@ -263,7 +261,7 @@ function reduceStreamState(
 	if (event.type !== "frame_received") {
 		state = reduceStreamFailureState(state, event.message)
 	} else {
-		const { frame, receivedAt } = event
+		const { frame } = event
 		const sequence = getFrameSequence(frame)
 		if (sequence <= state.log.appliedSequence) return state
 		switch (frame.type) {
@@ -274,10 +272,10 @@ function reduceStreamState(
 				state = reduceMessageDeltaState(state, frame, initial)
 				break
 			case PipeEventType.Message:
-				state = reduceMessageState(state, frame, receivedAt)
+				state = reduceMessageState(state, frame)
 				break
 			case PipeEventType.RunLifecycle:
-				state = reduceLifecycleState(state, frame, receivedAt)
+				state = reduceLifecycleState(state, frame)
 				break
 			case PipeEventType.RuntimeEvent:
 				state = reduceRuntimeState(state, frame)
@@ -317,12 +315,11 @@ export function reduceRunSessionState(
 	const previous = state
 	const initial = event.class === "runView" && state.hud.status === null
 	if (event.class === "runView") {
-		const receivedAt = new Date().toISOString()
 		const frames = [...event.runView.message_trace].sort(
 			(a, b) => getFrameSequence(a) - getFrameSequence(b),
 		)
 		for (const frame of frames) {
-			state = reduceSessionEvent(state, { class: "stream", type: "frame_received", frame, receivedAt }, initial)
+			state = reduceSessionEvent(state, { class: "stream", type: "frame_received", frame }, initial)
 		}
 		state = { ...state, projectSlug: event.runView.project }
 	}

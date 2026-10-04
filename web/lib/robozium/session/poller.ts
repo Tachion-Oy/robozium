@@ -1,22 +1,24 @@
-import { fetchRunView, AgentApiError } from "../client"
+import { AgentApiError } from "../client"
 import { swarn } from "../log"
 import type { SessionEvent } from "./reducer"
+import type { RunViewLoader } from "./snapshot"
 
 type Dispatch = (event: SessionEvent) => void
 
-export function startRunSessionPoller(runId: string, dispatch: Dispatch) {
+export function startRunSessionPoller(
+	runId: string,
+	dispatch: Dispatch,
+	loadRunView: RunViewLoader,
+) {
 	let active = true
 	let timeoutId: number | null = null
 	const controller = new AbortController()
 
-	// Schedule only after a request settles, so an older snapshot cannot arrive
-	// after a newer poll and restore stale status or prompts.
+	// Schedule only after the shared loader settles, avoiding a backlog of polls.
 	const pollRunView = async () => {
 		if (!active) return
 		try {
-			const runView = await fetchRunView(runId, { signal: controller.signal })
-			if (!active) return
-			dispatch({ class: "runView", type: "received", runView })
+			await loadRunView(controller.signal)
 		} catch (error) {
 			if (!active) return
 			if (error instanceof AgentApiError && error.status === 404) {

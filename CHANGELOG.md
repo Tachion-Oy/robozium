@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Coordinate frontend polling and stream-recovery snapshots so delayed responses
+  cannot restore an older run status or prompt. Show failed replies in a toast
+  while keeping the draft available for retry. Remove browser-generated lifecycle
+  timestamps that changed when reopening a run.
+
 - Upgrade RoboZ to `0.5.0a1` with its tagged file-command CLI for guarded
   discovery, reading, writing, transfers, and deletion. Include `gio trash`
   support in the API container. Saved calls using the old CLI input must be
