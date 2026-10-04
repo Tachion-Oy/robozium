@@ -29,6 +29,7 @@ function deferredResponse() {
 }
 
 afterEach(() => {
+	vi.useRealTimers()
 	vi.restoreAllMocks()
 	vi.unstubAllGlobals()
 })
@@ -119,6 +120,41 @@ describe("session snapshot loader", () => {
 		await expect(recovery).resolves.toEqual(runningView)
 		expect(fetch).toHaveBeenCalledTimes(2)
 		expect(pollController.signal.aborted).toBe(false)
+		expect(dispatch).toHaveBeenCalledExactlyOnceWith({
+			class: "runView", type: "received", runView: runningView,
+		})
+	})
+
+	it("allows a slower recovery snapshot to complete after a timeout", async () => {
+		vi.useFakeTimers()
+		// Advance the native deadline through the test clock.
+		vi.spyOn(AbortSignal, "timeout").mockImplementation((delayMs) => {
+			const controller = new AbortController()
+			window.setTimeout(() => {
+				controller.abort(new DOMException("The operation timed out.", "TimeoutError"))
+			}, delayMs)
+			return controller.signal
+		})
+		const fetch = vi.fn((_url: string, init: RequestInit) =>
+			new Promise<Response>((resolve, reject) => {
+				const signal = init.signal!
+				signal.addEventListener("abort", () => reject(signal.reason), { once: true })
+				window.setTimeout(() => resolve(Response.json(runningView)), 12_000)
+			}),
+		)
+		vi.stubGlobal("fetch", fetch)
+		const dispatch = vi.fn<(event: SessionEvent) => void>()
+		const load = createRunViewLoader("run-1", dispatch)
+		const poll = load(new AbortController().signal)
+		const recovery = load(new AbortController().signal)
+		const failed = expect(poll).rejects.toMatchObject({ name: "TimeoutError" })
+
+		await vi.advanceTimersByTimeAsync(10_000)
+		await failed
+		expect(dispatch).not.toHaveBeenCalled()
+		await vi.advanceTimersByTimeAsync(12_000)
+		await expect(recovery).resolves.toEqual(runningView)
+		expect(fetch).toHaveBeenCalledTimes(2)
 		expect(dispatch).toHaveBeenCalledExactlyOnceWith({
 			class: "runView", type: "received", runView: runningView,
 		})
