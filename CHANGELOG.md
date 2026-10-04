@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Pin RoboZ `0.5.0rc1`. Guarded file tool reports now preserve permission
+  questions, exact replies, and decisions, including declined approvals.
+
 - Coordinate frontend polling and stream-recovery snapshots so delayed responses
   cannot restore an older run status or prompt. Show failed replies in a toast
   while keeping the draft available for retry. Remove browser-generated lifecycle

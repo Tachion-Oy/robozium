@@ -91,12 +91,12 @@ and `readonly/` are denied. These are agent file-tool permissions, not an
 operating-system sandbox; custom Python code must apply its own appropriate
 guards.
 
-RoboZ `0.5.0a1` supplies the guarded file CLI. Scripted `run_file_command`
+RoboZ `0.5.0rc1` supplies the guarded file CLI. Scripted `run_file_command`
 calls use ordered `[value, tag]` pairs in `value`, for example
 `[["cat", "CMD"], ["workspace/notes.txt", "PTH"]]`. The old `file_commands`
 and `chain` inputs are no longer accepted. Convert saved tool calls before
 replaying them; upgrading does not rewrite existing project files or history.
-See the [RoboZ CLI migration guide](https://github.com/Tachion-Oy/roboz/blob/roboz-v0.5.0a1/src/roboz/shed/tools/cli_commands/README.md).
+See the [RoboZ guarded file CLI guide](https://github.com/Tachion-Oy/roboz/blob/roboz-v0.5.0rc1/README.md#guarded-file-cli).
 
 ![Three example projects and their permitted, prompted, and denied file paths inside the hub sandbox](docs/assets/sandbox-permissions.svg)
 
