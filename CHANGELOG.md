@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Upgrade RoboZ to `0.5.0a1` with its tagged file-command CLI for guarded
+  discovery, reading, writing, transfers, and deletion. Include `gio trash`
+  support in the API container. Saved calls using the old CLI input must be
+  converted before replay; existing hub data is preserved.
+
 - Render the landing title glow independently of clipped accessibility text.
   Scale the title to narrow viewports and keep the landing HUD below it as
   the browser's reported visible viewport changes. Keep hover glow updates
@@ -22,7 +27,7 @@
 
 - Include LibreOffice in the API container for document conversion tools.
 
-- Pin RoboZ `0.4.0a1` and supervise its SafeScripts service on Linux live runs
+- Supervise RoboZ's SafeScripts service on Linux live runs
   through the Process Compose inventory. Keep mock runs isolated from host services.
 
 ## Published (through 2026-09-27)
