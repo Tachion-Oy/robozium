@@ -26,10 +26,14 @@ export function createRunViewLoader(
 		// A stalled request must release the loader so recovery can proceed.
 		const timeoutSignal = AbortSignal.timeout(timeoutMs)
 		const requestSignal = AbortSignal.any([signal, timeoutSignal])
+		const startedAt = performance.now()
 		pending = fetchRunView(runId, { signal: requestSignal })
 		try {
 			const runView = await pending
 			if (requestSignal.aborted) return null
+			timeoutMs = Math.min(MAX_SNAPSHOT_TIMEOUT_MS, Math.max(
+				SNAPSHOT_TIMEOUT_MS, Math.ceil((performance.now() - startedAt) * 2),
+			))
 			dispatch({ class: "runView", type: "received", runView })
 			return runView
 		} catch (error) {

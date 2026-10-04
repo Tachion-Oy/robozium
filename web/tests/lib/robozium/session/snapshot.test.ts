@@ -28,6 +28,17 @@ function deferredResponse() {
 	return { promise, resolve }
 }
 
+function useFakeDeadlines() {
+	vi.useFakeTimers()
+	vi.spyOn(AbortSignal, "timeout").mockImplementation((delayMs) => {
+		const controller = new AbortController()
+		window.setTimeout(() => {
+			controller.abort(new DOMException("The operation timed out.", "TimeoutError"))
+		}, delayMs)
+		return controller.signal
+	})
+}
+
 afterEach(() => {
 	vi.useRealTimers()
 	vi.restoreAllMocks()
@@ -95,16 +106,17 @@ describe("session snapshot loader", () => {
 		})
 	})
 
-	it("times out a stalled poll so a queued recovery can fetch and apply its snapshot", async () => {
-		const timeout = new AbortController()
-		vi.spyOn(AbortSignal, "timeout").mockReturnValueOnce(timeout.signal)
+	it("times out stalled polls and returns to the normal deadline after a fast recovery", async () => {
+		useFakeDeadlines()
+		const stalledFetch = (_url: string, init: RequestInit) =>
+			new Promise<Response>((_resolve, reject) => {
+				const signal = init.signal!
+				signal.addEventListener("abort", () => reject(signal.reason), { once: true })
+			})
 		const fetch = vi.fn()
-			.mockImplementationOnce((_url: string, init: RequestInit) =>
-				new Promise<Response>((_resolve, reject) => {
-					const signal = init.signal!
-					signal.addEventListener("abort", () => reject(signal.reason), { once: true })
-				}),
-			)
+			.mockImplementationOnce(stalledFetch)
+			.mockResolvedValueOnce(Response.json(runningView))
+			.mockImplementationOnce(stalledFetch)
 			.mockResolvedValueOnce(Response.json(runningView))
 		vi.stubGlobal("fetch", fetch)
 		const dispatch = vi.fn<(event: SessionEvent) => void>()
@@ -115,7 +127,7 @@ describe("session snapshot loader", () => {
 		const failed = expect(poll).rejects.toMatchObject({ name: "TimeoutError" })
 		expect(fetch).toHaveBeenCalledTimes(1)
 
-		timeout.abort(new DOMException("The operation timed out.", "TimeoutError"))
+		await vi.advanceTimersByTimeAsync(10_000)
 		await failed
 		await expect(recovery).resolves.toEqual(runningView)
 		expect(fetch).toHaveBeenCalledTimes(2)
@@ -123,18 +135,19 @@ describe("session snapshot loader", () => {
 		expect(dispatch).toHaveBeenCalledExactlyOnceWith({
 			class: "runView", type: "received", runView: runningView,
 		})
+
+		const nextPoll = load(new AbortController().signal)
+		const nextRecovery = load(new AbortController().signal)
+		const nextFailed = expect(nextPoll).rejects.toMatchObject({ name: "TimeoutError" })
+		await vi.advanceTimersByTimeAsync(10_000)
+		await nextFailed
+		await expect(nextRecovery).resolves.toEqual(runningView)
+		expect(fetch).toHaveBeenCalledTimes(4)
+		expect(dispatch).toHaveBeenCalledTimes(2)
 	})
 
-	it("allows a slower recovery snapshot to complete after a timeout", async () => {
-		vi.useFakeTimers()
-		// Advance the native deadline through the test clock.
-		vi.spyOn(AbortSignal, "timeout").mockImplementation((delayMs) => {
-			const controller = new AbortController()
-			window.setTimeout(() => {
-				controller.abort(new DOMException("The operation timed out.", "TimeoutError"))
-			}, delayMs)
-			return controller.signal
-		})
+	it("allows slower recovery snapshots and subsequent polls to complete after a timeout", async () => {
+		useFakeDeadlines()
 		const fetch = vi.fn((_url: string, init: RequestInit) =>
 			new Promise<Response>((resolve, reject) => {
 				const signal = init.signal!
@@ -158,6 +171,12 @@ describe("session snapshot loader", () => {
 		expect(dispatch).toHaveBeenCalledExactlyOnceWith({
 			class: "runView", type: "received", runView: runningView,
 		})
+
+		const nextPoll = load(new AbortController().signal)
+		await vi.advanceTimersByTimeAsync(12_000)
+		await expect(nextPoll).resolves.toEqual(runningView)
+		expect(fetch).toHaveBeenCalledTimes(3)
+		expect(dispatch).toHaveBeenCalledTimes(2)
 	})
 
 	it("discards an aborted response and skips an aborted queued request", async () => {
