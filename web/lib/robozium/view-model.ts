@@ -47,7 +47,6 @@ export type LifecycleStartedLogItem = {
 	role: StreamLogRole.Lifecycle
 	phase: `${RunLifecycleKind.Started}`
 	agentName: string
-	startedAt: string
 	/** API lifecycle payload entries rendered in the process banner. */
 	details: Record<string, string>
 }
@@ -57,7 +56,6 @@ export type LifecycleStoppedLogItem = {
 	role: StreamLogRole.Lifecycle
 	phase: `${RunLifecycleKind.Stopped}`
 	agentName: string
-	endedAt: string
 	status: LifecycleStatus | null
 	/** API lifecycle payload entries rendered in the process banner. */
 	details: Record<string, string>

@@ -49,6 +49,7 @@ vi.mock("../../../../../app/components/feedback/ErrorToast", () => ({
 }))
 
 import { RunHud } from "../../../../../app/components/hud/run/RunHud"
+import { showErrorToast } from "../../../../../app/components/feedback/ErrorToast"
 
 function TestRunHud() {
 	const [draft, setDraft] = useState("")
@@ -438,6 +439,33 @@ describe("RunHud prompt history", () => {
 			screen.getByRole("button", { name: "Jump to latest agent message" }),
 		)
 		expect(screen.getByText("action:working")).not.toBeNull()
+	})
+
+	it("reports a failed reply, retains edits made during submission, and allows retry", async () => {
+		let rejectSubmission!: (error: Error) => void
+		mocks.submitReply.mockReturnValueOnce(new Promise<boolean>((_, reject) => {
+			rejectSubmission = reject
+		}))
+		mocks.state = promptingState(["Current prompt"])
+		renderHud()
+		const textbox = screen.getByRole("textbox") as HTMLTextAreaElement
+		const send = screen.getByRole("button", { name: "Send" }) as HTMLButtonElement
+		fireEvent.change(textbox, { target: { value: "first reply" } })
+		fireEvent.click(send)
+		expect(send.disabled).toBe(true)
+		fireEvent.change(textbox, { target: { value: "edited reply" } })
+		await act(async () => rejectSubmission(new Error("offline")))
+
+		expect(showErrorToast).toHaveBeenCalledExactlyOnceWith({
+			title: "Reply failed",
+			message: "Could not send your reply. Your draft has been kept.",
+		})
+		expect(textbox.value).toBe("edited reply")
+		expect(screen.getByText("Current prompt")).not.toBeNull()
+		expect(send.disabled).toBe(false)
+		fireEvent.click(send)
+		await waitFor(() => expect(textbox.value).toBe(""))
+		expect(mocks.submitReply).toHaveBeenLastCalledWith("edited reply")
 	})
 
 	it("does not clear draft changes made while submission completes", async () => {

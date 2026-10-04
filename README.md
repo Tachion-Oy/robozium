@@ -24,8 +24,7 @@ Robozium is a multi-agent application built on [RoboZ](https://github.com/Tachio
 
 > [!NOTE]
 > Robozium and its RoboZ dependency are early-stage software. Configuration,
-> behavior, and interfaces may change. See the [changelog](CHANGELOG.md) and
-> [known issues](#known-issues).
+> behavior, and interfaces may change. See the [changelog](CHANGELOG.md).
 
 ## Table of contents
 
@@ -41,7 +40,6 @@ Robozium is a multi-agent application built on [RoboZ](https://github.com/Tachio
 - [Development and contributions](#development-and-contributions)
 - [Module map](#module-map)
 - [Troubleshooting](#troubleshooting)
-- [Known issues](#known-issues)
 - [License and credits](#license-and-credits)
 
 ## How it works
@@ -337,12 +335,6 @@ Check the HUD's dependency status and API-key controls when a live provider is
 unavailable. For a reproducible bug, include the commit, mode, operating system,
 and sanitized logs in an [issue](https://github.com/Tachion-Oy/robozium/issues).
 Report vulnerabilities privately using [Security](SECURITY.md).
-
-## Known issues
-
-- A delayed run poll can replace a newer status with an older one.
-- A failed project refresh can hide the project list; a failed reply has no clear error message.
-- Run snapshot timestamps are generated when normalized and can differ between renders.
 
 ## License and credits
 

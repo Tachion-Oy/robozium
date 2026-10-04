@@ -129,7 +129,6 @@ export const placeholderLogItems: StreamLogItem[] = [
 		role: StreamLogRole.Lifecycle,
 		phase: RunLifecycleKind.Started,
 		agentName: "NOVA-Ω∞ ∮ Prime Intelligence",
-		startedAt: "2026-04-22T00:03:14Z",
 		details: {
 			model_name: "Scalaron-Ω・Δ9 (ℏ-tuned)",
 			temperature: "δS/δφ = 0.2, ℏ∂_tψ = Ĥψ",

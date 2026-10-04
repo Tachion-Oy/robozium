@@ -53,7 +53,6 @@ const STOPPED_EXCLUDED_LIFECYCLE_DETAIL_KEYS = [
 type LifecycleDetailPolicy = {
 	excludedKeys: ReadonlySet<keyof RunLifecycleEventPayload>
 	includeNullValues: boolean
-	detailTimestampKey?: "started_at" | "ended_at"
 }
 
 const LIFECYCLE_DETAIL_POLICY: Record<RunLifecycleKind, LifecycleDetailPolicy> =
@@ -65,7 +64,6 @@ const LIFECYCLE_DETAIL_POLICY: Record<RunLifecycleKind, LifecycleDetailPolicy> =
 		[RunLifecycleKind.Stopped]: {
 			excludedKeys: new Set(STOPPED_EXCLUDED_LIFECYCLE_DETAIL_KEYS),
 			includeNullValues: true,
-			detailTimestampKey: "ended_at",
 		},
 	}
 
@@ -242,21 +240,13 @@ export function scriptOutputToItem(content: string): StreamLogItem {
 
 function lifecycleFrameToItem(
 	frame: Extract<PipeEventFrame, { type: `${PipeEventType.RunLifecycle}` }>,
-	receivedAt: string,
 ): LifecycleLogItem {
 	const policy = LIFECYCLE_DETAIL_POLICY[frame.payload.kind]
-	const details = toLifecycleDetails(frame.payload, policy)
-	const lifecycleDetails = policy.detailTimestampKey
-		? {
-				[policy.detailTimestampKey]: receivedAt,
-				...details,
-			}
-		: details
 	const baseLifecycleItem = {
 		kind: StreamLogItemKind.Lifecycle as const,
 		role: StreamLogRole.Lifecycle as const,
 		agentName: frame.payload.agent_name,
-		details: lifecycleDetails,
+		details: toLifecycleDetails(frame.payload, policy),
 	}
 
 	switch (frame.payload.kind) {
@@ -264,13 +254,11 @@ function lifecycleFrameToItem(
 			return {
 				...baseLifecycleItem,
 				phase: RunLifecycleKind.Started,
-				startedAt: receivedAt,
 			}
 		case RunLifecycleKind.Stopped: {
 			return {
 				...baseLifecycleItem,
 				phase: RunLifecycleKind.Stopped,
-				endedAt: receivedAt,
 				status: frame.payload.status,
 			}
 		}
@@ -285,11 +273,10 @@ export function mapFrameToLogItem(
 		| { type: `${PipeEventType.MessageDelta}` }
 		| { type: `${PipeEventType.RuntimeEvent}` }
 	>,
-	receivedAt: string,
 ): StreamLogItem {
 	switch (frame.type) {
 		case PipeEventType.RunLifecycle:
-			return lifecycleFrameToItem(frame, receivedAt)
+			return lifecycleFrameToItem(frame)
 		case PipeEventType.Message:
 			return messageFrameToItem(frame)
 		case PipeEventType.ScriptOutput:

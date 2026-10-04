@@ -35,6 +35,27 @@ test("shows the New Project button on landing", async ({ page }) => {
 	await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible()
 })
 
+test("keeps a failed reply visible and allows retry", async ({ page }) => {
+	const runId = await startRunFromLanding(page, "Reply Retry")
+	const draft = page.locator(".agent-hud__textarea")
+	const send = page.getByRole("button", { name: "Send", exact: true })
+	await draft.fill("Please continue")
+	await expect(send).toBeEnabled({ timeout: 30_000 })
+	await page.route(`**/api/runs/${encodeURIComponent(runId)}/reply`, (route) =>
+		route.fulfill({ status: 503, json: { detail: "Temporarily unavailable" } }),
+		{ times: 1 },
+	)
+	await send.click()
+	await expect(page.getByText("Reply failed", { exact: true })).toBeVisible()
+	await expect(draft).toHaveValue("Please continue")
+	await expect(send).toBeEnabled()
+	await send.click()
+	await expect(draft).toHaveValue("")
+	await expect(page.locator(".agent-hud__agent", {
+		hasText: "Thanks. One more thing before I finish?",
+	})).toBeVisible({ timeout: 30_000 })
+})
+
 test("startup reaps stale preboot running logs so seeded project is not syncing", async ({
 	page,
 }) => {

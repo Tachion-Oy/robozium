@@ -1,7 +1,7 @@
 import { WireLifecycleStatus, WireRole } from "@/lib/robozium/wire"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { startRunSessionConnection } from "../../../../lib/robozium/session/connection"
+import { startRunSessionConnection as startConnection } from "../../../../lib/robozium/session/connection"
 import { createInitialRunSessionState, reduceRunSessionState, type SessionEvent } from "../../../../lib/robozium/session/reducer"
 import {
 	PipeEventType,
@@ -9,6 +9,12 @@ import {
 	type PipeEventFrame,
 	type RunView,
 } from "../../../../lib/robozium/wire"
+
+import { createRunViewLoader } from "../../../../lib/robozium/session/snapshot"
+
+function startRunSessionConnection(runId: string, dispatch: (event: SessionEvent) => void) {
+	return startConnection(runId, dispatch, createRunViewLoader(runId, dispatch))
+}
 
 const encoder = new TextEncoder()
 
@@ -330,12 +336,7 @@ describe("run session stream connection", () => {
 })
 
 describe("session startup snapshot ownership", () => {
-	it.each([
-		["poll", false],
-		["connection", false],
-		["poll", true],
-		["connection", true],
-	] as const)("replays once when %s finishes first (server seed: %s)", async (first, seeded) => {
+	it.each([false, true])("loads poll and recovery snapshots one at a time and replays once (server seed: %s)", async (seeded) => {
 		const { createRunSession } = await import("../../../../lib/robozium/session")
 		const historical = [
 			{ type: PipeEventType.ScriptOutput, sequence: 1, payload: { content: "old" } },
@@ -368,14 +369,15 @@ describe("session startup snapshot ownership", () => {
 		}
 		session.start()
 		try {
-			await waitUntil(() => requests.length === 2)
-			// The poll begins immediately; connection snapshot waits for the stream to open.
-			const firstIndex = first === "poll" ? 0 : 1
-			requests[firstIndex](viewResponse(runningView([...historical, recovered])))
+			await waitUntil(() => requests.length === 1)
+			// The recovery fetch waits for the poll to be applied, then gets its
+			// own fresh snapshot with the stream already open.
+			requests[0](viewResponse(runningView([...historical, recovered])))
 			await waitUntil(() => session.store.getState().log.appliedSequence === 4)
 			expect(session.store.getState().hud.streaming?.text).toBe("unfinished output")
 			expect(session.store.getState().hud.selectedMessageId).toBeNull()
-			requests[1 - firstIndex](viewResponse(runningView([...historical, recovered, native])))
+			await waitUntil(() => requests.length === 2)
+			requests[1](viewResponse(runningView([...historical, recovered, native])))
 			await waitUntil(() => session.store.getState().log.appliedSequence === 5)
 			const state = session.store.getState()
 			expect(state.hud.messages.map(message => message.text)).toEqual(["old", "unfinished output"])

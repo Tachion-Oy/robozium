@@ -5,7 +5,7 @@ import {
 	AgentApiError,
 } from "../../../../lib/robozium/client"
 import { swarn } from "../../../../lib/robozium/log"
-import { startRunSessionPoller } from "../../../../lib/robozium/session/poller"
+import { startRunSessionPoller as startPoller } from "../../../../lib/robozium/session/poller"
 import type { SessionEvent } from "../../../../lib/robozium/session/reducer"
 import type { RunView } from "../../../../lib/robozium/wire"
 
@@ -18,6 +18,12 @@ vi.mock("../../../../lib/robozium/client", async (importOriginal) => {
 vi.mock("../../../../lib/robozium/log", () => ({
 	swarn: vi.fn(),
 }))
+
+import { createRunViewLoader } from "../../../../lib/robozium/session/snapshot"
+
+function startRunSessionPoller(runId: string, dispatch: (event: SessionEvent) => void) {
+	return startPoller(runId, dispatch, createRunViewLoader(runId, dispatch))
+}
 
 const mockedFetchRunView = vi.mocked(fetchRunView)
 const mockedSwarn = vi.mocked(swarn)
