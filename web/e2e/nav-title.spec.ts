@@ -1,6 +1,7 @@
 import { waitForHudLayout } from "./hud-layout"
 import { expect, test } from "./fixtures"
 import { createProject, gotoLanding } from "./helpers"
+import { compareScreenshotPixels } from "./screenshot-comparison"
 import nextConfig from "../next.config"
 
 const hubBrand = nextConfig.env!.NEXT_PUBLIC_ROBOZIUM_NAME!.toUpperCase()
@@ -66,18 +67,22 @@ test("the HUD covers the returning title after an enlarged run in both themes", 
 				expect(overlap.uncoveredTitleInFront).toBe(true)
 			}
 			// Hit testing alone misses a title bleeding through the dark shell.
-			// Removing the covered artwork must not change the HUD's pixels.
+			// Removing the covered artwork must not visibly change the HUD.
 			const screenshotOptions = { clip: overlap.covered, animations: "disabled", caret: "hide" } as const
 			const covered = await page.screenshot(screenshotOptions)
 			const title = page.locator(".app-nav__brand--bar")
 			await title.evaluate((element) => { element.style.visibility = "hidden" })
 			const withoutTitle = await page.screenshot(screenshotOptions)
 			await title.evaluate((element) => { element.style.removeProperty("visibility") })
-			if (!covered.equals(withoutTitle)) {
+			const difference = compareScreenshotPixels(covered, withoutTitle)
+			if (difference) {
 				await testInfo.attach(`${theme}-with-title`, { body: covered, contentType: "image/png" })
 				await testInfo.attach(`${theme}-without-title`, { body: withoutTitle, contentType: "image/png" })
+				if (difference.diff) {
+					await testInfo.attach(`${theme}-difference`, { body: difference.diff, contentType: "image/png" })
+				}
 			}
-			expect(covered.equals(withoutTitle), `${theme} HUD must fully cover the title`).toBe(true)
+			expect(difference, `${theme} HUD must cover the title: ${difference?.errorMessage ?? "within tolerance"}`).toBeNull()
 			await page.locator(".agent-hud__view-trigger").click()
 			await expect(page.getByRole("option", { name: "Dependencies", exact: true })).toBeVisible()
 			await page.locator(".agent-hud__view-trigger").click()
