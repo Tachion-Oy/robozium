@@ -1,9 +1,9 @@
 import pixelmatch from "pixelmatch"
 import { PNG } from "pngjs"
 
-// Allow normal rasterization noise while still detecting visible UI changes.
-// Use the same policy for saved baselines and comparisons within one test.
-export const screenshotTolerance = { threshold: 0.2, maxDiffPixelRatio: 0.002 }
+// Captures within one page allow rasterization noise, but need a lower colour
+// threshold than saved baselines: 0.2 hides visible, faint light-theme lettering.
+const screenshotTolerance = { threshold: 0.1, maxDiffPixelRatio: 0.002 }
 
 export function compareScreenshotPixels(actualBuffer: Buffer, expectedBuffer: Buffer): {
 	errorMessage: string

@@ -58,9 +58,11 @@ resizing or changing the theme or panel. Visibility and an updated slider value
 do not mean layout has finished: await applied viewport dimensions, finite CSS
 transitions, and stable bounds. Reduced motion does not disable every colour
 transition. Pixel comparisons should disable animations and hide the caret.
-Use the shared `screenshotTolerance` (0.2 perceptual colour threshold and at most
-0.2% differing pixels), including `compareScreenshotPixels` for two captures
-within one test. Do not compare encoded PNG buffers for equality: harmless
+Use `compareScreenshotPixels` for two captures within one test: it allows a 0.1
+perceptual colour threshold and at most 0.2% differing pixels. Saved visual
+baselines use a 0.2 colour threshold; that is too permissive for faint title
+bleed-through, as verified by injecting HUD transparency in both themes.
+Do not compare encoded PNG buffers for equality: harmless
 encoding, antialiasing, and paint differences must not fail the suite. Retain
 both images and the difference image on failure to distinguish a paint change
 from a layout defect. Keep animation behavior tests separate from final-state

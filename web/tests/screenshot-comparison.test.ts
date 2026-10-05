@@ -32,9 +32,12 @@ describe("screenshot pixel tolerance", () => {
 		expect(compareScreenshotPixels(PNG.sync.write(actual), PNG.sync.write(expected))).toBeNull()
 	})
 
-	it.each(["dark", "light"])("rejects visible lettering through a %s HUD", (theme) => {
-		const background = theme === "dark" ? 12 : 240
-		const ink = theme === "dark" ? 220 : 24
+	it.each([
+		{ name: "dark", background: 12, ink: 220 },
+		{ name: "light", background: 240, ink: 24 },
+		{ name: "faint dark", background: 12, ink: 50 },
+		{ name: "faint light", background: 240, ink: 205 },
+	])("rejects $name lettering through the HUD", ({ background, ink }) => {
 		const expected = solidImage(background)
 		const actual = solidImage(background)
 		// A small L-shaped glyph must exceed the tolerance, even on a mostly unchanged HUD.

@@ -2,7 +2,6 @@ import { expect, test } from "./fixtures"
 import { type APIRequestContext, type Locator, type Page } from "@playwright/test"
 import { createProject, gotoLanding, selectHudView, waitFor } from "./helpers"
 import { waitForHudLayout } from "./hud-layout"
-import { screenshotTolerance } from "./screenshot-comparison"
 
 const VIEWPORT = { width: 1920, height: 1080 }
 const VISUAL_PROJECTS = [
@@ -88,7 +87,8 @@ async function expectThemePair(
 		await expect(target).toHaveScreenshot(`${name}-${theme}.png`, {
 			animations: "disabled",
 			caret: "hide",
-			...screenshotTolerance,
+			maxDiffPixelRatio: 0.002,
+			threshold: 0.2,
 			fullPage: options.fullPage,
 		})
 	}
@@ -352,7 +352,8 @@ test("freezes light CRT rasterization at 1.25 device scale", async ({
 			animations: "disabled",
 			caret: "hide",
 			fullPage: true,
-			...screenshotTolerance,
+			maxDiffPixelRatio: 0.002,
+			threshold: 0.2,
 		})
 	} finally {
 		await context.close()
