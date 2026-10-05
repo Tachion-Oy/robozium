@@ -596,6 +596,9 @@ test("keeps chosen size on run entry while content uses the available space", as
 	// 1920 x 1080 desktop browser is zoomed to 160%. The compact desktop density
 	// must keep the complete run HUD and its controls inside that viewport.
 	await page.setViewportSize({ width: 1200, height: 675 })
+	await waitForHudLayout(page, [
+		".agent-hud__replyBox--agent", ".agent-hud__replyBox--user", ".agent-hud__actions",
+	])
 	await expect(box).toBeVisible()
 	await expect
 		.poll(() =>

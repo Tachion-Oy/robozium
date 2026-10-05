@@ -1,11 +1,13 @@
 import { expect, type Page } from "@playwright/test"
 
-/** Wait for fonts, the resize effect, and consecutive stable layout samples. */
+/** Await applied viewport updates and finished transitions before sampling layout. */
 export async function waitForHudLayout(
 	page: Page,
 	selectors = [".agent-hud__header", ".agent-hud__header-actions"],
 	timeout = 10_000,
 ): Promise<void> {
+	// Let queued resize callbacks run before accepting consecutive equal bounds.
+	await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
 	let previous = ""
 	let stable = 0
 	await expect.poll(async () => {
@@ -13,6 +15,26 @@ export async function waitForHudLayout(
 			const hud = document.querySelector<HTMLElement>(".agent-hud__box")
 			// Inline dimensions are installed by the HUD's client resize effect.
 			if (document.fonts.status !== "loaded" || !hud?.style.width || !hud.style.height) return null
+			const viewport = window.visualViewport
+			if (!viewport || viewport.scale === 1) {
+				const rootStyle = getComputedStyle(document.documentElement)
+				const expected = {
+					height: viewport?.height ?? innerHeight,
+					width: viewport?.width ?? innerWidth,
+					top: viewport?.offsetTop ?? 0,
+					left: viewport?.offsetLeft ?? 0,
+				}
+				if (Object.entries(expected).some(([name, value]) => {
+					const applied = Number.parseFloat(rootStyle.getPropertyValue(`--landing-viewport-${name}`))
+					return !Number.isFinite(applied) || Math.abs(applied - value) > 0.5
+				})) return null
+			}
+			// Reduced motion does not disable all control colour transitions.
+			// Ignore perpetual cursor animations, but wait for finite effects.
+			if (hud.getAnimations({ subtree: true }).some((animation) =>
+				(animation.pending || animation.playState === "running") &&
+				animation.effect?.getComputedTiming().endTime !== Infinity,
+			)) return null
 			const elements = [hud, ...selectors.map((selector) => document.querySelector(selector))]
 			if (elements.some((element) => !element)) return null
 			const bounds = elements.map((element) => element!.getBoundingClientRect())

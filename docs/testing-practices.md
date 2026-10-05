@@ -53,6 +53,14 @@ Keep browser assertions tolerant of normal asynchronous rendering, while
 checking the final state and errors explicitly. Avoid fixed sleeps when a
 condition can be awaited.
 
+For HUD geometry, use `waitForHudLayout` from `web/e2e/hud-layout.ts` after
+resizing or changing the theme or panel. Visibility and an updated slider value
+do not mean layout has finished: await applied viewport dimensions, finite CSS
+transitions, and stable bounds. Reduced motion does not disable every colour
+transition. Pixel comparisons should disable animations, hide the caret, and
+retain both images on failure so a paint change can be distinguished from a
+layout defect. Keep animation behavior tests separate from final-state captures.
+
 The Python coverage gate is a floor, not a reason to add redundant tests. Explain
 which behavior a test protects and why its boundary is appropriate. Apply the
 Full E2E failure policy in [Testing](testing.md#full-e2e-policy) when interpreting

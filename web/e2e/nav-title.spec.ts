@@ -67,11 +67,16 @@ test("the HUD covers the returning title after an enlarged run in both themes", 
 			}
 			// Hit testing alone misses a title bleeding through the dark shell.
 			// Removing the covered artwork must not change the HUD's pixels.
-			const covered = await page.screenshot({ clip: overlap.covered })
+			const screenshotOptions = { clip: overlap.covered, animations: "disabled", caret: "hide" } as const
+			const covered = await page.screenshot(screenshotOptions)
 			const title = page.locator(".app-nav__brand--bar")
 			await title.evaluate((element) => { element.style.visibility = "hidden" })
-			const withoutTitle = await page.screenshot({ clip: overlap.covered })
+			const withoutTitle = await page.screenshot(screenshotOptions)
 			await title.evaluate((element) => { element.style.removeProperty("visibility") })
+			if (!covered.equals(withoutTitle)) {
+				await testInfo.attach(`${theme}-with-title`, { body: covered, contentType: "image/png" })
+				await testInfo.attach(`${theme}-without-title`, { body: withoutTitle, contentType: "image/png" })
+			}
 			expect(covered.equals(withoutTitle), `${theme} HUD must fully cover the title`).toBe(true)
 			await page.locator(".agent-hud__view-trigger").click()
 			await expect(page.getByRole("option", { name: "Dependencies", exact: true })).toBeVisible()
