@@ -22,6 +22,21 @@ test("the HUD covers the returning title after an enlarged run in both themes", 
 
 	for (const viewport of [{ width: 960, height: 500 }, { width: 1280, height: 720 }]) {
 		await page.setViewportSize(viewport)
+		// WebKit can report stable old bounds before it delivers the resize.
+		// Await the new layout before sampling overlap or comparing pixels.
+		await expect.poll(() => page.evaluate(() => {
+			const title = document.querySelector(".app-nav__brand--bar")!.getBoundingClientRect()
+			const hud = document.querySelector(".agent-hud__box")!.getBoundingClientRect()
+			return {
+				titleCenter: Math.round(title.x + title.width / 2),
+				hudWidth: Math.round(hud.width),
+				hudHeight: Math.round(hud.height),
+			}
+		})).toEqual({
+			titleCenter: viewport.width / 2,
+			hudWidth: Math.round(viewport.width * 0.78),
+			hudHeight: Math.round(viewport.height * 0.84),
+		})
 		for (const theme of ["dark", "light"] as const) {
 			await page.evaluate((value) => { document.documentElement.dataset.theme = value }, theme)
 			await waitForHudLayout(page)
