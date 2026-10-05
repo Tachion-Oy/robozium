@@ -31,10 +31,20 @@ export async function waitForHudLayout(
 			}
 			// Reduced motion does not disable all control colour transitions.
 			// Ignore perpetual cursor animations, but wait for finite effects.
-			if (hud.getAnimations({ subtree: true }).some((animation) =>
+			const animations = hud.getAnimations({ subtree: true })
+			if (animations.some((animation) =>
 				(animation.pending || animation.playState === "running") &&
 				animation.effect?.getComputedTiming().endTime !== Infinity,
 			)) return null
+			if (animations.some((animation) => animation instanceof CSSTransition)) {
+				// WebKit can finish a transition's clock before applying its final
+				// style. Flush style invalidation as Playwright's screenshotter does.
+				const style = document.createElement("style")
+				style.textContent = "body {}"
+				document.head.append(style)
+				document.documentElement.getBoundingClientRect()
+				style.remove()
+			}
 			const elements = [hud, ...selectors.map((selector) => document.querySelector(selector))]
 			if (elements.some((element) => !element)) return null
 			const bounds = elements.map((element) => element!.getBoundingClientRect())
