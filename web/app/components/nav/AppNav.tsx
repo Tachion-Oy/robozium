@@ -34,7 +34,7 @@ function AppNavContent({
 	playLandingIntro: boolean
 }) {
 	return (
-		<div className="app-nav__row relative z-60 shrink-0">
+		<div className={`app-nav__row relative z-60 shrink-0${playLandingIntro ? "" : " app-nav__row--return"}`}>
 			<nav className="flex h-full items-center justify-center px-(--landing-nav-inset)">
 				<Link
 					href={{

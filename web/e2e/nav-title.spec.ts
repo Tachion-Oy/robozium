@@ -1,11 +1,85 @@
 import { waitForHudLayout } from "./hud-layout"
 import { expect, test } from "./fixtures"
-import { gotoLanding } from "./helpers"
+import { createProject, gotoLanding } from "./helpers"
 import nextConfig from "../next.config"
 
 const hubBrand = nextConfig.env!.NEXT_PUBLIC_ROBOZIUM_NAME!.toUpperCase()
 
 test.use({ viewport: { width: 1920, height: 1080 } })
+
+test("the HUD covers the returning title after an enlarged run in both themes", async ({ page, request }, testInfo) => {
+	await page.emulateMedia({ reducedMotion: "reduce" })
+	const slug = await createProject(request, `Title Overlap ${Date.now()}`)
+	await gotoLanding(page)
+	await page.getByRole("button", { name: `Open ${slug}`, exact: true }).click()
+	await expect(page.locator(".agent-hud__textarea")).toBeVisible({ timeout: 20_000 })
+	await page.getByRole("slider", { name: "Resize HUD" }).press("End")
+	const cancellation = await request.post(`/api/projects/${encodeURIComponent(slug)}/cancel`)
+	expect(cancellation.ok()).toBeTruthy()
+	await expect.poll(() => new URL(page.url()).searchParams.get("runId")).toBeNull()
+	await expect(page.locator(".agent-hud__project-view")).toBeVisible()
+	await expect(page.locator(".app-nav__brand--bar")).toBeVisible()
+
+	for (const viewport of [{ width: 960, height: 500 }, { width: 1280, height: 720 }]) {
+		await page.setViewportSize(viewport)
+		// WebKit can report stable old bounds before it delivers the resize.
+		// Await the new layout before sampling overlap or comparing pixels.
+		await expect.poll(() => page.evaluate(() => {
+			const title = document.querySelector(".app-nav__brand--bar")!.getBoundingClientRect()
+			const hud = document.querySelector(".agent-hud__box")!.getBoundingClientRect()
+			return {
+				titleCenter: Math.round(title.x + title.width / 2),
+				hudWidth: Math.round(hud.width),
+				hudHeight: Math.round(hud.height),
+			}
+		})).toEqual({
+			titleCenter: viewport.width / 2,
+			hudWidth: Math.round(viewport.width * 0.78),
+			hudHeight: Math.round(viewport.height * 0.84),
+		})
+		for (const theme of ["dark", "light"] as const) {
+			await page.evaluate((value) => { document.documentElement.dataset.theme = value }, theme)
+			await waitForHudLayout(page)
+			const overlap = await page.evaluate(() => {
+				const title = document.querySelector(".app-nav__brand--bar")!
+				const hud = document.querySelector(".agent-hud__box")!
+				const titleBounds = title.getBoundingClientRect()
+				const hudBounds = hud.getBoundingClientRect()
+				const top = Math.max(titleBounds.top, hudBounds.top)
+				const bottom = Math.min(titleBounds.bottom, hudBounds.bottom)
+				const x = titleBounds.x + titleBounds.width / 2
+				return {
+					height: bottom - top,
+					uncoveredHeight: hudBounds.top - titleBounds.top,
+					covered: {
+						x: Math.ceil(titleBounds.left), y: Math.ceil(top) + 4,
+						width: Math.floor(titleBounds.width), height: Math.floor(bottom - top) - 8,
+					},
+					hudInFront: hud.contains(document.elementFromPoint(x, (top + bottom) / 2)),
+					uncoveredTitleInFront: title.contains(document.elementFromPoint(x, titleBounds.top + 1)),
+				}
+			})
+			expect(overlap.height).toBeGreaterThan(0)
+			expect(overlap.hudInFront).toBe(true)
+			if (viewport.height === 720) {
+				expect(overlap.uncoveredHeight).toBeGreaterThan(2)
+				expect(overlap.uncoveredTitleInFront).toBe(true)
+			}
+			// Hit testing alone misses a title bleeding through the dark shell.
+			// Removing the covered artwork must not change the HUD's pixels.
+			const covered = await page.screenshot({ clip: overlap.covered })
+			const title = page.locator(".app-nav__brand--bar")
+			await title.evaluate((element) => { element.style.visibility = "hidden" })
+			const withoutTitle = await page.screenshot({ clip: overlap.covered })
+			await title.evaluate((element) => { element.style.removeProperty("visibility") })
+			expect(covered.equals(withoutTitle), `${theme} HUD must fully cover the title`).toBe(true)
+			await page.locator(".agent-hud__view-trigger").click()
+			await expect(page.getByRole("option", { name: "Dependencies", exact: true })).toBeVisible()
+			await page.locator(".agent-hud__view-trigger").click()
+			await page.screenshot({ path: testInfo.outputPath(`title-overlap-${theme}-${viewport.width}.png`) })
+		}
+	}
+})
 
 test("shows the large centered title and reserves the landing nav row", async ({ page }) => {
 	await gotoLanding(page)

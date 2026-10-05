@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Keep the HUD above the title in both themes when returning from a run or
+  resizing into an overlap, and fade the returning title in smoothly.
+
 - Pin RoboZ `0.5.0rc1`. Guarded file tool reports now preserve permission
   questions, exact replies, and decisions, including declined approvals.
 

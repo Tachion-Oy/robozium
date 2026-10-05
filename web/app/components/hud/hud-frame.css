@@ -7,13 +7,25 @@
  * ------------------------------------------------------------------------- */
 
 .agent-hud {
-  position: fixed;
+  /* The full-viewport CRT wrapper is the containing block. Fixed positioning
+     would create a stacking context even with z-index:auto. */
+  position: absolute;
   inset: 0;
-  z-index: 50;
+  /* The title sits between the dim backdrop and the interactive shell. Keep
+     this wrapper out of its own stacking context so the shell can cover it. */
+  z-index: auto;
   pointer-events: none;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.agent-hud::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
   background: var(--hud-dim-bg);
 }
 
@@ -66,6 +78,15 @@ body:has(.agent-hud--landing) .term-frame {
   max-height: calc(var(--landing-viewport-height) - 2 * (var(--landing-nav-height) + var(--landing-hud-edge-gap)));
 }
 
+/* A finished run keeps its enlarged shell while the title returns. Cover the
+   title behind the transparent dark shell, with a soft edge in either theme. */
+body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
+  --hud-title-cover: rgb(var(--hud-shell-rgb));
+  --hud-title-shadow: 0 calc(-0.5 * var(--landing-hud-edge-gap))
+    var(--landing-hud-edge-gap)
+    color-mix(in oklab, var(--hud-box-bg) 85%, transparent);
+}
+
 @media (max-height: 800px) {
   :root {
     --landing-hud-clearance-bottom: 0px;
@@ -80,7 +101,7 @@ body:has(.agent-hud--landing) .term-frame {
    instead of mounting/unmounting, so a quick stream → tool-call → stream
    succession doesn't flicker. */
 
-.agent-hud--fade {
+.agent-hud--fade::before {
   transition: background-color 220ms ease;
 }
 
@@ -94,14 +115,17 @@ body:has(.agent-hud--landing) .term-frame {
 
 /* User-dismissed: vanish a touch quicker than the phase fade. */
 
-.agent-hud--hidden,
+.agent-hud--hidden::before,
 .agent-hud--hidden .agent-hud__box {
   transition-duration: 160ms;
 }
 
 .agent-hud--hidden {
-  background-color: transparent;
   pointer-events: none;
+}
+
+.agent-hud--hidden::before {
+  background-color: transparent;
 }
 
 /* Collapse toward the shared centre (not a downward nudge) so the box reads as
@@ -116,7 +140,7 @@ body:has(.agent-hud--landing) .term-frame {
 /* Intro only: ease the dim backdrop in (the normal workflow keeps it instant).
    `both` holds the final dim state once the animation ends. */
 
-.agent-hud--intro {
+.agent-hud--intro::before {
   animation: hud-dim-in var(--intro-hud-backdrop-fade) ease both;
 }
 
@@ -150,6 +174,7 @@ body:has(.agent-hud--landing) .term-frame {
   --hud-corner-control-half-gap: 0.11rem;
   --hud-corner-control-left: 0.9rem;
   position: relative;
+  z-index: 70;
   /* The landing route starts compact; run entry expands through the shared
      resize state after hydration. */
   width: 68rem;
@@ -167,11 +192,17 @@ body:has(.agent-hud--landing) .term-frame {
       var(--hud-grid-color) 0 var(--hud-grid-line),
       transparent var(--hud-grid-line)
     ),
-    rgba(9, 20, 38, 0.72);
-  background-size: 3.5rem 3.5rem, 3.5rem 3.5rem, auto;
+    linear-gradient(
+      to bottom,
+      var(--hud-title-cover, transparent) var(--landing-nav-height),
+      transparent calc(var(--landing-nav-height) + var(--landing-hud-edge-gap))
+    ),
+    rgb(var(--hud-shell-rgb) / 0.72);
+  background-size: 3.5rem 3.5rem, 3.5rem 3.5rem, auto, auto;
   /* Built here (not from a :root var) so --hud-glow-scale resolves against this
      element -- letting .agent-hud__box--inactive dim it. */
   box-shadow:
+    var(--hud-title-shadow, 0 0 0 transparent),
     0 0 10px rgba(64, 200, 255, calc(0.38 * var(--hud-glow-scale))),
     0 0 28px rgba(64, 200, 255, calc(0.18 * var(--hud-glow-scale))),
     0 0 52px rgba(64, 200, 255, calc(0.08 * var(--hud-glow-scale)));
@@ -814,7 +845,8 @@ body:has(.agent-hud--landing) .term-frame {
      through antialiased pixels where the rounded inner surface meets the
      inset rail. */
   background: var(--hud-light-rail-bg);
-  box-shadow: inset 0 0 0 var(--hud-light-inner-rail) var(--hud-light-rail-bg),
+  box-shadow: var(--hud-title-shadow, 0 0 0 transparent),
+    inset 0 0 0 var(--hud-light-inner-rail) var(--hud-light-rail-bg),
     inset 0 1px 0 color-mix(in oklab, white 38%, transparent),
     0 0.45rem 1rem
       color-mix(in oklab, var(--hud-control-ink) 15%, transparent),

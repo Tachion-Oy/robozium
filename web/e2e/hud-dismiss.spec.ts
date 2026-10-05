@@ -135,10 +135,9 @@ test("HUD entered via the fresh-load intro still hides visually on dismiss", asy
 	const box = page.locator(".agent-hud__box")
 	await page.getByRole("button", { name: "Minimize" }).click()
 	await expect(box).toHaveCSS("opacity", "0")
-	await expect(page.locator(".agent-hud")).toHaveCSS(
-		"background-color",
-		"rgba(0, 0, 0, 0)",
-	)
+	await expect.poll(() => page.locator(".agent-hud").evaluate(
+		(element) => getComputedStyle(element, "::before").backgroundColor,
+	)).toBe("rgba(0, 0, 0, 0)")
 
 	await page.locator(".agent-hud__mini-expand").click()
 	await expect(box).toHaveCSS("opacity", "1")
