@@ -1,6 +1,7 @@
 import { expect, type APIRequestContext, type Locator, type Page } from "@playwright/test"
 import fs from "node:fs/promises"
 import path from "node:path"
+import { waitForHudLayout } from "./hud-layout"
 
 export async function gotoLanding(page: Page): Promise<void> {
 	// `from=app` bypasses first-load intro while preserving normal landing behavior.
@@ -8,6 +9,7 @@ export async function gotoLanding(page: Page): Promise<void> {
 	await expect(
 		page.getByRole("button", { name: "New Project", exact: true }),
 	).toBeVisible({ timeout: 15_000 })
+	await waitForHudLayout(page)
 }
 
 export async function selectHudView(page: Page, name: string): Promise<void> {

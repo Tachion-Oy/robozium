@@ -170,6 +170,20 @@ commands or package entry point above.
 Diagnostics are written beneath `.artifacts/e2e/`, including browser, backend,
 frontend, and technical logs. These files are ignored by Git.
 
+When fixing a browser flake, reproduce it in the pinned browser environment,
+then repeat the affected tests with retries disabled. For example:
+
+```sh
+uv run python -m tests.support.browser --browser=webkit \
+  --playwright-arg=nav-title.spec.ts --playwright-arg=--repeat-each=5 \
+  --playwright-arg=--retries=0
+```
+
+Retain the original assertions and add a regression that controls the delayed
+event or transition. A successful rerun alone does not establish a fix. Run
+Full E2E on the PR and validate the same commit in a fresh workflow dispatch
+when investigating differences between PR and post-merge results.
+
 ## Checks of test infrastructure
 
 With Chromium installed, run:
