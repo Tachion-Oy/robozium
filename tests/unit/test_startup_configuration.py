@@ -9,7 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from deployment_support import BuiltAgents
+from deployment_support import BuiltAgents, deferred_deployment
 from fastapi.testclient import TestClient
 from roboz import Agent
 from roboz.endpoints.adapters.openai_compatible import OpenAICompatibleAdapter
@@ -81,7 +81,9 @@ def test_logging_uses_each_explicit_app_config(config_file):
         selected = replace(config, logging=replace(config.logging, path=path))
         app = create_app(
             deployment=replace(
-                selected, deployment=factory, transcription_endpoint=None
+                selected,
+                deployment=deferred_deployment(factory),
+                transcription_endpoint=None,
             ),
         )
         assert not path.exists(), "app construction must not configure logging"
@@ -117,7 +119,7 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
         hub.project("demo").sandbox,
         "demo",
         endpoint_getter=lambda: hub.model_selector.selected_endpoint,
-    )
+    ).build()
     bound = (*agent.external_dependencies(), *hub.models.values())
     assert {
         item.dependency_id for item in bound if item.dependency_id.startswith("model:")
@@ -132,7 +134,7 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
         hub.project("demo").sandbox,
         "demo",
         endpoint_getter=lambda: hub.model_selector.selected_endpoint,
-    )
+    ).build()
     assert configured[1][0].agent_endpoint is memory
 
 
@@ -162,7 +164,7 @@ def test_checked_in_config_accepts_container_paths(
 
 @pytest.mark.parametrize(
     "choice",
-    ["SANDBOX", "MEMORY_ENDPOINT", "CAPABILITIES", "SUBAGENTS"],
+    ["SANDBOX", "MEMORY_ENDPOINT", "SUBAGENTS"],
 )
 def test_required_choice_fails_during_load(config_file, choice):
     with config_file.open("a") as file:
@@ -230,7 +232,9 @@ def test_overlapping_app_lifespans_preserve_existing_logging(config_file, confli
     def app(selected):
         return create_app(
             deployment=replace(
-                selected, deployment=factory, transcription_endpoint=None
+                selected,
+                deployment=deferred_deployment(factory),
+                transcription_endpoint=None,
             ),
         )
 
@@ -291,17 +295,16 @@ def test_constants_control_the_complete_deployment(config_file, monkeypatch):
     monkeypatch.chdir(config_file.parent)
     with config_file.open("a") as file:
         file.write("""
-from roboz.deployment import DeployableAgent
+from roboz.deployment import Capability, DeployableAgent, ToolLabel
 from roboz.tools import stop
 
 MODELS = {"Alternate": FLASH}
 DEFAULT_MODEL = FLASH
 DEPENDENCY_HEALTH = DependencyHealthSettings(interval_s=17, timeout_s=3)
-CAPABILITIES = (Compactification(threshold_percent=42),)
 MEMORY_ENDPOINT = GPT_OSS
 REVIEWER = DeployableAgent(
     name="reviewer", system_prompt="Review the project.",
-    default_capabilities=(Capability(tools=(stop,)),),
+    capabilities=(Capability(label=ToolLabel("stop"), value=stop),),
 )
 REVIEWER.set_agent_endpoint(GPT_OSS)
 SUBAGENTS = (REVIEWER,)
@@ -310,13 +313,13 @@ SUBAGENTS = (REVIEWER,)
     project = hub.project("custom")
     deployment = hub.configure_deployment(
         project.sandbox, project.slug, endpoint_getter=lambda: hub.default_model
-    )
+    ).build()
     assert tuple(hub.models) == ("Alternate",)
     assert hub.model_selector.selected_endpoint is hub.models["Alternate"]
     assert (
         hub.dependency_health.interval_s == 17 and hub.dependency_health.timeout_s == 3
     )
-    assert hub.additional_capabilities[-1].threshold_percent == 42
+    assert hub.additional_capabilities == ()
     agent, (background,) = deployment
     assert "reviewer" in {tool.name for tool in agent.tools}
     assert agent.initial_messages[0] == project.memory

@@ -5,7 +5,9 @@ from types import SimpleNamespace
 from typing import NamedTuple
 
 from roboz.agent import Agent
+from roboz.deployment import DeployableAgent
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
+from roboz.runtime import default_event_sinks
 
 from robozium.hub.utils import load_hub
 
@@ -15,6 +17,23 @@ class BuiltAgents(NamedTuple):
 
     agent: Agent
     background_agents: tuple[Agent, ...] = ()
+
+
+def deferred_deployment(factory):
+    """Keep controlled runtime construction in build(), as real definitions do."""
+    def configure(sandbox, project_slug, *, endpoint_getter):
+        class Definition(DeployableAgent):
+            def build(self, **kwargs):
+                return factory(
+                    sandbox,
+                    project_slug,
+                    endpoint_getter=endpoint_getter,
+                    event_sinks=kwargs.get("event_sinks", ()),
+                )
+
+        return Definition(name="test")
+
+    return configure
 
 
 def configured_deployment(project, endpoint, **choices):
@@ -47,11 +66,17 @@ def configured_deployment(project, endpoint, **choices):
     choices.setdefault("memory_endpoint", MockLLMEndpoint([]))
     hub = load_hub()
     hub = replace(hub, **choices)
-    return hub.configure_deployment(
+    definition = hub.configure_deployment(
         project.sandbox,
         project.slug,
         endpoint_getter=lambda: endpoint,
+    )
+    return definition.build(
         event_sinks=event_sinks,
+        event_sink_factory=lambda name: default_event_sinks(
+            data_path=project.logs / name,
+            include_cli=False,
+        ),
     )
 
 

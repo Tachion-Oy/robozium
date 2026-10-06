@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 from config_support import write_config
-from deployment_support import BuiltAgents, configured_deployment
+from deployment_support import BuiltAgents, configured_deployment, deferred_deployment
 from fastapi import Request
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
@@ -65,7 +65,7 @@ def _test_deployment(
 ) -> Hub:
     return replace(
         load_hub(start=config_start),
-        deployment=factory,
+        deployment=deferred_deployment(factory),
         transcription_endpoint=MockTranscriptionEndpoint(["unused"]),
     )
 
@@ -849,7 +849,9 @@ def test_api_projects_cancel_succeeds_when_already_inactive(tmp_path: Path) -> N
 def test_api_cancel_awaiting_input_persists_cancelled_conversation_status(
     tmp_path: Path,
 ) -> None:
-    application = create_app(deployment=_test_deployment(mock_deployment, tmp_path))
+    application = create_app(
+        deployment=replace(load_hub(start=tmp_path), deployment=mock_deployment)
+    )
     client = TestClient(application)
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
 
@@ -1712,9 +1714,9 @@ def test_real_orchestrator_reads_top_level_workspace_file(
         event_sinks: Sequence[EventSink],
     ) -> tuple[Agent, tuple[Agent, ...]]:
         del endpoint_getter
-        return configured_deployment(
+        return BuiltAgents(*configured_deployment(
             Project(sandbox, project_slug), endpoint, event_sinks=event_sinks
-        )
+        ))
 
     application = create_app(
         deployment=_test_deployment(orchestrator_factory, tmp_path),
@@ -1770,7 +1772,7 @@ def test_active_model_api_switch_changes_next_request_and_isolates_runs(
 ) -> None:
     from robozium.mock.model_selection import MODEL_REQUESTS_FILE
 
-    hub = _test_deployment(mock_deployment, tmp_path)
+    hub = replace(load_hub(start=tmp_path), deployment=mock_deployment)
     application = create_app(deployment=hub)
     client = TestClient(application)
     manager = application.state.run_manager

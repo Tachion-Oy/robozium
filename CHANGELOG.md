@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Pin RoboZ `0.6.1a1` for deployment capability selection and built-in tools.
+
+- Accept orchestrator capability choices when creating a run, expose the
+  capability catalog and effective run selection, and keep choices in memory.
+  Built-ins belong to RoboZ's Robozium definition; app additions come from
+  `local/`. SafeScripts and Proton Bridge email are selectable.
+
 - Keep the HUD above the title in both themes when returning from a run or
   resizing into an overlap, and fade the returning title in smoothly.
 

@@ -35,6 +35,7 @@ Robozium is a multi-agent application built on [RoboZ](https://github.com/Tachio
   - [Optional encrypted credentials](#optional-encrypted-credentials)
   - [Run with API keys](#run-with-api-keys)
 - [Configuration](#configuration)
+- [Run capabilities](#run-capabilities)
 - [Private capabilities](#private-capabilities)
 - [Host scripts on Linux](#host-scripts-on-linux)
 - [Development and contributions](#development-and-contributions)
@@ -91,12 +92,12 @@ and `readonly/` are denied. These are agent file-tool permissions, not an
 operating-system sandbox; custom Python code must apply its own appropriate
 guards.
 
-RoboZ `0.5.0rc1` supplies the guarded file CLI. Scripted `run_file_command`
+RoboZ supplies the guarded file CLI. Scripted `run_file_command`
 calls use ordered `[value, tag]` pairs in `value`, for example
 `[["cat", "CMD"], ["workspace/notes.txt", "PTH"]]`. The old `file_commands`
 and `chain` inputs are no longer accepted. Convert saved tool calls before
 replaying them; upgrading does not rewrite existing project files or history.
-See the [RoboZ guarded file CLI guide](https://github.com/Tachion-Oy/roboz/blob/roboz-v0.5.0rc1/README.md#guarded-file-cli).
+See the [RoboZ guarded file CLI guide](https://github.com/Tachion-Oy/roboz/blob/roboz-v0.6.1a1/README.md#guarded-file-cli).
 
 ![Three example projects and their permitted, prompted, and denied file paths inside the hub sandbox](docs/assets/sandbox-permissions.svg)
 
@@ -168,7 +169,7 @@ On Windows, use `start.cmd`. The default configuration offers OpenRouter and
 Cerebras models. OpenRouter is also needed for the librarian's memory model.
 Groq Whisper transcription is enabled by default. Supply `GROQ_API_KEY_SECRET`
 through `.env` or encrypted credentials to use voice input. The environment
-example also includes Proton Bridge settings for capabilities you configure.
+example also includes settings for the selectable Proton Bridge email capability.
 
 Keep credentials in `.env`, which is ignored by Git and excluded from Docker
 build context. Credentials are supplied to the API at runtime; never put them in
@@ -191,7 +192,7 @@ attached for logs, and Ctrl+C stops the application without deleting hub files.
 | `NAME`, `SANDBOX` | Application name, hub layout, and persistence folders. |
 | `MODELS`, `DEFAULT_MODEL` | Models offered in the HUD and the initial selection. |
 | `MEMORY_ENDPOINT` | The librarian's model, independent of the project model. |
-| `CAPABILITIES`, `SUBAGENTS` | Additional tool/skill capabilities and specialist agent definitions. |
+| `SUBAGENTS` | Specialist agent definitions. |
 | `TRANSCRIPTION_ENDPOINT` | Groq Whisper speech-to-text by default; `None` disables live transcription. |
 | `ADDITIONAL_DEPENDENCIES`, `DEPENDENCY_HEALTH` | Extra monitored resources and health-check timing. |
 | `LOGGING` | Technical log location. |
@@ -200,6 +201,32 @@ Configuration is executable Python and is tracked by Git. Restart native
 development after changing it, or rerun the start command to rebuild the Docker
 application. Use a branch or fork for source customizations you want to keep,
 and review configuration diffs before including them in an upstream PR.
+
+## Run capabilities
+
+RoboZ's Robozium definition owns the built-ins: filesystem, stop,
+compactification, and the Robozium skill are fixed. SafeScripts and Proton
+Bridge email are selectable. The application loads additional capabilities only
+from `local/`; move custom `CAPABILITIES` from `hub.config.py` there.
+
+`GET /capabilities` returns each orchestrator capability's `name`, `kind`,
+`selectable`, and skill `loading` mode. Supply choices when creating a run:
+
+```json
+{"project": "my-project", "capabilities": {"safe_scripts": true, "email": "on_demand"}}
+```
+
+Send this to `POST /run/create`. Omitting `capabilities` (or sending `null`)
+uses all declared capabilities; `{}` retains only fixed capabilities. Skill
+choices accept `true`, `false`, `"automatic"`, or `"on_demand"`; tool choices
+accept booleans. Invalid choices return 422. An existing active run is reused
+when choices are omitted or equivalent; different explicit choices return 409.
+`GET /run/{run_id}` includes the effective selection. Choices live only in that
+run's memory and do not change Librarian maintenance.
+
+Proton email resolves the `ROBOZIUM_PROTON_BRIDGE_*` settings when used, including
+credentials unlocked through the HUD. Its presence in the catalog does not
+require credentials or connect to Bridge.
 
 ## Private capabilities
 
@@ -224,7 +251,9 @@ CAPABILITIES = (
 )
 ```
 
-The named class or zero-argument factory must return a RoboZ `AgentCapability`.
+The named class or zero-argument factory must return a RoboZ `Capability`.
+Use a label with `selectable=True` to allow that local capability to be chosen
+for a run.
 The requirements file must exist; leave it empty when the tool needs no extra
 packages. On API startup, Robozium validates every declaration, installs all
 registered requirements together into ignored `.runtime/local-deps/`, then

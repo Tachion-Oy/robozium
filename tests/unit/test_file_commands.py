@@ -8,7 +8,12 @@ from pathlib import Path
 
 import pytest
 from config_support import write_config
-from deployment_support import configured_deployment, foreground_agent
+from deployment_support import (
+    BuiltAgents,
+    configured_deployment,
+    deferred_deployment,
+    foreground_agent,
+)
 from fastapi.testclient import TestClient
 from roboz.llm import MockLLMEndpoint
 from roboz.shed.tools.cli_commands import Token
@@ -44,9 +49,9 @@ def command_run(
         agents = configured_deployment(
             Project(sandbox, project_slug), endpoint, event_sinks=event_sinks
         )
-        return foreground_agent(agents), ()
+        return BuiltAgents(foreground_agent(agents))
 
-    hub = replace(load_hub(start=tmp_path), deployment=factory)
+    hub = replace(load_hub(start=tmp_path), deployment=deferred_deployment(factory))
     assert hub.sandbox.resolved_root.is_relative_to(tmp_path.resolve())
     application = create_app(deployment=hub)
     client = TestClient(application)

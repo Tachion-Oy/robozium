@@ -8,6 +8,7 @@ from roboz.runtime.persistence import active_marker_paths, clear_active_markers
 from robozium.api.errors import ProjectBusyError
 from robozium.api.projects import Project, ProjectListItem, compose_project_list
 from robozium.api.run_manager import RunManager
+from robozium.api.state import CapabilitySelection
 from robozium.hub.application import Hub
 
 
@@ -69,7 +70,9 @@ class ProjectService:
             project.root.mkdir(parents=True, exist_ok=True)
             return project.slug
 
-    def prepare_run(self, name: str) -> str:
+    def prepare_run(
+        self, name: str, *, capabilities: CapabilitySelection | None = None
+    ) -> str:
         """Check the project and ask the manager to register or reuse a run."""
         with self._lock:
             project = self._existing(name)
@@ -80,7 +83,9 @@ class ProjectService:
             ):
                 directory.mkdir(parents=True, exist_ok=True)
             return self._manager.create(
-                project, background_sync_active=self._active(project)
+                project,
+                capabilities=capabilities,
+                background_sync_active=self._active(project),
             )
 
     def list(self) -> list[ProjectListItem]:

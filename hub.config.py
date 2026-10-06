@@ -2,12 +2,9 @@ from os import environ
 from pathlib import Path
 from typing import Final
 
-from roboz.deployment import Capability
 from roboz.endpoints.inventory import cerebras, groq, openrouter
 from roboz.llm import with_openrouter_policy
-from roboz.shed.capabilities import Compactification, SafeScripts
 from roboz.shed.sandbox import Sandbox
-from roboz.shed.skills import robozium
 
 from robozium.hub.application import DependencyHealthSettings
 from robozium.hub.logging import HubLoggingConfig
@@ -42,15 +39,6 @@ MODELS: Final = {
     "GPT-OSS-120B · Cerebras": GPT_OSS,
 }
 DEFAULT_MODEL: Final = GLM
-CAPABILITIES: Final = (
-    Capability(auto_loaded_skills=(robozium,)),
-    Compactification(threshold_percent=60.0),
-    *(
-        (SafeScripts(socket_path=Path(environ["ROBOZIUM_HOST_SCRIPT_SOCKET"])),)
-        if environ.get("ROBOZIUM_HOST_SCRIPT_SOCKET")
-        else ()
-    ),
-)
 SUBAGENTS: Final = ()
 TRANSCRIPTION_ENDPOINT: Final = groq.configured().whisper_large_v3_turbo
 ADDITIONAL_DEPENDENCIES: Final = None

@@ -13,6 +13,7 @@ from deployment_support import configured_deployment, foreground_agent
 from roboz.exceptions import LLMCallTimeoutError
 from roboz.llm import LLMEndpoint, MockLLMEndpoint, estimate_conversation_tokens
 from roboz.models import MessageKind
+from roboz.runtime import default_event_sinks
 from roboz.runtime.events import MessageEvent
 from roboz.shed.capabilities import Compactification
 from roboz.shed.tools.compactification import CompactifyStatus
@@ -34,7 +35,7 @@ def _write_action():
         "action": "apply_patch",
         # Trigger compaction with removable history, leaving enough context for
         # the preserved system prompt and the bounded continuation payload.
-        "rationale": "record progress " * 1000,
+        "rationale": "record progress " * 2000,
         "path": "projects/compaction-test/note.txt",
         "old_string": "",
         "new_string": "work in progress",
@@ -50,15 +51,14 @@ def test_orchestrator_compacts_with_shed_and_persists_summary(tmp_path):
             {"value": "Keep editing the local file."},
             {"action": "stop", "rationale": "done", "value": "done"},
         ],
-        max_context_tokens=10000,
+        max_context_tokens=30000,
     )
     deployment = configured_deployment(
         project,
         endpoint,
         event_sinks=(events.append,),
-        additional_capabilities=(Compactification(threshold_percent=60),),
     )
-    agent = foreground_agent(deployment, omit_skills=True)
+    agent = foreground_agent(deployment)
     assert [tool.OutputModel for tool in agent.default_tools] == [CompactifyStatus]
     result, messages = agent.invoke()
     assert result.value == "done"
@@ -129,19 +129,22 @@ def test_orchestrator_controls_reach_compaction_provider(tmp_path, control):
         ),
         api_name="test",
         model_name="compaction",
-        max_context_tokens=10000,
+        max_context_tokens=30000,
         stream=False,
     )
-    deployment = configured_deployment(
-        project,
-        endpoint,
-        additional_capabilities=(
-            Compactification(
-                threshold_percent=60, timeout_s=0.1 if control == "timeout" else None
-            ),
+    definition = load_hub().configure_deployment(
+        project.sandbox, project.slug, endpoint_getter=lambda: endpoint,
+    )
+    compactification = next(
+        cap for cap in definition.capabilities if isinstance(cap, Compactification)
+    )
+    compactification.timeout_s = 0.1 if control == "timeout" else None
+    deployment = definition.build(
+        event_sink_factory=lambda name: default_event_sinks(
+            data_path=project.logs / name, include_cli=False,
         ),
     )
-    agent = foreground_agent(deployment, omit_skills=True)
+    agent = foreground_agent(deployment)
     errors = []
 
     def invoke():

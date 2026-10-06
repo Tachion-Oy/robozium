@@ -10,14 +10,25 @@ from functools import partial
 from uuid import uuid4
 
 from roboz.agent import Agent
+from roboz.deployment import DeployableAgent
 from roboz.llm import LLMEndpoint
-from roboz.runtime import bind_api_user_io, reset_api_user_io
+from roboz.runtime import bind_api_user_io, default_event_sinks, reset_api_user_io
 from roboz.runtime.events import EventSink
 
-from robozium.api.errors import ProjectBusyError, ProjectCancellationInProgressError
+from robozium.api.errors import (
+    InvalidCapabilitySelection,
+    ProjectBusyError,
+    ProjectCancellationInProgressError,
+)
 from robozium.api.projects import Project
 from robozium.api.run_control import RunControl
-from robozium.api.state import ProjectRunItem, RunState, RunStatus, RunView
+from robozium.api.state import (
+    CapabilitySelection,
+    ProjectRunItem,
+    RunState,
+    RunStatus,
+    RunView,
+)
 from robozium.api.user_io import ApiUserIO
 
 logger = logging.getLogger(__name__)
@@ -28,8 +39,9 @@ COMPLETED_TTL_S = 300.0
 class RunManager:
     def __init__(
         self,
-        configure_deployment: Callable[..., tuple[Agent, tuple[Agent, ...]]],
+        configure_deployment: Callable[..., DeployableAgent],
         *,
+        definition: DeployableAgent,
         hub_name: str,
         default_orchestrator_endpoint: Callable[[], LLMEndpoint],
         message_history_limit: int | None = None,
@@ -53,6 +65,7 @@ class RunManager:
         self._runs: dict[str, RunControl] = {}
         self._closed = False
         self._configure_deployment = configure_deployment
+        self._definition = definition
 
     def _control(self, run_id: str) -> RunControl:
         with self._lock:
@@ -61,7 +74,13 @@ class RunManager:
             except KeyError:
                 raise KeyError(f"unknown run_id: {run_id}") from None
 
-    def create(self, project: Project, *, background_sync_active: bool = False) -> str:
+    def create(
+        self,
+        project: Project,
+        *,
+        capabilities: CapabilitySelection | None = None,
+        background_sync_active: bool = False,
+    ) -> str:
         if not project.slug.strip():
             raise ValueError("project slug must be non-empty")
         with self._lock:
@@ -73,12 +92,12 @@ class RunManager:
                 raise ProjectCancellationInProgressError(
                     f"cancellation is still in progress for project '{project.slug}'"
                 )
-            for run_id, control in self._runs.items():
-                if (
-                    control.project.slug == project.slug
-                    and not control.status.is_terminal
-                ):
-                    return run_id
+            selected = self._validate_capabilities(capabilities)
+            existing = self._reusable_run(
+                project.slug, selected if capabilities is not None else None
+            )
+            if existing is not None:
+                return existing
             if background_sync_active or self.project_is_busy(project.slug):
                 raise ProjectBusyError(
                     f"background synchronization is still running for project '{project.slug}'"
@@ -88,8 +107,30 @@ class RunManager:
                 project,
                 self._default_endpoint(),
                 history_limit=self._history_limit,
+                capabilities=selected,
             )
             return run_id
+
+    def _validate_capabilities(
+        self, capabilities: CapabilitySelection | None
+    ) -> CapabilitySelection:
+        try:
+            self._definition.set_capability_selection(capabilities)
+            return self._definition.resolve_capabilities()
+        except (TypeError, ValueError) as exc:
+            raise InvalidCapabilitySelection(str(exc)) from exc
+
+    def _reusable_run(
+        self, slug: str, capabilities: CapabilitySelection | None
+    ) -> str | None:
+        """Check active-run compatibility while the caller holds the registry lock."""
+        for run_id, control in self._runs.items():
+            if control.project.slug != slug or control.status.is_terminal:
+                continue
+            if capabilities is not None and capabilities != control.capabilities:
+                raise ProjectBusyError("The active run has different capabilities")
+            return run_id
+        return None
 
     def start_run(self, run_id: str) -> bool:
         """Resolve a run and coordinate its launch with deletion and shutdown.
@@ -111,11 +152,30 @@ class RunManager:
             )
 
     @staticmethod
+    def _build_agents(
+        control: RunControl, configure: Callable[..., DeployableAgent]
+    ) -> tuple[Agent, tuple[Agent, ...]]:
+        """Build the run's agents with its capabilities, model route, and event sinks."""
+        definition = configure(
+            control.project.sandbox,
+            control.project.slug,
+            endpoint_getter=control.endpoint,
+        )
+        definition.set_capability_selection(control.capabilities)
+        return definition.build(
+            event_sinks=(control.dispatch,),
+            event_sink_factory=lambda name: default_event_sinks(
+                data_path=control.project.logs / name,
+                include_cli=False,
+            ),
+        )
+
+    @staticmethod
     def _run_agent(
         run_id: str,
         control: RunControl,
         *,
-        configure: Callable[..., tuple[Agent, tuple[Agent, ...]]],
+        configure: Callable[..., DeployableAgent],
     ) -> None:
         """Worker body: bind API context, construct and invoke the agent.
 
@@ -126,12 +186,7 @@ class RunManager:
             if control.cancel_requested:
                 control.finish(RunStatus.CANCELLED)
                 return
-            agents = configure(
-                control.project.sandbox,
-                control.project.slug,
-                endpoint_getter=control.endpoint,
-                event_sinks=(control.dispatch,),
-            )
+            agents = RunManager._build_agents(control, configure)
             if control.attach(agents):
                 agents[0].invoke()
             control.finish(RunStatus.COMPLETED)
@@ -161,6 +216,7 @@ class RunManager:
             return None
         return {
             "project": raw["project"],
+            "capabilities": raw["capabilities"],
             "status": raw["status"],
             "current_agent_name": raw["current_agent_name"],
             "parent_agent_name": raw["parent_agent_name"],

@@ -30,7 +30,7 @@ def test_missing_or_empty_exports_preserve_configured_capabilities(tmp_path, sou
     else:
         (tmp_path / "local").mkdir()
     hub = load_hub(config_file=config)
-    assert hub.additional_capabilities == original
+    assert [c.label for c in hub.additional_capabilities] == [c.label for c in original]
     assert not hub.sandbox.root.exists()
 
 
@@ -46,9 +46,9 @@ def test_relative_imports_follow_config_path_and_append_in_order(
         root, f"from .tools import CAPABILITY\nCAPABILITIES = {collection}\n"
     )
     (entrypoint.parent / "tools.py").write_text(
-        "from roboz.deployment import Capability\n"
+        "from roboz.deployment import Capability, ToolLabel\n"
         "from roboz.tools import stop\n"
-        "CAPABILITY = Capability(tools=(stop.copy(name='local_finish'),))\n"
+        "CAPABILITY = Capability(label=ToolLabel('local_finish'), value=stop.copy(name='local_finish'))\n"
     )
     unrelated = tmp_path / "unrelated"
     _package(unrelated, "raise AssertionError('wrong private package')")
@@ -56,8 +56,8 @@ def test_relative_imports_follow_config_path_and_append_in_order(
     before = sys.path.copy()
     hub = load_hub(config_file=config)
     assert sys.path == before
-    assert hub.additional_capabilities[:-1] == original
-    assert hub.additional_capabilities[-1].tools[0].name == "local_finish"
+    assert [c.label for c in hub.additional_capabilities[:-1]] == [c.label for c in original]
+    assert hub.additional_capabilities[-1].value.name == "local_finish"
     assert isinstance(hub.additional_capabilities, tuple)
     assert not hub.sandbox.root.exists()
 
@@ -68,7 +68,7 @@ def test_successful_imports_are_cached_but_configuration_directories_are_isolate
     for root in (first, second):
         entrypoint = _package(root, "from .tools import CAPABILITIES\n")
         (entrypoint.parent / "tools.py").write_text(
-            "from roboz.deployment import Capability\nCAPABILITIES = (Capability(),)\n"
+            "from roboz.deployment import Capability, ToolLabel\nCAPABILITIES = (Capability(label=ToolLabel('local')),)\n"
         )
     a = load_local_capabilities(first)
     b = load_local_capabilities(second)
@@ -112,7 +112,7 @@ def test_failed_package_discards_imported_submodules(tmp_path, failure):
     with pytest.raises(RuntimeError):
         load_local_capabilities(tmp_path)
     helper.write_text(
-        "from roboz.deployment import Capability\nCAPABILITIES = [Capability()]\n"
+        "from roboz.deployment import Capability, ToolLabel\nCAPABILITIES = [Capability(label=ToolLabel('local'))]\n"
     )
     entrypoint.write_text("from .tools import CAPABILITIES\n")
     assert len(load_local_capabilities(tmp_path)) == 1
@@ -123,14 +123,14 @@ def test_local_tool_executes_through_real_project_deployment(tmp_path):
     _package(
         tmp_path,
         "from dataclasses import dataclass\n"
-        "from roboz.deployment import AgentCapability, Capability\n"
+        "from roboz.deployment import Capability, ToolLabel\n"
         "from roboz.tools import stop\n"
-        "@dataclass(frozen=True)\n"
-        "class LocalTools(AgentCapability):\n"
+        "class LocalTools(Capability):\n"
+        "    def __init__(self): super().__init__(label=ToolLabel('local'))\n"
         "    @property\n"
         "    def required_attributes(self): return {}\n"
         "    def build(self, agent, pipe):\n"
-        "        return Capability(tools=(stop.copy(name='local_finish'),))\n"
+        "        return (stop.copy(name='local_finish'),)\n"
         "CAPABILITIES = (LocalTools(),)\n",
     )
     hub = load_hub(config_file=config)
@@ -159,12 +159,13 @@ def test_declared_tool_installs_requirements_before_import_and_joins_deployment(
     (entrypoint.parent / "requirements.txt").write_text("local-marker==1\n")
     (entrypoint.parent / "tools.py").write_text(
         "import local_marker\n"
-        "from roboz.deployment import Capability\n"
+        "from roboz.deployment import Capability, ToolLabel\n"
         "from roboz.tools import stop\n"
-        "class LocalTools:\n"
+        "class LocalTools(Capability):\n"
+        "    def __init__(self): super().__init__(label=ToolLabel('local'))\n"
         "    required_attributes = {}\n"
         "    def build(self, agent, pipe):\n"
-        "        return Capability(tools=(stop.copy(name=local_marker.TOOL_NAME),))\n"
+        "        return (stop.copy(name=local_marker.TOOL_NAME),)\n"
     )
     installed: list[Path] = []
 
@@ -236,10 +237,11 @@ def test_dependency_failure_can_be_fixed_and_retried(tmp_path, monkeypatch):
         "CAPABILITIES = (LocalTool('tools:LocalTools', 'requirements.txt'),)\n",
     ).parent
     (package / "tools.py").write_text(
-        "from roboz.deployment import Capability\n"
-        "class LocalTools:\n"
+        "from roboz.deployment import Capability, ToolLabel\n"
+        "class LocalTools(Capability):\n"
+        "    def __init__(self): super().__init__(label=ToolLabel('local'))\n"
         "    required_attributes = {}\n"
-        "    def build(self, agent, pipe): return Capability()\n"
+        "    def build(self, agent, pipe): return ()\n"
     )
     (package / "requirements.txt").write_text("missing-package==1\n")
     failures = iter((1, 0))
@@ -262,7 +264,7 @@ def test_dependency_failure_can_be_fixed_and_retried(tmp_path, monkeypatch):
 @pytest.mark.parametrize(
     ("source", "reason"),
     [
-        ("def wrong(): return object()\n", "expected an AgentCapability"),
+        ("def wrong(): return object()\n", "expected a Capability"),
         ("def wrong(): raise ValueError('bad tool')\n", "tools:wrong: bad tool"),
     ],
 )
