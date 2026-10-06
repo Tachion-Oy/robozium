@@ -8,6 +8,7 @@ import threading
 import time
 from collections.abc import Callable
 from contextvars import copy_context
+from types import MappingProxyType
 from uuid import uuid4
 
 from roboz.agent import Agent
@@ -17,7 +18,7 @@ from roboz.runtime.pipe import EventPipe
 
 from robozium.api.projects import Project
 from robozium.api.run_events import RunEvents
-from robozium.api.state import ProjectRunItem, RunState, RunStatus
+from robozium.api.state import CapabilitySelection, ProjectRunItem, RunState, RunStatus
 from robozium.api.wait_registry import RunCancelled, WaitRegistry
 
 logger = logging.getLogger(__name__)
@@ -32,8 +33,12 @@ class RunControl:
         endpoint: LLMEndpoint,
         *,
         history_limit: int,
+        capabilities: CapabilitySelection | None = None,
     ) -> None:
         self._project = project
+        self._capabilities: CapabilitySelection = MappingProxyType(
+            dict(capabilities or {})
+        )
         self._events = RunEvents(message_history_limit=history_limit)
         self._registry = WaitRegistry()
         self._lock = threading.RLock()
@@ -52,6 +57,10 @@ class RunControl:
         self._error: str | None = None
         self._can_interrupt = False
         self._agent_status: RunStatus | None = None
+
+    @property
+    def capabilities(self) -> CapabilitySelection:
+        return self._capabilities
 
     @property
     def project(self) -> Project:
@@ -102,6 +111,7 @@ class RunControl:
             state: RunState = {
                 "project": self.project.slug,
                 "model_id": self._endpoint.dependency_id,
+                "capabilities": dict(self.capabilities),
                 "status": self._status,
                 "created_at": self._created_at,
                 "completed_at": self._completed_at,

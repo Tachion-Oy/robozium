@@ -2,7 +2,8 @@
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool
+from roboz.deployment import SkillLoading
 from roboz.models import MessageKind
 
 from robozium.api.projects import ProjectStatus
@@ -19,6 +20,14 @@ class ProjectSummary(BaseModel):
 
 class CreateBody(BaseModel):
     project: str
+    capabilities: dict[str, StrictBool | SkillLoading] | None = None
+
+
+class CapabilityView(BaseModel, from_attributes=True):
+    name: str
+    kind: Literal["tool", "skill"]
+    selectable: bool
+    loading: SkillLoading | None = None
 
 
 class ProjectCreateBody(BaseModel):
@@ -121,6 +130,7 @@ TraceEntry = Annotated[
 
 
 class RunView(BaseModel):
+    capabilities: dict[str, bool | SkillLoading]
     project: str
     status: RunStatus
     current_agent_name: str | None
@@ -134,6 +144,7 @@ class RunView(BaseModel):
 __all__ = [
     "AvailableModelView",
     "CreateBody",
+    "CapabilityView",
     "ModelSelectBody",
     "ModelSelectionView",
     "ProjectCreateBody",

@@ -8,7 +8,15 @@ class ProjectCancellationInProgressError(RuntimeError):
 
 
 class ProjectBusyError(RuntimeError):
-    """Raised when durable background work prevents a new project run."""
+    """Raised when active project work prevents the requested run creation."""
 
 
-__all__ = ["ProjectBusyError", "ProjectCancellationInProgressError"]
+class InvalidCapabilitySelection(ValueError):
+    """The requested capability selection cannot be applied."""
+
+
+__all__ = [
+    "ProjectBusyError",
+    "ProjectCancellationInProgressError",
+    "InvalidCapabilitySelection",
+]

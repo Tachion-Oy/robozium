@@ -10,9 +10,10 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from deployment_support import BuiltAgents
+from deployment_support import BuiltAgents, deferred_deployment
 from roboz import Agent
-from roboz.agent import run_subagent
+from roboz.agent import run_nested_agent
+from roboz.deployment import DeployableAgent
 from roboz.llm import LLMEndpoint, LLMEndpointRoute, MockLLMEndpoint
 from roboz.models import Empty, Message, MessageKind, Role, Str
 from roboz.runtime.events import (
@@ -164,7 +165,8 @@ def _manager(
     **kwargs: Any,
 ) -> RunManager:
     return RunManager(
-        factory,
+        deferred_deployment(factory),
+        definition=DeployableAgent(name="test"),
         hub_name=hub_name,
         default_orchestrator_endpoint=lambda: _TEST_DEFAULT_ENDPOINT,
         **kwargs,
@@ -210,7 +212,8 @@ def test_manager_builds_a_route_that_closes_over_its_run_state() -> None:
     assert static_route.resolve().model_name == "first"
 
     manager = RunManager(
-        run_factory,
+        deferred_deployment(run_factory),
+        definition=DeployableAgent(name="test"),
         hub_name="TestHub",
         default_orchestrator_endpoint=lambda: first,
     )
@@ -492,7 +495,7 @@ def test_nested_subagent_lifecycle_events_reach_run_event_listeners() -> None:
                 ]
             ),
         )
-        run_child = run_subagent(child).copy(name="delegate")
+        run_child = run_nested_agent(child).copy(name="delegate")
         return _root_bundle(
             Agent(
                 name="parent_orchestrator",
@@ -545,6 +548,22 @@ def test_manager_create_stores_project_slug() -> None:
     assert view is not None
     assert view["project"] == "my-project"
     assert [run["project"] for run in manager.list_project_runs()] == ["my-project"]
+
+
+def test_manager_creation_and_reuse_do_not_construct_a_deployment() -> None:
+    def unexpected_construction(*args, **kwargs):
+        pytest.fail("Run registration must only inspect the existing definition")
+
+    manager = RunManager(
+        unexpected_construction,
+        definition=DeployableAgent(name="test"),
+        hub_name="TestHub",
+        default_orchestrator_endpoint=lambda: _TEST_DEFAULT_ENDPOINT,
+    )
+    project = _project()
+    run_id = manager.create(project, capabilities={})
+    assert manager.create(project, capabilities={}) == run_id
+    assert manager.shutdown()
 
 
 def test_manager_create_returns_existing_active_run_for_project() -> None:
@@ -1091,8 +1110,13 @@ def test_each_run_gets_a_fresh_sandbox_even_when_reusing_a_project(tmp_path):
 
     from robozium.hub.utils import load_hub
 
-    hub = replace(load_hub(), deployment=factory)
-    manager = _manager(hub.configure_deployment, hub_name="TestHub")
+    hub = replace(load_hub(), deployment=deferred_deployment(factory))
+    manager = RunManager(
+        hub.configure_deployment,
+        definition=hub.definition,
+        hub_name="TestHub",
+        default_orchestrator_endpoint=lambda: _TEST_DEFAULT_ENDPOINT,
+    )
     project = _tmp_project(tmp_path, "same-project")
     try:
         for _ in range(2):

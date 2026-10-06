@@ -25,16 +25,9 @@ def dependency_lifespan(
         )
         if isinstance(hub.transcription_endpoint, ExternalDependency):
             hub_dependencies += (hub.transcription_endpoint,)
-        project_slug = hub.project(hub.name).slug
-        agent, _ = hub.configure_deployment(
-            hub.project(project_slug).sandbox,
-            project_slug,
-            endpoint_getter=lambda: hub.model_selector.selected_endpoint,
-            event_sinks=(),
-        )
         dependencies = dedupe_external_dependencies(
             (
-                *agent.external_dependencies(),
+                *hub.definition.external_dependencies(),
                 *hub_dependencies,
                 *(hub.additional_dependencies or ()),
             )

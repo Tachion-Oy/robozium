@@ -7,22 +7,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import SupportsIndex
 
-from roboz.agent import Agent
-from roboz.deployment import Capability, DeployableAgent, RequiredAttributes
+from roboz.deployment import Capability, DeployableAgent, RequiredAttributes, ToolLabel
 from roboz.llm import LLMEndpoint, LLMEndpointRoute, MockLLMEndpoint, MockProviderError
 from roboz.models import AgentMode, Empty, Message
-from roboz.runtime import EventPipe, default_event_sinks, interact_with_user
+from roboz.runtime import EventPipe, interact_with_user
 from roboz.runtime.events import EventSink, MessageDeltaEvent, PipeEvent
 from roboz.shed.agents import librarian, orchestrator
 from roboz.shed.capabilities import (
     ArtifactRetention,
     ConversationSnapshots,
-    FileCommands,
-    FileEditing,
     MaintenanceCadence,
     MemoryConsolidation,
 )
 from roboz.shed.sandbox import Sandbox
+from roboz.tooling import Tool
 from roboz.tooling.decorators import factory
 from roboz.tools import stop
 
@@ -149,13 +147,13 @@ def _mock_recipe(
     notification: str | None = None,
     prepare_artifact: bool = False,
     event_sinks: Sequence[EventSink] = (),
-) -> tuple[Agent, tuple[Agent, ...]]:
+) -> DeployableAgent:
     """Configure fresh mock pipelines without modifying the shared presets."""
     specialist = DeployableAgent(
         name="hello_world",
         system_prompt="Return Hello, World! and stop.",
         description="Run a deterministic hello world specialist agent.",
-        default_capabilities=(Capability(tools=(stop,)),),
+        capabilities=(Capability(label=ToolLabel("stop"), value=stop),),
     )
     specialist.set_agent_endpoint(
         MockLLMEndpoint(
@@ -166,35 +164,23 @@ def _mock_recipe(
             )
         )
     )
-    preset = orchestrator(
+    root = orchestrator(
         project.sandbox,
         agent_endpoint=MockLLMEndpoint(responses=responses),
-        subagents=(specialist,),
+        nested_agents=(specialist,),
     )
-    root = DeployableAgent(
-        name=preset.name,
-        description=preset.description,
-        system_prompt=preset.system_prompt,
-        mode=preset.mode,
-        subagents=preset.subagents,
-        default_capabilities=(
-            preset.default_capabilities[0],
-            FileCommands(auto_load_skill=False),
-            FileEditing(auto_load_skill=False),
-            Capability(
-                default_tools=(
-                    *((prepare_mock_artifact(project),) if prepare_artifact else ()),
-                    *(
-                        (mock_user_notification(notification),)
-                        if notification is not None
-                        else ()
-                    ),
-                )
-            ),
-        ),
+    root.add_capabilities(
+        _MockSetup(
+            (
+                *((prepare_mock_artifact(project),) if prepare_artifact else ()),
+                *(
+                    (mock_user_notification(notification),)
+                    if notification is not None
+                    else ()
+                ),
+            )
+        )
     )
-    root.set_agent_endpoint(preset.agent_endpoint)
-    root.set_attributes(sandbox=project.sandbox)
     if with_librarian:
         names = root.agent_names(include_background=False)
         snapshot_endpoint = MockLLMEndpoint(
@@ -209,7 +195,7 @@ def _mock_recipe(
             description=preset.description,
             mode=AgentMode.DETERMINISTIC,
             automatic_tool_prompt=preset.automatic_tool_prompt,
-            default_capabilities=(
+            capabilities=(
                 ConversationSnapshots(token_growth_threshold=1),
                 MemoryConsolidation(
                     endpoint=memory_endpoint,
@@ -224,12 +210,34 @@ def _mock_recipe(
         background.set_agent_endpoint(preset.agent_endpoint)
         background.set_attributes(sandbox=project.sandbox, watched_agent_names=names)
         root.add_background_agents(background)
-    return root.build(
-        event_sinks=tuple(event_sinks),
-        event_sink_factory=lambda name: default_event_sinks(
-            data_path=project.logs / name, include_cli=False
-        ),
-    )
+    root.add_capabilities(_MockSinks(event_sinks))
+    return root
+
+
+class _MockSetup(Capability):
+    def __init__(self, tools: Sequence[Tool]) -> None:
+        super().__init__(label=ToolLabel("mock_setup", default=True))
+        self.tools = tuple(tools)
+
+    def build(self, agent: DeployableAgent, pipe: EventPipe) -> tuple[Tool, ...]:
+        return self.tools
+
+
+class _MockSinks(Capability):
+    def __init__(self, sinks: Sequence[EventSink]) -> None:
+        super().__init__(label=ToolLabel("mock_events"))
+        self.sinks = sinks
+
+    def build(self, agent: DeployableAgent, pipe: EventPipe) -> tuple[()]:
+        # Mock pacing and holds must run before the host receives each event.
+        existing = pipe.event_sinks
+        for sink in existing:
+            pipe.unsubscribe(sink)
+        for sink in self.sinks:
+            pipe.add_sink(sink)
+        for sink in existing:
+            pipe.add_sink(sink)
+        return ()
 
 
 def mock_deployment(
@@ -238,24 +246,23 @@ def mock_deployment(
     /,
     *,
     endpoint_getter: Callable[[], LLMEndpoint],
-    event_sinks: Sequence[EventSink] = (),
-) -> tuple[Agent, tuple[Agent, ...]]:
+) -> DeployableAgent:
     project = Project(sandbox, project_slug)
     scenario = _mock_scenario(project)
     if scenario == "model-selection":
         from robozium.mock.model_selection import model_selection_endpoint
 
-        return orchestrator(
+        root = orchestrator(
             sandbox,
             agent_endpoint=model_selection_endpoint(
                 LLMEndpointRoute(endpoint_getter), project.root
             ),
-        ).build(
-            event_sinks=tuple(event_sinks),
-            event_sink_factory=lambda name: default_event_sinks(
-                data_path=project.logs / name, include_cli=False
-            ),
         )
+        root.add_capabilities(
+            _MockSetup(()),
+            _MockSinks(()),
+        )
+        return root
     responses = (
         _mock_orchestrator_error_responses()
         if scenario == MOCK_SCENARIO_LLM_ERROR
@@ -300,7 +307,7 @@ def mock_deployment(
         with_librarian=True,
         notification=notification,
         prepare_artifact=True,
-        event_sinks=[*scenario_sinks, *event_sinks],
+        event_sinks=scenario_sinks,
     )
 
 
@@ -453,8 +460,7 @@ def stream_mock_deployment(
     /,
     *,
     endpoint_getter: Callable[[], LLMEndpoint],
-    event_sinks: Sequence[EventSink] = (),
-) -> tuple[Agent, tuple[Agent, ...]]:
+) -> DeployableAgent:
     """Local-viewing mock: streams visibly and persists nothing.
 
     The host supplies a temporary shared workspace; conversation logs stay there and the librarian is omitted, so
@@ -468,7 +474,7 @@ def stream_mock_deployment(
         project,
         responses=responses,
         with_librarian=False,
-        event_sinks=[*_paced_event_sinks(), *event_sinks],
+        event_sinks=_paced_event_sinks(),
     )
 
 
@@ -478,8 +484,7 @@ def stream_sync_mock_deployment(
     /,
     *,
     endpoint_getter: Callable[[], LLMEndpoint],
-    event_sinks: Sequence[EventSink] = (),
-) -> tuple[Agent, tuple[Agent, ...]]:
+) -> DeployableAgent:
     """Local-viewing sync mock: visible stream plus mocked background librarian.
 
     This is the cheap manual reproduction app for cancel-vs-sync behavior. It
@@ -494,7 +499,7 @@ def stream_sync_mock_deployment(
         project,
         responses=responses,
         with_librarian=True,
-        event_sinks=[*_paced_event_sinks(), *event_sinks],
+        event_sinks=_paced_event_sinks(),
     )
 
 
@@ -570,17 +575,20 @@ def prepare_mock_artifact(input: Empty, messages: list[Message], ctx: Project) -
     return Empty()
 
 
-@dataclass(frozen=True)
-class _LibrarianHold:
+@dataclass
+class _LibrarianHold(Capability):
     project: Project
     snapshot_endpoint: MockLLMEndpoint
     memory_endpoint: MockLLMEndpoint
+
+    def __post_init__(self) -> None:
+        super().__init__(label=ToolLabel("librarian_hold"))
 
     @property
     def required_attributes(self) -> RequiredAttributes:
         return {}
 
-    def build(self, agent: DeployableAgent, pipe: EventPipe) -> Capability:
+    def build(self, agent: DeployableAgent, pipe: EventPipe) -> tuple[()]:
         """Bind independent snapshot and consolidation test holds."""
         del agent
         _holdable_endpoint(
@@ -594,4 +602,4 @@ class _LibrarianHold:
             hold_marker=self.project.root / LIBRARIAN_CONSOLIDATION_HOLD_MARKER,
             is_cancelled=lambda: pipe.cancelled,
         )
-        return Capability()
+        return ()

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
+from roboz.deployment import SkillLabel, ToolLabel
 from roboz.llm import (
     MockTranscriptionEndpoint,
     ModelSelector,
@@ -21,7 +22,11 @@ from roboz.runtime.events import PipeEvent
 from robozium.api.credentials import CredentialGateMiddleware, LoadedCredentials
 from robozium.api.credentials import router as credential_router
 from robozium.api.dependencies import router as dependency_router
-from robozium.api.errors import ProjectBusyError, ProjectCancellationInProgressError
+from robozium.api.errors import (
+    InvalidCapabilitySelection,
+    ProjectBusyError,
+    ProjectCancellationInProgressError,
+)
 from robozium.api.files import serve_hub_file
 from robozium.api.lifespan import application_lifespan
 from robozium.api.models import *
@@ -75,6 +80,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
     """Host the supplied Hub through ASGI, owning HTTP and runtime lifecycle."""
     manager = RunManager(
         deployment.configure_deployment,
+        definition=deployment.definition,
         hub_name=deployment.name,
         default_orchestrator_endpoint=lambda: (
             deployment.model_selector.selected_endpoint
@@ -99,6 +105,10 @@ def create_app(*, deployment: Hub) -> FastAPI:
     app.add_middleware(CredentialGateMiddleware, loaded=app.state.loaded_credentials)
     app.include_router(dependency_router)
     app.include_router(credential_router)
+
+    @app.get("/capabilities", response_model=list[CapabilityView])
+    def capabilities_get() -> list[ToolLabel | SkillLabel]:
+        return deployment.capabilities()
 
     @app.get("/models", response_model=ModelSelectionView)
     def models_get(request: Request, run_id: str | None = None) -> ModelSelectionView:
@@ -140,6 +150,8 @@ def create_app(*, deployment: Hub) -> FastAPI:
     def project_operation(operation):
         try:
             return operation()
+        except InvalidCapabilitySelection as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         except (ProjectBusyError, ProjectCancellationInProgressError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except FileNotFoundError as exc:
@@ -149,7 +161,13 @@ def create_app(*, deployment: Hub) -> FastAPI:
 
     @app.post("/run/create")
     def run_create(body: CreateBody) -> dict[str, str]:
-        return {"run_id": project_operation(lambda: projects.prepare_run(body.project))}
+        return {
+            "run_id": project_operation(
+                lambda: projects.prepare_run(
+                    body.project, capabilities=body.capabilities
+                )
+            )
+        }
 
     @app.post("/projects")
     def projects_create(body: ProjectCreateBody) -> dict[str, str]:

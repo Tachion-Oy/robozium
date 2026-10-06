@@ -7,14 +7,13 @@ from threading import Thread
 
 import pytest
 from deployment_support import configured_deployment, foreground_agent
-from roboz.deployment import Capability, DeployableAgent
+from roboz.deployment import Capability, DeployableAgent, ToolLabel
 from roboz.endpoints.inventory import cerebras, openrouter
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
 from roboz.models import AgentMode
 from roboz.shed.agents.orchestrator import ORCHESTRATOR_PROMPT
 from roboz.shed.identifiers import COMPACTIFY_MESSAGES_TOOL_NAME
 from roboz.shed.sandbox import Sandbox
-from roboz.shed.skills import cli_skill
 from roboz.shed.skills import robozium as robozium_skill
 from roboz.tools import stop
 
@@ -30,7 +29,7 @@ def test_configured_models_apply_per_use_request_policy(monkeypatch):
     project = hub.project("policy-test")
     deployment = hub.configure_deployment(
         project.sandbox, project.slug, endpoint_getter=lambda: hub.default_model
-    )
+    ).build()
     memory = deployment[1][0].agent_endpoint
     assert all(isinstance(endpoint, LLMEndpoint) for endpoint in endpoints)
     for endpoint in endpoints[:2]:
@@ -50,8 +49,8 @@ def _specialist(name, *, subagents=(), background_agents=(), responses=None):
     definition = DeployableAgent(
         name=name,
         system_prompt="Run specialists and stop.",
-        default_capabilities=(Capability(tools=(stop,)),),
-        subagents=subagents,
+        capabilities=(Capability(label=ToolLabel("stop"), value=stop),),
+        nested_agents=subagents,
         background_agents=background_agents,
     )
     definition.set_agent_endpoint(
@@ -105,7 +104,7 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
     assert agent.mode is AgentMode.STEERABLE
     assert specialist_background.name == "specialist_maintenance"
     assert robozium_skill in agent.auto_loaded_skills
-    assert cli_skill in agent.auto_loaded_skills
+    assert any(skill.name == "filesystem" for skill in agent.auto_loaded_skills)
     assert '<file src="relative/path.ext">' in robozium_skill.instructions
     assert "runtime-supplied" in robozium_skill.instructions
     assert not project.sandbox.root.exists()
@@ -179,7 +178,7 @@ def test_route_discovery_and_compaction_follow_model_switch_without_rebuild(tmp_
         project.sandbox,
         project.slug,
         endpoint_getter=lambda: selected,
-    )
+    ).build()
     agent, (background,) = deployment
     route = agent.agent_endpoint
     compactifier = next(

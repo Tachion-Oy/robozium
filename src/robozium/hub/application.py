@@ -3,24 +3,28 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Mapping, Sequence
+import os
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from functools import cached_property, partial
 from pathlib import Path
 from types import MappingProxyType
 from typing import TypedDict
 
-from roboz.agent import Agent
 from roboz.dependencies import ExternalDependency
-from roboz.deployment import AgentCapability, DeployableAgent
+from roboz.deployment import Capability, DeployableAgent, SkillLabel, ToolLabel
 from roboz.llm import (
     EndpointLike,
     LLMEndpoint,
     ModelSelector,
     TranscriptionEndpointLike,
 )
-from roboz.runtime import EventSink
-from roboz.shed.deployments.robozium import robozium
+from roboz.shed.deployments import robozium
 from roboz.shed.sandbox import Sandbox
+from roboz.shed.tools.email.proton_bridge import (
+    ProtonBridgeEmailService,
+    ProtonBridgeSettings,
+)
 
 from robozium.api.projects import Project
 from robozium.hub.logging import HubLoggingConfig
@@ -52,7 +56,6 @@ class HubValues(TypedDict):
     MODELS: Mapping[str, LLMEndpoint]
     DEFAULT_MODEL: LLMEndpoint
     MEMORY_ENDPOINT: EndpointLike
-    CAPABILITIES: tuple[AgentCapability, ...]
     SUBAGENTS: tuple[DeployableAgent, ...]
     TRANSCRIPTION_ENDPOINT: TranscriptionEndpointLike | None
     ADDITIONAL_DEPENDENCIES: tuple[ExternalDependency, ...] | None
@@ -69,11 +72,11 @@ class Hub:
     models: Mapping[str, LLMEndpoint]
     default_model: LLMEndpoint
     memory_endpoint: EndpointLike
-    additional_capabilities: tuple[AgentCapability, ...]
+    additional_capabilities: tuple[Capability, ...]
     subagents: tuple[DeployableAgent, ...]
     transcription_endpoint: TranscriptionEndpointLike | None
     additional_dependencies: tuple[ExternalDependency, ...] | None
-    deployment: Callable[..., tuple[Agent, tuple[Agent, ...]]] | None = None
+    deployment: Callable[..., DeployableAgent] | None = None
     model_selector: ModelSelector = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -116,6 +119,20 @@ class Hub:
         slug = slugify_project_name(name)
         return Project(sandbox=self.sandbox.for_project(slug), slug=slug)
 
+    def capabilities(self) -> list[ToolLabel | SkillLabel]:
+        """Return declared capability labels for this Hub's orchestrator."""
+        return [capability.label for capability in self.definition.capabilities]
+
+    @cached_property
+    def definition(self) -> DeployableAgent:
+        """Keep one definition for dependency and capability inspection."""
+        project = self.project(self.name)
+        return self.configure_deployment(
+            project.sandbox,
+            project.slug,
+            endpoint_getter=lambda: self.model_selector.selected_endpoint,
+        )
+
     def configure_deployment(
         self,
         sandbox: Sandbox,
@@ -123,9 +140,8 @@ class Hub:
         /,
         *,
         endpoint_getter: Callable[[], LLMEndpoint],
-        event_sinks: Sequence[EventSink] = (),
-    ) -> tuple[Agent, tuple[Agent, ...]]:
-        """Wire and build fresh agents with this Hub's choices and run inputs."""
+    ) -> DeployableAgent:
+        """Describe fresh agents with this Hub's choices and run inputs."""
         if sandbox.scope is not None and sandbox.scope != project_slug:
             raise ValueError("deployment project must match the sandbox scope")
         sandbox = sandbox.for_project(project_slug)
@@ -134,13 +150,17 @@ class Hub:
                 sandbox,
                 project_slug,
                 endpoint_getter=endpoint_getter,
-                event_sinks=event_sinks,
             )
-        return robozium(
+        script_socket = os.environ.get("ROBOZIUM_HOST_SCRIPT_SOCKET")
+        root = robozium(
             sandbox,
             endpoint_getter=endpoint_getter,
             memory_endpoint=self.memory_endpoint,
-            additional_capabilities=self.additional_capabilities,
+            email_service=ProtonBridgeEmailService(
+                partial(ProtonBridgeSettings.from_env, prefix="ROBOZIUM_PROTON_BRIDGE_")
+            ),
             specialists=self.subagents,
-            event_sinks=event_sinks,
+            script_socket=Path(script_socket) if script_socket else None,
         )
+        root.add_capabilities(*self.additional_capabilities)
+        return root

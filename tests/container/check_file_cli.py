@@ -8,7 +8,6 @@ from roboz import Agent
 from roboz.llm import MockLLMEndpoint
 from roboz.models import Stop
 from roboz.shed.models import ActionVerdict
-from roboz.shed.skills import cli_skill
 from roboz.shed.tools.cli_commands import get_run_file_command
 from roboz.tools import stop
 
@@ -28,7 +27,6 @@ def main() -> None:
                 *get_run_file_command(base=root, default_verdict=ActionVerdict.allow),
                 stop,
             ],
-            auto_loaded_skills=[cli_skill],
             event_sinks=[],
             agent_endpoint=MockLLMEndpoint(
                 [

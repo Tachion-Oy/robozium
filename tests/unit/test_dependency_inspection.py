@@ -8,14 +8,13 @@ from types import SimpleNamespace
 
 import pytest
 from config_support import write_config
-from deployment_support import BuiltAgents
 from fastapi.testclient import TestClient
-from roboz import Agent
 from roboz.dependencies import (
     ExecutableDependency,
     ExternalDependency,
     ExternalDependencyKind,
 )
+from roboz.deployment import Capability, DeployableAgent, ToolLabel
 from roboz.endpoints.inventory import openrouter
 from roboz.models import AgentMode, Empty, Message
 from roboz.tooling.decorators import factory
@@ -42,16 +41,14 @@ def dependency_tool(
 
 
 def _factory_for(*resources):
-    def build(sandbox, project_slug, /, *, endpoint_getter, event_sinks):
+    def build(sandbox, project_slug, /, *, endpoint_getter):
         bound = dependency_tool(ResourceContext(tuple(resources)))
-        return BuiltAgents(
-            Agent(
-                name="dependency_test",
-                event_sinks=event_sinks,
-                mode=AgentMode.DETERMINISTIC,
-                agent_endpoint=None,
-                default_tools=[bound],
-            )
+        return DeployableAgent(
+            name="dependency_test",
+            mode=AgentMode.DETERMINISTIC,
+            capabilities=(
+                Capability(label=ToolLabel("dependency", default=True), value=bound),
+            ),
         )
 
     return build
@@ -97,8 +94,7 @@ def _inspect(hub, slug):
         hub.project(slug).sandbox,
         slug,
         endpoint_getter=lambda: hub.model_selector.selected_endpoint,
-        event_sinks=(),
-    )
+    ).build()
     from roboz.dependencies import dedupe_external_dependencies
 
     return dedupe_external_dependencies(
@@ -127,7 +123,7 @@ def test_standard_deployment_discovers_tools_and_every_selectable_model() -> Non
                 project.sandbox,
                 project.slug,
                 endpoint_getter=lambda: deployment.model_selector.selected_endpoint,
-            )[1][0].agent_endpoint,
+            ).build()[1][0].agent_endpoint,
         )
     }
 

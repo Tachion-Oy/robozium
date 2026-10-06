@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import StrEnum
 from typing import Any, Literal, NotRequired, TypedDict
 
+from roboz.deployment import SkillLoading
 from roboz.models import MessageKind, Role
 from roboz.runtime.observability import RuntimeEventLevel
+
+type CapabilitySelection = Mapping[str, bool | SkillLoading]
 
 
 class RunStatus(StrEnum):
@@ -98,6 +102,7 @@ class RunProjection(TypedDict):
 
 
 class RunState(RunProjection):
+    capabilities: dict[str, bool | SkillLoading]
     project: str
     model_id: str
     status: RunStatus
@@ -112,6 +117,7 @@ class RunState(RunProjection):
 
 
 class RunView(TypedDict):
+    capabilities: dict[str, bool | SkillLoading]
     project: str
     status: RunStatus
     current_agent_name: str | None

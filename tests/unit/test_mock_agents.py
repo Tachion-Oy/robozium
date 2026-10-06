@@ -39,8 +39,7 @@ def test_mock_librarian_is_non_agentic_workflow(tmp_path: Path) -> None:
         project.sandbox,
         project.slug,
         endpoint_getter=_endpoint_getter,
-        event_sinks=(),
-    )
+    ).build()
 
     assert librarian.name == LIBRARIAN_AGENT_NAME
     assert librarian.mode is AgentMode.DETERMINISTIC
@@ -65,8 +64,7 @@ def test_mock_deployment_uses_background_agent_wiring(
         project.sandbox,
         project.slug,
         endpoint_getter=_endpoint_getter,
-        event_sinks=(),
-    )
+    ).build()
 
     agent, background_agents = bundle
     assert len(background_agents) == 1
@@ -90,8 +88,7 @@ def test_mock_deployment_selects_error_scenario_from_marker(
         project.sandbox,
         project.slug,
         endpoint_getter=_endpoint_getter,
-        event_sinks=(),
-    )[0]
+    ).build()[0]
 
     assert isinstance(orchestrator.agent_endpoint, MockLLMEndpoint)
     assert len(orchestrator.agent_endpoint.mock_responses) == 3
@@ -116,8 +113,7 @@ def test_mock_deployment_adds_notification_default_tool_for_scenario(
         project.sandbox,
         project.slug,
         endpoint_getter=_endpoint_getter,
-        event_sinks=(),
-    )[0]
+    ).build()[0]
 
     assert [tool.name for tool in orchestrator.default_tools] == [
         "prepare_mock_artifact",
@@ -136,8 +132,7 @@ def test_stream_sync_mock_factory_exposes_background_agent_for_syncing(
         project.sandbox,
         project.slug,
         endpoint_getter=_endpoint_getter,
-        event_sinks=(),
-    )
+    ).build()
 
     _, background_agents = bundle
     assert len(background_agents) == 1
@@ -256,7 +251,7 @@ def test_stream_mock_repeats_specialist_and_recreates_scripts_per_run(
 ):
     from types import SimpleNamespace
 
-    from roboz.runtime import bind_api_user_io, reset_api_user_io
+    from roboz.runtime import bind_api_user_io, default_event_sinks, reset_api_user_io
 
     from robozium.mock.agents import stream_mock_deployment
 
@@ -279,7 +274,10 @@ def test_stream_mock_repeats_specialist_and_recreates_scripts_per_run(
                 project.sandbox,
                 project.slug,
                 endpoint_getter=_endpoint_getter,
-                event_sinks=(),
+            ).build(
+                event_sink_factory=lambda name: default_event_sinks(
+                    data_path=project.logs / name, include_cli=False,
+                )
             )
             result, _ = bundle[0].invoke()
             assert "end of the streaming mock walkthrough" in result.value
@@ -303,3 +301,32 @@ def test_holdable_response_accepts_index_protocol(tmp_path: Path) -> None:
     )
     assert responses.pop(Index()) == "first"
     assert responses == ["second"]
+
+
+def test_host_receives_each_mock_event_once(tmp_path):
+    from dataclasses import replace
+
+    write_config(tmp_path, sandbox_root="hub_data")
+    hub = replace(load_hub(start=tmp_path), deployment=mock_deployment)
+    project = hub.project("events")
+    events = []
+    root, _ = hub.configure_deployment(
+        project.sandbox, project.slug,
+        endpoint_getter=_endpoint_getter,
+    ).build(event_sinks=(events.append,))
+    root.pipe.emit_script_output("once")
+    assert [event.content for event in events] == ["once"]
+
+
+def test_mock_pacing_precedes_host_delivery(tmp_path, monkeypatch):
+    from robozium.mock.agents import stream_mock_deployment
+
+    observed = []
+    monkeypatch.setattr("robozium.mock.agents.time.sleep", lambda seconds: observed.append("pace"))
+    monkeypatch.setenv("ROBOZIUM_STREAM_MOCK_START_DELAY_S", "1")
+    project = load_hub(config_file=write_config(tmp_path)).project("pacing")
+    root, _ = stream_mock_deployment(
+        project.sandbox, project.slug, endpoint_getter=_endpoint_getter,
+    ).build(event_sinks=(lambda event: observed.append("host"),))
+    root.pipe.emit_message_delta("first")
+    assert observed == ["pace", "host"]

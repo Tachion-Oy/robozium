@@ -8,9 +8,10 @@ from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
-from deployment_support import BuiltAgents
+from deployment_support import BuiltAgents, deferred_deployment
 from fastapi.testclient import TestClient
 from roboz import Agent
+from roboz.deployment import DeployableAgent
 from roboz.endpoints.inventory import openrouter
 from roboz.models import AgentMode
 from roboz.runtime.io import interact_with_user
@@ -43,7 +44,8 @@ def config(tmp_path):
 
 def manager_for(factory):
     return RunManager(
-        factory,
+        deferred_deployment(factory),
+        definition=DeployableAgent(name="test"),
         hub_name="OwnershipTest",
         default_orchestrator_endpoint=lambda: _TEST_ENDPOINT,
     )
@@ -187,7 +189,9 @@ def test_factory_failure_closes_http_stream_and_late_subscribers(config):
         )
 
     app = create_app(
-        deployment=replace(config, deployment=factory, transcription_endpoint=None)
+        deployment=replace(
+            config, deployment=deferred_deployment(factory), transcription_endpoint=None
+        )
     )
     with TestClient(app) as client:
         client.post("/projects", json={"name": "broken"})
@@ -362,7 +366,9 @@ def test_lifespan_shutdown_releases_input_wait(config):
         )
 
     app = create_app(
-        deployment=replace(config, deployment=factory, transcription_endpoint=None)
+        deployment=replace(
+            config, deployment=deferred_deployment(factory), transcription_endpoint=None
+        )
     )
     with TestClient(app):
         manager = app.state.run_manager

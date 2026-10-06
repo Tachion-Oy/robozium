@@ -13,12 +13,11 @@ from sysconfig import get_platform
 from tempfile import TemporaryDirectory
 from threading import RLock
 from types import ModuleType
-from typing import Protocol, runtime_checkable
 
-from roboz.deployment import AgentCapability
+from roboz.deployment import Capability
 
 _IMPORT_LOCK = RLock()
-_CAPABILITY_CACHE: dict[Path, tuple[AgentCapability, ...]] = {}
+_CAPABILITY_CACHE: dict[Path, tuple[Capability, ...]] = {}
 _LOCAL_PACKAGE_PREFIX = "_robozium_local_"
 
 
@@ -26,19 +25,14 @@ _LOCAL_PACKAGE_PREFIX = "_robozium_local_"
 class LocalTool:
     """Declare a ``module:factory`` and requirements file relative to local/.
 
-    The factory takes no arguments and returns an AgentCapability.
+    The factory takes no arguments and returns a Capability.
     """
 
     entrypoint: str
     requirements: str
 
 
-@runtime_checkable
-class _RuntimeCapability(AgentCapability, Protocol):
-    """Enable runtime checking of RoboZ's existing structural contract."""
-
-
-def load_local_capabilities(config_dir: Path) -> tuple[AgentCapability, ...]:
+def load_local_capabilities(config_dir: Path) -> tuple[Capability, ...]:
     """Validate, install, and load private capabilities once per resolved directory.
 
     Existing capability objects are also accepted. Restart the API to reload
@@ -70,17 +64,17 @@ def load_local_capabilities(config_dir: Path) -> tuple[AgentCapability, ...]:
                 dependencies = str(_install_requirements(root, requirements))
                 sys.path.append(dependencies)
 
-            capabilities: list[AgentCapability] = []
+            capabilities: list[Capability] = []
             for declaration in declarations:
                 tool_name = None
                 if isinstance(declaration, LocalTool):
                     tool_name = declaration.entrypoint
                     factory = resolve_name(f"{name}.{tool_name}")
                     declaration = factory()
-                if not isinstance(declaration, _RuntimeCapability) or not callable(
+                if not isinstance(declaration, Capability) or not callable(
                     declaration.build
                 ):
-                    raise TypeError("expected an AgentCapability")
+                    raise TypeError("expected a Capability")
                 capabilities.append(declaration)
         except BaseException as exc:
             if dependencies is not None:
