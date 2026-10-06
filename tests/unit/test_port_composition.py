@@ -1,14 +1,12 @@
 """Exercise the port's public-API composition, not only construction shapes."""
 
 import json
-import os
-import subprocess
-import sys
 from dataclasses import replace
 from threading import Event, Thread
 from types import SimpleNamespace
 
 import pytest
+from config_support import write_config
 from deployment_support import configured_deployment, foreground_agent
 from roboz.exceptions import LLMCallTimeoutError
 from roboz.llm import LLMEndpoint, MockLLMEndpoint, estimate_conversation_tokens
@@ -19,6 +17,7 @@ from roboz.shed.capabilities import Compactification
 from roboz.shed.tools.compactification import CompactifyStatus
 
 from robozium.hub.utils import load_hub
+from tests.support.mock_startup import check_mock_startup
 
 
 def _compaction_project(tmp_path):
@@ -219,32 +218,5 @@ def test_file_agent_loads_memory_writes_project_and_denies_escape(tmp_path):
     assert "REMEMBER-LOCAL-MARKER" in logs[0].read_text()
 
 
-def test_mock_import_never_constructs_live_deployment():
-    subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            """
-import robozium.hub.application as application
-
-def reject(*args, **kwargs):
-    raise AssertionError('live deployment constructed')
-application.robozium = reject
-from robozium.api.app import mock_app
-from fastapi.testclient import TestClient
-with TestClient(mock_app()) as client:
-    assert client.get('/ready').status_code == 200
-    import logging
-    from robozium.hub.utils import load_hub
-    assert any(getattr(handler, "baseFilename", None) == str(load_hub().logging.path) for handler in logging.getLogger("robozium").handlers)
-    records = client.get('/admin/dependencies').json()
-    assert {row['dependency_id'] for row in records if row['kind'] == 'model_endpoint'} == {model['model_id'] for model in client.get('/models').json()['models']}
-""",
-        ],
-        env={
-            key: value
-            for key, value in os.environ.items()
-            if key not in {"OPENAI_API_KEY_SECRET", "OPENROUTER_API_KEY_SECRET", "CEREBRAS_API_KEY_SECRET"}
-        },
-        check=True,
-    )
+def test_mock_import_never_constructs_live_deployment(tmp_path):
+    check_mock_startup(write_config(tmp_path))

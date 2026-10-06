@@ -32,6 +32,13 @@ Default tests must not require provider credentials or contact live services.
 Use `tmp_path` or the disposable E2E hub, never a user's live hub. Retain fixture
 and process cleanup even when a test fails or is cancelled.
 
+Unit tests stage an isolated default hub configuration automatically. Startup
+subprocesses must also receive an explicit temporary configuration and working
+directory, without inherited hub or log overrides. Use
+`tests/support/mock_startup.py` for the mock startup check. Starting a mock API
+against a live hub runs recovery and clears active run markers, which can stop
+its librarian before memory is saved.
+
 ## Backend and frontend coverage
 
 Backend unit tests cover project paths and permissions, configuration,
