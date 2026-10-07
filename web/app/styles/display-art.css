@@ -19,6 +19,11 @@
   --display-art-ratio: 6.75;
 }
 
+.display-art--launch {
+  --display-art-source: url("/branding/launch.svg");
+  --display-art-ratio: 8.09;
+}
+
 .display-art--new-project {
   --display-art-source: url("/branding/new-project.svg");
   --display-art-ratio: 13.89;

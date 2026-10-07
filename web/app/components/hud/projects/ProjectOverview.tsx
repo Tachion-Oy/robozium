@@ -2,12 +2,9 @@
 
 import { useStore } from "zustand"
 import { useRouter } from "next/navigation"
-import { hudVisibilityStore } from "@/lib/robozium/hud-visibility"
+import { beginHudNavigation, hudVisibilityStore } from "@/lib/robozium/hud-visibility"
 import {
-	AgentApiError,
 	cancelProject,
-	createProject,
-	createRun,
 	deleteProject,
 } from "@/lib/robozium/client"
 import {
@@ -17,6 +14,7 @@ import {
 	type ProjectRow,
 } from "@/lib/robozium/landing"
 import type { Project } from "@/lib/robozium/wire"
+import type { LaunchDraft } from "@/lib/robozium/hud-navigation"
 import { showErrorToast } from "@/app/components/feedback/ErrorToast"
 import { ProjectOverviewPanel } from "./ProjectOverviewPanel"
 import { useProjectOverview } from "./useProjectOverview"
@@ -26,12 +24,16 @@ type ProjectOverviewProps = {
 	initialProjects?: Project[] | null
 	currentRunId?: string | null
 	onCurrentProjectClick?: () => void
+	onSelectCapabilities: (project: string | null) => void
+	onLaunch: (draft: LaunchDraft) => Promise<boolean>
 }
 
 export function ProjectOverview({
 	initialProjects = null,
 	currentRunId = null,
 	onCurrentProjectClick,
+	onSelectCapabilities,
+	onLaunch,
 }: ProjectOverviewProps) {
 	const router = useRouter()
 	const navigationPending = useStore(
@@ -53,32 +55,20 @@ export function ProjectOverview({
 			</div>
 		)
 	}
-	const beginNavigation = () => {
-		if (hudVisibilityStore.getState().navigationPending) return false
-		hudVisibilityStore.setState({ navigationPending: true })
-		return true
-	}
-	const releaseNavigation = () => {
-		hudVisibilityStore.setState({ navigationPending: false })
+	const openSelector = (project: string | null) => {
+		if (!hudVisibilityStore.getState().navigationPending) onSelectCapabilities(project)
 	}
 
-	const handleCreateRunSubmit = async (projectName: string) => {
-		if (!beginNavigation()) return
-		try {
-			const { slug: project } = await createProject({ name: projectName })
-			const { run_id } = await createRun({ project })
-			router.push(`/?runId=${encodeURIComponent(run_id)}`)
-		} catch (error) {
-			if (error instanceof AgentApiError && error.status === 423) {
-				releaseNavigation()
-				showErrorToast({
-					title: "API keys locked",
-					message: "Unlock API keys before starting a run.",
-					detail: "Open the API keys locked menu and enter your password.",
-				})
-			} else {
-				router.push("/?error=Unable%20to%20start%20run")
-			}
+	const handleDefaultLaunch = async (project: ProjectRow) => {
+		if (
+			hudVisibilityStore.getState().navigationPending ||
+			project.status !== ProjectStatus.Dormant || project.runId !== null
+		) return
+		projects.markOpening(project.slug)
+		const launched = await onLaunch({ project: project.slug, name: project.slug, capabilities: {} })
+		if (!launched) {
+			projects.clearOpening(project.slug)
+			projects.refresh()
 		}
 	}
 
@@ -123,14 +113,14 @@ export function ProjectOverview({
 		}
 	}
 
-	const handleProjectClick = async (project: ProjectRow) => {
+	const handleProjectClick = (project: ProjectRow) => {
 		if (hudVisibilityStore.getState().navigationPending) return
 		if (isCurrentRunRow(project, currentRunId) && onCurrentProjectClick) {
 			onCurrentProjectClick()
 			return
 		}
 		if (isActiveRunStatus(project.status) && project.runId) {
-			if (!beginNavigation()) return
+			if (!beginHudNavigation()) return
 			projects.markOpening(project.slug)
 			router.push(`/?runId=${encodeURIComponent(project.runId)}`)
 			return
@@ -140,24 +130,7 @@ export function ProjectOverview({
 			project.runId !== null
 		)
 			return
-		if (!beginNavigation()) return
-		projects.markOpening(project.slug)
-		try {
-			const { run_id } = await createRun({ project: project.slug })
-			router.push(`/?runId=${encodeURIComponent(run_id)}`)
-		} catch (error) {
-			projects.clearOpening(project.slug)
-			if (error instanceof AgentApiError && error.status === 423) {
-				releaseNavigation()
-				showErrorToast({
-					title: "API keys locked",
-					message: "Unlock API keys before starting a run.",
-					detail: "Open the API keys locked menu and enter your password.",
-				})
-			} else {
-				router.push("/?error=Unable%20to%20resume%20project")
-			}
-		}
+		openSelector(project.slug)
 	}
 
 	return (
@@ -166,7 +139,9 @@ export function ProjectOverview({
 			currentRunId={currentRunId}
 			navigationPending={navigationPending}
 			onProjectClick={handleProjectClick}
-			onCreateRunSubmit={handleCreateRunSubmit}
+			onSelectCapabilities={(project) => openSelector(project.slug)}
+			onLaunchProject={handleDefaultLaunch}
+			onNewProject={() => openSelector(null)}
 			onCancelRun={handleCancelRun}
 			onDeleteProject={handleDeleteProject}
 		/>

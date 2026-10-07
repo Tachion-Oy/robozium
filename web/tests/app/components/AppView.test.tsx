@@ -93,6 +93,7 @@ describe("AppView run completion navigation", () => {
 		act(() => hudVisibilityStore.setState({ navigationPending: true }))
 		window.history.replaceState(null, "", "/?runId=run-1")
 		view.rerender(<AppView {...props} runId="run-1" initialRunView={{
+			capabilities: {},
 			project: "alpha",
 			status: "completed",
 			current_agent_name: null,

@@ -8,19 +8,20 @@ import {
 	type ProjectRow,
 } from "@/lib/robozium/landing"
 import { DisplayArt } from "@/app/components/branding/DisplayArt"
-import { CreateRunForm } from "./CreateRunForm"
 
 type ProjectOverviewPanelProps = {
 	projects: ProjectRow[]
 	currentRunId?: string | null
 	navigationPending: boolean
 	onProjectClick: (project: ProjectRow) => void
-	onCreateRunSubmit: (projectName: string) => void
+	onSelectCapabilities: (project: ProjectRow) => void
+	onLaunchProject: (project: ProjectRow) => void
+	onNewProject: () => void
 	onCancelRun: (project: ProjectRow) => void
 	onDeleteProject: (project: ProjectRow) => void
 }
 
-const COLS = "grid-cols-[8rem_minmax(8rem,1fr)_10rem_5rem]"
+const COLS = "grid-cols-[8rem_minmax(8rem,16rem)_5rem]"
 const HUD_TEXT =
 	"font-[family-name:var(--font-agent-input)] text-[color:var(--hud-input-text)]"
 
@@ -80,10 +81,14 @@ function statusDisplay(status: ProjectStatus): {
 
 function RowActions({
 	project,
+	onSelectCapabilities,
+	onLaunchProject,
 	onCancelRun,
 	onDeleteProject,
 }: {
 	project: ProjectRow
+	onSelectCapabilities: (project: ProjectRow) => void
+	onLaunchProject: (project: ProjectRow) => void
 	onCancelRun: (project: ProjectRow) => void
 	onDeleteProject: (project: ProjectRow) => void
 }) {
@@ -93,10 +98,25 @@ function RowActions({
 		isActiveRunStatus(project.status) ||
 		project.status === ProjectStatus.Syncing
 	const canDelete = project.status === ProjectStatus.Dormant
+	const canLaunch = canDelete && project.runId === null
 
 	return (
 		<span
-			className="w-44 shrink-0 agent-hud__row-actions flex justify-end gap-2">
+			className="agent-hud__row-actions shrink-0 flex justify-end gap-2">
+			<button
+				type="button"
+				disabled={!canLaunch}
+				onClick={() => onSelectCapabilities(project)}
+				className="agent-hud__row-action agent-hud__row-tools">
+				Tools
+			</button>
+			<button
+				type="button"
+				disabled={!canLaunch}
+				onClick={() => onLaunchProject(project)}
+				className="agent-hud__row-action agent-hud__row-launch">
+				Launch
+			</button>
 			<button
 				type="button"
 				disabled={!canCancel}
@@ -132,12 +152,16 @@ function ProjectRowItem({
 	project,
 	isCurrent,
 	onProjectClick,
+	onSelectCapabilities,
+	onLaunchProject,
 	onCancelRun,
 	onDeleteProject,
 }: {
 	project: ProjectRow
 	isCurrent: boolean
 	onProjectClick: (project: ProjectRow) => void
+	onSelectCapabilities: (project: ProjectRow) => void
+	onLaunchProject: (project: ProjectRow) => void
 	onCancelRun: (project: ProjectRow) => void
 	onDeleteProject: (project: ProjectRow) => void
 }) {
@@ -167,9 +191,6 @@ function ProjectRowItem({
 						}`}>
 						{project.slug}
 					</span>
-					<span className="text-term-blue text-shadow:var(--term-glow-blue) truncate">
-						{project.agentName ?? ""}
-					</span>
 					<span className={`${HUD_TEXT} opacity-80 text-[1rem]`}>
 						{project.createdAt !== null
 							? formatRelative(project.createdAt)
@@ -179,6 +200,8 @@ function ProjectRowItem({
 			</button>
 			<RowActions
 				project={project}
+				onSelectCapabilities={onSelectCapabilities}
+				onLaunchProject={onLaunchProject}
 				onCancelRun={onCancelRun}
 				onDeleteProject={onDeleteProject}
 			/>
@@ -190,27 +213,30 @@ function ProjectsTable({
 	projects,
 	currentRunId,
 	onProjectClick,
+	onSelectCapabilities,
+	onLaunchProject,
 	onCancelRun,
 	onDeleteProject,
 }: {
 	projects: ProjectRow[]
 	currentRunId: string | null
 	onProjectClick: (project: ProjectRow) => void
+	onSelectCapabilities: (project: ProjectRow) => void
+	onLaunchProject: (project: ProjectRow) => void
 	onCancelRun: (project: ProjectRow) => void
 	onDeleteProject: (project: ProjectRow) => void
 }) {
 	return (
-		<div className="space-y-2">
+		<div className="agent-hud__projects-table space-y-2">
 			<div className="agent-hud__table-header flex items-center gap-2 pb-2 mb-2">
 				<span
 					className={`grid ${COLS} gap-3 flex-1 min-w-0 pl-1 ${HUD_TEXT} text-[1.1rem] uppercase tracking-[0.12em] opacity-85`}>
 					<span>Status</span>
 					<span>Project</span>
-					<span>Agent</span>
 					<span>Started</span>
 				</span>
 				<span
-					className="w-44 shrink-0"
+					className="agent-hud__row-actions shrink-0"
 					aria-hidden="true"
 				/>
 			</div>
@@ -221,6 +247,8 @@ function ProjectsTable({
 						project={project}
 						isCurrent={isCurrentRunRow(project, currentRunId)}
 						onProjectClick={onProjectClick}
+						onSelectCapabilities={onSelectCapabilities}
+						onLaunchProject={onLaunchProject}
 						onCancelRun={onCancelRun}
 						onDeleteProject={onDeleteProject}
 					/>
@@ -235,12 +263,12 @@ export function ProjectOverviewPanel({
 	currentRunId = null,
 	navigationPending,
 	onProjectClick,
-	onCreateRunSubmit,
+	onSelectCapabilities,
+	onLaunchProject,
+	onNewProject,
 	onCancelRun,
 	onDeleteProject,
 }: ProjectOverviewPanelProps) {
-	const [isCreatingRun, setIsCreatingRun] = useState(false)
-
 	return (
 		<div className="agent-hud__project-view flex min-h-0 w-full flex-1 flex-col gap-8">
 			<fieldset
@@ -252,6 +280,8 @@ export function ProjectOverviewPanel({
 						projects={projects}
 						currentRunId={currentRunId}
 						onProjectClick={onProjectClick}
+						onSelectCapabilities={onSelectCapabilities}
+						onLaunchProject={onLaunchProject}
 						onCancelRun={onCancelRun}
 						onDeleteProject={onDeleteProject}
 					/>
@@ -264,21 +294,13 @@ export function ProjectOverviewPanel({
 			</fieldset>
 
 			<div className="flex justify-center">
-				{isCreatingRun ? (
-					<CreateRunForm
-						disabled={navigationPending}
-						onCancel={() => setIsCreatingRun(false)}
-						onSubmit={onCreateRunSubmit}
-					/>
-				) : (
-					<button
-						type="button"
-						onClick={() => setIsCreatingRun(true)}
-						disabled={navigationPending}
-						className="app-nav__cta agent-hud__start">
-						<DisplayArt name="new-project" />
-					</button>
-				)}
+				<button
+					type="button"
+					onClick={onNewProject}
+					disabled={navigationPending}
+					className="app-nav__cta agent-hud__start">
+					<DisplayArt name="new-project" />
+				</button>
 			</div>
 		</div>
 	)

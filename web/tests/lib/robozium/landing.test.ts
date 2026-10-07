@@ -15,7 +15,6 @@ function project(overrides: Partial<Project>): Project {
 		slug: "alpha",
 		status: "dormant",
 		run_id: null,
-		current_agent_name: "orchestrator",
 		created_at: null,
 		...overrides,
 	}
@@ -23,13 +22,12 @@ function project(overrides: Partial<Project>): Project {
 
 describe("mergeProjects", () => {
 	it("maps backend-composed dormant projects into UI rows", () => {
-		const rows = mergeProjects([project({ current_agent_name: null })])
+		const rows = mergeProjects([project({})])
 		expect(rows).toEqual<ProjectRow[]>([
 			{
 				slug: "alpha",
 				status: ProjectStatus.Dormant,
 				runId: null,
-				agentName: null,
 				createdAt: null,
 			},
 		])
@@ -40,7 +38,6 @@ describe("mergeProjects", () => {
 			project({
 				status: "awaiting_user_input",
 				run_id: "run-1",
-				current_agent_name: "orchestrator",
 				created_at: 1000,
 			}),
 		])
@@ -48,7 +45,6 @@ describe("mergeProjects", () => {
 			slug: "alpha",
 			status: "awaiting_user_input",
 			runId: "run-1",
-			agentName: "orchestrator",
 			createdAt: 1000,
 		})
 	})
@@ -82,7 +78,6 @@ describe("optimistic project status helpers", () => {
 				slug: "alpha",
 				status: ProjectStatus.Dormant,
 				runId: null,
-				agentName: null,
 				createdAt: null,
 			},
 		]
@@ -98,14 +93,12 @@ describe("optimistic project status helpers", () => {
 				slug: "alpha",
 				status: ProjectStatus.Syncing,
 				runId: null,
-				agentName: "librarian",
 				createdAt: 1,
 			},
 			{
 				slug: "beta",
 				status: ProjectStatus.Syncing,
 				runId: null,
-				agentName: "librarian",
 				createdAt: 1,
 			},
 		]
@@ -114,14 +107,12 @@ describe("optimistic project status helpers", () => {
 				slug: "alpha",
 				status: ProjectStatus.Cancelling,
 				runId: null,
-				agentName: "librarian",
 				createdAt: 1,
 			},
 			{
 				slug: "beta",
 				status: ProjectStatus.Syncing,
 				runId: null,
-				agentName: "librarian",
 				createdAt: 1,
 			},
 		])
@@ -133,7 +124,6 @@ describe("optimistic project status helpers", () => {
 				slug: "alpha",
 				status: ProjectStatus.Dormant,
 				runId: null,
-				agentName: null,
 				createdAt: null,
 			},
 		]
@@ -149,7 +139,6 @@ describe("optimistic project status helpers", () => {
 				slug: "alpha",
 				status: ProjectStatus.Dormant,
 				runId: null,
-				agentName: null,
 				createdAt: null,
 			},
 		]

@@ -204,6 +204,17 @@ and review configuration diffs before including them in an upstream PR.
 
 ## Run capabilities
 
+In the HUD, **New Project** opens the capability selector with a project-name
+field. A dormant project's **Tools** button (or its row) opens the same selector
+with the existing name. Choose optional capabilities, then click **Launch**.
+The row's green **Launch** button starts immediately with only the default
+capabilities.
+Fixed capabilities are always included and cannot be changed. Optional choices
+start unchecked each time; skills follow their declared loading mode.
+Selections apply only to that run, cannot be changed while it is running, and
+are never saved as project preferences or in browser storage. Relaunching keeps
+the project's memory while allowing a different set of capabilities.
+Switching to Dependencies and back to Launch keeps the current launch form open.
 Mock mode offers harmless **mock information** and **mock guidance** examples.
 
 RoboZ's Robozium definition owns the built-ins: filesystem, stop,

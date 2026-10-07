@@ -34,6 +34,7 @@ function seededRunView(
 	status: RunView["status"] = "running",
 ): RunView {
 	return {
+		capabilities: {},
 		project: "alpha",
 		status,
 		current_agent_name: null,

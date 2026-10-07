@@ -1,6 +1,6 @@
 import { RunHudPhase } from "@/lib/robozium/session/reducer"
-
-export type HudScreen = "projects" | "run" | "dependencies"
+import type { HudNavigation, HudScreen } from "@/lib/robozium/hud-navigation"
+export type { HudScreen } from "@/lib/robozium/hud-navigation"
 
 export type HudContext = "landing" | "active-run" | "recovery"
 
@@ -40,18 +40,22 @@ export function resolveHudPresentation({
 	phase,
 	runUnavailable,
 	selectedScreen,
+	launch = null,
 }: {
 	hasRun: boolean
 	phase: RunHudPhase
 	runUnavailable: boolean
 	selectedScreen: HudScreen
+	launch?: HudNavigation["launch"]
 }): HudPresentation {
 	const context: HudContext = !hasRun
 		? "landing"
 		: phase === RunHudPhase.Done || runUnavailable
 			? "recovery"
 			: "active-run"
-	const screenOptions = SCREEN_OPTIONS[context]
+	const screenOptions: readonly HudScreenOption[] = launch
+		? [...SCREEN_OPTIONS[context], { value: "launch", label: "Launch" }]
+		: SCREEN_OPTIONS[context]
 	const screen = screenOptions.some(({ value }) => value === selectedScreen)
 		? selectedScreen
 		: "projects"
@@ -60,20 +64,10 @@ export function resolveHudPresentation({
 		context,
 		screen,
 		screenOptions,
-		modelScope: context === "active-run" ? "run" : "default",
+		modelScope: context === "active-run" && screen !== "launch" ? "run" : "default",
 		headerVariant:
-			context === "landing" && screen === "projects" ? "landing" : "row",
-		showProjectBadge: context === "active-run",
+			context === "landing" && screen !== "dependencies" ? "landing" : "row",
+		showProjectBadge: context === "active-run" && screen !== "launch",
 		enableCornerControls: context === "active-run" && screen === "run",
 	}
-}
-
-export function selectHudScreen(
-	selectedScreen: HudScreen,
-	context: HudContext,
-	screen: HudScreen,
-): HudScreen {
-	return SCREEN_OPTIONS[context].some(({ value }) => value === screen)
-		? screen
-		: selectedScreen
 }

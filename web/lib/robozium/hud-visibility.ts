@@ -18,3 +18,10 @@ export const hudVisibilityStore = createStore<HudVisibilityState>(() => ({
 	runActive: false,
 	prompting: false,
 }))
+
+/** Claim synchronously so two clicks in the same event cannot start two runs. */
+export function beginHudNavigation(): boolean {
+	if (hudVisibilityStore.getState().navigationPending) return false
+	hudVisibilityStore.setState({ navigationPending: true })
+	return true
+}

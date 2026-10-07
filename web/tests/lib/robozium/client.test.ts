@@ -9,11 +9,12 @@ import {
 	getModelSelection,
 	interruptRun,
 	listDependencies,
+	listCapabilities,
 	listProjects,
 	selectModel,
 	transcribeAudio,
 } from "../../../lib/robozium/client"
-import type { CreateResponse } from "../../../lib/robozium/wire"
+import type { CapabilitySelection, CreateResponse } from "../../../lib/robozium/wire"
 
 const fetchMock = vi.fn<typeof fetch>()
 
@@ -46,7 +47,22 @@ function expectCreatePost(body: object) {
 }
 
 describe("createRun", () => {
+	const choices: CapabilitySelection[] = [{}, { email: true }, { email: "on_demand" }]
+	it.each(choices)("preserves explicit capabilities %j in the launch request", async (capabilities) => {
+		fetchMock.mockResolvedValueOnce(okJson({ run_id: "selected" }))
+		await createRun({ project: "alpha", capabilities })
+		expectCreatePost({ project: "alpha", capabilities })
+	})
+
+	it("fetches the capability catalog without caching and supports cancellation", async () => {
+		const controller = new AbortController()
+		fetchMock.mockResolvedValueOnce(okJson([]))
+		expect(await listCapabilities({ signal: controller.signal })).toEqual([])
+		expect(fetchMock).toHaveBeenCalledWith("/api/capabilities", expect.objectContaining({ cache: "no-store", signal: controller.signal }))
+	})
+
 	beforeEach(() => {
+		fetchMock.mockReset()
 		vi.stubGlobal("fetch", fetchMock)
 	})
 
@@ -130,14 +146,12 @@ describe("projects api", () => {
 					slug: "alpha",
 					status: "dormant",
 					run_id: null,
-					current_agent_name: null,
 					created_at: null,
 				},
 				{
 					slug: "beta",
 					status: "syncing",
 					run_id: null,
-					current_agent_name: null,
 					created_at: null,
 				},
 			]),
@@ -150,14 +164,12 @@ describe("projects api", () => {
 				slug: "alpha",
 				status: "dormant",
 				run_id: null,
-				current_agent_name: null,
 				created_at: null,
 			},
 			{
 				slug: "beta",
 				status: "syncing",
 				run_id: null,
-				current_agent_name: null,
 				created_at: null,
 			},
 		])

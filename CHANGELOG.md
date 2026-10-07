@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Add a per-launch HUD capability selector for new and existing projects, with
+  fixed defaults shown in faded green and optional choices reset on every opening.
+- Add blue Tools row actions for capability selection and green Launch actions
+  for starting with defaults, compact the runs table, and remove the redundant
+  Agent column.
+- Add hover feedback to HUD launch controls without changing their size, and
+  prevent Enter in the project name field from starting a run.
+- Make the light-mode HUD frame shadow dimmer and symmetric.
+- Keep Launch as a separate HUD view, retain drafts across view changes, and
+  report launch failures even when the HUD has been dismissed.
 - Remove the redundant `current_agent_name` field from project-list summaries.
 - Offer selectable mock tool and skill examples and cover capability changes
   when relaunching a project with existing memory.

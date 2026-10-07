@@ -28,6 +28,7 @@ describe("run session reducer", () => {
 			class: "runView",
 			type: "received",
 			runView: {
+				capabilities: {},
 				project: "alpha",
 				status: "completed",
 				current_agent_name: null,
@@ -90,6 +91,7 @@ describe("run session reducer", () => {
 				class: "runView",
 				type: "received",
 				runView: {
+					capabilities: {},
 					project: "alpha",
 					status: "running",
 					current_agent_name: "root",
@@ -155,6 +157,7 @@ describe("run session reducer", () => {
 			class: "runView",
 			type: "received",
 			runView: {
+				capabilities: {},
 				project: "alpha",
 				status: "running",
 				current_agent_name: "root",
@@ -263,6 +266,7 @@ describe("run session reducer", () => {
 				class: "runView",
 				type: "received",
 				runView: {
+					capabilities: {},
 					project: "alpha",
 					status: "awaiting_user_input",
 					current_agent_name: "root",
@@ -496,6 +500,7 @@ describe("run session reducer", () => {
 				class: "runView",
 				type: "received",
 				runView: {
+					capabilities: {},
 					project: "alpha",
 					status: "awaiting_user_input",
 					current_agent_name: "root",
@@ -552,6 +557,7 @@ describe("run session reducer", () => {
 				class: "runView",
 				type: "received",
 				runView: {
+					capabilities: {},
 					project: "alpha",
 					status: "awaiting_user_input",
 					current_agent_name: "root",
@@ -566,6 +572,7 @@ describe("run session reducer", () => {
 				class: "runView",
 				type: "received",
 				runView: {
+					capabilities: {},
 					project: "alpha",
 					status: "awaiting_user_input",
 					current_agent_name: "root",
@@ -906,6 +913,7 @@ describe("run session reducer", () => {
 					class: "runView",
 					type: "received",
 					runView: {
+						capabilities: {},
 						project: "alpha",
 						status,
 						current_agent_name: "root",
@@ -939,6 +947,7 @@ describe("run session reducer", () => {
 					class: "runView",
 					type: "received",
 					runView: {
+						capabilities: {},
 						project: "alpha",
 						status,
 						current_agent_name: "root",
