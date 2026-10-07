@@ -211,9 +211,9 @@ The row's green **Launch** button starts immediately with only the default
 capabilities.
 Fixed capabilities are always included and cannot be changed. Optional choices
 start unchecked each time; skills follow their declared loading mode.
-Selections apply only to that run, cannot be changed while it is running, and
-are never saved as project preferences or in browser storage. Relaunching keeps
-the project's memory while allowing a different set of capabilities.
+The current selector applies choices to that run. The backend also exposes
+separate saved-selection endpoints, described below. Relaunching keeps the
+project's memory while allowing a different set of capabilities.
 Switching to Dependencies and back to Launch keeps the current launch form open.
 Mock mode offers harmless **mock information** and **mock guidance** examples.
 
@@ -222,20 +222,41 @@ compactification, and the Robozium skill are fixed. SafeScripts and Proton
 Bridge email are selectable. The application loads additional capabilities only
 from `local/`; move custom `CAPABILITIES` from `hub.config.py` there.
 
-`GET /capabilities` returns each orchestrator capability's `name`, `kind`,
-`selectable`, and skill `loading` mode. Supply choices when creating a run:
+The capabilities router separates the live catalogue from saved project choices:
+
+- `GET /capabilities` returns the agent's current `CapabilityView` catalogue:
+  `name`, `kind`, `selectable`, and skill `loading` mode.
+- `GET /capabilities/{project}` returns the saved JSON selection unchanged, or
+  `null` if nothing has been saved. `{}` means an explicitly empty selection.
+- `POST /capabilities/{project}` replaces the saved selection with the request
+  body and returns it. For example: `{"safe_scripts": true, "email": "on_demand"}`.
+  The project must already exist. Invalid JSON selection values return 422.
+
+Saved choices live in `.robozium/capabilities.json` in the project folder and
+survive backend restarts. Reads and writes do not consult the catalogue or change
+an active run. Adding or removing agent capabilities never rewrites this file.
+Writes use atomic replacement; a failed write preserves the previous selection.
+An unreadable or malformed saved file returns a load error.
+
+Clients combine the current catalogue with saved choices by name, ignore removed
+capabilities, and leave newly added optional capabilities unchecked. Saving and
+launching are separate requests: clients decide when to save and supply the
+resolved choices to `POST /run/create`:
 
 ```json
 {"project": "my-project", "capabilities": {"safe_scripts": true, "email": "on_demand"}}
 ```
 
-Send this to `POST /run/create`. Omitting `capabilities` (or sending `null`)
-uses all declared capabilities; `{}` retains only fixed capabilities. Skill
-choices accept `true`, `false`, `"automatic"`, or `"on_demand"`; tool choices
-accept booleans. Invalid choices return 422. An existing active run is reused
+Run creation does not read or write saved settings. Omitting `capabilities` (or
+sending `null`) uses all declared capabilities; `{}` retains only fixed ones.
+Skill choices accept `true`, `false`, `"automatic"`, or `"on_demand"`; tool choices
+accept booleans. Invalid run choices return 422. An existing active run is reused
 when choices are omitted or equivalent; different explicit choices return 409.
-`GET /run/{run_id}` includes the effective selection. Choices live only in that
-run's memory and do not change Librarian maintenance.
+`GET /run/{run_id}` includes the effective selection. Choices do not change
+Librarian maintenance.
+
+The web selector still needs to adopt these separate read/write requests; this
+backend change does not update its integration.
 
 Proton email resolves the `ROBOZIUM_PROTON_BRIDGE_*` settings when used, including
 credentials unlocked through the HUD. Its presence in the catalog does not

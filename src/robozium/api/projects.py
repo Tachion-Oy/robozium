@@ -41,6 +41,18 @@ class Project:
     def memory(self) -> Path:
         return self.sandbox.project_memory_dir()
 
+    @property
+    def capabilities_file(self) -> Path:
+        """Keep launch settings in app metadata, rejecting redirected paths."""
+        path = self.root / ".robozium" / "capabilities.json"
+        if (
+            path.parent.is_symlink()
+            or path.is_symlink()
+            or path.parent.resolve() != path.parent
+        ):
+            raise ValueError("project capability settings must not use symbolic links")
+        return path
+
     def artifact_dir(self, name: str) -> Path:
         return self.sandbox.artifact_dir(name)
 

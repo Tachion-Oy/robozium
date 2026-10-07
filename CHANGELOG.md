@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Separate capability discovery and project selection persistence into a
+  capabilities router with catalogue, read, and write endpoints. Store choices
+  in project JSON independently of run creation and retain them across restarts.
+  Frontend integration with the separate requests is pending.
+- Reject duplicate project creation to protect existing choices.
+
 - Add a per-launch HUD capability selector for new and existing projects, with
   fixed defaults shown in faded green and optional choices reset on every opening.
 - Add blue Tools row actions for capability selection and green Launch actions

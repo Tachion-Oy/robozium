@@ -1,6 +1,8 @@
 """Project operations and activity coordination, independent of HTTP routing."""
 
 import shutil
+from collections.abc import Iterator
+from contextlib import contextmanager
 from threading import RLock
 
 from roboz.runtime.persistence import active_marker_paths, clear_active_markers
@@ -67,8 +69,14 @@ class ProjectService:
     def create(self, name: str) -> str:
         with self._lock:
             project = self._hub.project(name)
-            project.root.mkdir(parents=True, exist_ok=True)
+            project.root.mkdir(parents=True, exist_ok=False)
             return project.slug
+
+    @contextmanager
+    def access(self, name: str) -> Iterator[Project]:
+        """Keep an existing project available until the caller finishes its operation."""
+        with self._lock:
+            yield self._existing(name)
 
     def prepare_run(
         self, name: str, *, capabilities: CapabilitySelection | None = None
