@@ -30,9 +30,15 @@ export function ModelSelector({
 	runId = null,
 }: ModelSelectorProps) {
 	const loadedSelection = use(initialSelection)
-	const [selection, setSelection] = useState<ModelSelection | null>(loadedSelection)
+	const scope = runId ?? "default"
+	const [selections, setSelections] = useState<Record<string, ModelSelection>>({})
+	const selection = selections[scope] ?? loadedSelection
 	const [isLoading, setIsLoading] = useState(false)
 	const [isSaving, setIsSaving] = useState(false)
+	// Responses belong to the scope that issued them, even after changing views.
+	const setSelection = (next: ModelSelection) => {
+		setSelections((current) => ({ ...current, [scope]: next }))
+	}
 
 	const refresh = async (signal?: AbortSignal) => {
 		setIsLoading(true)

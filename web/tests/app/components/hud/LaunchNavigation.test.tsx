@@ -7,6 +7,7 @@ import { hudVisibilityStore } from "../../../../lib/robozium/hud-visibility"
 const mocks = vi.hoisted(() => ({
 	push: vi.fn(), createProject: vi.fn(), createRun: vi.fn(), listCapabilities: vi.fn(),
 	listProjects: vi.fn(), listDependencies: vi.fn(), getCredentialStatus: vi.fn(), showErrorToast: vi.fn(),
+	getModelSelection: vi.fn(), selectModel: vi.fn(),
 }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }), useSearchParams: () => new URLSearchParams() }))
 vi.mock("../../../../lib/robozium/client", async (original) => ({
@@ -41,6 +42,42 @@ async function openNewProject() {
 function submit() {
 	fireEvent.click(within(screen.getByRole("form")).getByRole("button", { name: "Launch" }))
 }
+
+it.each(["before", "after"])("keeps model selection when saving finishes %s switching scopes", async (timing) => {
+	const models = [{ model_id: "a", label: "Model A" }, { model_id: "b", label: "Model B" }]
+	const initial = { models, selected_model_id: "a" }
+	const selections = new Map([["default", initial], ["existing-run", initial]])
+	let completeSave!: () => void
+	const saving = new Promise<void>((resolve) => { completeSave = resolve })
+	mocks.getModelSelection.mockImplementation(({ runId }) => Promise.resolve(selections.get(runId ?? "default")))
+	mocks.selectModel.mockImplementation(async ({ model_id, run_id }) => {
+		if (model_id === "b") await saving
+		const selection = { models, selected_model_id: model_id }
+		selections.set(run_id ?? "default", selection)
+		return selection
+	})
+	await act(async () => render(<AgentHUD runId="existing-run" introDone
+		modelSelectionPromise={Promise.resolve(initial)} defaultModelSelectionPromise={Promise.resolve(initial)} />))
+	selectView("Runs Overview")
+	await openNewProject()
+	fireEvent.click(await screen.findByRole("button", { name: "Model A" }))
+	fireEvent.click(screen.getByRole("option", { name: "Model B" }))
+	if (timing === "before") {
+		await act(async () => completeSave())
+		await screen.findByRole("button", { name: "Model B" })
+	}
+	selectView("Dependencies")
+	await screen.findByRole("button", { name: "Model A" })
+	if (timing === "after") await act(async () => completeSave())
+	expect(screen.getByRole("button", { name: "Model A" })).not.toBeNull()
+	expect(selections.get("default")?.selected_model_id).toBe("b")
+	selectView("Launch")
+	fireEvent.click(await screen.findByRole("button", { name: "Model B" }))
+	fireEvent.click(screen.getByRole("option", { name: "Model A" }))
+	await waitFor(() => expect(mocks.selectModel).toHaveBeenLastCalledWith({ model_id: "a" }))
+	expect(selections.get("default")?.selected_model_id).toBe("a")
+	expect(selections.get("existing-run")?.selected_model_id).toBe("a")
+})
 
 it("retains a launch draft across unmounted screens, then submits only selected choices", async () => {
 	render(<AgentHUD runId={null} introDone />)

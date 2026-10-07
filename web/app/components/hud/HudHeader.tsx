@@ -39,7 +39,6 @@ export function HudHeader({
 			<Suspense fallback={<ModelSelectorLoading />}>
 				{modelSelectionPromise ? (
 					<ModelSelector
-						key={presentation.modelScope === "default" ? "default" : runId}
 						runId={presentation.modelScope === "run" ? runId : null}
 						initialSelection={modelSelectionPromise}
 					/>

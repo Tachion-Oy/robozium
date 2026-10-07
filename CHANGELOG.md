@@ -12,6 +12,8 @@
 - Make the light-mode HUD frame shadow dimmer and symmetric.
 - Keep Launch as a separate HUD view, retain drafts across view changes, and
   report launch failures even when the HUD has been dismissed.
+- Retain model choices per scope when switching between Launch and active-run
+  views, including model saves that finish after switching views.
 - Remove the redundant `current_agent_name` field from project-list summaries.
 - Offer selectable mock tool and skill examples and cover capability changes
   when relaunching a project with existing memory.
