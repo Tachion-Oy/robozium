@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Remove the redundant `current_agent_name` field from project-list summaries.
+- Offer selectable mock tool and skill examples and cover capability changes
+  when relaunching a project with existing memory.
 
 - Pin RoboZ `0.6.1a1` for deployment capability selection and built-in tools.
 

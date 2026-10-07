@@ -204,6 +204,8 @@ and review configuration diffs before including them in an upstream PR.
 
 ## Run capabilities
 
+Mock mode offers harmless **mock information** and **mock guidance** examples.
+
 RoboZ's Robozium definition owns the built-ins: filesystem, stop,
 compactification, and the Robozium skill are fixed. SafeScripts and Proton
 Bridge email are selectable. The application loads additional capabilities only
