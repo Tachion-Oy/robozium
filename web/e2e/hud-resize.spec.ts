@@ -164,7 +164,7 @@ test("keeps chosen size on run entry while content uses the available space", as
 	await page.locator("button.agent-hud__start").click()
 	projectSlug = `hud-resize-e2e-${Date.now()}`
 	await page.getByLabel("Project name").fill(projectSlug)
-	await page.getByRole("button", { name: "Create Project" }).click()
+	await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true }).click()
 	await expect(page).toHaveURL(/[?&]runId=/, { timeout: 20_000 })
 	await expect(page.locator(".agent-hud__textarea")).toBeVisible({
 		timeout: 15_000,

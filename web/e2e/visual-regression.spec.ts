@@ -9,14 +9,12 @@ const VISUAL_PROJECTS = [
 		slug: "atlas-console",
 		status: "awaiting_user_input",
 		run_id: "visual-atlas-run",
-		current_agent_name: "orchestrator",
 		created_at: null,
 	},
 	{
 		slug: "paper-trail",
 		status: "dormant",
 		run_id: null,
-		current_agent_name: null,
 		created_at: null,
 	},
 ]
@@ -196,6 +194,20 @@ async function activeRun(page: Page, request: APIRequestContext) {
 test("freezes landing overview", async ({ page }) => {
 	await landing(page)
 	await expectThemePair(page, page.locator("html"), "landing-overview", { fullPage: true })
+})
+
+test("freezes capability selector", async ({ page }) => {
+	await landing(page)
+	await page.getByRole("button", { name: "New Project", exact: true }).click()
+	const selector = page.getByRole("form", { name: "Capability selector" })
+	await selector.getByLabel("Project name").fill("New project")
+	await selector.getByRole("checkbox", { name: /mock guidance/ }).check()
+	await expectThemePair(page, page.locator(".agent-hud__box"), "capability-selector")
+	await selector.getByRole("button", { name: "Cancel", exact: true }).click()
+	await page.locator("li", { has: page.getByRole("button", { name: "Open paper-trail", exact: true }) })
+		.getByRole("button", { name: "Tools", exact: true }).click()
+	await expect(selector.getByRole("heading", { name: "Project: paper-trail" })).toBeVisible()
+	await expectThemePair(page, page.locator(".agent-hud__box"), "capability-selector-existing")
 })
 
 for (const menu of ["model", "view"] as const) {

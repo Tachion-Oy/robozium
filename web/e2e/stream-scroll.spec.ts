@@ -28,7 +28,7 @@ async function startRunFromLanding(
 	const projectInput = page.getByLabel("Project name")
 	await expect(projectInput).toBeVisible()
 	await projectInput.fill(projectName)
-	const createButton = page.getByRole("button", { name: "Create Project" })
+	const createButton = page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true })
 	await expect(createButton).toBeEnabled()
 	await createButton.evaluate((button: HTMLButtonElement) =>
 		button.form?.requestSubmit(),

@@ -66,6 +66,7 @@ test("an unknown run returns to the static placeholder, keeps its toast, and sto
 	expect(runViewRequests).toBe(requestsAfterLanding)
 
 	await page.getByRole("button", { name: `Open ${slug}`, exact: true }).click()
+	await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true }).click()
 	await expect
 		.poll(() => new URL(page.url()).searchParams.get("runId"))
 		.not.toBe(invalidRunId)

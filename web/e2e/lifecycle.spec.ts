@@ -45,6 +45,7 @@ const PROMPT_VISIBLE_TIMEOUT = 30_000
 async function openAndCompleteRun(page: Page, slug: string): Promise<void> {
 	await gotoLanding(page)
 	await projectRow(page, slug).getByRole("button", { name: `Open ${slug}` }).click()
+	await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true }).click()
 	await expect(page).toHaveURL(/[?&]runId=/, { timeout: 10_000 })
 	const runId = new URL(page.url()).searchParams.get("runId")
 	if (!runId) throw new Error("run page URL did not include runId")
@@ -116,6 +117,7 @@ for (const boundary of ["creation", "navigation"] as const) {
 		const secondSlug = await createProject(request, `Next Run ${Date.now()}`)
 		await gotoLanding(page)
 		await projectRow(page, firstSlug).getByRole("button", { name: `Open ${firstSlug}` }).click()
+		await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true }).click()
 		await expect(page).toHaveURL(/[?&]runId=/)
 		const firstRunId = new URL(page.url()).searchParams.get("runId")
 		if (!firstRunId) throw new Error("missing first run ID")
@@ -151,8 +153,13 @@ for (const boundary of ["creation", "navigation"] as const) {
 		)
 		try {
 			await projectRow(page, secondSlug).getByRole("button", { name: `Open ${secondSlug}` }).click()
-			await expect(projectRow(page, secondSlug).getByText("OPENING", { exact: true })).toBeVisible()
+			await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true }).click()
 			await pending
+			if (boundary === "creation") {
+				await expect(page.getByRole("button", { name: "Launching…" })).toBeDisabled()
+			} else {
+				await expect(projectRow(page, secondSlug).getByText("OPENING", { exact: true })).toBeVisible()
+			}
 			const reply = await request.post(`/api/runs/${encodeURIComponent(firstRunId)}/reply`, {
 				data: { prompt_id: runView.current_prompt_id, content: "second reply" },
 			})
@@ -183,6 +190,7 @@ for (const panel of ["Runs Overview", "Dependencies"] as const) {
 		const slug = await createProject(request, `Background Finish ${panel} ${Date.now()}`)
 		await gotoLanding(page)
 		await projectRow(page, slug).getByRole("button", { name: `Open ${slug}` }).click()
+		await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true }).click()
 		await expect(page).toHaveURL(/[?&]runId=/)
 		const runId = new URL(page.url()).searchParams.get("runId")
 		if (!runId) throw new Error("missing run ID")
@@ -369,6 +377,7 @@ test("landing cancel follows real backend cancellation events without navigation
 		await projectRow(page, slug)
 			.getByRole("button", { name: `Open ${slug}` })
 			.click()
+		await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true }).click()
 		await expect(page).toHaveURL(/[?&]runId=/, { timeout: 10_000 })
 		const runId = new URL(page.url()).searchParams.get("runId")
 		if (!runId) throw new Error("run page URL did not include runId")
@@ -513,6 +522,7 @@ test("refresh never flashes dormant while project cancellation is still unwindin
 		await projectRow(page, slug)
 			.getByRole("button", { name: `Open ${slug}` })
 			.click()
+		await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true }).click()
 		await expect(page).toHaveURL(/[?&]runId=/, { timeout: 10_000 })
 		await expect(page.locator(".agent-hud__textarea")).toBeVisible({
 			timeout: 15_000,
