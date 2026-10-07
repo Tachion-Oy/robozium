@@ -12,6 +12,7 @@ foreach ($file in @('start.cmd', 'process-compose.yaml', 'compose.yaml')) {
 foreach ($file in @('start-live.ps1', 'start-mock.ps1')) {
     Copy-Item -LiteralPath (Join-Path $source "scripts/$file") -Destination (Join-Path $checkout "scripts/$file")
 }
+Copy-Item -LiteralPath (Join-Path $source 'examples') -Destination (Join-Path $checkout 'examples') -Recurse
 $dockerArgs = Join-Path $case 'docker-args.txt'
 $dockerEnv = Join-Path $case 'docker-env.txt'
 @'

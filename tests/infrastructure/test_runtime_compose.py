@@ -57,6 +57,7 @@ def test_live_launcher_resolves_settings_with_compose(tmp_path: Path):
     for name in ("start", "compose.yaml", "process-compose.yaml"):
         shutil.copy2(ROOT / name, checkout / name)
     shutil.copytree(ROOT / "scripts", checkout / "scripts")
+    shutil.copytree(ROOT / "examples", checkout / "examples")
     tools = tmp_path / "bin"
     tools.mkdir()
     stub = tools / "docker"

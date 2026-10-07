@@ -8,6 +8,7 @@ mkdir -p "$checkout/scripts" "$case_dir/bin"
 cp -p "$source_dir/start" "$source_dir/process-compose.yaml" "$checkout/"
 cp -p "$source_dir/scripts/start-live.sh" "$source_dir/scripts/start-mock.sh" \
   "$checkout/scripts/"
+cp -R "$source_dir/examples" "$checkout/examples"
 cat > "$case_dir/bin/docker" <<'DOCKER'
 #!/bin/sh
 if [ "$1" = info ]; then printf '[]\n'; exit 0; fi

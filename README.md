@@ -232,9 +232,23 @@ require credentials or connect to Bridge.
 
 ## Private capabilities
 
-Keep private tools in the root `local/` package. It is Git-ignored and excluded
-from the image and application distributions. The contract and loader are part
-of the tracked application. Start with the [example package](examples/local/__init__.py):
+Keep private capabilities in the root `local/` package. User files are
+Git-ignored; the shipped [Simpsons example](local/simpsons.py) is the sole tracked
+exception. The directory stays excluded from images and application distributions
+and is mounted read-only at runtime.
+
+The launchers create an ignored `local/__init__.py` from the
+[registration template](examples/local-registration.py) if it is missing. They
+preserve existing registration files. Uncomment the Simpsons import and entry,
+then restart the API to make **simpsons quotes** available in the live selector.
+The example registers RoboZ's `roboz.examples.simple.get_quote` directly. It
+returns a quote and stops the agent, and needs no extra packages.
+For an existing registration file, add `from .simpsons import SIMPSONS` and include
+`SIMPSONS` in `CAPABILITIES`. Direct API users can copy the registration template
+manually before startup.
+
+For another registration pattern, see the
+[example package](examples/local/__init__.py):
 
 ```sh
 mkdir -p local
@@ -256,6 +270,7 @@ CAPABILITIES = (
 The named class or zero-argument factory must return a RoboZ `Capability`.
 Use a label with `selectable=True` to allow that local capability to be chosen
 for a run.
+
 The requirements file must exist; leave it empty when the tool needs no extra
 packages. On API startup, Robozium validates every declaration, installs all
 registered requirements together into ignored `.runtime/local-deps/`, then
@@ -276,7 +291,7 @@ its scripted agents, which do not execute private tools.
 
 Keep `local/__init__.py` limited to declarations so requirements install before
 tool code imports. Bind run-specific state in the capability's `build` method.
-Back up `local/` separately from Git history.
+Back up private files in `local/` separately from Git history.
 
 ## Host scripts on Linux
 

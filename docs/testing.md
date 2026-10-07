@@ -83,7 +83,7 @@ selected only for infrastructure checks, outside the application browser suite.
 Run the same checks as CI:
 
 ```sh
-uv run ruff check src tests scripts
+uv run ruff check src tests scripts examples/local-registration.py local/simpsons.py
 uv run pyright
 uv run pytest --cov-fail-under=90
 npm --prefix web run lint

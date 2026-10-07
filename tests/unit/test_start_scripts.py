@@ -21,10 +21,13 @@ def launch(tmp_path: Path) -> tuple[Path, dict[str, str]]:
     for name in ("start", "process-compose.yaml", "compose.yaml"):
         shutil.copy2(ROOT / name, checkout / name)
     shutil.copytree(ROOT / "scripts", checkout / "scripts")
+    shutil.copytree(ROOT / "examples", checkout / "examples")
+    (checkout / "local").mkdir()
+    shutil.copy2(ROOT / "local/simpsons.py", checkout / "local/simpsons.py")
     tools = tmp_path / "bin"
     tools.mkdir()
     # Keep optional executables on the host out of the test's PATH.
-    for name in ("sh", "bash", "dirname", "mkdir", "rmdir", "sed", "printenv", "id", "uname", "sleep", "cat", "chmod", "rm"):
+    for name in ("sh", "bash", "cp", "dirname", "mkdir", "rmdir", "sed", "printenv", "id", "uname", "sleep", "cat", "chmod", "rm"):
         executable = shutil.which(name)
         assert executable, name
         (tools / name).symlink_to(executable)
@@ -140,6 +143,16 @@ def test_argument_validation_and_mock_isolation(launch):
     assert Path(env["TEST_DOCKER_MODE"]).read_text().strip() == "mock"
     assert not (checkout / ".runtime/host-scripts-venv").exists()
     assert not (checkout / ".runtime/launch.lock").exists()
+
+
+def test_launcher_seeds_disabled_registration_once(launch):
+    checkout, env = launch
+    registration = checkout / "local/__init__.py"
+    assert _run(checkout, env, "--mock").returncode == 0
+    assert registration.read_text() == (ROOT / "examples/local-registration.py").read_text()
+    registration.write_text("# Private registration must survive restart\nCAPABILITIES = ()\n")
+    assert _run(checkout, env, "--mock").returncode == 0
+    assert registration.read_text().startswith("# Private registration must survive restart")
 
 
 def test_live_uses_explicit_sidecar_and_encrypted_settings(host_launch, tmp_path):

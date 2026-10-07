@@ -3,6 +3,8 @@
   "include": [
     "src",
     "hub.config.py",
+    "examples/local-registration.py",
+    "local/simpsons.py",
     "tests/support"
   ],
   "venvPath": ".",
