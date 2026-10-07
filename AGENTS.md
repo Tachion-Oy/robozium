@@ -29,6 +29,13 @@
   [Testing practices](docs/testing-practices.md) when changing behavior or tests.
   [Testing](docs/testing.md) documents commands and the Full E2E policy.
 - **Full E2E must pass in CI before merging.**
+- **Do not hand off a PR with failed or pending CI.** Run the applicable local
+  checks before opening or updating a PR, then use `gh` to monitor every required
+  check, including Full E2E, on the latest commit. Investigate and fix failures,
+  push the corrections, and keep working until all required checks pass. Do not
+  treat local success, a successful push, or opening the PR as completion. Never
+  weaken or skip checks to obtain a pass. If an external blocker prevents
+  completion, report the blocker explicitly and leave the task incomplete.
 - Follow [Security](SECURITY.md) for private vulnerability reporting.
 - Inspect the working tree and preserve user changes. Do not create issues or
   PRs, bump versions, tag, or publish unless requested. At handoff, state what
