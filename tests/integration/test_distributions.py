@@ -132,6 +132,11 @@ def test_installed_candidate(archive, candidates, tmp_path):
         ignore=shutil.ignore_patterns("__pycache__"),
     )
     (tests / "__init__.py").touch()
+    shutil.copytree(
+        ROOT / "examples/local",
+        tmp_path / "examples/local",
+        ignore=shutil.ignore_patterns("__pycache__"),
+    )
     unit = tests / "unit"
     unit.mkdir()
     for name in (

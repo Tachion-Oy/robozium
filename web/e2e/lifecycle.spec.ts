@@ -158,7 +158,9 @@ for (const boundary of ["creation", "navigation"] as const) {
 			if (boundary === "creation") {
 				await expect(page.getByRole("button", { name: "Launching…" })).toBeDisabled()
 			} else {
-				await expect(projectRow(page, secondSlug).getByText("OPENING", { exact: true })).toBeVisible()
+				await expect(page.getByRole("form", { name: "Capability selector" })).toHaveCount(0)
+				await expect(projectRow(page, secondSlug).getByRole("button", { name: `Open ${secondSlug}` })).toBeDisabled()
+				await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeDisabled()
 			}
 			const reply = await request.post(`/api/runs/${encodeURIComponent(firstRunId)}/reply`, {
 				data: { prompt_id: runView.current_prompt_id, content: "second reply" },
