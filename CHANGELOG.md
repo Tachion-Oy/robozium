@@ -7,6 +7,8 @@
   when relaunching a project with existing memory.
 - Ship an optional Simpsons quote capability and seed ignored local registration
   from a commented template without overwriting private configuration.
+- Document the RoboZ `0.6.1a1` migration for private capabilities and supply a
+  working selectable skill example, validated during Docker onboarding.
 
 - Pin RoboZ `0.6.1a1` for deployment capability selection and built-in tools.
 

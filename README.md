@@ -252,10 +252,12 @@ For another registration pattern, see the
 
 ```sh
 mkdir -p local
-cp examples/local/__init__.py local/__init__.py
+cp examples/local/*.py examples/local/requirements.txt local/
 ```
 
-On Windows, create `local` and copy the example's `__init__.py` there. For each
+On Windows, create `local` and copy all files from `examples/local` there. The
+example registers a selectable, on-demand skill with a tool that returns the
+current project's name. Replace its declaration with your own tools. For each
 tool, put its Python package and `requirements.txt` under `local/`, then add one
 declaration to `local/__init__.py`:
 
@@ -270,6 +272,24 @@ CAPABILITIES = (
 The named class or zero-argument factory must return a RoboZ `Capability`.
 Use a label with `selectable=True` to allow that local capability to be chosen
 for a run.
+
+### Migrating private capabilities to RoboZ 0.6.1a1
+
+RoboZ `0.6.1a1` removed `AgentCapability` and changed capability construction.
+Existing private tools must migrate before restarting the upgraded application:
+
+- Subclass `Capability` and initialize it with `ToolLabel` or `SkillLabel`.
+  Use `SkillLabel("timesheet", selectable=True)` for a selectable on-demand skill.
+- Return a tuple of tools, tool chains, or skills from `build()`. For example,
+  replace `Capability(skills=(skill,))` with `(skill,)`. The deployment applies
+  the capability's label to those values.
+- Remove frozen dataclass decoration from subclasses that call the new
+  `Capability` constructor. Keep runtime binding in `build()`.
+
+See the [working skill example](examples/local/example_skill.py). A change to
+the import alone does not migrate the old build result.
+
+### Loading and dependencies
 
 The requirements file must exist; leave it empty when the tool needs no extra
 packages. On API startup, Robozium validates every declaration, installs all

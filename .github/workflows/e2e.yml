@@ -75,10 +75,14 @@ jobs:
           echo "ROBOZIUM_API_USER=$(id -u):$(id -g)" >> "$GITHUB_ENV"
           export ROBOZIUM_API_USER="$(id -u):$(id -g)"
           mkdir -p .runtime/mock-hub/readonly/safe-scripts .runtime/mock-logs .runtime/mock-socket .runtime/local-deps local
+          cp examples/local/*.py examples/local/requirements.txt local/
           docker compose up --build --wait
+          docker compose exec -T api python - < tests/container/check_local_capabilities.py
           docker compose exec -T api python - < tests/container/check_file_cli.py
           docker compose run --build --rm verify
           docker compose restart api
+          docker compose up --wait --wait-timeout 120
+          docker compose exec -T api python - < tests/container/check_local_capabilities.py
           docker compose run --rm -e ROBOZIUM_CONTAINER_PHASE=persistence verify
       - name: Container logs
         if: ${{ failure() && steps.containers.outcome == 'failure' }}
