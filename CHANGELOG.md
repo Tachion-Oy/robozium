@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Remove the redundant `current_agent_name` field from project-list summaries.
+
 - Pin RoboZ `0.6.1a1` for deployment capability selection and built-in tools.
 
 - Accept orchestrator capability choices when creating a run, expose the

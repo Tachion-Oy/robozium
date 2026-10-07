@@ -30,7 +30,6 @@ def _run(
         "project": project,
         "status": status,
         "created_at": created_at,
-        "current_agent_name": "orchestrator",
     }
 
 
@@ -78,7 +77,6 @@ def test_compose_project_list_live_status_wins_over_disk_artifacts(
             "slug": project.slug,
             "status": ProjectStatus.CANCELLING,
             "run_id": f"run-{project.slug}",
-            "current_agent_name": "orchestrator",
             "created_at": 123.0,
         }
     ]
@@ -112,7 +110,6 @@ def test_compose_project_list_live_status_wins_over_running_librarian(
             "slug": project.slug,
             "status": expected_status,
             "run_id": f"run-{project.slug}",
-            "current_agent_name": "orchestrator",
             "created_at": 123.0,
         }
     ]
@@ -132,7 +129,6 @@ def test_compose_project_list_terminal_runs_do_not_render_live_row(
             "slug": project.slug,
             "status": ProjectStatus.DORMANT,
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]
@@ -154,7 +150,6 @@ def test_compose_project_list_orphan_running_librarian_reports_syncing(
             "slug": project.slug,
             "status": ProjectStatus.SYNCING,
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]
@@ -218,7 +213,6 @@ def test_compose_project_list_orphan_terminal_librarian_reports_dormant(
             "slug": project.slug,
             "status": ProjectStatus.DORMANT,
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]
@@ -237,7 +231,6 @@ def test_compose_project_list_ignores_non_liveness_disk_artifacts(
             "slug": project.slug,
             "status": ProjectStatus.DORMANT,
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]
@@ -258,7 +251,6 @@ def test_compose_project_list_does_not_inspect_conversation_history(
             "slug": project.slug,
             "status": ProjectStatus.DORMANT,
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]

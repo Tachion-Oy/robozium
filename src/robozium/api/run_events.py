@@ -58,11 +58,6 @@ class RunEvents:
         self._completion_listeners: dict[EventSink, Callable[[], None]] = {}
         self._completed = False
 
-    @property
-    def current_agent_name(self) -> str | None:
-        with self._lock:
-            return self._state["current_agent_name"]
-
     def snapshot(self) -> RunProjection:
         with self._lock:
             return {

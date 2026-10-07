@@ -57,7 +57,6 @@ class ProjectListItem(TypedDict):
     slug: str
     status: ProjectStatus
     run_id: str | None
-    current_agent_name: str | None
     created_at: float | None
 
 
@@ -106,7 +105,6 @@ def compose_project_list(
                         else _live_status(run)
                     ),
                     "run_id": run["run_id"],
-                    "current_agent_name": run["current_agent_name"],
                     "created_at": run["created_at"],
                 }
             )
@@ -122,7 +120,6 @@ def compose_project_list(
                 "slug": slug,
                 "status": status,
                 "run_id": None,
-                "current_agent_name": None,
                 "created_at": None,
             }
         )
