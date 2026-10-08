@@ -7,13 +7,13 @@ import {
 	createRun,
 	deleteProject,
 	getModelSelection,
-	getProjectCapabilities,
+	getProjectCapabilitySelection,
 	interruptRun,
 	listDependencies,
 	listCapabilities,
 	listProjects,
 	selectModel,
-	saveProjectCapabilities,
+	saveProjectCapabilitySelection,
 	transcribeAudio,
 } from "../../../lib/robozium/client"
 import type { CapabilitySelection, CreateResponse } from "../../../lib/robozium/wire"
@@ -66,7 +66,7 @@ describe("createRun", () => {
 	it.each([null, {}, { email: "on_demand", removed: true }])("reads saved choices unchanged: %j", async (saved) => {
 		const controller = new AbortController()
 		fetchMock.mockResolvedValueOnce(okJson(saved))
-		expect(await getProjectCapabilities("alpha beta", { signal: controller.signal })).toEqual(saved)
+		expect(await getProjectCapabilitySelection("alpha beta", { signal: controller.signal })).toEqual(saved)
 		expect(fetchMock).toHaveBeenCalledWith("/api/capabilities/alpha%20beta", expect.objectContaining({
 			method: "GET", cache: "no-store", signal: controller.signal,
 		}))
@@ -75,7 +75,7 @@ describe("createRun", () => {
 	it("posts the selection directly to the project's capabilities route", async () => {
 		const choices: CapabilitySelection = { email: "on_demand" }
 		fetchMock.mockResolvedValueOnce(okJson(choices))
-		expect(await saveProjectCapabilities("alpha beta", choices)).toEqual(choices)
+		expect(await saveProjectCapabilitySelection("alpha beta", choices)).toEqual(choices)
 		expect(fetchMock).toHaveBeenCalledWith("/api/capabilities/alpha%20beta", expect.objectContaining({
 			method: "POST", cache: "no-store", body: JSON.stringify(choices),
 			headers: { Accept: "application/json", "Content-Type": "application/json" },

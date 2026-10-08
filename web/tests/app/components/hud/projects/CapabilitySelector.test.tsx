@@ -3,12 +3,12 @@ import { initialHudNavigation, reduceHudNavigation } from "../../../../../lib/ro
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { CapabilitySelector } from "../../../../../app/components/hud/projects/CapabilitySelector"
-import { AgentApiError, getProjectCapabilities, listCapabilities } from "../../../../../lib/robozium/client"
+import { AgentApiError, getProjectCapabilitySelection, listCapabilities } from "../../../../../lib/robozium/client"
 import type { CapabilityView } from "../../../../../lib/robozium/wire"
 
 vi.mock("../../../../../lib/robozium/client", async (original) => ({
 	...await original<typeof import("../../../../../lib/robozium/client")>(),
-	listCapabilities: vi.fn(), getProjectCapabilities: vi.fn(),
+	listCapabilities: vi.fn(), getProjectCapabilitySelection: vi.fn(),
 }))
 
 const catalog: CapabilityView[] = [
@@ -19,7 +19,7 @@ const catalog: CapabilityView[] = [
 
 beforeEach(() => {
 	vi.mocked(listCapabilities).mockReset().mockResolvedValue(catalog)
-	vi.mocked(getProjectCapabilities).mockReset().mockResolvedValue(null)
+	vi.mocked(getProjectCapabilitySelection).mockReset().mockResolvedValue(null)
 })
 afterEach(cleanup)
 
@@ -29,11 +29,11 @@ function selector(project: string | null = "alpha") {
 	function Selector({ disabled = false }: { disabled?: boolean }) {
 		const [state, dispatch] = useReducer(reduceHudNavigation, {
 			...initialHudNavigation(null),
-			launch: { project, name: project ?? "", capabilities: null },
+			launch: { project, name: project ?? "", selection: null },
 		})
 		return <CapabilitySelector draft={state.launch!} disabled={disabled}
 			onChange={(change) => dispatch({ type: "launch_changed", change })}
-			onCancel={onCancel} onSubmit={(capabilities) => onSubmit(state.launch!.name.trim(), capabilities)} />
+			onCancel={onCancel} onSubmit={(selection) => onSubmit(state.launch!.name.trim(), selection)} />
 	}
 	return { ...render(<Selector />), Selector, onSubmit, onCancel }
 }
@@ -61,11 +61,11 @@ it("requires a new project name and sends an empty explicit selection by default
 	fireEvent.change(screen.getByLabelText("Project name"), { target: { value: "  New Project  " } })
 	fireEvent.click(screen.getByRole("button", { name: "Launch" }))
 	expect(onSubmit).toHaveBeenCalledWith("New Project", {})
-	expect(getProjectCapabilities).not.toHaveBeenCalled()
+	expect(getProjectCapabilitySelection).not.toHaveBeenCalled()
 })
 
 it("restores saved modes, ignores removed entries, and retains the mode when toggled off and on", async () => {
-	vi.mocked(getProjectCapabilities).mockResolvedValue({ email: "automatic", removed: true, filesystem: false })
+	vi.mocked(getProjectCapabilitySelection).mockResolvedValue({ email: "automatic", removed: true, filesystem: false })
 	const { onSubmit } = selector()
 	const email = await screen.findByRole("checkbox", { name: "email" })
 	expect(email.getAttribute("aria-checked")).toBe("true")
@@ -81,7 +81,7 @@ it("restores saved modes, ignores removed entries, and retains the mode when tog
 
 it("waits for saved choices and retries a read failure without submitting empty defaults", async () => {
 	let reject!: (reason: Error) => void
-	vi.mocked(getProjectCapabilities).mockReturnValueOnce(new Promise((_, failure) => { reject = failure }))
+	vi.mocked(getProjectCapabilitySelection).mockReturnValueOnce(new Promise((_, failure) => { reject = failure }))
 	const { onSubmit } = selector()
 	await waitFor(() => expect(listCapabilities).toHaveBeenCalledOnce())
 	expect(screen.queryByRole("checkbox")).toBeNull()
@@ -90,7 +90,7 @@ it("waits for saved choices and retries a read failure without submitting empty 
 	reject(new AgentApiError(500, "Repair or remove .robozium/capabilities.json, then retry."))
 	await screen.findByText("Repair or remove .robozium/capabilities.json, then retry.")
 	expect(screen.getByRole("button", { name: "Launch" }).hasAttribute("disabled")).toBe(true)
-	vi.mocked(getProjectCapabilities).mockResolvedValue({ email: "automatic" })
+	vi.mocked(getProjectCapabilitySelection).mockResolvedValue({ email: "automatic" })
 	fireEvent.click(screen.getByRole("button", { name: "Retry" }))
 	expect((await screen.findByRole("checkbox", { name: "email" })).getAttribute("aria-checked")).toBe("true")
 	fireEvent.click(screen.getByRole("button", { name: "Launch" }))
@@ -98,15 +98,15 @@ it("waits for saved choices and retries a read failure without submitting empty 
 })
 
 it("cancels pending reads when the selector closes", () => {
-	vi.mocked(getProjectCapabilities).mockReturnValueOnce(new Promise(() => {}))
+	vi.mocked(getProjectCapabilitySelection).mockReturnValueOnce(new Promise(() => {}))
 	const { unmount } = selector()
-	const signal = vi.mocked(getProjectCapabilities).mock.calls[0][1]?.signal
+	const signal = vi.mocked(getProjectCapabilitySelection).mock.calls[0][1]?.signal
 	unmount()
 	expect(signal?.aborted).toBe(true)
 })
 
 it("discards cancelled edits and reloads the saved selection", async () => {
-	vi.mocked(getProjectCapabilities).mockResolvedValue({ email: "automatic" })
+	vi.mocked(getProjectCapabilitySelection).mockResolvedValue({ email: "automatic" })
 	const first = selector()
 	fireEvent.click(await screen.findByRole("checkbox", { name: "email" }))
 	fireEvent.click(screen.getByRole("button", { name: "Cancel" }))

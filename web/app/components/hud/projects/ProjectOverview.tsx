@@ -65,7 +65,7 @@ export function ProjectOverview({
 			project.status !== ProjectStatus.Dormant || project.runId !== null
 		) return
 		projects.markOpening(project.slug)
-		const launched = await onLaunch({ project: project.slug, name: project.slug, capabilities: null })
+		const launched = await onLaunch({ project: project.slug, name: project.slug, selection: null })
 		if (!launched) {
 			projects.clearOpening(project.slug)
 			projects.refresh()

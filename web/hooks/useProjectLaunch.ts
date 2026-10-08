@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { AgentApiError, createProject, createRun, getProjectCapabilities, listCapabilities, saveProjectCapabilities } from "@/lib/robozium/client"
+import { AgentApiError, createProject, createRun, getProjectCapabilitySelection, listCapabilities, saveProjectCapabilitySelection } from "@/lib/robozium/client"
 import { resolveCapabilitySelection } from "@/lib/robozium/capabilities"
 import type { LaunchDraft } from "@/lib/robozium/hud-navigation"
 import { beginHudNavigation, hudVisibilityStore } from "@/lib/robozium/hud-visibility"
@@ -13,18 +13,18 @@ export function useProjectLaunch(
 	onProjectCreated: (name: string, project: string) => void,
 ) {
 	const router = useRouter()
-	return async ({ project, name, capabilities }: LaunchDraft): Promise<boolean> => {
+	return async ({ project, name, selection: draftSelection }: LaunchDraft): Promise<boolean> => {
 		if (!beginHudNavigation()) return false
 		try {
 			const slug = project ?? (await createProject({ name: name.trim() })).slug
 			if (project === null) onProjectCreated(name.trim(), slug)
-			let selection = capabilities
-			if (selection === null) {
-				const [catalog, saved] = await Promise.all([listCapabilities(), getProjectCapabilities(slug)])
-				selection = resolveCapabilitySelection(catalog, saved)
+			let launchSelection = draftSelection
+			if (launchSelection === null) {
+				const [catalog, savedSelection] = await Promise.all([listCapabilities(), getProjectCapabilitySelection(slug)])
+				launchSelection = resolveCapabilitySelection(catalog, savedSelection)
 			}
-			await saveProjectCapabilities(slug, selection)
-			const { run_id } = await createRun({ project: slug, capabilities: selection })
+			await saveProjectCapabilitySelection(slug, launchSelection)
+			const { run_id } = await createRun({ project: slug, capabilities: launchSelection })
 			onLaunched()
 			router.push(`/?runId=${encodeURIComponent(run_id)}`)
 			return true

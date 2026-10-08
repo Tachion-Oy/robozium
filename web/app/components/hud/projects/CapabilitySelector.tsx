@@ -10,9 +10,9 @@ import type { CapabilitySelection, CapabilityView } from "@/lib/robozium/wire"
 type CapabilitySelectorProps = {
 	draft: LaunchDraft
 	disabled: boolean
-	onChange: (change: Partial<Pick<LaunchDraft, "name" | "capabilities">>) => void
+	onChange: (change: Partial<Pick<LaunchDraft, "name" | "selection">>) => void
 	onCancel: () => void
-	onSubmit: (capabilities: CapabilitySelection) => void
+	onSubmit: (selection: CapabilitySelection) => void
 }
 
 const CAPABILITY_GROUPS = [
@@ -21,14 +21,14 @@ const CAPABILITY_GROUPS = [
 ] as const
 
 export function CapabilitySelector({
-	draft: { project, name, capabilities },
+	draft: { project, name, selection: draftSelection },
 	disabled,
 	onChange,
 	onCancel,
 	onSubmit,
 }: CapabilitySelectorProps) {
-	const { catalog, selection: restored, error: catalogError, retry } = useCapabilities(project)
-	const selected = capabilities ?? restored
+	const { catalog, initialSelection, error: loadError, retry } = useCapabilities(project)
+	const currentSelection = draftSelection ?? initialSelection
 	const title = useRef<HTMLHeadingElement>(null)
 
 	useEffect(() => {
@@ -37,21 +37,21 @@ export function CapabilitySelector({
 
 	const handleSubmit: NonNullable<ComponentProps<"form">["onSubmit"]> = (event) => {
 		event.preventDefault()
-		if (disabled || catalog === null || selected === null || catalogError || !name.trim()) return
-		onSubmit(resolveCapabilitySelection(catalog, selected))
+		if (disabled || catalog === null || currentSelection === null || loadError || !name.trim()) return
+		onSubmit(resolveCapabilitySelection(catalog, currentSelection))
 	}
 
 	const handleCapabilityToggle = ({ name, loading }: CapabilityView) => {
-		const next = {
-			...selected,
-			[name]: restored && Object.hasOwn(restored, name)
-				? restored[name]
+		const nextSelection = {
+			...currentSelection,
+			[name]: initialSelection && Object.hasOwn(initialSelection, name)
+				? initialSelection[name]
 				: loading ?? true,
 		}
-		if (selected && Object.hasOwn(selected, name) && selected[name]) {
-			delete next[name]
+		if (currentSelection && Object.hasOwn(currentSelection, name) && currentSelection[name]) {
+			delete nextSelection[name]
 		}
-		onChange({ capabilities: next })
+		onChange({ selection: nextSelection })
 	}
 
 	return (
@@ -90,9 +90,9 @@ export function CapabilitySelector({
 			</div>
 			<p>Choose agent capabilities for this launch.</p>
 			<div className="agent-hud__table-scroll agent-hud__capability-list space-y-6 p-2">
-				{catalogError ? (
+				{loadError ? (
 					<div role="alert">
-						<p>{catalogError}</p>
+						<p>{loadError}</p>
 						<button
 							type="button"
 							className="agent-hud__row-action agent-hud__row-tools"
@@ -116,7 +116,7 @@ export function CapabilitySelector({
 											type="button"
 											role="checkbox"
 											aria-label={capability.name.replaceAll("_", " ")}
-											aria-checked={!capability.selectable || (selected !== null && Object.hasOwn(selected, capability.name) && Boolean(selected[capability.name]))}
+											aria-checked={!capability.selectable || (currentSelection !== null && Object.hasOwn(currentSelection, capability.name) && Boolean(currentSelection[capability.name]))}
 											disabled={disabled || !capability.selectable}
 											className="agent-hud__row-action agent-hud__capability-option flex items-center gap-3"
 											onClick={() => handleCapabilityToggle(capability)}>
@@ -138,7 +138,7 @@ export function CapabilitySelector({
 				<button
 					type="submit"
 					className="app-nav__cta agent-hud__start"
-						disabled={disabled || catalog === null || selected === null || Boolean(catalogError) || !name.trim()}>
+						disabled={disabled || catalog === null || currentSelection === null || Boolean(loadError) || !name.trim()}>
 					<DisplayArt name="launch" label={disabled ? "Launching…" : "Launch"} />
 				</button>
 				<button

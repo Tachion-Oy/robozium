@@ -86,7 +86,7 @@ export async function listCapabilities(init?: {
 	})
 }
 
-export async function getProjectCapabilities(
+export async function getProjectCapabilitySelection(
 	project: string,
 	init?: { signal?: AbortSignal },
 ): Promise<CapabilitySelection | null> {
@@ -98,15 +98,15 @@ export async function getProjectCapabilities(
 	})
 }
 
-export async function saveProjectCapabilities(
+export async function saveProjectCapabilitySelection(
 	project: string,
-	capabilities: CapabilitySelection,
+	selection: CapabilitySelection,
 ): Promise<CapabilitySelection> {
 	return fetchJson<CapabilitySelection>(`/api/capabilities/${encodeURIComponent(project)}`, {
 		method: "POST",
 		cache: "no-store",
 		headers: { Accept: "application/json", "Content-Type": "application/json" },
-		body: JSON.stringify(capabilities),
+		body: JSON.stringify(selection),
 	})
 }
 

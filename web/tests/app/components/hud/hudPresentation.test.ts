@@ -11,7 +11,7 @@ describe("HUD presentation", () => {
 			phase: RunHudPhase.Prompting,
 			runUnavailable: false,
 			selectedScreen: "launch",
-			launch: { project: "another-project", name: "another-project", capabilities: {} },
+			launch: { project: "another-project", name: "another-project", selection: {} },
 		})
 		expect(presentation.screen).toBe("launch")
 		expect(presentation.modelScope).toBe("default")
@@ -23,7 +23,7 @@ describe("HUD presentation", () => {
 			phase: RunHudPhase.Passive,
 			runUnavailable: false,
 			selectedScreen: "dependencies",
-			launch: { project: null, name: "Draft", capabilities: {} },
+			launch: { project: null, name: "Draft", selection: {} },
 		})
 		expect(presentation.screen).toBe("dependencies")
 		expect(presentation.screenOptions).toEqual([
