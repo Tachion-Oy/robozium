@@ -14,7 +14,6 @@ class ProjectSummary(BaseModel):
     slug: str
     status: ProjectStatus
     run_id: str | None
-    current_agent_name: str | None
     created_at: float | None
 
 

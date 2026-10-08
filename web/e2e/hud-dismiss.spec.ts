@@ -18,7 +18,7 @@ async function startRunFromLanding(
 	const projectInput = page.getByLabel("Project name")
 	await expect(projectInput).toBeVisible()
 	await projectInput.fill(projectName)
-	const createButton = page.getByRole("button", { name: "Create Project" })
+	const createButton = page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true })
 	await expect(createButton).toBeEnabled()
 	await createButton.evaluate((button: HTMLButtonElement) =>
 		button.form?.requestSubmit(),
@@ -124,9 +124,8 @@ test("HUD entered via the fresh-load intro still hides visually on dismiss", asy
 	).toBeVisible({ timeout: 30_000 })
 	await page.locator("button.agent-hud__start").click()
 	await page.getByLabel("Project name").fill(`hud-intro-e2e-${Date.now()}`)
-	await page
-		.getByRole("button", { name: "Create Project" })
-		.evaluate((button: HTMLButtonElement) => button.form?.requestSubmit())
+	await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true })
+		.click()
 	await expect(page).toHaveURL(/[?&]runId=/, { timeout: 20_000 })
 	await expect(page.locator(".agent-hud__textarea")).toBeVisible({
 		timeout: 15_000,

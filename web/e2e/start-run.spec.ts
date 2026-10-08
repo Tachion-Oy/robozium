@@ -17,7 +17,7 @@ async function startRunFromLanding(
 	const projectInput = page.getByLabel("Project name")
 	await expect(projectInput).toBeVisible()
 	await projectInput.fill(projectName)
-	const createButton = page.getByRole("button", { name: "Create Project" })
+	const createButton = page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true })
 	await expect(createButton).toBeEnabled()
 	await createButton.evaluate((button: HTMLButtonElement) =>
 		button.form?.requestSubmit(),
@@ -96,16 +96,12 @@ test("dormant project on disk is listed and resumes on click", async ({
 			timeout: 15_000,
 		})
 
-		// Clicking a dormant project mints a run (loading its memory) and attaches.
 		await dormantRow.getByRole("button", { name: `Open ${slug}` }).click()
-		await expect(dormantRow.getByText("OPENING", { exact: true })).toHaveCount(1)
-		await expect(
-			dormantRow.getByRole("button", { name: `Open ${slug}` }),
-		).toBeDisabled()
-		await expect(dormantRow.getByRole("button", { name: "Cancel" })).toBeDisabled()
-		await expect(dormantRow.getByRole("button", { name: "Delete" })).toBeDisabled()
-		await page.waitForTimeout(1_100)
-		await expect(dormantRow.getByText("OPENING", { exact: true })).toHaveCount(1)
+		const selector = page.getByRole("form", { name: "Capability selector" })
+		await expect(selector).toBeVisible()
+		await selector.getByRole("button", { name: "Launch", exact: true }).click()
+		await expect(selector.getByRole("button", { name: "Launching…" })).toBeDisabled()
+		await expect(selector.getByRole("button", { name: "Cancel", exact: true })).toBeDisabled()
 
 		releaseCreate()
 		await expect(page).toHaveURL(/[?&]runId=/, { timeout: 10_000 })
@@ -118,7 +114,7 @@ test("dormant project on disk is listed and resumes on click", async ({
 	}
 })
 
-test("only the first rapid project open starts navigation", async ({
+test("only the first of two rapid project launches starts navigation", async ({
 	page,
 	request,
 }) => {
@@ -147,34 +143,18 @@ test("only the first rapid project open starts navigation", async ({
 		await expect(firstRow.getByText("DORMANT", { exact: true })).toBeVisible()
 		await expect(secondRow.getByText("DORMANT", { exact: true })).toBeVisible()
 
-		// SSR can expose the buttons just before React attaches their handlers.
-		// Repeat the same rapid pair until the first click is observed; once it is,
-		// the opening lock makes every later native click a no-op.
-		await expect
-			.poll(async () => {
-				await page.evaluate(([first, second]) => {
-					const firstButton = document.querySelector<HTMLButtonElement>(
-						`button[aria-label="Open ${CSS.escape(first)}"]`,
-					)
-					const secondButton = document.querySelector<HTMLButtonElement>(
-						`button[aria-label="Open ${CSS.escape(second)}"]`,
-					)
-					if (!firstButton || !secondButton) {
-						throw new Error("project buttons missing")
-					}
-					firstButton.click()
-					secondButton.click()
-				}, [firstSlug, secondSlug])
-				return [...createRequests]
-			})
-			.toEqual([firstSlug])
+		await firstRow.getByRole("button", { name: "Launch", exact: true }).focus()
+		await page.evaluate(([first, second]) => {
+			for (const slug of [first, second]) {
+				const row = document.querySelector(`button[aria-label="Open ${CSS.escape(slug)}"]`)!.closest("li")!
+				row.querySelector<HTMLButtonElement>(".agent-hud__row-launch")!.click()
+			}
+		}, [firstSlug, secondSlug])
+		await expect.poll(() => [...createRequests]).toEqual([firstSlug])
 		await expect(firstRow.getByText("OPENING", { exact: true })).toBeVisible()
 		await expect(secondRow.getByText("DORMANT", { exact: true })).toBeVisible()
-		await expect(
-			firstRow.getByRole("button", { name: `Open ${firstSlug}` }),
-		).toBeDisabled()
-		await expect(firstRow.getByText(firstSlug, { exact: true })).toBeVisible()
-		await expect(secondRow.getByText(secondSlug, { exact: true })).toBeVisible()
+		await expect(firstRow.getByRole("button", { name: "Launch", exact: true })).toBeDisabled()
+		await expect(secondRow.getByRole("button", { name: "Launch", exact: true })).toBeDisabled()
 
 		releaseCreate()
 		await expect(page).toHaveURL(/[?&]runId=/, { timeout: 10_000 })
@@ -237,9 +217,7 @@ test("landing table shows project and ignores prompt replies", async ({
 	await expect(firstRunRow.getByText(projectSlug, { exact: true })).toBeVisible({
 		timeout: 15_000,
 	})
-	await expect(firstRunRow.getByText("orchestrator", { exact: true })).toBeVisible({
-		timeout: 15_000,
-	})
+	await expect(firstRunRow.getByText("orchestrator", { exact: true })).toHaveCount(0)
 	const openButton = firstRunRow.getByRole("button", {
 		name: `Open ${projectSlug}`,
 	})

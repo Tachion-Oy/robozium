@@ -26,6 +26,7 @@ const runtime = (sequence: number, retry = false): PipeEventFrame => ({
 })
 const received = (frame: PipeEventFrame): SessionEvent => ({ class: "stream", type: "frame_received", frame })
 const view = (trace: PipeEventFrame[], overrides: Partial<RunView> = {}): RunView => ({
+	capabilities: {},
 	project: "alpha", status: "running", current_agent_name: "root", parent_agent_name: null,
 	message_trace: trace, current_prompt_id: null, current_prompt: null, error: null, ...overrides,
 })

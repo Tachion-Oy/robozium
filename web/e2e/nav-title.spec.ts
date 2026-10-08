@@ -13,6 +13,7 @@ test("the HUD covers the returning title after an enlarged run in both themes", 
 	const slug = await createProject(request, `Title Overlap ${Date.now()}`)
 	await gotoLanding(page)
 	await page.getByRole("button", { name: `Open ${slug}`, exact: true }).click()
+	await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true }).click()
 	await expect(page.locator(".agent-hud__textarea")).toBeVisible({ timeout: 20_000 })
 	await page.getByRole("slider", { name: "Resize HUD" }).press("End")
 	const cancellation = await request.post(`/api/projects/${encodeURIComponent(slug)}/cancel`)

@@ -9,7 +9,6 @@ function row(overrides: Partial<ProjectRow>): ProjectRow {
 		slug: "alpha",
 		status: ProjectStatus.Dormant,
 		runId: null,
-		agentName: null,
 		createdAt: null,
 		...overrides,
 	}
@@ -19,6 +18,8 @@ function renderPanel(
 	projects: ProjectRow[],
 	handlers: Partial<{
 		onProjectClick: (p: ProjectRow) => void
+		onSelectCapabilities: (p: ProjectRow) => void
+		onLaunchProject: (p: ProjectRow) => void
 		onCancelRun: (p: ProjectRow) => void
 		onDeleteProject: (p: ProjectRow) => void
 	}> = {},
@@ -31,7 +32,9 @@ function renderPanel(
 			currentRunId={currentRunId}
 			navigationPending={navigationPending}
 			onProjectClick={handlers.onProjectClick ?? (() => {})}
-			onCreateRunSubmit={() => {}}
+			onSelectCapabilities={handlers.onSelectCapabilities ?? (() => {})}
+			onLaunchProject={handlers.onLaunchProject ?? (() => {})}
+			onNewProject={() => {}}
 			onCancelRun={handlers.onCancelRun ?? (() => {})}
 			onDeleteProject={handlers.onDeleteProject ?? (() => {})}
 		/>,
@@ -48,6 +51,8 @@ function listItemFor(slug: string): HTMLElement {
 
 function actionButtons(li: HTMLElement) {
 	return {
+		tools: within(li).getByRole("button", { name: "Tools" }) as HTMLButtonElement,
+		launch: within(li).getByRole("button", { name: "Launch" }) as HTMLButtonElement,
 		open: within(li).getByRole("button", {
 			name: "Open alpha",
 		}) as HTMLButtonElement,
@@ -63,6 +68,24 @@ function actionButtons(li: HTMLElement) {
 afterEach(() => cleanup())
 
 describe("ProjectOverviewPanel row actions", () => {
+	it("separates Tools, Launch, and the project row callbacks", () => {
+		const onProjectClick = vi.fn()
+		const onSelectCapabilities = vi.fn()
+		const onLaunchProject = vi.fn()
+		const project = row({})
+		renderPanel([project], { onProjectClick, onSelectCapabilities, onLaunchProject })
+		const { tools, launch, open } = actionButtons(listItemFor("alpha"))
+		fireEvent.click(tools)
+		expect(onSelectCapabilities).toHaveBeenCalledWith(project)
+		expect(onLaunchProject).not.toHaveBeenCalled()
+		fireEvent.click(launch)
+		expect(onLaunchProject).toHaveBeenCalledWith(project)
+		expect(onProjectClick).not.toHaveBeenCalled()
+		fireEvent.click(open)
+		expect(onProjectClick).toHaveBeenCalledWith(project)
+		expect(screen.queryByText("Agent", { exact: true })).toBeNull()
+	})
+
 	it("marks only the open run as the current row", () => {
 		renderPanel(
 			[
@@ -92,7 +115,9 @@ describe("ProjectOverviewPanel row actions", () => {
 				currentRunId="run-1"
 				navigationPending={false}
 				onProjectClick={() => {}}
-				onCreateRunSubmit={() => {}}
+				onSelectCapabilities={() => {}}
+				onLaunchProject={() => {}}
+				onNewProject={() => {}}
 				onCancelRun={() => {}}
 				onDeleteProject={() => {}}
 			/>,
@@ -117,18 +142,22 @@ describe("ProjectOverviewPanel row actions", () => {
 
 	it("enables Cancel and Open but disables Delete on a live run row", () => {
 		renderPanel([row({ status: ProjectStatus.Running, runId: "run-1" })])
-		const { open, cancel, delete: del } = actionButtons(listItemFor("alpha"))
+		const { open, tools, launch, cancel, delete: del } = actionButtons(listItemFor("alpha"))
 		expect(open.disabled).toBe(false)
 		expect(cancel.disabled).toBe(false)
 		expect(del.disabled).toBe(true)
+		expect(tools.disabled).toBe(true)
+		expect(launch.disabled).toBe(true)
 	})
 
 	it("blocks every action while a row is cancelling", () => {
 		renderPanel([row({ status: ProjectStatus.Cancelling, runId: "run-1" })])
-		const { open, cancel, delete: del } = actionButtons(listItemFor("alpha"))
+		const { open, tools, launch, cancel, delete: del } = actionButtons(listItemFor("alpha"))
 		expect(open.disabled).toBe(true)
 		expect(cancel.disabled).toBe(true)
 		expect(del.disabled).toBe(true)
+		expect(tools.disabled).toBe(true)
+		expect(launch.disabled).toBe(true)
 	})
 
 	it("renders opening and blocks every action during navigation", () => {
@@ -136,10 +165,12 @@ describe("ProjectOverviewPanel row actions", () => {
 		const li = listItemFor("alpha")
 		const status = within(li).getByText("OPENING")
 		expect(status.className).toContain("agent-hud__row-status--opening")
-		const { open, cancel, delete: del } = actionButtons(li)
+		const { open, tools, launch, cancel, delete: del } = actionButtons(li)
 		expect(open.disabled).toBe(true)
 		expect(cancel.disabled).toBe(true)
 		expect(del.disabled).toBe(true)
+		expect(tools.disabled).toBe(true)
+		expect(launch.disabled).toBe(true)
 	})
 
 	it("disables every project open control while one navigation is pending", () => {
@@ -167,10 +198,12 @@ describe("ProjectOverviewPanel row actions", () => {
 		renderPanel([row({ status: ProjectStatus.Deleting })])
 		const li = listItemFor("alpha")
 		expect(within(li).getByText("DELETING")).not.toBeNull()
-		const { open, cancel, delete: del } = actionButtons(li)
+		const { open, tools, launch, cancel, delete: del } = actionButtons(li)
 		expect(open.disabled).toBe(true)
 		expect(cancel.disabled).toBe(true)
 		expect(del.disabled).toBe(true)
+		expect(tools.disabled).toBe(true)
+		expect(launch.disabled).toBe(true)
 	})
 
 	it("calls onCancelRun when Cancel is clicked", () => {
@@ -199,21 +232,25 @@ describe("ProjectOverviewPanel row actions", () => {
 
 	it("keeps a dormant row fully recoverable: open and delete both enabled", () => {
 		renderPanel([row({ status: ProjectStatus.Dormant })])
-		const { open, cancel, delete: del } = actionButtons(listItemFor("alpha"))
+		const { open, tools, launch, cancel, delete: del } = actionButtons(listItemFor("alpha"))
 		expect(open.disabled).toBe(false)
 		expect(cancel.disabled).toBe(true)
 		expect(del.disabled).toBe(false)
+		expect(tools.disabled).toBe(false)
+		expect(launch.disabled).toBe(false)
 	})
 
 	it("blocks open and delete for a live syncing row but keeps cancel available", () => {
 		const project = row({ status: ProjectStatus.Syncing, runId: "run-1" })
 		renderPanel([project])
-		const { open, cancel, delete: del } = actionButtons(listItemFor("alpha"))
+		const { open, tools, launch, cancel, delete: del } = actionButtons(listItemFor("alpha"))
 		// The librarian owns a live syncing run: opening/deleting is blocked
 		// until it settles, but the run itself must still be cancellable.
 		expect(open.disabled).toBe(true)
 		expect(cancel.disabled).toBe(false)
 		expect(del.disabled).toBe(true)
+		expect(tools.disabled).toBe(true)
+		expect(launch.disabled).toBe(true)
 	})
 
 	it("blocks open/delete but keeps cancel for syncing rows without a run id", () => {
@@ -226,10 +263,12 @@ describe("ProjectOverviewPanel row actions", () => {
 
 		expect(within(li).getByText("SYNCING")).not.toBeNull()
 
-		const { open, cancel, delete: del } = actionButtons(li)
+		const { open, tools, launch, cancel, delete: del } = actionButtons(li)
 		expect(cancel.disabled).toBe(false)
 		expect(open.disabled).toBe(true)
 		expect(del.disabled).toBe(true)
+		expect(tools.disabled).toBe(true)
+		expect(launch.disabled).toBe(true)
 		fireEvent.click(cancel)
 		expect(onCancelRun).toHaveBeenCalledWith(project)
 	})

@@ -4,7 +4,7 @@ import type { Project } from "./wire"
  * The landing is project-centric: every project is one row. "Running"/"waiting"
  * is just the status of a project that currently has a live run; everything else
  * is "dormant" — it exists on disk and can be resumed (its memory is loaded when
- * a new run starts). A dormant row has no `runId` yet; clicking it mints one.
+ * a new run starts). Clicking a dormant row opens the capability selector.
  */
 export enum ProjectStatus {
 	Running = "running",
@@ -20,7 +20,6 @@ export type ProjectRow = {
 	slug: string
 	status: ProjectStatus
 	runId: string | null
-	agentName: string | null
 	createdAt: number | null
 }
 
@@ -52,7 +51,6 @@ export function mergeProjects(projects: Project[]): ProjectRow[] {
 		slug: project.slug,
 		status: project.status as ProjectStatus,
 		runId: project.run_id,
-		agentName: project.current_agent_name,
 		createdAt: project.created_at,
 	}))
 }

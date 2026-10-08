@@ -70,6 +70,7 @@ describe("startRunSessionPoller", () => {
 		await vi.advanceTimersByTimeAsync(4000)
 		expect(mockedFetchRunView).toHaveBeenCalledTimes(1)
 		resolveFirst({
+			capabilities: {},
 			project: "alpha", status: "running", current_agent_name: null,
 			parent_agent_name: null, message_trace: [], current_prompt_id: null,
 			current_prompt: null, error: null,
@@ -79,6 +80,7 @@ describe("startRunSessionPoller", () => {
 		const count = events.length
 		dispose()
 		resolveSecond({
+			capabilities: {},
 			project: "alpha", status: "completed", current_agent_name: null,
 			parent_agent_name: null, message_trace: [], current_prompt_id: null,
 			current_prompt: null, error: null,

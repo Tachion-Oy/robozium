@@ -21,6 +21,17 @@
 
 .app-nav__cta.agent-hud__start {
   font-size: 1.55rem;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.app-nav__cta.agent-hud__start:not(:disabled):hover,
+.app-nav__cta.agent-hud__start:not(:disabled):focus-visible {
+  color: color-mix(in oklab, var(--term-lime) 45%, white 55%);
+  transform: none;
 }
 
 .agent-hud__project-input {
@@ -133,7 +144,7 @@
   }
 }
 
-/* Per-row HUD actions (Cancel / Delete). Compact, terminal-styled buttons that
+/* Per-row HUD actions (Tools / Launch / Cancel / Delete). Compact, terminal-styled buttons that
    mirror .agent-hud__send but are colour-coded to their intent. */
 
 .agent-hud__row-action {
@@ -155,6 +166,132 @@
     text-shadow 120ms ease;
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
+}
+
+.agent-hud__projects-table {
+  min-width: 48rem;
+}
+
+.agent-hud__row-actions {
+  width: 21rem;
+}
+
+.agent-hud__capability-option {
+  color: var(--hud-input-text);
+  border-color: var(--hud-input-border);
+  background: var(--hud-input-bg);
+}
+
+.agent-hud__capability-option:not(:disabled):hover {
+  border-color: var(--term-green);
+}
+
+.agent-hud__row-tools {
+  color: color-mix(in oklab, var(--term-blue) 60%, white 40%);
+  border-color: color-mix(in oklab, var(--term-blue) 62%, transparent);
+  background: color-mix(in oklab, var(--term-blue) 10%, transparent);
+}
+
+.agent-hud__row-tools:not(:disabled):hover,
+.agent-hud__row-tools:not(:disabled):focus-visible {
+  color: color-mix(in oklab, var(--term-blue) 72%, white 28%);
+  border-color: color-mix(in oklab, var(--term-blue) 88%, white 12%);
+  background: color-mix(in oklab, var(--term-blue) 26%, transparent);
+  text-shadow: var(--term-glow-blue);
+}
+
+.agent-hud__row-launch {
+  color: color-mix(in oklab, var(--term-green) 60%, white 40%);
+  border-color: color-mix(in oklab, var(--term-green) 62%, transparent);
+  background: color-mix(in oklab, var(--term-green) 10%, transparent);
+}
+
+.agent-hud__row-launch:not(:disabled):hover,
+.agent-hud__row-launch:not(:disabled):focus-visible {
+  color: color-mix(in oklab, var(--term-green) 72%, white 28%);
+  border-color: color-mix(in oklab, var(--term-green) 88%, white 12%);
+  background: color-mix(in oklab, var(--term-green) 26%, transparent);
+  text-shadow: var(--term-glow-green);
+}
+
+.agent-hud__capability-selector {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  gap: 0.75rem;
+  color: var(--hud-input-text);
+  font-family: var(--font-agent-input);
+  font-size: 1.15rem;
+}
+
+.agent-hud__capability-selector h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  overflow-wrap: anywhere;
+}
+
+.agent-hud__capability-project {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.agent-hud__capability-list {
+  flex: 1;
+  min-height: 3rem;
+  overflow-y: auto;
+}
+
+.agent-hud__capability-option {
+  padding: 0.6rem 0.75rem;
+  white-space: normal;
+  text-align: left;
+}
+
+.agent-hud__capability-option[aria-checked="true"] {
+  color: var(--term-green);
+  border-color: var(--term-green);
+  background: color-mix(in oklab, var(--term-green) 15%, var(--hud-input-bg));
+}
+
+.agent-hud__capability-option[aria-checked="true"]:disabled {
+  opacity: 0.8;
+}
+
+.agent-hud__capability-option:focus-visible {
+  outline: 2px solid var(--term-blue);
+  outline-offset: 2px;
+}
+
+.agent-hud__capability-name {
+  overflow-wrap: anywhere;
+}
+
+.agent-hud__capability-group-heading {
+  font-size: 1.1rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.agent-hud__capability-badge {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.agent-hud__capability-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.agent-hud__capability-actions .agent-hud__start:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .agent-hud__row-cancel {
@@ -190,8 +327,7 @@
   text-shadow: var(--term-glow-red);
 }
 
-.agent-hud__row-cancel:disabled,
-.agent-hud__row-delete:disabled {
+.agent-hud__row-action:disabled {
   opacity: 0.55;
   cursor: default;
 }
@@ -227,6 +363,30 @@
   color: var(--hud-status-opening);
   text-shadow: none;
 }
+:root[data-theme="light"] .agent-hud__row-tools {
+  color: color-mix(in oklab, var(--term-blue) 72%, var(--hud-input-text));
+  border-color: color-mix(in oklab, var(--term-blue) 46%, var(--hud-input-border));
+  background: color-mix(in oklab, var(--term-blue) 10%, var(--hud-input-bg));
+}
+:root[data-theme="light"] .agent-hud__row-launch {
+  color: color-mix(in oklab, var(--term-green) 72%, var(--hud-input-text));
+  border-color: color-mix(in oklab, var(--term-green) 46%, var(--hud-input-border));
+  background: color-mix(in oklab, var(--term-green) 10%, var(--hud-input-bg));
+}
+:root[data-theme="light"] .agent-hud__row-tools:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__row-tools:not(:disabled):focus-visible {
+  color: var(--term-blue);
+  border-color: var(--term-blue);
+  background: color-mix(in oklab, var(--term-blue) 22%, var(--hud-input-bg));
+  text-shadow: none;
+}
+:root[data-theme="light"] .agent-hud__row-launch:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__row-launch:not(:disabled):focus-visible {
+  color: var(--term-green);
+  border-color: var(--term-green);
+  background: color-mix(in oklab, var(--term-green) 22%, var(--hud-input-bg));
+  text-shadow: none;
+}
 :root[data-theme="light"] .agent-hud__row-cancel {
   color: color-mix(in oklab, var(--term-amber) 72%, var(--hud-input-text));
   border-color: color-mix(
@@ -255,6 +415,16 @@
   box-shadow: inset 0 1px 0 color-mix(in oklab, white 48%, transparent);
   text-shadow: none;
 }
+
+:root[data-theme="light"] .app-nav__cta.agent-hud__start:not(:disabled):hover,
+:root[data-theme="light"] .app-nav__cta.agent-hud__start:not(:disabled):focus-visible {
+  color: var(--term-green);
+  border-color: var(--term-green);
+  background: color-mix(in oklab, var(--term-green) 24%, var(--hud-input-bg));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 70%, transparent),
+    0 0.22rem 0.42rem color-mix(in oklab, var(--term-green) 18%, transparent);
+}
+
 :root[data-theme="light"] .agent-hud__project-view {
   position: relative;
   z-index: 1;
@@ -293,7 +463,7 @@
   padding: 0.48rem 0.55rem;
 }
 :root[data-theme="light"] .agent-hud__row-actions {
-  width: 13.25rem;
+  width: 26rem;
   gap: 0.72rem;
 }
 :root[data-theme="light"] .agent-hud__row-action {
@@ -320,4 +490,9 @@
 }
 :root[data-theme="light"] .agent-hud__row-action:not(:disabled):active {
   transform: translateY(0);
+}
+
+:root[data-theme="light"] .agent-hud__capability-option:focus-visible {
+  outline: 2px solid var(--term-blue);
+  outline-offset: 2px;
 }

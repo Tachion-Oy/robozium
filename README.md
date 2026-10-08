@@ -204,6 +204,19 @@ and review configuration diffs before including them in an upstream PR.
 
 ## Run capabilities
 
+In the HUD, **New Project** opens the capability selector with a project-name
+field. A dormant project's **Tools** button (or its row) opens the same selector
+with the existing name. Choose optional capabilities, then click **Launch**.
+The row's green **Launch** button starts immediately with only the default
+capabilities.
+Fixed capabilities are always included and cannot be changed. Optional choices
+start unchecked each time; skills follow their declared loading mode.
+Selections apply only to that run, cannot be changed while it is running, and
+are never saved as project preferences or in browser storage. Relaunching keeps
+the project's memory while allowing a different set of capabilities.
+Switching to Dependencies and back to Launch keeps the current launch form open.
+Mock mode offers harmless **mock information** and **mock guidance** examples.
+
 RoboZ's Robozium definition owns the built-ins: filesystem, stop,
 compactification, and the Robozium skill are fixed. SafeScripts and Proton
 Bridge email are selectable. The application loads additional capabilities only
@@ -230,16 +243,32 @@ require credentials or connect to Bridge.
 
 ## Private capabilities
 
-Keep private tools in the root `local/` package. It is Git-ignored and excluded
-from the image and application distributions. The contract and loader are part
-of the tracked application. Start with the [example package](examples/local/__init__.py):
+Keep private capabilities in the root `local/` package. User files are
+Git-ignored; the shipped [Simpsons example](local/simpsons.py) is the sole tracked
+exception. The directory stays excluded from images and application distributions
+and is mounted read-only at runtime.
+
+The launchers create an ignored `local/__init__.py` from the
+[registration template](examples/local-registration.py) if it is missing. They
+preserve existing registration files. Uncomment the Simpsons import and entry,
+then restart the API to make **simpsons quotes** available in the live selector.
+The example registers RoboZ's `roboz.examples.simple.get_quote` directly. It
+returns a quote and stops the agent, and needs no extra packages.
+For an existing registration file, add `from .simpsons import SIMPSONS` and include
+`SIMPSONS` in `CAPABILITIES`. Direct API users can copy the registration template
+manually before startup.
+
+For another registration pattern, see the
+[example package](examples/local/__init__.py):
 
 ```sh
 mkdir -p local
-cp examples/local/__init__.py local/__init__.py
+cp examples/local/*.py examples/local/requirements.txt local/
 ```
 
-On Windows, create `local` and copy the example's `__init__.py` there. For each
+On Windows, create `local` and copy all files from `examples/local` there. The
+example registers a selectable, on-demand skill with a tool that returns the
+current project's name. Replace its declaration with your own tools. For each
 tool, put its Python package and `requirements.txt` under `local/`, then add one
 declaration to `local/__init__.py`:
 
@@ -254,6 +283,25 @@ CAPABILITIES = (
 The named class or zero-argument factory must return a RoboZ `Capability`.
 Use a label with `selectable=True` to allow that local capability to be chosen
 for a run.
+
+### Migrating private capabilities to RoboZ 0.6.1a1
+
+RoboZ `0.6.1a1` removed `AgentCapability` and changed capability construction.
+Existing private tools must migrate before restarting the upgraded application:
+
+- Subclass `Capability` and initialize it with `ToolLabel` or `SkillLabel`.
+  Use `SkillLabel("timesheet", selectable=True)` for a selectable on-demand skill.
+- Return a tuple of tools, tool chains, or skills from `build()`. For example,
+  replace `Capability(skills=(skill,))` with `(skill,)`. The deployment applies
+  the capability's label to those values.
+- Remove frozen dataclass decoration from subclasses that call the new
+  `Capability` constructor. Keep runtime binding in `build()`.
+
+See the [working skill example](examples/local/example_skill.py). A change to
+the import alone does not migrate the old build result.
+
+### Loading and dependencies
+
 The requirements file must exist; leave it empty when the tool needs no extra
 packages. On API startup, Robozium validates every declaration, installs all
 registered requirements together into ignored `.runtime/local-deps/`, then
@@ -274,7 +322,7 @@ its scripted agents, which do not execute private tools.
 
 Keep `local/__init__.py` limited to declarations so requirements install before
 tool code imports. Bind run-specific state in the capability's `build` method.
-Back up `local/` separately from Git history.
+Back up private files in `local/` separately from Git history.
 
 ## Host scripts on Linux
 

@@ -10,6 +10,7 @@ test("replies to the active prompt while an older message is displayed", async (
 	await projectRow(page, slug)
 		.getByRole("button", { name: `Open ${slug}` })
 		.click()
+	await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true }).click()
 
 	const textarea = page.locator(".agent-hud__textarea")
 	const previous = page.getByRole("button", {

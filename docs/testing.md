@@ -83,7 +83,7 @@ selected only for infrastructure checks, outside the application browser suite.
 Run the same checks as CI:
 
 ```sh
-uv run ruff check src tests scripts
+uv run ruff check src tests scripts examples/local-registration.py local/simpsons.py examples/local
 uv run pyright
 uv run pytest --cov-fail-under=90
 npm --prefix web run lint
@@ -96,8 +96,9 @@ The default pytest run collects `tests/unit/` and `tests/contract/`, with covera
 for `robozium` and a 90% CI minimum. Installation and infrastructure suites run
 explicitly; a default run launches no browser services. Vitest collects
 `web/tests/**/*.test.ts` and `.test.tsx`, excluding runner probes. Pyright checks
-the Python source, hub configuration, and test support; TypeScript checks the
-frontend and Playwright files.
+the Python source, hub configuration, local-capability examples and registration
+template, Simpsons capability, container capability check, and test support;
+TypeScript checks the frontend and Playwright files.
 
 During development, run a focused test or file first, for example
 `uv run pytest tests/unit/test_config.py` or

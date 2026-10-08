@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useReducer, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { useStore } from "zustand"
 import {
@@ -12,6 +12,8 @@ import type { ModelSelection, Project } from "@/lib/robozium/wire"
 import { hudVisibilityStore } from "@/lib/robozium/hud-visibility"
 import { useHudEscapeDismiss } from "@/hooks/useHudEscapeDismiss"
 import { useRunSessionSelector } from "@/hooks/useRunSession"
+import { useProjectLaunch } from "@/hooks/useProjectLaunch"
+import { initialHudNavigation, reduceHudNavigation } from "@/lib/robozium/hud-navigation"
 import {
 	HudCornerControls,
 	type LayoutMode,
@@ -21,7 +23,6 @@ import { HudHeader } from "./HudHeader"
 import { HudProjectBadge } from "./HudProjectBadge"
 import {
 	resolveHudPresentation,
-	selectHudScreen,
 	type HudScreen,
 } from "./hudPresentation"
 import { HudScreenContent } from "./HudScreenContent"
@@ -44,15 +45,12 @@ export function AgentHUD({
 	defaultModelSelectionPromise = null,
 }: AgentHUDProps) {
 	const [layoutMode, setLayoutMode] = useState<LayoutMode>("top")
-	const [selectedScreen, setSelectedScreen] = useState<HudScreen>(
-		runId ? "run" : "projects",
-	)
+	const [navigation, dispatch] = useReducer(reduceHudNavigation, runId, initialHudNavigation)
+	const launchProject = useProjectLaunch(() => dispatch({ type: "launch_closed" }))
 	const [replyDraft, setReplyDraft] = useState("")
-	const [prevRunId, setPrevRunId] = useState(runId)
-	if (runId !== prevRunId) {
-		setPrevRunId(runId)
+	if (runId !== navigation.runId) {
+		dispatch({ type: "reset", runId })
 		setLayoutMode("top")
-		setSelectedScreen(runId ? "run" : "projects")
 		setReplyDraft("")
 	}
 	const phase = useRunSessionSelector(
@@ -84,7 +82,8 @@ export function AgentHUD({
 		hasRun: Boolean(runId),
 		phase,
 		runUnavailable,
-		selectedScreen,
+		selectedScreen: navigation.screen,
+		launch: navigation.launch,
 	})
 	const { context } = presentation
 	const isLanding = context === "landing"
@@ -136,17 +135,18 @@ export function AgentHUD({
 			hudVisibilityStore.setState({ runActive: false, prompting: false })
 	}, [])
 
+	const dismiss = () => {
+		dispatch({ type: "launch_closed" })
+		hudVisibilityStore.setState({ open: false })
+	}
 	useHudEscapeDismiss(
-		() => hudVisibilityStore.setState({ open: false }),
+		dismiss,
 		!isLanding && isOpen && showPanel,
 	)
 
 	const showHud = isLanding || Boolean(runId)
 	if (!showHud) return null
-	const selectScreen = (screen: typeof presentation.screen) =>
-		setSelectedScreen((current) =>
-			selectHudScreen(current, context, screen),
-		)
+	const selectScreen = (screen: HudScreen) => dispatch({ type: "screen_selected", screen })
 	// Intro entrance classes must not leak into the run view: their finished
 	// fill-mode:both animations hold opacity/background at animation priority,
 	// which would override the agent-hud--hidden dismissal styles.
@@ -184,8 +184,7 @@ export function AgentHUD({
 									setLayoutMode((mode) =>
 										moveLayoutMode(mode, direction),
 									),
-								onMinimize: () =>
-									hudVisibilityStore.setState({ open: false }),
+								onMinimize: dismiss,
 							}}
 						/>
 						{presentation.showProjectBadge ? (
@@ -200,6 +199,10 @@ export function AgentHUD({
 							/>
 						) : null}
 						<HudScreenContent
+							projectsVisible={isLanding || isOpen}
+							navigation={navigation}
+							dispatch={dispatch}
+							onLaunch={launchProject}
 							presentation={presentation}
 							runId={runId}
 							replyDraft={replyDraft}

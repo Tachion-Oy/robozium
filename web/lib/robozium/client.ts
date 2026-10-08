@@ -1,5 +1,6 @@
 import type {
 	CancelResponse,
+	CapabilityView,
 	CreateBody,
 	CreateResponse,
 	CredentialStatus,
@@ -69,6 +70,17 @@ export async function listProjects(init?: {
 		headers: {
 			Accept: "application/json",
 		},
+		signal: init?.signal,
+	})
+}
+
+export async function listCapabilities(init?: {
+	signal?: AbortSignal
+}): Promise<CapabilityView[]> {
+	return fetchJson<CapabilityView[]>("/api/capabilities", {
+		method: "GET",
+		cache: "no-store",
+		headers: { Accept: "application/json" },
 		signal: init?.signal,
 	})
 }

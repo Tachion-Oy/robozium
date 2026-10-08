@@ -2,12 +2,14 @@
 
 import sys
 from pathlib import Path
+from shutil import copytree
 from types import SimpleNamespace
 
 import pytest
 from config_support import write_config
 from deployment_support import configured_deployment, foreground_agent
 from roboz.llm import MockLLMEndpoint
+from roboz.models import Empty
 
 from robozium.hub.local import load_local_capabilities
 from robozium.hub.utils import load_hub
@@ -19,6 +21,28 @@ def _package(root: Path, source: str) -> Path:
     entrypoint = package / "__init__.py"
     entrypoint.write_text(source)
     return entrypoint
+
+
+def test_example_skill_loads_builds_and_follows_project_and_selection(tmp_path):
+    example = Path(__file__).resolve().parents[2] / "examples/local"
+    copytree(example, tmp_path / "local")
+    hub = load_hub(config_file=write_config(tmp_path))
+    label = next(label for label in hub.capabilities() if label.name == "local_example")
+    assert label.kind == "skill" and label.selectable
+    for slug in ("first", "second"):
+        project = hub.project(slug)
+        definition = hub.configure_deployment(
+            project.sandbox, project.slug, endpoint_getter=lambda: hub.default_model
+        )
+        definition.set_capability_selection({"local_example": True})
+        agent, _ = definition.build()
+        skill = next(skill for skill in agent.skills if skill.name == "local_example")
+        assert skill.tools[0](Empty(), []).project == slug
+        assert all(skill.name != "local_example" for skill in agent.auto_loaded_skills)
+        definition.set_capability_selection({})
+        agent, _ = definition.build()
+        assert all(skill.name != "local_example" for skill in agent.skills)
+    assert not hub.sandbox.root.exists()
 
 
 @pytest.mark.parametrize("source", [None, "", "CAPABILITIES = ()", "CAPABILITIES = []"])

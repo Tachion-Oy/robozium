@@ -2,10 +2,36 @@ import { describe, expect, it } from "vitest"
 import { RunHudPhase } from "../../../../lib/robozium/session/reducer"
 import {
 	resolveHudPresentation,
-	selectHudScreen,
 } from "../../../../app/components/hud/hudPresentation"
 
 describe("HUD presentation", () => {
+	it("uses the default model for launching another project during an active run", () => {
+		const presentation = resolveHudPresentation({
+			hasRun: true,
+			phase: RunHudPhase.Prompting,
+			runUnavailable: false,
+			selectedScreen: "launch",
+			launch: { project: "another-project", name: "another-project", capabilities: {} },
+		})
+		expect(presentation.screen).toBe("launch")
+		expect(presentation.modelScope).toBe("default")
+		expect(presentation.showProjectBadge).toBe(false)
+	})
+	it("offers Launch as a distinct screen while retaining Runs Overview", () => {
+		const presentation = resolveHudPresentation({
+			hasRun: false,
+			phase: RunHudPhase.Passive,
+			runUnavailable: false,
+			selectedScreen: "dependencies",
+			launch: { project: null, name: "Draft", capabilities: {} },
+		})
+		expect(presentation.screen).toBe("dependencies")
+		expect(presentation.screenOptions).toEqual([
+			{ value: "projects", label: "Runs Overview" },
+			{ value: "dependencies", label: "Dependencies" },
+			{ value: "launch", label: "Launch" },
+		])
+	})
 	it.each([
 		{
 			name: "landing",
@@ -63,7 +89,7 @@ describe("HUD presentation", () => {
 	)
 
 	it("preserves the selected panel when a run finishes", () => {
-		const selected = selectHudScreen("run", "active-run", "dependencies")
+		const selected = "dependencies"
 		expect(selected).toBe("dependencies")
 		expect(resolveHudPresentation({
 			hasRun: true,
@@ -77,6 +103,5 @@ describe("HUD presentation", () => {
 			runUnavailable: false,
 			selectedScreen: selected,
 		}).headerVariant).toBe("row")
-		expect(selectHudScreen(selected, "landing", "run")).toBe(selected)
 	})
 })

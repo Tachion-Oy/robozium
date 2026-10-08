@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- Add a per-launch HUD capability selector for new and existing projects, with
+  fixed defaults shown in faded green and optional choices reset on every opening.
+- Add blue Tools row actions for capability selection and green Launch actions
+  for starting with defaults, compact the runs table, and remove the redundant
+  Agent column.
+- Add hover feedback to HUD launch controls without changing their size, and
+  prevent Enter in the project name field from starting a run.
+- Make the light-mode HUD frame shadow dimmer and symmetric.
+- Keep Launch as a separate HUD view, retain drafts across view changes, and
+  report launch failures even when the HUD has been dismissed.
+- Retain model choices per scope when switching between Launch and active-run
+  views, including model saves that finish after switching views.
+- Remove the redundant `current_agent_name` field from project-list summaries.
+- Offer selectable mock tool and skill examples and cover capability changes
+  when relaunching a project with existing memory.
+- Ship an optional Simpsons quote capability and seed ignored local registration
+  from a commented template without overwriting private configuration.
+- Document the RoboZ `0.6.1a1` migration for private capabilities and supply a
+  working selectable skill example, validated during Docker onboarding.
+
 - Pin RoboZ `0.6.1a1` for deployment capability selection and built-in tools.
 
 - Accept orchestrator capability choices when creating a run, expose the

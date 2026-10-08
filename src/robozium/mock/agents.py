@@ -7,7 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import SupportsIndex
 
-from roboz.deployment import Capability, DeployableAgent, RequiredAttributes, ToolLabel
+from roboz.deployment import (
+    Capability,
+    DeployableAgent,
+    RequiredAttributes,
+    SkillLabel,
+    ToolLabel,
+)
 from roboz.llm import LLMEndpoint, LLMEndpointRoute, MockLLMEndpoint, MockProviderError
 from roboz.models import AgentMode, Empty, Message
 from roboz.runtime import EventPipe, interact_with_user
@@ -20,8 +26,9 @@ from roboz.shed.capabilities import (
     MemoryConsolidation,
 )
 from roboz.shed.sandbox import Sandbox
+from roboz.skill import Skill
 from roboz.tooling import Tool
-from roboz.tooling.decorators import factory
+from roboz.tooling.decorators import factory, tool
 from roboz.tools import stop
 
 from robozium.api.projects import Project
@@ -56,6 +63,35 @@ LIBRARIAN_CANCEL_HOLD_MARKER = ".librarian-cancel-hold"
 LIBRARIAN_HOLD_MAX_S = 120.0
 LIBRARIAN_HOLD_POLL_S = 0.05
 ScriptedMockResponse = dict[str, object] | Exception
+
+
+class MockInformation(Empty):
+    message: str
+
+
+@tool
+def mock_information(input: Empty, messages: list[Message]) -> MockInformation:
+    """Return a fixed message for trying optional capabilities in mock mode."""
+    return MockInformation(message="The optional mock capability is available.")
+
+
+def _selection_examples() -> tuple[Capability, ...]:
+    """Offer harmless tool and skill choices without changing scripted responses."""
+    return (
+        Capability(
+            label=ToolLabel("mock_information", selectable=True),
+            value=mock_information,
+        ),
+        Capability(
+            label=SkillLabel("mock_guidance", selectable=True),
+            value=Skill(
+                name="mock_guidance",
+                description="Try an optional skill in mock mode.",
+                instructions="Use mock_skill_information to return the demonstration message.",
+                tools=(mock_information.copy(name="mock_skill_information"),),
+            ),
+        ),
+    )
 
 
 @factory
@@ -170,6 +206,7 @@ def _mock_recipe(
         nested_agents=(specialist,),
     )
     root.add_capabilities(
+        *_selection_examples(),
         _MockSetup(
             (
                 *((prepare_mock_artifact(project),) if prepare_artifact else ()),
@@ -259,6 +296,7 @@ def mock_deployment(
             ),
         )
         root.add_capabilities(
+            *_selection_examples(),
             _MockSetup(()),
             _MockSinks(()),
         )

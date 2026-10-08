@@ -47,7 +47,7 @@ test("starting with locked keys shows the shared error toast", async ({ page }) 
 	await page.goto("/?from=app")
 	await page.getByRole("button", { name: "New Project", exact: true }).click()
 	await page.getByRole("textbox", { name: "Project name" }).fill("locked-test")
-	await page.getByRole("button", { name: "Create Project", exact: true }).click()
+	await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true }).click()
 
 	const toast = page.locator(".agent-error-toast.agent-error-toast--error")
 	await expect(toast).toBeVisible()

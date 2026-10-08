@@ -8,6 +8,7 @@ import {
 import { PipeEventType, WireRole, type RunView } from "../../../../lib/robozium/wire"
 
 const runningView: RunView = {
+	capabilities: {},
 	project: "alpha",
 	status: "running",
 	current_agent_name: "root",

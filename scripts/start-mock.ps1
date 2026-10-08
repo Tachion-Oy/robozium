@@ -34,6 +34,9 @@ try {
     foreach ($directory in $runtimeDirectories) {
         [System.IO.Directory]::CreateDirectory($directory) | Out-Null
     }
+    if (-not (Test-Path -LiteralPath 'local/__init__.py')) {
+        Copy-Item -LiteralPath 'examples/local-registration.py' -Destination 'local/__init__.py'
+    }
 
     & docker @composeArguments up --build --exit-code-from api
     $composeExitCode = $LASTEXITCODE

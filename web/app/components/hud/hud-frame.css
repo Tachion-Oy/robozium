@@ -79,7 +79,7 @@ body:has(.agent-hud--landing) .term-frame {
 }
 
 /* A finished run keeps its enlarged shell while the title returns. Cover the
-   title behind the transparent dark shell, with a soft edge in either theme. */
+   title behind the transparent dark shell with a soft edge. */
 body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   --hud-title-cover: rgb(var(--hud-shell-rgb));
   --hud-title-shadow: 0 calc(-0.5 * var(--landing-hud-edge-gap))
@@ -845,13 +845,14 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
      through antialiased pixels where the rounded inner surface meets the
      inset rail. */
   background: var(--hud-light-rail-bg);
-  box-shadow: var(--hud-title-shadow, 0 0 0 transparent),
-    inset 0 0 0 var(--hud-light-inner-rail) var(--hud-light-rail-bg),
+  /* The opaque light shell covers the title without the dark shell's top
+     shadow. Keep its outer halo faint and centered on every edge. */
+  box-shadow: inset 0 0 0 var(--hud-light-inner-rail) var(--hud-light-rail-bg),
     inset 0 1px 0 color-mix(in oklab, white 38%, transparent),
-    0 0.45rem 1rem
-      color-mix(in oklab, var(--hud-control-ink) 15%, transparent),
-    0 1.2rem 2.8rem
-      color-mix(in oklab, var(--hud-control-ink) 13%, transparent);
+    0 0 1rem
+      color-mix(in oklab, var(--hud-control-ink) 8%, transparent),
+    0 0 2.8rem
+      color-mix(in oklab, var(--hud-control-ink) 4%, transparent);
   filter: none;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;

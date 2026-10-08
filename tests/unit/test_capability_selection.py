@@ -148,6 +148,28 @@ def test_reuse_compares_effective_choices_and_projects_are_independent(launch_ap
     )
 
 
+def test_relaunch_replaces_choices_and_preserves_project_memory(launch_api):
+    hub, _, client = launch_api
+    project = hub.project("alpha")
+    project.memory.mkdir(parents=True)
+    memory = project.memory / "memory.md"
+    memory.write_text("Remember the user's project preferences.")
+    first = client.post(
+        "/run/create", json={"project": "alpha", "capabilities": {"email": True}}
+    ).json()["run_id"]
+    assert client.post("/projects/alpha/cancel").status_code == 200
+    second = client.post(
+        "/run/create", json={"project": "alpha", "capabilities": {"optional_tool": True}}
+    ).json()["run_id"]
+    assert second != first
+    choices = client.get(f"/run/{second}").json()["capabilities"]
+    assert choices["email"] is False
+    assert choices["optional_tool"] is True
+    assert client.get(f"/run/{first}").json()["capabilities"]["email"] == "automatic"
+    assert memory.read_text() == "Remember the user's project preferences."
+    assert list(project.memory.iterdir()) == [memory]
+
+
 @pytest.mark.parametrize("enabled", [False, True])
 def test_worker_builds_with_the_creation_selection(launch_api, enabled):
     import json

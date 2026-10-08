@@ -429,14 +429,12 @@ def test_api_projects_lists_project_folders(tmp_path: Path) -> None:
             "slug": "alpha",
             "status": "dormant",
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         },
         {
             "slug": "beta",
             "status": "dormant",
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         },
     ]
@@ -500,7 +498,6 @@ def test_api_projects_reports_syncing_from_running_librarian_log_without_live_ru
             "slug": TEST_PROJECT_SLUG,
             "status": "syncing",
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]
@@ -526,7 +523,6 @@ def test_api_projects_reports_dormant_from_terminal_librarian_log_without_live_r
             "slug": TEST_PROJECT_SLUG,
             "status": "dormant",
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]
@@ -549,7 +545,6 @@ def test_api_projects_ignores_torn_librarian_json_without_crashing(
             "slug": TEST_PROJECT_SLUG,
             "status": "dormant",
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]
@@ -686,7 +681,6 @@ def test_api_projects_ignores_pending_snapshot_artifacts_without_live_run(
             "slug": TEST_PROJECT_SLUG,
             "status": "dormant",
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]
@@ -717,7 +711,6 @@ def test_api_projects_reports_dormant_for_non_liveness_disk_artifacts(
             "slug": TEST_PROJECT_SLUG,
             "status": "dormant",
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]
@@ -750,7 +743,6 @@ def test_api_cancelled_project_transitions_from_cancelling_to_dormant(
             "slug": TEST_PROJECT_SLUG,
             "status": "cancelling",
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]
@@ -766,7 +758,6 @@ def test_api_cancelled_project_transitions_from_cancelling_to_dormant(
             "slug": TEST_PROJECT_SLUG,
             "status": "dormant",
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]
@@ -793,7 +784,6 @@ def test_api_projects_reports_dormant_after_cancelled_run(tmp_path: Path) -> Non
             "slug": TEST_PROJECT_SLUG,
             "status": "dormant",
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]
@@ -825,7 +815,6 @@ def test_api_projects_cancel_syncing_project_without_run_id(tmp_path: Path) -> N
             "slug": TEST_PROJECT_SLUG,
             "status": "syncing",
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]
@@ -899,7 +888,7 @@ def test_api_projects_reports_dormant_when_root_terminal_and_librarian_not_runni
     assert row["slug"] == TEST_PROJECT_SLUG
     assert row["status"] == "dormant"
     assert row["run_id"] is None
-    assert row["current_agent_name"] is None
+    assert "current_agent_name" not in row
     assert row["created_at"] is None
     stream = client.get(f"/run/{run_id}/stream")
     assert stream.status_code == 409
@@ -1124,7 +1113,6 @@ def test_api_startup_clears_pre_boot_librarian_marker(tmp_path: Path) -> None:
             "slug": TEST_PROJECT_SLUG,
             "status": "dormant",
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]
@@ -1149,7 +1137,6 @@ def test_api_startup_clears_pre_boot_orchestrator_marker(tmp_path: Path) -> None
             "slug": TEST_PROJECT_SLUG,
             "status": "dormant",
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]
@@ -1172,7 +1159,6 @@ def test_api_startup_skips_torn_conversation_json(tmp_path: Path) -> None:
             "slug": TEST_PROJECT_SLUG,
             "status": "dormant",
             "run_id": None,
-            "current_agent_name": None,
             "created_at": None,
         }
     ]

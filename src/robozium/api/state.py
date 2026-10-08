@@ -133,4 +133,3 @@ class ProjectRunItem(TypedDict):
     project: str
     status: RunStatus
     created_at: float
-    current_agent_name: str | None

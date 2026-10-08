@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
 	useSearchParams: () => new URLSearchParams(mocks.searchParams),
+	useRouter: () => ({ push: vi.fn() }),
 }))
 vi.mock("../../../../hooks/useHudEscapeDismiss", () => ({
 	useHudEscapeDismiss: () => {},

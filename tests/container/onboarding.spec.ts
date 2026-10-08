@@ -40,7 +40,7 @@ test("a fresh clone completes the first-use browser journey", async ({ page }) =
 	await openLanding(page)
 	await page.getByRole("button", { name: "New Project", exact: true }).click()
 	await page.getByLabel("Project name").fill(PROJECT_NAME)
-	await page.getByRole("button", { name: "Create Project" }).click()
+	await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true }).click()
 	await expect(page).toHaveURL(/[?&]runId=/)
 
 	await expectGeneratedArtifact(page)
@@ -71,6 +71,8 @@ test("the first-use project survives API replacement", async ({ page }) => {
 	await page
 		.getByRole("button", { name: `Open ${PROJECT_SLUG}`, exact: true })
 		.click()
+	await page.getByRole("form", { name: "Capability selector" })
+		.getByRole("button", { name: "Launch", exact: true }).click()
 	await expect(page).toHaveURL(/[?&]runId=/)
 	await expectGeneratedArtifact(page)
 })

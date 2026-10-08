@@ -86,6 +86,7 @@ export type RunStatus = `${WireRunStatus}`
 export type LifecycleStatus = `${WireLifecycleStatus}`
 
 export type RunView = {
+	capabilities: CapabilitySelection
 	project: string
 	status: RunStatus
 	current_agent_name: string | null
@@ -106,13 +107,23 @@ export type Project = {
 	slug: string
 	status: ProjectStatus
 	run_id: string | null
-	current_agent_name: string | null
 	created_at: number | null
 }
 export type ProjectSlug = string
 export type ProjectCreateBody = { name: string }
 export type ProjectCreateResponse = { slug: ProjectSlug }
-export type CreateBody = { project: ProjectSlug }
+export type SkillLoading = "automatic" | "on_demand"
+export type CapabilitySelection = Record<string, boolean | SkillLoading>
+export type CapabilityView = {
+	name: string
+	kind: "tool" | "skill"
+	selectable: boolean
+	loading: SkillLoading | null
+}
+export type CreateBody = {
+	project: ProjectSlug
+	capabilities?: CapabilitySelection | null
+}
 export type CreateResponse = { run_id: string }
 
 export type ReplyBody = { prompt_id?: string | null; content: string }

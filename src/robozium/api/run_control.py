@@ -103,7 +103,6 @@ class RunControl:
                 "project": self.project.slug,
                 "status": self._status,
                 "created_at": self._created_at,
-                "current_agent_name": self._events.current_agent_name,
             }
 
     def snapshot(self) -> RunState:

@@ -45,6 +45,7 @@ function viewResponse(runView: RunView): Response {
 
 function runningView(messageTrace: RunView["message_trace"]): RunView {
 	return {
+		capabilities: {},
 		project: "alpha",
 		status: "running",
 		current_agent_name: "root",

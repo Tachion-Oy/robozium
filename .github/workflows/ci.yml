@@ -46,7 +46,7 @@ jobs:
       - name: Python tests, lint, and types
         run: |
           uv sync --locked --dev
-          uv run ruff check src tests scripts
+          uv run ruff check src tests scripts examples/local-registration.py local/simpsons.py examples/local
           uv run pyright
           uv run pytest --cov-fail-under=90
           uv run pytest tests/infrastructure/test_runtime_compose.py --no-cov -q
