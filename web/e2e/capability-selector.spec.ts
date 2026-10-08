@@ -56,7 +56,7 @@ test("new projects choose capabilities once and cancelled drafts are discarded",
 	await expect(selector.getByRole("checkbox", { name: "mock information", exact: true })).not.toBeChecked()
 })
 
-test("Launch uses defaults directly after cancelling a Tools selection", async ({ page, request }) => {
+test("Launch uses defaults when no choices have been saved", async ({ page, request }) => {
 	const slug = await createProject(request, `Default Launch ${Date.now()}`)
 	await gotoLanding(page)
 	const row = projectRow(page, slug)
@@ -73,7 +73,7 @@ test("Launch uses defaults directly after cancelling a Tools selection", async (
 	expect((await response.json()).capabilities).toMatchObject({ mock_information: false, mock_guidance: false })
 })
 
-test("relaunch uses fresh choices while project memory survives", async ({ page, request }) => {
+test("relaunch restores saved choices, discards cancelled edits, and retains project memory", async ({ page, request }) => {
 	const slug = await createProject(request, `Relaunch Capabilities ${Date.now()}`)
 	const { memory } = e2eProjectPaths(slug)
 	await fs.mkdir(memory, { recursive: true })
@@ -99,14 +99,63 @@ test("relaunch uses fresh choices while project memory survives", async ({ page,
 	await request.post(`/api/projects/${encodeURIComponent(slug)}/cancel`)
 	await waitForProjectRowStatus(page, slug, "DORMANT")
 	await row.getByRole("button", { name: "Tools", exact: true }).click()
-	await expect(selector.getByRole("checkbox", { name: "mock information", exact: true })).not.toBeChecked()
-	await selector.getByRole("button", { name: "Launch", exact: true }).click()
+	await expect(selector.getByRole("checkbox", { name: "mock information", exact: true })).toBeChecked()
+	await selector.getByRole("checkbox", { name: "mock information", exact: true }).uncheck()
+	await selector.getByRole("button", { name: "Cancel", exact: true }).click()
+	await row.getByRole("button", { name: "Launch", exact: true }).click()
 	await expect(page).toHaveURL(/[?&]runId=/)
 	const secondRun = new URL(page.url()).searchParams.get("runId")!
 	expect(secondRun).not.toBe(firstRun)
 	const response = await request.get(`/api/runs/${encodeURIComponent(secondRun)}/view`)
-	expect((await response.json()).capabilities).toMatchObject({ mock_information: false, mock_guidance: false })
+	expect((await response.json()).capabilities).toMatchObject({ mock_information: true, mock_guidance: false })
+	await request.post(`/api/projects/${encodeURIComponent(slug)}/cancel`)
+	await gotoLanding(page)
+	await waitForProjectRowStatus(page, slug, "DORMANT")
+	await row.getByRole("button", { name: "Tools", exact: true }).click()
+	await expect(selector.getByRole("checkbox", { name: "mock information", exact: true })).toBeChecked()
+	await selector.getByRole("checkbox", { name: "mock information", exact: true }).uncheck()
+	await selector.getByRole("button", { name: "Launch", exact: true }).click()
+	await expect(page).toHaveURL(/[?&]runId=/)
+	const thirdRun = new URL(page.url()).searchParams.get("runId")!
+	const updated = await request.get(`/api/runs/${encodeURIComponent(thirdRun)}/view`)
+	expect((await updated.json()).capabilities).toMatchObject({ mock_information: false, mock_guidance: false })
+	const saved = await request.get(`/api/capabilities/${encodeURIComponent(slug)}`)
+	expect(await saved.json()).toEqual({})
 	expect(await fs.readFile(sentinel, "utf8")).toBe("Retain these project preferences.")
+})
+
+test("a failed save blocks launch and a new project can retry without being recreated", async ({ page, request }) => {
+	await gotoLanding(page)
+	await page.getByRole("button", { name: "New Project", exact: true }).click()
+	const selector = page.getByRole("form", { name: "Capability selector" })
+	await selector.getByLabel("Project name").fill(`Save retry ${Date.now()}`)
+	await selector.getByRole("checkbox", { name: "mock information", exact: true }).check()
+	let saves = 0
+	let creations = 0
+	let launches = 0
+	page.on("request", (request) => {
+		if (request.method() !== "POST") return
+		if (new URL(request.url()).pathname === "/api/projects") creations++
+		if (new URL(request.url()).pathname === "/api/runs/create") launches++
+	})
+	await page.route("**/api/capabilities/*", async (route) => {
+		if (route.request().method() === "POST" && ++saves === 1) {
+			await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "Cannot save capability selection" }) })
+		} else await route.continue()
+	})
+	await selector.getByRole("button", { name: "Launch", exact: true }).click()
+	await expect(page.getByText("Cannot save capability selection", { exact: true })).toBeVisible()
+	await expect(selector.getByRole("checkbox", { name: "mock information", exact: true })).toBeChecked()
+	expect(launches).toBe(0)
+	await expect(page).not.toHaveURL(/[?&]runId=/)
+	await selector.getByRole("button", { name: "Launch", exact: true }).click()
+	await expect(page).toHaveURL(/[?&]runId=/)
+	expect(creations).toBe(1)
+	expect(saves).toBe(2)
+	expect(launches).toBe(1)
+	const runId = new URL(page.url()).searchParams.get("runId")!
+	const response = await request.get(`/api/runs/${encodeURIComponent(runId)}/view`)
+	expect((await response.json()).capabilities).toMatchObject({ mock_information: true })
 })
 
 test("the compact table and selector fit the HUD in both themes", async ({ page, request }) => {

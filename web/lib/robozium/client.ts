@@ -1,5 +1,6 @@
 import type {
 	CancelResponse,
+	CapabilitySelection,
 	CapabilityView,
 	CreateBody,
 	CreateResponse,
@@ -82,6 +83,30 @@ export async function listCapabilities(init?: {
 		cache: "no-store",
 		headers: { Accept: "application/json" },
 		signal: init?.signal,
+	})
+}
+
+export async function getProjectCapabilitySelection(
+	project: string,
+	init?: { signal?: AbortSignal },
+): Promise<CapabilitySelection | null> {
+	return fetchJson<CapabilitySelection | null>(`/api/capabilities/${encodeURIComponent(project)}`, {
+		method: "GET",
+		cache: "no-store",
+		headers: { Accept: "application/json" },
+		signal: init?.signal,
+	})
+}
+
+export async function saveProjectCapabilitySelection(
+	project: string,
+	selection: CapabilitySelection,
+): Promise<CapabilitySelection> {
+	return fetchJson<CapabilitySelection>(`/api/capabilities/${encodeURIComponent(project)}`, {
+		method: "POST",
+		cache: "no-store",
+		headers: { Accept: "application/json", "Content-Type": "application/json" },
+		body: JSON.stringify(selection),
 	})
 }
 

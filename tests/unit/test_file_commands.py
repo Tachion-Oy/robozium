@@ -56,7 +56,8 @@ def command_run(
     application = create_app(deployment=hub)
     client = TestClient(application)
     try:
-        assert client.post("/projects", json={"name": "alpha"}).status_code == 200
+        if not hub.project("alpha").root.exists():
+            assert client.post("/projects", json={"name": "alpha"}).status_code == 200
         response = client.post("/run/create", json={"project": "alpha"})
         assert response.status_code == 200
         run_id = response.json()["run_id"]

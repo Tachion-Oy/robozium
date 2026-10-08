@@ -81,6 +81,7 @@ class RunManager:
         capabilities: CapabilitySelection | None = None,
         background_sync_active: bool = False,
     ) -> str:
+        """Register a run with the supplied choices, or reuse a compatible active run."""
         if not project.slug.strip():
             raise ValueError("project slug must be non-empty")
         with self._lock:

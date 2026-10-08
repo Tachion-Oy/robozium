@@ -9,7 +9,6 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
-from roboz.deployment import SkillLabel, ToolLabel
 from roboz.llm import (
     MockTranscriptionEndpoint,
     ModelSelector,
@@ -19,6 +18,7 @@ from roboz.llm.calls import call_transcription_api
 from roboz.runtime import log_with_data
 from roboz.runtime.events import PipeEvent
 
+from robozium.api.capabilities import router as capability_router
 from robozium.api.credentials import CredentialGateMiddleware, LoadedCredentials
 from robozium.api.credentials import router as credential_router
 from robozium.api.dependencies import router as dependency_router
@@ -96,6 +96,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
             projects=projects,
         ),
     )
+    app.state.hub = deployment
     app.state.ready = False
     app.state.dependency_health = None
     app.state.run_manager = manager
@@ -105,10 +106,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
     app.add_middleware(CredentialGateMiddleware, loaded=app.state.loaded_credentials)
     app.include_router(dependency_router)
     app.include_router(credential_router)
-
-    @app.get("/capabilities", response_model=list[CapabilityView])
-    def capabilities_get() -> list[ToolLabel | SkillLabel]:
-        return deployment.capabilities()
+    app.include_router(capability_router)
 
     @app.get("/models", response_model=ModelSelectionView)
     def models_get(request: Request, run_id: str | None = None) -> ModelSelectionView:
@@ -171,7 +169,13 @@ def create_app(*, deployment: Hub) -> FastAPI:
 
     @app.post("/projects")
     def projects_create(body: ProjectCreateBody) -> dict[str, str]:
-        return {"slug": project_operation(lambda: projects.create(body.name))}
+        try:
+            return {"slug": project_operation(lambda: projects.create(body.name))}
+        except FileExistsError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="Project already exists. Open it from Runs Overview.",
+            ) from exc
 
     @app.get("/projects", response_model=list[ProjectSummary])
     def projects_get() -> list[ProjectSummary]:

@@ -207,7 +207,7 @@ def _create_run(client: TestClient, payload: dict[str, object] | None = None):
     project = TEST_PROJECT_SLUG
     if payload is not None and isinstance(payload.get("project"), str):
         project = payload["project"]
-    assert client.post("/projects", json={"name": project}).status_code == 200
+    assert client.post("/projects", json={"name": project}).status_code in {200, 409}
     body = {"project": project}
     if payload is not None:
         body.update(payload)

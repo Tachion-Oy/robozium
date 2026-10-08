@@ -5,7 +5,8 @@ export type HudScreen = "projects" | "run" | "dependencies" | "launch"
 export type LaunchDraft = {
 	project: string | null
 	name: string
-	capabilities: CapabilitySelection
+	/** Null restores saved choices; an object is the user's current draft. */
+	selection: CapabilitySelection | null
 }
 
 export type HudNavigation = {
@@ -18,7 +19,8 @@ export type HudNavigationEvent =
 	| { type: "reset"; runId: string | null }
 	| { type: "screen_selected"; screen: HudScreen }
 	| { type: "launch_opened"; project: string | null }
-	| { type: "launch_changed"; change: Partial<Pick<LaunchDraft, "name" | "capabilities">> }
+	| { type: "launch_changed"; change: Partial<Pick<LaunchDraft, "name" | "selection">> }
+	| { type: "launch_created"; name: string; project: string }
 	| { type: "launch_closed" }
 
 export function initialHudNavigation(runId: string | null): HudNavigation {
@@ -41,7 +43,7 @@ export function reduceHudNavigation(
 			return {
 				...state,
 				screen: "launch",
-				launch: { project: event.project, name: event.project ?? "", capabilities: {} },
+				launch: { project: event.project, name: event.project ?? "", selection: null },
 			}
 		case "launch_changed":
 			return state.launch
@@ -53,5 +55,9 @@ export function reduceHudNavigation(
 				screen: state.screen === "launch" ? "projects" : state.screen,
 				launch: null,
 			}
+		case "launch_created":
+			return state.launch?.project === null && state.launch.name.trim() === event.name
+				? { ...state, launch: { ...state.launch, project: event.project } }
+				: state
 	}
 }

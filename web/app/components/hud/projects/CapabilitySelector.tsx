@@ -3,14 +3,16 @@
 import { useEffect, useRef, type ComponentProps } from "react"
 import { DisplayArt } from "@/app/components/branding/DisplayArt"
 import { useCapabilities } from "@/hooks/useCapabilities"
+import { resolveCapabilitySelection } from "@/lib/robozium/capabilities"
 import type { LaunchDraft } from "@/lib/robozium/hud-navigation"
+import type { CapabilitySelection, CapabilityView } from "@/lib/robozium/wire"
 
 type CapabilitySelectorProps = {
 	draft: LaunchDraft
 	disabled: boolean
-	onChange: (change: Partial<Pick<LaunchDraft, "name" | "capabilities">>) => void
+	onChange: (change: Partial<Pick<LaunchDraft, "name" | "selection">>) => void
 	onCancel: () => void
-	onSubmit: () => void
+	onSubmit: (selection: CapabilitySelection) => void
 }
 
 const CAPABILITY_GROUPS = [
@@ -19,13 +21,14 @@ const CAPABILITY_GROUPS = [
 ] as const
 
 export function CapabilitySelector({
-	draft: { project, name, capabilities: selected },
+	draft: { project, name, selection: draftSelection },
 	disabled,
 	onChange,
 	onCancel,
 	onSubmit,
 }: CapabilitySelectorProps) {
-	const { catalog, error: catalogError, retry } = useCapabilities()
+	const { catalog, initialSelection, error: loadError, retry } = useCapabilities(project)
+	const currentSelection = draftSelection ?? initialSelection
 	const title = useRef<HTMLHeadingElement>(null)
 
 	useEffect(() => {
@@ -34,8 +37,21 @@ export function CapabilitySelector({
 
 	const handleSubmit: NonNullable<ComponentProps<"form">["onSubmit"]> = (event) => {
 		event.preventDefault()
-		if (disabled || catalog === null || !name.trim()) return
-		onSubmit()
+		if (disabled || catalog === null || currentSelection === null || loadError || !name.trim()) return
+		onSubmit(resolveCapabilitySelection(catalog, currentSelection))
+	}
+
+	const handleCapabilityToggle = ({ name, loading }: CapabilityView) => {
+		const nextSelection = {
+			...currentSelection,
+			[name]: initialSelection && Object.hasOwn(initialSelection, name)
+				? initialSelection[name]
+				: loading ?? true,
+		}
+		if (currentSelection && Object.hasOwn(currentSelection, name) && currentSelection[name]) {
+			delete nextSelection[name]
+		}
+		onChange({ selection: nextSelection })
 	}
 
 	return (
@@ -74,9 +90,9 @@ export function CapabilitySelector({
 			</div>
 			<p>Choose agent capabilities for this launch.</p>
 			<div className="agent-hud__table-scroll agent-hud__capability-list space-y-6 p-2">
-				{catalogError ? (
+				{loadError ? (
 					<div role="alert">
-						<p>Could not load capabilities.</p>
+						<p>{loadError}</p>
 						<button
 							type="button"
 							className="agent-hud__row-action agent-hud__row-tools"
@@ -100,15 +116,10 @@ export function CapabilitySelector({
 											type="button"
 											role="checkbox"
 											aria-label={capability.name.replaceAll("_", " ")}
-											aria-checked={!capability.selectable || Boolean(selected[capability.name])}
+											aria-checked={!capability.selectable || (currentSelection !== null && Object.hasOwn(currentSelection, capability.name) && Boolean(currentSelection[capability.name]))}
 											disabled={disabled || !capability.selectable}
 											className="agent-hud__row-action agent-hud__capability-option flex items-center gap-3"
-											onClick={() => {
-												const capabilities = { ...selected }
-												if (capabilities[capability.name]) delete capabilities[capability.name]
-												else capabilities[capability.name] = true
-												onChange({ capabilities })
-											}}>
+											onClick={() => handleCapabilityToggle(capability)}>
 											<span className="agent-hud__capability-name">
 												{capability.name.replaceAll("_", " ")}
 											</span>
@@ -127,7 +138,7 @@ export function CapabilitySelector({
 				<button
 					type="submit"
 					className="app-nav__cta agent-hud__start"
-					disabled={disabled || catalog === null || !name.trim()}>
+						disabled={disabled || catalog === null || currentSelection === null || Boolean(loadError) || !name.trim()}>
 					<DisplayArt name="launch" label={disabled ? "Launching…" : "Launch"} />
 				</button>
 				<button
