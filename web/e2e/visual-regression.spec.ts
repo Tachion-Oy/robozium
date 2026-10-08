@@ -196,7 +196,8 @@ test("freezes landing overview", async ({ page }) => {
 	await expectThemePair(page, page.locator("html"), "landing-overview", { fullPage: true })
 })
 
-test("freezes capability selector", async ({ page }) => {
+test("freezes capability selector", async ({ page, request }) => {
+	expect(await createProject(request, "paper-trail")).toBe("paper-trail")
 	await landing(page)
 	await page.getByRole("button", { name: "New Project", exact: true }).click()
 	const selector = page.getByRole("form", { name: "Capability selector" })
@@ -207,6 +208,7 @@ test("freezes capability selector", async ({ page }) => {
 	await page.locator("li", { has: page.getByRole("button", { name: "Open paper-trail", exact: true }) })
 		.getByRole("button", { name: "Tools", exact: true }).click()
 	await expect(selector.getByRole("heading", { name: "Project: paper-trail" })).toBeVisible()
+	await expect(selector.getByRole("checkbox", { name: /mock guidance/ })).toBeVisible()
 	await expectThemePair(page, page.locator(".agent-hud__box"), "capability-selector-existing")
 })
 
