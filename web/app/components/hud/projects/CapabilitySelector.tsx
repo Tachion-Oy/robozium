@@ -5,7 +5,7 @@ import { DisplayArt } from "@/app/components/branding/DisplayArt"
 import { useCapabilities } from "@/hooks/useCapabilities"
 import { resolveCapabilitySelection } from "@/lib/robozium/capabilities"
 import type { LaunchDraft } from "@/lib/robozium/hud-navigation"
-import type { CapabilitySelection } from "@/lib/robozium/wire"
+import type { CapabilitySelection, CapabilityView } from "@/lib/robozium/wire"
 
 type CapabilitySelectorProps = {
 	draft: LaunchDraft
@@ -39,6 +39,19 @@ export function CapabilitySelector({
 		event.preventDefault()
 		if (disabled || catalog === null || selected === null || catalogError || !name.trim()) return
 		onSubmit(resolveCapabilitySelection(catalog, selected))
+	}
+
+	const handleCapabilityToggle = ({ name, loading }: CapabilityView) => {
+		const next = {
+			...selected,
+			[name]: restored && Object.hasOwn(restored, name)
+				? restored[name]
+				: loading ?? true,
+		}
+		if (selected && Object.hasOwn(selected, name) && selected[name]) {
+			delete next[name]
+		}
+		onChange({ capabilities: next })
 	}
 
 	return (
@@ -106,15 +119,7 @@ export function CapabilitySelector({
 											aria-checked={!capability.selectable || (selected !== null && Object.hasOwn(selected, capability.name) && Boolean(selected[capability.name]))}
 											disabled={disabled || !capability.selectable}
 											className="agent-hud__row-action agent-hud__capability-option flex items-center gap-3"
-											onClick={() => {
-												const next = {
-													...selected,
-													[capability.name]: restored && Object.hasOwn(restored, capability.name)
-														? restored[capability.name] : capability.loading ?? true,
-												}
-												if (selected && Object.hasOwn(selected, capability.name) && selected[capability.name]) delete next[capability.name]
-												onChange({ capabilities: next })
-											}}>
+											onClick={() => handleCapabilityToggle(capability)}>
 											<span className="agent-hud__capability-name">
 												{capability.name.replaceAll("_", " ")}
 											</span>
