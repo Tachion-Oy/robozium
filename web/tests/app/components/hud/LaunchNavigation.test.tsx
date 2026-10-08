@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
 	push: vi.fn(), createProject: vi.fn(), createRun: vi.fn(), listCapabilities: vi.fn(),
 	listProjects: vi.fn(), listDependencies: vi.fn(), getCredentialStatus: vi.fn(), showErrorToast: vi.fn(),
 	getModelSelection: vi.fn(), selectModel: vi.fn(),
+	getProjectCapabilities: vi.fn(), saveProjectCapabilities: vi.fn(),
 }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }), useSearchParams: () => new URLSearchParams() }))
 vi.mock("../../../../lib/robozium/client", async (original) => ({
@@ -23,6 +24,8 @@ beforeEach(() => {
 		{ name: "filesystem", kind: "skill", selectable: false, loading: "automatic" },
 		{ name: "email", kind: "skill", selectable: true, loading: "on_demand" },
 	])
+	mocks.getProjectCapabilities.mockResolvedValue(null)
+	mocks.saveProjectCapabilities.mockImplementation(async (_project, choices) => choices)
 	mocks.listDependencies.mockResolvedValue([])
 	mocks.getCredentialStatus.mockResolvedValue({ locked: false, encrypted_file_exists: false })
 	mocks.createProject.mockResolvedValue({ slug: "new-project" })
@@ -93,7 +96,7 @@ it("retains a launch draft across unmounted screens, then submits only selected 
 	submit()
 	await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/?runId=new-run"))
 	expect(mocks.createProject).toHaveBeenCalledWith({ name: "New Project" })
-	expect(mocks.createRun).toHaveBeenCalledWith({ project: "new-project", capabilities: { email: true } })
+	expect(mocks.createRun).toHaveBeenCalledWith({ project: "new-project", capabilities: { email: "on_demand" } })
 	expect(screen.queryByRole("form")).toBeNull()
 })
 
@@ -108,6 +111,78 @@ it("cancel and run changes discard drafts", async () => {
 	selectView("Runs Overview")
 	fireEvent.click(await screen.findByRole("button", { name: "New Project" }))
 	expect((screen.getByLabelText("Project name") as HTMLInputElement).value).toBe("")
+	expect(mocks.saveProjectCapabilities).not.toHaveBeenCalled()
+})
+
+it("direct Launch restores current choices and waits for persistence before starting the run", async () => {
+	mocks.getProjectCapabilities.mockResolvedValue({ email: "automatic", removed: true, filesystem: false })
+	let completeSave!: () => void
+	mocks.saveProjectCapabilities.mockReturnValue(new Promise<void>((resolve) => { completeSave = resolve }))
+	render(<AgentHUD runId={null} introDone />)
+	fireEvent.click(await screen.findByRole("button", { name: "Launch" }))
+	await waitFor(() => expect(mocks.saveProjectCapabilities).toHaveBeenCalledWith("alpha", { email: "automatic" }))
+	expect(mocks.createRun).not.toHaveBeenCalled()
+	await act(async () => completeSave())
+	await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/?runId=new-run"))
+	expect(mocks.createRun).toHaveBeenCalledWith({ project: "alpha", capabilities: { email: "automatic" } })
+	expect(mocks.createProject).not.toHaveBeenCalled()
+})
+
+it("direct Launch stops on a saved-selection read failure without overwriting it", async () => {
+	mocks.getProjectCapabilities.mockRejectedValue(new AgentApiError(500, "Repair capabilities.json"))
+	render(<AgentHUD runId={null} introDone />)
+	fireEvent.click(await screen.findByRole("button", { name: "Launch" }))
+	await waitFor(() => expect(mocks.showErrorToast).toHaveBeenCalledWith({ title: "Launch failed", message: "Repair capabilities.json" }))
+	expect(mocks.saveProjectCapabilities).not.toHaveBeenCalled()
+	expect(mocks.createRun).not.toHaveBeenCalled()
+	expect(hudVisibilityStore.getState().navigationPending).toBe(false)
+})
+
+it("keeps edited saved choices across screens without persisting a cancelled draft", async () => {
+	mocks.getProjectCapabilities.mockResolvedValue({ email: "automatic" })
+	render(<AgentHUD runId={null} introDone />)
+	fireEvent.click(await screen.findByRole("button", { name: "Tools" }))
+	const checkbox = await screen.findByRole("checkbox", { name: "email" })
+	expect(checkbox.getAttribute("aria-checked")).toBe("true")
+	fireEvent.click(checkbox)
+	selectView("Dependencies")
+	selectView("Runs Overview")
+	await screen.findByRole("button", { name: "New Project" })
+	selectView("Launch")
+	expect((await screen.findByRole("checkbox", { name: "email" })).getAttribute("aria-checked")).toBe("false")
+	fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+	fireEvent.click(await screen.findByRole("button", { name: "Tools" }))
+	expect((await screen.findByRole("checkbox", { name: "email" })).getAttribute("aria-checked")).toBe("true")
+	expect(mocks.saveProjectCapabilities).not.toHaveBeenCalled()
+})
+
+it.each(["save", "run"])("retries a new project after a %s failure without creating it again", async (failure) => {
+	if (failure === "save") mocks.saveProjectCapabilities.mockRejectedValueOnce(new AgentApiError(500, "Cannot save choices"))
+	else mocks.createRun.mockRejectedValueOnce(new AgentApiError(503, "Run unavailable"))
+	render(<AgentHUD runId={null} introDone />)
+	await openNewProject()
+	submit()
+	await waitFor(() => expect(mocks.showErrorToast).toHaveBeenCalledOnce())
+	await screen.findByRole("checkbox", { name: "email" })
+	expect(screen.getByRole("heading", { name: "Project: new-project" })).not.toBeNull()
+	expect(screen.getByRole("checkbox", { name: "email" }).getAttribute("aria-checked")).toBe("true")
+	if (failure === "save") expect(mocks.createRun).not.toHaveBeenCalled()
+	submit()
+	await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/?runId=new-run"))
+	expect(mocks.createProject).toHaveBeenCalledOnce()
+	expect(mocks.saveProjectCapabilities).toHaveBeenLastCalledWith("new-project", { email: "on_demand" })
+	expect(mocks.createRun).toHaveBeenLastCalledWith({ project: "new-project", capabilities: { email: "on_demand" } })
+})
+
+it("a duplicate New Project never replaces existing choices", async () => {
+	mocks.createProject.mockRejectedValue(new AgentApiError(409, "Project already exists. Open it from Runs Overview."))
+	render(<AgentHUD runId={null} introDone />)
+	await openNewProject()
+	submit()
+	await waitFor(() => expect(mocks.showErrorToast).toHaveBeenCalledWith(expect.objectContaining({ message: "Project already exists. Open it from Runs Overview." })))
+	expect(mocks.saveProjectCapabilities).not.toHaveBeenCalled()
+	expect(mocks.createRun).not.toHaveBeenCalled()
+	expect(screen.getByLabelText("Project name")).not.toBeNull()
 })
 
 it.each([423, 409, 503])("reports a %s failure after dismissal and releases navigation", async (status) => {
@@ -141,12 +216,12 @@ it("retains choices for retry and accepts only the first rapid submission", asyn
 	const form = screen.getByRole("form")
 	fireEvent.submit(form)
 	fireEvent.submit(form)
-	expect(mocks.createRun).toHaveBeenCalledOnce()
+	await waitFor(() => expect(mocks.createRun).toHaveBeenCalledOnce())
 	await act(async () => reject(new Error("offline")))
 	expect(screen.getByRole("checkbox", { name: "email" }).getAttribute("aria-checked")).toBe("true")
 	expect(mocks.showErrorToast).toHaveBeenCalledWith(expect.objectContaining({ title: "Launch failed" }))
 	submit()
 	await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/?runId=new-run"))
-	expect(mocks.createRun).toHaveBeenLastCalledWith({ project: "alpha", capabilities: { email: true } })
+	expect(mocks.createRun).toHaveBeenLastCalledWith({ project: "alpha", capabilities: { email: "on_demand" } })
 	expect(mocks.createProject).not.toHaveBeenCalled()
 })

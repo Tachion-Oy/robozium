@@ -46,7 +46,10 @@ export function AgentHUD({
 }: AgentHUDProps) {
 	const [layoutMode, setLayoutMode] = useState<LayoutMode>("top")
 	const [navigation, dispatch] = useReducer(reduceHudNavigation, runId, initialHudNavigation)
-	const launchProject = useProjectLaunch(() => dispatch({ type: "launch_closed" }))
+	const launchProject = useProjectLaunch(
+		() => dispatch({ type: "launch_closed" }),
+		(name, project) => dispatch({ type: "launch_created", name, project }),
+	)
 	const [replyDraft, setReplyDraft] = useState("")
 	if (runId !== navigation.runId) {
 		dispatch({ type: "reset", runId })

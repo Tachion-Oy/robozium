@@ -3,14 +3,16 @@
 import { useEffect, useRef, type ComponentProps } from "react"
 import { DisplayArt } from "@/app/components/branding/DisplayArt"
 import { useCapabilities } from "@/hooks/useCapabilities"
+import { resolveCapabilitySelection } from "@/lib/robozium/capabilities"
 import type { LaunchDraft } from "@/lib/robozium/hud-navigation"
+import type { CapabilitySelection } from "@/lib/robozium/wire"
 
 type CapabilitySelectorProps = {
 	draft: LaunchDraft
 	disabled: boolean
 	onChange: (change: Partial<Pick<LaunchDraft, "name" | "capabilities">>) => void
 	onCancel: () => void
-	onSubmit: () => void
+	onSubmit: (capabilities: CapabilitySelection) => void
 }
 
 const CAPABILITY_GROUPS = [
@@ -19,13 +21,14 @@ const CAPABILITY_GROUPS = [
 ] as const
 
 export function CapabilitySelector({
-	draft: { project, name, capabilities: selected },
+	draft: { project, name, capabilities },
 	disabled,
 	onChange,
 	onCancel,
 	onSubmit,
 }: CapabilitySelectorProps) {
-	const { catalog, error: catalogError, retry } = useCapabilities()
+	const { catalog, selection: restored, error: catalogError, retry } = useCapabilities(project)
+	const selected = capabilities ?? restored
 	const title = useRef<HTMLHeadingElement>(null)
 
 	useEffect(() => {
@@ -34,8 +37,8 @@ export function CapabilitySelector({
 
 	const handleSubmit: NonNullable<ComponentProps<"form">["onSubmit"]> = (event) => {
 		event.preventDefault()
-		if (disabled || catalog === null || !name.trim()) return
-		onSubmit()
+		if (disabled || catalog === null || selected === null || catalogError || !name.trim()) return
+		onSubmit(resolveCapabilitySelection(catalog, selected))
 	}
 
 	return (
@@ -76,7 +79,7 @@ export function CapabilitySelector({
 			<div className="agent-hud__table-scroll agent-hud__capability-list space-y-6 p-2">
 				{catalogError ? (
 					<div role="alert">
-						<p>Could not load capabilities.</p>
+						<p>{catalogError}</p>
 						<button
 							type="button"
 							className="agent-hud__row-action agent-hud__row-tools"
@@ -100,14 +103,17 @@ export function CapabilitySelector({
 											type="button"
 											role="checkbox"
 											aria-label={capability.name.replaceAll("_", " ")}
-											aria-checked={!capability.selectable || Boolean(selected[capability.name])}
+											aria-checked={!capability.selectable || (selected !== null && Object.hasOwn(selected, capability.name) && Boolean(selected[capability.name]))}
 											disabled={disabled || !capability.selectable}
 											className="agent-hud__row-action agent-hud__capability-option flex items-center gap-3"
 											onClick={() => {
-												const capabilities = { ...selected }
-												if (capabilities[capability.name]) delete capabilities[capability.name]
-												else capabilities[capability.name] = true
-												onChange({ capabilities })
+												const next = {
+													...selected,
+													[capability.name]: restored && Object.hasOwn(restored, capability.name)
+														? restored[capability.name] : capability.loading ?? true,
+												}
+												if (selected && Object.hasOwn(selected, capability.name) && selected[capability.name]) delete next[capability.name]
+												onChange({ capabilities: next })
 											}}>
 											<span className="agent-hud__capability-name">
 												{capability.name.replaceAll("_", " ")}
@@ -127,7 +133,7 @@ export function CapabilitySelector({
 				<button
 					type="submit"
 					className="app-nav__cta agent-hud__start"
-					disabled={disabled || catalog === null || !name.trim()}>
+						disabled={disabled || catalog === null || selected === null || Boolean(catalogError) || !name.trim()}>
 					<DisplayArt name="launch" label={disabled ? "Launching…" : "Launch"} />
 				</button>
 				<button

@@ -56,8 +56,8 @@ export function HudScreenContent({
 					disabled={pending}
 					onChange={(change) => dispatch({ type: "launch_changed", change })}
 					onCancel={() => dispatch({ type: "launch_closed" })}
-					onSubmit={() => {
-						if (navigation.launch) void onLaunch(navigation.launch)
+					onSubmit={(capabilities) => {
+						if (navigation.launch) void onLaunch({ ...navigation.launch, capabilities })
 					}}
 				/>
 			) : null

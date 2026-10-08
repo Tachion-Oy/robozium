@@ -206,14 +206,15 @@ and review configuration diffs before including them in an upstream PR.
 
 In the HUD, **New Project** opens the capability selector with a project-name
 field. A dormant project's **Tools** button (or its row) opens the same selector
-with the existing name. Choose optional capabilities, then click **Launch**.
-The row's green **Launch** button starts immediately with only the default
-capabilities.
-Fixed capabilities are always included and cannot be changed. Optional choices
-start unchecked each time; skills follow their declared loading mode.
-The current selector applies choices to that run. The backend also exposes
-separate saved-selection endpoints, described below. Relaunching keeps the
-project's memory while allowing a different set of capabilities.
+with the existing name and its last saved choices. Change optional capabilities,
+then click **Launch** to save the selection and start the run. The row's green
+**Launch** button uses the saved choices directly. Without saved choices, only
+fixed capabilities are included.
+Fixed capabilities are always included and cannot be changed. New optional
+capabilities start unchecked, removed ones are ignored, and saved skill loading
+modes are retained. Newly selected skills follow their declared loading mode.
+**Cancel** discards edits. Relaunching keeps the project's memory while allowing
+a different set of capabilities.
 Switching to Dependencies and back to Launch keeps the current launch form open.
 Mock mode offers harmless **mock information** and **mock guidance** examples.
 
@@ -238,10 +239,11 @@ an active run. Adding or removing agent capabilities never rewrites this file.
 Writes use atomic replacement; a failed write preserves the previous selection.
 An unreadable or malformed saved file returns a load error.
 
-Clients combine the current catalogue with saved choices by name, ignore removed
-capabilities, and leave newly added optional capabilities unchecked. Saving and
-launching are separate requests: clients decide when to save and supply the
-resolved choices to `POST /run/create`:
+The web BFF exposes these routes under `/api/capabilities`. The HUD combines the
+current catalogue with saved choices by name. On Launch, it saves the resolved
+selection before supplying the same choices to `POST /run/create`. A read or save
+failure prevents launching; a later run-creation failure leaves the choices saved
+and allows retrying:
 
 ```json
 {"project": "my-project", "capabilities": {"safe_scripts": true, "email": "on_demand"}}
@@ -254,9 +256,6 @@ accept booleans. Invalid run choices return 422. An existing active run is reuse
 when choices are omitted or equivalent; different explicit choices return 409.
 `GET /run/{run_id}` includes the effective selection. Choices do not change
 Librarian maintenance.
-
-The web selector still needs to adopt these separate read/write requests; this
-backend change does not update its integration.
 
 Proton email resolves the `ROBOZIUM_PROTON_BRIDGE_*` settings when used, including
 credentials unlocked through the HUD. Its presence in the catalog does not

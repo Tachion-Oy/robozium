@@ -5,13 +5,15 @@
 - Separate capability discovery and project selection persistence into a
   capabilities router with catalogue, read, and write endpoints. Store choices
   in project JSON independently of run creation and retain them across restarts.
-  Frontend integration with the separate requests is pending.
+  Wire the HUD through the BFF: Tools restores saved choices, direct Launch uses
+  them, and Cancel discards edits. Save before launching, retain skill loading
+  modes, and allow failed launches to retry without recreating the project.
 - Reject duplicate project creation to protect existing choices.
 
 - Add a per-launch HUD capability selector for new and existing projects, with
-  fixed defaults shown in faded green and optional choices reset on every opening.
+  fixed defaults shown in faded green and saved optional choices restored.
 - Add blue Tools row actions for capability selection and green Launch actions
-  for starting with defaults, compact the runs table, and remove the redundant
+  for starting with saved choices, compact the runs table, and remove the redundant
   Agent column.
 - Add hover feedback to HUD launch controls without changing their size, and
   prevent Enter in the project name field from starting a run.

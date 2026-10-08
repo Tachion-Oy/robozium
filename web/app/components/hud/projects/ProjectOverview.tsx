@@ -59,13 +59,13 @@ export function ProjectOverview({
 		if (!hudVisibilityStore.getState().navigationPending) onSelectCapabilities(project)
 	}
 
-	const handleDefaultLaunch = async (project: ProjectRow) => {
+	const handleLaunch = async (project: ProjectRow) => {
 		if (
 			hudVisibilityStore.getState().navigationPending ||
 			project.status !== ProjectStatus.Dormant || project.runId !== null
 		) return
 		projects.markOpening(project.slug)
-		const launched = await onLaunch({ project: project.slug, name: project.slug, capabilities: {} })
+		const launched = await onLaunch({ project: project.slug, name: project.slug, capabilities: null })
 		if (!launched) {
 			projects.clearOpening(project.slug)
 			projects.refresh()
@@ -140,7 +140,7 @@ export function ProjectOverview({
 			navigationPending={navigationPending}
 			onProjectClick={handleProjectClick}
 			onSelectCapabilities={(project) => openSelector(project.slug)}
-			onLaunchProject={handleDefaultLaunch}
+			onLaunchProject={handleLaunch}
 			onNewProject={() => openSelector(null)}
 			onCancelRun={handleCancelRun}
 			onDeleteProject={handleDeleteProject}
