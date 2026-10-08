@@ -59,10 +59,10 @@ def test_discovery_execution_and_output_use_the_configured_host(tmp_path, monkey
             deadline = time.monotonic() + 5
             dependency = ScriptSocketDependency(socket_path)
             while time.monotonic() < deadline and process.poll() is None:
-                if dependency.check():
+                if dependency.check() is None:
                     break
                 time.sleep(0.02)
-            assert dependency.check(), log.read()
+            assert dependency.check() is None, log.read()
             hub = load_hub()
             project = hub.project("scripts")
             events = []

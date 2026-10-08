@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Show external dependency failure messages and linked causes in the HUD, with
+  a Copy diagnostic action. Preserve the same diagnostic in backend technical
+  logs through RoboZ's shared dependency checker. Pin RoboZ 0.7.0a1 for the
+  shared dependency-check contract.
+
 - Separate capability discovery and project selection persistence into a
   capabilities router with catalogue, read, and write endpoints. Store choices
   in project JSON independently of run creation and retain them across restarts.

@@ -36,6 +36,7 @@ function record(
 		checked_at: "2026-07-23T08:00:00Z",
 		latency_ms: 1.25,
 		reason_code: null,
+		message: null,
 		...overrides,
 	}
 }
@@ -53,6 +54,7 @@ function renderedDependencyIds(): string[] {
 		.getAllByRole("row")
 		.slice(1)
 		.map((row) => row.querySelector("code")?.textContent ?? "")
+		.filter(Boolean)
 }
 
 beforeEach(() => {
@@ -187,4 +189,53 @@ describe("DependencyPanel", () => {
 		const table = screen.getByRole("table")
 		expect(within(table).getByText("executable:kept")).not.toBeNull()
 	})
+})
+
+it("displays and copies the diagnostic, then clears it after recovery", async () => {
+	const writeText = vi.fn().mockResolvedValue(undefined)
+	vi.stubGlobal("navigator", { clipboard: { writeText } })
+	const failure = record({
+		dependency_id: "network:mail",
+		status: "unavailable",
+		reason_code: "connection_failed",
+		redacted_metadata: { host: "bridge.invalid" },
+		message: "Unable to communicate with Bridge\nCaused by: gaierror: [Errno -2] Name or service not known",
+	})
+	try {
+		await renderPanel([failure])
+		expect(screen.getByText(/Caused by: gaierror/).textContent).toContain(failure.message)
+		fireEvent.click(screen.getByRole("button", { name: "Copy diagnostic" }))
+		await waitFor(() => expect(writeText).toHaveBeenCalledWith([
+			"Dependency: network:mail",
+			"Checked: 2026-07-23T08:00:00Z",
+			"Reason: connection_failed",
+			"host: bridge.invalid",
+			failure.message,
+		].join("\n")))
+		expect(screen.getByRole("button", { name: "Copied" })).not.toBeNull()
+		mocks.checkDependencies.mockResolvedValueOnce([
+			{ ...failure, status: "available", reason_code: null, message: null },
+		])
+		fireEvent.click(screen.getByRole("button", { name: "Check Now" }))
+		await waitFor(() => expect(screen.queryByText(/Caused by: gaierror/)).toBeNull())
+		expect(screen.queryByRole("button", { name: "Copy diagnostic" })).toBeNull()
+	} finally {
+		vi.unstubAllGlobals()
+	}
+})
+
+it("keeps the full diagnostic selectable when copying fails", async () => {
+	vi.stubGlobal("navigator", { clipboard: { writeText: vi.fn().mockRejectedValue(new Error("denied")) } })
+	try {
+		await renderPanel([record({ status: "unavailable", message: "Connection refused" })])
+		fireEvent.click(screen.getByRole("button", { name: "Copy diagnostic" }))
+		await waitFor(() => expect(mocks.showErrorToast).toHaveBeenCalledWith({
+			title: "Copy Failed", message: "Select and copy the diagnostic text below.",
+		}))
+		const diagnostic = screen.getByText(/Connection refused/)
+		expect(diagnostic.className).toContain("select-text")
+		expect(diagnostic.textContent).toContain("Connection refused")
+	} finally {
+		vi.unstubAllGlobals()
+	}
 })

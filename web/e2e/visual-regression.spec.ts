@@ -27,6 +27,7 @@ const VISUAL_DEPENDENCIES = [
 		checked_at: "2026-08-19T09:30:00Z",
 		latency_ms: 4,
 		reason_code: null,
+		message: null,
 	},
 	{
 		dependency_id: "model:openrouter:z-ai/glm-5.3",
@@ -36,6 +37,7 @@ const VISUAL_DEPENDENCIES = [
 		checked_at: "2026-08-19T09:30:00Z",
 		latency_ms: 42,
 		reason_code: null,
+		message: null,
 	},
 	{
 		dependency_id: "executable:grep",
@@ -45,6 +47,7 @@ const VISUAL_DEPENDENCIES = [
 		checked_at: "2026-08-19T09:30:00Z",
 		latency_ms: null,
 		reason_code: "not_found",
+		message: null,
 	},
 ]
 
