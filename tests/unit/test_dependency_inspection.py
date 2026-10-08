@@ -10,6 +10,8 @@ import pytest
 from config_support import write_config
 from fastapi.testclient import TestClient
 from roboz.dependencies import (
+    DependencyFailure,
+    DependencyReasonCode,
     ExecutableDependency,
     ExternalDependency,
     ExternalDependencyKind,
@@ -204,7 +206,7 @@ def test_api_reads_cached_state_and_dependency_failure_does_not_affect_ready(
         nonlocal calls
         del dependency
         calls += 1
-        return False
+        return DependencyFailure(DependencyReasonCode.NOT_FOUND, "Resource missing")
 
     application = create_app(
         deployment=_deployment_with_check(tmp_path, "missing", checker),
@@ -242,7 +244,7 @@ def test_api_active_check_runs_checkers_and_returns_updated_cached_records(
         nonlocal calls
         del dependency
         calls += 1
-        return True if calls == 1 else False
+        return None if calls == 1 else DependencyFailure(DependencyReasonCode.NOT_FOUND, "Resource missing")
 
     application = create_app(
         deployment=_deployment_with_check(tmp_path, "sometimes", checker),
@@ -280,7 +282,7 @@ def test_api_active_check_preserves_no_overlap_behavior(tmp_path: Path) -> None:
         calls += 1
         entered.set()
         release.wait(timeout=5)
-        return True
+        return None
 
     application = create_app(
         deployment=_deployment_with_check(tmp_path, "slow", checker),
@@ -301,9 +303,9 @@ def test_standalone_resource_is_monitored_without_an_agent_tool(tmp_path):
 
     class Standalone(ExecutableDependency):
         def check(self):
-            return True
+            return None
 
-    hub = _deployment_with_check(tmp_path, "tool", lambda _: True)
+    hub = _deployment_with_check(tmp_path, "tool", lambda _: None)
     standalone = Standalone("standalone")
     hub = replace(hub, additional_dependencies=(standalone, standalone))
     with TestClient(create_app(deployment=hub)) as client:
@@ -325,7 +327,7 @@ def test_hub_health_settings_control_runtime_checks(tmp_path, setting):
         calls += 1
         if setting == "timeout_s":
             time.sleep(0.15)
-        return True
+        return None
 
     hub = _deployment_with_check(tmp_path, "configured", checker)
     hub = replace(
@@ -342,3 +344,28 @@ def test_hub_health_settings_control_runtime_checks(tmp_path, setting):
             assert time.monotonic() < deadline, record
             time.sleep(0.01)
         assert client.get("/ready").status_code == 200
+
+
+def test_dependency_api_preserves_diagnostic_through_refresh_and_recovery(tmp_path):
+    write_config(tmp_path, sandbox_root="sandbox", name="DiagnosticHub", interval_s=3600)
+    failing = True
+
+    def checker(_):
+        if failing:
+            raise ConnectionRefusedError(111, "Connection refused")
+        return None
+
+    app = create_app(deployment=_deployment_with_check(tmp_path, "diagnostic", checker))
+    with TestClient(app) as client:
+        deadline = time.monotonic() + 2
+        while client.get("/admin/dependencies").json()[0]["status"] == "pending":
+            assert time.monotonic() < deadline
+            time.sleep(0.01)
+        record = client.post("/admin/dependencies/check").json()[0]
+        assert record["message"] == "ConnectionRefusedError: [Errno 111] Connection refused"
+        assert record["reason_code"] == "connection_failed"
+        assert client.get("/admin/dependencies/executable:diagnostic").json() == record
+        failing = False
+        record = client.post("/admin/dependencies/check").json()[0]
+        assert record["status"] == "available"
+        assert record["message"] is None and record["reason_code"] is None

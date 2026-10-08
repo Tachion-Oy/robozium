@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { Fragment, useEffect, useMemo, useState } from "react"
 import { checkDependencies, listDependencies } from "@/lib/robozium/client"
 import type { DependencyRecord, DependencyStatus } from "@/lib/robozium/wire"
 import { showErrorToast } from "@/app/components/feedback/ErrorToast"
@@ -73,6 +73,46 @@ function Metadata({
 	)
 }
 
+function DependencyDiagnostic({ dependency }: { dependency: DependencyRecord }) {
+	const [copied, setCopied] = useState(false)
+	const diagnostic = [
+		`Dependency: ${dependency.dependency_id}`,
+		`Checked: ${dependency.checked_at ?? "Not checked"}`,
+		`Reason: ${dependency.reason_code ?? "unknown"}`,
+		...Object.entries(dependency.redacted_metadata)
+			.sort(([left], [right]) => left.localeCompare(right))
+			.map(([key, value]) => `${key}: ${value}`),
+		dependency.message,
+	].join("\n")
+
+	const copyDiagnostic = async () => {
+		try {
+			await navigator.clipboard.writeText(diagnostic)
+			setCopied(true)
+		} catch {
+			showErrorToast({
+				title: "Copy Failed",
+				message: "Select and copy the diagnostic text below.",
+			})
+		}
+	}
+
+	return (
+		<tr>
+			<td colSpan={5}>
+				<div className="flex flex-wrap items-start gap-3">
+					<pre className="min-w-0 flex-1 basis-80 select-text whitespace-pre-wrap wrap-break-word text-sm">
+						{diagnostic}
+					</pre>
+					<button type="button" className="app-nav__cta" onClick={copyDiagnostic}>
+						{copied ? "Copied" : "Copy diagnostic"}
+					</button>
+				</div>
+			</td>
+		</tr>
+	)
+}
+
 function DependencyTable({
 	dependencies,
 	sort,
@@ -141,33 +181,41 @@ function DependencyTable({
 						const status = statusStyles[dependency.status]
 						const checkedAt = formatCheckedAt(dependency.checked_at)
 						return (
-							<tr key={dependency.dependency_id}>
-								<td
-									className={`${status.className} whitespace-nowrap`}>
-									{status.label}
-								</td>
-								<td className="break-all">
-									<code>{dependency.dependency_id}</code>
-								</td>
-								<td className="wrap-break-word">
-									<Metadata
-										metadata={dependency.redacted_metadata}
-									/>
-								</td>
-								<td className="text-sm leading-tight">
-									<span className="block whitespace-nowrap">
-										{checkedAt.date}
-									</span>
-									{checkedAt.time ? (
+							<Fragment key={dependency.dependency_id}>
+								<tr>
+									<td
+										className={`${status.className} whitespace-nowrap`}>
+										{status.label}
+									</td>
+									<td className="break-all">
+										<code>{dependency.dependency_id}</code>
+									</td>
+									<td className="wrap-break-word">
+										<Metadata
+											metadata={dependency.redacted_metadata}
+										/>
+									</td>
+									<td className="text-sm leading-tight">
 										<span className="block whitespace-nowrap">
-											{checkedAt.time}
+											{checkedAt.date}
 										</span>
-									) : null}
-								</td>
-								<td className="break-all">
-									{dependency.reason_code ?? "—"}
-								</td>
-							</tr>
+										{checkedAt.time ? (
+											<span className="block whitespace-nowrap">
+												{checkedAt.time}
+											</span>
+										) : null}
+									</td>
+									<td className="break-all">
+										{dependency.reason_code ?? "—"}
+									</td>
+								</tr>
+								{dependency.status === "unavailable" && dependency.message ? (
+									<DependencyDiagnostic
+										key={dependency.checked_at}
+										dependency={dependency}
+									/>
+								) : null}
+							</Fragment>
 						)
 					})}
 				</tbody>

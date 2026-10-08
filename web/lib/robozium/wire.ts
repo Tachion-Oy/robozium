@@ -173,6 +173,7 @@ export type DependencyRecord = {
 	checked_at: string | null
 	latency_ms: number | null
 	reason_code: DependencyReasonCode | null
+	message: string | null
 }
 
 export const zMessageEventFrame = z.object({

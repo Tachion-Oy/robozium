@@ -288,6 +288,7 @@ describe("dependencies api", () => {
 			checked_at: "2026-07-23T08:00:00Z",
 			latency_ms: 1.25,
 			reason_code: null,
+			message: null,
 		},
 	]
 

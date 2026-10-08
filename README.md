@@ -428,8 +428,17 @@ docker compose ps
 docker compose logs --tail=200 api web
 ```
 
-Check the HUD's dependency status and API-key controls when a live provider is
-unavailable. For a reproducible bug, include the commit, mode, operating system,
+Open **Dependencies** in the HUD and select **Check Now** when a live provider is
+unavailable. Failed dependencies show their error message and linked cause; use
+**Copy diagnostic** to share the dependency ID, check time, reason, and safe
+connection metadata with your coding agent. If clipboard access is unavailable,
+select the diagnostic text and copy it manually. Check API-key controls for
+credential failures.
+
+The same diagnostics appear in API console logs and the rotating technical log
+at `.runtime/logs/backend.jsonl` (unless the logging path was configured otherwise).
+New or changed failures are warnings, recovery is info, and repeated observations
+are debug records. For a reproducible bug, include the commit, mode, operating system,
 and sanitized logs in an [issue](https://github.com/Tachion-Oy/robozium/issues).
 Report vulnerabilities privately using [Security](SECURITY.md).
 

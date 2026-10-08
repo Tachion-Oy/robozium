@@ -403,3 +403,30 @@ def test_access_log_keeps_model_selection_requests():
         None,
     )
     assert backend_logging.keep_access_log(record)
+
+
+def test_dependency_failure_is_readable_in_console_and_jsonl(logging_setup, monkeypatch, tmp_path):
+    import asyncio
+
+    from roboz.dependencies import ExecutableDependency
+    from roboz.shed.dependency_health import DependencyHealthMonitor
+
+    class FailingDependency(ExecutableDependency):
+        def check(self):
+            raise ConnectionRefusedError(111, "Connection refused; token=synthetic-secret")
+
+    app_loggers = _isolate_app_loggers(monkeypatch)
+    logging_setup(_config(tmp_path))
+    stream = io.StringIO()
+    app_loggers[0].handlers[0].setStream(stream)
+    monitor = DependencyHealthMonitor([FailingDependency("diagnostic")])
+    asyncio.run(monitor.run_once())
+    record = monitor.records()[0]
+    assert record.message is not None
+    payload = json.loads((tmp_path / "backend.jsonl").read_text())
+    assert record.message in stream.getvalue()
+    assert record.message in payload["message"]
+    assert payload["data"]["diagnostic"] == record.message
+    assert payload["data"]["reason_code"] == "connection_failed"
+    assert "Connection refused" in payload["message"]
+    assert "synthetic-secret" not in stream.getvalue() + str(payload)
