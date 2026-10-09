@@ -51,11 +51,27 @@ The background librarian continuously snapshots conversations and consolidates a
 memory, which supplies context for later runs in the same project.
 
 RoboZ supplies the agent runtime and tool composition. Shed supplies the
-orchestrator, librarian, guarded file tools, skills, and deployment recipe.
+orchestrator, librarian, guarded file tools, reusable skills, and capabilities.
 Endpoints supplies provider adapters and model catalogues. Robozium owns the
-browser interface, HTTP API, run lifecycle, credentials, and application choices.
+deployment recipe, HUD guidance skill, browser interface, HTTP API, run
+lifecycle, credentials, and application choices.
 See [RoboZ's documentation](https://github.com/Tachion-Oy/roboz#shed) for the
 underlying agent and tool concepts.
+
+Import the application recipe with
+`from robozium.hub.deployment import robozium` and its guidance skill with
+`from robozium.hub.skills import robozium`. These replace the former
+`roboz.shed.deployments` and `roboz.shed.skills` imports.
+
+The recipe returns a `DeployableAgent` with fixed filesystem, stop,
+compactification, and Robozium guidance, plus selectable SafeScripts and email.
+Supply `email_service=...` and optionally `scripts_dir=...` or `script_socket=...`;
+scripts otherwise use the sandbox's read-only `safe-scripts` directory. Keep
+that directory outside agent-writable paths. Attach local additions with
+`definition.add_capabilities(...)`, apply
+`definition.set_capability_selection(...)`, then call
+`definition.build(event_sinks=..., event_sink_factory=...)` for runtime agents
+and per-agent persistence.
 
 All projects are organized within a [hub with the individual project folders as well as a shared workspace and a readonly folder](#hub-files-and-permissions). Files outside the hub are strictly off limits.
 
@@ -225,7 +241,7 @@ a different set of capabilities.
 Switching to Dependencies and back to Launch keeps the current launch form open.
 Mock mode offers harmless **mock information** and **mock guidance** examples.
 
-RoboZ's Robozium definition owns the built-ins: filesystem, stop,
+Robozium's deployment definition owns the built-ins: filesystem, stop,
 compactification, and the Robozium skill are fixed. SafeScripts and Proton
 Bridge email are selectable. The application loads additional capabilities only
 from `local/`; move custom `CAPABILITIES` from `hub.config.py` there.
