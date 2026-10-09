@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Own the Robozium deployment recipe and HUD guidance skill in
+  `robozium.hub.deployment` and `robozium.hub.skills`. These replace the
+  application-specific imports from RoboZ's Shed. Pin RoboZ `0.8.0rc1`, which
+  removes the old exports. Agent behavior and persistence paths are unchanged.
+
 - Use Docker host networking to connect directly to a host-installed Proton Mail
   Bridge. Bind API and web listeners to localhost. Docker Desktop users must
   enable host networking in version 4.34 or newer.
@@ -43,7 +48,7 @@
 
 - Accept orchestrator capability choices when creating a run, expose the
   capability catalog and effective run selection, and keep choices in memory.
-  Built-ins belong to RoboZ's Robozium definition; app additions come from
+  Built-ins belong to Robozium's deployment definition; app additions come from
   `local/`. SafeScripts and Proton Bridge email are selectable.
 
 - Keep the HUD above the title in both themes when returning from a run or
