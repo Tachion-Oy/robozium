@@ -14,10 +14,10 @@ from roboz.models import AgentMode
 from roboz.shed.agents.orchestrator import ORCHESTRATOR_PROMPT
 from roboz.shed.identifiers import COMPACTIFY_MESSAGES_TOOL_NAME
 from roboz.shed.sandbox import Sandbox
-from roboz.shed.skills import robozium as robozium_skill
 from roboz.tools import stop
 
 from robozium.api.projects import Project
+from robozium.hub.skills import robozium as robozium_skill
 from robozium.hub.utils import load_hub
 
 
@@ -104,6 +104,7 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
     assert agent.mode is AgentMode.STEERABLE
     assert specialist_background.name == "specialist_maintenance"
     assert robozium_skill in agent.auto_loaded_skills
+    assert robozium_skill.name == "robozium"
     assert any(skill.name == "filesystem" for skill in agent.auto_loaded_skills)
     assert '<file src="relative/path.ext">' in robozium_skill.instructions
     assert "runtime-supplied" in robozium_skill.instructions

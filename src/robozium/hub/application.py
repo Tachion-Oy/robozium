@@ -19,7 +19,6 @@ from roboz.llm import (
     ModelSelector,
     TranscriptionEndpointLike,
 )
-from roboz.shed.deployments import robozium
 from roboz.shed.sandbox import Sandbox
 from roboz.shed.tools.email.proton_bridge import (
     ProtonBridgeEmailService,
@@ -27,6 +26,7 @@ from roboz.shed.tools.email.proton_bridge import (
 )
 
 from robozium.api.projects import Project
+from robozium.hub.deployment import robozium
 from robozium.hub.logging import HubLoggingConfig
 from robozium.hub.utils import slugify_project_name
 

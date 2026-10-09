@@ -332,7 +332,7 @@ def mock_deployment(
             "</file>"
         )
     # The bundle hands the librarian's pipe to the manager so cancel_project can
-    # reach it — same wiring as production (the shed's standard deployment).
+    # reach it — same wiring as the application's production deployment.
     # Without it, cancelling a SYNCING project is a no-op in the mock app.
     scenario_sinks: tuple[EventSink, ...] = ()
     if scenario == MOCK_SCENARIO_HELD_FIRST_MESSAGE:
