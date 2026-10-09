@@ -5,6 +5,7 @@ services:
     build:
       context: .
       target: api
+    network_mode: host
     environment:
       CEREBRAS_API_KEY_SECRET: "${CEREBRAS_API_KEY_SECRET:-}"
       GROQ_API_KEY_SECRET: "${GROQ_API_KEY_SECRET:-}"
@@ -69,25 +70,26 @@ services:
     build:
       context: .
       target: web
+    network_mode: host
     depends_on:
       api:
         condition: service_healthy
     environment:
-      ROBOZIUM_API_BASE_URL: http://api:8000
+      PORT: "${ROBOZIUM_WEB_PORT:-6969}"
+      ROBOZIUM_API_BASE_URL: http://127.0.0.1:8000
     init: true
-    ports:
-      - "127.0.0.1:${ROBOZIUM_WEB_PORT:-6969}:6969"
     stop_grace_period: 30s
 
   verify:
     build:
       context: .
       target: verify
+    network_mode: host
     depends_on:
       web:
         condition: service_healthy
     environment:
-      ROBOZIUM_CONTAINER_BASE_URL: http://web:6969
+      ROBOZIUM_CONTAINER_BASE_URL: "http://127.0.0.1:${ROBOZIUM_WEB_PORT:-6969}"
       ROBOZIUM_CONTAINER_PHASE: "${ROBOZIUM_CONTAINER_PHASE:-onboarding}"
     init: true
     profiles: [verify]

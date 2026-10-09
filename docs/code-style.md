@@ -29,7 +29,7 @@ agent state between projects.
 
 Treat HTTP/SSE payloads, configuration choices, persisted paths, and credentials
 as contracts. Keep backend models and frontend wire types aligned. Preserve one
-API worker per hub directory and the private API network in Compose.
+API worker per hub directory and loopback-only API and web listeners in Compose.
 
 ## Frontend
 

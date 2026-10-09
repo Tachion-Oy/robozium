@@ -49,7 +49,7 @@ USER robozium
 EXPOSE 8000
 HEALTHCHECK --interval=5s --timeout=3s --start-period=180s --retries=12 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=2).read()"]
-CMD ["sh", "-c", "exec uvicorn \"robozium.api.app:${ROBOZIUM_MODE:-mock}_app\" --factory --host 0.0.0.0 --port 8000 --workers 1"]
+CMD ["sh", "-c", "exec uvicorn \"robozium.api.app:${ROBOZIUM_MODE:-mock}_app\" --factory --host 127.0.0.1 --port 8000 --workers 1"]
 
 
 FROM node:25-bookworm-slim AS web-builder
@@ -68,7 +68,7 @@ FROM node:25-bookworm-slim AS web
 
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
-    HOSTNAME=0.0.0.0 \
+    HOSTNAME=127.0.0.1 \
     PORT=6969
 WORKDIR /app
 
@@ -82,7 +82,7 @@ COPY --from=web-builder --chown=robozium:robozium /app/web/public ./public
 USER robozium
 EXPOSE 6969
 HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=12 \
-    CMD ["node", "-e", "(async()=>{try{const r=await fetch('http://127.0.0.1:6969/api/health');if(!r.ok)throw Error(r.status)}catch(e){console.error(e);process.exit(1)}})()"]
+    CMD ["node", "-e", "(async()=>{try{const r=await fetch('http://127.0.0.1:'+process.env.PORT+'/api/health');if(!r.ok)throw Error(r.status)}catch(e){console.error(e);process.exit(1)}})()"]
 CMD ["node", "server.js"]
 
 

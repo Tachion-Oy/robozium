@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Use Docker host networking to connect directly to a host-installed Proton Mail
+  Bridge. Bind API and web listeners to localhost. Docker Desktop users must
+  enable host networking in version 4.34 or newer.
+
 - Show external dependency failure messages and linked causes in the HUD, with
   a Copy diagnostic action. Preserve the same diagnostic in backend technical
   logs through RoboZ's shared dependency checker. Pin RoboZ 0.7.0a1 for the

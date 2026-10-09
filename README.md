@@ -113,7 +113,13 @@ and Linux. Clone it to use the application; a fork is optional. Robozium is not
 distributed through PyPI. RoboZ is installed at the version pinned in
 [uv.lock](uv.lock), including Shed and Endpoints, so no second checkout is needed.
 
-Install Docker with Docker Compose v2.24 or newer, then clone this repository:
+Install Docker with Docker Compose v2.24 or newer. Robozium uses host networking.
+On macOS and Windows, use Docker Desktop 4.34 or newer with Linux containers,
+then enable **Settings → Resources → Network → Enable host networking** and
+apply the restart. Enhanced Container Isolation must be off. See
+[Docker's host networking setup](https://docs.docker.com/engine/network/drivers/host/#docker-desktop).
+
+Then clone this repository:
 
 ```sh
 git clone https://github.com/Tachion-Oy/robozium.git
@@ -180,7 +186,8 @@ Before giving a coding agent access to the entire checkout, use
 plaintext `.env`. Git ignore rules do not prevent an agent from reading files.
 
 Set `ROBOZIUM_WEB_PORT` in `.env` if port 6969 is busy. The web port binds to
-`127.0.0.1`; the API remains on the private Compose network. The launcher stays
+`127.0.0.1`; the API binds to `127.0.0.1:8000`, which must also be free. Containers
+share the host network and can reach its local services. The launcher stays
 attached for logs, and Ctrl+C stops the application without deleting hub files.
 
 ## Configuration
@@ -258,8 +265,16 @@ when choices are omitted or equivalent; different explicit choices return 409.
 Librarian maintenance.
 
 Proton email resolves the `ROBOZIUM_PROTON_BRIDGE_*` settings when used, including
-credentials unlocked through the HUD. Its presence in the catalog does not
-require credentials or connect to Bridge.
+credentials unlocked through the HUD. To use a Bridge installed on the same
+computer, set `ROBOZIUM_PROTON_BRIDGE_IMAP_HOST=127.0.0.1`, enter the
+IMAP port and security mode shown in Bridge, and pin its IMAP certificate with
+`ROBOZIUM_PROTON_BRIDGE_CERTIFICATE_SHA256`. Use Bridge's generated IMAP password,
+not your Proton account password. The API checks this dependency when credentials
+are available, even before an email tool is used.
+
+Host networking lets the API connect directly to Bridge's localhost listener.
+Start Bridge before selecting **Check Now**. An exported shell variable
+overrides the same setting in `.env` or `.env.encrypt`.
 
 ## Private capabilities
 

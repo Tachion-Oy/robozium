@@ -41,4 +41,4 @@
   PRs, bump versions, tag, or publish unless requested. At handoff, state what
   changed and which checks passed, failed, or were not run.
 - Keep Compose behavior in `compose.yaml`, `Dockerfile`, and executable code rather than duplicating it in agent instructions.
-- The API must remain single-worker per hub directory. Publish only the web port; keep the API on the private Compose network.
+- The API must remain single-worker per hub directory. Keep API and web listeners restricted to host loopback.
