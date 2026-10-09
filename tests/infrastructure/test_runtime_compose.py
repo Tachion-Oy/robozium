@@ -12,13 +12,15 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.mark.parametrize("mode", ["live", "mock"])
-def test_compose_storage_and_credentials(tmp_path: Path, mode: str):
+@pytest.mark.parametrize("web_port", [None, "6971"])
+def test_compose_storage_and_credentials(tmp_path: Path, mode: str, web_port: str | None):
     assert shutil.which("docker"), "Docker Compose is required for deployment checks"
     shutil.copy2(ROOT / "compose.yaml", tmp_path / "compose.yaml")
     (tmp_path / ".env.encrypt").write_text(
-        "ROBOZIUM_WEB_PORT='6970'\nOPENROUTER_API_KEY_SECRET='roboz:synthetic'\n"
+        "OPENROUTER_API_KEY_SECRET='roboz:synthetic'\n"
+        + ("ROBOZIUM_WEB_PORT='6970'\n" if web_port else "")
     )
-    (tmp_path / ".env").write_text("ROBOZIUM_WEB_PORT='6971'\n")
+    (tmp_path / ".env").write_text(f"ROBOZIUM_WEB_PORT='{web_port}'\n" if web_port else "")
     hub = tmp_path / ('Hub with "quotes" and spaces' if mode == "live" else ".runtime/mock-hub")
     socket = tmp_path / f".runtime/{mode}-socket"
     env = {
@@ -29,12 +31,16 @@ def test_compose_storage_and_credentials(tmp_path: Path, mode: str):
     completed = subprocess.run(
         [
             "docker", "compose", "--env-file", ".env.encrypt", "--env-file", ".env",
-            "-f", "compose.yaml", "config", "--format", "json",
+            "-f", "compose.yaml", "--profile", "verify", "config", "--format", "json",
         ],
         cwd=tmp_path, env=env, capture_output=True, text=True, check=True,
     )
     services = json.loads(completed.stdout)["services"]
-    assert set(services) == {"api", "web"}
+    assert set(services) == {"api", "web", "verify"}
+    for service in services.values():
+        assert service["network_mode"] == "host"
+        assert not service.get("ports")
+        assert not service.get("extra_hosts")
     api = services["api"]
     assert api["environment"]["ROBOZIUM_MODE"] == mode
     assert api["environment"]["OPENROUTER_API_KEY_SECRET"] == "roboz:synthetic"
@@ -46,7 +52,13 @@ def test_compose_storage_and_credentials(tmp_path: Path, mode: str):
     assert volumes["/hub/readonly/safe-scripts"]["source"] == str(hub / "readonly/safe-scripts")
     assert volumes["/hub/readonly/safe-scripts"]["read_only"] is True
     assert "/app/.env.encrypt" not in volumes
-    assert services["web"]["ports"][0]["published"] == "6971"
+    assert services["web"]["environment"] == {
+        "PORT": web_port or "6969",
+        "ROBOZIUM_API_BASE_URL": "http://127.0.0.1:8000",
+    }
+    assert services["verify"]["environment"]["ROBOZIUM_CONTAINER_BASE_URL"] == (
+        f"http://127.0.0.1:{web_port or '6969'}"
+    )
 
 
 def test_live_launcher_resolves_settings_with_compose(tmp_path: Path):

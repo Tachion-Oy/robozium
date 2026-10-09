@@ -24,7 +24,9 @@ The normal tests use scripted endpoints and temporary data, with no provider
 keys or live services. Launcher tests use disposable fake Docker and SafeScripts
 executables, including checks with optional commands absent. Host-process
 integration tests additionally use Process Compose v1.122.0 and skip when it is
-not installed. Docker onboarding requires Docker Compose v2.24 or newer.
+not installed. Docker onboarding requires Docker Compose v2.24 or newer and
+host networking; Docker Desktop needs version 4.34 or newer with host networking
+enabled. Reserve host port 8000 and the configured web port for container checks.
 Native browser-runner commands use Bash and POSIX process groups; use Linux or
 a suitable Linux development environment for those checks.
 
