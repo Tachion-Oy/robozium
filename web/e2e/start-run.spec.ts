@@ -1,6 +1,8 @@
 import { expect, test } from "./fixtures"
 import { type Page } from "@playwright/test"
-import { createProject, gotoLanding, projectRow, waitForAnyRowStatus } from "./helpers"
+import { rm, writeFile } from "node:fs/promises"
+import { join } from "node:path"
+import { createProject, e2eProjectPaths, gotoLanding, projectRow, waitForAnyRowStatus } from "./helpers"
 
 test.describe.configure({ mode: "serial" })
 
@@ -36,10 +38,28 @@ test("shows the New Project button on landing", async ({ page }) => {
 })
 
 test("keeps a failed reply visible and allows retry", async ({ page }) => {
-	const runId = await startRunFromLanding(page, "Reply Retry")
+	let firstMessageHold: string | undefined
+	await page.route("**/api/runs/create", async (route) => {
+		const { project } = route.request().postDataJSON() as { project: string }
+		const { root } = e2eProjectPaths(project)
+		firstMessageHold = join(root, ".mock-first-message-hold")
+		await writeFile(join(root, ".mock-scenario"), "held-first-message", "utf-8")
+		await writeFile(firstMessageHold, "", "utf-8")
+		await route.continue()
+	}, { times: 1 })
+	const runId = await startRunFromLanding(page, `Reply Retry ${Date.now()}`)
 	const draft = page.locator(".agent-hud__textarea")
 	const send = page.getByRole("button", { name: "Send", exact: true })
+	await expect(draft).toBeVisible()
+	await expect(send).toBeDisabled()
+	// Navigation can show the editor before the first prompt is ready.
+	expect(firstMessageHold).toBeDefined()
+	await rm(firstMessageHold!)
+	await expect(page.locator(".agent-hud__agent", {
+		hasText: "Hello! I generated a text artifact for validation:",
+	})).toBeVisible({ timeout: 30_000 })
 	await draft.fill("Please continue")
+	await expect(draft).toHaveValue("Please continue")
 	await expect(send).toBeEnabled({ timeout: 30_000 })
 	await page.route(`**/api/runs/${encodeURIComponent(runId)}/reply`, (route) =>
 		route.fulfill({ status: 503, json: { detail: "Temporarily unavailable" } }),
