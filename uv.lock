@@ -508,15 +508,6 @@ wheels = [
 ]
 
 [[package]]
-name = "imapclient"
-version = "4.1.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/8d/f7/4e2d2e93313d7d7542a8378200ea931ff4e29b730d9eb5a9d8debafcbc68/imapclient-4.1.0.tar.gz", hash = "sha256:b7cefa7c9bf3ec029c007dfade191480b82eb3816fc20ab23ef48e7aec841a7f", size = 71344 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/52/49/12fe5860e37f2e915ecbcc6c743bc71c84c6d0f4c9002f3c5a66f79b172d/imapclient-4.1.0-py3-none-any.whl", hash = "sha256:5fd62ab2a099494ed2a5a21e7bda03c1e99e3d55bdedb4e9c12c8176873a8fe4", size = 56039 },
-]
-
-[[package]]
 name = "iniconfig"
 version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1004,20 +995,19 @@ wheels = [
 
 [[package]]
 name = "roboz"
-version = "0.9.1"
+version = "0.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
-    { name = "imapclient" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "pygments" },
     { name = "python-dotenv" },
     { name = "rich" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e3/e6/f43b7d836c836af7ac8e64fc30d1f3461bf80d646e4df5560140780c2b6a/roboz-0.9.1.tar.gz", hash = "sha256:d7d49a3da89d821d67d0cbfc5b3330ceb40885abed023b269c5f5965fa536559", size = 239529 }
+sdist = { url = "https://files.pythonhosted.org/packages/93/3d/2fa2e411ae3b1b4a6333908a1793632782fbce2e7d39b0c03426f0491a7c/roboz-0.10.0.tar.gz", hash = "sha256:2ad5f25795201e63a68e92f49350c7ae885379637be95544acaccbbb86763570", size = 215639 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ca/dd/07e2b0e64d06fb837d41ad670e19fbfa3450716c00b938e871677e24c069/roboz-0.9.1-py3-none-any.whl", hash = "sha256:be89748bcc2cf9198eb3564bb7331680e9eb735bfc3c34c7920764c323857e05", size = 295609 },
+    { url = "https://files.pythonhosted.org/packages/5f/57/3297d8c75c714651f609d8901e54cb61cce226103c83905f6cdb5dd386a5/roboz-0.10.0-py3-none-any.whl", hash = "sha256:903bd650a080609ab3a53f93a66fe80ca544f6d31e3cd2618e4c358875b28470", size = 263325 },
 ]
 
 [[package]]
@@ -1050,7 +1040,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.135.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "python-multipart", specifier = ">=0.0.20" },
-    { name = "roboz", specifier = "==0.9.1" },
+    { name = "roboz", specifier = "==0.10.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },
 ]
 

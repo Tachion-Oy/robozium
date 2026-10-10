@@ -6,7 +6,7 @@ import math
 import os
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, replace
-from functools import cached_property, partial
+from functools import cached_property
 from pathlib import Path
 from types import MappingProxyType
 from typing import TypedDict
@@ -20,10 +20,6 @@ from roboz.llm import (
     TranscriptionEndpointLike,
 )
 from roboz.shed.sandbox import Sandbox
-from roboz.shed.tools.email.proton_bridge import (
-    ProtonBridgeEmailService,
-    ProtonBridgeSettings,
-)
 
 from robozium.api.projects import Project
 from robozium.hub.deployment import robozium
@@ -154,9 +150,6 @@ class Hub:
             sandbox,
             endpoint_getter=endpoint_getter,
             memory_endpoint=self.settings.memory_endpoint,
-            email_service=ProtonBridgeEmailService(
-                partial(ProtonBridgeSettings.from_env, prefix="ROBOZIUM_PROTON_BRIDGE_")
-            ),
             specialists=self.settings.subagents,
             script_socket=Path(script_socket) if script_socket else None,
         )

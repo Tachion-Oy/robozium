@@ -172,7 +172,7 @@ def test_requirements_are_installed_together_before_any_import(tmp_path, monkeyp
         requirements = [command[i + 1] for i, value in enumerate(command) if value == "-r"]
         assert requirements == [str(p / "requirements.txt") for p in (first, second)]
         constraints = Path(command[command.index("--constraint") + 1]).read_text()
-        assert "roboz==0.9.1\n" in constraints
+        assert "roboz==0.10.0\n" in constraints
         assert kwargs["timeout"] == 180
         installed.append(target)
         return SimpleNamespace(returncode=0)
@@ -242,7 +242,7 @@ def test_real_dependency_conflicts_fail_before_imports_and_allow_repair(tmp_path
     detail = str(error.value).split("application environment: ", 1)[1]
     assert "No solution found" in detail
     assert requirements[1].strip() in detail
-    assert (requirements[0].strip() or "roboz==0.9.1") in detail
+    assert (requirements[0].strip() or "roboz==0.10.0") in detail
     assert sys.path == before
     assert not marker.exists()
     for package in (first, second):

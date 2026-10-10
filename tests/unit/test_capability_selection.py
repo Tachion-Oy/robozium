@@ -11,7 +11,8 @@ import pytest
 from config_support import write_config
 from deployment_support import configured_hub
 from fastapi.testclient import TestClient
-from roboz.deployment import Capability, ToolLabel
+from roboz.deployment import Capability, SkillLabel, SkillLoading, ToolLabel
+from roboz.skill import Skill
 from roboz.tools import stop
 
 from robozium.api.app import create_app
@@ -25,6 +26,10 @@ def launch_api(tmp_path):
         hub,
         additional_capabilities=(
             *hub.additional_capabilities,
+            Capability(
+                label=SkillLabel("email", selectable=True, loading=SkillLoading.AUTOMATIC),
+                value=Skill(name="email_tools", description="Test skill", instructions="Test."),
+            ),
             Capability(
                 label=ToolLabel("optional_tool", selectable=True),
                 value=stop.copy(name="optional_stop"),

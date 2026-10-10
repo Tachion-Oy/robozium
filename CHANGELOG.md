@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Remove built-in email construction and registration. Discover email and timesheets from Robozify through `ROBOZIUM_LOCAL_DIRS`; capability settings come from the application root environment. Docker loads root `.env.encrypt` and `.env` generically while preserving container-owned settings.
+
 - Always load `local/` and optionally add capability roots from the semicolon-separated
   `ROBOZIUM_LOCAL_DIRS` environment setting. Launchers mount extra sources read-only.
   Resolve all requirements together and fail startup on incompatible dependencies

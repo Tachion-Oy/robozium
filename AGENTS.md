@@ -3,7 +3,9 @@
 ## User onboarding
 
 - Treat Docker Compose as the supported user runtime on Windows, macOS, and Linux.
-- Users clone this repository only. RoboZ supplies Shed and Endpoints from the version pinned in `uv.lock`.
+- Users clone this repository for the core app. To use email or timesheets,
+  clone Robozify beside it and set `ROBOZIUM_LOCAL_DIRS=../robozify` in the
+  root `.env`. RoboZ supplies Shed and Endpoints from the version pinned in `uv.lock`.
 - Use the single start interface: `./start --mock` on macOS/Linux or
   `start.cmd --mock` on Windows for credential-free mock mode; omit `--mock`
   for the live provider-backed application.

@@ -18,9 +18,14 @@ def test_compose_storage_and_credentials(tmp_path: Path, mode: str, web_port: st
     shutil.copy2(ROOT / "compose.yaml", tmp_path / "compose.yaml")
     (tmp_path / ".env.encrypt").write_text(
         "OPENROUTER_API_KEY_SECRET='roboz:synthetic'\n"
+        "PROTON_BRIDGE_USERNAME='encrypted-copy'\n"
         + ("ROBOZIUM_WEB_PORT='6970'\n" if web_port else "")
     )
-    (tmp_path / ".env").write_text(f"ROBOZIUM_WEB_PORT='{web_port}'\n" if web_port else "")
+    (tmp_path / ".env").write_text(
+        "TIMESHEET_ROOT='readonly/timesheets'\n"
+        "PROTON_BRIDGE_USERNAME='plain-copy'\n"
+        + (f"ROBOZIUM_WEB_PORT='{web_port}'\n" if web_port else "")
+    )
     hub = tmp_path / ('Hub with "quotes" and spaces' if mode == "live" else ".runtime/mock-hub")
     socket = tmp_path / f".runtime/{mode}-socket"
     env = {
@@ -45,6 +50,8 @@ def test_compose_storage_and_credentials(tmp_path: Path, mode: str, web_port: st
     api = services["api"]
     assert api["environment"]["ROBOZIUM_MODE"] == mode
     assert api["environment"]["OPENROUTER_API_KEY_SECRET"] == "roboz:synthetic"
+    assert api["environment"]["PROTON_BRIDGE_USERNAME"] == "encrypted-copy"
+    assert api["environment"]["TIMESHEET_ROOT"] == "readonly/timesheets"
     assert api["environment"]["ROBOZIUM_HOST_SCRIPT_SOCKET"] == "/host-scripts/scripts.sock"
     volumes = {mount["target"]: mount for mount in api["volumes"]}
     assert volumes["/hub"]["source"] == str(hub)
