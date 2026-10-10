@@ -9,7 +9,7 @@ $bin = Join-Path $case 'bin'
 foreach ($file in @('start.cmd', 'process-compose.yaml', 'compose.yaml')) {
     Copy-Item -LiteralPath (Join-Path $source $file) -Destination (Join-Path $checkout $file)
 }
-foreach ($file in @('start-live.ps1', 'start-mock.ps1')) {
+foreach ($file in @('start-live.ps1', 'start-mock.ps1', 'launch.ps1')) {
     Copy-Item -LiteralPath (Join-Path $source "scripts/$file") -Destination (Join-Path $checkout "scripts/$file")
 }
 $dockerArgs = Join-Path $case 'docker-args.txt'
@@ -17,6 +17,10 @@ $dockerEnv = Join-Path $case 'docker-env.txt'
 @'
 @echo off
 if not "%1"=="compose" exit /b 9
+echo %* | findstr /C:" ps " >nul
+if not errorlevel 1 exit /b 0
+echo %* | findstr /C:" stop" >nul
+if not errorlevel 1 exit /b 0
 echo %* | findstr /C:"config --environment" >nul
 if not errorlevel 1 (
     echo ROBOZIUM_HUB_ROOT=%TEST_LIVE_HUB%
@@ -40,7 +44,7 @@ try {
         if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log }
         throw 'Mock launcher did not invoke Docker Compose'
     }
-    if ((Get-Content -LiteralPath $dockerArgs -Raw) -notmatch 'up --build --exit-code-from api') {
+    if ((Get-Content -LiteralPath $dockerArgs -Raw) -notmatch 'up --build --wait --wait-timeout 180 api web') {
         throw 'Incorrect mock service selection'
     }
     if (-not (Test-Path 'local/tools') -or -not (Test-Path 'local/skills')) {
@@ -61,7 +65,7 @@ try {
     if ((Get-Content -LiteralPath $dockerEnv -Raw).Trim() -ne $hub) {
         throw 'Incorrect live hub environment'
     }
-    if ((Get-Content -LiteralPath $dockerArgs -Raw) -notmatch 'up --build --exit-code-from api') {
+    if ((Get-Content -LiteralPath $dockerArgs -Raw) -notmatch 'up --build --wait --wait-timeout 180 api web') {
         throw 'Incorrect Windows live service selection'
     }
     if ((Get-Content -LiteralPath $dockerArgs -Raw) -notmatch '--env-file .env.encrypt') {

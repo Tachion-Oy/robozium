@@ -1,0 +1,35 @@
+import { expect, test } from "@playwright/test"
+
+test("environment changes restart containers and unlock dummy secrets in mock mode", async ({ page, request }) => {
+	test.skip(process.env.ROBOZIUM_CONTAINER_PHASE === "persistence", "persistence phase selected")
+	test.setTimeout(240_000)
+	await page.goto("/?from=app")
+	await page.getByRole("button", { name: "Runs Overview", exact: true }).click()
+	await page.getByRole("option", { name: "Environment", exact: true }).click()
+	await expect(page.getByRole("button", { name: "Add variable" })).toBeEnabled()
+	const catalogue = process.env.ROBOZIUM_CONTAINER_CATALOGUE_DIRS
+	if (catalogue) {
+		await page.getByLabel("Capability folders", { exact: true }).fill(catalogue)
+		await page.getByRole("button", { name: "Save and apply", exact: true }).click()
+		await expect(page.getByRole("status").filter({ hasText: /^Settings applied\.$/ })).toBeVisible({ timeout: 180_000 })
+		await expect(page.getByRole("button", { name: /CATALOGUE_DUMMY_KEY/ })).toBeVisible()
+	}
+	const before = await (await request.get("/api/admin/environment")).json()
+	await page.getByRole("button", { name: "Add variable", exact: true }).click()
+	await page.getByPlaceholder("VARIABLE_NAME").last().fill("CONTAINER_ODD_NAME")
+	await page.getByLabel("Value for CONTAINER_ODD_NAME").fill("dummy-container-key")
+	await page.getByRole("checkbox", { name: "Secret", exact: true }).last().check()
+	await page.getByLabel("Encryption password", { exact: true }).fill("dummy-password")
+	await page.getByLabel("Confirm encryption password").fill("dummy-password")
+	await page.getByRole("button", { name: "Encrypt and apply", exact: true }).click()
+	await expect(page.getByRole("status").filter({ hasText: /^Settings applied\.$/ })).toBeVisible({ timeout: 180_000 })
+	const after = await (await request.get("/api/admin/environment")).json()
+	expect(after.generation).not.toBe(before.generation)
+	expect(JSON.stringify(after)).not.toContain("dummy-container-key")
+	await expect(page.getByRole("button", { name: "Secrets unlocked", exact: true })).toBeVisible()
+	await page.getByRole("button", { name: "Remove CONTAINER_ODD_NAME" }).click()
+	await page.getByLabel("Encryption password", { exact: true }).fill("dummy-password")
+	await page.getByRole("button", { name: "Encrypt and apply", exact: true }).click()
+	await expect(page.getByRole("status").filter({ hasText: /^Settings applied\.$/ })).toBeVisible({ timeout: 180_000 })
+	await expect(page.getByLabel("Value for CONTAINER_ODD_NAME")).toHaveCount(0)
+})

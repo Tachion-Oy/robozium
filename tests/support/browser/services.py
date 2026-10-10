@@ -114,6 +114,8 @@ class BrowserSession:
         self.env.update(
             {
                 "ROBOZIUM_CONFIG": str(config),
+                "ROBOZIUM_ENV_ROOT": str(self.workspace),
+                "ROBOZIUM_ENCRYPTED_ENV_PATH": str(self.workspace / ".env.encrypt"),
                 "ROBOZIUM_E2E_HUB_BASE_DIR": str(hub),
                 "ROBOZIUM_E2E_CONVERSATION_LOGS_DIR": str(logs),
                 "ROBOZIUM_E2E_SNAPSHOT_DIR": str(snapshots),

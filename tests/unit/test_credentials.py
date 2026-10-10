@@ -13,27 +13,36 @@ from robozium.api.credentials import credential_status
 from robozium.hub.utils import load_hub
 
 
+@pytest.fixture(autouse=True)
+def isolate_synthetic_environment(monkeypatch):
+    names = ("TEST_UNLOCK_FIRST_API_KEY", "TEST_UNLOCK_SECOND_API_KEY", "TEST_UNLOCK_EXTERNAL_API_KEY", "TEST_MAIL_PASSWORD", "TEST_GROQ_API_KEY", "TEST_ONLY_PASSWORD", "TEST_MAIL_HOST")
+    for name in names:
+        monkeypatch.delenv(name, raising=False)
+        monkeypatch.delenv(name + "_ENCRYPTED", raising=False)
+
+
+@pytest.mark.parametrize("mode", ["live", "mock"])
 @pytest.mark.parametrize("source_kind", ["file", "environment"])
-def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch, source_kind):
+def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch, source_kind, mode):
     write_config(tmp_path)
     source = tmp_path / ".env"
     source.write_text(
-        "TEST_UNLOCK_FIRST_API_KEY_SECRET=first-synthetic\n"
-        "TEST_UNLOCK_SECOND_API_KEY_SECRET=second-synthetic\n"
-        "TEST_UNLOCK_EXTERNAL_API_KEY_SECRET=file-synthetic\n"
+        "TEST_UNLOCK_FIRST_API_KEY=first-synthetic\n"
+        "TEST_UNLOCK_SECOND_API_KEY=second-synthetic\n"
+        "TEST_UNLOCK_EXTERNAL_API_KEY=file-synthetic\n"
     )
-    encrypted = encrypt_env(source, password="test-password")
+    encrypted = encrypt_env(source, secret_names=[name for name in dotenv_values(source) if name != "TEST_MAIL_HOST"], password="test-password")
     source.unlink()
     monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(encrypted))
-    monkeypatch.setenv("ROBOZIUM_MODE", "live")
-    monkeypatch.delenv("TEST_UNLOCK_FIRST_API_KEY_SECRET", raising=False)
-    monkeypatch.delenv("TEST_UNLOCK_SECOND_API_KEY_SECRET", raising=False)
-    monkeypatch.setenv("TEST_UNLOCK_EXTERNAL_API_KEY_SECRET", "external-synthetic")
-    names = ("TEST_UNLOCK_FIRST_API_KEY_SECRET", "TEST_UNLOCK_SECOND_API_KEY_SECRET")
+    monkeypatch.setenv("ROBOZIUM_MODE", mode)
+    monkeypatch.delenv("TEST_UNLOCK_FIRST_API_KEY", raising=False)
+    monkeypatch.delenv("TEST_UNLOCK_SECOND_API_KEY", raising=False)
+    monkeypatch.setenv("TEST_UNLOCK_EXTERNAL_API_KEY", "external-synthetic")
+    names = ("TEST_UNLOCK_FIRST_API_KEY", "TEST_UNLOCK_SECOND_API_KEY")
     if source_kind == "environment":
         values = dotenv_values(encrypted, interpolate=False)
         for name in names:
-            monkeypatch.setenv(name, values[name])
+            monkeypatch.setenv(name + "_ENCRYPTED", values[name + "_ENCRYPTED"])
         encrypted.unlink()
     original = {name: os.environ.get(name) for name in names}
     client = TestClient(create_app(deployment=load_hub(start=tmp_path)))
@@ -49,7 +58,7 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch, source_kind
     ]
     assert all(response.status_code == 423 for response in blocked)
     assert all(
-        response.json()["detail"] == "Unlock API keys before using providers"
+        response.json()["detail"] == "Unlock secrets before using providers"
         for response in blocked
     )
     assert client.get("/run/unknown").status_code == 404
@@ -57,9 +66,9 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch, source_kind
         client.post("/credentials/unlock", json={"password": "wrong"}).status_code
         == 400
     )
-    assert os.environ.get("TEST_UNLOCK_FIRST_API_KEY_SECRET") == original["TEST_UNLOCK_FIRST_API_KEY_SECRET"]
-    assert os.environ.get("TEST_UNLOCK_SECOND_API_KEY_SECRET") == original["TEST_UNLOCK_SECOND_API_KEY_SECRET"]
-    assert os.environ["TEST_UNLOCK_EXTERNAL_API_KEY_SECRET"] == "external-synthetic"
+    assert os.environ.get("TEST_UNLOCK_FIRST_API_KEY") == original["TEST_UNLOCK_FIRST_API_KEY"]
+    assert os.environ.get("TEST_UNLOCK_SECOND_API_KEY") == original["TEST_UNLOCK_SECOND_API_KEY"]
+    assert os.environ["TEST_UNLOCK_EXTERNAL_API_KEY"] == "external-synthetic"
 
     response = client.post("/credentials/unlock", json={"password": "test-password"})
     assert response.status_code == 200
@@ -67,8 +76,8 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch, source_kind
     assert response.headers["cache-control"] == "no-store"
     assert "test-password" not in response.text
     assert "first-synthetic" not in response.text
-    assert os.environ["TEST_UNLOCK_FIRST_API_KEY_SECRET"] == "first-synthetic"
-    assert os.environ["TEST_UNLOCK_SECOND_API_KEY_SECRET"] == "second-synthetic"
+    assert os.environ["TEST_UNLOCK_FIRST_API_KEY"] == "first-synthetic"
+    assert os.environ["TEST_UNLOCK_SECOND_API_KEY"] == "second-synthetic"
     assert "ROBOZ_ENV_PASSWORD" not in os.environ
     assert client.get("/credentials").json()["locked"] is False
     assert client.post("/projects", json={"name": "demo"}).status_code == 200
@@ -77,7 +86,7 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch, source_kind
     cleared = client.post("/credentials/clear")
     assert cleared.status_code == 200
     assert cleared.json() == {"available": True, "locked": True, "removable": False}
-    assert os.environ.get("TEST_UNLOCK_FIRST_API_KEY_SECRET") == original["TEST_UNLOCK_FIRST_API_KEY_SECRET"]
+    assert os.environ.get("TEST_UNLOCK_FIRST_API_KEY") == original["TEST_UNLOCK_FIRST_API_KEY"]
     assert client.post("/run/create", json={"project": "demo"}).status_code == 423
     assert (
         client.post("/credentials/unlock", json={"password": "test-password"}).json()[
@@ -95,9 +104,9 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch, source_kind
         assert cleared.status_code == 200
         assert cleared.json() == {"available": True, "locked": True, "removable": False}
     assert cleared.headers["cache-control"] == "no-store"
-    assert os.environ.get("TEST_UNLOCK_FIRST_API_KEY_SECRET") == original["TEST_UNLOCK_FIRST_API_KEY_SECRET"]
-    assert os.environ.get("TEST_UNLOCK_SECOND_API_KEY_SECRET") == original["TEST_UNLOCK_SECOND_API_KEY_SECRET"]
-    assert os.environ["TEST_UNLOCK_EXTERNAL_API_KEY_SECRET"] == "external-synthetic"
+    assert os.environ.get("TEST_UNLOCK_FIRST_API_KEY") == original["TEST_UNLOCK_FIRST_API_KEY"]
+    assert os.environ.get("TEST_UNLOCK_SECOND_API_KEY") == original["TEST_UNLOCK_SECOND_API_KEY"]
+    assert os.environ["TEST_UNLOCK_EXTERNAL_API_KEY"] == "external-synthetic"
     assert client.post("/run/create", json={"project": "demo"}).status_code == 423
     assert (
         client.post("/credentials/unlock", json={"password": "test-password"}).json()[
@@ -105,14 +114,14 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch, source_kind
         ]
         is False
     )
-    assert os.environ["TEST_UNLOCK_FIRST_API_KEY_SECRET"] == "first-synthetic"
+    assert os.environ["TEST_UNLOCK_FIRST_API_KEY"] == "first-synthetic"
 
 
 def test_plaintext_only_keys_never_offer_control(tmp_path, monkeypatch):
     write_config(tmp_path)
     monkeypatch.setenv("ROBOZIUM_MODE", "live")
     monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(tmp_path / "missing"))
-    monkeypatch.setenv("TEST_PLAINTEXT_API_KEY_SECRET", "synthetic")
+    monkeypatch.setenv("TEST_PLAINTEXT_API_KEY", "synthetic")
     client = TestClient(create_app(deployment=load_hub(start=tmp_path)))
     assert client.get("/credentials").json() == {
         "available": False,
@@ -120,58 +129,73 @@ def test_plaintext_only_keys_never_offer_control(tmp_path, monkeypatch):
         "removable": False,
     }
     assert client.post("/credentials/clear").status_code == 200
-    assert os.environ["TEST_PLAINTEXT_API_KEY_SECRET"] == "synthetic"
+    assert os.environ["TEST_PLAINTEXT_API_KEY"] == "synthetic"
+
+
+def test_empty_selected_secret_can_be_unlocked_and_cleared(tmp_path, monkeypatch):
+    write_config(tmp_path)
+    source = tmp_path / ".env"
+    source.write_text("TEST_ONLY_PASSWORD=\n")
+    encrypted = encrypt_env(source, secret_names=["TEST_ONLY_PASSWORD"], password="synthetic-password")
+    source.unlink()
+    monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(encrypted))
+    client = TestClient(create_app(deployment=load_hub(start=tmp_path)))
+    response = client.post("/credentials/unlock", json={"password": "synthetic-password"})
+    assert response.json() == {"available": True, "locked": False, "removable": True}
+    assert os.environ["TEST_ONLY_PASSWORD"] == ""
+    assert client.post("/credentials/clear").json()["locked"] is True
+    assert "TEST_ONLY_PASSWORD" not in os.environ
 
 
 def test_secret_suffix_is_encrypted_and_loaded_with_api_keys(tmp_path, monkeypatch):
     source = tmp_path / ".env"
     source.write_text(
-        "TEST_MAIL_PASSWORD_SECRET=mail-synthetic\n"
-        "TEST_GROQ_API_KEY_SECRET=groq-synthetic\n"
+        "TEST_MAIL_PASSWORD=mail-synthetic\n"
+        "TEST_GROQ_API_KEY=groq-synthetic\n"
         "TEST_MAIL_HOST=mail.example\n"
     )
-    encrypted = encrypt_env(source, password="test-password")
-    assert source.read_text().startswith("TEST_MAIL_PASSWORD_SECRET=mail-synthetic")
+    encrypted = encrypt_env(source, secret_names=[name for name in dotenv_values(source) if name != "TEST_MAIL_HOST"], password="test-password")
+    assert source.read_text().startswith("TEST_MAIL_PASSWORD=mail-synthetic")
     assert "mail-synthetic" not in encrypted.read_text()
     assert "groq-synthetic" not in encrypted.read_text()
     values = dotenv_values(encrypted, interpolate=False)
-    assert values["TEST_MAIL_PASSWORD_SECRET"].startswith(ENCRYPTED_NAMESPACE)
-    assert values["TEST_GROQ_API_KEY_SECRET"].startswith(ENCRYPTED_NAMESPACE)
+    assert values["TEST_MAIL_PASSWORD_ENCRYPTED"].startswith(ENCRYPTED_NAMESPACE)
+    assert values["TEST_GROQ_API_KEY_ENCRYPTED"].startswith(ENCRYPTED_NAMESPACE)
     assert values["TEST_MAIL_HOST"] == "mail.example"
 
     monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(encrypted))
     monkeypatch.setenv("ROBOZIUM_MODE", "live")
-    monkeypatch.delenv("TEST_MAIL_PASSWORD_SECRET", raising=False)
-    monkeypatch.setenv("TEST_GROQ_API_KEY_SECRET", values["TEST_GROQ_API_KEY_SECRET"])
+    monkeypatch.delenv("TEST_MAIL_PASSWORD", raising=False)
+    monkeypatch.setenv("TEST_GROQ_API_KEY_ENCRYPTED", values["TEST_GROQ_API_KEY_ENCRYPTED"])
     assert credential_status().locked is True
     load_secrets(encrypted, password="test-password")
-    assert os.environ["TEST_MAIL_PASSWORD_SECRET"] == "mail-synthetic"
-    assert os.environ["TEST_GROQ_API_KEY_SECRET"] == "groq-synthetic"
+    assert os.environ["TEST_MAIL_PASSWORD"] == "mail-synthetic"
+    assert os.environ["TEST_GROQ_API_KEY"] == "groq-synthetic"
     assert credential_status().locked is False
 
-    monkeypatch.delenv("TEST_MAIL_PASSWORD_SECRET")
-    monkeypatch.delenv("TEST_GROQ_API_KEY_SECRET")
-    assert "TEST_MAIL_PASSWORD_SECRET" not in os.environ
-    assert "TEST_GROQ_API_KEY_SECRET" not in os.environ
+    monkeypatch.delenv("TEST_MAIL_PASSWORD")
+    monkeypatch.delenv("TEST_GROQ_API_KEY")
+    assert "TEST_MAIL_PASSWORD" not in os.environ
+    assert "TEST_GROQ_API_KEY" not in os.environ
     assert credential_status().locked is True
 
 
 def test_secret_only_file_requires_password_before_loading(tmp_path, monkeypatch):
     source = tmp_path / ".env"
-    source.write_text("TEST_ONLY_PASSWORD_SECRET=synthetic\n")
-    encrypted = encrypt_env(source, password="correct")
+    source.write_text("TEST_ONLY_PASSWORD=synthetic\n")
+    encrypted = encrypt_env(source, secret_names=["TEST_ONLY_PASSWORD"], password="correct")
     monkeypatch.setenv("ROBOZIUM_MODE", "live")
     monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(encrypted))
-    monkeypatch.delenv("TEST_ONLY_PASSWORD_SECRET", raising=False)
+    monkeypatch.delenv("TEST_ONLY_PASSWORD", raising=False)
     assert credential_status().locked is True
     with pytest.raises(ValueError):
         load_secrets(encrypted, password="wrong")
-    assert "TEST_ONLY_PASSWORD_SECRET" not in os.environ
+    assert "TEST_ONLY_PASSWORD" not in os.environ
     load_secrets(encrypted, password="correct")
-    assert os.environ["TEST_ONLY_PASSWORD_SECRET"] == "synthetic"
+    assert os.environ["TEST_ONLY_PASSWORD"] == "synthetic"
 
 
-def test_mock_mode_never_offers_unlock(tmp_path, monkeypatch):
+def test_without_encrypted_file_hides_unlock(tmp_path, monkeypatch):
     write_config(tmp_path)
     monkeypatch.setenv("ROBOZIUM_MODE", "mock")
     monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(tmp_path / "missing"))

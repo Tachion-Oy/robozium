@@ -32,13 +32,13 @@ export function useProjectLaunch(
 			hudVisibilityStore.setState({ navigationPending: false })
 			const locked = error instanceof AgentApiError && error.status === 423
 			showErrorToast({
-				title: locked ? "API keys locked" : "Launch failed",
+				title: locked ? "Secrets locked" : "Launch failed",
 				message: locked
-					? "Unlock API keys before starting a run."
+					? "Unlock Secrets before starting a run."
 					: error instanceof AgentApiError
 						? error.message
 						: "Unable to launch project. Try again.",
-				...(locked ? { detail: "Open the API keys locked menu and enter your password." } : {}),
+				...(locked ? { detail: "Open the Secrets locked menu and enter your password." } : {}),
 			})
 			return false
 		}

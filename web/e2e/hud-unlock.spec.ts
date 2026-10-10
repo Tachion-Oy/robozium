@@ -16,12 +16,12 @@ test("HUD unlocks encrypted keys after a failed attempt", async ({ page }) => {
 			contentType: "application/json",
 			body: JSON.stringify(password === "test-password"
 				? { available: true, locked: false, removable: true }
-				: { detail: "Could not unlock API keys" }),
+				: { detail: "Could not unlock Secrets" }),
 		})
 	})
 	await page.goto("/")
-	await page.getByRole("button", { name: "API keys locked" }).click()
-	const password = page.getByLabel("API key password")
+	await page.getByRole("button", { name: "Secrets locked" }).click()
+	const password = page.getByLabel("Secret password")
 	await expect(password).toHaveAttribute("type", "password")
 	await password.fill("wrong")
 	await page.getByRole("button", { name: "Unlock", exact: true }).click()
@@ -29,7 +29,7 @@ test("HUD unlocks encrypted keys after a failed attempt", async ({ page }) => {
 	await expect(password).toHaveValue("")
 	await password.fill("test-password")
 	await page.getByRole("button", { name: "Unlock", exact: true }).click()
-	await expect(page.getByRole("button", { name: "API keys unlocked" })).toBeVisible()
+	await expect(page.getByRole("button", { name: "Secrets unlocked" })).toBeVisible()
 	expect(attempts).toBe(2)
 })
 
@@ -42,7 +42,7 @@ test("starting with locked keys shows the shared error toast", async ({ page }) 
 	await page.route("**/api/runs/create", (route) => route.fulfill({
 		status: 423,
 		contentType: "application/json",
-		body: JSON.stringify({ detail: "Unlock API keys before using providers" }),
+		body: JSON.stringify({ detail: "Unlock Secrets before using providers" }),
 	}))
 	await page.goto("/?from=app")
 	await page.getByRole("button", { name: "New Project", exact: true }).click()
@@ -51,8 +51,8 @@ test("starting with locked keys shows the shared error toast", async ({ page }) 
 
 	const toast = page.locator(".agent-error-toast.agent-error-toast--error")
 	await expect(toast).toBeVisible()
-	await expect(toast.locator(".agent-error-toast__title")).toHaveText("API keys locked")
-	await expect(toast.locator(".agent-error-toast__message")).toHaveText("Unlock API keys before starting a run.")
+	await expect(toast.locator(".agent-error-toast__title")).toHaveText("Secrets locked")
+	await expect(toast.locator(".agent-error-toast__message")).toHaveText("Unlock Secrets before starting a run.")
 	await expect(toast.getByRole("button", { name: "Dismiss error notification" })).toBeVisible()
 	expect(new URL(page.url()).searchParams.has("error")).toBe(false)
 })
@@ -68,7 +68,7 @@ test("unlock request reaches the API through the web proxy", async ({ page }) =>
 		return { status: response.status, body: await response.json() }
 	})
 	expect(result.status).toBe(404)
-	expect(result.body).toEqual({ detail: "Encrypted API keys are unavailable" })
+	expect(result.body).toEqual({ detail: "Encrypted secrets are unavailable" })
 	const cleared = await page.request.post("/api/credentials/clear")
 	expect(cleared.status()).toBe(200)
 	expect(await cleared.json()).toEqual({ available: false, locked: false, removable: false })
@@ -86,7 +86,7 @@ test("credential menu uses the red selector treatment in both themes", async ({ 
 	for (const state of ["locked", "unlocked"] as const) {
 		locked = state === "locked"
 		await page.goto("/?from=app")
-		await expect(page.getByRole("button", { name: `API keys ${state}` })).toBeVisible()
+		await expect(page.getByRole("button", { name: `Secrets ${state}` })).toBeVisible()
 		await expect(page.locator(".agent-hud__table-scroll")).toBeVisible()
 		const tableOffsetByTheme = { dark: 0, light: 0 }
 		for (const theme of ["dark", "light"] as const) {
@@ -102,7 +102,7 @@ test("credential menu uses the red selector treatment in both themes", async ({ 
 			if (theme === "dark") expect(closed.gap).toBeGreaterThanOrEqual(40)
 			await page.screenshot({ path: test.info().outputPath(`credential-${state}-closed-${theme}.png`), animations: "disabled" })
 		}
-		await page.getByRole("button", { name: `API keys ${state}` }).click()
+		await page.getByRole("button", { name: `Secrets ${state}` }).click()
 		for (const theme of ["dark", "light"] as const) {
 			await page.evaluate((value) => { document.documentElement.dataset.theme = value }, theme)
 			const selector = page.locator(".agent-hud__credential-selector")
@@ -136,19 +136,19 @@ test("unlocks a synthetic encrypted file through the real API", async ({ page })
 	}
 	test.setTimeout(60_000)
 	await page.goto("/?from=app")
-	await page.getByRole("button", { name: "API keys locked" }).click()
-	const password = page.getByLabel("API key password")
+	await page.getByRole("button", { name: "Secrets locked" }).click()
+	const password = page.getByLabel("Secret password")
 	await password.fill("wrong")
 	await page.getByRole("button", { name: "Unlock", exact: true }).click()
 	await expect(page.locator(".agent-hud__credential-menu [role='alert']")).toBeVisible()
 	await password.fill("synthetic-password")
 	await page.getByRole("button", { name: "Unlock", exact: true }).click()
-	await expect(page.getByRole("button", { name: "API keys unlocked" })).toBeVisible({ timeout: 40_000 })
+	await expect(page.getByRole("button", { name: "Secrets unlocked" })).toBeVisible({ timeout: 40_000 })
 	const status = await page.request.get("/api/credentials")
 	expect(await status.json()).toEqual({ available: true, locked: false, removable: true })
-	await page.getByRole("button", { name: "API keys unlocked" }).click()
-	await page.getByRole("button", { name: "Remove API keys" }).click()
-	await expect(page.getByRole("button", { name: "API keys locked" })).toBeVisible()
+	await page.getByRole("button", { name: "Secrets unlocked" }).click()
+	await page.getByRole("button", { name: "Clear unlocked secrets" }).click()
+	await expect(page.getByRole("button", { name: "Secrets locked" })).toBeVisible()
 	expect((await (await page.request.get("/api/credentials")).json()).locked).toBe(true)
 })
 
@@ -159,7 +159,7 @@ test("credential geometry waits for delayed HUD hydration", async ({ page }) => 
 	}))
 	await page.goto("/?from=app")
 	const offset = await credentialTableOffset(page)
-	await page.getByRole("button", { name: "API keys locked" }).click()
+	await page.getByRole("button", { name: "Secrets locked" }).click()
 	await page.evaluate(() => {
 		const hud = document.querySelector<HTMLElement>(".agent-hud__box")!
 		const width = hud.style.width
@@ -177,7 +177,7 @@ for (const defect of ["overlap", "clipping", "missing content", "unreachable con
 		}))
 		await page.goto("/?from=app")
 		const offset = await credentialTableOffset(page)
-		await page.getByRole("button", { name: "API keys locked" }).click()
+		await page.getByRole("button", { name: "Secrets locked" }).click()
 		await waitForHudLayout(page, [".agent-hud__credential-menu"])
 		await page.evaluate((defect) => {
 			const menu = document.querySelector<HTMLElement>(".agent-hud__credential-menu")!

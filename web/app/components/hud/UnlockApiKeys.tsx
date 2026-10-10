@@ -54,6 +54,12 @@ export function UnlockApiKeys() {
 		return () => controller.abort()
 	}, [])
 
+	useEffect(() => {
+		const changed = () => void refresh()
+		window.addEventListener("robozium-credentials-changed", changed)
+		return () => window.removeEventListener("robozium-credentials-changed", changed)
+	}, [refresh])
+
 	const close = () => {
 		setOpen(false)
 		setPassword("")
@@ -99,7 +105,7 @@ export function UnlockApiKeys() {
 			close()
 		} catch {
 			setError(
-				"Could not unlock API keys. Check the password and try again.",
+				"Could not unlock Secrets. Check the password and try again.",
 			)
 			setPassword("")
 		} finally {
@@ -116,7 +122,7 @@ export function UnlockApiKeys() {
 			setStatus(await clearApiKeys())
 			close()
 		} catch {
-			setError("Could not remove API keys. Try again.")
+			setError("Could not remove Secrets. Try again.")
 		} finally {
 			setPending(false)
 		}
@@ -143,7 +149,7 @@ export function UnlockApiKeys() {
 					}
 				}}>
 				<span>
-					{status.locked ? "API keys locked" : "API keys unlocked"}
+					{status.locked ? "Secrets locked" : "Secrets unlocked"}
 				</span>
 				<svg
 					className="agent-hud__model-caret"
@@ -157,7 +163,7 @@ export function UnlockApiKeys() {
 				<div
 					className="agent-hud__model-menu agent-hud__credential-menu"
 					role="dialog"
-					aria-label="API keys">
+					aria-label="Secrets">
 					{status.locked ? (
 						<form
 							className="agent-hud__credential-form"
@@ -165,7 +171,7 @@ export function UnlockApiKeys() {
 							<label
 								className="agent-hud__credential-sr-only"
 								htmlFor="hud-key-password">
-								API key password
+								Secret password
 							</label>
 							<input
 								id="hud-key-password"
@@ -194,7 +200,7 @@ export function UnlockApiKeys() {
 								type="button"
 								disabled={pending || !status.removable}
 								onClick={() => void remove()}>
-								{pending ? "Removing…" : "Remove API keys"}
+								{pending ? "Removing…" : "Clear unlocked secrets"}
 							</button>
 							{error ? <p role="alert">{error}</p> : null}
 						</>

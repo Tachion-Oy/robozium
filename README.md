@@ -98,7 +98,7 @@ parent/
     └── projects/         # project files, history, snapshots, memory
 ```
 
-Set `ROBOZIUM_HUB_ROOT` in `.env` to choose another live location. It may be
+Set `ROBOZIUM_HUB_ROOT` in **Environment** to choose another live location. It may be
 absolute or relative to the repository. Mock runs use `.runtime/mock-hub` and
 `.runtime/mock-logs`; live technical logs use `.runtime/logs`.
 
@@ -150,61 +150,69 @@ Mock mode uses scripted agents and needs no provider keys. It exercises the
 interface and persists its own project data separately from the live hub. The
 first start builds the application images and downloads their dependencies.
 
+### Environment and secrets
+
+Start the app, then select **Environment** from the view menu next to
+**Runs Overview** and **Dependencies**. This works in live mode and in
+`./start --mock` (`start.cmd --mock` on Windows), so dummy values are enough to
+test the complete setup workflow.
+
+1. Optionally clone Robozify or another catalogue. Enter its folder under
+   **Capability folders**, for example `../robozify`, then **Save and apply**.
+   Separate multiple paths with semicolons; relative paths start at this checkout.
+2. Click suggested variables from the app and catalogue `.env.example` files.
+   Enter values, select **Secret** where appropriate, or add a custom variable.
+3. Choose **Encrypt and apply**, enter and confirm an encryption password, and
+   wait for the containers to restart. The browser unlocks using the password
+   just entered; it retains neither the password nor keys in browser storage.
+4. Create a project and select the capabilities to use. Later starts can be
+   unlocked with the **Secrets** button. It also clears unlocked secrets from
+   the API process; remove stored entries in **Environment**.
+
+Environment editing is available only when **all runs are stopped**, including
+queued runs, runs waiting for input, and background work. Applying changes
+also prevents new runs from starting until restart or a reported failure.
+
+The UI writes only the root `.env.encrypt`. Ordinary values retain their base
+names; selected secrets are encrypted as `NAME_ENCRYPTED`. On unlock, tools
+receive `NAME`. Startup settings such as folders, the hub location, and web port
+remain plain because Docker needs them before the app opens. No host Python or
+uv installation is needed for this UI workflow.
+
+A manually created root `.env` overrides `.env.encrypt`. The UI leaves it
+untouched and labels overridden settings. Capability `.env` files are never
+loaded. Suggestions preserve conflicting defaults with their source labels.
+Invalid catalogue configuration leaves Environment available for correction.
+
+The default live configuration uses `OPENROUTER_API_KEY` for models and the
+librarian, `CEREBRAS_API_KEY` for Cerebras, and `GROQ_API_KEY` for voice input.
+Use the real provider keys in live mode; mock mode uses scripted responses.
+Store Bridge's generated IMAP password as `PROTON_BRIDGE_PASSWORD`, with
+**Secret** selected. Email and timesheet settings remain capability-owned.
+
+Set `ROBOZIUM_WEB_PORT` through the UI or a manual `.env` if 6969 is busy.
+Listeners remain on host loopback; port 8000 must also be free. Keep the launcher
+running while using the app. Ctrl+C stops its containers without deleting data.
+Use `docker compose logs -f api web` for container logs.
+
 ### Optional encrypted credentials
 
-Prefer encrypted API keys when coding agents can inspect the full repository.
-Encrypt the marked secrets, remove the plaintext `.env`, and keep the unlock
-password outside the checkout and agent conversation. Agents can then inspect
-source files without also reading plaintext keys from `.env`. This protects
-stored credentials; an agent with access to the running API process or Docker
-administration can still access credentials after they are decrypted.
-
-The encryption utility requires [uv](https://docs.astral.sh/uv/getting-started/installation/)
-and Python 3.13 or newer on the host. From the repository root, run:
+The existing CLI also supports encryption when uv and Python are installed:
 
 ```sh
-uv run --locked roboz env encrypt
+uv run --locked roboz env encrypt --secret OPENROUTER_API_KEY
 ```
 
-The command asks for a password twice and creates `.env.encrypt`. It encrypts
-`*_SECRET` values while keeping nonsecret settings
-readable. After confirming the file was created, delete the plaintext `.env`.
-Compose receives encrypted values from `.env.encrypt` as environment inputs;
-unlock **API keys** in the HUD to load its credentials. Runtime names retain the `_SECRET` suffix.
+It reads `.env` and writes `.env.encrypt`, leaving the source untouched.
+Repeat `--secret NAME` for each selected base name. Delete the source yourself
+if encrypted storage is desired. The UI never creates this plaintext source.
 
-Set the web port and hub location before encrypting. If both files remain,
-`.env` takes precedence for launcher settings. Recreate older encrypted files
-after renaming credential entries to end in `_SECRET`; the older encryptor left
-passwords plain. Both credential files are ignored by Git.
+When upgrading from RoboZ 0.10, replace `_SECRET` names with base names in
+configuration and custom tools, then recreate encrypted entries. There are no
+legacy aliases. Recover existing credentials with the previous release before
+upgrading if necessary. Keep unlock passwords outside the checkout and agent
+prompts; stored encryption does not hide values from the running API after unlock.
 
-### Run with API keys
-
-Copy [.env.example](.env.example) to `.env` (`cp .env.example .env` on
-macOS/Linux, or `copy .env.example .env` in Windows Command Prompt). Fill in the
-credentials needed by your configured models, then start without `--mock`:
-
-```sh
-./start
-```
-
-On Windows, use `start.cmd`. The default configuration offers OpenRouter and
-Cerebras models. OpenRouter is also needed for the librarian's memory model.
-Groq Whisper transcription is enabled by default. Supply `GROQ_API_KEY_SECRET`
-through `.env` or encrypted credentials to use voice input. The environment
-copy email and timesheet settings from the Robozify catalogue when needed.
-
-Keep credentials in `.env`, which is ignored by Git and excluded from Docker
-build context. Credentials are supplied to the API at runtime; never put them in
-tracked Python configuration, images, frontend settings, or PR logs.
-
-Before giving a coding agent access to the entire checkout, use
-[encrypted credentials](#optional-encrypted-credentials) and remove the
-plaintext `.env`. Git ignore rules do not prevent an agent from reading files.
-
-Set `ROBOZIUM_WEB_PORT` in `.env` if port 6969 is busy. The web port binds to
-`127.0.0.1`; the API binds to `127.0.0.1:8000`, which must also be free. Containers
-share the host network and can reach its local services. The launcher stays
-attached for logs, and Ctrl+C stops the application without deleting hub files.
 
 ## Configuration
 
@@ -282,14 +290,14 @@ when choices are omitted or equivalent; different explicit choices return 409.
 Librarian maintenance.
 
 For email or timesheets, clone [Robozify](https://github.com/Tachion-Oy/robozify)
-beside Robozium and set `ROBOZIUM_LOCAL_DIRS=../robozify` in the app root
-`.env`. Copy settings from each capability’s `.env.example` into that root
-file. Discovery never reads a capability `.env`. Start the app and select
+beside Robozium and add `../robozify` under **Environment → Capability folders**.
+Apply, then choose the suggested settings from each capability’s `.env.example`.
+Discovery never reads a capability `.env`. Select
 `email` or `timesheet` when launching a run. Bridge settings now use
 `PROTON_BRIDGE_*`; rename old `ROBOZIUM_PROTON_BRIDGE_*` entries. Timesheets
 default to `readonly/timesheets`; set `TIMESHEET_ROOT=readonly/Tachion` to
-continue using existing data. The same root `.env` can be encrypted with
-`roboz env encrypt` and unlocked through the HUD.
+continue using existing data. Encrypt and apply through Environment, then unlock
+saved secrets through the HUD after later launches.
 
 Host networking lets the API connect directly to Bridge's localhost listener.
 Start Bridge before selecting **Check Now**. An exported shell variable
@@ -315,10 +323,10 @@ uv run --locked roboz skill init --path local/skills/project_guide
 ```
 
 `local/` is always scanned. To also load tools from other folders or cloned
-repositories, set their locations in `.env`:
+repositories, enter their locations under **Environment → Capability folders**:
 
-```dotenv
-ROBOZIUM_LOCAL_DIRS="../customer-tools;/path/to/shared-tools"
+```text
+../customer-tools;/path/to/shared-tools
 ```
 
 Each directory must exist and contain packages directly under `tools/` or
@@ -326,10 +334,11 @@ Each directory must exist and contain packages directly under `tools/` or
 forward slashes. Relative paths use the checkout (the selected configuration's
 directory for native loading). `--path` can also target these external directories.
 
-Restart with `./start` (`start.cmd` on Windows) after changes, then reopen the live
+Apply to restart the app after folder changes, then reopen the
 capability selector. New optional capabilities start unchecked; CLI-generated
 skills load on demand. Keep label names stable to preserve saved selections.
-Mock mode retains its scripted capabilities.
+Mock mode includes catalogue labels with harmless substitutes so selection can
+be tested without constructing provider clients or contacting live services.
 
 Requirements are resolved together against the pinned application dependencies
 before private code is imported. Incompatible dependencies, invalid exports, or

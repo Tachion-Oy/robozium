@@ -62,7 +62,7 @@ it("restores the row after a failed direct launch", async () => {
 	overview()
 	click("Launch")
 	await screen.findByText("DORMANT")
-	expect(mocks.listProjects.mock.calls.length).toBeGreaterThanOrEqual(2)
+	await waitFor(() => expect(mocks.listProjects.mock.calls.length).toBeGreaterThanOrEqual(2))
 })
 
 it.each(["cancelling", "syncing", "running"] as const)("disables Tools and Launch for %s projects", (status) => {

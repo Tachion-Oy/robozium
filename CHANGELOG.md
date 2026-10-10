@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add Environment to the view menu in live and mock modes: catalogue folders, template suggestions, ordinary variables, arbitrary secrets, removal, and container restart. Editing requires all runs and background work to be stopped.
+- Write only root `.env.encrypt`, preserve manual `.env` overrides, and adopt RoboZ 0.11 base names with `_ENCRYPTED` storage. Keep configuration available after catalogue loading errors.
+
 - Remove built-in email construction and registration. Discover email and timesheets from Robozify through `ROBOZIUM_LOCAL_DIRS`; capability settings come from the application root environment. Docker loads root `.env.encrypt` and `.env` generically while preserving container-owned settings.
 
 - Always load `local/` and optionally add capability roots from the semicolon-separated

@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import queue
 import tempfile
 from dataclasses import replace
@@ -22,6 +23,7 @@ from robozium.api.capabilities import router as capability_router
 from robozium.api.credentials import CredentialGateMiddleware, LoadedCredentials
 from robozium.api.credentials import router as credential_router
 from robozium.api.dependencies import router as dependency_router
+from robozium.api.environment import attach_environment
 from robozium.api.errors import (
     InvalidCapabilitySelection,
     ProjectBusyError,
@@ -36,13 +38,16 @@ from robozium.api.sse import event_to_sse_frame
 from robozium.api.state import RunStatus
 from robozium.api.state import RunView as RunViewState
 from robozium.hub.application import Hub, HubSettings
+from robozium.hub.local import load_local_capabilities
 from robozium.hub.utils import load_hub, load_hub_settings
 from robozium.mock.agents import (
+    mock_catalogue,
     mock_deployment,
     stream_mock_deployment,
     stream_sync_mock_deployment,
 )
 from robozium.mock.model_selection import mock_model_endpoint
+from robozium.settings.environment import load_root_environment
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +112,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
     app.include_router(dependency_router)
     app.include_router(credential_router)
     app.include_router(capability_router)
+    attach_environment(app, deployment.settings.config_file.parent, projects)
 
     @app.get("/models", response_model=ModelSelectionView)
     def models_get(request: Request, run_id: str | None = None) -> ModelSelectionView:
@@ -398,36 +404,79 @@ def _ephemeral_settings() -> HubSettings:
     )
 
 
+def _configuration_app(boot_error: str | None = None) -> FastAPI:
+    """Keep settings reachable when a catalogue cannot be mounted or loaded."""
+    app = FastAPI(title="Robozium configuration")
+    app.state.ready = True
+    app.state.dependency_health = None
+    app.state.loaded_credentials = LoadedCredentials()
+    app.include_router(credential_router)
+    app.include_router(dependency_router)
+    attach_environment(app, Path.cwd(), None)
+    if boot_error is not None:
+        app.state.environment_store.boot_error = boot_error
+
+    @app.get("/projects")
+    def empty_projects() -> list[object]:
+        return []
+
+    @app.get("/capabilities")
+    def empty_capabilities() -> list[object]:
+        return []
+
+    return app
+
+
 def live_app() -> FastAPI:
-    return create_app(deployment=load_hub())
+    if os.environ.get("ROBOZIUM_BOOT_ERROR"):
+        return _configuration_app()
+    try:
+        load_root_environment()
+        return create_app(deployment=load_hub())
+    except Exception:
+        return _configuration_app("Application configuration could not load. Check catalogue folders and requirements, then apply again.")
 
 
-def mock_app() -> FastAPI:
+def _mock_app() -> FastAPI:
     endpoint = mock_model_endpoint()
+    settings = load_hub_settings()
     return create_app(
         deployment=Hub(
             replace(
-                load_hub_settings(),
+                settings,
                 models={"Mock": endpoint},
                 default_model=endpoint,
                 transcription_endpoint=MockTranscriptionEndpoint(["mock transcription"]),
             ),
+            additional_capabilities=mock_catalogue(load_local_capabilities(settings.config_file.parent)),
             deployment=mock_deployment,
         ),
     )
 
 
+def mock_app() -> FastAPI:
+    if os.environ.get("ROBOZIUM_BOOT_ERROR"):
+        return _configuration_app()
+    try:
+        load_root_environment()
+        return _mock_app()
+    except Exception:
+        return _configuration_app("Mock application configuration could not load. Check catalogue folders and requirements, then apply again.")
+
+
 def stream_mock_app() -> FastAPI:
     """Create the paced, ephemeral mock only when explicitly launched."""
     endpoint = mock_model_endpoint()
+    settings = _ephemeral_settings()
     return create_app(
         deployment=Hub(
             replace(
-                _ephemeral_settings(),
+                settings,
                 models={"Mock": endpoint},
                 default_model=endpoint,
                 transcription_endpoint=MockTranscriptionEndpoint(["mock transcription"]),
             ),
+            additional_capabilities=mock_catalogue(load_local_capabilities(settings.config_file.parent)),
             deployment=stream_mock_deployment,
         ),
     )
@@ -436,14 +485,16 @@ def stream_mock_app() -> FastAPI:
 def stream_sync_mock_app() -> FastAPI:
     """Create the paced mock with a cancellable background Librarian."""
     endpoint = mock_model_endpoint()
+    settings = _ephemeral_settings()
     return create_app(
         deployment=Hub(
             replace(
-                _ephemeral_settings(),
+                settings,
                 models={"Mock": endpoint},
                 default_model=endpoint,
                 transcription_endpoint=MockTranscriptionEndpoint(["mock transcription"]),
             ),
+            additional_capabilities=mock_catalogue(load_local_capabilities(settings.config_file.parent)),
             deployment=stream_sync_mock_deployment,
         ),
     )

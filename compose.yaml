@@ -7,9 +7,9 @@ services:
       target: api
     network_mode: host
     env_file:
-      - path: .env
-        required: false
       - path: .env.encrypt
+        required: false
+      - path: .env
         required: false
     environment:
       # Paths inside the API container, not host paths or .env settings.
@@ -19,6 +19,11 @@ services:
       ROBOZIUM_MODE: "${ROBOZIUM_MODE:-mock}"
       # Container path to the mounted host socket; no .env entry is needed.
       ROBOZIUM_HOST_SCRIPT_SOCKET: /host-scripts/scripts.sock
+      ROBOZIUM_LAUNCHER_WEB_PORT: "${ROBOZIUM_LAUNCHER_WEB_PORT:-}"
+      ROBOZIUM_ENV_ROOT: /configuration
+      ROBOZIUM_ENV_CONTROL: /environment-control
+      ROBOZIUM_ENCRYPTED_ENV_PATH: /configuration/.env.encrypt
+      ROBOZIUM_BOOT_ERROR: "${ROBOZIUM_BOOT_ERROR:-}"
     init: true
     stop_grace_period: 30s
     user: "${ROBOZIUM_API_USER:-10001:10001}"
@@ -27,6 +32,15 @@ services:
     # Optional ROBOZIUM_HUB_ROOT in .env/.env.encrypt changes the live host
     # hub location only; the container still uses /hub.
     volumes:
+      - type: bind
+        source: .
+        target: /configuration
+        read_only: true
+      - type: bind
+        source: ./.runtime/env-control
+        target: /environment-control
+        bind:
+          create_host_path: false
       - type: bind
         source: ./local
         target: /app/local
@@ -86,5 +100,6 @@ services:
     environment:
       ROBOZIUM_CONTAINER_BASE_URL: "http://127.0.0.1:${ROBOZIUM_WEB_PORT:-6969}"
       ROBOZIUM_CONTAINER_PHASE: "${ROBOZIUM_CONTAINER_PHASE:-onboarding}"
+      ROBOZIUM_CONTAINER_CATALOGUE_DIRS: "${ROBOZIUM_CONTAINER_CATALOGUE_DIRS:-}"
     init: true
     profiles: [verify]

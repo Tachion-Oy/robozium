@@ -140,19 +140,20 @@ class Hub:
             raise ValueError("deployment project must match the sandbox scope")
         sandbox = sandbox.for_project(project_slug)
         if self.deployment is not None:
-            return self.deployment(
+            root = self.deployment(
                 sandbox,
                 project_slug,
                 endpoint_getter=endpoint_getter,
             )
-        script_socket = os.environ.get("ROBOZIUM_HOST_SCRIPT_SOCKET")
-        root = robozium(
-            sandbox,
-            endpoint_getter=endpoint_getter,
-            memory_endpoint=self.settings.memory_endpoint,
-            specialists=self.settings.subagents,
-            script_socket=Path(script_socket) if script_socket else None,
-        )
+        else:
+            script_socket = os.environ.get("ROBOZIUM_HOST_SCRIPT_SOCKET")
+            root = robozium(
+                sandbox,
+                endpoint_getter=endpoint_getter,
+                memory_endpoint=self.settings.memory_endpoint,
+                specialists=self.settings.subagents,
+                script_socket=Path(script_socket) if script_socket else None,
+            )
         self._validate_local_capability_names(
             root.capabilities, self.additional_capabilities
         )

@@ -4,12 +4,13 @@
 
 - Treat Docker Compose as the supported user runtime on Windows, macOS, and Linux.
 - Users clone this repository for the core app. To use email or timesheets,
-  clone Robozify beside it and set `ROBOZIUM_LOCAL_DIRS=../robozify` in the
-  root `.env`. RoboZ supplies Shed and Endpoints from the version pinned in `uv.lock`.
+  clone Robozify and add its folder through **Environment → Capability folders**. RoboZ supplies Shed and Endpoints from the version pinned in `uv.lock`.
 - Use the single start interface: `./start --mock` on macOS/Linux or
   `start.cmd --mock` on Windows for credential-free mock mode; omit `--mock`
   for the live provider-backed application.
-- Use `.env` for provider credentials or a non-default `ROBOZIUM_WEB_PORT`.
+- Use the Environment UI in live or mock mode for settings and secrets. Editing
+  requires all runs and background work to be stopped. The UI writes `.env.encrypt`;
+  an optional manually maintained `.env` overrides it.
   Never bake or expose credentials in images or frontend configuration.
 - For coding-agent access to the entire checkout, recommend
   [API-key encryption](README.md#optional-encrypted-credentials) and removal

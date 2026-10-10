@@ -191,7 +191,7 @@ describe("useDictation", () => {
 
 	it.each([
 		[503, "Voice transcription is not configured for this server."],
-		[423, "Unlock API keys before using providers"],
+		[423, "Unlock Secrets before using providers"],
 	])("preserves the API explanation for %s on each failed recording", async (status, message) => {
 		transcribeAudioMock.mockRejectedValue(new AgentApiError(status, message))
 		const { result } = renderHook(() => useDictation({ onTranscript: vi.fn() }))

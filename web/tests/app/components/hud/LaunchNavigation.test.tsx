@@ -197,8 +197,8 @@ it.each([423, 409, 503])("reports a %s failure after dismissal and releases navi
 	expect(screen.queryByRole("form")).toBeNull()
 	await act(async () => reject(new AgentApiError(status, "Launch request rejected")))
 	expect(mocks.showErrorToast).toHaveBeenCalledWith(expect.objectContaining({
-		title: status === 423 ? "API keys locked" : "Launch failed",
-		message: status === 423 ? "Unlock API keys before starting a run." : "Launch request rejected",
+		title: status === 423 ? "Secrets locked" : "Launch failed",
+		message: status === 423 ? "Unlock Secrets before starting a run." : "Launch request rejected",
 	}))
 	expect(hudVisibilityStore.getState().navigationPending).toBe(false)
 	expect(mocks.push).not.toHaveBeenCalled()

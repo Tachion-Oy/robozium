@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from roboz.endpoints import serialize_env
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -17,7 +18,7 @@ def test_compose_storage_and_credentials(tmp_path: Path, mode: str, web_port: st
     assert shutil.which("docker"), "Docker Compose is required for deployment checks"
     shutil.copy2(ROOT / "compose.yaml", tmp_path / "compose.yaml")
     (tmp_path / ".env.encrypt").write_text(
-        "OPENROUTER_API_KEY_SECRET='roboz:synthetic'\n"
+        "OPENROUTER_API_KEY_ENCRYPTED='roboz:synthetic'\n"
         "PROTON_BRIDGE_USERNAME='encrypted-copy'\n"
         + ("ROBOZIUM_WEB_PORT='6970'\n" if web_port else "")
     )
@@ -49,8 +50,8 @@ def test_compose_storage_and_credentials(tmp_path: Path, mode: str, web_port: st
         assert not service.get("extra_hosts")
     api = services["api"]
     assert api["environment"]["ROBOZIUM_MODE"] == mode
-    assert api["environment"]["OPENROUTER_API_KEY_SECRET"] == "roboz:synthetic"
-    assert api["environment"]["PROTON_BRIDGE_USERNAME"] == "encrypted-copy"
+    assert api["environment"]["OPENROUTER_API_KEY_ENCRYPTED"] == "roboz:synthetic"
+    assert api["environment"]["PROTON_BRIDGE_USERNAME"] == "plain-copy"
     assert api["environment"]["TIMESHEET_ROOT"] == "readonly/timesheets"
     assert api["environment"]["ROBOZIUM_HOST_SCRIPT_SOCKET"] == "/host-scripts/scripts.sock"
     volumes = {mount["target"]: mount for mount in api["volumes"]}
@@ -84,6 +85,7 @@ def test_live_launcher_resolves_settings_with_compose(tmp_path: Path):
     stub = tools / "docker"
     stub.write_text(
         "#!/bin/sh\n"
+        "case \"$*\" in *' ps '*|*' stop') exit 0;; esac\n"
         "if [ \"$1\" = info ]; then printf '[]\\n'; exit 0; fi\n"
         "case \"$*\" in *'config --environment') exec \"$TEST_REAL_DOCKER\" \"$@\";; esac\n"
         "printf '%s\\n' \"$ROBOZIUM_HOST_HUB_DIR\" \"$ROBOZIUM_MODE\" \"$ROBOZIUM_API_USER\" > \"$TEST_LAUNCH\"\n"
@@ -92,11 +94,11 @@ def test_live_launcher_resolves_settings_with_compose(tmp_path: Path):
     supervisor = tools / "process-compose"
     supervisor.write_text("#!/bin/sh\nexit 7\n")
     supervisor.chmod(0o755)
-    hub = tmp_path / 'Hub with "quotes" & café'
+    hub = tmp_path / 'Hub with "quotes" & café\\files'
     (checkout / ".env.encrypt").write_text(
-        "ROBOZIUM_HUB_ROOT='../Wrong Hub'\nOPENROUTER_API_KEY_SECRET='roboz:synthetic'\n"
+        "ROBOZIUM_HUB_ROOT='../Wrong Hub'\nOPENROUTER_API_KEY_ENCRYPTED='roboz:synthetic'\n"
     )
-    (checkout / ".env").write_text(f"ROBOZIUM_HUB_ROOT='{hub}'\nROBOZIUM_API_USER=1234:5678\n")
+    (checkout / ".env").write_text(serialize_env({"ROBOZIUM_HUB_ROOT": str(hub), "ROBOZIUM_API_USER": "1234:5678"}))
     output = tmp_path / "launch"
     env = {
         **os.environ, "PATH": f"{tools}:{os.environ['PATH']}",
@@ -126,6 +128,7 @@ def test_extra_mounts_use_literal_host_paths_and_container_environment(tmp_path,
     stub = tools / "docker"
     stub.write_text(
         "#!/bin/sh\n"
+        "case \"$*\" in *' ps '*|*' stop') exit 0;; esac\n"
         "case \"$*\" in *'config --environment') exec \"$TEST_REAL_DOCKER\" \"$@\";; esac\n"
         "exec \"$TEST_REAL_DOCKER\" compose -f compose.yaml "
         "-f .runtime/capability-mounts.yaml config --format json\n"

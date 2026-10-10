@@ -40,10 +40,19 @@ test("a fresh clone completes the first-use browser journey", async ({ page }) =
 	await openLanding(page)
 	await page.getByRole("button", { name: "New Project", exact: true }).click()
 	await page.getByLabel("Project name").fill(PROJECT_NAME)
+	if (process.env.ROBOZIUM_CONTAINER_CATALOGUE_DIRS) {
+		await page.getByRole("checkbox", { name: process.env.ROBOZIUM_CONTAINER_CAPABILITY_NAME || "customer_guide", exact: true }).check()
+	}
 	await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true }).click()
 	await expect(page).toHaveURL(/[?&]runId=/)
 
 	await expectGeneratedArtifact(page)
+	await page.getByRole("button", { name: "Current Run", exact: true }).click()
+	await page.getByRole("option", { name: "Environment", exact: true }).click()
+	await expect(page.getByText("Stop all runs and background work before editing environment settings.")).toBeVisible()
+	await expect(page.getByRole("button", { name: "Add variable" })).toBeDisabled()
+	await page.getByRole("button", { name: "Environment", exact: true }).click()
+	await page.getByRole("option", { name: "Current Run", exact: true }).click()
 	const textarea = page.locator(".agent-hud__textarea")
 	await textarea.fill("first container reply")
 	await page.getByRole("button", { name: "Send", exact: true }).click()

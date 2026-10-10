@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from roboz.deployment import SkillLoading
 from roboz.llm import MockLLMEndpoint
 
-from robozium.api.app import create_app
+from robozium.api.app import create_app, mock_app
 from robozium.hub.local import load_local_capabilities
 from robozium.hub.utils import load_hub
 
@@ -46,6 +46,29 @@ def _generate(root, kind, path=None):
     if path:
         command.extend(("--path", path))
     subprocess.run(command, cwd=root, check=True, capture_output=True, text=True)
+
+
+def test_mock_catalogue_keeps_selection_without_constructing_live_tools(tmp_path, monkeypatch):
+    write_config(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ROBOZIUM_BOOT_ERROR", "")
+    _package(tmp_path, source=(
+        "from roboz.deployment import Capability, ToolLabel\n"
+        "class LiveCapability(Capability):\n"
+        "    def build(self, agent, pipe):\n"
+        "        raise AssertionError('Live provider must not be constructed in mock mode')\n"
+        "CAPABILITY = LiveCapability(label=ToolLabel('private', selectable=True))\n"
+    ))
+    app = mock_app()
+    client = TestClient(app)
+    assert "private" in {row["name"] for row in client.get("/capabilities").json()}
+    client.post("/projects", json={"name": "demo"})
+    assert client.post("/capabilities/demo", json={"private": True}).status_code == 200
+    definition = app.state.hub.definition
+    definition.set_capability_selection({"private": True})
+    agent, _ = definition.build()
+    assert "mock_private" in {tool.name for tool in agent.tools}
+    app.state.run_manager.shutdown()
 
 
 @pytest.mark.parametrize("external", [False, True])
@@ -172,7 +195,7 @@ def test_requirements_are_installed_together_before_any_import(tmp_path, monkeyp
         requirements = [command[i + 1] for i, value in enumerate(command) if value == "-r"]
         assert requirements == [str(p / "requirements.txt") for p in (first, second)]
         constraints = Path(command[command.index("--constraint") + 1]).read_text()
-        assert "roboz==0.10.0\n" in constraints
+        assert "roboz==0.11.0\n" in constraints
         assert kwargs["timeout"] == 180
         installed.append(target)
         return SimpleNamespace(returncode=0)
@@ -242,7 +265,7 @@ def test_real_dependency_conflicts_fail_before_imports_and_allow_repair(tmp_path
     detail = str(error.value).split("application environment: ", 1)[1]
     assert "No solution found" in detail
     assert requirements[1].strip() in detail
-    assert (requirements[0].strip() or "roboz==0.10.0") in detail
+    assert (requirements[0].strip() or "roboz==0.11.0") in detail
     assert sys.path == before
     assert not marker.exists()
     for package in (first, second):
@@ -370,5 +393,5 @@ def test_fresh_api_processes_rediscover_packages_and_preserve_saved_selections(t
     assert "original" not in removed["effective"]
     assert removed["saved"] == {"original": True}
     mock = _restart(config, "mock")
-    assert "added" not in mock["effective"]
+    assert mock["effective"]["added"] is False
     assert {"mock_information", "mock_guidance"} <= mock["effective"].keys()

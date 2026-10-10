@@ -66,6 +66,23 @@ class ProjectService:
         names = {path.name for path in project.logs.iterdir() if path.is_dir()}
         return bool(active_marker_paths(project.logs, names))
 
+    def configuration_available(self) -> bool:
+        """Check both registered workers and persisted background activity."""
+        with self._lock:
+            return self._manager.configuration_available() and not any(
+                self._active(project) for project in self._projects()
+            )
+
+    def begin_configuration(self) -> None:
+        """Exclude project launches before the environment transaction begins."""
+        with self._lock:
+            if not self.configuration_available():
+                raise ProjectBusyError("Stop all runs and background work before editing environment settings")
+            self._manager.begin_configuration()
+
+    def end_configuration(self) -> None:
+        self._manager.end_configuration()
+
     def create(self, name: str) -> str:
         with self._lock:
             project = self._hub.project(name)

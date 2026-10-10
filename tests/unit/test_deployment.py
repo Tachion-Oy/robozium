@@ -22,8 +22,8 @@ from robozium.hub.utils import load_hub
 
 
 def test_configured_models_apply_per_use_request_policy(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY_SECRET", "test-only")
-    monkeypatch.setenv("CEREBRAS_API_KEY_SECRET", "test-only")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-only")
+    monkeypatch.setenv("CEREBRAS_API_KEY", "test-only")
     hub = load_hub()
     endpoints = [endpoint for endpoint in hub.model_selector.models.values()]
     project = hub.project("policy-test")
@@ -86,7 +86,7 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
         raise AssertionError("construction started work")
 
     monkeypatch.setattr(Thread, "start", reject)
-    for key in ("OPENROUTER_API_KEY_SECRET", "CEREBRAS_API_KEY_SECRET", "OPENAI_API_KEY_SECRET"):
+    for key in ("OPENROUTER_API_KEY", "CEREBRAS_API_KEY", "OPENAI_API_KEY"):
         monkeypatch.delenv(key, raising=False)
     deployment = configured_deployment(
         project, root_endpoint, memory_endpoint=memory_endpoint, subagents=(spec,)

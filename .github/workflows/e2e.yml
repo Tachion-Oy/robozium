@@ -79,12 +79,25 @@ jobs:
           uv run --locked roboz skill init
           uv run --locked roboz tool init --path "$RUNNER_TEMP/customer-tools/tools/customer_quotes"
           uv run --locked roboz skill init --path "$RUNNER_TEMP/shared-tools/skills/customer_guide"
-          export COMPOSE_FILE=compose.yaml:tests/container/compose.yaml
+          echo 'CATALOGUE_DUMMY_KEY=' > "$RUNNER_TEMP/customer-tools/.env.example"
+          export ROBOZIUM_CONTAINER_CATALOGUE_DIRS="$RUNNER_TEMP/customer-tools;$RUNNER_TEMP/shared-tools"
+          echo "ROBOZIUM_CONTAINER_CATALOGUE_DIRS=$ROBOZIUM_CONTAINER_CATALOGUE_DIRS" >> "$GITHUB_ENV"
+          export COMPOSE_FILE=compose.yaml:.runtime/capability-mounts.yaml
           echo "COMPOSE_FILE=$COMPOSE_FILE" >> "$GITHUB_ENV"
-          docker compose up --build --wait
-          docker compose exec -T api python - < tests/container/check_local_capabilities.py
+          mkdir -p .artifacts
+          ./start --mock > .artifacts/container-launch.log 2>&1 &
+          launcher_pid=$!
+          echo "$launcher_pid" > .runtime/container-launcher.pid
+          for attempt in $(seq 1 180); do
+            if curl -fsS http://127.0.0.1:6971/api/health >/dev/null; then break; fi
+            kill -0 "$launcher_pid"
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:6971/api/health >/dev/null
           docker compose exec -T api python - < tests/container/check_file_cli.py
           docker compose run --build --rm verify
+          docker compose exec -T api python - < tests/container/check_local_capabilities.py
+          test ! -e .env
           docker compose restart api
           docker compose up --wait --wait-timeout 120
           docker compose exec -T api python - < tests/container/check_local_capabilities.py
@@ -94,7 +107,11 @@ jobs:
         run: docker compose logs --no-color
       - name: Remove disposable containers
         if: always()
-        run: docker compose down --remove-orphans
+        run: |
+          if [ -f .runtime/container-launcher.pid ]; then
+            kill -TERM "$(cat .runtime/container-launcher.pid)" || true
+          fi
+          docker compose down --remove-orphans
 
   full-e2e:
     name: Full E2E

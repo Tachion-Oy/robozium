@@ -7,6 +7,7 @@ import type { LayoutMode } from "./HudCornerControls"
 import { RunHud } from "./run/RunHud"
 import { ProjectOverview } from "./projects/ProjectOverview"
 import { CapabilitySelector } from "./projects/CapabilitySelector"
+import { EnvironmentPanel } from "./environment/EnvironmentPanel"
 import { DependencyPanel } from "./dependencies/DependencyPanel"
 import type { HudPresentation } from "./hudPresentation"
 
@@ -61,6 +62,8 @@ export function HudScreenContent({
 					}}
 				/>
 			) : null
+		case "environment":
+			return <EnvironmentPanel />
 		case "dependencies":
 			return <DependencyPanel />
 		case "run":

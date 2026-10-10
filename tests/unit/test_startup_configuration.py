@@ -307,7 +307,7 @@ def test_project_service_owns_startup_layout_validation(config_file):
 
 
 def test_config_loads_fresh_endpoints_without_materialization(config_file, monkeypatch):
-    for key in ("OPENROUTER_API_KEY_SECRET", "CEREBRAS_API_KEY_SECRET"):
+    for key in ("OPENROUTER_API_KEY", "CEREBRAS_API_KEY"):
         monkeypatch.delenv(key, raising=False)
     first = load_hub(config_file=config_file)
     second = load_hub(config_file=config_file)

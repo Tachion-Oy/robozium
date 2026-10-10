@@ -64,8 +64,29 @@ class RunManager:
         self._lock = threading.RLock()
         self._runs: dict[str, RunControl] = {}
         self._closed = False
+        self._configuring = False
         self._configure_deployment = configure_deployment
         self._definition = definition
+
+    def configuration_available(self) -> bool:
+        """Include queued, awaiting-input, and draining background work."""
+        with self._lock:
+            return not self._closed and not self._configuring and not any(
+                not control.status.is_terminal or control.is_busy()
+                for control in self._runs.values()
+            )
+
+    def begin_configuration(self) -> None:
+        """Atomically exclude new runs until an apply finishes or fails."""
+        with self._lock:
+            if not self.configuration_available():
+                raise ProjectBusyError("Stop all runs and background work before editing environment settings")
+            self._configuring = True
+
+    def end_configuration(self) -> None:
+        """Release admission after a failed apply; successful applies restart."""
+        with self._lock:
+            self._configuring = False
 
     def _control(self, run_id: str) -> RunControl:
         with self._lock:
@@ -85,7 +106,7 @@ class RunManager:
         if not project.slug.strip():
             raise ValueError("project slug must be non-empty")
         with self._lock:
-            if self._closed:
+            if self._closed or self._configuring:
                 raise ProjectBusyError("application is shutting down")
             if self.project_is_cancelling(
                 project.slug, background_sync_active=background_sync_active
@@ -139,7 +160,7 @@ class RunManager:
         Return True only for a new worker launch; repeated starts are no-ops.
         """
         with self._lock:
-            if self._closed:
+            if self._closed or self._configuring:
                 return False
             control = self._control(run_id)
             return control.launch_worker(

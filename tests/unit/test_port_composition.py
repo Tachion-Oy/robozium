@@ -244,7 +244,7 @@ with TestClient(mock_app()) as client:
         env={
             key: value
             for key, value in os.environ.items()
-            if key not in {"OPENAI_API_KEY_SECRET", "OPENROUTER_API_KEY_SECRET", "CEREBRAS_API_KEY_SECRET"}
+            if key not in {"OPENAI_API_KEY", "OPENROUTER_API_KEY", "CEREBRAS_API_KEY"}
         },
         check=True,
     )

@@ -24,7 +24,7 @@ def launch(tmp_path: Path) -> tuple[Path, dict[str, str]]:
     tools = tmp_path / "bin"
     tools.mkdir()
     # Keep optional executables on the host out of the test's PATH.
-    for name in ("sh", "bash", "cp", "dirname", "mkdir", "rmdir", "sed", "printenv", "id", "uname", "sleep", "cat", "chmod", "rm"):
+    for name in ("sh", "bash", "cp", "dirname", "mkdir", "rmdir", "sed", "printenv", "id", "uname", "sleep", "cat", "chmod", "rm", "mv", "cmp"):
         executable = shutil.which(name)
         assert executable, name
         (tools / name).symlink_to(executable)
@@ -39,7 +39,9 @@ def launch(tmp_path: Path) -> tuple[Path, dict[str, str]]:
         "case \"$*\" in *'config --environment')\n"
         "  hub=\n"
         "  local_dirs=\n"
-        "  for file in .env.encrypt .env; do\n"
+        "  env_source=.env.encrypt\n"
+        "  case \"$*\" in *'--env-file .runtime/env-control/candidate'*) env_source=.runtime/env-control/candidate;; esac\n"
+        "  for file in \"$env_source\" .env; do\n"
         "    if [ -f \"$file\" ]; then\n"
         "      value=$(sed -n \"s/^ROBOZIUM_HUB_ROOT='\\(.*\\)'$/\\1/p\" \"$file\")\n"
         "      if [ -n \"$value\" ]; then hub=$value; fi\n"
@@ -50,13 +52,14 @@ def launch(tmp_path: Path) -> tuple[Path, dict[str, str]]:
         "  printf 'ROBOZIUM_HUB_ROOT=%s\\n' \"${ROBOZIUM_HUB_ROOT:-$hub}\"\n"
         "  printf 'ROBOZIUM_LOCAL_DIRS=%s\\n' \"${ROBOZIUM_LOCAL_DIRS-$local_dirs}\"\n"
         "  exit 0;; esac\n"
+        "case \"$*\" in *' ps '*) [ \"${TEST_DOCKER_WAIT:-}\" != 1 ] || printf 'synthetic\\n'; exit 0;; esac\n"
+        "case \"$*\" in *' stop') printf stopped > \"$TEST_DOCKER_STOPPED\"; exit 0;; esac\n"
         "printf '%s\\n' \"$@\" > \"$TEST_DOCKER_ARGS\"\n"
         "printf '%s\\n' \"$ROBOZIUM_HOST_HUB_DIR\" > \"$TEST_DOCKER_HUB\"\n"
         "printf '%s\\n' \"$ROBOZIUM_MODE\" > \"$TEST_DOCKER_MODE\"\n"
         "if [ \"${TEST_DOCKER_WAIT:-}\" = 1 ]; then\n"
         "  : > \"$TEST_DOCKER_READY\"\n"
-        "  trap 'printf stopped > \"$TEST_DOCKER_STOPPED\"; exit 0' TERM INT\n"
-        "  while :; do sleep 1 & wait $! || :; done\n"
+
         "fi\n"
         "sleep 0.5\n"
         "exit \"${TEST_DOCKER_EXIT:-0}\"\n"
@@ -72,7 +75,7 @@ def launch(tmp_path: Path) -> tuple[Path, dict[str, str]]:
         "[ \"$1\" = scripts ] && [ \"$2\" = serve ] || exit 8\n"
         "printf '%s\\n' \"$ROBOZIUM_HOST_HUB_DIR\" > \"$TEST_SIDECAR_HUB\"\n"
         "printf 'started\\n' >> \"$TEST_SIDECAR_STARTS\"\n"
-        "printf '%s\\n' \"${OPENROUTER_API_KEY_SECRET-unset}\" > \"$TEST_SIDECAR_SECRET\"\n"
+        "printf '%s\\n' \"${OPENROUTER_API_KEY-unset}\" > \"$TEST_SIDECAR\"\n"
         "if [ \"${TEST_SIDECAR_FAIL:-}\" = startup ]; then exit 7; fi\n"
         "if [ \"${TEST_SIDECAR_DELAY:-}\" = 1 ]; then sleep 2; fi\n"
         ": > \"$TEST_SOCKET_MARKER\"\n"
@@ -94,11 +97,11 @@ def launch(tmp_path: Path) -> tuple[Path, dict[str, str]]:
         "TEST_DOCKER_STOPPED": str(tmp_path / "docker-stopped"),
         "TEST_SOCKET_MARKER": str(tmp_path / "socket-marker"),
         "TEST_SIDECAR_STARTS": str(tmp_path / "sidecar-starts"),
-        "TEST_SIDECAR_SECRET": str(tmp_path / "sidecar-secret"),
+        "TEST_SIDECAR": str(tmp_path / "sidecar-secret"),
         "TEST_EXAMPLE_READY": str(tmp_path / "example-ready"),
         "PC_LOG_FILE": str(tmp_path / "supervisor.log"),
     }
-    for name in ("ROBOZIUM_HUB_ROOT", "ROBOZIUM_LOCAL_DIRS", "OPENROUTER_API_KEY_SECRET", "TEST_DOCKER_WAIT"):
+    for name in ("ROBOZIUM_HUB_ROOT", "ROBOZIUM_LOCAL_DIRS", "OPENROUTER_API_KEY", "TEST_DOCKER_WAIT"):
         env.pop(name, None)
     return checkout, env
 
@@ -137,13 +140,32 @@ def test_argument_validation_and_mock_isolation(launch):
         assert "Usage:" in result.stderr
     result = _run(checkout, env, "--mock")
     assert result.returncode == 0, result.stderr
-    assert Path(env["TEST_DOCKER_ARGS"]).read_text().splitlines()[-4:] == [
-        "up", "--build", "--exit-code-from", "api"
+    assert Path(env["TEST_DOCKER_ARGS"]).read_text().splitlines()[-7:] == [
+        "up", "--build", "--wait", "--wait-timeout", "180", "api", "web"
     ]
     assert not Path(env["TEST_SIDECAR_STARTS"]).exists()
     assert Path(env["TEST_DOCKER_MODE"]).read_text().strip() == "mock"
     assert not (checkout / ".runtime/host-scripts-venv").exists()
     assert not (checkout / ".runtime/launch.lock").exists()
+
+
+@pytest.mark.skipif(not shutil.which("pwsh"), reason="PowerShell is not installed")
+def test_powershell_mock_launcher_passes_compose_arguments_and_mounts(launch, tmp_path):
+    checkout, env = launch
+    catalogue = tmp_path / "customer tools"
+    catalogue.mkdir()
+    (checkout / ".env.encrypt").write_text(f"ROBOZIUM_LOCAL_DIRS='{catalogue}'\n")
+    result = subprocess.run(
+        [shutil.which("pwsh"), "-NoProfile", "-File", str(checkout / "scripts/start-mock.ps1")],
+        cwd=checkout, env=env, text=True, capture_output=True, timeout=25,
+    )
+    assert result.returncode == 0, result.stderr
+    args = Path(env["TEST_DOCKER_ARGS"]).read_text().splitlines()
+    assert args[-7:] == ["up", "--build", "--wait", "--wait-timeout", "180", "api", "web"]
+    assert Path(env["TEST_DOCKER_MODE"]).read_text().strip() == "mock"
+    overlay = yaml.safe_load((checkout / ".runtime/capability-mounts.yaml").read_text())
+    assert overlay["services"]["api"]["volumes"][0]["source"] == str(catalogue)
+    assert Path(env["TEST_DOCKER_STOPPED"]).exists()
 
 
 def test_launcher_creates_directories_and_preserves_private_files(launch):
@@ -163,14 +185,14 @@ def test_live_uses_explicit_sidecar_and_encrypted_settings(host_launch, tmp_path
     hub = tmp_path / 'Hub with "quotes" and spaces'
     (checkout / ".env.encrypt").write_text(
         f"ROBOZIUM_HUB_ROOT='{hub}'\n"
-        "OPENROUTER_API_KEY_SECRET='roboz:synthetic'\n"
+        "OPENROUTER_API_KEY_ENCRYPTED='roboz:synthetic'\n"
     )
     env["TEST_SIDECAR_DELAY"] = "1"
     result = _run(checkout, env)
     assert result.returncode == 0, result.stderr
     assert Path(env["TEST_SIDECAR_HUB"]).read_text().strip() == str(hub)
     assert Path(env["TEST_SIDECAR_STARTS"]).read_text().splitlines() == ["started"]
-    assert Path(env["TEST_SIDECAR_SECRET"]).read_text().strip() == "unset"
+    assert Path(env["TEST_SIDECAR"]).read_text().strip() == "unset"
     assert Path(env["TEST_DOCKER_MODE"]).read_text().strip() == "live"
     assert "--env-file\n.env.encrypt" in Path(env["TEST_DOCKER_ARGS"]).read_text()
     assert not (checkout / ".runtime/launch.lock").exists()
@@ -216,19 +238,20 @@ def test_launchers_mount_extra_directories_from_dotenv_and_clear_removed_roots(l
 
 
 @pytest.mark.parametrize("mode", [(), ("--mock",)])
-def test_missing_extra_directory_stops_launcher_before_application(launch, mode):
+def test_missing_extra_directory_starts_configuration_mode(launch, mode):
     checkout, env = launch
     (checkout / ".env").write_text("ROBOZIUM_LOCAL_DIRS='../missing'\n")
     result = _run(checkout, env, *mode)
-    assert result.returncode != 0
+    assert result.returncode == 0
     assert "ROBOZIUM_LOCAL_DIRS directory does not exist" in result.stderr
-    assert not Path(env["TEST_DOCKER_ARGS"]).exists()
+    assert Path(env["TEST_DOCKER_ARGS"]).exists()
+    assert yaml.safe_load((checkout / ".runtime/capability-mounts.yaml").read_text())["services"]["api"]["environment"]["ROBOZIUM_LOCAL_DIRS"] == ""
     assert not (checkout / ".runtime/launch.lock").exists()
 
 
 def test_mock_ignores_missing_live_sidecar_prerequisites(launch):
     checkout, env = launch
-    (checkout / ".env.encrypt").write_text("OPENROUTER_API_KEY_SECRET='roboz:synthetic'\n")
+    (checkout / ".env.encrypt").write_text("OPENROUTER_API_KEY_ENCRYPTED='roboz:synthetic'\n")
     (checkout / ".runtime/mock-hub/readonly/safe-scripts").mkdir(parents=True)
     (Path(env["PATH"].split(os.pathsep)[0]) / "uv").unlink()
     (Path(env["PATH"]) / "process-compose").unlink(missing_ok=True)
@@ -359,3 +382,46 @@ def test_compose_exit_status_is_reported(launch, args):
     env["TEST_DOCKER_EXIT"] = "17"
     result = _run(checkout, env, *args)
     assert result.returncode == 17
+
+
+def test_launcher_applies_encrypted_candidate_and_recovers_from_invalid_folder(launch):
+    from robozium.settings.environment import (
+        EnvironmentEdit,
+        EnvironmentRow,
+        EnvironmentStore,
+    )
+
+    checkout, env = launch
+    env["TEST_DOCKER_WAIT"] = "1"
+    process = subprocess.Popen(
+        [str(checkout / "start"), "--mock"], cwd=checkout, env=env,
+        text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True,
+    )
+    try:
+        _wait_for(Path(env["TEST_DOCKER_READY"]), process)
+        control = checkout / ".runtime/env-control"
+        store = EnvironmentStore(checkout, control=control)
+        store.save(EnvironmentEdit(revision=store.snapshot()["revision"], entries=[
+            EnvironmentRow(name="ODD", value="dummy-secret", secret=True),
+        ], password="test-password"))
+        deadline = time.monotonic() + 12
+        while store.operation() != "applied" and time.monotonic() < deadline:
+            assert process.poll() is None
+            time.sleep(0.05)
+        assert store.operation() == "applied"
+        saved = (checkout / ".env.encrypt").read_bytes()
+        assert b"dummy-secret" not in saved and b"ODD_ENCRYPTED" in saved
+        assert not (checkout / ".env").exists()
+        store.save(EnvironmentEdit(revision=store.snapshot()["revision"], entries=[
+            EnvironmentRow(name="ODD", secret=True),
+            EnvironmentRow(name="ROBOZIUM_LOCAL_DIRS", value="../missing"),
+        ], password="test-password"))
+        deadline = time.monotonic() + 12
+        while not store.operation().startswith("failed") and time.monotonic() < deadline:
+            assert process.poll() is None
+            time.sleep(0.05)
+        assert store.operation() == "failed_configuration"
+        assert (checkout / ".env.encrypt").read_bytes() == saved
+    finally:
+        process.terminate()
+        process.communicate(timeout=12)

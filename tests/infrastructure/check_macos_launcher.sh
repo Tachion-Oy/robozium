@@ -5,12 +5,14 @@ case_dir=$(mktemp -d '/tmp/robozium "mac".XXXXXX')
 trap 'rm -rf "$case_dir"' EXIT INT TERM
 checkout="$case_dir/checkout with spaces"
 mkdir -p "$checkout/scripts" "$case_dir/bin"
-cp -p "$source_dir/start" "$source_dir/process-compose.yaml" "$checkout/"
+cp -p "$source_dir/start" "$source_dir/process-compose.yaml" "$source_dir/compose.yaml" "$checkout/"
 cp -p "$source_dir/scripts/start-live.sh" "$source_dir/scripts/start-mock.sh" \
+  "$source_dir/scripts/launch.sh" \
   "$checkout/scripts/"
 cat > "$case_dir/bin/docker" <<'DOCKER'
 #!/bin/sh
 if [ "$1" = info ]; then printf '[]\n'; exit 0; fi
+case "$*" in *' ps '*|*' stop') exit 0;; esac
 case "$*" in *'config --environment')
   if [ -f .env.encrypt ]; then
     sed -n -e "s/^ROBOZIUM_HUB_ROOT='\(.*\)'$/ROBOZIUM_HUB_ROOT=\1/p" \
@@ -29,7 +31,7 @@ cd "$checkout"
 ./start --mock
 test -d local/tools && test -d local/skills
 test ! -e local/__init__.py
-test "$(tail -n 1 "$TEST_DOCKER_ARGS")" = api
+test "$(tail -n 1 "$TEST_DOCKER_ARGS")" = web
 if ./start bad; then exit 1; fi
 hub="$case_dir/Live Hub with \"quotes\""
 tools="$case_dir/Linked Tools"
@@ -37,7 +39,7 @@ mkdir -p "$case_dir/Private Tools"
 ln -s "$case_dir/Private Tools" "$tools"
 printf "ROBOZIUM_HUB_ROOT='%s'\nROBOZIUM_LOCAL_DIRS='%s'\n" "$hub" "$tools" > .env.encrypt
 ./start
-test "$(tail -n 1 "$TEST_DOCKER_ARGS")" = api
+test "$(tail -n 1 "$TEST_DOCKER_ARGS")" = web
 test "$(cat "$TEST_DOCKER_ENV")" = "$hub"
 # The launcher resolves symlinks, including macOS's /tmp -> /private/tmp.
 tools_source=$(CDPATH= cd -- "$tools" && pwd -P)

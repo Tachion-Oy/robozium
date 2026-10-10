@@ -75,6 +75,21 @@ def mock_information(input: Empty, messages: list[Message]) -> MockInformation:
     return MockInformation(message="The optional mock capability is available.")
 
 
+def mock_catalogue(capabilities: tuple[Capability, ...]) -> tuple[Capability, ...]:
+    """Preserve catalogue selection labels without building provider clients."""
+    result = []
+    for capability in capabilities:
+        label = capability.label
+        tool = mock_information.copy(name=f"mock_{label.name}")
+        value = (
+            Skill(name=label.name, description="Catalogue demonstration in mock mode.",
+                  instructions=f"Use {tool.name} for a mock response.", tools=(tool,))
+            if isinstance(label, SkillLabel) else tool
+        )
+        result.append(Capability(label=label, value=value))
+    return tuple(result)
+
+
 def _selection_examples() -> tuple[Capability, ...]:
     """Offer harmless tool and skill choices without changing scripted responses."""
     return (
