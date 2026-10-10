@@ -1106,11 +1106,12 @@ def test_each_run_gets_a_fresh_sandbox_even_when_reusing_a_project(tmp_path):
             event_sinks=event_sinks,
         )
 
-    from dataclasses import replace
+
+    from deployment_support import configured_hub
 
     from robozium.hub.utils import load_hub
 
-    hub = replace(load_hub(), deployment=deferred_deployment(factory))
+    hub = configured_hub(load_hub(), deployment=deferred_deployment(factory))
     manager = RunManager(
         hub.configure_deployment,
         definition=hub.definition,

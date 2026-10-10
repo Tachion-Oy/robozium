@@ -19,7 +19,7 @@ def main() -> None:
         project = hub.project("local-capability-check")
         for name in ("simpsons_quotes", "simpsons_quotes_skill"):
             definition = hub.configure_deployment(
-                project.sandbox, project.slug, endpoint_getter=lambda: hub.default_model
+                project.sandbox, project.slug, endpoint_getter=lambda: hub.settings.default_model
             )
             definition.set_capability_selection({name: True})
             responses = []

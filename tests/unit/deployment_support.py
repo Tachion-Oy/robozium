@@ -9,6 +9,7 @@ from roboz.deployment import DeployableAgent
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
 from roboz.runtime import default_event_sinks
 
+from robozium.hub.application import Hub
 from robozium.hub.utils import load_hub
 
 
@@ -34,6 +35,17 @@ def deferred_deployment(factory):
         return Definition(name="test")
 
     return configure
+
+
+def configured_hub(hub, **choices):
+    """Construct a fresh runtime with the requested settings and test collaborators."""
+    deployment = choices.pop("deployment", hub.deployment)
+    capabilities = choices.pop("additional_capabilities", hub.additional_capabilities)
+    return Hub(
+        replace(hub.settings, **choices),
+        deployment=deployment,
+        additional_capabilities=capabilities,
+    )
 
 
 def configured_deployment(project, endpoint, **choices):
@@ -65,7 +77,7 @@ def configured_deployment(project, endpoint, **choices):
     event_sinks = choices.pop("event_sinks", ())
     choices.setdefault("memory_endpoint", MockLLMEndpoint([]))
     hub = load_hub()
-    hub = replace(hub, **choices)
+    hub = configured_hub(hub, **choices)
     definition = hub.configure_deployment(
         project.sandbox,
         project.slug,

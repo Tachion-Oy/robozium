@@ -323,29 +323,6 @@ capabilities start unchecked; select them and save your project choices.
 Mock mode keeps its existing scripted capabilities and does not execute private
 capabilities.
 
-### Migrating existing private capabilities
-
-Move each capability into an individual package under `local/tools/` or
-`local/skills/`, with `__init__.py` exporting a single `CAPABILITY` instance and a
-`requirements.txt` file. For an existing zero-argument builder, for example:
-
-```python
-from .capability import Timesheets
-
-CAPABILITY = Timesheets()
-```
-
-Keep each capability's **label name** unchanged so saved project selections
-continue to match. Preserve your private implementation files and adjust their
-relative imports as needed. The old `local/__init__.py` registry, including
-`CAPABILITIES` and `LocalTool` declarations, is no longer executed. Parent
-`local/tools/__init__.py` and `local/skills/__init__.py` files are also ignored.
-Launchers create directories only; they never generate or overwrite private source.
-The previously shipped examples and registration template have been removed.
-
-If migrating from before RoboZ `0.6.1a1`, replace `AgentCapability` with
-`Capability` initialized with a `ToolLabel` or `SkillLabel`. Builders return a tuple
-of tools, chains, or skills, and runtime bindings stay in `build()`.
 
 ### Loading and dependencies
 

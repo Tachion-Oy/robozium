@@ -23,19 +23,19 @@ def dependency_lifespan(
         hub_dependencies: tuple[ExternalDependency, ...] = tuple(
             hub.model_selector.models.values()
         )
-        if isinstance(hub.transcription_endpoint, ExternalDependency):
-            hub_dependencies += (hub.transcription_endpoint,)
+        if isinstance(hub.settings.transcription_endpoint, ExternalDependency):
+            hub_dependencies += (hub.settings.transcription_endpoint,)
         dependencies = dedupe_external_dependencies(
             (
                 *hub.definition.external_dependencies(),
                 *hub_dependencies,
-                *(hub.additional_dependencies or ()),
+                *(hub.settings.additional_dependencies or ()),
             )
         )
         monitor = DependencyHealthMonitor(
             dependencies,
-            interval_s=hub.dependency_health.interval_s,
-            timeout_s=hub.dependency_health.timeout_s,
+            interval_s=hub.settings.dependency_health.interval_s,
+            timeout_s=hub.settings.dependency_health.timeout_s,
         )
         application.state.dependency_health = monitor
         application.state.ready = True

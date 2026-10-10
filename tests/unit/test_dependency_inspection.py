@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 from config_support import write_config
+from deployment_support import configured_hub
 from fastapi.testclient import TestClient
 from roboz.dependencies import (
     DependencyFailure,
@@ -72,7 +73,7 @@ def _offline_models(config, checked):
         )
         return value.model_copy(update={"client": client})
 
-    return {key: endpoint(value) for key, value in config.models.items()}
+    return {key: endpoint(value) for key, value in config.settings.models.items()}
 
 
 def _deployment_with_check(root, name, check):
@@ -82,7 +83,7 @@ def _deployment_with_check(root, name, check):
 
     hub = load_hub(start=root)
     models = _offline_models(hub, set())
-    return replace(
+    return configured_hub(
         hub,
         models=models,
         default_model=next(iter(models.values())),
@@ -102,8 +103,8 @@ def _inspect(hub, slug):
     return dedupe_external_dependencies(
         (
             *agent.external_dependencies(),
-            *hub.models.values(),
-            *(hub.additional_dependencies or ()),
+            *hub.settings.models.values(),
+            *(hub.settings.additional_dependencies or ()),
         )
     )
 
@@ -120,7 +121,7 @@ def test_standard_deployment_discovers_tools_and_every_selectable_model() -> Non
     } == {
         endpoint.dependency_id
         for endpoint in (
-            *deployment.models.values(),
+            *deployment.settings.models.values(),
             deployment.configure_deployment(
                 project.sandbox,
                 project.slug,
@@ -148,7 +149,7 @@ def test_endpoint_catalog_drives_models_and_health_without_completions(tmp_path)
     checked = set()
     endpoints = _offline_models(config, checked)
     expected = {endpoint.dependency_id for endpoint in endpoints.values()}
-    hub = replace(
+    hub = configured_hub(
         config,
         models=endpoints,
         default_model=next(iter(endpoints.values())),
@@ -157,9 +158,9 @@ def test_endpoint_catalog_drives_models_and_health_without_completions(tmp_path)
     )
     assert checked == set()
     endpoints.clear()
-    assert hub.model_selector.selected_endpoint is hub.default_model
+    assert hub.model_selector.selected_endpoint is hub.settings.default_model
     with pytest.raises(TypeError):
-        hub.models["replacement"] = hub.model_selector.selected_endpoint  # type: ignore[index]
+        hub.settings.models["replacement"] = hub.model_selector.selected_endpoint  # type: ignore[index]
     with TestClient(create_app(deployment=hub)) as client:
         models = client.get("/models").json()["models"]
         assert {model["model_id"] for model in models} == expected
@@ -170,7 +171,7 @@ def test_endpoint_catalog_drives_models_and_health_without_completions(tmp_path)
             ]
             == selected
         )
-        assert hub.model_selector.selected_endpoint is tuple(hub.models.values())[1]
+        assert hub.model_selector.selected_endpoint is tuple(hub.settings.models.values())[1]
         records = client.post("/admin/dependencies/check").json()
         assert {record["dependency_id"] for record in records} == expected
         assert checked == expected
@@ -187,10 +188,10 @@ def test_inspection_builds_in_the_configured_scope_without_starting_agents(tmp_p
         observed.append((sandbox.root, sandbox.scope, slug))
         return _factory_for(ExecutableDependency("bash"))(sandbox, slug, **kwargs)
 
-    hub = replace(hub, deployment=build)
-    slug = hub.project(hub.name).slug
+    hub = configured_hub(hub, deployment=build)
+    slug = hub.project(hub.settings.name).slug
     assert any(r.dependency_id == "executable:bash" for r in _inspect(hub, slug))
-    assert observed == [(hub.sandbox.root, slug, slug)]
+    assert observed == [(hub.settings.sandbox.root, slug, slug)]
     assert not (tmp_path / "sandbox").exists()
 
 
@@ -307,7 +308,7 @@ def test_standalone_resource_is_monitored_without_an_agent_tool(tmp_path):
 
     hub = _deployment_with_check(tmp_path, "tool", lambda _: None)
     standalone = Standalone("standalone")
-    hub = replace(hub, additional_dependencies=(standalone, standalone))
+    hub = configured_hub(hub, additional_dependencies=(standalone, standalone))
     with TestClient(create_app(deployment=hub)) as client:
         records = client.post("/admin/dependencies/check").json()
         found = [r for r in records if r["dependency_id"] == standalone.dependency_id]
@@ -330,8 +331,8 @@ def test_hub_health_settings_control_runtime_checks(tmp_path, setting):
         return None
 
     hub = _deployment_with_check(tmp_path, "configured", checker)
-    hub = replace(
-        hub, dependency_health=replace(hub.dependency_health, **{setting: 0.02})
+    hub = configured_hub(
+        hub, dependency_health=replace(hub.settings.dependency_health, **{setting: 0.02})
     )
     with TestClient(create_app(deployment=hub)) as client:
         deadline = time.monotonic() + 2

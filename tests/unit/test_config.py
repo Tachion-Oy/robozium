@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 from config_support import write_config
+from deployment_support import configured_hub
 from roboz.models import Empty
 from roboz.shed.models import ActionVerdict, GuardFileSingle, Operation
 from roboz.shed.tools.contexts import GuardContext
@@ -14,20 +15,20 @@ from robozium.hub.utils import load_hub
 def test_load_hub_resolves_base_and_relative_paths(tmp_path):
     write_config(tmp_path)
     hub = load_hub(start=tmp_path)
-    assert hub.name == "TestHub"
-    assert hub.sandbox.root == tmp_path / "sandbox"
-    assert hub.sandbox.projects_dir == tmp_path / "sandbox/projects"
-    assert hub.sandbox.readonly_dir == tmp_path / "sandbox/readonly"
-    assert hub.sandbox.shared_dir == tmp_path / "sandbox/workspace"
-    assert hub.logging.path == tmp_path / "technical_logs/backend.jsonl"
-    assert (hub.dependency_health.interval_s, hub.dependency_health.timeout_s) == (
+    assert hub.settings.name == "TestHub"
+    assert hub.settings.sandbox.root == tmp_path / "sandbox"
+    assert hub.settings.sandbox.projects_dir == tmp_path / "sandbox/projects"
+    assert hub.settings.sandbox.readonly_dir == tmp_path / "sandbox/readonly"
+    assert hub.settings.sandbox.shared_dir == tmp_path / "sandbox/workspace"
+    assert hub.settings.logging.path == tmp_path / "technical_logs/backend.jsonl"
+    assert (hub.settings.dependency_health.interval_s, hub.settings.dependency_health.timeout_s) == (
         60,
         20,
     )
     assert (
-        hub.sandbox.logs,
-        hub.sandbox.snapshots,
-        hub.sandbox.memory,
+        hub.settings.sandbox.logs,
+        hub.settings.sandbox.snapshots,
+        hub.settings.sandbox.memory,
     ) == (
         Path("conversation_logs"),
         Path("conversation_snapshots"),
@@ -39,14 +40,14 @@ def test_sandbox_rejects_absolute_area_name(tmp_path):
     write_config(tmp_path)
     hub = load_hub(start=tmp_path)
     with pytest.raises(ValueError):
-        replace(hub.sandbox, readonly="/etc")
+        replace(hub.settings.sandbox, readonly="/etc")
 
 
 def test_hub_accepts_explicit_absolute_sandbox(tmp_path):
     write_config(tmp_path)
     hub = load_hub(start=tmp_path)
-    selected = replace(
-        hub, sandbox=replace(hub.sandbox, root=tmp_path / "elsewhere")
+    selected = configured_hub(
+        hub, sandbox=replace(hub.settings.sandbox, root=tmp_path / "elsewhere")
     )
     assert selected.project("test").root == tmp_path / "elsewhere/projects/test"
 
@@ -55,10 +56,10 @@ def test_hub_rejects_technical_log_inside_projects(tmp_path):
     write_config(tmp_path)
     hub = load_hub(start=tmp_path)
     with pytest.raises(ValueError, match="outside projects"):
-        replace(
+        configured_hub(
             hub,
             logging=replace(
-                hub.logging, path=hub.sandbox.projects_dir / "backend.jsonl"
+                hub.settings.logging, path=hub.settings.sandbox.projects_dir / "backend.jsonl"
             ),
         )
 
@@ -67,14 +68,14 @@ def test_hub_rejects_technical_log_inside_projects(tmp_path):
 def test_unknown_log_level_is_rejected(tmp_path, level):
     write_config(tmp_path)
     with pytest.raises(ValueError, match="console_level"):
-        replace(load_hub(start=tmp_path).logging, console_level=level)
+        replace(load_hub(start=tmp_path).settings.logging, console_level=level)
 
 
 @pytest.mark.parametrize("on_error", ["ignore", "warn", None])
 def test_unknown_file_error_policy_is_rejected(tmp_path, on_error):
     write_config(tmp_path)
     with pytest.raises(ValueError, match="on_error"):
-        replace(load_hub(start=tmp_path).logging, on_error=on_error)
+        replace(load_hub(start=tmp_path).settings.logging, on_error=on_error)
 
 
 def test_orchestrator_sandbox_permits_writes_at_project_root(
@@ -189,7 +190,7 @@ def test_shared_paths_reject_symlink_escapes(tmp_path):
         config.project("My Project")
     project.sandbox.shared_dir.symlink_to(outside, target_is_directory=True)
     with pytest.raises(ValueError):
-        config.sandbox.shared_dir
+        config.settings.sandbox.shared_dir
 
 
 @pytest.mark.parametrize(

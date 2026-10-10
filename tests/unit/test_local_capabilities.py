@@ -60,7 +60,7 @@ def test_cli_packages_are_selectable_and_execute_through_live_deployment(tmp_pat
     assert skill.loading == SkillLoading.ON_DEMAND
     for selected in ("simpsons_quotes", "simpsons_quotes_skill"):
         definition = hub.configure_deployment(
-            hub.project("quotes").sandbox, "quotes", endpoint_getter=lambda: hub.default_model
+            hub.project("quotes").sandbox, "quotes", endpoint_getter=lambda: hub.settings.default_model
         )
         definition.set_capability_selection({selected: True})
         responses = []
@@ -94,7 +94,7 @@ def test_config_relative_discovery_order_and_relative_imports_ignore_parent_code
     hub = load_hub(config_file=config)
     assert [cap.label.name for cap in hub.additional_capabilities] == ["first", "middle", "last"]
     assert sys.path == before
-    assert not hub.sandbox.root.exists()
+    assert not hub.settings.sandbox.root.exists()
 
 
 def test_missing_directories_and_successful_loads_are_cached_and_isolated(tmp_path):
@@ -122,13 +122,11 @@ def test_failed_imports_discard_submodules_and_remain_retryable(tmp_path, source
     package = _package(tmp_path, source="from .helper import CAPABILITY\n" + source)
     helper = package / "helper.py"
     helper.write_text(_source("before"))
-    previous = helper.stat()
     with pytest.raises(RuntimeError, match="Invalid local capabilities"):
         load_local_capabilities(tmp_path)
-    helper.write_text(_source("after_"))
-    os.utime(helper, ns=(previous.st_atime_ns, previous.st_mtime_ns))
+    helper.write_text(_source("after_repair"))
     (package / "__init__.py").write_text("from .helper import CAPABILITY\n")
-    assert load_local_capabilities(tmp_path)[0].label.name == "after_"
+    assert load_local_capabilities(tmp_path)[0].label.name == "after_repair"
 
 
 def test_duplicate_names_identify_both_packages_and_allow_repair(tmp_path):

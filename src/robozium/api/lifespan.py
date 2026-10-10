@@ -23,7 +23,7 @@ def application_lifespan(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-        with backend_logging_context(deployment.logging):
+        with backend_logging_context(deployment.settings.logging):
             try:
                 projects.recover()
                 async with dependencies(app):

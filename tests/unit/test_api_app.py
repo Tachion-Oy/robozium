@@ -7,7 +7,6 @@ import importlib
 import json
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Event
@@ -15,7 +14,12 @@ from types import SimpleNamespace
 
 import pytest
 from config_support import write_config
-from deployment_support import BuiltAgents, configured_deployment, deferred_deployment
+from deployment_support import (
+    BuiltAgents,
+    configured_deployment,
+    configured_hub,
+    deferred_deployment,
+)
 from fastapi import Request
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
@@ -63,7 +67,7 @@ def _root_bundle(agent: Agent) -> BuiltAgents:
 def _test_deployment(
     factory: Callable[..., tuple[Agent, tuple[Agent, ...]]], config_start: Path
 ) -> Hub:
-    return replace(
+    return configured_hub(
         load_hub(start=config_start),
         deployment=deferred_deployment(factory),
         transcription_endpoint=MockTranscriptionEndpoint(["unused"]),
@@ -197,7 +201,7 @@ def _syncing_after_stop_factory(
 def _isolated_hub_config(tmp_path: Path) -> None:
     """Write an isolated hub config under ``tmp_path``.
 
-    Tests point the app at it with ``create_app(deployment=Hub(load_hub(start=tmp_path)))``; nothing
+    Tests point the app at it with ``create_app(deployment=load_hub(start=tmp_path))``; nothing
     relies on the process working directory.
     """
     write_config(tmp_path)
@@ -417,7 +421,7 @@ def test_api_projects_lists_project_folders(tmp_path: Path) -> None:
 
     assert client.get("/projects").json() == []
 
-    projects_dir = load_hub(start=tmp_path).sandbox.projects_dir
+    projects_dir = load_hub(start=tmp_path).settings.sandbox.projects_dir
     (projects_dir / "beta").mkdir(parents=True)
     (projects_dir / "alpha").mkdir()
     (projects_dir / "stray.txt").write_text("not a project", encoding="utf-8")
@@ -839,7 +843,7 @@ def test_api_cancel_awaiting_input_persists_cancelled_conversation_status(
     tmp_path: Path,
 ) -> None:
     application = create_app(
-        deployment=replace(load_hub(start=tmp_path), deployment=mock_deployment)
+        deployment=configured_hub(load_hub(start=tmp_path), deployment=mock_deployment)
     )
     client = TestClient(application)
     assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
@@ -1505,7 +1509,7 @@ def test_api_files_get_serves_hub_file_with_safe_headers(tmp_path: Path) -> None
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
+    base_dir = load_hub(start=tmp_path).settings.sandbox.resolved_root
     file_path = base_dir / "projects" / "alpha" / "documents" / "cv.txt"
     file_path.parent.mkdir(parents=True)
     file_path.write_text("updated cv", encoding="utf-8")
@@ -1524,7 +1528,7 @@ def test_api_files_get_serves_pdf_with_inferred_content_type(tmp_path: Path) -> 
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
+    base_dir = load_hub(start=tmp_path).settings.sandbox.resolved_root
     file_path = base_dir / "projects" / "alpha" / "documents" / "cv.pdf"
     file_path.parent.mkdir(parents=True)
     file_path.write_bytes(b"%PDF-1.4\n%mock pdf\n")
@@ -1542,7 +1546,7 @@ def test_api_files_get_allows_reads_outside_projects_within_hub_root(
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
+    base_dir = load_hub(start=tmp_path).settings.sandbox.resolved_root
     file_path = base_dir / "shared" / "templates" / "cover-letter.txt"
     file_path.parent.mkdir(parents=True)
     file_path.write_text("shared template", encoding="utf-8")
@@ -1558,7 +1562,7 @@ def test_api_files_get_serves_trusted_timesheet_artifact(tmp_path: Path) -> None
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
     relative = "readonly/Tachion/planning/Tunnit/timesheet_2026-08.csv"
-    file_path = load_hub(start=tmp_path).sandbox.resolved_root / relative
+    file_path = load_hub(start=tmp_path).settings.sandbox.resolved_root / relative
     file_path.parent.mkdir(parents=True)
     file_path.write_text("Date,Hours\r\n2026-08-02,3.5\r\n", encoding="utf-8")
 
@@ -1594,7 +1598,7 @@ def test_api_files_get_returns_not_a_file_diagnostic_for_directories(
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
+    base_dir = load_hub(start=tmp_path).settings.sandbox.resolved_root
     folder = base_dir / "projects" / "alpha" / "documents"
     folder.mkdir(parents=True)
 
@@ -1611,7 +1615,7 @@ def test_api_files_get_rejects_empty_or_absolute_paths(tmp_path: Path) -> None:
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
+    base_dir = load_hub(start=tmp_path).settings.sandbox.resolved_root
     (base_dir / "projects" / "alpha").mkdir(parents=True)
 
     empty_path_response = client.get("/files/%20")
@@ -1627,7 +1631,7 @@ def test_api_files_get_rejects_escape_outside_hub(tmp_path: Path) -> None:
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
+    base_dir = load_hub(start=tmp_path).settings.sandbox.resolved_root
     (base_dir / "projects" / "alpha").mkdir(parents=True)
     external_file = base_dir.parent / "outside.txt"
     external_file.write_text("nope", encoding="utf-8")
@@ -1644,7 +1648,7 @@ def test_api_files_get_rejects_symlink_escape(tmp_path: Path) -> None:
     client = TestClient(
         create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     )
-    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
+    base_dir = load_hub(start=tmp_path).settings.sandbox.resolved_root
     project_root = base_dir / "projects" / "alpha"
     project_root.mkdir(parents=True)
     external_file = base_dir.parent / "outside.txt"
@@ -1667,7 +1671,7 @@ def test_real_orchestrator_reads_top_level_workspace_file(
     Both models are scripted and paths are isolated under the configured root.
     The transcript must contain the marker from outside the current project.
     """
-    base_dir = load_hub(start=tmp_path).sandbox.resolved_root
+    base_dir = load_hub(start=tmp_path).settings.sandbox.resolved_root
     assert base_dir.is_relative_to(tmp_path.resolve()), base_dir  # writes stay in tmp
 
     marker = "ROBOZ-CV-MARKER-7F3A91"
@@ -1737,8 +1741,8 @@ def test_project_operations_reject_shared_path_validation_errors(tmp_path, opera
     )
     outside = tmp_path / "outside"
     outside.mkdir()
-    config.sandbox.projects_dir.mkdir(parents=True)
-    (config.sandbox.projects_dir / "escape").symlink_to(
+    config.settings.sandbox.projects_dir.mkdir(parents=True)
+    (config.settings.sandbox.projects_dir / "escape").symlink_to(
         outside, target_is_directory=True
     )
     if operation == "create":
@@ -1758,11 +1762,11 @@ def test_active_model_api_switch_changes_next_request_and_isolates_runs(
 ) -> None:
     from robozium.mock.model_selection import MODEL_REQUESTS_FILE
 
-    hub = replace(load_hub(start=tmp_path), deployment=mock_deployment)
+    hub = configured_hub(load_hub(start=tmp_path), deployment=mock_deployment)
     application = create_app(deployment=hub)
     client = TestClient(application)
     manager = application.state.run_manager
-    first, second, *_ = (endpoint.dependency_id for endpoint in hub.models.values())
+    first, second, *_ = (endpoint.dependency_id for endpoint in hub.settings.models.values())
 
     def start(slug):
         run_id = _create_run(client, {"project": slug}).json()["run_id"]

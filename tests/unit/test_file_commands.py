@@ -3,7 +3,6 @@
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -11,6 +10,7 @@ from config_support import write_config
 from deployment_support import (
     BuiltAgents,
     configured_deployment,
+    configured_hub,
     deferred_deployment,
     foreground_agent,
 )
@@ -51,8 +51,8 @@ def command_run(
         )
         return BuiltAgents(foreground_agent(agents))
 
-    hub = replace(load_hub(start=tmp_path), deployment=deferred_deployment(factory))
-    assert hub.sandbox.resolved_root.is_relative_to(tmp_path.resolve())
+    hub = configured_hub(load_hub(start=tmp_path), deployment=deferred_deployment(factory))
+    assert hub.settings.sandbox.resolved_root.is_relative_to(tmp_path.resolve())
     application = create_app(deployment=hub)
     client = TestClient(application)
     try:
@@ -116,7 +116,7 @@ def test_project_file_writes_transfers_and_pipeline(tmp_path: Path) -> None:
     ]
     with command_run(tmp_path, tokens) as (hub, client, run_id):
         view = wait_for_status(client, run_id, "completed")
-        output = hub.sandbox.resolved_root / folder
+        output = hub.settings.sandbox.resolved_root / folder
         assert (output / "result.txt").read_text() == content
         assert (output / "first-line.txt").read_text() == "TAGGED-CLI-MARKER\n"
         assert not (output / "source.txt").exists()
@@ -137,7 +137,7 @@ def test_file_command_denies_writes_outside_project(
     target = (
         tmp_path / "outside.txt"
         if destination == "outside"
-        else hub.sandbox.resolved_root / destination
+        else hub.settings.sandbox.resolved_root / destination
     )
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("keep this file")
@@ -159,7 +159,7 @@ def test_shared_file_overwrite_requires_http_approval(
 ) -> None:
     hub = load_hub(start=tmp_path)
     source = hub.project("alpha").root / "source.txt"
-    shared = hub.sandbox.shared_dir / "shared.txt"
+    shared = hub.settings.sandbox.shared_dir / "shared.txt"
     source.parent.mkdir(parents=True, exist_ok=True)
     source.write_text("replacement")
     shared.parent.mkdir(parents=True, exist_ok=True)

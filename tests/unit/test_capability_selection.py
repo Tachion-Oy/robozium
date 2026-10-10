@@ -4,12 +4,12 @@ import json
 import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
 from pathlib import Path
 from threading import Event
 
 import pytest
 from config_support import write_config
+from deployment_support import configured_hub
 from fastapi.testclient import TestClient
 from roboz.deployment import Capability, ToolLabel
 from roboz.tools import stop
@@ -21,7 +21,7 @@ from robozium.hub.utils import load_hub
 @pytest.fixture
 def launch_api(tmp_path):
     hub = load_hub(config_file=write_config(tmp_path))
-    hub = replace(
+    hub = configured_hub(
         hub,
         additional_capabilities=(
             *hub.additional_capabilities,
@@ -109,7 +109,7 @@ def test_saved_choices_survive_restart_and_catalogue_changes_unchanged(launch_ap
     path = hub.project("alpha").capabilities_file
     original, modified = path.read_bytes(), path.stat().st_mtime_ns
     manager.shutdown()
-    updated = replace(
+    updated = configured_hub(
         hub,
         additional_capabilities=(
             Capability(
@@ -333,7 +333,7 @@ def test_effective_selection_controls_the_build(launch_api, selection, email, op
     definition = hub.configure_deployment(
         project.sandbox,
         project.slug,
-        endpoint_getter=lambda: hub.default_model,
+        endpoint_getter=lambda: hub.settings.default_model,
     )
     definition.set_capability_selection(manager.get_run(run_id)["capabilities"])
     root, (maintenance,) = definition.build()
@@ -438,7 +438,7 @@ def test_worker_builds_with_the_creation_selection(launch_api, enabled):
         model_name="selection",
         stream=False,
     )
-    hub = replace(
+    hub = configured_hub(
         hub,
         models={"Test": endpoint},
         default_model=endpoint,
