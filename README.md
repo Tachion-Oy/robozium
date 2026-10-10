@@ -244,7 +244,8 @@ Mock mode offers harmless **mock information** and **mock guidance** examples.
 Robozium's deployment definition owns the built-ins: filesystem, stop,
 compactification, and the Robozium skill are fixed. SafeScripts and Proton
 Bridge email are selectable. The application loads additional capabilities only
-from packages in `local/tools/` and `local/skills/`; see the migration below.
+from packages in `local/tools/` and `local/skills/`, plus configured external
+directories; see [Private capabilities](#private-capabilities).
 
 The capabilities router separates the live catalogue from saved project choices:
 
@@ -294,7 +295,8 @@ overrides the same setting in `.env` or `.env.encrypt`.
 
 ## Private capabilities
 
-Create private capabilities from the repository root using the pinned RoboZ CLI:
+With uv installed, create private capabilities from the repository root using
+the pinned RoboZ CLI:
 
 ```sh
 uv run --locked roboz tool init
@@ -323,17 +325,57 @@ capabilities start unchecked; select them and save your project choices.
 Mock mode keeps its existing scripted capabilities and does not execute private
 capabilities.
 
+### Additional capability directories
+
+`local/` is always scanned and can hold any number of your own packages. To add
+packages from other folders, set `ROBOZIUM_LOCAL_DIRS` in `.env`:
+
+```dotenv
+ROBOZIUM_LOCAL_DIRS="../customer-tools;/path/to/shared-tools"
+```
+
+Each folder contains `tools/` and/or `skills/` directly at its root, with the same
+package structure as `local/`. Files can be self-authored, copied, or checked out
+from a Git repository. Clone private repositories using your normal Git access,
+then point the setting at their checkout directories. Robozium does not fetch or
+update repositories.
+
+Separate paths with semicolons on every platform; folder names containing
+semicolons are unsupported. Spaces are allowed. On Windows, for example, use
+`ROBOZIUM_LOCAL_DIRS="C:/Customer Tools;D:/Shared Tools"`. Relative host paths use
+the application checkout; native loading resolves them beside the selected hub
+configuration. An unset or empty setting adds no external directories. Explicit
+paths must already exist, and repeated directories are loaded once.
+
+The CLI still creates packages in `local/` by default. To create a package in an
+external directory, supply its destination explicitly:
+
+```sh
+uv run --locked roboz tool init --path ../customer-tools/tools/timesheets
+```
+
+Start with `./start` or `start.cmd`. The launcher mounts each extra directory
+read-only and leaves dependency caches in the application's `.runtime/` folder.
+After editing files, pulling repository updates, or changing the directory list,
+restart using the same start command and reopen the live capability selector.
+Preserve capability label names to keep saved project selections matching.
 
 ### Loading and dependencies
 
-Discovery is relative to the selected [hub.config.py](hub.config.py), regardless
-of the working directory. Only immediate child packages containing `__init__.py`
-are discovered, in sorted path order; missing directories add nothing. Each
+Default discovery is relative to the selected [hub.config.py](hub.config.py),
+regardless of the working directory. The default `local/` comes first, followed
+by extra roots in their configured order. Only immediate child packages under
+`tools/` and `skills/` containing `__init__.py` are discovered, in sorted path
+order; missing `tools/` or `skills/` directories add nothing. Each
 package must export a RoboZ `CAPABILITY` and contain `requirements.txt`.
-Package entrypoints and requirements files must stay inside `local/`.
+Package entrypoints and requirements files must stay inside their capability root.
 
-On startup, Robozium validates package file locations, installs all requirements
-together into ignored `.runtime/local-deps/`, then imports the packages in an
+On startup, Robozium validates package file locations and resolves all requirements
+from all roots together against the pinned application environment. Incompatible
+dependencies stop startup before any capability code is imported, with an error
+identifying the requirements files and the resolver's conflict explanation.
+Compatible requirements are installed into ignored `.runtime/local-deps/` beside
+the hub configuration, then Robozium imports the packages in an
 isolated configuration namespace and adds them to the live deployment. Empty
 requirements need no installation. Dependencies must be compatible with each other
 and the pinned application environment. Native and Docker installations use
@@ -343,9 +385,18 @@ Successful imports are cached for the life of the API process.
 
 All private `local/` files are Git-ignored and excluded from images and application
 distributions. Docker retains its read-only code mount. Launchers create
-`local/tools/`, `local/skills/`, and the dependency cache. For direct Compose
-launches, create these directories and `.runtime/local-deps/` first. No edits to
-tracked configuration or the main `pyproject.toml` are needed for private packages.
+`local/tools/`, `local/skills/`, and the dependency cache. External source folders
+must already exist. For direct Compose launches, create the default directories
+and `.runtime/local-deps/` first. To include extra roots, generate the same override
+used by the launchers and pass both files (POSIX example):
+
+```sh
+sh scripts/capability-mounts.sh '../customer-tools;/path/to/shared-tools' > .runtime/capability-mounts.yaml
+docker compose -f compose.yaml -f .runtime/capability-mounts.yaml up --build
+```
+
+No edits to tracked configuration or the main `pyproject.toml` are needed for
+private packages.
 
 ## Host scripts on Linux
 

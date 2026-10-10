@@ -38,13 +38,17 @@ def launch(tmp_path: Path) -> tuple[Path, dict[str, str]]:
         "[ \"$1\" = compose ] || exit 9\n"
         "case \"$*\" in *'config --environment')\n"
         "  hub=\n"
+        "  local_dirs=\n"
         "  for file in .env.encrypt .env; do\n"
         "    if [ -f \"$file\" ]; then\n"
         "      value=$(sed -n \"s/^ROBOZIUM_HUB_ROOT='\\(.*\\)'$/\\1/p\" \"$file\")\n"
         "      if [ -n \"$value\" ]; then hub=$value; fi\n"
+        "      value=$(sed -n \"s/^ROBOZIUM_LOCAL_DIRS='\\(.*\\)'$/\\1/p\" \"$file\")\n"
+        "      if [ -n \"$value\" ]; then local_dirs=$value; fi\n"
         "    fi\n"
         "  done\n"
         "  printf 'ROBOZIUM_HUB_ROOT=%s\\n' \"${ROBOZIUM_HUB_ROOT:-$hub}\"\n"
+        "  printf 'ROBOZIUM_LOCAL_DIRS=%s\\n' \"${ROBOZIUM_LOCAL_DIRS-$local_dirs}\"\n"
         "  exit 0;; esac\n"
         "printf '%s\\n' \"$@\" > \"$TEST_DOCKER_ARGS\"\n"
         "printf '%s\\n' \"$ROBOZIUM_HOST_HUB_DIR\" > \"$TEST_DOCKER_HUB\"\n"
@@ -94,7 +98,7 @@ def launch(tmp_path: Path) -> tuple[Path, dict[str, str]]:
         "TEST_EXAMPLE_READY": str(tmp_path / "example-ready"),
         "PC_LOG_FILE": str(tmp_path / "supervisor.log"),
     }
-    for name in ("ROBOZIUM_HUB_ROOT", "OPENROUTER_API_KEY_SECRET", "TEST_DOCKER_WAIT"):
+    for name in ("ROBOZIUM_HUB_ROOT", "ROBOZIUM_LOCAL_DIRS", "OPENROUTER_API_KEY_SECRET", "TEST_DOCKER_WAIT"):
         env.pop(name, None)
     return checkout, env
 
@@ -182,6 +186,44 @@ def test_plaintext_takes_precedence_for_host_path(launch, tmp_path):
     assert Path(env["TEST_DOCKER_ARGS"]).read_text().splitlines()[:5] == [
         "compose", "--env-file", ".env.encrypt", "--env-file", ".env"
     ]
+
+
+@pytest.mark.parametrize("mode", [(), ("--mock",)])
+def test_launchers_mount_extra_directories_from_dotenv_and_clear_removed_roots(launch, tmp_path, mode):
+    checkout, env = launch
+    first, second = tmp_path / "customer tools", tmp_path / 'shared "tools"'
+    first.mkdir()
+    second.mkdir()
+    (first / "private.py").write_text("# keep private source\n")
+    (checkout / ".env.encrypt").write_text("ROBOZIUM_LOCAL_DIRS='../wrong'\n")
+    (checkout / ".env").write_text(f"ROBOZIUM_LOCAL_DIRS='../customer tools;{second};{first};local'\n")
+    result = _run(checkout, env, *mode)
+    assert result.returncode == 0, result.stderr
+    overlay = checkout / ".runtime/capability-mounts.yaml"
+    api = yaml.safe_load(overlay.read_text())["services"]["api"]
+    assert [mount["source"] for mount in api["volumes"]] == [str(first), str(second)]
+    assert all(mount["read_only"] and not mount["bind"]["create_host_path"] for mount in api["volumes"])
+    assert api["environment"]["ROBOZIUM_LOCAL_DIRS"] == (
+        "/app/.runtime/capability-roots/0;/app/.runtime/capability-roots/1"
+    )
+    assert (first / "private.py").read_text() == "# keep private source\n"
+    assert "-f\n.runtime/capability-mounts.yaml" in Path(env["TEST_DOCKER_ARGS"]).read_text()
+    env["ROBOZIUM_LOCAL_DIRS"] = ""
+    assert _run(checkout, env, *mode).returncode == 0
+    api = yaml.safe_load(overlay.read_text())["services"]["api"]
+    assert not api.get("volumes")
+    assert api["environment"]["ROBOZIUM_LOCAL_DIRS"] == ""
+
+
+@pytest.mark.parametrize("mode", [(), ("--mock",)])
+def test_missing_extra_directory_stops_launcher_before_application(launch, mode):
+    checkout, env = launch
+    (checkout / ".env").write_text("ROBOZIUM_LOCAL_DIRS='../missing'\n")
+    result = _run(checkout, env, *mode)
+    assert result.returncode != 0
+    assert "ROBOZIUM_LOCAL_DIRS directory does not exist" in result.stderr
+    assert not Path(env["TEST_DOCKER_ARGS"]).exists()
+    assert not (checkout / ".runtime/launch.lock").exists()
 
 
 def test_mock_ignores_missing_live_sidecar_prerequisites(launch):

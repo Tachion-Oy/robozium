@@ -77,6 +77,11 @@ jobs:
           mkdir -p .runtime/mock-hub/readonly/safe-scripts .runtime/mock-logs .runtime/mock-socket .runtime/local-deps local
           uv run --locked roboz tool init
           uv run --locked roboz skill init
+          uv run --locked roboz tool init --path "$RUNNER_TEMP/customer-tools/tools/customer_quotes"
+          uv run --locked roboz skill init --path "$RUNNER_TEMP/shared-tools/skills/customer_guide"
+          sh scripts/capability-mounts.sh "$RUNNER_TEMP/customer-tools;$RUNNER_TEMP/shared-tools" > .runtime/capability-mounts.yaml
+          export COMPOSE_FILE=compose.yaml:.runtime/capability-mounts.yaml
+          echo "COMPOSE_FILE=$COMPOSE_FILE" >> "$GITHUB_ENV"
           docker compose up --build --wait
           docker compose exec -T api python - < tests/container/check_local_capabilities.py
           docker compose exec -T api python - < tests/container/check_file_cli.py

@@ -38,6 +38,11 @@ export ROBOZIUM_HOST_SOCKET_DIR=.runtime/mock-socket
 mkdir -p "$ROBOZIUM_HOST_HUB_DIR/readonly/safe-scripts" \
   "$ROBOZIUM_HOST_LOG_DIR" "$ROBOZIUM_HOST_SOCKET_DIR" \
   local/tools local/skills .runtime/local-deps
+compose_environment=$("$@" config --environment)
+local_dirs=$(printf '%s\n' "$compose_environment" | sed -n 's/^ROBOZIUM_LOCAL_DIRS=//p')
+unset compose_environment
+sh scripts/capability-mounts.sh "$local_dirs" > .runtime/capability-mounts.yaml
+set -- "$@" -f .runtime/capability-mounts.yaml
 
 if ! printenv ROBOZIUM_API_USER >/dev/null; then
   docker_security_options=$(docker info --format '{{json .SecurityOptions}}')

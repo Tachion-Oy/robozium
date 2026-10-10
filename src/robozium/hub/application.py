@@ -197,5 +197,5 @@ class Hub:
             if capability.label.name in builtin_names:
                 raise ValueError(
                     f"Local capability {capability.label.name!r} conflicts with a built-in; "
-                    "rename its label in local/tools/ or local/skills/"
+                    "rename its label in the capability package"
                 )

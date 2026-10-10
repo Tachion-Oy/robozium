@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Always load `local/` and optionally add capability roots from the semicolon-separated
+  `ROBOZIUM_LOCAL_DIRS` environment setting. Launchers mount extra sources read-only.
+  Resolve all requirements together and fail startup on incompatible dependencies
+  before importing private capabilities.
+
 - Discover CLI-created capability packages in `local/tools/` and `local/skills/`
   on each API restart. Create them with `uv run --locked roboz tool init` or
   `uv run --locked roboz skill init`, then select them in live mode. Migrate

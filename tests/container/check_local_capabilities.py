@@ -12,18 +12,18 @@ def main() -> None:
     try:
         hub = app.state.hub
         labels = {label.name: label for label in hub.capabilities()}
-        assert labels["simpsons_quotes"].selectable
-        skill = labels["simpsons_quotes_skill"]
-        assert isinstance(skill, SkillLabel) and skill.selectable
-        assert skill.loading == SkillLoading.ON_DEMAND
         project = hub.project("local-capability-check")
-        for name in ("simpsons_quotes", "simpsons_quotes_skill"):
+        for name in ("simpsons_quotes", "simpsons_quotes_skill", "customer_quotes", "customer_guide"):
+            label = labels[name]
+            assert label.selectable
+            if isinstance(label, SkillLabel):
+                assert label.loading == SkillLoading.ON_DEMAND
             definition = hub.configure_deployment(
                 project.sandbox, project.slug, endpoint_getter=lambda: hub.settings.default_model
             )
             definition.set_capability_selection({name: True})
             responses = []
-            if name.endswith("_skill"):
+            if isinstance(label, SkillLabel):
                 responses.append({"action": name, "rationale": "load generated skill"})
             responses.append({"action": f"get_{name}", "rationale": "check generated tool"})
             definition.set_agent_endpoint(MockLLMEndpoint(responses))
@@ -36,7 +36,7 @@ def main() -> None:
             definition.set_capability_selection({})
             excluded, _ = definition.build()
             assert not excluded.skills
-            assert not any(tool.name.startswith("get_simpsons") for tool in excluded.tools)
+            assert not any(tool.name == f"get_{name}" for tool in excluded.tools)
     finally:
         app.state.run_manager.shutdown()
     print("Mounted CLI-generated tools and skills execute through the live deployment.")

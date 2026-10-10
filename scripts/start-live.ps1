@@ -21,10 +21,15 @@ $hostSupervisorProcess = $null
 try {
     $env:ROBOZIUM_MODE = 'live'
     # Compose owns dotenv parsing and environment precedence.
-    $hubRoot = & docker @composeArguments config --environment |
+    $composeEnvironment = & docker @composeArguments config --environment
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    $hubRoot = $composeEnvironment |
         Where-Object { $_.StartsWith('ROBOZIUM_HUB_ROOT=') } |
         ForEach-Object { $_.Substring('ROBOZIUM_HUB_ROOT='.Length) }
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    $localDirs = $composeEnvironment |
+        Where-Object { $_.StartsWith('ROBOZIUM_LOCAL_DIRS=') } |
+        ForEach-Object { $_.Substring('ROBOZIUM_LOCAL_DIRS='.Length) }
+    Remove-Variable composeEnvironment
     $env:ROBOZIUM_HOST_HUB_DIR = if ($hubRoot) { $hubRoot } else { '../Robozium-Hub' }
     $env:ROBOZIUM_HOST_LOG_DIR = '.runtime/logs'
     $env:ROBOZIUM_HOST_SOCKET_DIR = '.runtime/host-socket'
@@ -41,6 +46,9 @@ try {
     foreach ($directory in $runtimeDirectories) {
         [System.IO.Directory]::CreateDirectory($directory) | Out-Null
     }
+    & "$PSScriptRoot/capability-mounts.ps1" -Directories $localDirs |
+        Set-Content -LiteralPath '.runtime/capability-mounts.yaml' -Encoding UTF8
+    $composeArguments += @('-f', '.runtime/capability-mounts.yaml')
 
     if (Get-Command process-compose -ErrorAction SilentlyContinue) {
         $hostSupervisorOptions = @{

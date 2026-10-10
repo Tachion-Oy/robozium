@@ -35,6 +35,15 @@ try {
     foreach ($directory in $runtimeDirectories) {
         [System.IO.Directory]::CreateDirectory($directory) | Out-Null
     }
+    $composeEnvironment = & docker @composeArguments config --environment
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    $localDirs = $composeEnvironment |
+        Where-Object { $_.StartsWith('ROBOZIUM_LOCAL_DIRS=') } |
+        ForEach-Object { $_.Substring('ROBOZIUM_LOCAL_DIRS='.Length) }
+    Remove-Variable composeEnvironment
+    & "$PSScriptRoot/capability-mounts.ps1" -Directories $localDirs |
+        Set-Content -LiteralPath '.runtime/capability-mounts.yaml' -Encoding UTF8
+    $composeArguments += @('-f', '.runtime/capability-mounts.yaml')
 
     & docker @composeArguments up --build --exit-code-from api
     $composeExitCode = $LASTEXITCODE

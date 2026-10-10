@@ -20,6 +20,11 @@ from robozium.hub.local import load_local_capabilities
 from robozium.hub.utils import load_hub
 
 
+@pytest.fixture(autouse=True)
+def isolated_roots(monkeypatch):
+    monkeypatch.delenv("ROBOZIUM_LOCAL_DIRS", raising=False)
+
+
 def _source(label="private"):
     return (
         "from roboz.deployment import Capability, ToolLabel\n"
@@ -43,11 +48,15 @@ def _generate(root, kind, path=None):
     subprocess.run(command, cwd=root, check=True, capture_output=True, text=True)
 
 
-def test_cli_packages_are_selectable_and_execute_through_live_deployment(tmp_path):
+@pytest.mark.parametrize("external", [False, True])
+def test_cli_packages_are_selectable_and_execute_through_live_deployment(tmp_path, monkeypatch, external):
     config = write_config(tmp_path)
     _generate(tmp_path, "tool")
-    _generate(tmp_path, "skill")
-    for implementation in (tmp_path / "local").glob("*/*/tool.py"):
+    skill_path = "customer tools/skills/simpsons_quotes_skill" if external else None
+    _generate(tmp_path, "skill", skill_path)
+    if external:
+        monkeypatch.setenv("ROBOZIUM_LOCAL_DIRS", "customer tools")
+    for implementation in tmp_path.glob("*/*/*/tool.py"):
         implementation.write_text(
             implementation.read_text().replace("choice(QUOTES)", "'generated quote'")
         )
@@ -129,9 +138,12 @@ def test_failed_imports_discard_submodules_and_remain_retryable(tmp_path, source
     assert load_local_capabilities(tmp_path)[0].label.name == "after_repair"
 
 
-def test_duplicate_names_identify_both_packages_and_allow_repair(tmp_path):
+@pytest.mark.parametrize("external", [False, True])
+def test_duplicate_names_identify_both_packages_and_allow_repair(tmp_path, monkeypatch, external):
     first = _package(tmp_path, "tools/one")
-    second = _package(tmp_path, "skills/two")
+    second = _package(tmp_path / "customer" if external else tmp_path, "skills/two")
+    if external:
+        monkeypatch.setenv("ROBOZIUM_LOCAL_DIRS", str(second.parent.parent))
     with pytest.raises(RuntimeError, match="duplicate capability name 'private'") as error:
         load_local_capabilities(tmp_path)
     assert str(first) in str(error.value) and str(second) in str(error.value)
@@ -148,11 +160,13 @@ def test_builtin_collision_is_an_actionable_live_startup_error(tmp_path):
 
 def test_requirements_are_installed_together_before_any_import(tmp_path, monkeypatch):
     first = _package(tmp_path, "skills/a", "import private_marker\n" + _source("a"), "marker==1\n")
-    second = _package(tmp_path, "tools/b", source=_source("b"))
+    second = _package(tmp_path / "customer", "tools/b", source=_source("b"))
+    monkeypatch.setenv("ROBOZIUM_LOCAL_DIRS", str(second.parent.parent))
     installed = []
 
     def install(command, **kwargs):
         target = Path(command[command.index("--target") + 1])
+        assert target.parent == tmp_path / ".runtime/local-deps"
         target.mkdir(parents=True)
         (target / "private_marker.py").write_text("VALUE = 1\n")
         requirements = [command[i + 1] for i, value in enumerate(command) if value == "-r"]
@@ -173,6 +187,68 @@ def test_requirements_are_installed_together_before_any_import(tmp_path, monkeyp
     finally:
         sys.path[:] = before
         sys.modules.pop("private_marker", None)
+
+
+def test_extra_roots_are_ordered_deduplicated_and_config_relative(tmp_path, monkeypatch):
+    config_dir = tmp_path / "app"
+    _package(config_dir, source=_source("default"))
+    for name in ("first", "second"):
+        _package(tmp_path / name, source="from .helper import CAPABILITY\n")
+        (tmp_path / name / "local/tools/private/helper.py").write_text(_source(name))
+    monkeypatch.setenv(
+        "ROBOZIUM_LOCAL_DIRS",
+        f" ../first/local ;{tmp_path / 'second/local'};../first/local;local;;",
+    )
+    monkeypatch.chdir(tmp_path)
+    assert [cap.label.name for cap in load_local_capabilities(config_dir)] == [
+        "default", "first", "second"
+    ]
+    monkeypatch.setenv("ROBOZIUM_LOCAL_DIRS", "../first/local;../second/local")
+    other = load_local_capabilities(tmp_path / "other-app")
+    assert [cap.label.name for cap in other] == ["first", "second"]
+    assert other[0] is not load_local_capabilities(config_dir)[1]
+
+
+@pytest.mark.parametrize("kind", ["missing", "file"])
+def test_invalid_extra_directory_fails_before_importing_default_tools(tmp_path, monkeypatch, kind):
+    marker = tmp_path / "imported"
+    _package(tmp_path, source=f"from pathlib import Path\nPath({str(marker)!r}).touch()\n" + _source())
+    path = tmp_path / "extra"
+    if kind == "file":
+        path.touch()
+    monkeypatch.setenv("ROBOZIUM_LOCAL_DIRS", str(path))
+    with pytest.raises(RuntimeError, match="ROBOZIUM_LOCAL_DIRS directory does not exist"):
+        load_local_capabilities(tmp_path)
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize("requirements", [
+    ("private-shared==1\n", "private-shared==2\n"),
+    ("", "roboz==0.0.0\n"),
+])
+def test_real_dependency_conflicts_fail_before_imports_and_allow_repair(tmp_path, monkeypatch, requirements):
+    marker = tmp_path / "imported"
+    source = f"from pathlib import Path\nPath({str(marker)!r}).touch()\n"
+    first = _package(tmp_path, source=source + _source("first"), requirements=requirements[0])
+    second = _package(tmp_path / "customer", source=source + _source("second"), requirements=requirements[1])
+    monkeypatch.setenv("ROBOZIUM_LOCAL_DIRS", str(second.parent.parent))
+    monkeypatch.setenv("UV_OFFLINE", "1")
+    monkeypatch.setenv("UV_CACHE_DIR", str(tmp_path / "uv-cache"))
+    before = sys.path.copy()
+    with pytest.raises(RuntimeError, match="Dependencies must be compatible") as error:
+        load_local_capabilities(tmp_path)
+    assert str(first / "requirements.txt") in str(error.value)
+    assert str(second / "requirements.txt") in str(error.value)
+    detail = str(error.value).split("application environment: ", 1)[1]
+    assert "No solution found" in detail
+    assert requirements[1].strip() in detail
+    assert (requirements[0].strip() or "roboz==0.9.1") in detail
+    assert sys.path == before
+    assert not marker.exists()
+    for package in (first, second):
+        (package / "requirements.txt").write_text("")
+    assert len(load_local_capabilities(tmp_path)) == 2
+    assert marker.exists()
 
 
 @pytest.mark.parametrize("invalid", ["missing_requirements", "requirements_link", "entrypoint_link", "package_link", "directory_link"])
@@ -247,6 +323,27 @@ finally:
         capture_output=True, text=True, check=True, timeout=30,
     )
     return json.loads(result.stdout)
+
+
+def test_removing_extra_root_on_restart_preserves_default_and_saved_choices(tmp_path, monkeypatch):
+    config = write_config(tmp_path)
+    _generate(tmp_path, "tool")
+    _generate(tmp_path, "skill", "customer/skills/customer_guide")
+    monkeypatch.setenv("ROBOZIUM_LOCAL_DIRS", "customer")
+    app = create_app(deployment=load_hub(config_file=config))
+    choices = {"simpsons_quotes": True, "customer_guide": True}
+    try:
+        client = TestClient(app)
+        assert client.post("/projects", json={"name": "restart"}).status_code == 200
+        assert client.post("/capabilities/restart", json=choices).status_code == 200
+    finally:
+        app.state.run_manager.shutdown()
+    assert _restart(config)["effective"]["customer_guide"] == "on_demand"
+    monkeypatch.delenv("ROBOZIUM_LOCAL_DIRS")
+    removed = _restart(config)
+    assert removed["effective"]["simpsons_quotes"] is True
+    assert "customer_guide" not in removed["effective"]
+    assert removed["saved"] == choices
 
 
 def test_fresh_api_processes_rediscover_packages_and_preserve_saved_selections(tmp_path):

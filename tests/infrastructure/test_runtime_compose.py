@@ -28,6 +28,7 @@ def test_compose_storage_and_credentials(tmp_path: Path, mode: str, web_port: st
         "ROBOZIUM_HOST_HUB_DIR": str(hub), "ROBOZIUM_HOST_SOCKET_DIR": str(socket),
     }
     env.pop("ROBOZIUM_WEB_PORT", None)
+    env.pop("ROBOZIUM_LOCAL_DIRS", None)
     completed = subprocess.run(
         [
             "docker", "compose", "--env-file", ".env.encrypt", "--env-file", ".env",
@@ -104,3 +105,35 @@ def test_live_launcher_resolves_settings_with_compose(tmp_path: Path):
     assert output.read_text().splitlines() == [str(hub), "live", "1234:5678"]
     assert (hub / "readonly/safe-scripts").is_dir()
     assert not (checkout / ".runtime/launch.lock").exists()
+
+
+@pytest.mark.parametrize("mode", ["live", "mock"])
+def test_extra_mounts_use_literal_host_paths_and_container_environment(tmp_path, mode):
+    shutil.copy2(ROOT / "compose.yaml", tmp_path / "compose.yaml")
+    (tmp_path / "local").mkdir()
+    first, second = tmp_path / "customer tools", tmp_path / "a '$literal' folder"
+    first.mkdir()
+    second.mkdir()
+    directories = f"customer tools;{second};{first};local"
+    output = subprocess.run(
+        ["sh", str(ROOT / "scripts/capability-mounts.sh"), directories],
+        cwd=tmp_path, capture_output=True, text=True, check=True,
+    )
+    (tmp_path / "mounts.yaml").write_text(output.stdout)
+    completed = subprocess.run(
+        ["docker", "compose", "-f", "compose.yaml", "-f", "mounts.yaml", "config", "--format", "json"],
+        cwd=tmp_path, env={**os.environ, "ROBOZIUM_MODE": mode},
+        capture_output=True, text=True, check=True,
+    )
+    api = json.loads(completed.stdout)["services"]["api"]
+    volumes = {mount["target"]: mount for mount in api["volumes"]}
+    assert volumes["/app/local"]["source"] == str(tmp_path / "local")
+    for index, source in enumerate((first, second)):
+        mount = volumes[f"/app/.runtime/capability-roots/{index}"]
+        # Compose may escape literal dollars again when serializing reusable config.
+        assert mount["source"].replace("$$", "$") == str(source)
+        assert mount["read_only"] is True
+        assert mount["bind"].get("create_host_path", False) is False
+    assert api["environment"]["ROBOZIUM_LOCAL_DIRS"] == (
+        "/app/.runtime/capability-roots/0;/app/.runtime/capability-roots/1"
+    )

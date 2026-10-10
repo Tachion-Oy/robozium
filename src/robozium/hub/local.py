@@ -1,5 +1,6 @@
-"""Discover private CLI-created capability packages beside hub.config.py."""
+"""Discover private capability packages in local and configured directories."""
 
+import os
 import subprocess
 import sys
 from contextlib import ExitStack
@@ -23,34 +24,58 @@ _LOCAL_PACKAGE_PREFIX = "_robozium_local_"
 
 
 def load_local_capabilities(config_dir: Path) -> tuple[Capability, ...]:
-    """Install and import immediate packages in local/tools and local/skills.
+    """Load local packages plus roots listed in ROBOZIUM_LOCAL_DIRS.
 
     Parent registration files are never executed. Successful loads are cached
-    per resolved local directory; restart the API to discover private changes.
+    per configuration and roots; restart the API to discover private changes.
     Failures discard the isolated namespace so corrected packages can be retried.
     """
-    root = (config_dir / "local").resolve()
+    config_dir = config_dir.resolve()
     with _IMPORT_LOCK:
         try:
-            return _load_local_capabilities(root)
+            return _load_local_capabilities(config_dir, _capability_roots(config_dir))
         except Exception as exc:
-            raise RuntimeError(f"Invalid local capabilities {root}: {exc}") from exc
+            raise RuntimeError(f"Invalid local capabilities for {config_dir}: {exc}") from exc
+
+
+def _capability_roots(config_dir: Path) -> tuple[Path, ...]:
+    roots = [(config_dir / "local").resolve()]
+    for value in os.environ.get("ROBOZIUM_LOCAL_DIRS", "").split(";"):
+        if not value.strip():
+            continue
+        root = (config_dir / value.strip()).resolve()
+        if not root.is_dir():
+            raise ValueError(f"ROBOZIUM_LOCAL_DIRS directory does not exist: {root}")
+        if not any(
+            root == existing or (existing.is_dir() and root.samefile(existing))
+            for existing in roots
+        ):
+            roots.append(root)
+    return tuple(roots)
 
 
 @cache
-def _load_local_capabilities(root: Path) -> tuple[Capability, ...]:
-    packages = _discover_packages(root)
-    dependencies = _prepare_dependencies(root, packages)
-    namespace = _LOCAL_PACKAGE_PREFIX + sha256(str(root).encode()).hexdigest()
+def _load_local_capabilities(
+    config_dir: Path, roots: tuple[Path, ...]
+) -> tuple[Capability, ...]:
+    packages = {root: _discover_packages(root) for root in roots}
+    dependencies = _prepare_dependencies(config_dir, packages)
+    namespace = _LOCAL_PACKAGE_PREFIX + sha256(repr((config_dir, roots)).encode()).hexdigest()
     with ExitStack() as rollback:
         rollback.callback(_discard_namespace, namespace)
         if dependencies is not None:
             sys.path.append(str(dependencies))
             rollback.callback(sys.path.remove, str(dependencies))
-        capabilities = _import_packages(root, packages, namespace)
+        _register_namespace(namespace, config_dir)
+        capabilities: list[Capability] = []
+        labels: dict[str, Path] = {}
+        for index, (root, paths) in enumerate(packages.items()):
+            capabilities.extend(
+                _import_packages(root, paths, f"{namespace}.source_{index}", labels)
+            )
         # Keep successful imports available; unwind partial imports on any failure.
         rollback.pop_all()
-    return capabilities
+    return tuple(capabilities)
 
 
 def _discover_packages(root: Path) -> list[Path]:
@@ -89,14 +114,13 @@ def _discard_namespace(name: str) -> None:
 
 
 def _import_packages(
-    root: Path, packages: list[Path], namespace: str
+    root: Path, packages: list[Path], namespace: str, labels: dict[str, Path]
 ) -> tuple[Capability, ...]:
     invalidate_caches()
     _register_namespace(namespace, root)
     for kind in ("skills", "tools"):
         _register_namespace(f"{namespace}.{kind}", root / kind)
     capabilities: list[Capability] = []
-    labels: dict[str, Path] = {}
     for package in packages:
         entrypoint = root / package / "__init__.py"
         capability = _import_capability(f"{namespace}.{'.'.join(package.parts)}", entrypoint)
@@ -129,21 +153,24 @@ def _local_file(root: Path, relative: Path, label: str) -> Path:
     return file
 
 
-def _prepare_dependencies(root: Path, packages: list[Path]) -> Path | None:
+def _prepare_dependencies(
+    config_dir: Path, packages: dict[Path, list[Path]]
+) -> Path | None:
     requirements = [
         _local_file(root, package / "requirements.txt", "requirements file")
-        for package in packages
+        for root, paths in packages.items()
+        for package in paths
     ]
     if not any(file.read_text(encoding="utf-8").strip() for file in requirements):
         return None
-    return _install_requirements(root, requirements)
+    return _install_requirements(config_dir, requirements)
 
 
-def _install_requirements(root: Path, requirements: list[Path]) -> Path:
+def _install_requirements(config_dir: Path, requirements: list[Path]) -> Path:
     uv = which("uv")
     if uv is None:
         raise RuntimeError("Local capability dependencies require uv in the API environment")
-    target = _dependency_cache(root)
+    target = _dependency_cache(config_dir)
     target.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(dir=target.parent) as temporary:
         constraints = Path(temporary) / "base-constraints.txt"
@@ -159,16 +186,20 @@ def _install_requirements(root: Path, requirements: list[Path]) -> Path:
         )
         if result.returncode:
             detail = (result.stderr or result.stdout).strip()
-            files = ", ".join(str(file.relative_to(root)) for file in requirements)
-            raise RuntimeError(f"Could not install local requirements ({files}): {detail}")
+            files = ", ".join(str(file) for file in requirements)
+            raise RuntimeError(
+                f"Could not install local requirements ({files}). "
+                "Dependencies must be compatible with each other and the pinned "
+                f"application environment: {detail}"
+            )
     return target
 
 
-def _dependency_cache(root: Path) -> Path:
+def _dependency_cache(config_dir: Path) -> Path:
     # Native development and Docker must not share installed binary packages.
     environment = sha256(str(Path(sys.prefix).resolve()).encode()).hexdigest()[:8]
     key = f"{sys.implementation.cache_tag}-{get_platform()}-{environment}"
-    return root.parent / ".runtime" / "local-deps" / key
+    return config_dir / ".runtime" / "local-deps" / key
 
 
 def _write_installed_constraints(path: Path) -> None:
