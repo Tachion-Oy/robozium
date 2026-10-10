@@ -1,13 +1,16 @@
-"""Load private capabilities declared beside hub.config.py."""
+"""Discover private capability packages in local and configured directories."""
 
+import os
 import subprocess
 import sys
-from dataclasses import dataclass
+from contextlib import ExitStack
+from functools import cache
 from hashlib import sha256
+from importlib import import_module, invalidate_caches
+from importlib.machinery import ModuleSpec
 from importlib.metadata import distributions
-from importlib.util import module_from_spec, spec_from_file_location
+from keyword import iskeyword
 from pathlib import Path
-from pkgutil import resolve_name
 from shutil import which
 from sysconfig import get_platform
 from tempfile import TemporaryDirectory
@@ -17,79 +20,130 @@ from types import ModuleType
 from roboz.deployment import Capability
 
 _IMPORT_LOCK = RLock()
-_CAPABILITY_CACHE: dict[Path, tuple[Capability, ...]] = {}
 _LOCAL_PACKAGE_PREFIX = "_robozium_local_"
 
 
-@dataclass(frozen=True)
-class LocalTool:
-    """Declare a ``module:factory`` and requirements file relative to local/.
-
-    The factory takes no arguments and returns a Capability.
-    """
-
-    entrypoint: str
-    requirements: str
-
-
 def load_local_capabilities(config_dir: Path) -> tuple[Capability, ...]:
-    """Validate, install, and load private capabilities once per resolved directory.
+    """Load local packages plus roots listed in ROBOZIUM_LOCAL_DIRS.
 
-    Existing capability objects are also accepted. Restart the API to reload
-    private code or changed requirements.
+    Parent registration files are never executed. Successful loads are cached
+    per configuration and roots; restart the API to discover private changes.
+    Failures discard the isolated namespace so corrected packages can be retried.
     """
-    root = (config_dir / "local").resolve()
-    entrypoint = root / "__init__.py"
-    if not entrypoint.is_file():
-        return ()
-
+    config_dir = config_dir.resolve()
     with _IMPORT_LOCK:
-        cached = _CAPABILITY_CACHE.get(root)
-        if cached is not None:
-            return cached
-
-        name = _LOCAL_PACKAGE_PREFIX + sha256(str(root).encode()).hexdigest()
-        dependencies: str | None = None
-        tool_name: str | None = None
         try:
-            module = _import_package(name, entrypoint)
-            declarations = getattr(module, "CAPABILITIES", ())
-            if not isinstance(declarations, (list, tuple)):
-                raise TypeError("CAPABILITIES must be a list or tuple")
-            requirements = [
-                _validate_tool(item, root)
-                for item in declarations if isinstance(item, LocalTool)
-            ]
-            if requirements:
-                dependencies = str(_install_requirements(root, requirements))
-                sys.path.append(dependencies)
+            return _load_local_capabilities(config_dir, _capability_roots(config_dir))
+        except Exception as exc:
+            raise RuntimeError(f"Invalid local capabilities for {config_dir}: {exc}") from exc
 
-            capabilities: list[Capability] = []
-            for declaration in declarations:
-                tool_name = None
-                if isinstance(declaration, LocalTool):
-                    tool_name = declaration.entrypoint
-                    factory = resolve_name(f"{name}.{tool_name}")
-                    declaration = factory()
-                if not isinstance(declaration, Capability) or not callable(
-                    declaration.build
-                ):
-                    raise TypeError("expected a Capability")
-                capabilities.append(declaration)
-        except BaseException as exc:
-            if dependencies is not None:
-                sys.path.remove(dependencies)
-            # Failed imports must be retryable without partially loaded modules.
-            for key in tuple(sys.modules):
-                if key == name or key.startswith(name + "."):
-                    del sys.modules[key]
-            if not isinstance(exc, Exception):
-                raise
-            detail = f"{tool_name}: {exc}" if tool_name else str(exc)
-            raise RuntimeError(f"Invalid local capabilities {entrypoint}: {detail}") from exc
-        result = tuple(capabilities)
-        _CAPABILITY_CACHE[root] = result
-        return result
+
+def _capability_roots(config_dir: Path) -> tuple[Path, ...]:
+    roots = [(config_dir / "local").resolve()]
+    for value in os.environ.get("ROBOZIUM_LOCAL_DIRS", "").split(";"):
+        if not value.strip():
+            continue
+        root = (config_dir / value.strip()).resolve()
+        if not root.is_dir():
+            raise ValueError(f"ROBOZIUM_LOCAL_DIRS directory does not exist: {root}")
+        if not any(
+            root == existing or (existing.is_dir() and root.samefile(existing))
+            for existing in roots
+        ):
+            roots.append(root)
+    return tuple(roots)
+
+
+@cache
+def _load_local_capabilities(
+    config_dir: Path, roots: tuple[Path, ...]
+) -> tuple[Capability, ...]:
+    packages = {root: _discover_packages(root) for root in roots}
+    dependencies = _prepare_dependencies(config_dir, packages)
+    namespace = _LOCAL_PACKAGE_PREFIX + sha256(repr((config_dir, roots)).encode()).hexdigest()
+    with ExitStack() as rollback:
+        rollback.callback(_discard_namespace, namespace)
+        if dependencies is not None:
+            sys.path.append(str(dependencies))
+            rollback.callback(sys.path.remove, str(dependencies))
+        _register_namespace(namespace, config_dir)
+        capabilities: list[Capability] = []
+        labels: dict[str, Path] = {}
+        for index, (root, paths) in enumerate(packages.items()):
+            capabilities.extend(
+                _import_packages(root, paths, f"{namespace}.source_{index}", labels)
+            )
+        # Keep successful imports available; unwind partial imports on any failure.
+        rollback.pop_all()
+    return tuple(capabilities)
+
+
+def _discover_packages(root: Path) -> list[Path]:
+    packages: list[Path] = []
+    for kind in ("skills", "tools"):
+        directory = root / kind
+        if not directory.exists():
+            continue
+        if not directory.resolve().is_relative_to(root) or not directory.is_dir():
+            raise ValueError(f"invalid local capability directory {directory}")
+        for child in sorted(directory.iterdir()):
+            entrypoint = child / "__init__.py"
+            if not child.is_dir() or not (entrypoint.exists() or entrypoint.is_symlink()):
+                continue
+            if not child.name.isidentifier() or iskeyword(child.name):
+                raise ValueError(f"invalid Python package name: {child}")
+            package = child.relative_to(root)
+            _local_file(root, package / "__init__.py", "package entrypoint")
+            packages.append(package)
+    return packages
+
+
+def _register_namespace(name: str, directory: Path) -> None:
+    module = ModuleType(name)
+    module.__path__ = [str(directory)]
+    module.__package__ = name
+    module.__spec__ = ModuleSpec(name, loader=None, is_package=True)
+    module.__spec__.submodule_search_locations = module.__path__
+    sys.modules[name] = module
+
+
+def _discard_namespace(name: str) -> None:
+    for key in tuple(sys.modules):
+        if key == name or key.startswith(name + "."):
+            del sys.modules[key]
+
+
+def _import_packages(
+    root: Path, packages: list[Path], namespace: str, labels: dict[str, Path]
+) -> tuple[Capability, ...]:
+    invalidate_caches()
+    _register_namespace(namespace, root)
+    for kind in ("skills", "tools"):
+        _register_namespace(f"{namespace}.{kind}", root / kind)
+    capabilities: list[Capability] = []
+    for package in packages:
+        entrypoint = root / package / "__init__.py"
+        capability = _import_capability(f"{namespace}.{'.'.join(package.parts)}", entrypoint)
+        label = capability.label.name
+        if label in labels:
+            raise ValueError(
+                f"duplicate capability name {label!r} in {entrypoint}; also exported by "
+                f"{labels[label]}. Give each capability a unique label name"
+            )
+        labels[label] = entrypoint
+        capabilities.append(capability)
+    return tuple(capabilities)
+
+
+def _import_capability(module_name: str, entrypoint: Path) -> Capability:
+    try:
+        module = import_module(module_name)
+        capability = getattr(module, "CAPABILITY", None)
+        if not isinstance(capability, Capability) or not callable(capability.build):
+            raise TypeError("export CAPABILITY as a RoboZ Capability instance")
+        return capability
+    except Exception as exc:
+        raise RuntimeError(f"{entrypoint}: {exc}") from exc
 
 
 def _local_file(root: Path, relative: Path, label: str) -> Path:
@@ -99,42 +153,28 @@ def _local_file(root: Path, relative: Path, label: str) -> Path:
     return file
 
 
-def _validate_tool(tool: LocalTool, root: Path) -> Path:
-    if not isinstance(tool.entrypoint, str) or not isinstance(tool.requirements, str):
-        raise TypeError("LocalTool entrypoint and requirements must be strings")
-    module, separator, factory = tool.entrypoint.partition(":")
-    if not separator or not all(
-        part.isidentifier() for part in (*module.split("."), factory)
-    ):
-        raise ValueError(f"Invalid local tool entrypoint: {tool.entrypoint!r}")
-    source = Path(*module.split("."))
-    if (root / source).is_dir():
-        source /= "__init__.py"
-    else:
-        source = source.with_suffix(".py")
-    _local_file(root, source, f"{tool.entrypoint}: module")
-    return _local_file(root, Path(tool.requirements), f"{tool.entrypoint}: requirements file")
+def _prepare_dependencies(
+    config_dir: Path, packages: dict[Path, list[Path]]
+) -> Path | None:
+    requirements = [
+        _local_file(root, package / "requirements.txt", "requirements file")
+        for root, paths in packages.items()
+        for package in paths
+    ]
+    if not any(file.read_text(encoding="utf-8").strip() for file in requirements):
+        return None
+    return _install_requirements(config_dir, requirements)
 
 
-def _install_requirements(root: Path, requirements: list[Path]) -> Path:
+def _install_requirements(config_dir: Path, requirements: list[Path]) -> Path:
     uv = which("uv")
     if uv is None:
-        raise RuntimeError("Local tools require uv in the API environment")
-    directory = root.parent / ".runtime" / "local-deps"
-    # Native development and Docker must not share installed binary packages.
-    environment = sha256(str(Path(sys.prefix).resolve()).encode()).hexdigest()[:8]
-    target = directory / f"{sys.implementation.cache_tag}-{get_platform()}-{environment}"
-    directory.mkdir(parents=True, exist_ok=True)
-    with TemporaryDirectory(dir=directory) as temporary:
+        raise RuntimeError("Local capability dependencies require uv in the API environment")
+    target = _dependency_cache(config_dir)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(dir=target.parent) as temporary:
         constraints = Path(temporary) / "base-constraints.txt"
-        installed = {
-            distribution.metadata["Name"]: distribution.version
-            for distribution in distributions()
-            if distribution.metadata["Name"]
-        }
-        constraints.write_text(
-            "".join(f"{name}=={version}\n" for name, version in sorted(installed.items()))
-        )
+        _write_installed_constraints(constraints)
         command = [
             uv, "pip", "install", "--python", sys.executable,
             "--target", str(target), "--constraint", str(constraints),
@@ -146,18 +186,28 @@ def _install_requirements(root: Path, requirements: list[Path]) -> Path:
         )
         if result.returncode:
             detail = (result.stderr or result.stdout).strip()
-            files = ", ".join(str(file.relative_to(root)) for file in requirements)
-            raise RuntimeError(f"Could not install local requirements ({files}): {detail}")
+            files = ", ".join(str(file) for file in requirements)
+            raise RuntimeError(
+                f"Could not install local requirements ({files}). "
+                "Dependencies must be compatible with each other and the pinned "
+                f"application environment: {detail}"
+            )
     return target
 
 
-def _import_package(name: str, entrypoint: Path) -> ModuleType:
-    spec = spec_from_file_location(
-        name, entrypoint, submodule_search_locations=[str(entrypoint.parent)]
+def _dependency_cache(config_dir: Path) -> Path:
+    # Native development and Docker must not share installed binary packages.
+    environment = sha256(str(Path(sys.prefix).resolve()).encode()).hexdigest()[:8]
+    key = f"{sys.implementation.cache_tag}-{get_platform()}-{environment}"
+    return config_dir / ".runtime" / "local-deps" / key
+
+
+def _write_installed_constraints(path: Path) -> None:
+    installed = {
+        distribution.metadata["Name"]: distribution.version
+        for distribution in distributions()
+        if distribution.metadata["Name"]
+    }
+    path.write_text(
+        "".join(f"{name}=={version}\n" for name, version in sorted(installed.items()))
     )
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Could not import {entrypoint}")
-    module = module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module

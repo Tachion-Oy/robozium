@@ -5,7 +5,7 @@ processes:
     namespace: live-Linux
     command: >-
       uv sync --locked --only-group host --no-install-project --python 3.13 &&
-      exec .runtime/host-scripts-venv/bin/python -m roboz.shed.tools.safe_scripts serve
+      exec .runtime/host-scripts-venv/bin/roboz scripts serve
       --socket .runtime/host-socket/scripts.sock
       --scripts "$$ROBOZIUM_HOST_HUB_DIR/readonly/safe-scripts" --cwd "$$ROBOZIUM_HOST_HUB_DIR"
       --timeout-s 600

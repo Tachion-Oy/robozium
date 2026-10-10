@@ -3,8 +3,7 @@
 .venv/
 .artifacts/
 .runtime/
-/local/*
-!/local/simpsons.py
+/local/
 __pycache__/
 .pytest_cache/
 .coverage

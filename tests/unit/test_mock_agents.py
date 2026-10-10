@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 
 from config_support import write_config
+from deployment_support import configured_hub
 from roboz.endpoints.inventory import openrouter
 from roboz.llm import MockLLMEndpoint, MockProviderError
 from roboz.models import AgentMode
@@ -304,10 +305,9 @@ def test_holdable_response_accepts_index_protocol(tmp_path: Path) -> None:
 
 
 def test_host_receives_each_mock_event_once(tmp_path):
-    from dataclasses import replace
 
     write_config(tmp_path, sandbox_root="hub_data")
-    hub = replace(load_hub(start=tmp_path), deployment=mock_deployment)
+    hub = configured_hub(load_hub(start=tmp_path), deployment=mock_deployment)
     project = hub.project("events")
     events = []
     root, _ = hub.configure_deployment(

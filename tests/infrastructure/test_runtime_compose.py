@@ -28,6 +28,7 @@ def test_compose_storage_and_credentials(tmp_path: Path, mode: str, web_port: st
         "ROBOZIUM_HOST_HUB_DIR": str(hub), "ROBOZIUM_HOST_SOCKET_DIR": str(socket),
     }
     env.pop("ROBOZIUM_WEB_PORT", None)
+    env.pop("ROBOZIUM_LOCAL_DIRS", None)
     completed = subprocess.run(
         [
             "docker", "compose", "--env-file", ".env.encrypt", "--env-file", ".env",
@@ -49,6 +50,8 @@ def test_compose_storage_and_credentials(tmp_path: Path, mode: str, web_port: st
     assert volumes["/hub"]["source"] == str(hub)
     assert volumes["/host-scripts"]["source"] == str(socket)
     assert volumes["/host-scripts"]["read_only"] is True
+    assert volumes["/app/local"]["source"] == str(tmp_path / "local")
+    assert volumes["/app/local"]["read_only"] is True
     assert volumes["/hub/readonly/safe-scripts"]["source"] == str(hub / "readonly/safe-scripts")
     assert volumes["/hub/readonly/safe-scripts"]["read_only"] is True
     assert "/app/.env.encrypt" not in volumes
@@ -69,7 +72,6 @@ def test_live_launcher_resolves_settings_with_compose(tmp_path: Path):
     for name in ("start", "compose.yaml", "process-compose.yaml"):
         shutil.copy2(ROOT / name, checkout / name)
     shutil.copytree(ROOT / "scripts", checkout / "scripts")
-    shutil.copytree(ROOT / "examples", checkout / "examples")
     tools = tmp_path / "bin"
     tools.mkdir()
     stub = tools / "docker"
@@ -103,3 +105,50 @@ def test_live_launcher_resolves_settings_with_compose(tmp_path: Path):
     assert output.read_text().splitlines() == [str(hub), "live", "1234:5678"]
     assert (hub / "readonly/safe-scripts").is_dir()
     assert not (checkout / ".runtime/launch.lock").exists()
+
+
+@pytest.mark.parametrize("mode", ["live", "mock"])
+def test_extra_mounts_use_literal_host_paths_and_container_environment(tmp_path, mode):
+    docker = shutil.which("docker")
+    assert docker, "Docker Compose is required for deployment checks"
+    for name in ("start", "compose.yaml", "process-compose.yaml"):
+        shutil.copy2(ROOT / name, tmp_path / name)
+    shutil.copytree(ROOT / "scripts", tmp_path / "scripts")
+    tools = tmp_path / "bin"
+    tools.mkdir()
+    stub = tools / "docker"
+    stub.write_text(
+        "#!/bin/sh\n"
+        "case \"$*\" in *'config --environment') exec \"$TEST_REAL_DOCKER\" \"$@\";; esac\n"
+        "exec \"$TEST_REAL_DOCKER\" compose -f compose.yaml "
+        "-f .runtime/capability-mounts.yaml config --format json\n"
+    )
+    stub.chmod(0o755)
+    supervisor = tools / "process-compose"
+    supervisor.write_text("#!/bin/sh\nexit 0\n")
+    supervisor.chmod(0o755)
+    first, second = tmp_path / "customer tools", tmp_path / "a '$literal' folder"
+    first.mkdir()
+    second.mkdir()
+    env = {
+        **os.environ, "PATH": f"{tools}:{os.environ['PATH']}",
+        "TEST_REAL_DOCKER": docker, "ROBOZIUM_API_USER": "10001:10001",
+        "ROBOZIUM_HUB_ROOT": str(tmp_path / "hub"),
+        "ROBOZIUM_LOCAL_DIRS": f"customer tools;{second};{first};local",
+    }
+    completed = subprocess.run(
+        [str(tmp_path / "start"), *(["--mock"] if mode == "mock" else [])],
+        cwd=tmp_path, env=env, capture_output=True, text=True, check=True, timeout=15,
+    )
+    api = json.loads(completed.stdout)["services"]["api"]
+    volumes = {mount["target"]: mount for mount in api["volumes"]}
+    assert volumes["/app/local"]["source"] == str(tmp_path / "local")
+    for index, source in enumerate((first, second)):
+        mount = volumes[f"/app/.runtime/capability-roots/{index}"]
+        # Compose may escape literal dollars again when serializing reusable config.
+        assert mount["source"].replace("$$", "$") == str(source)
+        assert mount["read_only"] is True
+        assert mount["bind"].get("create_host_path", False) is False
+    assert api["environment"]["ROBOZIUM_LOCAL_DIRS"] == (
+        "/app/.runtime/capability-roots/0;/app/.runtime/capability-roots/1"
+    )

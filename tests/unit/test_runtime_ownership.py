@@ -4,11 +4,10 @@ import json
 import threading
 import time
 from contextvars import ContextVar
-from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
-from deployment_support import BuiltAgents, deferred_deployment
+from deployment_support import BuiltAgents, configured_hub, deferred_deployment
 from fastapi.testclient import TestClient
 from roboz import Agent
 from roboz.deployment import DeployableAgent
@@ -189,7 +188,7 @@ def test_factory_failure_closes_http_stream_and_late_subscribers(config):
         )
 
     app = create_app(
-        deployment=replace(
+        deployment=configured_hub(
             config, deployment=deferred_deployment(factory), transcription_endpoint=None
         )
     )
@@ -366,7 +365,7 @@ def test_lifespan_shutdown_releases_input_wait(config):
         )
 
     app = create_app(
-        deployment=replace(
+        deployment=configured_hub(
             config, deployment=deferred_deployment(factory), transcription_endpoint=None
         )
     )

@@ -6,7 +6,7 @@ from pathlib import Path
 from threading import Thread
 
 import pytest
-from deployment_support import configured_deployment, foreground_agent
+from deployment_support import configured_deployment, configured_hub, foreground_agent
 from roboz.deployment import Capability, DeployableAgent, ToolLabel
 from roboz.endpoints.inventory import cerebras, openrouter
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
@@ -28,7 +28,7 @@ def test_configured_models_apply_per_use_request_policy(monkeypatch):
     endpoints = [endpoint for endpoint in hub.model_selector.models.values()]
     project = hub.project("policy-test")
     deployment = hub.configure_deployment(
-        project.sandbox, project.slug, endpoint_getter=lambda: hub.default_model
+        project.sandbox, project.slug, endpoint_getter=lambda: hub.settings.default_model
     ).build()
     memory = deployment[1][0].agent_endpoint
     assert all(isinstance(endpoint, LLMEndpoint) for endpoint in endpoints)
@@ -174,7 +174,7 @@ def test_route_discovery_and_compaction_follow_model_switch_without_rebuild(tmp_
     selected = first
     project = Project(Sandbox(tmp_path).for_project("demo"), "demo")
     hub = load_hub()
-    hub = replace(hub, memory_endpoint=memory)
+    hub = configured_hub(hub, memory_endpoint=memory)
     deployment = hub.configure_deployment(
         project.sandbox,
         project.slug,
@@ -203,27 +203,27 @@ def test_project_binding_cannot_disagree_with_the_sandbox():
         Project(project.sandbox, "two")
     with pytest.raises(ValueError, match="match the sandbox scope"):
         hub.configure_deployment(
-            project.sandbox, "two", endpoint_getter=lambda: hub.default_model
+            project.sandbox, "two", endpoint_getter=lambda: hub.settings.default_model
         )
 
 
 def test_project_alias_cannot_bind_another_projects_sandbox(tmp_path):
     hub = load_hub()
-    hub = replace(hub, sandbox=replace(hub.sandbox, root=tmp_path))
+    hub = configured_hub(hub, sandbox=replace(hub.settings.sandbox, root=tmp_path))
     other = hub.project("other")
     other.root.mkdir(parents=True)
-    (hub.sandbox.projects_dir / "alias").symlink_to(
+    (hub.settings.sandbox.projects_dir / "alias").symlink_to(
         other.root, target_is_directory=True
     )
 
     with pytest.raises(ValueError, match="symbolic link"):
         hub.project("alias")
-    assert hub.sandbox.scope is None
+    assert hub.settings.sandbox.scope is None
 
 
 def test_interleaved_deployments_keep_project_paths_and_policies_separate(tmp_path):
     hub = load_hub()
-    hub = replace(hub, sandbox=replace(hub.sandbox, root=tmp_path / "sandbox"))
+    hub = configured_hub(hub, sandbox=replace(hub.settings.sandbox, root=tmp_path / "sandbox"))
     first, second = hub.project("one"), hub.project("two")
     events = [[], []]
     recipes = [
@@ -257,9 +257,9 @@ def test_interleaved_deployments_keep_project_paths_and_policies_separate(tmp_pa
     ]
     assert recipes[0] is not recipes[1]
     assert first.sandbox is not second.sandbox
-    assert first.sandbox is not hub.sandbox
-    assert hub.sandbox.scope is None
-    assert not hub.sandbox.root.exists()
+    assert first.sandbox is not hub.settings.sandbox
+    assert hub.settings.sandbox.scope is None
+    assert not hub.settings.sandbox.root.exists()
     assert recipes[0][0].pipe is not recipes[1][0].pipe
     for project, (agent, (background,)) in zip((first, second), recipes, strict=True):
         assert agent.pipe.data_path == project.logs / "orchestrator"

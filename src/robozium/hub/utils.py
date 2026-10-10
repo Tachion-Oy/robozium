@@ -10,10 +10,8 @@ from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from robozium.hub.local import load_local_capabilities
-
 if TYPE_CHECKING:
-    from robozium.hub.application import Hub
+    from robozium.hub.application import Hub, HubSettings
 
 
 def slugify_project_name(name: str) -> str:
@@ -45,9 +43,11 @@ def find_hub_config(start: Path | None, *, config_file: Path | None = None) -> P
     raise RuntimeError("Missing hub.config.py")
 
 
-def load_hub(*, start: Path | None = None, config_file: Path | None = None) -> Hub:
-    """Load configuration constants and anchor paths without starting the host."""
-    from robozium.hub.application import Hub, HubValues
+def load_hub_settings(
+    *, start: Path | None = None, config_file: Path | None = None
+) -> HubSettings:
+    """Read configuration and anchor paths without loading private packages."""
+    from robozium.hub.application import HubSettings, HubValues
 
     path = find_hub_config(start, config_file=config_file)
     try:
@@ -61,7 +61,8 @@ def load_hub(*, start: Path | None = None, config_file: Path | None = None) -> H
             )
         sandbox = values["SANDBOX"]
         logging = values["LOGGING"]
-        return Hub(
+        return HubSettings(
+            config_file=path,
             name=values["NAME"],
             sandbox=replace(sandbox, root=(path.parent / sandbox.root).resolve()),
             logging=replace(logging, path=(path.parent / logging.path).resolve()),
@@ -69,10 +70,20 @@ def load_hub(*, start: Path | None = None, config_file: Path | None = None) -> H
             models=values["MODELS"],
             default_model=values["DEFAULT_MODEL"],
             memory_endpoint=values["MEMORY_ENDPOINT"],
-            additional_capabilities=load_local_capabilities(path.parent),
             subagents=values["SUBAGENTS"],
             transcription_endpoint=values["TRANSCRIPTION_ENDPOINT"],
             additional_dependencies=values["ADDITIONAL_DEPENDENCIES"],
         )
     except Exception as exc:
         raise RuntimeError(f"Invalid hub config {path}: {exc}") from exc
+
+
+def load_hub(*, start: Path | None = None, config_file: Path | None = None) -> Hub:
+    """Validate settings and load private capabilities without starting agents."""
+    from robozium.hub.application import Hub
+
+    settings = load_hub_settings(start=start, config_file=config_file)
+    try:
+        return Hub(settings)
+    except Exception as exc:
+        raise RuntimeError(f"Invalid hub config {settings.config_file}: {exc}") from exc

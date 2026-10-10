@@ -35,8 +35,8 @@ from robozium.api.run_manager import RunManager
 from robozium.api.sse import event_to_sse_frame
 from robozium.api.state import RunStatus
 from robozium.api.state import RunView as RunViewState
-from robozium.hub.application import Hub
-from robozium.hub.utils import load_hub
+from robozium.hub.application import Hub, HubSettings
+from robozium.hub.utils import load_hub, load_hub_settings
 from robozium.mock.agents import (
     mock_deployment,
     stream_mock_deployment,
@@ -81,14 +81,14 @@ def create_app(*, deployment: Hub) -> FastAPI:
     manager = RunManager(
         deployment.configure_deployment,
         definition=deployment.definition,
-        hub_name=deployment.name,
+        hub_name=deployment.settings.name,
         default_orchestrator_endpoint=lambda: (
             deployment.model_selector.selected_endpoint
         ),
     )
     projects = ProjectService(deployment, manager)
     app = FastAPI(
-        title=deployment.name,
+        title=deployment.settings.name,
         version="0.1.0",
         lifespan=application_lifespan(
             deployment=deployment,
@@ -101,7 +101,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
     app.state.dependency_health = None
     app.state.run_manager = manager
     app.state.projects = projects
-    app.state.transcription_endpoint = deployment.transcription_endpoint
+    app.state.transcription_endpoint = deployment.settings.transcription_endpoint
     app.state.loaded_credentials = LoadedCredentials()
     app.add_middleware(CredentialGateMiddleware, loaded=app.state.loaded_credentials)
     app.include_router(dependency_router)
@@ -143,7 +143,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
 
     @app.get("/files/{path:path}")
     def files_get(path: str) -> Response:
-        return serve_hub_file(path, sandbox=deployment.sandbox)
+        return serve_hub_file(path, sandbox=deployment.settings.sandbox)
 
     def project_operation(operation):
         try:
@@ -381,14 +381,14 @@ def create_app(*, deployment: Hub) -> FastAPI:
     return app
 
 
-def _ephemeral_hub() -> Hub:
-    """A throwaway Hub with sandbox and logging under a temporary directory.
+def _ephemeral_settings() -> HubSettings:
+    """Settings with sandbox and logging under a temporary directory.
 
     Streaming mock projects and their entire sandbox remain throwaway. The
     directory lives for the process lifetime.
     """
     config_dir = Path(tempfile.mkdtemp(prefix="robozium-stream-mock-hub-"))
-    config = load_hub()
+    config = load_hub_settings()
     return replace(
         config,
         sandbox=replace(
@@ -405,12 +405,14 @@ def live_app() -> FastAPI:
 def mock_app() -> FastAPI:
     endpoint = mock_model_endpoint()
     return create_app(
-        deployment=replace(
-            load_hub(),
-            models={"Mock": endpoint},
-            default_model=endpoint,
+        deployment=Hub(
+            replace(
+                load_hub_settings(),
+                models={"Mock": endpoint},
+                default_model=endpoint,
+                transcription_endpoint=MockTranscriptionEndpoint(["mock transcription"]),
+            ),
             deployment=mock_deployment,
-            transcription_endpoint=MockTranscriptionEndpoint(["mock transcription"]),
         ),
     )
 
@@ -419,12 +421,14 @@ def stream_mock_app() -> FastAPI:
     """Create the paced, ephemeral mock only when explicitly launched."""
     endpoint = mock_model_endpoint()
     return create_app(
-        deployment=replace(
-            _ephemeral_hub(),
-            models={"Mock": endpoint},
-            default_model=endpoint,
+        deployment=Hub(
+            replace(
+                _ephemeral_settings(),
+                models={"Mock": endpoint},
+                default_model=endpoint,
+                transcription_endpoint=MockTranscriptionEndpoint(["mock transcription"]),
+            ),
             deployment=stream_mock_deployment,
-            transcription_endpoint=MockTranscriptionEndpoint(["mock transcription"]),
         ),
     )
 
@@ -433,11 +437,13 @@ def stream_sync_mock_app() -> FastAPI:
     """Create the paced mock with a cancellable background Librarian."""
     endpoint = mock_model_endpoint()
     return create_app(
-        deployment=replace(
-            _ephemeral_hub(),
-            models={"Mock": endpoint},
-            default_model=endpoint,
+        deployment=Hub(
+            replace(
+                _ephemeral_settings(),
+                models={"Mock": endpoint},
+                default_model=endpoint,
+                transcription_endpoint=MockTranscriptionEndpoint(["mock transcription"]),
+            ),
             deployment=stream_sync_mock_deployment,
-            transcription_endpoint=MockTranscriptionEndpoint(["mock transcription"]),
         ),
     )

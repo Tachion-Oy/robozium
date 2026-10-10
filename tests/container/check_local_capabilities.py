@@ -1,32 +1,45 @@
-"""Build a mounted local skill through the live application without providers."""
+"""Execute CLI-generated mounted capabilities through the live recipe."""
 
-from roboz.models import Empty
+from roboz.deployment import SkillLabel, SkillLoading
+from roboz.examples.simpsons_quotes import QUOTES
+from roboz.llm import MockLLMEndpoint
 
 from robozium.api.app import live_app
-from robozium.hub.utils import load_hub
 
 
 def main() -> None:
     app = live_app()
     try:
-        hub = load_hub()
-        label = next(label for label in hub.capabilities() if label.name == "local_example")
-        assert label.kind == "skill" and label.selectable
+        hub = app.state.hub
+        labels = {label.name: label for label in hub.capabilities()}
         project = hub.project("local-capability-check")
-        definition = hub.configure_deployment(
-            project.sandbox, project.slug, endpoint_getter=lambda: hub.default_model
-        )
-        definition.set_capability_selection({"local_example": True})
-        agent, _ = definition.build()
-        assert agent.skills is not None
-        skill = next(skill for skill in agent.skills if skill.name == "local_example")
-        assert skill.tools[0](Empty(), []).project == project.slug
-        definition.set_capability_selection({})
-        agent, _ = definition.build()
-        assert all(skill.name != "local_example" for skill in agent.skills or ())
+        for name in ("simpsons_quotes", "simpsons_quotes_skill", "customer_quotes", "customer_guide"):
+            label = labels[name]
+            assert label.selectable
+            if isinstance(label, SkillLabel):
+                assert label.loading == SkillLoading.ON_DEMAND
+            definition = hub.configure_deployment(
+                project.sandbox, project.slug, endpoint_getter=lambda: hub.settings.default_model
+            )
+            definition.set_capability_selection({name: True})
+            responses = []
+            if isinstance(label, SkillLabel):
+                responses.append({"action": name, "rationale": "load generated skill"})
+            responses.append({"action": f"get_{name}", "rationale": "check generated tool"})
+            definition.set_agent_endpoint(MockLLMEndpoint(responses))
+            agent, _ = definition.build()
+            agent = agent.copy(default_tools=tuple(
+                tool for tool in agent.default_tools
+                if not tool.name.startswith("start_background_agent_")
+            ))
+            assert agent.invoke()[0].value in QUOTES
+            definition.set_capability_selection({})
+            excluded, _ = definition.build()
+            assert not excluded.skills
+            assert not any(tool.name == f"get_{name}" for tool in excluded.tools)
     finally:
         app.state.run_manager.shutdown()
-    print("Mounted local skill loads and builds through the live application.")
+    print("Mounted CLI-generated tools and skills execute through the live deployment.")
 
 
 if __name__ == "__main__":

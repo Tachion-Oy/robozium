@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import importlib
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from config_support import write_config
+from deployment_support import configured_hub
 from fastapi.testclient import TestClient
 from roboz.llm import MockTranscriptionEndpoint, TranscriptionEndpoint
 
@@ -19,7 +19,7 @@ app_module = importlib.import_module("robozium.api.app")
 
 
 def _deployment(transcription_endpoint, config_start: Path) -> Hub:
-    return replace(
+    return configured_hub(
         load_hub(start=config_start),
         transcription_endpoint=transcription_endpoint,
     )
@@ -31,7 +31,7 @@ def _isolated_hub_config(tmp_path: Path) -> None:
 
 
 def test_default_transcription_uses_groq_whisper(tmp_path: Path) -> None:
-    endpoint = load_hub(start=tmp_path).transcription_endpoint
+    endpoint = load_hub(start=tmp_path).settings.transcription_endpoint
     assert isinstance(endpoint, TranscriptionEndpoint)
     assert endpoint.api_name == "groq"
     assert endpoint.model_name == "whisper-large-v3-turbo"

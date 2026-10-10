@@ -9,7 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from deployment_support import BuiltAgents, deferred_deployment
+from deployment_support import BuiltAgents, configured_hub, deferred_deployment
 from fastapi.testclient import TestClient
 from roboz import Agent
 from roboz.endpoints.adapters.openai_compatible import OpenAICompatibleAdapter
@@ -17,7 +17,8 @@ from roboz.models import AgentMode
 from roboz.tools import stop
 
 from robozium.api.app import create_app
-from robozium.hub.utils import load_hub
+from robozium.hub.application import Hub
+from robozium.hub.utils import load_hub, load_hub_settings
 
 
 @pytest.fixture
@@ -61,6 +62,33 @@ assert callable(robozium.api.app.mock_app)
     )
 
 
+def test_settings_loading_and_validation_precede_private_code(config_file):
+    package = config_file.parent / "local/tools/broken"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("raise ValueError('private import')\n")
+    (package / "requirements.txt").touch()
+    settings = load_hub_settings(config_file=config_file)
+    assert not settings.sandbox.root.exists()
+    with pytest.raises(ValueError, match="hub name must be nonempty"):
+        Hub(replace(settings, name=""))
+    with pytest.raises(RuntimeError, match="private import"):
+        Hub(settings)
+
+
+def test_runtimes_from_shared_settings_have_independent_selection(config_file):
+    settings = load_hub_settings(config_file=config_file)
+    first, second = Hub(settings), Hub(settings)
+    spare = list(settings.models.values())[1]
+    first.model_selector.select(spare.dependency_id)
+    first.definition.set_capability_selection({})
+    assert first.model_selector.selected_endpoint is spare
+    assert second.model_selector.selected_endpoint is settings.default_model
+    assert first.definition is not second.definition
+    assert first.definition.capability_selection == {}
+    assert second.definition.capability_selection is None
+    assert not settings.sandbox.root.exists()
+
+
 def test_logging_uses_each_explicit_app_config(config_file):
     config = load_hub(config_file=config_file)
 
@@ -78,9 +106,9 @@ def test_logging_uses_each_explicit_app_config(config_file):
 
     for name in ["first", "second"]:
         path = config_file.parent / name / "backend.jsonl"
-        selected = replace(config, logging=replace(config.logging, path=path))
+        selected = configured_hub(config, logging=replace(config.settings.logging, path=path))
         app = create_app(
-            deployment=replace(
+            deployment=configured_hub(
                 selected,
                 deployment=deferred_deployment(factory),
                 transcription_endpoint=None,
@@ -109,7 +137,7 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
         for role in ("root", "spare", "memory")
     )
     hub = load_hub(config_file=config_file)
-    hub = replace(
+    hub = configured_hub(
         hub,
         models={"Root": root, "Spare": spare},
         default_model=root,
@@ -120,7 +148,7 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
         "demo",
         endpoint_getter=lambda: hub.model_selector.selected_endpoint,
     ).build()
-    bound = (*agent.external_dependencies(), *hub.models.values())
+    bound = (*agent.external_dependencies(), *hub.settings.models.values())
     assert {
         item.dependency_id for item in bound if item.dependency_id.startswith("model:")
     } == {
@@ -140,12 +168,12 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
 
 def test_explicit_config_path_wins_over_environment(config_file, monkeypatch):
     monkeypatch.setenv("ROBOZIUM_CONFIG", str(config_file.parent / "missing.json"))
-    assert load_hub(config_file=config_file).name == "Robozium"
+    assert load_hub(config_file=config_file).settings.name == "Robozium"
     with pytest.raises(RuntimeError, match="Missing hub config"):
         load_hub()
     monkeypatch.setenv("ROBOZIUM_CONFIG", str(config_file))
     expected = (config_file.parent / "../Robozium-Hub").resolve()
-    assert load_hub().sandbox.root == expected
+    assert load_hub().settings.sandbox.root == expected
 
 
 def test_checked_in_config_accepts_container_paths(
@@ -158,8 +186,8 @@ def test_checked_in_config_accepts_container_paths(
 
     hub = load_hub(config_file=config_file)
 
-    assert hub.sandbox.root == hub_root
-    assert hub.logging.path == logs / "backend.jsonl"
+    assert hub.settings.sandbox.root == hub_root
+    assert hub.settings.logging.path == logs / "backend.jsonl"
 
 
 @pytest.mark.parametrize(
@@ -178,15 +206,15 @@ def test_invalid_model_selection_fails_before_construction(config_file, change):
     hub = load_hub(config_file=config_file)
     if change == "unknown":
         with pytest.raises(ValueError, match="default model"):
-            replace(hub, models={"Only spare": list(hub.models.values())[1]})
+            configured_hub(hub, models={"Only spare": list(hub.settings.models.values())[1]})
     else:
         models = (
-            {"One": hub.default_model, "Two": hub.default_model}
+            {"One": hub.settings.default_model, "Two": hub.settings.default_model}
             if change == "duplicate"
-            else {"": hub.default_model}
+            else {"": hub.settings.default_model}
         )
         with pytest.raises(ValueError):
-            replace(hub, models=models)
+            configured_hub(hub, models=models)
 
 
 @pytest.mark.parametrize(
@@ -201,7 +229,7 @@ def test_invalid_model_selection_fails_before_construction(config_file, change):
 def test_invalid_health_settings_fail_during_configuration(config_file, settings):
     hub = load_hub(config_file=config_file)
     with pytest.raises(ValueError, match="finite and positive"):
-        replace(hub.dependency_health, **settings)
+        replace(hub.settings.dependency_health, **settings)
 
 
 @pytest.mark.parametrize(
@@ -210,7 +238,7 @@ def test_invalid_health_settings_fail_during_configuration(config_file, settings
 def test_persistence_folders_cannot_escape_or_overlap(config_file, folder):
     hub = load_hub(config_file=config_file)
     with pytest.raises(ValueError):
-        replace(hub, sandbox=replace(hub.sandbox, memory=Path(folder)))
+        configured_hub(hub, sandbox=replace(hub.settings.sandbox, memory=Path(folder)))
 
 
 @pytest.mark.parametrize("conflicting", [False, True])
@@ -231,7 +259,7 @@ def test_overlapping_app_lifespans_preserve_existing_logging(config_file, confli
 
     def app(selected):
         return create_app(
-            deployment=replace(
+            deployment=configured_hub(
                 selected,
                 deployment=deferred_deployment(factory),
                 transcription_endpoint=None,
@@ -240,35 +268,35 @@ def test_overlapping_app_lifespans_preserve_existing_logging(config_file, confli
 
     with TestClient(app(config)) as first:
         if conflicting:
-            other = replace(
+            other = configured_hub(
                 config,
                 logging=replace(
-                    config.logging, path=config_file.parent / "conflicting.jsonl"
+                    config.settings.logging, path=config_file.parent / "conflicting.jsonl"
                 ),
             )
             with pytest.raises(RuntimeError, match="different configuration"):
                 with TestClient(app(other)):
                     pytest.fail("conflicting app started")
-            assert not other.logging.path.exists()
+            assert not other.settings.logging.path.exists()
         else:
             with TestClient(app(config)) as second:
                 assert second.get("/ready").status_code == 200
         logging.getLogger("robozium.test").info("first-app-still-active")
         assert first.get("/ready").status_code == 200
-        assert "first-app-still-active" in config.logging.path.read_text()
+        assert "first-app-still-active" in config.settings.logging.path.read_text()
 
 
 def test_project_service_owns_startup_layout_validation(config_file):
     from robozium.api.project_service import ProjectService
 
     config = load_hub(config_file=config_file)
-    unexpected = config.sandbox.root / "misplaced"
+    unexpected = config.settings.sandbox.root / "misplaced"
     unexpected.mkdir(parents=True)
     service = ProjectService(config, SimpleNamespace())
     with pytest.raises(ValueError, match="Unexpected folders.*misplaced"):
         service.recover()
     unexpected.rmdir()
-    (config.sandbox.root / "note.txt").write_text("root files are permitted")
+    (config.settings.sandbox.root / "note.txt").write_text("root files are permitted")
     service.recover()
     assert service.create("New Project") == "new-project"
     project = config.project("New Project")
@@ -283,12 +311,12 @@ def test_config_loads_fresh_endpoints_without_materialization(config_file, monke
         monkeypatch.delenv(key, raising=False)
     first = load_hub(config_file=config_file)
     second = load_hub(config_file=config_file)
-    assert first.default_model is not second.default_model
+    assert first.settings.default_model is not second.settings.default_model
     assert first.model_selector is not second.model_selector
-    assert first.default_model.dependency_id == second.default_model.dependency_id
-    assert not first.sandbox.root.exists()
+    assert first.settings.default_model.dependency_id == second.settings.default_model.dependency_id
+    assert not first.settings.sandbox.root.exists()
     with pytest.raises(TypeError):
-        first.models["extra"] = first.default_model
+        first.settings.models["extra"] = first.settings.default_model
 
 
 def test_constants_control_the_complete_deployment(config_file, monkeypatch):
@@ -312,12 +340,12 @@ SUBAGENTS = (REVIEWER,)
     hub = load_hub(config_file=config_file)
     project = hub.project("custom")
     deployment = hub.configure_deployment(
-        project.sandbox, project.slug, endpoint_getter=lambda: hub.default_model
+        project.sandbox, project.slug, endpoint_getter=lambda: hub.settings.default_model
     ).build()
-    assert tuple(hub.models) == ("Alternate",)
-    assert hub.model_selector.selected_endpoint is hub.models["Alternate"]
+    assert tuple(hub.settings.models) == ("Alternate",)
+    assert hub.model_selector.selected_endpoint is hub.settings.models["Alternate"]
     assert (
-        hub.dependency_health.interval_s == 17 and hub.dependency_health.timeout_s == 3
+        hub.settings.dependency_health.interval_s == 17 and hub.settings.dependency_health.timeout_s == 3
     )
     assert hub.additional_capabilities == ()
     agent, (background,) = deployment
@@ -325,7 +353,7 @@ SUBAGENTS = (REVIEWER,)
     assert agent.initial_messages[0] == project.memory
     assert "Project: custom" in agent.initial_messages[1]
     assert background.agent_endpoint.dependency_id == "model:cerebras:gpt-oss-120b"
-    assert not hub.sandbox.root.exists()
+    assert not hub.settings.sandbox.root.exists()
 
 
 def test_checked_in_config_has_only_constant_declarations(config_file):
@@ -345,4 +373,4 @@ def test_checked_in_config_has_only_constant_declarations(config_file):
 @pytest.mark.parametrize("getter", [42, "invalid"])
 def test_hub_requires_a_callable_deployment_override(config_file, getter):
     with pytest.raises(TypeError, match="deployment override must be callable"):
-        replace(load_hub(config_file=config_file), deployment=getter)
+        configured_hub(load_hub(config_file=config_file), deployment=getter)

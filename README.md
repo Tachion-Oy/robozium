@@ -163,10 +163,10 @@ The encryption utility requires [uv](https://docs.astral.sh/uv/getting-started/i
 and Python 3.13 or newer on the host. From the repository root, run:
 
 ```sh
-uv run --locked python -c "from getpass import getpass; from roboz.endpoints import encrypt_env; print(encrypt_env(password=getpass('Encryption password: ')))"
+uv run --locked roboz env encrypt
 ```
 
-The command asks for a password and creates `.env.encrypt`. It encrypts
+The command asks for a password twice and creates `.env.encrypt`. It encrypts
 `*_SECRET` values while keeping nonsecret settings
 readable. After confirming the file was created, delete the plaintext `.env`.
 Compose receives encrypted values from `.env.encrypt` as environment inputs;
@@ -244,7 +244,8 @@ Mock mode offers harmless **mock information** and **mock guidance** examples.
 Robozium's deployment definition owns the built-ins: filesystem, stop,
 compactification, and the Robozium skill are fixed. SafeScripts and Proton
 Bridge email are selectable. The application loads additional capabilities only
-from `local/`; move custom `CAPABILITIES` from `hub.config.py` there.
+from packages in `local/tools/` and `local/skills/`, plus configured external
+directories; see [Private capabilities](#private-capabilities).
 
 The capabilities router separates the live catalogue from saved project choices:
 
@@ -294,86 +295,45 @@ overrides the same setting in `.env` or `.env.encrypt`.
 
 ## Private capabilities
 
-Keep private capabilities in the root `local/` package. User files are
-Git-ignored; the shipped [Simpsons example](local/simpsons.py) is the sole tracked
-exception. The directory stays excluded from images and application distributions
-and is mounted read-only at runtime.
-
-The launchers create an ignored `local/__init__.py` from the
-[registration template](examples/local-registration.py) if it is missing. They
-preserve existing registration files. Uncomment the Simpsons import and entry,
-then restart the API to make **simpsons quotes** available in the live selector.
-The example registers RoboZ's `roboz.examples.simple.get_quote` directly. It
-returns a quote and stops the agent, and needs no extra packages.
-For an existing registration file, add `from .simpsons import SIMPSONS` and include
-`SIMPSONS` in `CAPABILITIES`. Direct API users can copy the registration template
-manually before startup.
-
-For another registration pattern, see the
-[example package](examples/local/__init__.py):
+With uv installed, run from the repository root:
 
 ```sh
-mkdir -p local
-cp examples/local/*.py examples/local/requirements.txt local/
+uv run --locked roboz tool init
+uv run --locked roboz skill init
 ```
 
-On Windows, create `local` and copy all files from `examples/local` there. The
-example registers a selectable, on-demand skill with a tool that returns the
-current project's name. Replace its declaration with your own tools. For each
-tool, put its Python package and `requirements.txt` under `local/`, then add one
-declaration to `local/__init__.py`:
+These create packages in `local/tools/simpsons_quotes/` and
+`local/skills/simpsons_quotes_skill/`. Edit `tool.py`, export `CAPABILITY` from
+`__init__.py`, and list dependencies in `requirements.txt` (keep it even if empty).
+Use `--path` to create more packages:
 
-```python
-from robozium.hub.local import LocalTool
-
-CAPABILITIES = (
-    LocalTool("timesheet.capability:Timesheets", "timesheet/requirements.txt"),
-)
+```sh
+uv run --locked roboz tool init --path local/tools/timesheets
+uv run --locked roboz skill init --path local/skills/project_guide
 ```
 
-The named class or zero-argument factory must return a RoboZ `Capability`.
-Use a label with `selectable=True` to allow that local capability to be chosen
-for a run.
+`local/` is always scanned. To also load tools from other folders or cloned
+repositories, set their locations in `.env`:
 
-### Migrating private capabilities to RoboZ 0.6.1a1
+```dotenv
+ROBOZIUM_LOCAL_DIRS="../customer-tools;/path/to/shared-tools"
+```
 
-RoboZ `0.6.1a1` removed `AgentCapability` and changed capability construction.
-Existing private tools must migrate before restarting the upgraded application:
+Each directory must exist and contain packages directly under `tools/` or
+`skills/`. Separate paths with semicolons on all platforms; Windows paths can use
+forward slashes. Relative paths use the checkout (the selected configuration's
+directory for native loading). `--path` can also target these external directories.
 
-- Subclass `Capability` and initialize it with `ToolLabel` or `SkillLabel`.
-  Use `SkillLabel("timesheet", selectable=True)` for a selectable on-demand skill.
-- Return a tuple of tools, tool chains, or skills from `build()`. For example,
-  replace `Capability(skills=(skill,))` with `(skill,)`. The deployment applies
-  the capability's label to those values.
-- Remove frozen dataclass decoration from subclasses that call the new
-  `Capability` constructor. Keep runtime binding in `build()`.
+Restart with `./start` (`start.cmd` on Windows) after changes, then reopen the live
+capability selector. New optional capabilities start unchecked; CLI-generated
+skills load on demand. Keep label names stable to preserve saved selections.
+Mock mode retains its scripted capabilities.
 
-See the [working skill example](examples/local/example_skill.py). A change to
-the import alone does not migrate the old build result.
-
-### Loading and dependencies
-
-The requirements file must exist; leave it empty when the tool needs no extra
-packages. On API startup, Robozium validates every declaration, installs all
-registered requirements together into ignored `.runtime/local-deps/`, then
-imports and adds the capabilities to the normal project deployment. Dependencies
-must be compatible with each other and the application. No tracked config or
-main `pyproject.toml` edits are needed for a new private tool.
-
-The API loads `local/` beside [hub.config.py](hub.config.py). A missing
-`local/__init__.py` or empty `CAPABILITIES` adds nothing. Invalid declarations
-and installation failures stop startup with
-the affected tool and reason. Existing capability objects may still be exported
-directly when they use packages already installed in the API.
-
-The launchers create `local/` and the dependency cache. Docker mounts the code
-read-only. For direct Compose launches, create both directories first. Restart
-the API after changing a private tool. Mock mode loads declarations but keeps
-its scripted agents, which do not execute private tools.
-
-Keep `local/__init__.py` limited to declarations so requirements install before
-tool code imports. Bind run-specific state in the capability's `build` method.
-Back up private files in `local/` separately from Git history.
+Requirements are resolved together against the pinned application dependencies
+before private code is imported. Incompatible dependencies, invalid exports, or
+duplicate capability names stop startup with an error. Docker mounts source
+directories read-only; installed dependencies stay in `.runtime/local-deps/`.
+Private files in `local/` are Git-ignored.
 
 ## Host scripts on Linux
 

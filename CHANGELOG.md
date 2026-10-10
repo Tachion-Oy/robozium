@@ -2,10 +2,23 @@
 
 ## Unreleased
 
+- Always load `local/` and optionally add capability roots from the semicolon-separated
+  `ROBOZIUM_LOCAL_DIRS` environment setting. Launchers mount extra sources read-only.
+  Resolve all requirements together and fail startup on incompatible dependencies
+  before importing private capabilities.
+
+- Discover CLI-created capability packages in `local/tools/` and `local/skills/`
+  on each API restart. Create them with `uv run --locked roboz tool init` or
+  `uv run --locked roboz skill init`, then select them in live mode. Migrate
+  existing registries to individual packages exporting `CAPABILITY`, preserving
+  label names for saved selections. Parent registries are no longer executed;
+  private source files are preserved. Remove shipped private samples and launcher
+  registration copying. Mock mode keeps its scripted capabilities.
+
 - Own the Robozium deployment recipe and HUD guidance skill in
   `robozium.hub.deployment` and `robozium.hub.skills`. These replace the
-  application-specific imports from RoboZ's Shed. Pin RoboZ `0.8.0rc1`, which
-  removes the old exports. Agent behavior and persistence paths are unchanged.
+  application-specific imports from RoboZ's Shed. Pin RoboZ `0.9.1` with the
+  unified CLI. Agent behavior and persistence paths are unchanged.
 
 - Use Docker host networking to connect directly to a host-installed Proton Mail
   Bridge. Bind API and web listeners to localhost. Docker Desktop users must

@@ -12,7 +12,6 @@ foreach ($file in @('start.cmd', 'process-compose.yaml', 'compose.yaml')) {
 foreach ($file in @('start-live.ps1', 'start-mock.ps1')) {
     Copy-Item -LiteralPath (Join-Path $source "scripts/$file") -Destination (Join-Path $checkout "scripts/$file")
 }
-Copy-Item -LiteralPath (Join-Path $source 'examples') -Destination (Join-Path $checkout 'examples') -Recurse
 $dockerArgs = Join-Path $case 'docker-args.txt'
 $dockerEnv = Join-Path $case 'docker-env.txt'
 @'
@@ -21,6 +20,7 @@ if not "%1"=="compose" exit /b 9
 echo %* | findstr /C:"config --environment" >nul
 if not errorlevel 1 (
     echo ROBOZIUM_HUB_ROOT=%TEST_LIVE_HUB%
+    echo ROBOZIUM_LOCAL_DIRS=%TEST_LOCAL_DIRS%
     exit /b 0
 )
 echo %* > "%TEST_DOCKER_ARGS%"
@@ -43,11 +43,18 @@ try {
     if ((Get-Content -LiteralPath $dockerArgs -Raw) -notmatch 'up --build --exit-code-from api') {
         throw 'Incorrect mock service selection'
     }
+    if (-not (Test-Path 'local/tools') -or -not (Test-Path 'local/skills')) {
+        throw 'Private capability directories were not created'
+    }
+    if (Test-Path 'local/__init__.py') { throw 'Launcher created a registration file' }
     & cmd /c start.cmd bad
     if ($LASTEXITCODE -ne 2) { throw 'Invalid arguments were accepted' }
 
     $hub = Join-Path $case 'Live Hub with spaces'
     $env:TEST_LIVE_HUB = $hub
+    $tools = Join-Path $case 'Private Tools'
+    [System.IO.Directory]::CreateDirectory($tools) | Out-Null
+    $env:TEST_LOCAL_DIRS = "$tools;local;$tools"
     "ROBOZIUM_HUB_ROOT='$hub'" | Set-Content -LiteralPath (Join-Path $checkout '.env.encrypt')
     & cmd /c start.cmd
     if ($LASTEXITCODE -ne 0) { throw "Live launcher exited $LASTEXITCODE" }
@@ -60,6 +67,17 @@ try {
     if ((Get-Content -LiteralPath $dockerArgs -Raw) -notmatch '--env-file .env.encrypt') {
         throw 'Encrypted input was not passed to Docker Compose'
     }
+    $mounts = Get-Content '.runtime/capability-mounts.yaml' -Raw | ConvertFrom-Json
+    if ($mounts.services.api.volumes.Count -ne 1 -or
+        $mounts.services.api.volumes[0].source -ne $tools -or
+        -not $mounts.services.api.volumes[0].read_only) {
+        throw 'Incorrect external capability mount'
+    }
+    $env:TEST_LOCAL_DIRS = ''
+    & cmd /c start.cmd --mock
+    if ($LASTEXITCODE -ne 0) { throw "Mock launcher exited $LASTEXITCODE" }
+    $mounts = Get-Content '.runtime/capability-mounts.yaml' -Raw | ConvertFrom-Json
+    if ($mounts.services.api.volumes) { throw 'Removed external mounts survived restart' }
     Write-Host 'Windows launcher mock/live, validation, encrypted input, and spaced paths passed.'
 } finally {
     $env:PATH = $savedPath

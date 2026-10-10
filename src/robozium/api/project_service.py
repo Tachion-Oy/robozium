@@ -21,7 +21,7 @@ class ProjectService:
         self._lock = RLock()
 
     def _projects(self) -> list[Project]:
-        directory = self._hub.sandbox.projects_dir
+        directory = self._hub.settings.sandbox.projects_dir
         if not directory.is_dir():
             return []
         return [
@@ -32,7 +32,7 @@ class ProjectService:
 
     def recover(self) -> None:
         """Discard activity markers left by a previous process before accepting work."""
-        sandbox = self._hub.sandbox
+        sandbox = self._hub.settings.sandbox
         root = sandbox.resolved_root
         allowed = {sandbox.readonly, sandbox.shared, sandbox.projects}
         if root.exists():
@@ -52,7 +52,7 @@ class ProjectService:
     def _existing(self, name: str) -> Project:
         project = self._hub.project(name)
         root = project.root.resolve()
-        if root.parent != self._hub.sandbox.projects_dir.resolve():
+        if root.parent != self._hub.settings.sandbox.projects_dir.resolve():
             raise RuntimeError("invalid project path")
         if not root.is_dir():
             raise FileNotFoundError("unknown project")
