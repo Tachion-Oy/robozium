@@ -4,6 +4,7 @@ import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from threading import Event
 
 import pytest
@@ -41,9 +42,8 @@ def test_discovery_execution_and_output_use_the_configured_host(tmp_path, monkey
     with (tmp_path / "helper.log").open("w+") as log:
         process = subprocess.Popen(
             [
-                sys.executable,
-                "-m",
-                "roboz.shed.tools.safe_scripts",
+                str(Path(sys.executable).with_name("roboz")),
+                "scripts",
                 "serve",
                 "--socket",
                 str(socket_path),
