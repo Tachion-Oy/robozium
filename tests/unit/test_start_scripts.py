@@ -155,11 +155,12 @@ def test_powershell_mock_launcher_passes_compose_arguments_and_mounts(launch, tm
     catalogue = tmp_path / "customer tools"
     catalogue.mkdir()
     (checkout / ".env.encrypt").write_text(f"ROBOZIUM_LOCAL_DIRS='{catalogue}'\n")
-    result = subprocess.run(
-        [shutil.which("pwsh"), "-NoProfile", "-File", str(checkout / "scripts/start-mock.ps1")],
-        cwd=checkout, env=env, text=True, capture_output=True, timeout=25,
-    )
-    assert result.returncode == 0, result.stderr
+    for _ in range(2):
+        result = subprocess.run(
+            [shutil.which("pwsh"), "-NoProfile", "-File", str(checkout / "scripts/start-mock.ps1")],
+            cwd=checkout, env=env, text=True, capture_output=True, timeout=25,
+        )
+        assert result.returncode == 0, result.stderr
     args = Path(env["TEST_DOCKER_ARGS"]).read_text().splitlines()
     assert args[-7:] == ["up", "--build", "--wait", "--wait-timeout", "180", "api", "web"]
     assert Path(env["TEST_DOCKER_MODE"]).read_text().strip() == "mock"

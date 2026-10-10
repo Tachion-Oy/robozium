@@ -14,7 +14,11 @@ $utf8 = New-Object System.Text.UTF8Encoding $false
 function Write-AtomicText([string]$Path, [string]$Text) {
     $temporary = "$Path.next"
     [System.IO.File]::WriteAllText($temporary, $Text, $utf8)
-    if (Test-Path -LiteralPath $Path) { [System.IO.File]::Replace($temporary, $Path, $null) }
+    if (Test-Path -LiteralPath $Path) {
+        # Windows PowerShell converts $null to an empty string for this .NET
+        # argument. NullString supplies the actual null backup path.
+        [System.IO.File]::Replace($temporary, $Path, [System.Management.Automation.Language.NullString]::Value)
+    }
     else { [System.IO.File]::Move($temporary, $Path) }
 }
 function Set-Status([string]$Status) { Write-AtomicText "$control/status" $Status }
