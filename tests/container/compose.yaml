@@ -1,0 +1,15 @@
+services:
+  api:
+    environment:
+      ROBOZIUM_LOCAL_DIRS: /customer-tools;/shared-tools
+    volumes:
+      - type: bind
+        source: ${RUNNER_TEMP}/customer-tools
+        target: /customer-tools
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${RUNNER_TEMP}/shared-tools
+        target: /shared-tools
+        read_only: true
+        bind: {create_host_path: false}
