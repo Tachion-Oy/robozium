@@ -6,18 +6,12 @@ import pytest
 from roboz.deployment import (
     Capability,
     DeployableAgent,
-    SkillLoading,
     ToolLabel,
 )
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
 from roboz.models import Empty
 from roboz.runtime import default_event_sinks
 from roboz.shed.sandbox import Sandbox
-from roboz.shed.skills import email_skill
-from roboz.shed.tools.email.proton_bridge import (
-    ProtonBridgeEmailService,
-    ProtonBridgeSettings,
-)
 from roboz.shed.tools.safe_scripts import RunShellScriptInput
 from roboz.tools import stop
 
@@ -100,27 +94,11 @@ def _endpoint(name):
     )
 
 
-def _email_service():
-    return ProtonBridgeEmailService(
-        ProtonBridgeSettings.model_validate(
-            {
-                "imap_host": "127.0.0.1",
-                "imap_port": 1143,
-                "tls_mode": "starttls",
-                "account_address": "me@example.com",
-                "username": "bridge-user",
-                "password": "bridge-password",
-            }
-        )
-    )
-
-
 def _define_recipe(sandbox, **choices):
     return robozium(
         sandbox,
         endpoint_getter=choices.pop("endpoint_getter", lambda: _endpoint("selected")),
         memory_endpoint=choices.pop("memory_endpoint", _endpoint("memory")),
-        email_service=choices.pop("email_service", _email_service()),
         **choices,
     )
 
@@ -139,49 +117,15 @@ def _build_recipe(sandbox, **choices):
     )
 
 
-def test_recipe_composes_proton_bridge_and_safe_scripts_without_connecting(tmp_path):
-    def forbidden(settings, context):
-        pytest.fail("Building and inspecting must not connect to Bridge")
-
-    service = ProtonBridgeEmailService(
-        ProtonBridgeSettings.model_validate(
-            {
-                "imap_host": "127.0.0.1",
-                "imap_port": 1143,
-                "tls_mode": "starttls",
-                "account_address": "me@example.com",
-                "username": "bridge-user",
-                "password": "bridge-password",
-            }
-        ),
-        client_factory=forbidden,
-    )
+def test_recipe_composes_safe_scripts_without_running_them(tmp_path):
     scripts = tmp_path / "trusted-scripts"
     scripts.mkdir()
     (scripts / "hello.sh").write_text("#!/bin/bash\n# Print a greeting.\necho hello\n")
     sandbox = Sandbox(tmp_path / "data").for_project("project")
-    root, (librarian,) = _build_recipe(
-        sandbox,
-        email_service=service,
-        scripts_dir=scripts,
-    )
-
-    names = {
-        "create_email_draft",
-        "search_email",
-        "read_email",
-        "download_email_attachment",
-        "create_reply_draft",
-        "run_shell_script",
-    }
+    root, (librarian,) = _build_recipe(sandbox, scripts_dir=scripts)
     tools = {tool.name: tool for tool in root.active_tools.values()}
-    bound_email = next(
-        skill for skill in root.auto_loaded_skills if skill.name == email_skill.name
-    )
-    assert bound_email.instructions == email_skill.instructions
-    assert names <= tools.keys() | {tool.name for tool in bound_email.tools}
-    assert not names.intersection(tool.name for tool in librarian.active_tools.values())
-    assert service in root.external_dependencies()
+    assert "run_shell_script" in tools
+    assert "run_shell_script" not in {tool.name for tool in librarian.active_tools.values()}
     listed = tools["run_shell_script"](RunShellScriptInput(), [])
     assert [(entry.script, entry.description) for entry in listed.scripts] == [
         ("hello.sh", "Print a greeting.")
@@ -304,33 +248,21 @@ def test_built_root_keeps_live_selection_and_independent_memory_endpoint(tmp_pat
     assert not list(tmp_path.iterdir())
 
 
-def test_recipe_owns_builtins_and_only_scripts_and_email_are_selectable(tmp_path):
+def test_recipe_owns_builtins_and_only_scripts_are_selectable(tmp_path):
     definition = _define_recipe(Sandbox(tmp_path).for_project("project"))
     labels = {cap.label.name: cap.label for cap in definition.capabilities}
-    assert {name for name, label in labels.items() if label.selectable} == {
-        "safe_scripts",
-        "email",
-    }
+    assert {name for name, label in labels.items() if label.selectable} == {"safe_scripts"}
     assert set(labels) == {
-        "stop",
-        "filesystem",
-        "robozium",
-        "compactification",
-        "safe_scripts",
-        "email",
+        "stop", "filesystem", "robozium", "compactification", "safe_scripts"
     }
     definition.set_capability_selection({})
     fixed, (maintenance,) = definition.build()
     assert {skill.name for skill in fixed.auto_loaded_skills} == {
-        "filesystem",
-        "robozium",
+        "filesystem", "robozium"
     }
     assert "run_shell_script" not in {tool.name for tool in fixed.tools}
-    definition.set_capability_selection(
-        {"email": SkillLoading.ON_DEMAND, "safe_scripts": True}
-    )
+    definition.set_capability_selection({"safe_scripts": True})
     selected, (selected_maintenance,) = definition.build()
-    assert email_skill.name in {skill.name for skill in selected.skills}
     assert "run_shell_script" in {tool.name for tool in selected.tools}
     assert [tool.name for tool in maintenance.default_tools] == [
         tool.name for tool in selected_maintenance.default_tools

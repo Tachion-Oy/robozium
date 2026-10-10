@@ -13,9 +13,8 @@ from roboz.deployment import (
 )
 from roboz.llm import EndpointLike, LLMEndpoint, LLMEndpointRoute
 from roboz.shed.agents import librarian, orchestrator
-from roboz.shed.capabilities import Compactification, Email, SafeScripts
+from roboz.shed.capabilities import Compactification, SafeScripts
 from roboz.shed.sandbox import Sandbox
-from roboz.shed.tools.email import EmailService
 
 from robozium.hub.skills import robozium as robozium_skill
 
@@ -26,16 +25,15 @@ def robozium(
     *,
     endpoint_getter: Callable[[], LLMEndpoint],
     memory_endpoint: EndpointLike,
-    email_service: EmailService,
     specialists: Sequence[DeployableAgent] = (),
     scripts_dir: Path | None = None,
     script_socket: Path | None = None,
 ) -> DeployableAgent:
     """Define the persistent orchestrator and its fixed Librarian maintenance.
 
-    The orchestrator owns its standard capabilities. SafeScripts and email are
+    The orchestrator owns its standard capabilities. SafeScripts is
     selectable; callers may attach local capabilities and choose a selection
-    before calling ``build``. Email uses the supplied service. Scripts use
+    before calling ``build``. Scripts use
     the read-only safe-scripts directory unless a directory or socket is supplied.
     """
     sandbox = replace(sandbox)
@@ -57,10 +55,6 @@ def robozium(
             value=robozium_skill,
         ),
         Compactification(threshold_percent=60.0),
-        Email(
-            label=SkillLabel("email", selectable=True, loading=SkillLoading.AUTOMATIC),
-            service=email_service,
-        ),
         SafeScripts(
             label=ToolLabel("safe_scripts", selectable=True),
             scripts_dir=scripts_dir,

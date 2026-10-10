@@ -64,8 +64,8 @@ Import the application recipe with
 `roboz.shed.deployments` and `roboz.shed.skills` imports.
 
 The recipe returns a `DeployableAgent` with fixed filesystem, stop,
-compactification, and Robozium guidance, plus selectable SafeScripts and email.
-Supply `email_service=...` and optionally `scripts_dir=...` or `script_socket=...`;
+compactification, and Robozium guidance, plus selectable SafeScripts. Email and timesheets are available through Robozify.
+Supply optional `scripts_dir=...` or `script_socket=...`;
 scripts otherwise use the sandbox's read-only `safe-scripts` directory. Keep
 that directory outside agent-writable paths. Attach local additions with
 `definition.add_capabilities(...)`, apply
@@ -191,7 +191,7 @@ On Windows, use `start.cmd`. The default configuration offers OpenRouter and
 Cerebras models. OpenRouter is also needed for the librarian's memory model.
 Groq Whisper transcription is enabled by default. Supply `GROQ_API_KEY_SECRET`
 through `.env` or encrypted credentials to use voice input. The environment
-example also includes settings for the selectable Proton Bridge email capability.
+copy email and timesheet settings from the Robozify catalogue when needed.
 
 Keep credentials in `.env`, which is ignored by Git and excluded from Docker
 build context. Credentials are supplied to the API at runtime; never put them in
@@ -242,8 +242,8 @@ Switching to Dependencies and back to Launch keeps the current launch form open.
 Mock mode offers harmless **mock information** and **mock guidance** examples.
 
 Robozium's deployment definition owns the built-ins: filesystem, stop,
-compactification, and the Robozium skill are fixed. SafeScripts and Proton
-Bridge email are selectable. The application loads additional capabilities only
+compactification, and the Robozium skill are fixed. SafeScripts and discovered
+external capabilities are selectable. The application loads additional capabilities only
 from packages in `local/tools/` and `local/skills/`, plus configured external
 directories; see [Private capabilities](#private-capabilities).
 
@@ -281,13 +281,15 @@ when choices are omitted or equivalent; different explicit choices return 409.
 `GET /run/{run_id}` includes the effective selection. Choices do not change
 Librarian maintenance.
 
-Proton email resolves the `ROBOZIUM_PROTON_BRIDGE_*` settings when used, including
-credentials unlocked through the HUD. To use a Bridge installed on the same
-computer, set `ROBOZIUM_PROTON_BRIDGE_IMAP_HOST=127.0.0.1`, enter the
-IMAP port and security mode shown in Bridge, and pin its IMAP certificate with
-`ROBOZIUM_PROTON_BRIDGE_CERTIFICATE_SHA256`. Use Bridge's generated IMAP password,
-not your Proton account password. The API checks this dependency when credentials
-are available, even before an email tool is used.
+For email or timesheets, clone [Robozify](https://github.com/Tachion-Oy/robozify)
+beside Robozium and set `ROBOZIUM_LOCAL_DIRS=../robozify` in the app root
+`.env`. Copy settings from each capability’s `.env.example` into that root
+file. Discovery never reads a capability `.env`. Start the app and select
+`email` or `timesheet` when launching a run. Bridge settings now use
+`PROTON_BRIDGE_*`; rename old `ROBOZIUM_PROTON_BRIDGE_*` entries. Timesheets
+default to `readonly/timesheets`; set `TIMESHEET_ROOT=readonly/Tachion` to
+continue using existing data. The same root `.env` can be encrypted with
+`roboz env encrypt` and unlocked through the HUD.
 
 Host networking lets the API connect directly to Bridge's localhost listener.
 Start Bridge before selecting **Check Now**. An exported shell variable
