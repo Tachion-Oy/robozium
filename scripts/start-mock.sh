@@ -37,10 +37,7 @@ export ROBOZIUM_HOST_SOCKET_DIR=.runtime/mock-socket
 # Python initializes the application directories inside the mounted hub.
 mkdir -p "$ROBOZIUM_HOST_HUB_DIR/readonly/safe-scripts" \
   "$ROBOZIUM_HOST_LOG_DIR" "$ROBOZIUM_HOST_SOCKET_DIR" \
-  local .runtime/local-deps
-if [ ! -e local/__init__.py ]; then
-  cp examples/local-registration.py local/__init__.py
-fi
+  local/tools local/skills .runtime/local-deps
 
 if ! printenv ROBOZIUM_API_USER >/dev/null; then
   docker_security_options=$(docker info --format '{{json .SecurityOptions}}')

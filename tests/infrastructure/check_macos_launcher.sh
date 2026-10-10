@@ -8,7 +8,6 @@ mkdir -p "$checkout/scripts" "$case_dir/bin"
 cp -p "$source_dir/start" "$source_dir/process-compose.yaml" "$checkout/"
 cp -p "$source_dir/scripts/start-live.sh" "$source_dir/scripts/start-mock.sh" \
   "$checkout/scripts/"
-cp -R "$source_dir/examples" "$checkout/examples"
 cat > "$case_dir/bin/docker" <<'DOCKER'
 #!/bin/sh
 if [ "$1" = info ]; then printf '[]\n'; exit 0; fi
@@ -25,6 +24,8 @@ export TEST_DOCKER_ARGS="$case_dir/docker-args"
 export TEST_DOCKER_ENV="$case_dir/docker-env"
 cd "$checkout"
 ./start --mock
+test -d local/tools && test -d local/skills
+test ! -e local/__init__.py
 test "$(tail -n 1 "$TEST_DOCKER_ARGS")" = api
 if ./start bad; then exit 1; fi
 hub="$case_dir/Live Hub with \"quotes\""

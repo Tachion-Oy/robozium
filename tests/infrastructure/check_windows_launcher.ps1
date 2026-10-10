@@ -12,7 +12,6 @@ foreach ($file in @('start.cmd', 'process-compose.yaml', 'compose.yaml')) {
 foreach ($file in @('start-live.ps1', 'start-mock.ps1')) {
     Copy-Item -LiteralPath (Join-Path $source "scripts/$file") -Destination (Join-Path $checkout "scripts/$file")
 }
-Copy-Item -LiteralPath (Join-Path $source 'examples') -Destination (Join-Path $checkout 'examples') -Recurse
 $dockerArgs = Join-Path $case 'docker-args.txt'
 $dockerEnv = Join-Path $case 'docker-env.txt'
 @'
@@ -43,6 +42,10 @@ try {
     if ((Get-Content -LiteralPath $dockerArgs -Raw) -notmatch 'up --build --exit-code-from api') {
         throw 'Incorrect mock service selection'
     }
+    if (-not (Test-Path 'local/tools') -or -not (Test-Path 'local/skills')) {
+        throw 'Private capability directories were not created'
+    }
+    if (Test-Path 'local/__init__.py') { throw 'Launcher created a registration file' }
     & cmd /c start.cmd bad
     if ($LASTEXITCODE -ne 2) { throw 'Invalid arguments were accepted' }
 

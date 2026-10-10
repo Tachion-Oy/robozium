@@ -34,14 +34,12 @@ try {
         (Join-Path $env:ROBOZIUM_HOST_HUB_DIR 'readonly/safe-scripts'),
         $env:ROBOZIUM_HOST_LOG_DIR,
         $env:ROBOZIUM_HOST_SOCKET_DIR,
-        'local',
+        'local/tools',
+        'local/skills',
         '.runtime/local-deps'
     )
     foreach ($directory in $runtimeDirectories) {
         [System.IO.Directory]::CreateDirectory($directory) | Out-Null
-    }
-    if (-not (Test-Path -LiteralPath 'local/__init__.py')) {
-        Copy-Item -LiteralPath 'examples/local-registration.py' -Destination 'local/__init__.py'
     }
 
     if (Get-Command process-compose -ErrorAction SilentlyContinue) {

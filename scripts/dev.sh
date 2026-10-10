@@ -44,10 +44,7 @@ if [[ ! -x "${WEB_DIR}/node_modules/.bin/next" ]]; then
     npm --prefix "${WEB_DIR}" ci
 fi
 
-mkdir -p local
-if [[ ! -e local/__init__.py ]]; then
-    cp examples/local-registration.py local/__init__.py
-fi
+mkdir -p local/tools local/skills
 
 api_pid=""
 web_pid=""

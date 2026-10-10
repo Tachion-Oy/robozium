@@ -21,9 +21,6 @@ def launch(tmp_path: Path) -> tuple[Path, dict[str, str]]:
     for name in ("start", "process-compose.yaml", "compose.yaml"):
         shutil.copy2(ROOT / name, checkout / name)
     shutil.copytree(ROOT / "scripts", checkout / "scripts")
-    shutil.copytree(ROOT / "examples", checkout / "examples")
-    (checkout / "local").mkdir()
-    shutil.copy2(ROOT / "local/simpsons.py", checkout / "local/simpsons.py")
     tools = tmp_path / "bin"
     tools.mkdir()
     # Keep optional executables on the host out of the test's PATH.
@@ -66,9 +63,9 @@ def launch(tmp_path: Path) -> tuple[Path, dict[str, str]]:
         "#!/bin/sh\n"
         "set -eu\n"
         "mkdir -p \"$UV_PROJECT_ENVIRONMENT/bin\"\n"
-        "cat > \"$UV_PROJECT_ENVIRONMENT/bin/python\" <<'SCRIPT'\n"
+        "cat > \"$UV_PROJECT_ENVIRONMENT/bin/roboz\" <<'SCRIPT'\n"
         "#!/bin/sh\n"
-        "[ \"$3\" = serve ] || exit 8\n"
+        "[ \"$1\" = scripts ] && [ \"$2\" = serve ] || exit 8\n"
         "printf '%s\\n' \"$ROBOZIUM_HOST_HUB_DIR\" > \"$TEST_SIDECAR_HUB\"\n"
         "printf 'started\\n' >> \"$TEST_SIDECAR_STARTS\"\n"
         "printf '%s\\n' \"${OPENROUTER_API_KEY_SECRET-unset}\" > \"$TEST_SIDECAR_SECRET\"\n"
@@ -79,7 +76,7 @@ def launch(tmp_path: Path) -> tuple[Path, dict[str, str]]:
         "if [ \"${TEST_SIDECAR_FAIL:-}\" = crash ]; then sleep 1; exit 7; fi\n"
         "while :; do sleep 1 & wait $! || :; done\n"
         "SCRIPT\n"
-        "chmod +x \"$UV_PROJECT_ENVIRONMENT/bin/python\"\n"
+        "chmod +x \"$UV_PROJECT_ENVIRONMENT/bin/roboz\"\n"
     )
     uv.chmod(0o755)
     env = {
@@ -145,14 +142,16 @@ def test_argument_validation_and_mock_isolation(launch):
     assert not (checkout / ".runtime/launch.lock").exists()
 
 
-def test_launcher_seeds_disabled_registration_once(launch):
+def test_launcher_creates_directories_and_preserves_private_files(launch):
     checkout, env = launch
+    assert _run(checkout, env, "--mock").returncode == 0
+    assert (checkout / "local/tools").is_dir()
+    assert (checkout / "local/skills").is_dir()
+    assert not list((checkout / "local").rglob("*.py"))
     registration = checkout / "local/__init__.py"
+    registration.write_text("# Private source must survive restart\n")
     assert _run(checkout, env, "--mock").returncode == 0
-    assert registration.read_text() == (ROOT / "examples/local-registration.py").read_text()
-    registration.write_text("# Private registration must survive restart\nCAPABILITIES = ()\n")
-    assert _run(checkout, env, "--mock").returncode == 0
-    assert registration.read_text().startswith("# Private registration must survive restart")
+    assert registration.read_text() == "# Private source must survive restart\n"
 
 
 def test_live_uses_explicit_sidecar_and_encrypted_settings(host_launch, tmp_path):

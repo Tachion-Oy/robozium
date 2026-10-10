@@ -84,3 +84,15 @@ def test_playwright_container_matches_locked_browser_version() -> None:
         "Update the Playwright Docker image and npm lockfile together; "
         "mismatched versions cannot locate browser executables"
     )
+
+
+def test_all_private_local_files_are_ignored():
+    paths = [
+        "local/__init__.py", "local/simpsons.py", "local/private.py",
+        "local/tools/example/__init__.py", "local/skills/example/requirements.txt",
+    ]
+    result = subprocess.run(
+        ["git", "check-ignore", "--no-index", *paths], cwd=ROOT,
+        capture_output=True, text=True, check=True,
+    )
+    assert result.stdout.splitlines() == paths

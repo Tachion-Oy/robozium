@@ -49,6 +49,8 @@ def test_compose_storage_and_credentials(tmp_path: Path, mode: str, web_port: st
     assert volumes["/hub"]["source"] == str(hub)
     assert volumes["/host-scripts"]["source"] == str(socket)
     assert volumes["/host-scripts"]["read_only"] is True
+    assert volumes["/app/local"]["source"] == str(tmp_path / "local")
+    assert volumes["/app/local"]["read_only"] is True
     assert volumes["/hub/readonly/safe-scripts"]["source"] == str(hub / "readonly/safe-scripts")
     assert volumes["/hub/readonly/safe-scripts"]["read_only"] is True
     assert "/app/.env.encrypt" not in volumes
@@ -69,7 +71,6 @@ def test_live_launcher_resolves_settings_with_compose(tmp_path: Path):
     for name in ("start", "compose.yaml", "process-compose.yaml"):
         shutil.copy2(ROOT / name, checkout / name)
     shutil.copytree(ROOT / "scripts", checkout / "scripts")
-    shutil.copytree(ROOT / "examples", checkout / "examples")
     tools = tmp_path / "bin"
     tools.mkdir()
     stub = tools / "docker"

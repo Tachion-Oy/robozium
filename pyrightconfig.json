@@ -3,9 +3,6 @@
   "include": [
     "src",
     "hub.config.py",
-    "examples/local-registration.py",
-    "local/simpsons.py",
-    "examples/local",
     "tests/container/check_local_capabilities.py",
     "tests/support"
   ],
