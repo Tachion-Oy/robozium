@@ -58,21 +58,6 @@ lifecycle, credentials, and application choices.
 See [RoboZ's documentation](https://github.com/Tachion-Oy/roboz#shed) for the
 underlying agent and tool concepts.
 
-Import the application recipe with
-`from robozium.hub.deployment import robozium` and its guidance skill with
-`from robozium.hub.skills import robozium`. These replace the former
-`roboz.shed.deployments` and `roboz.shed.skills` imports.
-
-The recipe returns a `DeployableAgent` with fixed filesystem, stop,
-compactification, and Robozium guidance, plus selectable SafeScripts and email.
-Supply `email_service=...` and optionally `scripts_dir=...` or `script_socket=...`;
-scripts otherwise use the sandbox's read-only `safe-scripts` directory. Keep
-that directory outside agent-writable paths. Attach local additions with
-`definition.add_capabilities(...)`, apply
-`definition.set_capability_selection(...)`, then call
-`definition.build(event_sinks=..., event_sink_factory=...)` for runtime agents
-and per-agent persistence.
-
 All projects are organized within a [hub with the individual project folders as well as a shared workspace and a readonly folder](#hub-files-and-permissions). Files outside the hub are strictly off limits.
 
 Custom tools created with RoboZ can straightforwardly be introduced, see [Private capabilities](#private-capabilities).
@@ -295,108 +280,45 @@ overrides the same setting in `.env` or `.env.encrypt`.
 
 ## Private capabilities
 
-With uv installed, create private capabilities from the repository root using
-the pinned RoboZ CLI:
+With uv installed, run from the repository root:
 
 ```sh
 uv run --locked roboz tool init
 uv run --locked roboz skill init
 ```
 
-These commands create editable packages at `local/tools/simpsons_quotes/` and
-`local/skills/simpsons_quotes_skill/`. Edit each package's `tool.py` implementation,
-configure its exported `CAPABILITY` in `__init__.py`, and declare extra Python
-packages in its `requirements.txt`. Keep that file even when it is empty.
-Tools are selectable by default; skills are selectable and load on demand.
-Robozium honors the labels you configure, including fixed capabilities and
-automatic skill loading.
-
-For additional packages, choose a custom destination directly inside either
-discovered directory:
+These create packages in `local/tools/simpsons_quotes/` and
+`local/skills/simpsons_quotes_skill/`. Edit `tool.py`, export `CAPABILITY` from
+`__init__.py`, and list dependencies in `requirements.txt` (keep it even if empty).
+Use `--path` to create more packages:
 
 ```sh
 uv run --locked roboz tool init --path local/tools/timesheets
 uv run --locked roboz skill init --path local/skills/project_guide
 ```
 
-Restart the application after adding, editing, or removing packages, then reopen
-the live capability selector in the Launch panel. Newly discovered optional
-capabilities start unchecked; select them and save your project choices.
-Mock mode keeps its existing scripted capabilities and does not execute private
-capabilities.
-
-### Additional capability directories
-
-`local/` is always scanned and can hold any number of your own packages. To add
-packages from other folders, set `ROBOZIUM_LOCAL_DIRS` in `.env`:
+`local/` is always scanned. To also load tools from other folders or cloned
+repositories, set their locations in `.env`:
 
 ```dotenv
 ROBOZIUM_LOCAL_DIRS="../customer-tools;/path/to/shared-tools"
 ```
 
-Each folder contains `tools/` and/or `skills/` directly at its root, with the same
-package structure as `local/`. Files can be self-authored, copied, or checked out
-from a Git repository. Clone private repositories using your normal Git access,
-then point the setting at their checkout directories. Robozium does not fetch or
-update repositories.
+Each directory must exist and contain packages directly under `tools/` or
+`skills/`. Separate paths with semicolons on all platforms; Windows paths can use
+forward slashes. Relative paths use the checkout (the selected configuration's
+directory for native loading). `--path` can also target these external directories.
 
-Separate paths with semicolons on every platform; folder names containing
-semicolons are unsupported. Spaces are allowed. On Windows, for example, use
-`ROBOZIUM_LOCAL_DIRS="C:/Customer Tools;D:/Shared Tools"`. Relative host paths use
-the application checkout; native loading resolves them beside the selected hub
-configuration. An unset or empty setting adds no external directories. Explicit
-paths must already exist, and repeated directories are loaded once.
+Restart with `./start` (`start.cmd` on Windows) after changes, then reopen the live
+capability selector. New optional capabilities start unchecked; CLI-generated
+skills load on demand. Keep label names stable to preserve saved selections.
+Mock mode retains its scripted capabilities.
 
-The CLI still creates packages in `local/` by default. To create a package in an
-external directory, supply its destination explicitly:
-
-```sh
-uv run --locked roboz tool init --path ../customer-tools/tools/timesheets
-```
-
-Start with `./start` or `start.cmd`. The launcher mounts each extra directory
-read-only and leaves dependency caches in the application's `.runtime/` folder.
-After editing files, pulling repository updates, or changing the directory list,
-restart using the same start command and reopen the live capability selector.
-Preserve capability label names to keep saved project selections matching.
-
-### Loading and dependencies
-
-Default discovery is relative to the selected [hub.config.py](hub.config.py),
-regardless of the working directory. The default `local/` comes first, followed
-by extra roots in their configured order. Only immediate child packages under
-`tools/` and `skills/` containing `__init__.py` are discovered, in sorted path
-order; missing `tools/` or `skills/` directories add nothing. Each
-package must export a RoboZ `CAPABILITY` and contain `requirements.txt`.
-Package entrypoints and requirements files must stay inside their capability root.
-
-On startup, Robozium validates package file locations and resolves all requirements
-from all roots together against the pinned application environment. Incompatible
-dependencies stop startup before any capability code is imported, with an error
-identifying the requirements files and the resolver's conflict explanation.
-Compatible requirements are installed into ignored `.runtime/local-deps/` beside
-the hub configuration, then Robozium imports the packages in an
-isolated configuration namespace and adds them to the live deployment. Empty
-requirements need no installation. Dependencies must be compatible with each other
-and the pinned application environment. Native and Docker installations use
-separate dependency caches. Invalid exports, duplicate label names (including
-built-in names), and dependency failures stop startup with an actionable error.
-Successful imports are cached for the life of the API process.
-
-All private `local/` files are Git-ignored and excluded from images and application
-distributions. Docker retains its read-only code mount. Launchers create
-`local/tools/`, `local/skills/`, and the dependency cache. External source folders
-must already exist. For direct Compose launches, create the default directories
-and `.runtime/local-deps/` first. To include extra roots, generate the same override
-used by the launchers and pass both files (POSIX example):
-
-```sh
-sh scripts/capability-mounts.sh '../customer-tools;/path/to/shared-tools' > .runtime/capability-mounts.yaml
-docker compose -f compose.yaml -f .runtime/capability-mounts.yaml up --build
-```
-
-No edits to tracked configuration or the main `pyproject.toml` are needed for
-private packages.
+Requirements are resolved together against the pinned application dependencies
+before private code is imported. Incompatible dependencies, invalid exports, or
+duplicate capability names stop startup with an error. Docker mounts source
+directories read-only; installed dependencies stay in `.runtime/local-deps/`.
+Private files in `local/` are Git-ignored.
 
 ## Host scripts on Linux
 
