@@ -79,7 +79,23 @@ jobs:
           uv run --locked roboz skill init
           uv run --locked roboz tool init --path "$RUNNER_TEMP/customer-tools/tools/customer_quotes"
           uv run --locked roboz skill init --path "$RUNNER_TEMP/shared-tools/skills/customer_guide"
-          sh scripts/capability-mounts.sh "$RUNNER_TEMP/customer-tools;$RUNNER_TEMP/shared-tools" > .runtime/capability-mounts.yaml
+          cat > .runtime/capability-mounts.yaml <<EOF
+          services:
+            api:
+              environment:
+                ROBOZIUM_LOCAL_DIRS: /customer-tools;/shared-tools
+              volumes:
+                - type: bind
+                  source: $RUNNER_TEMP/customer-tools
+                  target: /customer-tools
+                  read_only: true
+                  bind: {create_host_path: false}
+                - type: bind
+                  source: $RUNNER_TEMP/shared-tools
+                  target: /shared-tools
+                  read_only: true
+                  bind: {create_host_path: false}
+          EOF
           export COMPOSE_FILE=compose.yaml:.runtime/capability-mounts.yaml
           echo "COMPOSE_FILE=$COMPOSE_FILE" >> "$GITHUB_ENV"
           docker compose up --build --wait

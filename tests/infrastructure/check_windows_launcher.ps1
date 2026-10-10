@@ -9,7 +9,7 @@ $bin = Join-Path $case 'bin'
 foreach ($file in @('start.cmd', 'process-compose.yaml', 'compose.yaml')) {
     Copy-Item -LiteralPath (Join-Path $source $file) -Destination (Join-Path $checkout $file)
 }
-foreach ($file in @('start-live.ps1', 'start-mock.ps1', 'capability-mounts.ps1')) {
+foreach ($file in @('start-live.ps1', 'start-mock.ps1')) {
     Copy-Item -LiteralPath (Join-Path $source "scripts/$file") -Destination (Join-Path $checkout "scripts/$file")
 }
 $dockerArgs = Join-Path $case 'docker-args.txt'

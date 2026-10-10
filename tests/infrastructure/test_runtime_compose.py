@@ -109,21 +109,36 @@ def test_live_launcher_resolves_settings_with_compose(tmp_path: Path):
 
 @pytest.mark.parametrize("mode", ["live", "mock"])
 def test_extra_mounts_use_literal_host_paths_and_container_environment(tmp_path, mode):
-    shutil.copy2(ROOT / "compose.yaml", tmp_path / "compose.yaml")
-    (tmp_path / "local").mkdir()
+    docker = shutil.which("docker")
+    assert docker, "Docker Compose is required for deployment checks"
+    for name in ("start", "compose.yaml", "process-compose.yaml"):
+        shutil.copy2(ROOT / name, tmp_path / name)
+    shutil.copytree(ROOT / "scripts", tmp_path / "scripts")
+    tools = tmp_path / "bin"
+    tools.mkdir()
+    stub = tools / "docker"
+    stub.write_text(
+        "#!/bin/sh\n"
+        "case \"$*\" in *'config --environment') exec \"$TEST_REAL_DOCKER\" \"$@\";; esac\n"
+        "exec \"$TEST_REAL_DOCKER\" compose -f compose.yaml "
+        "-f .runtime/capability-mounts.yaml config --format json\n"
+    )
+    stub.chmod(0o755)
+    supervisor = tools / "process-compose"
+    supervisor.write_text("#!/bin/sh\nexit 0\n")
+    supervisor.chmod(0o755)
     first, second = tmp_path / "customer tools", tmp_path / "a '$literal' folder"
     first.mkdir()
     second.mkdir()
-    directories = f"customer tools;{second};{first};local"
-    output = subprocess.run(
-        ["sh", str(ROOT / "scripts/capability-mounts.sh"), directories],
-        cwd=tmp_path, capture_output=True, text=True, check=True,
-    )
-    (tmp_path / "mounts.yaml").write_text(output.stdout)
+    env = {
+        **os.environ, "PATH": f"{tools}:{os.environ['PATH']}",
+        "TEST_REAL_DOCKER": docker, "ROBOZIUM_API_USER": "10001:10001",
+        "ROBOZIUM_HUB_ROOT": str(tmp_path / "hub"),
+        "ROBOZIUM_LOCAL_DIRS": f"customer tools;{second};{first};local",
+    }
     completed = subprocess.run(
-        ["docker", "compose", "-f", "compose.yaml", "-f", "mounts.yaml", "config", "--format", "json"],
-        cwd=tmp_path, env={**os.environ, "ROBOZIUM_MODE": mode},
-        capture_output=True, text=True, check=True,
+        [str(tmp_path / "start"), *(["--mock"] if mode == "mock" else [])],
+        cwd=tmp_path, env=env, capture_output=True, text=True, check=True, timeout=15,
     )
     api = json.loads(completed.stdout)["services"]["api"]
     volumes = {mount["target"]: mount for mount in api["volumes"]}

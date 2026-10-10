@@ -48,7 +48,38 @@ export ROBOZIUM_HOST_SOCKET_DIR=.runtime/host-socket
 mkdir -p "$ROBOZIUM_HOST_HUB_DIR/readonly/safe-scripts" \
   "$ROBOZIUM_HOST_LOG_DIR" "$ROBOZIUM_HOST_SOCKET_DIR" \
   local/tools local/skills .runtime/local-deps
-sh scripts/capability-mounts.sh "$local_dirs" > .runtime/capability-mounts.yaml
+{
+  directories=$local_dirs
+  case "$directories" in *'
+'*) echo 'ROBOZIUM_LOCAL_DIRS must be a semicolon-separated single line' >&2; exit 1 ;; esac
+
+  printf 'services:\n  api:\n'
+  seen=";$(CDPATH= cd -- local && pwd -P);"
+  container_directories=
+  index=0
+  while [ -n "$directories" ]; do
+    case "$directories" in
+      *';'*) directory=${directories%%;*}; directories=${directories#*;} ;;
+      *) directory=$directories; directories= ;;
+    esac
+    directory=$(printf '%s' "$directory" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    [ -n "$directory" ] || continue
+    if [ ! -d "$directory" ]; then
+      printf 'ROBOZIUM_LOCAL_DIRS directory does not exist: %s\n' "$directory" >&2
+      exit 1
+    fi
+    source=$(CDPATH= cd -- "$directory" && pwd -P)
+    case "$seen" in *";$source;"*) continue ;; esac
+    seen="$seen$source;"
+    target="/app/.runtime/capability-roots/$index"
+    if [ "$index" -eq 0 ]; then printf '    volumes:\n'; fi
+    escaped_source=$(printf '%s' "$source" | sed -e "s/'/''/g" -e 's/\$/$$/g')
+    printf "      - type: bind\n        source: '%s'\n        target: '%s'\n        read_only: true\n        bind:\n          create_host_path: false\n" "$escaped_source" "$target"
+    container_directories="${container_directories:+$container_directories;}$target"
+    index=$((index + 1))
+  done
+  printf "    environment:\n      ROBOZIUM_LOCAL_DIRS: '%s'\n" "$container_directories"
+} > .runtime/capability-mounts.yaml
 set -- "$@" -f .runtime/capability-mounts.yaml
 
 if ! printenv ROBOZIUM_API_USER >/dev/null; then
