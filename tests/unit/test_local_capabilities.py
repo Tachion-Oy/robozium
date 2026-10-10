@@ -1,310 +1,279 @@
-"""Private modules extend the existing deployment without tracked config edits."""
+"""CLI-created private packages extend live deployments across API restarts."""
 
+import json
+import os
+import subprocess
 import sys
 from pathlib import Path
-from shutil import copytree
+from shutil import rmtree
 from types import SimpleNamespace
 
 import pytest
 from config_support import write_config
-from deployment_support import configured_deployment, foreground_agent
+from deployment_support import foreground_agent
+from fastapi.testclient import TestClient
+from roboz.deployment import SkillLoading
 from roboz.llm import MockLLMEndpoint
-from roboz.models import Empty
 
+from robozium.api.app import create_app
 from robozium.hub.local import load_local_capabilities
 from robozium.hub.utils import load_hub
 
 
-def _package(root: Path, source: str) -> Path:
-    package = root / "local"
+def _source(label="private"):
+    return (
+        "from roboz.deployment import Capability, ToolLabel\n"
+        "from roboz.tools import stop\n"
+        f"CAPABILITY = Capability(label=ToolLabel({label!r}, selectable=True), value=stop)\n"
+    )
+
+
+def _package(root, path="tools/private", source=None, requirements=""):
+    package = root / "local" / path
     package.mkdir(parents=True, exist_ok=True)
-    entrypoint = package / "__init__.py"
-    entrypoint.write_text(source)
-    return entrypoint
+    (package / "__init__.py").write_text(_source() if source is None else source)
+    (package / "requirements.txt").write_text(requirements)
+    return package
 
 
-def test_example_skill_loads_builds_and_follows_project_and_selection(tmp_path):
-    example = Path(__file__).resolve().parents[2] / "examples/local"
-    copytree(example, tmp_path / "local")
-    hub = load_hub(config_file=write_config(tmp_path))
-    label = next(label for label in hub.capabilities() if label.name == "local_example")
-    assert label.kind == "skill" and label.selectable
-    for slug in ("first", "second"):
-        project = hub.project(slug)
-        definition = hub.configure_deployment(
-            project.sandbox, project.slug, endpoint_getter=lambda: hub.default_model
-        )
-        definition.set_capability_selection({"local_example": True})
-        agent, _ = definition.build()
-        skill = next(skill for skill in agent.skills if skill.name == "local_example")
-        assert skill.tools[0](Empty(), []).project == slug
-        assert all(skill.name != "local_example" for skill in agent.auto_loaded_skills)
-        definition.set_capability_selection({})
-        agent, _ = definition.build()
-        assert all(skill.name != "local_example" for skill in agent.skills)
-    assert not hub.sandbox.root.exists()
+def _generate(root, kind, path=None):
+    command = [str(Path(sys.executable).with_name("roboz")), kind, "init"]
+    if path:
+        command.extend(("--path", path))
+    subprocess.run(command, cwd=root, check=True, capture_output=True, text=True)
 
 
-@pytest.mark.parametrize("source", [None, "", "CAPABILITIES = ()", "CAPABILITIES = []"])
-def test_missing_or_empty_exports_preserve_configured_capabilities(tmp_path, source):
+def test_cli_packages_are_selectable_and_execute_through_live_deployment(tmp_path):
     config = write_config(tmp_path)
-    original = load_hub(config_file=config).additional_capabilities
-    if source is not None:
-        _package(tmp_path, source)
-    else:
-        (tmp_path / "local").mkdir()
+    _generate(tmp_path, "tool")
+    _generate(tmp_path, "skill")
+    for implementation in (tmp_path / "local").glob("*/*/tool.py"):
+        implementation.write_text(
+            implementation.read_text().replace("choice(QUOTES)", "'generated quote'")
+        )
     hub = load_hub(config_file=config)
-    assert [c.label for c in hub.additional_capabilities] == [c.label for c in original]
-    assert not hub.sandbox.root.exists()
+    labels = {label.name: label for label in hub.capabilities()}
+    assert labels["simpsons_quotes"].selectable
+    assert labels["simpsons_quotes"].kind == "tool"
+    skill = labels["simpsons_quotes_skill"]
+    assert skill.selectable and skill.kind == "skill"
+    assert skill.loading == SkillLoading.ON_DEMAND
+    for selected in ("simpsons_quotes", "simpsons_quotes_skill"):
+        definition = hub.configure_deployment(
+            hub.project("quotes").sandbox, "quotes", endpoint_getter=lambda: hub.default_model
+        )
+        definition.set_capability_selection({selected: True})
+        responses = []
+        if selected.endswith("_skill"):
+            responses.append({"action": selected, "rationale": "test"})
+        responses.append({"action": f"get_{selected}", "rationale": "test"})
+        definition.set_agent_endpoint(MockLLMEndpoint(responses))
+        agent = foreground_agent(definition.build())
+        assert agent.invoke()[0].value == "generated quote"
+        definition.set_capability_selection({})
+        excluded, _ = definition.build()
+        assert not any(tool.name.startswith("get_simpsons") for tool in excluded.tools)
+        assert not excluded.skills
 
 
-@pytest.mark.parametrize("collection", ["(CAPABILITY,)", "[CAPABILITY]"])
-def test_relative_imports_follow_config_path_and_append_in_order(
-    tmp_path, monkeypatch, collection
+def test_config_relative_discovery_order_and_relative_imports_ignore_parent_code(
+    tmp_path, monkeypatch
 ):
     root = tmp_path / "selected"
     root.mkdir()
     config = write_config(root)
-    original = load_hub(config_file=config).additional_capabilities
-    entrypoint = _package(
-        root, f"from .tools import CAPABILITY\nCAPABILITIES = {collection}\n"
-    )
-    (entrypoint.parent / "tools.py").write_text(
-        "from roboz.deployment import Capability, ToolLabel\n"
-        "from roboz.tools import stop\n"
-        "CAPABILITY = Capability(label=ToolLabel('local_finish'), value=stop.copy(name='local_finish'))\n"
-    )
-    unrelated = tmp_path / "unrelated"
-    _package(unrelated, "raise AssertionError('wrong private package')")
-    monkeypatch.chdir(unrelated)
+    for path, label in (("tools/z", "last"), ("tools/a", "middle"), ("skills/z", "first")):
+        package = _package(root, path, "from .implementation import CAPABILITY\n")
+        (package / "implementation.py").write_text(_source(label))
+    for parent in ("local", "local/tools", "local/skills"):
+        (root / parent / "__init__.py").write_text("raise AssertionError('old registry')\n")
+    _package(root, "tools/container/nested", "raise AssertionError('nested')\n")
+    _package(tmp_path, source="raise AssertionError('wrong config')\n")
+    monkeypatch.chdir(tmp_path)
     before = sys.path.copy()
     hub = load_hub(config_file=config)
+    assert [cap.label.name for cap in hub.additional_capabilities] == ["first", "middle", "last"]
     assert sys.path == before
-    assert [c.label for c in hub.additional_capabilities[:-1]] == [c.label for c in original]
-    assert hub.additional_capabilities[-1].value.name == "local_finish"
-    assert isinstance(hub.additional_capabilities, tuple)
     assert not hub.sandbox.root.exists()
 
 
-def test_successful_imports_are_cached_but_configuration_directories_are_isolated(tmp_path):
-    first = tmp_path / "first"
-    second = tmp_path / "second"
-    for root in (first, second):
-        entrypoint = _package(root, "from .tools import CAPABILITIES\n")
-        (entrypoint.parent / "tools.py").write_text(
-            "from roboz.deployment import Capability, ToolLabel\nCAPABILITIES = (Capability(label=ToolLabel('local')),)\n"
-        )
-    a = load_local_capabilities(first)
-    b = load_local_capabilities(second)
-    assert a[0] is not b[0]
-    (first / "local/__init__.py").write_text("raise AssertionError('reimported')")
-    assert load_local_capabilities(first)[0] is a[0]
-    assert load_local_capabilities(second)[0] is b[0]
+def test_missing_directories_and_successful_loads_are_cached_and_isolated(tmp_path):
+    assert load_local_capabilities(tmp_path / "empty") == ()
+    for root in (tmp_path / "first", tmp_path / "second"):
+        _package(root)
+    first = load_local_capabilities(tmp_path / "first")
+    second = load_local_capabilities(tmp_path / "second")
+    assert first[0] is not second[0]
+    _package(tmp_path / "first", source="raise AssertionError('reimported')\n")
+    assert load_local_capabilities(tmp_path / "first") is first
 
 
-@pytest.mark.parametrize("export", ["None", "42", "'tools'", "{}", "set()"])
-def test_invalid_collection_reports_local_and_config_paths(tmp_path, export):
+@pytest.mark.parametrize("source", ["", "CAPABILITY = None", "CAPABILITY = object()"])
+def test_invalid_exports_report_package_and_config(tmp_path, source):
     config = write_config(tmp_path)
-    entrypoint = _package(tmp_path, f"CAPABILITIES = {export}\n")
-    with pytest.raises(RuntimeError, match="CAPABILITIES must be a list or tuple") as error:
+    package = _package(tmp_path, source=source)
+    with pytest.raises(RuntimeError, match="CAPABILITY.*Capability instance") as error:
         load_hub(config_file=config)
-    assert str(config) in str(error.value)
-    assert str(entrypoint) in str(error.value)
-    assert isinstance(error.value.__cause__, RuntimeError)
-    assert isinstance(error.value.__cause__.__cause__, TypeError)
+    assert str(package) in str(error.value) and str(config) in str(error.value)
 
 
-@pytest.mark.parametrize(
-    "source",
-    ["not valid python!", "raise ValueError('broken local choice')", "from .missing import x"],
-)
-def test_failed_import_reports_path_and_can_be_retried(tmp_path, source):
-    entrypoint = _package(tmp_path, source)
-    with pytest.raises(RuntimeError, match="Invalid local capabilities") as error:
+@pytest.mark.parametrize("source", ["bad python!", "raise ValueError('broken')", "from .missing import x"])
+def test_failed_imports_discard_submodules_and_remain_retryable(tmp_path, source):
+    package = _package(tmp_path, source="from .helper import CAPABILITY\n" + source)
+    helper = package / "helper.py"
+    helper.write_text(_source("before"))
+    previous = helper.stat()
+    with pytest.raises(RuntimeError, match="Invalid local capabilities"):
         load_local_capabilities(tmp_path)
-    assert str(entrypoint) in str(error.value)
-    assert error.value.__cause__ is not None
-    entrypoint.write_text("CAPABILITIES = ()\n")
-    assert load_local_capabilities(tmp_path) == ()
+    helper.write_text(_source("after_"))
+    os.utime(helper, ns=(previous.st_atime_ns, previous.st_mtime_ns))
+    (package / "__init__.py").write_text("from .helper import CAPABILITY\n")
+    assert load_local_capabilities(tmp_path)[0].label.name == "after_"
 
 
-@pytest.mark.parametrize("failure", ["raise ValueError('broken')", "CAPABILITIES = None"])
-def test_failed_package_discards_imported_submodules(tmp_path, failure):
-    entrypoint = _package(tmp_path, f"from .tools import CAPABILITIES\n{failure}\n")
-    helper = entrypoint.parent / "tools.py"
-    helper.write_text("CAPABILITIES = []\n")
-    with pytest.raises(RuntimeError):
+def test_duplicate_names_identify_both_packages_and_allow_repair(tmp_path):
+    first = _package(tmp_path, "tools/one")
+    second = _package(tmp_path, "skills/two")
+    with pytest.raises(RuntimeError, match="duplicate capability name 'private'") as error:
         load_local_capabilities(tmp_path)
-    helper.write_text(
-        "from roboz.deployment import Capability, ToolLabel\nCAPABILITIES = [Capability(label=ToolLabel('local'))]\n"
+    assert str(first) in str(error.value) and str(second) in str(error.value)
+    (first / "__init__.py").write_text(_source("unique"))
+    assert len(load_local_capabilities(tmp_path)) == 2
+
+
+def test_builtin_collision_is_an_actionable_live_startup_error(tmp_path):
+    _package(tmp_path, source=_source("stop"))
+    hub = load_hub(config_file=write_config(tmp_path))
+    with pytest.raises(ValueError, match="Local capability 'stop'.*built-in.*rename"):
+        create_app(deployment=hub)
+
+
+def test_requirements_are_installed_together_before_any_import(tmp_path, monkeypatch):
+    first = _package(tmp_path, "skills/a", "import private_marker\n" + _source("a"), "marker==1\n")
+    second = _package(tmp_path, "tools/b", source=_source("b"))
+    installed = []
+
+    def install(command, **kwargs):
+        target = Path(command[command.index("--target") + 1])
+        target.mkdir(parents=True)
+        (target / "private_marker.py").write_text("VALUE = 1\n")
+        requirements = [command[i + 1] for i, value in enumerate(command) if value == "-r"]
+        assert requirements == [str(p / "requirements.txt") for p in (first, second)]
+        constraints = Path(command[command.index("--constraint") + 1]).read_text()
+        assert "roboz==0.9.1\n" in constraints
+        assert kwargs["timeout"] == 180
+        installed.append(target)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr("robozium.hub.local.subprocess.run", install)
+    before = sys.path.copy()
+    try:
+        assert len(load_local_capabilities(tmp_path)) == 2
+        assert str(installed[0]) in sys.path
+        load_local_capabilities(tmp_path)
+        assert len(installed) == 1
+    finally:
+        sys.path[:] = before
+        sys.modules.pop("private_marker", None)
+
+
+@pytest.mark.parametrize("invalid", ["missing_requirements", "requirements_link", "entrypoint_link", "package_link", "directory_link"])
+def test_invalid_files_fail_before_installation(tmp_path, monkeypatch, invalid):
+    package = _package(tmp_path, requirements="something==1\n")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "__init__.py").write_text(_source())
+    (outside / "requirements.txt").write_text("")
+    if invalid == "missing_requirements":
+        (package / "requirements.txt").unlink()
+    elif invalid in {"requirements_link", "entrypoint_link"}:
+        file = "requirements.txt" if invalid == "requirements_link" else "__init__.py"
+        (package / file).unlink()
+        (package / file).symlink_to(outside / file)
+    else:
+        target = package if invalid == "package_link" else package.parent
+        rmtree(target)
+        target.symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(
+        "robozium.hub.local.subprocess.run", lambda *a, **k: pytest.fail("must validate first")
     )
-    entrypoint.write_text("from .tools import CAPABILITIES\n")
+    with pytest.raises(RuntimeError, match="missing or invalid local file|invalid local capability directory"):
+        load_local_capabilities(tmp_path)
+
+
+def test_empty_requirements_skip_installation(tmp_path, monkeypatch):
+    _package(tmp_path, requirements=" \n")
+    monkeypatch.setattr("robozium.hub.local.which", lambda _: None)
     assert len(load_local_capabilities(tmp_path)) == 1
 
 
-def test_local_tool_executes_through_real_project_deployment(tmp_path):
-    config = write_config(tmp_path)
-    _package(
-        tmp_path,
-        "from dataclasses import dataclass\n"
-        "from roboz.deployment import Capability, ToolLabel\n"
-        "from roboz.tools import stop\n"
-        "class LocalTools(Capability):\n"
-        "    def __init__(self): super().__init__(label=ToolLabel('local'))\n"
-        "    @property\n"
-        "    def required_attributes(self): return {}\n"
-        "    def build(self, agent, pipe):\n"
-        "        return (stop.copy(name='local_finish'),)\n"
-        "CAPABILITIES = (LocalTools(),)\n",
-    )
-    hub = load_hub(config_file=config)
-    project = hub.project("private-tool")
-    endpoint = MockLLMEndpoint(
-        [{"action": "local_finish", "rationale": "test local tool", "value": "private-done"}]
-    )
-    agents = configured_deployment(
-        project, endpoint, additional_capabilities=hub.additional_capabilities
-    )
-    agent = foreground_agent(agents, omit_skills=True)
-    assert "local_finish" in {tool.name for tool in agent.tools}
-    result, _ = agent.invoke()
-    assert result.value == "private-done"
-
-
-def test_declared_tool_installs_requirements_before_import_and_joins_deployment(
-    tmp_path, monkeypatch
-):
-    config = write_config(tmp_path)
-    entrypoint = _package(
-        tmp_path,
-        "from robozium.hub.local import LocalTool\n"
-        "CAPABILITIES = (LocalTool('tools:LocalTools', 'requirements.txt'),)\n",
-    )
-    (entrypoint.parent / "requirements.txt").write_text("local-marker==1\n")
-    (entrypoint.parent / "tools.py").write_text(
-        "import local_marker\n"
-        "from roboz.deployment import Capability, ToolLabel\n"
-        "from roboz.tools import stop\n"
-        "class LocalTools(Capability):\n"
-        "    def __init__(self): super().__init__(label=ToolLabel('local'))\n"
-        "    required_attributes = {}\n"
-        "    def build(self, agent, pipe):\n"
-        "        return (stop.copy(name=local_marker.TOOL_NAME),)\n"
-    )
-    installed: list[Path] = []
-
-    def install(command, **_kwargs):
-        target = Path(command[command.index("--target") + 1])
-        target.mkdir(parents=True, exist_ok=True)
-        (target / "local_marker.py").write_text("TOOL_NAME = 'local_finish'\n")
-        installed.append(target)
-        assert command[command.index("-r") + 1] == str(
-            entrypoint.parent / "requirements.txt"
-        )
-        return SimpleNamespace(returncode=0, stderr="", stdout="")
-
-    monkeypatch.setattr("robozium.hub.local.subprocess.run", install)
-    original_path = sys.path.copy()
-    try:
-        hub = load_hub(config_file=config)
-        assert len(installed) == 1
-        assert str(installed[0]) in sys.path
-        assert load_hub(config_file=config).additional_capabilities[-1] is (
-            hub.additional_capabilities[-1]
-        )
-        assert len(installed) == 1
-        project = hub.project("private-tool")
-        endpoint = MockLLMEndpoint(
-            [{"action": "local_finish", "rationale": "test local tool", "value": "done"}]
-        )
-        agents = configured_deployment(
-            project, endpoint, additional_capabilities=hub.additional_capabilities
-        )
-        result, _ = foreground_agent(agents, omit_skills=True).invoke()
-        assert result.value == "done"
-    finally:
-        sys.path[:] = original_path
-        sys.modules.pop("local_marker", None)
-
-
-@pytest.mark.parametrize(
-    ("entrypoint", "requirements", "reason"),
-    [
-        ("tools:LocalTools", "missing.txt", "requirements file"),
-        ("missing:LocalTools", "requirements.txt", "module: missing"),
-        ("../tools:LocalTools", "requirements.txt", "entrypoint"),
-        ("tools:LocalTools", "../outside.txt", "requirements file"),
-    ],
-)
-def test_invalid_local_tool_contract_fails_before_install(
-    tmp_path, monkeypatch, entrypoint, requirements, reason
-):
-    package = _package(
-        tmp_path,
-        "from robozium.hub.local import LocalTool\n"
-        f"CAPABILITIES = (LocalTool({entrypoint!r}, {requirements!r}),)\n",
-    ).parent
-    (package / "tools.py").write_text("class LocalTools: pass\n")
-    (package / "requirements.txt").write_text("")
+def test_dependency_and_import_failures_restore_path_and_can_be_retried(tmp_path, monkeypatch):
+    package = _package(tmp_path, requirements="missing==1\n", source="raise ValueError('bad import')")
+    results = iter((1, 0, 0))
     monkeypatch.setattr(
         "robozium.hub.local.subprocess.run",
-        lambda *_args, **_kwargs: pytest.fail("installation must not run"),
-    )
-    with pytest.raises(RuntimeError, match=reason):
-        load_local_capabilities(tmp_path)
-
-
-def test_dependency_failure_can_be_fixed_and_retried(tmp_path, monkeypatch):
-    package = _package(
-        tmp_path,
-        "from robozium.hub.local import LocalTool\n"
-        "CAPABILITIES = (LocalTool('tools:LocalTools', 'requirements.txt'),)\n",
-    ).parent
-    (package / "tools.py").write_text(
-        "from roboz.deployment import Capability, ToolLabel\n"
-        "class LocalTools(Capability):\n"
-        "    def __init__(self): super().__init__(label=ToolLabel('local'))\n"
-        "    required_attributes = {}\n"
-        "    def build(self, agent, pipe): return ()\n"
-    )
-    (package / "requirements.txt").write_text("missing-package==1\n")
-    failures = iter((1, 0))
-    monkeypatch.setattr(
-        "robozium.hub.local.subprocess.run",
-        lambda *_args, **_kwargs: SimpleNamespace(
-            returncode=next(failures), stderr="dependency conflict", stdout=""
-        ),
+        lambda *a, **k: SimpleNamespace(returncode=next(results), stderr="dependency conflict", stdout=""),
     )
     before = sys.path.copy()
-    with pytest.raises(RuntimeError, match="dependency conflict"):
-        load_local_capabilities(tmp_path)
-    assert sys.path == before
+    for error in ("dependency conflict", "bad import"):
+        with pytest.raises(RuntimeError, match=error):
+            load_local_capabilities(tmp_path)
+        assert sys.path == before
+    (package / "__init__.py").write_text(_source())
     try:
         assert len(load_local_capabilities(tmp_path)) == 1
     finally:
         sys.path[:] = before
 
 
-@pytest.mark.parametrize(
-    ("source", "reason"),
-    [
-        ("def wrong(): return object()\n", "expected a Capability"),
-        ("def wrong(): raise ValueError('bad tool')\n", "tools:wrong: bad tool"),
-    ],
-)
-def test_local_tool_factory_errors_identify_the_tool(tmp_path, monkeypatch, source, reason):
-    package = _package(
-        tmp_path,
-        "from robozium.hub.local import LocalTool\n"
-        "CAPABILITIES = (LocalTool('tools:wrong', 'requirements.txt'),)\n",
-    ).parent
-    (package / "tools.py").write_text(source)
-    (package / "requirements.txt").write_text("")
-    monkeypatch.setattr(
-        "robozium.hub.local.subprocess.run",
-        lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stderr="", stdout=""),
+def _restart(config, mode="live"):
+    script = """
+import json
+from fastapi.testclient import TestClient
+from robozium.api.app import live_app, mock_app
+app = live_app() if MODE == 'live' else mock_app()
+try:
+    client = TestClient(app)
+    catalogue = client.get('/capabilities').json()
+    saved = client.get('/capabilities/restart').json()
+    definition = app.state.hub.definition
+    names = {label['name'] for label in catalogue}
+    definition.set_capability_selection({k: v for k, v in saved.items() if k in names})
+    print(json.dumps({'catalogue': catalogue, 'saved': saved, 'effective': definition.resolve_capabilities()}))
+finally:
+    app.state.run_manager.shutdown()
+""".replace("MODE", repr(mode))
+    result = subprocess.run(
+        [sys.executable, "-c", script], cwd=config.parent,
+        env={**os.environ, "ROBOZIUM_CONFIG": str(config)},
+        capture_output=True, text=True, check=True, timeout=30,
     )
-    before = sys.path.copy()
-    with pytest.raises(RuntimeError, match=reason):
-        load_local_capabilities(tmp_path)
-    assert sys.path == before
+    return json.loads(result.stdout)
+
+
+def test_fresh_api_processes_rediscover_packages_and_preserve_saved_selections(tmp_path):
+    config = write_config(tmp_path)
+    _generate(tmp_path, "tool", "local/tools/original")
+    app = create_app(deployment=load_hub(config_file=config))
+    try:
+        client = TestClient(app)
+        assert client.post("/projects", json={"name": "restart"}).status_code == 200
+        assert client.post("/capabilities/restart", json={"original": True}).status_code == 200
+    finally:
+        app.state.run_manager.shutdown()
+    assert _restart(config)["effective"]["original"] is True
+    _generate(tmp_path, "skill", "local/skills/added")
+    added = _restart(config)
+    assert added["saved"] == {"original": True}
+    assert added["effective"]["added"] is False
+    entrypoint = tmp_path / "local/tools/original/__init__.py"
+    entrypoint.write_text(entrypoint.read_text().replace("selectable=True", "selectable=False"))
+    edited = _restart(config)
+    assert not next(label for label in edited["catalogue"] if label["name"] == "original")["selectable"]
+    rmtree(entrypoint.parent)
+    removed = _restart(config)
+    assert "original" not in removed["effective"]
+    assert removed["saved"] == {"original": True}
+    mock = _restart(config, "mock")
+    assert "added" not in mock["effective"]
+    assert {"mock_information", "mock_guidance"} <= mock["effective"].keys()

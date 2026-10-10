@@ -75,7 +75,8 @@ jobs:
           echo "ROBOZIUM_API_USER=$(id -u):$(id -g)" >> "$GITHUB_ENV"
           export ROBOZIUM_API_USER="$(id -u):$(id -g)"
           mkdir -p .runtime/mock-hub/readonly/safe-scripts .runtime/mock-logs .runtime/mock-socket .runtime/local-deps local
-          cp examples/local/*.py examples/local/requirements.txt local/
+          uv run --locked roboz tool init
+          uv run --locked roboz skill init
           docker compose up --build --wait
           docker compose exec -T api python - < tests/container/check_local_capabilities.py
           docker compose exec -T api python - < tests/container/check_file_cli.py

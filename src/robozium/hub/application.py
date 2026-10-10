@@ -162,5 +162,12 @@ class Hub:
             specialists=self.subagents,
             script_socket=Path(script_socket) if script_socket else None,
         )
+        builtins = {capability.label.name for capability in root.capabilities}
+        for capability in self.additional_capabilities:
+            if capability.label.name in builtins:
+                raise ValueError(
+                    f"Local capability {capability.label.name!r} conflicts with a built-in; "
+                    "rename its label in local/tools/ or local/skills/"
+                )
         root.add_capabilities(*self.additional_capabilities)
         return root
