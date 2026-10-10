@@ -58,6 +58,21 @@ lifecycle, credentials, and application choices.
 See [RoboZ's documentation](https://github.com/Tachion-Oy/roboz#shed) for the
 underlying agent and tool concepts.
 
+Import the application recipe with
+`from robozium.hub.deployment import robozium` and its guidance skill with
+`from robozium.hub.skills import robozium`. These replace the former
+`roboz.shed.deployments` and `roboz.shed.skills` imports.
+
+The recipe returns a `DeployableAgent` with fixed filesystem, stop,
+compactification, and Robozium guidance, plus selectable SafeScripts and email.
+Supply `email_service=...` and optionally `scripts_dir=...` or `script_socket=...`;
+scripts otherwise use the sandbox's read-only `safe-scripts` directory. Keep
+that directory outside agent-writable paths. Attach local additions with
+`definition.add_capabilities(...)`, apply
+`definition.set_capability_selection(...)`, then call
+`definition.build(event_sinks=..., event_sink_factory=...)` for runtime agents
+and per-agent persistence.
+
 All projects are organized within a [hub with the individual project folders as well as a shared workspace and a readonly folder](#hub-files-and-permissions). Files outside the hub are strictly off limits.
 
 Custom tools created with RoboZ can straightforwardly be introduced, see [Private capabilities](#private-capabilities).
