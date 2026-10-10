@@ -329,16 +329,17 @@ def test_sidecar_failure_is_bounded_and_keeps_dependency_ui_available(host_launc
 
 
 @pytest.mark.parametrize("shutdown_signal", [signal.SIGINT, signal.SIGTERM])
-def test_application_exit_and_duplicate_launch_cleanup(launch, shutdown_signal):
+@pytest.mark.parametrize("args", [(), ("--mock",)])
+def test_application_exit_and_duplicate_launch_cleanup(launch, shutdown_signal, args):
     checkout, env = launch
     env["TEST_DOCKER_WAIT"] = "1"
     process = subprocess.Popen(
-        [str(checkout / "start"), "--mock"], cwd=checkout, env=env,
+        [str(checkout / "start"), *args], cwd=checkout, env=env,
         text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True,
     )
     try:
         _wait_for(Path(env["TEST_DOCKER_READY"]), process)
-        duplicate = _run(checkout, env, "--mock")
+        duplicate = _run(checkout, env, *args)
         assert duplicate.returncode != 0
         assert process.poll() is None
         os.kill(process.pid, shutdown_signal)
