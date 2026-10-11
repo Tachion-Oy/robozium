@@ -129,10 +129,13 @@ for (const boundary of ["creation", "navigation"] as const) {
 		await expect(page.locator(".agent-hud__agent", {
 			hasText: "Thanks. One more thing before I finish?",
 		})).toBeVisible({ timeout: 15_000 })
-		const viewResponse = await request.get(`/api/runs/${encodeURIComponent(firstRunId)}/view`)
-		expect(viewResponse.ok()).toBe(true)
-		const runView = (await viewResponse.json()) as { current_prompt_id: string | null }
-		if (!runView.current_prompt_id) throw new Error("missing second prompt")
+		// Prompt text can arrive before the backend registers its reply ID.
+		const promptId = await waitFor("second prompt", async () => {
+			const response = await request.get(`/api/runs/${encodeURIComponent(firstRunId)}/view`)
+			expect(response.ok()).toBe(true)
+			const view = (await response.json()) as { current_prompt_id: string | null }
+			return view.current_prompt_id
+		}, 15_000)
 
 		await page.getByRole("button", { name: "Current Run", exact: true }).click()
 		await page.getByRole("option", { name: "Runs Overview", exact: true }).click()
@@ -163,7 +166,7 @@ for (const boundary of ["creation", "navigation"] as const) {
 				await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeDisabled()
 			}
 			const reply = await request.post(`/api/runs/${encodeURIComponent(firstRunId)}/reply`, {
-				data: { prompt_id: runView.current_prompt_id, content: "second reply" },
+				data: { prompt_id: promptId, content: "second reply" },
 			})
 			expect(reply.ok()).toBe(true)
 			await expect.poll(async () => {
@@ -205,10 +208,12 @@ for (const panel of ["Runs Overview", "Dependencies"] as const) {
 			hasText: "Thanks. One more thing before I finish?",
 		})).toBeVisible({ timeout: 15_000 })
 
-		const viewResponse = await request.get(`/api/runs/${encodeURIComponent(runId)}/view`)
-		expect(viewResponse.ok()).toBe(true)
-		const runView = (await viewResponse.json()) as { current_prompt_id: string | null }
-		if (!runView.current_prompt_id) throw new Error("missing second prompt")
+		const promptId = await waitFor("second prompt", async () => {
+			const response = await request.get(`/api/runs/${encodeURIComponent(runId)}/view`)
+			expect(response.ok()).toBe(true)
+			const view = (await response.json()) as { current_prompt_id: string | null }
+			return view.current_prompt_id
+		}, 15_000)
 
 		const size = page.getByRole("slider", { name: "Resize HUD" })
 		await size.focus()
@@ -231,7 +236,7 @@ for (const panel of ["Runs Overview", "Dependencies"] as const) {
 		const beforeBounds = await page.locator(".agent-hud__box").boundingBox()
 
 		const reply = await request.post(`/api/runs/${encodeURIComponent(runId)}/reply`, {
-			data: { prompt_id: runView.current_prompt_id, content: "second reply" },
+			data: { prompt_id: promptId, content: "second reply" },
 		})
 		expect(reply.ok()).toBe(true)
 		await expect.poll(() => new URL(page.url()).searchParams.get("runId")).toBeNull()
