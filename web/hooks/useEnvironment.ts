@@ -20,7 +20,6 @@ export function useEnvironment(editing: boolean) {
 	const [entries, setEntries] = useState<EnvironmentEntry[]>([])
 	const [operation, setOperation] = useState<"save" | "import" | "reset" | null>(null)
 	const pending = operation !== null
-	const [saved, setSaved] = useState(false)
 	const [loadFailed, setLoadFailed] = useState(false)
 	const lastLoadError = useRef("")
 	const [refreshVersion, setRefreshVersion] = useState(0)
@@ -44,7 +43,11 @@ export function useEnvironment(editing: boolean) {
 				setView(previous => preserve && previous ? { ...next, entries: previous.entries, revision: previous.revision } : next)
 				if (!preserve) setEntries(next.entries)
 				setLoadFailed(false)
-				lastLoadError.current = ""
+				const message = next.example_errors.join("\n")
+				if (message && lastLoadError.current !== message) {
+					showErrorToast({ title: "Could not read environment examples", message })
+				}
+				lastLoadError.current = message
 			} catch (cause) {
 				if (!controller.signal.aborted && version === saveVersion.current) {
 					setLoadFailed(true)
@@ -69,7 +72,6 @@ export function useEnvironment(editing: boolean) {
 		if (!editable) return
 		dirtyRef.current = !sameEnvironmentEntries(next, view?.entries ?? [])
 		setEntries(next)
-		setSaved(false)
 	}
 	const importPackage = async (files: File[]): Promise<EnvironmentImportResult | null> => {
 		if (!editable || pendingRef.current) return null
@@ -101,7 +103,6 @@ export function useEnvironment(editing: boolean) {
 		pendingRef.current = true
 		saveVersion.current++
 		setOperation("save")
-		setSaved(false)
 		try {
 			await saveEnvironment({
 				revision: view.revision,
@@ -113,7 +114,6 @@ export function useEnvironment(editing: boolean) {
 			setView(next)
 			setEntries(next.entries)
 			dirtyRef.current = false
-			setSaved(true)
 			return true
 		} catch (cause) {
 			if (mounted.current) showErrorToast({
@@ -137,7 +137,6 @@ export function useEnvironment(editing: boolean) {
 			setView(null)
 			setEntries([])
 			dirtyRef.current = false
-			setSaved(false)
 			setLoadFailed(false)
 			lastLoadError.current = ""
 			setRefreshVersion(version => version + 1)
@@ -153,7 +152,7 @@ export function useEnvironment(editing: boolean) {
 			if (mounted.current) setOperation(null)
 		}
 	}
-	return { view, entries, editable, pending, saved, loadFailed, change, save, importPackage, reset, canReset, saving: operation === "save",
+	return { view, entries, editable, pending, loadFailed, change, save, importPackage, reset, canReset, saving: operation === "save",
 		retry: () => { lastLoadError.current = ""; setRefreshVersion(version => version + 1) },
 	}
 }

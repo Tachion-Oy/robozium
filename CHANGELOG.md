@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Show Environment save confirmations and example-file errors through toasts.
+
 - Add a confirmed Environment reset for forgotten passwords. Delete saved settings
   and secrets without the old password; retain imported packages and manual `.env` settings.
 

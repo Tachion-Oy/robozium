@@ -126,7 +126,12 @@ export function useEnvironmentEditor() {
 		return true
 	}
 	const save = async (password: string) => {
-		if (await environment.save(password, currentEntries)) closeEditor()
+		if (!await environment.save(password, currentEntries)) return
+		closeEditor()
+		showNotificationToast({
+			tone: "success", title: "Settings saved",
+			message: "Restart using ./start or start.cmd, keeping --mock for mock mode. Then unlock with Secrets.",
+		})
 	}
 	const reset = async () => {
 		if (!await environment.reset()) return false
