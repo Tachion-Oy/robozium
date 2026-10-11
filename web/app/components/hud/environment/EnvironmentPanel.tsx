@@ -11,7 +11,7 @@ import { EnvironmentVariableList } from "./EnvironmentVariableList"
 
 export function EnvironmentPanel() {
 	const environment = useEnvironmentEditor()
-	const { view, editor, editable, saved, loadFailed } = environment
+	const { view, editor, editable, loadFailed } = environment
 
 	const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
 		if (event.key !== "Escape" || !editor) return
@@ -32,7 +32,6 @@ export function EnvironmentPanel() {
 				<HudButton onClick={environment.retry}>Retry</HudButton>
 			</div>}
 			{view && !view.editable && <p role="status">Stop all runs and background work before editing.</p>}
-			{saved && <p role="status">Settings saved. Restart using ./start or start.cmd, keeping --mock for mock mode. Then unlock with Secrets.</p>}
 			<div className="agent-hud__table-scroll min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]">
 				<fieldset disabled={!editable} className="flex min-w-0 flex-col gap-4 pe-3">
 					<EnvironmentFolderImport
@@ -56,7 +55,6 @@ export function EnvironmentPanel() {
 							/>
 						)}
 					</EnvironmentVariableList>
-					{view?.example_errors.map(text => <p key={text}>{text}</p>)}
 					<EnvironmentImportList imported={view?.imports ?? []} />
 				</fieldset>
 			</div>

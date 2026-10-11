@@ -16,10 +16,14 @@ test("environment saves masked secrets, replaces and removes them, and requires 
 	await page.getByRole("button", { name: "Apply", exact: true }).click()
 	await page.getByLabel("Encryption password", { exact: true }).fill("dummy-password")
 	await page.getByLabel("Confirm encryption password").fill("dummy-password")
+	const savedToast = page.locator(".agent-error-toast--success.agent-error-toast--visible").filter({ hasText: "Settings saved" })
 	try {
 		await page.getByRole("button", { name: "Encrypt and save" }).click()
-		await expect(page.getByRole("status")).toContainText("./start")
-		await expect(page.getByRole("status")).toContainText("unlock with Secrets")
+		await expect(savedToast).toContainText("./start")
+		await expect(savedToast).toContainText("unlock with Secrets")
+		await expect(page.getByRole("region", { name: "Environment settings" }).getByText(/Settings saved|Restart using/)).toHaveCount(0)
+		await savedToast.getByRole("button", { name: "Dismiss success notification" }).click()
+		await expect(savedToast).toHaveCount(0)
 		await expect(page.getByLabel("Encryption password", { exact: true })).toBeDisabled()
 		const response = await request.get("/api/credentials/environment")
 		expect(await response.text()).not.toContain("dummy-environment-key")
@@ -36,13 +40,15 @@ test("environment saves masked secrets, replaces and removes them, and requires 
 		await expect(page.getByText("Invalid encrypted secret or password", { exact: true })).toBeHidden()
 		await page.getByLabel("Encryption password", { exact: true }).fill("dummy-password")
 		await page.getByRole("button", { name: "Encrypt and save" }).click()
-		await expect(page.getByRole("status")).toContainText("Settings saved")
+		await expect(savedToast).toBeVisible()
+		await savedToast.getByRole("button", { name: "Dismiss success notification" }).click()
+		await expect(savedToast).toHaveCount(0)
 		await page.getByRole("button", { name: "Change OPENROUTER_API_KEY", exact: true }).click()
 		await page.getByRole("button", { name: "Delete OPENROUTER_API_KEY" }).click()
 		await expect(page.getByRole("button", { name: "Change OPENROUTER_API_KEY", exact: true })).toHaveCount(0)
 		await page.getByLabel("Encryption password", { exact: true }).fill("dummy-password")
 		await page.getByRole("button", { name: "Encrypt and save" }).click()
-		await expect(page.getByRole("status")).toContainText("Settings saved")
+		await expect(savedToast).toBeVisible()
 		const entries = (await (await request.get("/api/credentials/environment")).json()).entries
 		expect(entries.map((entry: { name: string; value: string; secret: boolean }) => [entry.name, entry.value, entry.secret]).sort()).toEqual([
 			["ROBOZIUM_HUB_ROOT", "../Robozium-Hub", false],
@@ -82,7 +88,7 @@ test("forgotten passwords can be reset only after confirmation", async ({ page, 
 		await page.getByLabel("Encryption password", { exact: true }).fill("new-password")
 		await page.getByLabel("Confirm encryption password").fill("new-password")
 		await page.getByRole("button", { name: "Encrypt and save", exact: true }).click()
-		await expect(page.getByRole("status")).toContainText("Settings saved")
+		await expect(page.getByText("Settings saved", { exact: true })).toBeVisible()
 		await expect(page.getByLabel("Encryption password", { exact: true })).toBeDisabled()
 	} finally {
 		expect((await request.delete("/api/credentials/environment")).ok()).toBeTruthy()

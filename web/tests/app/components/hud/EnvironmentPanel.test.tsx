@@ -87,7 +87,12 @@ it("edits a suggested secret, saves its base name directly, and clears submitted
 	await waitFor(() => expect(mocks.saveEnvironment).toHaveBeenCalledWith({
 		revision: "first", password: "dummy-password", entries: [defaultPort, { name: "SERVICE_API_KEY", value: "dummy-key", secret: true }],
 	}))
-	await screen.findByText(/Settings saved/)
+	await waitFor(() => expect(mocks.showNotificationToast).toHaveBeenCalledWith({
+		tone: "success", title: "Settings saved",
+		message: "Restart using ./start or start.cmd, keeping --mock for mock mode. Then unlock with Secrets.",
+	}))
+	expect(mocks.showNotificationToast).toHaveBeenCalledOnce()
+	expect(screen.queryByText(/Settings saved|Restart using/)).toBeNull()
 	expect(screen.queryByDisplayValue("dummy-password")).toBeNull()
 	expect(screen.queryByDisplayValue("dummy-key")).toBeNull()
 })
@@ -313,6 +318,7 @@ it.each([
 		fireEvent.click(screen.getByRole("button", { name: "Encrypt and save" }))
 		await waitFor(() => expect(mocks.showErrorToast).toHaveBeenCalledTimes(attempt))
 		expect(mocks.showErrorToast).toHaveBeenLastCalledWith({ title: "Could not save settings", message })
+		expect(mocks.showNotificationToast).not.toHaveBeenCalled()
 		expect(screen.queryByText(message)).toBeNull()
 		expect(screen.queryByRole("alert")).toBeNull()
 		expect(screen.queryByDisplayValue("dummy-password")).toBeNull()
@@ -408,4 +414,14 @@ it("cancelling the browser picker does not import or report success", async () =
 	fireEvent.change(screen.getByLabelText("Choose tool or skill folder"), { target: { files: [] } })
 	expect(mocks.importEnvironmentPackage).not.toHaveBeenCalled()
 	expect(mocks.showNotificationToast).not.toHaveBeenCalled()
+})
+
+it("reports unreadable environment examples through a toast without inline errors", async () => {
+	const errors = ["Could not read the application environment example", "Could not read environment example for mail_package"]
+	mocks.getEnvironment.mockResolvedValue({ ...view, example_errors: errors })
+	render(<EnvironmentPanel />)
+	await screen.findByRole("button", { name: "Change SERVICE_API_KEY" })
+	expect(mocks.showErrorToast).toHaveBeenCalledWith({ title: "Could not read environment examples", message: errors.join("\n") })
+	for (const error of errors) expect(screen.queryByText(error)).toBeNull()
+	expect(screen.getByRole("button", { name: "Save" }).hasAttribute("disabled")).toBe(false)
 })
