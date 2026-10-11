@@ -26,9 +26,6 @@ try {
     $hubRoot = $composeEnvironment |
         Where-Object { $_.StartsWith('ROBOZIUM_HUB_ROOT=') } |
         ForEach-Object { $_.Substring('ROBOZIUM_HUB_ROOT='.Length) }
-    $localDirs = $composeEnvironment |
-        Where-Object { $_.StartsWith('ROBOZIUM_LOCAL_DIRS=') } |
-        ForEach-Object { $_.Substring('ROBOZIUM_LOCAL_DIRS='.Length) }
     Remove-Variable composeEnvironment
     $env:ROBOZIUM_HOST_HUB_DIR = if ($hubRoot) { $hubRoot } else { '../Robozium-Hub' }
     $env:ROBOZIUM_HOST_LOG_DIR = '.runtime/logs'
@@ -46,38 +43,6 @@ try {
     foreach ($directory in $runtimeDirectories) {
         [System.IO.Directory]::CreateDirectory($directory) | Out-Null
     }
-    $localDirs = [string]$localDirs
-    if ($localDirs.Contains("`n") -or $localDirs.Contains("`r")) {
-        throw 'ROBOZIUM_LOCAL_DIRS must be a semicolon-separated single line'
-    }
-    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    [void]$seen.Add((Resolve-Path -LiteralPath 'local').ProviderPath)
-    $mounts = @()
-    $containerDirectories = @()
-    foreach ($entry in $localDirs.Split(';')) {
-        $directory = $entry.Trim()
-        if (-not $directory) { continue }
-        if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
-            throw "ROBOZIUM_LOCAL_DIRS directory does not exist: $directory"
-        }
-        $source = (Resolve-Path -LiteralPath $directory).ProviderPath
-        if (-not $seen.Add($source)) { continue }
-        $target = "/app/.runtime/capability-roots/$($mounts.Count)"
-        $mounts += @{
-            type = 'bind'
-            source = $source.Replace('$', '$$')
-            target = $target
-            read_only = $true
-            bind = @{ create_host_path = $false }
-        }
-        $containerDirectories += $target
-    }
-    $api = @{ environment = @{ ROBOZIUM_LOCAL_DIRS = ($containerDirectories -join ';') } }
-    if ($mounts.Count) { $api.volumes = $mounts }
-    @{ services = @{ api = $api } } | ConvertTo-Json -Depth 6 |
-        Set-Content -LiteralPath '.runtime/capability-mounts.yaml' -Encoding UTF8
-    $composeArguments += @('-f', '.runtime/capability-mounts.yaml')
-
     if (Get-Command process-compose -ErrorAction SilentlyContinue) {
         $hostSupervisorOptions = @{
             FilePath = 'process-compose'

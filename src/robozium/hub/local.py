@@ -1,6 +1,5 @@
-"""Discover private capability packages in local and configured directories."""
+"""Discover private capability packages in the application's local directory."""
 
-import os
 import subprocess
 import sys
 from collections.abc import Callable
@@ -22,62 +21,38 @@ from uuid import uuid4
 
 from roboz.deployment import Capability
 
-from robozium.hub import environment as env
-
 _IMPORT_LOCK = RLock()
 _LOCAL_PACKAGE_PREFIX = "_robozium_local_"
 
 
 def load_local_packages(config_dir: Path) -> dict[Path, tuple[Capability, ...]]:
-    """Load packages from local/ and ROBOZIUM_LOCAL_DIRS, retaining their paths.
+    """Load packages from local/, retaining their paths.
 
     Parent registration files are never executed. Successful loads are cached
-    per configuration and roots; restart the API to discover private changes.
+    per configuration; restart the API to discover private changes.
     Failures discard the isolated namespace so corrected packages can be retried.
     """
     config_dir = config_dir.resolve()
     with _IMPORT_LOCK:
         try:
-            return _load_local_packages(config_dir, _capability_roots(config_dir))
+            return _load_local_packages(config_dir)
         except Exception as exc:
             raise RuntimeError(f"Invalid local capabilities for {config_dir}: {exc}") from exc
 
 
-def _capability_roots(config_dir: Path) -> tuple[Path, ...]:
-    roots = [(config_dir / "local").resolve()]
-    for value in os.environ.get(env.LOCAL_DIRS, "").split(";"):
-        if not value.strip():
-            continue
-        root = (config_dir / value.strip()).resolve()
-        if not root.is_dir():
-            raise ValueError(f"{env.LOCAL_DIRS} directory does not exist: {root}")
-        if not any(
-            root == existing or (existing.is_dir() and root.samefile(existing))
-            for existing in roots
-        ):
-            roots.append(root)
-    return tuple(roots)
-
-
 @cache
-def _load_local_packages(
-    config_dir: Path, roots: tuple[Path, ...]
-) -> dict[Path, tuple[Capability, ...]]:
-    packages = {root: _discover_packages(root) for root in roots}
+def _load_local_packages(config_dir: Path) -> dict[Path, tuple[Capability, ...]]:
+    root = (config_dir / "local").resolve()
+    packages = {root: _discover_packages(root)}
     dependencies = _prepare_dependencies(config_dir, packages)
-    namespace = _LOCAL_PACKAGE_PREFIX + sha256(repr((config_dir, roots)).encode()).hexdigest()
+    namespace = _LOCAL_PACKAGE_PREFIX + sha256(str(config_dir).encode()).hexdigest()
     with ExitStack() as rollback:
         rollback.callback(_discard_namespace, namespace)
         if dependencies is not None:
             sys.path.append(str(dependencies))
             rollback.callback(sys.path.remove, str(dependencies))
         _register_namespace(namespace, config_dir)
-        capabilities: dict[Path, tuple[Capability, ...]] = {}
-        labels: dict[str, Path] = {}
-        for index, (root, paths) in enumerate(packages.items()):
-            capabilities.update(
-                _import_packages(root, paths, f"{namespace}.source_{index}", labels)
-            )
+        capabilities = _import_packages(root, packages[root], f"{namespace}.source_0", {})
         # Keep successful imports available; unwind partial imports on any failure.
         rollback.pop_all()
     return capabilities
@@ -190,7 +165,8 @@ def _prepare_dependencies(
 def inspect_import(config_dir: Path, package: Path) -> tuple[Capability, ...]:
     """Validate a staged package with the startup loader, without activating it."""
     with _IMPORT_LOCK, ExitStack() as cleanup:
-        packages = {root: _discover_packages(root) for root in _capability_roots(config_dir)}
+        local_root = (config_dir / "local").resolve()
+        packages = {local_root: _discover_packages(local_root)}
         # Staging uses the same imports/<name> layout as committed packages.
         root = package.parent.parent
         packages[root] = [package.relative_to(root)]

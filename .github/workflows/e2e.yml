@@ -77,10 +77,8 @@ jobs:
           mkdir -p .runtime/mock-hub/readonly/safe-scripts .runtime/mock-logs .runtime/mock-socket .runtime/local-deps local
           uv run --locked roboz tool init
           uv run --locked roboz skill init
-          uv run --locked roboz tool init --path "$RUNNER_TEMP/customer-tools/tools/customer_quotes"
-          uv run --locked roboz skill init --path "$RUNNER_TEMP/shared-tools/skills/customer_guide"
-          export COMPOSE_FILE=compose.yaml:tests/container/compose.yaml
-          echo "COMPOSE_FILE=$COMPOSE_FILE" >> "$GITHUB_ENV"
+          uv run --locked roboz tool init --path local/tools/customer_quotes
+          uv run --locked roboz skill init --path local/skills/customer_guide
           docker compose up --build --wait
           docker compose exec -T api python - < tests/container/check_local_capabilities.py
           docker compose exec -T api python - < tests/container/check_file_cli.py
