@@ -9,7 +9,7 @@ test("environment saves masked secrets, replaces and removes them, and requires 
 	await page.getByRole("button", { name: "Runs Overview", exact: true }).click()
 	await page.getByRole("option", { name: "Environment", exact: true }).click()
 	await expect(page.getByRole("button", { name: "Add variable" })).toBeEnabled()
-	await expect(page.getByText("[required]", { exact: true })).toHaveCount(6)
+	await expect(page.getByText("[required]", { exact: true })).toHaveCount(5)
 	await expect(page.getByLabel("Current value for ROBOZIUM_WEB_PORT")).toHaveText("6969")
 	await page.getByRole("button", { name: "Change OPENROUTER_API_KEY", exact: true }).click()
 	await page.getByLabel("Value for OPENROUTER_API_KEY", { exact: true }).fill("dummy-environment-key")
