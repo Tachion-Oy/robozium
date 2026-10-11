@@ -53,7 +53,7 @@ export function EnvironmentSaveForm({
 						className="agent-hud__project-input min-w-0 flex-1"
 						type="password"
 						autoComplete="off"
-						disabled={!editable}
+						disabled={!editable || !dirty}
 						placeholder="Encryption password"
 						value={password}
 						onChange={event => setPassword(event.target.value)}
@@ -64,7 +64,7 @@ export function EnvironmentSaveForm({
 							className="agent-hud__project-input min-w-0 flex-1"
 							type="password"
 							autoComplete="off"
-							disabled={!editable}
+							disabled={!editable || !dirty}
 							placeholder="Confirm password"
 							value={confirmation}
 							onChange={event => setConfirmation(event.target.value)}
