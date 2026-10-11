@@ -209,7 +209,7 @@ it("requires confirmation to reset without a password, and can cancel", async ()
 	await waitFor(() => expect(mocks.resetEnvironment).toHaveBeenCalledOnce())
 	await waitFor(() => expect(screen.queryByLabelText("Current value for ODD")).toBeNull())
 	expect(screen.queryByLabelText("Encryption password")).toBeNull()
-	expect(screen.getByText("email")).toBeTruthy()
+	await screen.findByText("email")
 	expect(mocks.showNotificationToast).toHaveBeenCalledWith(expect.objectContaining({ title: "Environment reset" }))
 })
 
