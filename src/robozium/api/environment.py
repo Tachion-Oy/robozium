@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from robozium.api.environment_service import MAX_ENV_BYTES, EnvironmentService
+from robozium.api.environment_service import EnvironmentService
 from robozium.api.errors import EnvironmentConflictError, ProjectBusyError
 from robozium.api.models import (
     EnvironmentEdit,
@@ -19,12 +19,12 @@ from robozium.api.models import (
     EnvironmentSaveResult,
     EnvironmentView,
 )
+from robozium.hub import environment as env
 
 router = APIRouter(prefix="/credentials/environment")
-MAX_PACKAGE_BYTES = 32 * 1024 * 1024
 _REQUEST_LIMITS = {
-    "/credentials/environment": ("application/json", MAX_ENV_BYTES),
-    "/credentials/environment/import": ("multipart/form-data", MAX_PACKAGE_BYTES),
+    "/credentials/environment": ("application/json", env.MAX_ENV_BYTES),
+    "/credentials/environment/import": ("multipart/form-data", env.MAX_PACKAGE_BYTES),
 }
 
 

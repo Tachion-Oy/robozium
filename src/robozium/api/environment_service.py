@@ -36,7 +36,6 @@ from robozium.hub import environment as env
 from robozium.hub.application import Hub
 from robozium.hub.local import inspect_import
 
-MAX_ENV_BYTES = 256 * 1024
 _COMMENTED_ASSIGNMENT = re.compile(r"\s*#\s*([A-Za-z_][A-Za-z0-9_]*[ \t]*=.*)")
 
 
@@ -105,7 +104,7 @@ class EnvironmentService:
                 password=edit.password,
             )
             output = serialize_env(encrypted).encode("utf-8")
-            if len(output) > MAX_ENV_BYTES:
+            if len(output) > env.MAX_ENV_BYTES:
                 raise ValueError("Environment file is too large")
             self._replace_settings(original, output)
 
@@ -149,8 +148,8 @@ class EnvironmentService:
         if not path.is_file():
             raise ValueError(f"Expected an environment file: {path.name}")
         with path.open("rb") as stream:
-            content = stream.read(MAX_ENV_BYTES + 1)
-        if len(content) > MAX_ENV_BYTES:
+            content = stream.read(env.MAX_ENV_BYTES + 1)
+        if len(content) > env.MAX_ENV_BYTES:
             raise ValueError(f"Environment file is too large: {path.name}")
         try:
             return content.decode("utf-8")
