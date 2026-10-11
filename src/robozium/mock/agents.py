@@ -32,6 +32,7 @@ from roboz.tooling.decorators import factory, tool
 from roboz.tools import stop
 
 from robozium.api.projects import Project
+from robozium.hub import environment as env
 
 # Per-chunk pause (seconds) the streaming mock inserts between message deltas so
 # the live stream is actually visible in the HUD. Override with
@@ -437,13 +438,13 @@ def _env_delay_seconds(name: str, default: float) -> float:
 
 def _stream_mock_delay_seconds() -> float:
     return _env_delay_seconds(
-        "ROBOZIUM_STREAM_MOCK_DELAY_S", DEFAULT_STREAM_MOCK_DELAY_S
+        env.STREAM_MOCK_DELAY_S, DEFAULT_STREAM_MOCK_DELAY_S
     )
 
 
 def _stream_mock_start_delay_seconds() -> float:
     return _env_delay_seconds(
-        "ROBOZIUM_STREAM_MOCK_START_DELAY_S", DEFAULT_STREAM_MOCK_START_DELAY_S
+        env.STREAM_MOCK_START_DELAY_S, DEFAULT_STREAM_MOCK_START_DELAY_S
     )
 
 

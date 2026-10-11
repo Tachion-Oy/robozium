@@ -8,7 +8,9 @@ from dataclasses import replace
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse, StreamingResponse
 from roboz.llm import (
     MockTranscriptionEndpoint,
     ModelSelector,
@@ -22,6 +24,9 @@ from robozium.api.capabilities import router as capability_router
 from robozium.api.credentials import CredentialGateMiddleware, LoadedCredentials
 from robozium.api.credentials import router as credential_router
 from robozium.api.dependencies import router as dependency_router
+from robozium.api.environment import EnvironmentRequestMiddleware
+from robozium.api.environment import router as environment_router
+from robozium.api.environment_service import EnvironmentService
 from robozium.api.errors import (
     InvalidCapabilitySelection,
     ProjectBusyError,
@@ -102,11 +107,23 @@ def create_app(*, deployment: Hub) -> FastAPI:
     app.state.run_manager = manager
     app.state.projects = projects
     app.state.transcription_endpoint = deployment.settings.transcription_endpoint
-    app.state.loaded_credentials = LoadedCredentials()
+    app.state.loaded_credentials = LoadedCredentials(deployment.settings.config_file.parent / ".env.encrypt")
+    app.state.environment = EnvironmentService(
+        deployment, projects, app.state.loaded_credentials.path,
+    )
     app.add_middleware(CredentialGateMiddleware, loaded=app.state.loaded_credentials)
+    app.add_middleware(EnvironmentRequestMiddleware)
     app.include_router(dependency_router)
     app.include_router(credential_router)
     app.include_router(capability_router)
+    app.include_router(environment_router)
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request: Request, exc: RequestValidationError) -> Response:
+        if request.url.path.startswith("/credentials/"):
+            return JSONResponse({"detail": "Invalid credential request"}, status_code=400,
+                                headers={"Cache-Control": "no-store"})
+        return await request_validation_exception_handler(request, exc)
 
     @app.get("/models", response_model=ModelSelectionView)
     def models_get(request: Request, run_id: str | None = None) -> ModelSelectionView:

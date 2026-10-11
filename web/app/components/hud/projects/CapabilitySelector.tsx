@@ -6,6 +6,8 @@ import { useCapabilities } from "@/hooks/useCapabilities"
 import { resolveCapabilitySelection } from "@/lib/robozium/capabilities"
 import type { LaunchDraft } from "@/lib/robozium/hud-navigation"
 import type { CapabilitySelection, CapabilityView } from "@/lib/robozium/wire"
+import { CapabilityItem } from "../CapabilityItem"
+import { HudButton } from "../HudButton"
 
 type CapabilitySelectorProps = {
 	draft: LaunchDraft
@@ -93,12 +95,11 @@ export function CapabilitySelector({
 				{loadError ? (
 					<div role="alert">
 						<p>{loadError}</p>
-						<button
-							type="button"
-							className="agent-hud__row-action agent-hud__row-tools"
+						<HudButton
+							variant="info"
 								onClick={retry}>
 							Retry
-						</button>
+						</HudButton>
 					</div>
 				) : catalog === null ? (
 					<p role="status">Loading capabilities…</p>
@@ -111,22 +112,15 @@ export function CapabilitySelector({
 								<h3 className="agent-hud__capability-group-heading mb-3">{group.label}</h3>
 								<div className="flex flex-wrap gap-3">
 									{capabilities.map((capability) => (
-										<button
+										<CapabilityItem
 											key={capability.name}
-											type="button"
-											role="checkbox"
-											aria-label={capability.name.replaceAll("_", " ")}
-											aria-checked={!capability.selectable || (currentSelection !== null && Object.hasOwn(currentSelection, capability.name) && Boolean(currentSelection[capability.name]))}
-											disabled={disabled || !capability.selectable}
-											className="agent-hud__row-action agent-hud__capability-option flex items-center gap-3"
-											onClick={() => handleCapabilityToggle(capability)}>
-											<span className="agent-hud__capability-name">
-												{capability.name.replaceAll("_", " ")}
-											</span>
-											{capability.kind === "skill" ? (
-												<span className="agent-hud__capability-badge">Skill</span>
-											) : null}
-										</button>
+											capability={capability}
+											selection={{
+												checked: !capability.selectable || Boolean(currentSelection && Object.hasOwn(currentSelection, capability.name) && currentSelection[capability.name]),
+												disabled: disabled || !capability.selectable,
+												onToggle: () => handleCapabilityToggle(capability),
+											}}
+										/>
 									))}
 								</div>
 							</section>

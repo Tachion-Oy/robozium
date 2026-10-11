@@ -6,12 +6,13 @@ from roboz.endpoints.inventory import cerebras, groq, openrouter
 from roboz.llm import with_openrouter_policy
 from roboz.shed.sandbox import Sandbox
 
+from robozium.hub import environment as env
 from robozium.hub.application import DependencyHealthSettings
 from robozium.hub.logging import HubLoggingConfig
 
 NAME: Final = "Robozium"
 SANDBOX: Final = Sandbox(
-    root=Path(environ.get("ROBOZIUM_HUB_ROOT", f"../{NAME}-Hub")),
+    root=Path(environ.get(env.HUB_ROOT, f"../{NAME}-Hub")),
     readonly="readonly",
     shared="workspace",
     projects="projects",
@@ -20,7 +21,7 @@ SANDBOX: Final = Sandbox(
     memory=Path("persistent_memory"),
 )
 LOGGING: Final = HubLoggingConfig(
-    path=Path(environ.get("ROBOZIUM_LOG_DIR", ".runtime/logs")) / "backend.jsonl"
+    path=Path(environ.get(env.LOG_DIR, ".runtime/logs")) / "backend.jsonl"
 )
 DEPENDENCY_HEALTH: Final = DependencyHealthSettings(interval_s=60.0, timeout_s=20.0)
 

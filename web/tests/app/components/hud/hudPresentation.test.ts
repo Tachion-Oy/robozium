@@ -29,6 +29,7 @@ describe("HUD presentation", () => {
 		expect(presentation.screenOptions).toEqual([
 			{ value: "projects", label: "Runs Overview" },
 			{ value: "dependencies", label: "Dependencies" },
+			{ value: "environment", label: "Environment" },
 			{ value: "launch", label: "Launch" },
 		])
 	})
@@ -39,7 +40,7 @@ describe("HUD presentation", () => {
 			phase: RunHudPhase.Passive,
 			runUnavailable: false,
 			screen: "projects",
-			options: ["projects", "dependencies"],
+			options: ["projects", "dependencies", "environment"],
 			modelScope: "default",
 			headerVariant: "landing",
 		},
@@ -49,7 +50,7 @@ describe("HUD presentation", () => {
 			phase: RunHudPhase.Streaming,
 			runUnavailable: false,
 			screen: "run",
-			options: ["run", "projects", "dependencies"],
+			options: ["run", "projects", "dependencies", "environment"],
 			modelScope: "run",
 			headerVariant: "row",
 		},
@@ -59,7 +60,7 @@ describe("HUD presentation", () => {
 			phase: RunHudPhase.Done,
 			runUnavailable: false,
 			screen: "projects",
-			options: ["projects", "dependencies"],
+			options: ["projects", "dependencies", "environment"],
 			modelScope: "default",
 			headerVariant: "row",
 		},
@@ -69,7 +70,7 @@ describe("HUD presentation", () => {
 			phase: RunHudPhase.Streaming,
 			runUnavailable: true,
 			screen: "projects",
-			options: ["projects", "dependencies"],
+			options: ["projects", "dependencies", "environment"],
 			modelScope: "default",
 			headerVariant: "row",
 		},

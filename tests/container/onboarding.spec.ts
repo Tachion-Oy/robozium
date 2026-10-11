@@ -1,3 +1,6 @@
+import fs from "node:fs/promises"
+import os from "node:os"
+import path from "node:path"
 import { expect, test, type Page } from "@playwright/test"
 
 const PROJECT_NAME = "Container Onboarding"
@@ -30,6 +33,32 @@ async function expectGeneratedArtifact(page: Page): Promise<void> {
 	)
 	await popup.close()
 }
+
+test("folder uploads confirm real names and survive API replacement", async ({ page, request }) => {
+	await openLanding(page)
+	await page.getByRole("button", { name: "Runs Overview", exact: true }).click()
+	await page.getByRole("option", { name: "Environment", exact: true }).click()
+	const panel = page.getByRole("region", { name: "Environment settings" })
+	if (process.env.ROBOZIUM_CONTAINER_PHASE === "persistence") {
+		await expect(panel.getByText("container copied tool", { exact: true })).toBeVisible()
+		const catalogue = await (await request.get("/api/capabilities")).json()
+		expect(catalogue).toContainEqual(expect.objectContaining({ name: "container_copied_tool", selectable: true }))
+		return
+	}
+	const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "robozium-upload-"))
+	const folder = path.join(temporary, "copied_package")
+	try {
+		await fs.mkdir(folder)
+		await fs.writeFile(path.join(folder, "env.example"), "COPIED_SETTING=example\n")
+		await fs.writeFile(path.join(folder, "__init__.py"), "from roboz.deployment import Capability, ToolLabel\nfrom roboz.tools import stop\nCAPABILITY = Capability(label=ToolLabel('container_copied_tool', selectable=True), value=stop)\n")
+		await panel.getByLabel("Choose tool or skill folder").setInputFiles(folder)
+		await expect(page.getByText("Tool container_copied_tool found and imported. Available after restart.", { exact: true })).toBeVisible()
+		await expect(panel.getByText("container copied tool", { exact: true })).toBeVisible()
+		await expect(panel.getByLabel("Current value for COPIED_SETTING")).toHaveText("example")
+	} finally {
+		await fs.rm(temporary, { recursive: true, force: true })
+	}
+})
 
 test("a fresh clone completes the first-use browser journey", async ({ page }) => {
 	test.skip(

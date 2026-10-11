@@ -152,30 +152,24 @@ first start builds the application images and downloads their dependencies.
 
 ### Optional encrypted credentials
 
-Prefer encrypted API keys when coding agents can inspect the full repository.
-Encrypt the marked secrets, remove the plaintext `.env`, and keep the unlock
-password outside the checkout and agent conversation. Agents can then inspect
-source files without also reading plaintext keys from `.env`. This protects
-stored credentials; an agent with access to the running API process or Docker
-administration can still access credentials after they are decrypted.
+Open **Environment** in the HUD to edit variables, mark secrets, and save to
+`.env.encrypt`. Initial application variables carry `[required]`; nonempty
+example defaults are prefilled and included in Save unless you change them.
+Secret values stay masked. Save requires an encryption password
+when secrets are present. Restart with `./start` or `start.cmd` (retain `--mock`
+in mock mode), then unlock **Secrets** in the HUD.
 
-The encryption utility requires [uv](https://docs.astral.sh/uv/getting-started/installation/)
-and Python 3.13 or newer on the host. From the repository root, run:
+The CLI also supports encryption with `uv run --locked roboz env encrypt`.
+Choose the variables to encrypt when prompted. Stored encrypted entries use
+`_ENCRYPTED`; unlocking restores the original variable names. Manual `.env`
+settings override saved values and remain untouched by the editor.
 
-```sh
-uv run --locked roboz env encrypt
-```
-
-The command asks for a password twice and creates `.env.encrypt`. It encrypts
-`*_SECRET` values while keeping nonsecret settings
-readable. After confirming the file was created, delete the plaintext `.env`.
-Compose receives encrypted values from `.env.encrypt` as environment inputs;
-unlock **API keys** in the HUD to load its credentials. Runtime names retain the `_SECRET` suffix.
-
-Set the web port and hub location before encrypting. If both files remain,
-`.env` takes precedence for launcher settings. Recreate older encrypted files
-after renaming credential entries to end in `_SECRET`; the older encryptor left
-passwords plain. Both credential files are ignored by Git.
+When migrating from RoboZ 0.10, recreate encrypted files from your original
+values and remove the former `_SECRET` suffix from credential names. Existing
+ciphertext under legacy names is rejected. Both credential files are ignored
+by Git. Remove plaintext `.env` before granting a coding agent checkout access,
+and keep the unlock password outside the checkout and agent conversation.
+Encryption protects stored files; running processes can access unlocked values.
 
 ### Run with API keys
 
@@ -189,9 +183,8 @@ credentials needed by your configured models, then start without `--mock`:
 
 On Windows, use `start.cmd`. The default configuration offers OpenRouter and
 Cerebras models. OpenRouter is also needed for the librarian's memory model.
-Groq Whisper transcription is enabled by default. Supply `GROQ_API_KEY_SECRET`
-through `.env` or encrypted credentials to use voice input. The environment
-copy email and timesheet settings from the Robozify catalogue when needed.
+Groq Whisper transcription is enabled by default. Supply `GROQ_API_KEY`
+through `.env` or encrypted credentials to use voice input. Copy email and timesheet settings from the Robozify catalogue when needed.
 
 Keep credentials in `.env`, which is ignored by Git and excluded from Docker
 build context. Credentials are supplied to the API at runtime; never put them in
@@ -244,7 +237,7 @@ Mock mode offers harmless **mock information** and **mock guidance** examples.
 Robozium's deployment definition owns the built-ins: filesystem, stop,
 compactification, and the Robozium skill are fixed. SafeScripts and discovered
 external capabilities are selectable. The application loads additional capabilities only
-from packages in `local/tools/` and `local/skills/`, plus configured external
+from packages in `local/tools/`, `local/skills/`, and `local/imports/`, plus configured external
 directories; see [Private capabilities](#private-capabilities).
 
 The capabilities router separates the live catalogue from saved project choices:
@@ -297,6 +290,33 @@ overrides the same setting in `.env` or `.env.encrypt`.
 
 ## Private capabilities
 
+In **Environment**, click **Browse folder** and select a package folder. You can
+paste a source path into the browser's folder dialog. The app copies the folder
+tree supplied by the browser into `local/imports/<folder-name>/`; the destination
+is fixed.
+The original folder is not linked, so later edits there do not change the copy.
+
+The selected folder must have a Python package name and contain `__init__.py`
+and `env.example` (or `.env.example`) directly at its root. Use `env.example` for
+portability: some browser folder pickers omit hidden files beginning with a dot.
+Nested Python modules and other resources are preserved. `requirements.txt` is
+optional for uploaded packages. The example supplies editable variable suggestions; importing does not
+save credentials or load a package's `.env`.
+
+The app imports the root module and discovers its exported RoboZ `Capability`
+instances and subclasses with no-argument constructors. `__all__` limits exports
+when present. A subclass already represented by an exported instance is not
+constructed again; aliases of the same instance are counted once. Existing
+`CAPABILITY = ...` packages work unchanged. Labels determine tool/skill names.
+Capability builders and tools are not executed during discovery.
+
+Before showing success, the app validates the files, dependencies, and exports.
+It immediately lists the actual capability names and variables, with **Available
+on next start** until restart. Duplicate package folders or capability names are
+rejected without replacing existing imports. To update a copied package, stop
+the app and replace its files in `local/imports/`, then restart. Uploaded code
+runs as part of the application; import packages you trust.
+
 With uv installed, run from the repository root:
 
 ```sh
@@ -329,12 +349,12 @@ directory for native loading). `--path` can also target these external directori
 Restart with `./start` (`start.cmd` on Windows) after changes, then reopen the live
 capability selector. New optional capabilities start unchecked; CLI-generated
 skills load on demand. Keep label names stable to preserve saved selections.
-Mock mode retains its scripted capabilities.
+Mock mode retains its scripted capabilities and also offers imported capabilities.
 
 Requirements are resolved together against the pinned application dependencies
 before private code is imported. Incompatible dependencies, invalid exports, or
-duplicate capability names stop startup with an error. Docker mounts source
-directories read-only; installed dependencies stay in `.runtime/local-deps/`.
+duplicate capability names stop startup with an error. Docker mounts external source
+directories read-only and the application’s `local/` directory writable; installed dependencies stay in `.runtime/local-deps/`.
 Private files in `local/` are Git-ignored.
 
 ## Host scripts on Linux

@@ -1,0 +1,207 @@
+/* Shared HUD action buttons, including light-theme and checked states. */
+
+.agent-hud__row-action {
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0.2rem 0.55rem;
+  font-family: var(--font-agent-input);
+  font-size: 0.95rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: 0.2rem;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease,
+    text-shadow 120ms ease;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.agent-hud__option {
+  padding: 0.6rem 0.75rem;
+  white-space: normal;
+  text-align: left;
+  color: var(--hud-input-text);
+  border-color: var(--hud-input-border);
+  background: var(--hud-input-bg);
+}
+
+button.agent-hud__option:not(:disabled):hover {
+  border-color: var(--term-green);
+}
+
+.agent-hud__capability-static {
+  cursor: default;
+}
+
+.agent-hud__row-tools {
+  color: color-mix(in oklab, var(--term-blue) 60%, white 40%);
+  border-color: color-mix(in oklab, var(--term-blue) 62%, transparent);
+  background: color-mix(in oklab, var(--term-blue) 10%, transparent);
+}
+
+.agent-hud__row-tools:not(:disabled):hover,
+.agent-hud__row-tools:not(:disabled):focus-visible {
+  color: color-mix(in oklab, var(--term-blue) 72%, white 28%);
+  border-color: color-mix(in oklab, var(--term-blue) 88%, white 12%);
+  background: color-mix(in oklab, var(--term-blue) 26%, transparent);
+  text-shadow: var(--term-glow-blue);
+}
+
+.agent-hud__row-launch {
+  color: color-mix(in oklab, var(--term-green) 60%, white 40%);
+  border-color: color-mix(in oklab, var(--term-green) 62%, transparent);
+  background: color-mix(in oklab, var(--term-green) 10%, transparent);
+}
+
+.agent-hud__row-launch:not(:disabled):hover,
+.agent-hud__row-launch:not(:disabled):focus-visible {
+  color: color-mix(in oklab, var(--term-green) 72%, white 28%);
+  border-color: color-mix(in oklab, var(--term-green) 88%, white 12%);
+  background: color-mix(in oklab, var(--term-green) 26%, transparent);
+  text-shadow: var(--term-glow-green);
+}
+
+.agent-hud__option[aria-checked="true"] {
+  color: var(--term-green);
+  border-color: var(--term-green);
+  background: color-mix(in oklab, var(--term-green) 15%, var(--hud-input-bg));
+}
+
+.agent-hud__option[aria-checked="true"]:disabled {
+  opacity: 0.8;
+}
+
+.agent-hud__option:focus-visible {
+  outline: 2px solid var(--term-blue);
+  outline-offset: 2px;
+}
+
+.agent-hud__row-cancel {
+  color: color-mix(in oklab, var(--term-amber) 60%, white 40%);
+  border-color: color-mix(in oklab, var(--term-amber) 45%, transparent);
+  background: color-mix(in oklab, var(--term-amber) 8%, transparent);
+}
+
+.agent-hud__row-cancel:not(:disabled):hover {
+  color: color-mix(in oklab, var(--term-amber) 80%, white 20%);
+  border-color: color-mix(in oklab, var(--term-amber) 80%, white 20%);
+  background: color-mix(in oklab, var(--term-amber) 18%, transparent);
+  text-shadow: var(--term-glow-amber);
+}
+
+.agent-hud__row-delete {
+  color: color-mix(in oklab, var(--term-red) 60%, white 40%);
+  border-color: color-mix(in oklab, var(--term-red) 45%, transparent);
+  background: color-mix(in oklab, var(--term-red) 8%, transparent);
+}
+
+.agent-hud__row-delete:not(:disabled):hover {
+  color: color-mix(in oklab, var(--term-red) 82%, white 18%);
+  border-color: color-mix(in oklab, var(--term-red) 82%, white 18%);
+  background: color-mix(in oklab, var(--term-red) 18%, transparent);
+  text-shadow: var(--term-glow-red);
+}
+
+.agent-hud__row-delete--confirm {
+  color: color-mix(in oklab, var(--term-red) 88%, white 12%);
+  border-color: color-mix(in oklab, var(--term-red) 88%, white 12%);
+  background: color-mix(in oklab, var(--term-red) 24%, transparent);
+  text-shadow: var(--term-glow-red);
+}
+
+.agent-hud__row-action:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+:root[data-theme="light"] .agent-hud__row-tools {
+  color: color-mix(in oklab, var(--term-blue) 72%, var(--hud-input-text));
+  border-color: color-mix(in oklab, var(--term-blue) 46%, var(--hud-input-border));
+  background: color-mix(in oklab, var(--term-blue) 10%, var(--hud-input-bg));
+}
+
+:root[data-theme="light"] .agent-hud__row-launch {
+  color: color-mix(in oklab, var(--term-green) 72%, var(--hud-input-text));
+  border-color: color-mix(in oklab, var(--term-green) 46%, var(--hud-input-border));
+  background: color-mix(in oklab, var(--term-green) 10%, var(--hud-input-bg));
+}
+
+:root[data-theme="light"] .agent-hud__row-tools:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__row-tools:not(:disabled):focus-visible {
+  color: var(--term-blue);
+  border-color: var(--term-blue);
+  background: color-mix(in oklab, var(--term-blue) 22%, var(--hud-input-bg));
+  text-shadow: none;
+}
+
+:root[data-theme="light"] .agent-hud__row-launch:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__row-launch:not(:disabled):focus-visible {
+  color: var(--term-green);
+  border-color: var(--term-green);
+  background: color-mix(in oklab, var(--term-green) 22%, var(--hud-input-bg));
+  text-shadow: none;
+}
+
+:root[data-theme="light"] .agent-hud__row-cancel {
+  color: color-mix(in oklab, var(--term-amber) 72%, var(--hud-input-text));
+  border-color: color-mix(
+    in oklab,
+    var(--term-amber) 46%,
+    var(--hud-input-border)
+  );
+  background: color-mix(in oklab, var(--term-amber) 10%, var(--hud-input-bg));
+}
+
+:root[data-theme="light"] .agent-hud__row-delete {
+  color: color-mix(in oklab, var(--term-red) 72%, var(--hud-input-text));
+  border-color: color-mix(
+    in oklab,
+    var(--term-red) 44%,
+    var(--hud-input-border)
+  );
+  background: color-mix(in oklab, var(--term-red) 9%, var(--hud-input-bg));
+}
+
+:root[data-theme="light"] .agent-hud__row-delete--confirm {
+  color: var(--term-red);
+  border-color: var(--term-red);
+  background: color-mix(in oklab, var(--term-red) 24%, var(--hud-input-bg));
+}
+
+:root[data-theme="light"] .agent-hud__row-action {
+  border-radius: 0.3rem;
+  text-shadow: none;
+  backdrop-filter: none;
+  min-width: 5.75rem;
+  padding: 0.48rem 0.82rem;
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 58%, transparent);
+  transition: transform 110ms ease,
+    border-color 110ms ease,
+    background 110ms ease,
+    box-shadow 110ms ease,
+    color 110ms ease;
+}
+
+:root[data-theme="light"] .agent-hud__row-action:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__row-action:not(:disabled):focus-visible {
+  transform: translateY(-1px);
+  filter: saturate(1.18);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 70%, transparent),
+    0 0.22rem 0.42rem
+      color-mix(in oklab, currentColor 18%, transparent);
+  outline: none;
+}
+
+:root[data-theme="light"] .agent-hud__row-action:not(:disabled):active {
+  transform: translateY(0);
+}
+
+:root[data-theme="light"] .agent-hud__option:focus-visible {
+  outline: 2px solid var(--term-blue);
+  outline-offset: 2px;
+}

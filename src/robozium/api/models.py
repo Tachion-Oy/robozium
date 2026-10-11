@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, StrictBool
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from roboz.deployment import SkillLoading
 from roboz.models import MessageKind
 
@@ -52,6 +52,60 @@ class CredentialStatus(BaseModel):
     available: bool
     locked: bool
     removable: bool
+
+
+class EnvironmentEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str
+    value: str | None = Field(default=None, repr=False)
+    secret: bool = False
+
+
+class EnvironmentEntryView(EnvironmentEntry):
+    configured: bool = True
+    overridden: bool = False
+    startup: bool = False
+
+
+class EnvironmentSuggestion(BaseModel):
+    name: str
+    value: str
+    secret: bool
+    source: str
+
+
+class EnvironmentImport(BaseModel):
+    name: str
+    capabilities: list[CapabilityView]
+    variables: list[str]
+    active: bool = False
+
+
+class EnvironmentView(BaseModel):
+    revision: str
+    editable: bool
+    entries: list[EnvironmentEntryView]
+    overrides: list[str]
+    requires_password: bool
+    suggestions: list[EnvironmentSuggestion]
+    example_errors: list[str]
+    imports: list[EnvironmentImport]
+
+
+class EnvironmentEdit(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    revision: str
+    entries: list[EnvironmentEntry]
+    password: str | None = Field(default=None, max_length=1024, repr=False)
+
+
+class EnvironmentSaveResult(BaseModel):
+    status: Literal["saved"] = "saved"
+
+
+class EnvironmentImportResult(BaseModel):
+    imported: EnvironmentImport
+    suggestions: list[EnvironmentSuggestion]
 
 
 class ReplyBody(BaseModel):

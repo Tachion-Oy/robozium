@@ -15,13 +15,13 @@ from fastapi.responses import JSONResponse
 from roboz.endpoints import (
     DEFAULT_ENCRYPTED_ENV_PATH,
     ENCRYPTED_NAMESPACE,
-    SECRET_SUFFIX,
+    ENCRYPTED_SUFFIX,
     load_secrets,
 )
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from robozium import RUNTIME_MODE_ENV_VAR, RuntimeMode
 from robozium.api.models import CredentialStatus
+from robozium.hub import environment as env
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -32,53 +32,49 @@ _RUN_PROVIDER_PATH = re.compile(r"^/run/[^/]+/(reply|stream)$")
 class LoadedCredentials:
     """Names and fingerprints of keys added through this API instance."""
 
-    def __init__(self) -> None:
+    def __init__(self, path: Path = DEFAULT_ENCRYPTED_ENV_PATH) -> None:
+        self.path = _encrypted_path(path)
         self.lock = threading.RLock()
         self.keys: dict[str, bytes] = {}
         self.encrypted = {
             name: value for name, value in os.environ.items()
-            if name.endswith(SECRET_SUFFIX) and value.startswith(ENCRYPTED_NAMESPACE)
+            if name.endswith(ENCRYPTED_SUFFIX) and value.startswith(ENCRYPTED_NAMESPACE)
         }
+
 
 
 def _fingerprint(value: str) -> bytes:
     return hashlib.sha256(value.encode()).digest()
 
 
-def _encrypted_path() -> Path:
-    return Path(
-        os.environ.get("ROBOZIUM_ENCRYPTED_ENV_PATH", str(DEFAULT_ENCRYPTED_ENV_PATH))
-    )
+def _encrypted_path(default: Path = DEFAULT_ENCRYPTED_ENV_PATH) -> Path:
+    return Path(os.environ.get(env.ENCRYPTED_ENV_PATH, str(default)))
 
 
 def _credential_names(path: Path) -> set[str]:
     return {
-        name
+        name.removesuffix(ENCRYPTED_SUFFIX)
         for name in dotenv_values(path, interpolate=False)
-        if name.endswith(SECRET_SUFFIX)
+        if name.endswith(ENCRYPTED_SUFFIX)
     }
 
 
 def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStatus:
     """Report only whether encrypted keys exist and are loaded."""
-    if os.environ.get(RUNTIME_MODE_ENV_VAR) != RuntimeMode.LIVE:
-        return CredentialStatus(available=False, locked=False, removable=False)
-    path = _encrypted_path()
+    path = loaded.path if loaded else _encrypted_path()
     values = dict(dotenv_values(path, interpolate=False)) if path.is_file() else {}
     values.update(loaded.encrypted if loaded else os.environ)
     encrypted_names = [
-        name
+        name.removesuffix(ENCRYPTED_SUFFIX)
         for name, value in values.items()
-        if name.endswith(SECRET_SUFFIX)
+        if name.endswith(ENCRYPTED_SUFFIX)
         and value
         and value.startswith(ENCRYPTED_NAMESPACE)
     ]
     if not encrypted_names:
         return CredentialStatus(available=False, locked=False, removable=False)
     locked = any(
-        not (value := os.environ.get(name))
-        or not value.strip()
-        or value.startswith(ENCRYPTED_NAMESPACE)
+        name not in os.environ
         for name in encrypted_names
     )
     tracked = bool(loaded and loaded.keys)
@@ -114,7 +110,7 @@ class CredentialGateMiddleware:
             and credential_status(self.loaded).locked
         ):
             response = JSONResponse(
-                {"detail": "Unlock API keys before using providers"},
+                {"detail": "Unlock secrets before using providers"},
                 status_code=423,
                 headers={"Cache-Control": "no-store"},
             )
@@ -133,7 +129,7 @@ def get_credentials(request: Request, response: Response) -> CredentialStatus:
 async def unlock_credentials(request: Request, response: Response) -> CredentialStatus:
     if not credential_status(request.app.state.loaded_credentials).available:
         raise HTTPException(
-            status_code=404, detail="Encrypted API keys are unavailable"
+            status_code=404, detail="Encrypted secrets are unavailable"
         )
     body = bytearray()
     async for chunk in request.stream():
@@ -153,14 +149,14 @@ async def unlock_credentials(request: Request, response: Response) -> Credential
         with loaded.lock:
             before = {
                 name: os.environ.get(name)
-                for name in _credential_names(_encrypted_path()) | loaded.encrypted.keys()
+                for name in _credential_names(loaded.path) | {name.removesuffix(ENCRYPTED_SUFFIX) for name in loaded.encrypted}
             }
-            load_secrets(_encrypted_path(), password=password)
+            load_secrets(loaded.path, password=password)
             loaded.keys.update(
                 {
                     name: _fingerprint(value)
                     for name in before
-                    if (value := os.environ.get(name)) and before[name] != value
+                    if (value := os.environ.get(name)) is not None and before[name] != value
                 }
             )
 
@@ -168,7 +164,7 @@ async def unlock_credentials(request: Request, response: Response) -> Credential
         await asyncio.to_thread(load_and_track)
     except (UnicodeError, ValueError):
         raise HTTPException(
-            status_code=400, detail="Could not unlock API keys"
+            status_code=400, detail="Could not unlock secrets"
         ) from None
     monitor = request.app.state.dependency_health
     if monitor is not None:
@@ -190,10 +186,7 @@ def clear_credentials(request: Request, response: Response) -> CredentialStatus:
             for name, fingerprint in loaded.keys.items():
                 value = os.environ.get(name)
                 if value is not None and _fingerprint(value) == fingerprint:
-                    if name in loaded.encrypted:
-                        os.environ[name] = loaded.encrypted[name]
-                    else:
-                        os.environ.pop(name, None)
+                    os.environ.pop(name, None)
             loaded.keys.clear()
 
     clear()

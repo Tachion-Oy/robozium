@@ -139,6 +139,39 @@ export type CredentialStatus = {
 }
 export type CredentialUnlockBody = { password: string }
 
+export type EnvironmentEntry = {
+	name: string
+	value: string | null
+	secret: boolean
+	configured: boolean
+	overridden: boolean
+	startup: boolean
+}
+export type EnvironmentSuggestion = { name: string; value: string; secret: boolean; source: string }
+export type EnvironmentImport = {
+	name: string
+	capabilities: CapabilityView[]
+	variables: string[]
+	active: boolean
+}
+export type EnvironmentView = {
+	revision: string
+	entries: EnvironmentEntry[]
+	overrides: string[]
+	requires_password: boolean
+	editable: boolean
+	suggestions: EnvironmentSuggestion[]
+	example_errors: string[]
+	imports: EnvironmentImport[]
+}
+export type EnvironmentEdit = {
+	revision: string
+	entries: Pick<EnvironmentEntry, "name" | "value" | "secret">[]
+	password: string | null
+}
+export type EnvironmentImportResult = { imported: EnvironmentImport; suggestions: EnvironmentSuggestion[] }
+export type EnvironmentSaveResult = { status: "saved" }
+
 export type AvailableModel = {
 	model_id: string
 	label: string

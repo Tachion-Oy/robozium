@@ -17,7 +17,7 @@ def test_compose_storage_and_credentials(tmp_path: Path, mode: str, web_port: st
     assert shutil.which("docker"), "Docker Compose is required for deployment checks"
     shutil.copy2(ROOT / "compose.yaml", tmp_path / "compose.yaml")
     (tmp_path / ".env.encrypt").write_text(
-        "OPENROUTER_API_KEY_SECRET='roboz:synthetic'\n"
+        "OPENROUTER_API_KEY_ENCRYPTED='roboz:synthetic'\n"
         "PROTON_BRIDGE_USERNAME='encrypted-copy'\n"
         + ("ROBOZIUM_WEB_PORT='6970'\n" if web_port else "")
     )
@@ -49,8 +49,8 @@ def test_compose_storage_and_credentials(tmp_path: Path, mode: str, web_port: st
         assert not service.get("extra_hosts")
     api = services["api"]
     assert api["environment"]["ROBOZIUM_MODE"] == mode
-    assert api["environment"]["OPENROUTER_API_KEY_SECRET"] == "roboz:synthetic"
-    assert api["environment"]["PROTON_BRIDGE_USERNAME"] == "encrypted-copy"
+    assert api["environment"]["OPENROUTER_API_KEY_ENCRYPTED"] == "roboz:synthetic"
+    assert api["environment"]["PROTON_BRIDGE_USERNAME"] == "plain-copy"
     assert api["environment"]["TIMESHEET_ROOT"] == "readonly/timesheets"
     assert api["environment"]["ROBOZIUM_HOST_SCRIPT_SOCKET"] == "/host-scripts/scripts.sock"
     volumes = {mount["target"]: mount for mount in api["volumes"]}
@@ -58,7 +58,9 @@ def test_compose_storage_and_credentials(tmp_path: Path, mode: str, web_port: st
     assert volumes["/host-scripts"]["source"] == str(socket)
     assert volumes["/host-scripts"]["read_only"] is True
     assert volumes["/app/local"]["source"] == str(tmp_path / "local")
-    assert volumes["/app/local"]["read_only"] is True
+    assert not volumes["/app/local"].get("read_only", False)
+    assert volumes["/configuration"]["source"] == str(tmp_path)
+    assert api["environment"]["ROBOZIUM_ENCRYPTED_ENV_PATH"] == "/configuration/.env.encrypt"
     assert volumes["/hub/readonly/safe-scripts"]["source"] == str(hub / "readonly/safe-scripts")
     assert volumes["/hub/readonly/safe-scripts"]["read_only"] is True
     assert "/app/.env.encrypt" not in volumes
@@ -94,7 +96,7 @@ def test_live_launcher_resolves_settings_with_compose(tmp_path: Path):
     supervisor.chmod(0o755)
     hub = tmp_path / 'Hub with "quotes" & café'
     (checkout / ".env.encrypt").write_text(
-        "ROBOZIUM_HUB_ROOT='../Wrong Hub'\nOPENROUTER_API_KEY_SECRET='roboz:synthetic'\n"
+        "ROBOZIUM_HUB_ROOT='../Wrong Hub'\nOPENROUTER_API_KEY_ENCRYPTED='roboz:synthetic'\n"
     )
     (checkout / ".env").write_text(f"ROBOZIUM_HUB_ROOT='{hub}'\nROBOZIUM_API_USER=1234:5678\n")
     output = tmp_path / "launch"

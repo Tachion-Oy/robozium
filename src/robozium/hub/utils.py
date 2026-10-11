@@ -10,6 +10,8 @@ from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+from robozium.hub import environment as env
+
 if TYPE_CHECKING:
     from robozium.hub.application import Hub, HubSettings
 
@@ -28,7 +30,7 @@ def slugify_project_name(name: str) -> str:
 def find_hub_config(start: Path | None, *, config_file: Path | None = None) -> Path:
     """Select an explicit file or find Python configuration in parent directories."""
     explicit = config_file or (
-        os.environ.get("ROBOZIUM_CONFIG") if start is None else None
+        os.environ.get(env.CONFIG) if start is None else None
     )
     if explicit is not None:
         path = Path(explicit).expanduser().resolve()

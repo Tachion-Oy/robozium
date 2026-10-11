@@ -7,14 +7,15 @@ services:
       target: api
     network_mode: host
     env_file:
-      - path: .env
-        required: false
       - path: .env.encrypt
+        required: false
+      - path: .env
         required: false
     environment:
       # Paths inside the API container, not host paths or .env settings.
       ROBOZIUM_HUB_ROOT: /hub
       ROBOZIUM_LOG_DIR: /logs
+      ROBOZIUM_ENCRYPTED_ENV_PATH: /configuration/.env.encrypt
       # The launcher selects live/mock; no .env entry is needed.
       ROBOZIUM_MODE: "${ROBOZIUM_MODE:-mock}"
       # Container path to the mounted host socket; no .env entry is needed.
@@ -28,9 +29,13 @@ services:
     # hub location only; the container still uses /hub.
     volumes:
       - type: bind
+        source: .
+        target: /configuration
+        bind:
+          create_host_path: false
+      - type: bind
         source: ./local
         target: /app/local
-        read_only: true
         bind:
           create_host_path: false
       - type: bind
