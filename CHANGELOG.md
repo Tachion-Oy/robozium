@@ -20,12 +20,13 @@
   Report invalid edits, passwords, and imports through error toasts. Match the
   Secret toggle to the other action buttons and use the red style.
 
-- Remove built-in email construction and registration. Discover email and timesheets from Robozify through `ROBOZIUM_LOCAL_DIRS`; capability settings come from the application root environment. Docker loads root `.env.encrypt` and `.env` generically while preserving container-owned settings.
+- Remove built-in email construction and registration. Import optional email and
+  timesheets packages through the HUD; capability settings come from the
+  application root environment. Docker loads root `.env.encrypt` and `.env`
+  generically while preserving container-owned settings.
 
-- Always load `local/` and optionally add capability roots from the semicolon-separated
-  `ROBOZIUM_LOCAL_DIRS` environment setting. Launchers mount extra sources read-only.
-  Resolve all requirements together and fail startup on incompatible dependencies
-  before importing private capabilities.
+- Load private packages from `local/`; import external packages through the HUD.
+  Resolve all requirements together and fail startup on incompatible dependencies.
 
 - Discover CLI-created capability packages in `local/tools/` and `local/skills/`
   on each API restart. Create them with `uv run --locked roboz tool init` or

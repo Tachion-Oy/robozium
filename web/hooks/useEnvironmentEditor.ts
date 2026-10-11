@@ -5,7 +5,7 @@ import { showErrorToast, showNotificationToast } from "@/app/components/feedback
 import type { EnvironmentEntry } from "@/lib/robozium/wire"
 import { sameEnvironmentEntries, useEnvironment } from "./useEnvironment"
 
-const startupNames = new Set(["ROBOZIUM_LOCAL_DIRS", "ROBOZIUM_HUB_ROOT", "ROBOZIUM_WEB_PORT"])
+const startupNames = new Set(["ROBOZIUM_HUB_ROOT", "ROBOZIUM_WEB_PORT"])
 
 type Editor = {
 	originalName: string | null

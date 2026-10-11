@@ -6,7 +6,6 @@ MODE: Final = "ROBOZIUM_MODE"
 CONFIG: Final = "ROBOZIUM_CONFIG"
 WEB_PORT: Final = "ROBOZIUM_WEB_PORT"
 HUB_ROOT: Final = "ROBOZIUM_HUB_ROOT"
-LOCAL_DIRS: Final = "ROBOZIUM_LOCAL_DIRS"
 ENCRYPTED_ENV_PATH: Final = "ROBOZIUM_ENCRYPTED_ENV_PATH"
 HOST_SCRIPT_SOCKET: Final = "ROBOZIUM_HOST_SCRIPT_SOCKET"
 LOG_DIR: Final = "ROBOZIUM_LOG_DIR"
@@ -25,7 +24,7 @@ MAX_UNLOCK_BODY_BYTES: Final = 4096
 MAX_PASSWORD_CHARS: Final = 1024
 
 # These editable values are consumed before the API can unlock secrets.
-STARTUP_NAMES: Final = frozenset({WEB_PORT, HUB_ROOT, LOCAL_DIRS})
+STARTUP_NAMES: Final = frozenset({WEB_PORT, HUB_ROOT})
 
 # Supplied by the launcher or runtime; never editable through the HUD.
 CONTROLLED_NAMES: Final = frozenset(

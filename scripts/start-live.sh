@@ -31,7 +31,6 @@ load_live_environment() {
   compose_environment=$("$@" config --environment)
   hub_root=$(printf '%s\n' "$compose_environment" | sed -n 's/^ROBOZIUM_HUB_ROOT=//p')
   api_user=$(printf '%s\n' "$compose_environment" | sed -n 's/^ROBOZIUM_API_USER=//p')
-  local_dirs=$(printf '%s\n' "$compose_environment" | sed -n 's/^ROBOZIUM_LOCAL_DIRS=//p')
   unset compose_environment
   if [ -n "$api_user" ]; then export ROBOZIUM_API_USER="$api_user"; fi
   export ROBOZIUM_HOST_HUB_DIR="${hub_root:-../Robozium-Hub}"
@@ -44,39 +43,6 @@ create_runtime_directories() {
     "$ROBOZIUM_HOST_LOG_DIR" "$ROBOZIUM_HOST_SOCKET_DIR" \
     local/tools local/skills .runtime/local-deps
 }
-
-write_capability_mounts() (
-  directories=$1
-  case "$directories" in *'
-'*) echo 'ROBOZIUM_LOCAL_DIRS must be a semicolon-separated single line' >&2; exit 1 ;; esac
-
-  printf 'services:\n  api:\n'
-  seen=";$(CDPATH= cd -- local && pwd -P);"
-  container_directories=
-  index=0
-  while [ -n "$directories" ]; do
-    case "$directories" in
-      *';'*) directory=${directories%%;*}; directories=${directories#*;} ;;
-      *) directory=$directories; directories= ;;
-    esac
-    directory=$(printf '%s' "$directory" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
-    [ -n "$directory" ] || continue
-    if [ ! -d "$directory" ]; then
-      printf 'ROBOZIUM_LOCAL_DIRS directory does not exist: %s\n' "$directory" >&2
-      exit 1
-    fi
-    source=$(CDPATH= cd -- "$directory" && pwd -P)
-    case "$seen" in *";$source;"*) continue ;; esac
-    seen="$seen$source;"
-    target="/app/.runtime/capability-roots/$index"
-    if [ "$index" -eq 0 ]; then printf '    volumes:\n'; fi
-    escaped_source=$(printf '%s' "$source" | sed -e "s/'/''/g" -e 's/\$/$$/g')
-    printf "      - type: bind\n        source: '%s'\n        target: '%s'\n        read_only: true\n        bind:\n          create_host_path: false\n" "$escaped_source" "$target"
-    container_directories="${container_directories:+$container_directories;}$target"
-    index=$((index + 1))
-  done
-  printf "    environment:\n      ROBOZIUM_LOCAL_DIRS: '%s'\n" "$container_directories"
-)
 
 configure_api_user() {
   if printenv ROBOZIUM_API_USER >/dev/null; then return; fi
@@ -117,10 +83,9 @@ main() {
 
   load_live_environment "$@"
   create_runtime_directories
-  write_capability_mounts "$local_dirs" > .runtime/capability-mounts.yaml
   configure_api_user
   start_host_processes
-  run_application "$@" -f .runtime/capability-mounts.yaml
+  run_application "$@"
 }
 
 main

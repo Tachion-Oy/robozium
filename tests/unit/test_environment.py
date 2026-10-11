@@ -32,7 +32,6 @@ class Guide(Capability):
 def client(tmp_path, monkeypatch):
     write_config(tmp_path)
     monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(tmp_path / ".env.encrypt"))
-    monkeypatch.delenv("ROBOZIUM_LOCAL_DIRS", raising=False)
     return TestClient(create_app(deployment=load_hub(start=tmp_path)))
 
 
