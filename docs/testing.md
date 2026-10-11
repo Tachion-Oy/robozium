@@ -221,6 +221,11 @@ environment and installs locked dependencies. Browser jobs use the production
 frontend, installed candidate backend, and a temporary hub with one worker each.
 Review visual baselines in that pinned environment.
 
+Playwright is pinned exactly to 1.59.1, with matching Docker and CI images.
+The 1.64.0 WebKit build stalls animation frames while painting the terminal's
+text shadows, causing ordinary clicks to time out. Validate a replacement
+release with the existing suite before updating all three pins together.
+
 Chromium and Firefox have 15-minute browser runner deadlines and 25-minute job
 limits. WebKit has a 25-minute runner deadline and a 35-minute job limit.
 Installation and runner infrastructure have 25-minute job limits. Docker
