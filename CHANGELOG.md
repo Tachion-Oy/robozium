@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep the HUD's full cyan outer glow throughout runs while retaining idle event-badge dimming.
+
 - Show Environment save confirmations and example-file errors through toasts.
 
 - Add a confirmed Environment reset for forgotten passwords. Delete saved settings

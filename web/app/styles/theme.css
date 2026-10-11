@@ -181,14 +181,9 @@
   --hud-dim-bg: rgba(4, 10, 18, 0.78);
   --hud-box-bg: rgba(6, 14, 26, 0.82); 
   --hud-box-border: color-mix(in oklab, var(--term-blue) 65%, var(--term-bg) 35%);
-  /* Edge-glow intensity multiplier. 1 = full glow; the inactive HUD dims it
-     down to --hud-inactive-glow-scale. THIS is the one knob to tweak.
-     The actual box-shadow is assembled on .agent-hud__box (not here): a custom
-     property resolves its var()s against the element it's declared on, so baking
-     the scale into a :root variable would freeze it to 1 and ignore the
-     per-state override. */
+  /* Edge-glow intensity multiplier. 1 = full glow throughout the run.
+     The box-shadow is assembled on .agent-hud__box. */
   --hud-glow-scale: 1;
-  --hud-inactive-glow-scale: 0.1;
   /* Event badge (the "waiting…" / agent-name label on the top edge) when the
      HUD is inactive: brightness multiplier. 1 = full, lower = dimmer (same look,
      stays opaque so the box border never shows through). One knob. */
