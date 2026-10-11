@@ -100,12 +100,12 @@ export async function proxyEnvironmentRequest(request: Request, path: "/credenti
 	let sameOrigin = !origin
 	try { sameOrigin = !origin || new URL(origin).host === request.headers.get("host") } catch { /* Reject malformed origins. */ }
 	if (!sameOrigin) return Response.json({ detail: "Cross-origin configuration changes are not allowed" }, { status: 403 })
-	const reader = request.body?.getReader()
-	if (!reader) return Response.json({ detail: "Missing request" }, { status: 400 })
+	const reader = request.method === "DELETE" ? undefined : request.body?.getReader()
+	if (!reader && request.method !== "DELETE") return Response.json({ detail: "Missing request" }, { status: 400 })
 	const limit = path.endsWith("/import") ? 32 * 1024 * 1024 : 256 * 1024
 	const chunks: Uint8Array[] = []
 	let length = 0
-	while (true) {
+	while (reader) {
 		const { done, value } = await reader.read()
 		if (done) break
 		length += value.length
@@ -120,9 +120,9 @@ export async function proxyEnvironmentRequest(request: Request, path: "/credenti
 	for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.length }
 	const response = passthroughResponse(await fetchAgentUpstream({
 		request, path, init: {
-			method: "POST",
+			method: request.method,
 			headers: { "Content-Type": request.headers.get("content-type") ?? "" },
-			body,
+			body: request.method === "DELETE" ? undefined : body,
 		},
 	}))
 	response.headers.set("Cache-Control", "no-store")

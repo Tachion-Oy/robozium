@@ -20,6 +20,7 @@ test("environment saves masked secrets, replaces and removes them, and requires 
 		await page.getByRole("button", { name: "Encrypt and save" }).click()
 		await expect(page.getByRole("status")).toContainText("./start")
 		await expect(page.getByRole("status")).toContainText("unlock with Secrets")
+		await expect(page.getByLabel("Encryption password", { exact: true })).toBeDisabled()
 		const response = await request.get("/api/credentials/environment")
 		expect(await response.text()).not.toContain("dummy-environment-key")
 		expect((await response.json()).entries).toContainEqual(expect.objectContaining({ name: "OPENROUTER_API_KEY", value: null, secret: true }))
@@ -53,6 +54,41 @@ test("environment saves masked secrets, replaces and removes them, and requires 
 	}
 })
 
+test("forgotten passwords can be reset only after confirmation", async ({ page, request }) => {
+	const initial = await (await request.get("/api/credentials/environment")).json()
+	expect((await request.post("/api/credentials/environment", { data: {
+		revision: initial.revision, password: "forgotten-password", entries: [
+			{ name: "FORGOTTEN_TOKEN", value: "old-secret", secret: true },
+		],
+	} })).ok()).toBeTruthy()
+	try {
+		await gotoLanding(page)
+		await selectHudView(page, "Environment")
+		await page.getByRole("button", { name: "Reset environment", exact: true }).click()
+		await expect(page.getByText("Are you sure? This permanently deletes all saved settings and secrets.")).toBeVisible()
+		await page.getByRole("button", { name: "Keep settings", exact: true }).click()
+		const retained = await (await request.get("/api/credentials/environment")).json()
+		expect(retained.entries).toContainEqual(expect.objectContaining({ name: "FORGOTTEN_TOKEN" }))
+		await page.getByRole("button", { name: "Reset environment", exact: true }).click()
+		await page.getByRole("button", { name: "Yes, reset", exact: true }).click()
+		await expect(page.getByText("Environment reset", { exact: true })).toBeVisible()
+		await expect(page.getByLabel("Current value for FORGOTTEN_TOKEN")).toHaveCount(0)
+		const cleared = await (await request.get("/api/credentials/environment")).json()
+		expect(cleared.entries).toEqual([])
+		expect(cleared.requires_password).toBe(false)
+		await expect(page.getByLabel("Encryption password", { exact: true })).toHaveCount(0)
+		await page.getByRole("button", { name: "Change OPENROUTER_API_KEY", exact: true }).click()
+		await page.getByLabel("Value for OPENROUTER_API_KEY", { exact: true }).fill("new-secret")
+		await page.getByLabel("Encryption password", { exact: true }).fill("new-password")
+		await page.getByLabel("Confirm encryption password").fill("new-password")
+		await page.getByRole("button", { name: "Encrypt and save", exact: true }).click()
+		await expect(page.getByRole("status")).toContainText("Settings saved")
+		await expect(page.getByLabel("Encryption password", { exact: true })).toBeDisabled()
+	} finally {
+		expect((await request.delete("/api/credentials/environment")).ok()).toBeTruthy()
+	}
+})
+
 test("a queued run disables the Environment view and rejects saving", async ({ page, request }) => {
 	await request.post("/api/projects", { data: { name: "environment-busy" } })
 	const run = await request.post("/api/runs/create", { data: { project: "environment-busy" } })
@@ -63,6 +99,7 @@ test("a queued run disables the Environment view and rejects saving", async ({ p
 		await page.getByRole("option", { name: "Environment", exact: true }).click()
 		await expect(page.getByText(/Stop all runs and background work/)).toBeVisible()
 		await expect(page.getByRole("button", { name: "Add variable" })).toBeDisabled()
+		await expect(page.getByRole("button", { name: "Reset environment" })).toBeDisabled()
 		const state = await (await request.get("/api/credentials/environment")).json()
 		const saved = await request.post("/api/credentials/environment", { data: { revision: state.revision, entries: [] } })
 		expect(saved.status()).toBe(409)

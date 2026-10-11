@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { EnvironmentPanel } from "@/app/components/hud/environment/EnvironmentPanel"
 import type { EnvironmentView } from "@/lib/robozium/wire"
 
-const mocks = vi.hoisted(() => ({ getEnvironment: vi.fn(), saveEnvironment: vi.fn(), importEnvironmentPackage: vi.fn(), showErrorToast: vi.fn(), showNotificationToast: vi.fn() }))
+const mocks = vi.hoisted(() => ({ getEnvironment: vi.fn(), saveEnvironment: vi.fn(), resetEnvironment: vi.fn(), importEnvironmentPackage: vi.fn(), showErrorToast: vi.fn(), showNotificationToast: vi.fn() }))
 vi.mock("@/lib/robozium/client", () => mocks)
 vi.mock("@/app/components/feedback/ErrorToast", () => ({ showErrorToast: mocks.showErrorToast, showNotificationToast: mocks.showNotificationToast }))
 const view: EnvironmentView = {
@@ -185,6 +185,50 @@ it("keeps the encryption password inactive until there are edits to save", async
 	expect(password.disabled).toBe(false)
 	fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
 	expect(password.disabled).toBe(true)
+})
+
+it("requires confirmation to reset without a password, and can cancel", async () => {
+	mocks.getEnvironment.mockResolvedValue({ ...secretView, imports: [imported], suggestions })
+	mocks.resetEnvironment.mockResolvedValue(undefined)
+	render(<EnvironmentPanel />)
+	await screen.findByLabelText("Encryption password")
+	fireEvent.click(screen.getByRole("button", { name: "Reset environment" }))
+	expect(screen.getByText(/Are you sure/)).toBeTruthy()
+	expect(mocks.resetEnvironment).not.toHaveBeenCalled()
+	fireEvent.click(screen.getByRole("button", { name: "Keep settings" }))
+	expect(screen.queryByText(/Are you sure/)).toBeNull()
+	expect(mocks.resetEnvironment).not.toHaveBeenCalled()
+	fireEvent.click(screen.getByRole("button", { name: "Reset environment" }))
+	mocks.getEnvironment.mockResolvedValue({ ...view, imports: [imported], suggestions })
+	fireEvent.click(screen.getByRole("button", { name: "Yes, reset" }))
+	await waitFor(() => expect(mocks.resetEnvironment).toHaveBeenCalledOnce())
+	await waitFor(() => expect(screen.queryByLabelText("Current value for ODD")).toBeNull())
+	expect(screen.queryByLabelText("Encryption password")).toBeNull()
+	expect(screen.getByText("email")).toBeTruthy()
+	expect(mocks.showNotificationToast).toHaveBeenCalledWith(expect.objectContaining({ title: "Environment reset" }))
+})
+
+it("reports a failed reset through a toast and preserves settings", async () => {
+	mocks.getEnvironment.mockResolvedValue(secretView)
+	mocks.resetEnvironment.mockRejectedValue(new Error("Storage is unavailable"))
+	render(<EnvironmentPanel />)
+	await screen.findByLabelText("Encryption password")
+	fireEvent.click(screen.getByRole("button", { name: "Reset environment" }))
+	fireEvent.click(screen.getByRole("button", { name: "Yes, reset" }))
+	await waitFor(() => expect(mocks.showErrorToast).toHaveBeenCalledWith({ title: "Could not reset settings", message: "Storage is unavailable" }))
+	expect(screen.getByLabelText("Current value for ODD")).toBeTruthy()
+	expect(mocks.showNotificationToast).not.toHaveBeenCalled()
+})
+
+it("allows a confirmed reset when the settings cannot be read", async () => {
+	mocks.getEnvironment.mockRejectedValueOnce(new Error("Invalid dotenv assignment"))
+	mocks.resetEnvironment.mockResolvedValue(undefined)
+	render(<EnvironmentPanel />)
+	await waitFor(() => expect(screen.getByRole("button", { name: "Reset environment" }).hasAttribute("disabled")).toBe(false))
+	fireEvent.click(screen.getByRole("button", { name: "Reset environment" }))
+	fireEvent.click(screen.getByRole("button", { name: "Yes, reset" }))
+	await screen.findByRole("button", { name: "Change SERVICE_API_KEY" })
+	expect(mocks.resetEnvironment).toHaveBeenCalledOnce()
 })
 
 it("validates names before applying and prevents renaming an unreplaced secret", async () => {

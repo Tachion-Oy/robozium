@@ -10,3 +10,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
 	return proxyEnvironmentRequest(request, "/credentials/environment")
 }
+
+export async function DELETE(request: Request) {
+	return proxyEnvironmentRequest(request, "/credentials/environment")
+}

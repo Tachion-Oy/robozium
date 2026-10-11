@@ -66,8 +66,10 @@ export function EnvironmentPanel() {
 				pending={environment.saving}
 				needsPassword={environment.needsPassword}
 				confirmPassword={!view?.requires_password}
+				canReset={environment.canReset}
 				onValidate={environment.validateSave}
 				onSave={environment.save}
+				onReset={environment.reset}
 			/>
 			{view && view.overrides.length > 0 && <p>Manual .env overrides: {view.overrides.join(", ")}.</p>}
 		</section>

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { POST as importPackage } from "@/app/api/credentials/environment/import/route"
-import { POST as save } from "@/app/api/credentials/environment/route"
+import { DELETE as reset, POST as save } from "@/app/api/credentials/environment/route"
 
 vi.mock("@/lib/robozium/config", () => ({ ROBOZIUM_API_BASE_URL: "http://backend" }))
 const upstream = vi.fn()
@@ -35,5 +35,19 @@ it("rejects oversized settings without forwarding their contents", async () => {
 		method: "POST", body: "x".repeat(262145), headers: { "Content-Type": "application/json" },
 	}))
 	expect(result.status).toBe(413)
+	expect(upstream).not.toHaveBeenCalled()
+})
+
+it("forwards a bodyless reset and rejects cross-origin reset attempts", async () => {
+	upstream.mockResolvedValue(Response.json({ status: "reset" }))
+	const result = await reset(new Request("http://localhost/api/credentials/environment", { method: "DELETE" }))
+	expect(result.status).toBe(200)
+	expect(upstream).toHaveBeenCalledWith("http://backend/credentials/environment", expect.objectContaining({ method: "DELETE", body: undefined }))
+	expect(result.headers.get("Cache-Control")).toBe("no-store")
+	upstream.mockClear()
+	const rejected = await reset(new Request("http://localhost/api/credentials/environment", {
+		method: "DELETE", headers: { Host: "localhost", Origin: "https://elsewhere.example" },
+	}))
+	expect(rejected.status).toBe(403)
 	expect(upstream).not.toHaveBeenCalled()
 })

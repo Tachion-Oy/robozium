@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { showErrorToast } from "@/app/components/feedback/ErrorToast"
-import { getEnvironment, importEnvironmentPackage, saveEnvironment } from "@/lib/robozium/client"
+import { getEnvironment, importEnvironmentPackage, resetEnvironment, saveEnvironment } from "@/lib/robozium/client"
 import type { EnvironmentEntry, EnvironmentImportResult, EnvironmentView } from "@/lib/robozium/wire"
 
 export function sameEnvironmentEntries(left: EnvironmentEntry[], right: EnvironmentEntry[]): boolean {
@@ -18,7 +18,7 @@ export function sameEnvironmentEntries(left: EnvironmentEntry[], right: Environm
 export function useEnvironment(editing: boolean) {
 	const [view, setView] = useState<EnvironmentView | null>(null)
 	const [entries, setEntries] = useState<EnvironmentEntry[]>([])
-	const [operation, setOperation] = useState<"save" | "import" | null>(null)
+	const [operation, setOperation] = useState<"save" | "import" | "reset" | null>(null)
 	const pending = operation !== null
 	const [saved, setSaved] = useState(false)
 	const [loadFailed, setLoadFailed] = useState(false)
@@ -64,6 +64,7 @@ export function useEnvironment(editing: boolean) {
 	}, [refreshVersion])
 
 	const editable = Boolean(view?.editable && !pending && !loadFailed)
+	const canReset = !pending && (view?.editable ?? loadFailed)
 	const change = (next: EnvironmentEntry[]) => {
 		if (!editable) return
 		dirtyRef.current = !sameEnvironmentEntries(next, view?.entries ?? [])
@@ -125,7 +126,34 @@ export function useEnvironment(editing: boolean) {
 			if (mounted.current) setOperation(null)
 		}
 	}
-	return { view, entries, editable, pending, saved, loadFailed, change, save, importPackage, saving: operation === "save",
+	const reset = async (): Promise<boolean> => {
+		if (!canReset || pendingRef.current) return false
+		pendingRef.current = true
+		saveVersion.current++
+		setOperation("reset")
+		try {
+			await resetEnvironment()
+			if (!mounted.current) return false
+			setView(null)
+			setEntries([])
+			dirtyRef.current = false
+			setSaved(false)
+			setLoadFailed(false)
+			lastLoadError.current = ""
+			setRefreshVersion(version => version + 1)
+			return true
+		} catch (cause) {
+			if (mounted.current) showErrorToast({
+				title: "Could not reset settings",
+				message: cause instanceof Error ? cause.message : "Could not delete saved settings",
+			})
+			return false
+		} finally {
+			pendingRef.current = false
+			if (mounted.current) setOperation(null)
+		}
+	}
+	return { view, entries, editable, pending, saved, loadFailed, change, save, importPackage, reset, canReset, saving: operation === "save",
 		retry: () => { lastLoadError.current = ""; setRefreshVersion(version => version + 1) },
 	}
 }

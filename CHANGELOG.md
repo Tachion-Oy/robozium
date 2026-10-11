@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a confirmed Environment reset for forgotten passwords. Delete saved settings
+  and secrets without the old password; retain imported packages and manual `.env` settings.
+
 - Keep the Environment encryption password fields inactive until there are changes to save.
 
 - Add the Environment editor with browser folder uploads into fixed

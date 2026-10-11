@@ -159,6 +159,13 @@ Secret values stay masked. Save requires an encryption password
 when secrets are present. Restart with `./start` or `start.cmd` (retain `--mock`
 in mock mode), then unlock **Secrets** in the HUD.
 
+If you forget the password, stop all runs, open **Environment**, and choose
+**Reset environment**. Confirm **Are you sure?** with **Yes, reset** to delete
+`.env.encrypt` and clear credentials unlocked in the API process. This permanently
+deletes the saved settings and secrets without requiring the old password.
+Imported packages and your manual `.env` file remain. Enter the settings again,
+save with a new password, and restart the app.
+
 The CLI also supports encryption with `uv run --locked roboz env encrypt`.
 Choose the variables to encrypt when prompted. Stored encrypted entries use
 `_ENCRYPTED`; unlocking restores the original variable names. Manual `.env`

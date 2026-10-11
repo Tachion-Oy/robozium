@@ -19,6 +19,7 @@ from roboz.endpoints import (
     serialize_env,
 )
 
+from robozium.api.credentials import LoadedCredentials
 from robozium.api.errors import EnvironmentConflictError, ProjectBusyError
 from robozium.api.models import (
     CapabilityView,
@@ -46,10 +47,13 @@ class EnvironmentService:
     source of truth; only their discovered labels are retained until restart.
     """
 
-    def __init__(self, hub: Hub, projects: ProjectService, path: Path) -> None:
+    def __init__(
+        self, hub: Hub, projects: ProjectService, credentials: LoadedCredentials
+    ) -> None:
         self._hub = hub
         self._projects = projects
-        self._path = path
+        self._credentials = credentials
+        self._path = credentials.path
         self._root = hub.settings.config_file.parent.resolve()
         self._destination = self._root / "local" / "imports"
         self._imports = {
@@ -104,6 +108,11 @@ class EnvironmentService:
             if len(output) > MAX_ENV_BYTES:
                 raise ValueError("Environment file is too large")
             self._replace_settings(original, output)
+
+    def reset(self) -> None:
+        """Discard saved settings only while runs and background work are stopped."""
+        with self._projects.stopped_runs():
+            self._credentials.reset()
 
     def import_folder(
         self, files: Sequence[tuple[str, BinaryIO]]
