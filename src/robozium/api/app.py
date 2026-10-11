@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
+from roboz.endpoints import DEFAULT_ENCRYPTED_ENV_PATH
 from roboz.llm import (
     MockTranscriptionEndpoint,
     ModelSelector,
@@ -107,7 +108,9 @@ def create_app(*, deployment: Hub) -> FastAPI:
     app.state.run_manager = manager
     app.state.projects = projects
     app.state.transcription_endpoint = deployment.settings.transcription_endpoint
-    app.state.loaded_credentials = LoadedCredentials(deployment.settings.config_file.parent / ".env.encrypt")
+    app.state.loaded_credentials = LoadedCredentials(
+        deployment.settings.config_file.parent / DEFAULT_ENCRYPTED_ENV_PATH
+    )
     app.state.environment = EnvironmentService(
         deployment, projects, app.state.loaded_credentials,
     )

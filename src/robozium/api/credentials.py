@@ -25,7 +25,6 @@ from robozium.hub import environment as env
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-MAX_UNLOCK_BODY_BYTES = 4096
 _RUN_PROVIDER_PATH = re.compile(r"^/run/[^/]+/(reply|stream)$")
 
 
@@ -152,14 +151,14 @@ async def unlock_credentials(request: Request, response: Response) -> Credential
     body = bytearray()
     async for chunk in request.stream():
         body.extend(chunk)
-        if len(body) > MAX_UNLOCK_BODY_BYTES:
+        if len(body) > env.MAX_UNLOCK_BODY_BYTES:
             raise HTTPException(status_code=413, detail="Unlock request is too large")
     try:
         payload = json.loads(body)
     except (UnicodeError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid unlock request") from None
     password = payload.get("password") if isinstance(payload, dict) else None
-    if not isinstance(password, str) or not password or len(password) > 1024:
+    if not isinstance(password, str) or not password or len(password) > env.MAX_PASSWORD_CHARS:
         raise HTTPException(status_code=400, detail="A password is required")
     loaded: LoadedCredentials = request.app.state.loaded_credentials
 

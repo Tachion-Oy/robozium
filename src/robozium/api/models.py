@@ -8,6 +8,7 @@ from roboz.models import MessageKind
 
 from robozium.api.projects import ProjectStatus
 from robozium.api.state import RunStatus
+from robozium.hub import environment as env
 
 
 class ProjectSummary(BaseModel):
@@ -96,7 +97,9 @@ class EnvironmentEdit(BaseModel):
     model_config = ConfigDict(extra="forbid")
     revision: str
     entries: list[EnvironmentEntry]
-    password: str | None = Field(default=None, max_length=1024, repr=False)
+    password: str | None = Field(
+        default=None, max_length=env.MAX_PASSWORD_CHARS, repr=False
+    )
 
 
 class EnvironmentSaveResult(BaseModel):
