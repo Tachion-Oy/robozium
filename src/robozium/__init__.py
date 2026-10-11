@@ -2,8 +2,6 @@
 
 from enum import StrEnum
 
-RUNTIME_MODE_ENV_VAR = "ROBOZIUM_MODE"
-
 
 class RuntimeMode(StrEnum):
     LIVE = "live"

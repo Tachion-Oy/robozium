@@ -8,6 +8,7 @@ import {
 	type ProjectRow,
 } from "@/lib/robozium/landing"
 import { DisplayArt } from "@/app/components/branding/DisplayArt"
+import { HudButton } from "../HudButton"
 
 type ProjectOverviewPanelProps = {
 	projects: ProjectRow[]
@@ -103,46 +104,41 @@ function RowActions({
 	return (
 		<span
 			className="agent-hud__row-actions shrink-0 flex justify-end gap-2">
-			<button
-				type="button"
+			<HudButton
 				disabled={!canLaunch}
 				onClick={() => onSelectCapabilities(project)}
-				className="agent-hud__row-action agent-hud__row-tools">
+				variant="info">
 				Tools
-			</button>
-			<button
-				type="button"
+			</HudButton>
+			<HudButton
 				disabled={!canLaunch}
 				onClick={() => onLaunchProject(project)}
-				className="agent-hud__row-action agent-hud__row-launch">
+				variant="success">
 				Launch
-			</button>
-			<button
-				type="button"
+			</HudButton>
+			<HudButton
 				disabled={!canCancel}
 				onClick={() => onCancelRun(project)}
-				className="agent-hud__row-action agent-hud__row-cancel">
+				variant="warning">
 				Cancel
-			</button>
+			</HudButton>
 			{confirmingDelete && canDelete ? (
-				<button
-					type="button"
+				<HudButton
 					onBlur={() => setConfirmingDelete(false)}
 					onClick={() => {
 						setConfirmingDelete(false)
 						onDeleteProject(project)
 					}}
-					className="agent-hud__row-action agent-hud__row-delete agent-hud__row-delete--confirm">
+					variant="danger-confirm">
 					Confirm?
-				</button>
+				</HudButton>
 			) : (
-				<button
-					type="button"
+				<HudButton
 					disabled={!canDelete}
 					onClick={() => setConfirmingDelete(true)}
-					className="agent-hud__row-action agent-hud__row-delete">
+					variant="danger">
 					Delete
-				</button>
+				</HudButton>
 			)}
 		</span>
 	)

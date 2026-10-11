@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Add the Environment editor with browser folder uploads into fixed
+  `local/imports/` storage. Validate package files and exported capabilities,
+  confirm their actual names immediately, and activate them after restart.
+  Preserve the Environment UI and use RoboZ 0.11 for encrypted variable editing;
+  recreate legacy encrypted settings using `_ENCRYPTED` storage names. Mark the
+  initial application variables `[required]` and prefill editable example defaults.
+  Validate upload paths before copying, preserve quoted example values, and detect
+  concurrent settings changes before replacing the file.
+  Report invalid edits, passwords, and imports through error toasts. Match the
+  Secret toggle to the other action buttons and use the red style.
+
 - Remove built-in email construction and registration. Discover email and timesheets from Robozify through `ROBOZIUM_LOCAL_DIRS`; capability settings come from the application root environment. Docker loads root `.env.encrypt` and `.env` generically while preserving container-owned settings.
 
 - Always load `local/` and optionally add capability roots from the semicolon-separated

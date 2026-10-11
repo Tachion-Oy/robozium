@@ -22,8 +22,9 @@ from roboz.llm import (
 from roboz.shed.sandbox import Sandbox
 
 from robozium.api.projects import Project
+from robozium.hub import environment as env
 from robozium.hub.deployment import robozium
-from robozium.hub.local import load_local_capabilities
+from robozium.hub.local import load_local_packages
 from robozium.hub.logging import HubLoggingConfig
 from robozium.hub.utils import slugify_project_name
 
@@ -103,8 +104,9 @@ class Hub:
             raise TypeError("deployment override must be callable")
         self.deployment = deployment
         self._validate_storage_paths(self.settings.sandbox, self.settings.logging)
+        self.local_packages = load_local_packages(settings.config_file.parent) if additional_capabilities is None else {}
         self.additional_capabilities = (
-            load_local_capabilities(settings.config_file.parent)
+            tuple(value for values in self.local_packages.values() for value in values)
             if additional_capabilities is None else tuple(additional_capabilities)
         )
 
@@ -140,19 +142,20 @@ class Hub:
             raise ValueError("deployment project must match the sandbox scope")
         sandbox = sandbox.for_project(project_slug)
         if self.deployment is not None:
-            return self.deployment(
+            root = self.deployment(
                 sandbox,
                 project_slug,
                 endpoint_getter=endpoint_getter,
             )
-        script_socket = os.environ.get("ROBOZIUM_HOST_SCRIPT_SOCKET")
-        root = robozium(
-            sandbox,
-            endpoint_getter=endpoint_getter,
-            memory_endpoint=self.settings.memory_endpoint,
-            specialists=self.settings.subagents,
-            script_socket=Path(script_socket) if script_socket else None,
-        )
+        else:
+            script_socket = os.environ.get(env.HOST_SCRIPT_SOCKET)
+            root = robozium(
+                sandbox,
+                endpoint_getter=endpoint_getter,
+                memory_endpoint=self.settings.memory_endpoint,
+                specialists=self.settings.subagents,
+                script_socket=Path(script_socket) if script_socket else None,
+            )
         self._validate_local_capability_names(
             root.capabilities, self.additional_capabilities
         )

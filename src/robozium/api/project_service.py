@@ -1,7 +1,7 @@
 """Project operations and activity coordination, independent of HTTP routing."""
 
 import shutil
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from threading import RLock
 
@@ -66,6 +66,22 @@ class ProjectService:
         names = {path.name for path in project.logs.iterdir() if path.is_dir()}
         return bool(active_marker_paths(project.logs, names))
 
+    @contextmanager
+    def stopped_runs(self) -> Generator[None]:
+        """Serialize configuration writes with run creation while all work is stopped."""
+        with self._lock:
+            if any(
+                not run["status"].is_terminal
+                for run in self._manager.list_project_runs()
+            ) or any(
+                self._manager.project_is_busy(project.slug) or self._active(project)
+                for project in self._projects()
+            ):
+                raise ProjectBusyError(
+                    "Stop all runs and background work before editing"
+                )
+            yield
+
     def create(self, name: str) -> str:
         with self._lock:
             project = self._hub.project(name)
@@ -73,7 +89,7 @@ class ProjectService:
             return project.slug
 
     @contextmanager
-    def access(self, name: str) -> Iterator[Project]:
+    def access(self, name: str) -> Generator[Project]:
         """Keep an existing project available until the caller finishes its operation."""
         with self._lock:
             yield self._existing(name)

@@ -74,7 +74,7 @@ export async function expectCredentialMenuLayout(
 	closedTableOffset: number,
 	controlTimeout = process.env.CI ? 15_000 : 5_000,
 ): Promise<void> {
-	const menu = page.getByRole("dialog", { name: "API keys" })
+	const menu = page.getByRole("dialog", { name: "Secrets" })
 	await expect(menu).toBeVisible()
 	await waitForHudLayout(page, [".agent-hud__table-scroll", ".agent-hud__credential-menu"])
 	const geometry = await menu.evaluate((element) => {
@@ -100,7 +100,7 @@ export async function expectCredentialMenuLayout(
 	expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewportHeight + 2)
 	const label = page.locator(".agent-hud__credential-selector .agent-hud__model-trigger > span")
 	expect(await label.evaluate((element) => element.scrollWidth <= element.clientWidth + 2)).toBe(true)
-	const password = menu.getByLabel("API key password")
+	const password = menu.getByLabel("Secret password")
 	if (await password.count()) {
 		await password.fill("synthetic-layout-test")
 		await expect(password).toHaveValue("synthetic-layout-test")

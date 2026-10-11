@@ -15,7 +15,12 @@ class InvalidCapabilitySelection(ValueError):
     """The requested capability selection cannot be applied."""
 
 
+class EnvironmentConflictError(RuntimeError):
+    """Saved settings changed or an imported package already occupies its destination."""
+
+
 __all__ = [
+    "EnvironmentConflictError",
     "ProjectBusyError",
     "ProjectCancellationInProgressError",
     "InvalidCapabilitySelection",

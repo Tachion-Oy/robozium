@@ -8,6 +8,10 @@ import type {
 	CredentialUnlockBody,
 	DeleteProjectResponse,
 	DependencyRecord,
+	EnvironmentEdit,
+	EnvironmentImportResult,
+	EnvironmentSaveResult,
+	EnvironmentView,
 	ModelSelectBody,
 	ModelSelection,
 	Project,
@@ -153,6 +157,37 @@ export async function clearApiKeys(): Promise<CredentialStatus> {
 		method: "POST",
 		cache: "no-store",
 		headers: { Accept: "application/json" },
+	})
+}
+
+export async function getEnvironment(init?: {
+	signal?: AbortSignal
+}): Promise<EnvironmentView> {
+	return fetchJson<EnvironmentView>("/api/credentials/environment", {
+		method: "GET",
+		cache: "no-store",
+		headers: { Accept: "application/json" },
+		signal: init?.signal,
+	})
+}
+
+export async function saveEnvironment(edit: EnvironmentEdit): Promise<EnvironmentSaveResult> {
+	return fetchJson<EnvironmentSaveResult>("/api/credentials/environment", {
+		method: "POST",
+		cache: "no-store",
+		headers: { Accept: "application/json", "Content-Type": "application/json" },
+		body: JSON.stringify(edit),
+	})
+}
+
+export async function importEnvironmentPackage(files: File[]): Promise<EnvironmentImportResult> {
+	const form = new FormData()
+	for (const file of files) form.append("files", file, file.webkitRelativePath)
+	return fetchJson<EnvironmentImportResult>("/api/credentials/environment/import", {
+		method: "POST",
+		cache: "no-store",
+		headers: { Accept: "application/json" },
+		body: form,
 	})
 }
 

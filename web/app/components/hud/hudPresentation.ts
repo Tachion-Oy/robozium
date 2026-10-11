@@ -23,15 +23,18 @@ const SCREEN_OPTIONS: Record<HudContext, readonly HudScreenOption[]> = {
 	landing: [
 		{ value: "projects", label: "Runs Overview" },
 		{ value: "dependencies", label: "Dependencies" },
+		{ value: "environment", label: "Environment" },
 	],
 	"active-run": [
 		{ value: "run", label: "Current Run" },
 		{ value: "projects", label: "Runs Overview" },
 		{ value: "dependencies", label: "Dependencies" },
+		{ value: "environment", label: "Environment" },
 	],
 	recovery: [
 		{ value: "projects", label: "Runs Overview" },
 		{ value: "dependencies", label: "Dependencies" },
+		{ value: "environment", label: "Environment" },
 	],
 }
 
@@ -66,7 +69,7 @@ export function resolveHudPresentation({
 		screenOptions,
 		modelScope: context === "active-run" && screen !== "launch" ? "run" : "default",
 		headerVariant:
-			context === "landing" && screen !== "dependencies" ? "landing" : "row",
+			context === "landing" && screen !== "dependencies" && screen !== "environment" ? "landing" : "row",
 		showProjectBadge: context === "active-run" && screen !== "launch",
 		enableCornerControls: context === "active-run" && screen === "run",
 	}

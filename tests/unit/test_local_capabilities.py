@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+from importlib.metadata import version
 from pathlib import Path
 from shutil import rmtree
 from types import SimpleNamespace
@@ -16,7 +17,7 @@ from roboz.deployment import SkillLoading
 from roboz.llm import MockLLMEndpoint
 
 from robozium.api.app import create_app
-from robozium.hub.local import load_local_capabilities
+from robozium.hub.local import load_local_packages
 from robozium.hub.utils import load_hub
 
 
@@ -107,21 +108,21 @@ def test_config_relative_discovery_order_and_relative_imports_ignore_parent_code
 
 
 def test_missing_directories_and_successful_loads_are_cached_and_isolated(tmp_path):
-    assert load_local_capabilities(tmp_path / "empty") == ()
+    assert load_local_packages(tmp_path / "empty") == {}
     for root in (tmp_path / "first", tmp_path / "second"):
         _package(root)
-    first = load_local_capabilities(tmp_path / "first")
-    second = load_local_capabilities(tmp_path / "second")
-    assert first[0] is not second[0]
+    first = load_local_packages(tmp_path / "first")
+    second = load_local_packages(tmp_path / "second")
+    assert next(iter(first.values()))[0] is not next(iter(second.values()))[0]
     _package(tmp_path / "first", source="raise AssertionError('reimported')\n")
-    assert load_local_capabilities(tmp_path / "first") is first
+    assert load_local_packages(tmp_path / "first") is first
 
 
 @pytest.mark.parametrize("source", ["", "CAPABILITY = None", "CAPABILITY = object()"])
 def test_invalid_exports_report_package_and_config(tmp_path, source):
     config = write_config(tmp_path)
     package = _package(tmp_path, source=source)
-    with pytest.raises(RuntimeError, match="CAPABILITY.*Capability instance") as error:
+    with pytest.raises(RuntimeError, match="Capability instance") as error:
         load_hub(config_file=config)
     assert str(package) in str(error.value) and str(config) in str(error.value)
 
@@ -132,10 +133,10 @@ def test_failed_imports_discard_submodules_and_remain_retryable(tmp_path, source
     helper = package / "helper.py"
     helper.write_text(_source("before"))
     with pytest.raises(RuntimeError, match="Invalid local capabilities"):
-        load_local_capabilities(tmp_path)
+        load_local_packages(tmp_path)
     helper.write_text(_source("after_repair"))
     (package / "__init__.py").write_text("from .helper import CAPABILITY\n")
-    assert load_local_capabilities(tmp_path)[0].label.name == "after_repair"
+    assert next(iter(load_local_packages(tmp_path).values()))[0].label.name == "after_repair"
 
 
 @pytest.mark.parametrize("external", [False, True])
@@ -145,10 +146,10 @@ def test_duplicate_names_identify_both_packages_and_allow_repair(tmp_path, monke
     if external:
         monkeypatch.setenv("ROBOZIUM_LOCAL_DIRS", str(second.parent.parent))
     with pytest.raises(RuntimeError, match="duplicate capability name 'private'") as error:
-        load_local_capabilities(tmp_path)
+        load_local_packages(tmp_path)
     assert str(first) in str(error.value) and str(second) in str(error.value)
     (first / "__init__.py").write_text(_source("unique"))
-    assert len(load_local_capabilities(tmp_path)) == 2
+    assert len(load_local_packages(tmp_path)) == 2
 
 
 def test_builtin_collision_is_an_actionable_live_startup_error(tmp_path):
@@ -172,7 +173,7 @@ def test_requirements_are_installed_together_before_any_import(tmp_path, monkeyp
         requirements = [command[i + 1] for i, value in enumerate(command) if value == "-r"]
         assert requirements == [str(p / "requirements.txt") for p in (first, second)]
         constraints = Path(command[command.index("--constraint") + 1]).read_text()
-        assert "roboz==0.10.0\n" in constraints
+        assert f"roboz=={version("roboz")}\n" in constraints
         assert kwargs["timeout"] == 180
         installed.append(target)
         return SimpleNamespace(returncode=0)
@@ -180,9 +181,9 @@ def test_requirements_are_installed_together_before_any_import(tmp_path, monkeyp
     monkeypatch.setattr("robozium.hub.local.subprocess.run", install)
     before = sys.path.copy()
     try:
-        assert len(load_local_capabilities(tmp_path)) == 2
+        assert len(load_local_packages(tmp_path)) == 2
         assert str(installed[0]) in sys.path
-        load_local_capabilities(tmp_path)
+        load_local_packages(tmp_path)
         assert len(installed) == 1
     finally:
         sys.path[:] = before
@@ -200,13 +201,13 @@ def test_extra_roots_are_ordered_deduplicated_and_config_relative(tmp_path, monk
         f" ../first/local ;{tmp_path / 'second/local'};../first/local;local;;",
     )
     monkeypatch.chdir(tmp_path)
-    assert [cap.label.name for cap in load_local_capabilities(config_dir)] == [
+    assert [cap.label.name for values in load_local_packages(config_dir).values() for cap in values] == [
         "default", "first", "second"
     ]
     monkeypatch.setenv("ROBOZIUM_LOCAL_DIRS", "../first/local;../second/local")
-    other = load_local_capabilities(tmp_path / "other-app")
-    assert [cap.label.name for cap in other] == ["first", "second"]
-    assert other[0] is not load_local_capabilities(config_dir)[1]
+    other = load_local_packages(tmp_path / "other-app")
+    assert [cap.label.name for values in other.values() for cap in values] == ["first", "second"]
+    assert next(iter(other.values()))[0] is not list(load_local_packages(config_dir).values())[1][0]
 
 
 @pytest.mark.parametrize("kind", ["missing", "file"])
@@ -218,7 +219,7 @@ def test_invalid_extra_directory_fails_before_importing_default_tools(tmp_path, 
         path.touch()
     monkeypatch.setenv("ROBOZIUM_LOCAL_DIRS", str(path))
     with pytest.raises(RuntimeError, match="ROBOZIUM_LOCAL_DIRS directory does not exist"):
-        load_local_capabilities(tmp_path)
+        load_local_packages(tmp_path)
     assert not marker.exists()
 
 
@@ -236,18 +237,18 @@ def test_real_dependency_conflicts_fail_before_imports_and_allow_repair(tmp_path
     monkeypatch.setenv("UV_CACHE_DIR", str(tmp_path / "uv-cache"))
     before = sys.path.copy()
     with pytest.raises(RuntimeError, match="Dependencies must be compatible") as error:
-        load_local_capabilities(tmp_path)
+        load_local_packages(tmp_path)
     assert str(first / "requirements.txt") in str(error.value)
     assert str(second / "requirements.txt") in str(error.value)
     detail = str(error.value).split("application environment: ", 1)[1]
     assert "No solution found" in detail
     assert requirements[1].strip() in detail
-    assert (requirements[0].strip() or "roboz==0.10.0") in detail
+    assert (requirements[0].strip() or f"roboz=={version("roboz")}") in detail
     assert sys.path == before
     assert not marker.exists()
     for package in (first, second):
         (package / "requirements.txt").write_text("")
-    assert len(load_local_capabilities(tmp_path)) == 2
+    assert len(load_local_packages(tmp_path)) == 2
     assert marker.exists()
 
 
@@ -272,13 +273,13 @@ def test_invalid_files_fail_before_installation(tmp_path, monkeypatch, invalid):
         "robozium.hub.local.subprocess.run", lambda *a, **k: pytest.fail("must validate first")
     )
     with pytest.raises(RuntimeError, match="missing or invalid local file|invalid local capability directory"):
-        load_local_capabilities(tmp_path)
+        load_local_packages(tmp_path)
 
 
 def test_empty_requirements_skip_installation(tmp_path, monkeypatch):
     _package(tmp_path, requirements=" \n")
     monkeypatch.setattr("robozium.hub.local.which", lambda _: None)
-    assert len(load_local_capabilities(tmp_path)) == 1
+    assert len(load_local_packages(tmp_path)) == 1
 
 
 def test_dependency_and_import_failures_restore_path_and_can_be_retried(tmp_path, monkeypatch):
@@ -291,11 +292,11 @@ def test_dependency_and_import_failures_restore_path_and_can_be_retried(tmp_path
     before = sys.path.copy()
     for error in ("dependency conflict", "bad import"):
         with pytest.raises(RuntimeError, match=error):
-            load_local_capabilities(tmp_path)
+            load_local_packages(tmp_path)
         assert sys.path == before
     (package / "__init__.py").write_text(_source())
     try:
-        assert len(load_local_capabilities(tmp_path)) == 1
+        assert len(load_local_packages(tmp_path)) == 1
     finally:
         sys.path[:] = before
 
@@ -370,5 +371,5 @@ def test_fresh_api_processes_rediscover_packages_and_preserve_saved_selections(t
     assert "original" not in removed["effective"]
     assert removed["saved"] == {"original": True}
     mock = _restart(config, "mock")
-    assert "added" not in mock["effective"]
+    assert mock["effective"]["added"] is False
     assert {"mock_information", "mock_guidance"} <= mock["effective"].keys()

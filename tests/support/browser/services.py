@@ -111,6 +111,7 @@ class BrowserSession:
             + "SANDBOX = replace(SANDBOX, root=Path('hub_data'))\n"
             + "LOGGING = replace(LOGGING, path=Path('technical_logs/backend.jsonl'))\n"
         )
+        shutil.copyfile(ROOT / ".env.example", self.workspace / ".env.example")
         self.env.update(
             {
                 "ROBOZIUM_CONFIG": str(config),
