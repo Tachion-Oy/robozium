@@ -170,8 +170,7 @@
 
 .agent-hud__markdown-table {
   border-collapse: collapse;
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
   table-layout: auto;
 }
 
@@ -179,20 +178,15 @@
 
 .agent-hud__markdown-table th,
 .agent-hud__markdown-table td {
+  /* Keep columns readable when their combined minimums require scrolling. */
+  min-width: 10ch;
   border: 1px solid color-mix(in oklab, var(--term-blue) 30%, transparent);
   padding: 0.25rem 0.45rem;
   text-align: left;
-  white-space: nowrap;
-  overflow-wrap: normal;
-  word-break: normal;
-}
-
-
-
-.agent-hud__markdown-table th:last-child,
-.agent-hud__markdown-table td:last-child {
-  min-width: min(28rem, 50vw);
+  vertical-align: top;
   white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 
