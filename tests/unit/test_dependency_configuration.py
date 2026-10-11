@@ -62,6 +62,7 @@ def test_roboz_uses_an_exact_indexed_release():
 
 
 def test_playwright_container_matches_locked_browser_version() -> None:
+    manifest = json.loads((ROOT / "web/package.json").read_text())
     lock = json.loads((ROOT / "web/package-lock.json").read_text())
     packages = lock["packages"]
     versions = {
@@ -69,6 +70,10 @@ def test_playwright_container_matches_locked_browser_version() -> None:
         for name in ("@playwright/test", "playwright", "playwright-core")
     }
     assert len(versions) == 1, "Playwright packages must use the same version"
+    version = next(iter(versions))
+    assert manifest["devDependencies"]["@playwright/test"] == version, (
+        "Pin the tested Playwright release exactly to match its browser images"
+    )
     image = re.search(
         r"^FROM mcr\.microsoft\.com/playwright:v([^\s]+)-noble@sha256:[a-f0-9]{64} AS verify$",
         (ROOT / "Dockerfile").read_text(),
@@ -80,7 +85,7 @@ def test_playwright_container_matches_locked_browser_version() -> None:
         (ROOT / ".github/workflows/e2e-browser.yml").read_text(),
     )
     assert workflow_image is not None, "Browser CI needs a digest-pinned test environment"
-    assert image.group(1) == workflow_image.group(1) == versions.pop(), (
+    assert image.group(1) == workflow_image.group(1) == version, (
         "Update the Playwright Docker image and npm lockfile together; "
         "mismatched versions cannot locate browser executables"
     )
