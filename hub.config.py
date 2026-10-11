@@ -21,7 +21,8 @@ SANDBOX: Final = Sandbox(
     memory=Path("persistent_memory"),
 )
 LOGGING: Final = HubLoggingConfig(
-    path=Path(environ.get(env.LOG_DIR, ".runtime/logs")) / "backend.jsonl"
+    path=Path(environ.get(env.LOG_DIR, str(HubLoggingConfig.path.parent)))
+    / HubLoggingConfig.path.name
 )
 DEPENDENCY_HEALTH: Final = DependencyHealthSettings(interval_s=60.0, timeout_s=20.0)
 
