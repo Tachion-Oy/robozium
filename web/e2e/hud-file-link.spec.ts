@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { expect, test } from "./fixtures"
 import { createProject, e2eProjectPaths } from "./helpers"
+import { waitForHudLayout } from "./hud-layout"
 
 test("follows the newest HUD message while preserving selected history", async ({
 	browserName,
@@ -44,6 +45,10 @@ test("follows the newest HUD message while preserving selected history", async (
 		.getByRole("button", { name: "Previous agent message" })
 		.click()
 	await expect(notificationHeading).toBeVisible()
+	const viewport = page.viewportSize()!
+	// Keep the timesheet wider than the panel even after its headers wrap.
+	await page.setViewportSize({ width: 800, height: 900 })
+	await waitForHudLayout(page, [".agent-hud__replyBox--agent"])
 	const prose = page.locator(".agent-hud__markdown-p", {
 		hasText: "Plain prose:",
 	})
@@ -96,26 +101,27 @@ test("follows the newest HUD message while preserving selected history", async (
 	expect(contentGeometry.codeWhiteSpace).toBe("pre")
 	expect(contentGeometry.codeContained).toBe(true)
 
-	const tableGeometry = await page
-		.locator(".agent-hud__markdown-table-scroll")
-		.evaluate((scroller) => {
-			const table = scroller.querySelector("table")!
-			const firstHeader = table.querySelector("th")!
-			const explanation = table.querySelector("td:last-child")!
-			return {
-				scrollWidth: scroller.scrollWidth,
-				clientWidth: scroller.clientWidth,
-				tableWidth: table.getBoundingClientRect().width,
-				paddingBottom: Number.parseFloat(
-					getComputedStyle(scroller).paddingBottom,
-				),
-				scrollbarWidth: getComputedStyle(scroller).scrollbarWidth,
-				scrollbarColor: getComputedStyle(scroller).scrollbarColor,
-				headerWhiteSpace: getComputedStyle(firstHeader).whiteSpace,
-				headerWordBreak: getComputedStyle(firstHeader).wordBreak,
-				explanationWhiteSpace: getComputedStyle(explanation).whiteSpace,
-			}
-		})
+	const tableScroller = page.locator(".agent-hud__markdown-table-scroll", {
+		has: page.getByRole("columnheader", { name: "Date", exact: true }),
+	})
+	const tableGeometry = await tableScroller.evaluate((scroller) => {
+		const table = scroller.querySelector("table")!
+		const firstHeader = table.querySelector("th")!
+		const explanation = table.querySelector("td:last-child")!
+		return {
+			scrollWidth: scroller.scrollWidth,
+			clientWidth: scroller.clientWidth,
+			tableWidth: table.getBoundingClientRect().width,
+			paddingBottom: Number.parseFloat(
+				getComputedStyle(scroller).paddingBottom,
+			),
+			scrollbarWidth: getComputedStyle(scroller).scrollbarWidth,
+			scrollbarColor: getComputedStyle(scroller).scrollbarColor,
+			headerWhiteSpace: getComputedStyle(firstHeader).whiteSpace,
+			headerWordBreak: getComputedStyle(firstHeader).wordBreak,
+			explanationWhiteSpace: getComputedStyle(explanation).whiteSpace,
+		}
+	})
 	expect(tableGeometry.scrollWidth).toBeGreaterThan(tableGeometry.clientWidth)
 	expect(tableGeometry.tableWidth).toBeGreaterThan(tableGeometry.clientWidth)
 	expect(tableGeometry.paddingBottom).toBeGreaterThan(0)
@@ -123,11 +129,10 @@ test("follows the newest HUD message while preserving selected history", async (
 	// The regression value is `thin`, which produced the near-impossible target.
 	expect(tableGeometry.scrollbarWidth).not.toBe("thin")
 	expect(tableGeometry.scrollbarColor).not.toBe("auto")
-	expect(tableGeometry.headerWhiteSpace).toBe("nowrap")
+	expect(tableGeometry.headerWhiteSpace).toBe("normal")
 	expect(tableGeometry.headerWordBreak).toBe("normal")
 	expect(tableGeometry.explanationWhiteSpace).toBe("normal")
 
-	const tableScroller = page.locator(".agent-hud__markdown-table-scroll")
 	const agentScroller = page.locator(
 		".agent-hud__replyBox--agent .agent-hud__replyBox-scroll",
 	)
@@ -216,6 +221,8 @@ test("follows the newest HUD message while preserving selected history", async (
 	await expect
 		.poll(() => agentScroller.evaluate((scroller) => scroller.scrollTop))
 		.toBe(scrollTopBeforePoll)
+	await page.setViewportSize(viewport)
+	await waitForHudLayout(page, [".agent-hud__replyBox--agent"])
 	await expect(
 		page.locator(".agent-hud__agent", {
 			hasText: "Hello! I generated a text artifact for validation",
