@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep the Environment encryption password fields inactive until there are changes to save.
+
 - Add the Environment editor with browser folder uploads into fixed
   `local/imports/` storage. Validate package files and exported capabilities,
   confirm their actual names immediately, and activate them after restart.

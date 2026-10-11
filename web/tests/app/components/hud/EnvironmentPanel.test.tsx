@@ -174,6 +174,19 @@ it("opening, no-op Apply, reverting a value, and Cancel leave Save inactive", as
 	expect(mocks.saveEnvironment).not.toHaveBeenCalled()
 })
 
+it("keeps the encryption password inactive until there are edits to save", async () => {
+	mocks.getEnvironment.mockResolvedValue({ ...secretView, entries: [...secretView.entries, defaultPort] })
+	render(<EnvironmentPanel />)
+	const password = await screen.findByLabelText("Encryption password") as HTMLInputElement
+	expect(password.disabled).toBe(true)
+	fireEvent.click(screen.getByRole("button", { name: "Change ODD" }))
+	expect(password.disabled).toBe(true)
+	fireEvent.change(screen.getByLabelText("Value for ODD"), { target: { value: "replacement" } })
+	expect(password.disabled).toBe(false)
+	fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+	expect(password.disabled).toBe(true)
+})
+
 it("validates names before applying and prevents renaming an unreplaced secret", async () => {
 	mocks.getEnvironment.mockResolvedValue(secretView)
 	render(<EnvironmentPanel />)
