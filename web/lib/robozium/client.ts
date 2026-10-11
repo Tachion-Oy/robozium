@@ -191,6 +191,14 @@ export async function importEnvironmentPackage(files: File[]): Promise<Environme
 	})
 }
 
+export async function resetEnvironment(): Promise<void> {
+	await fetchJson("/api/credentials/environment", {
+		method: "DELETE",
+		cache: "no-store",
+		headers: { Accept: "application/json" },
+	})
+}
+
 export async function getModelSelection(init?: {
 	signal?: AbortSignal
 	runId?: string | null

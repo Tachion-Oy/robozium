@@ -305,8 +305,104 @@ def test_queued_run_blocks_saving_and_import(client):
     assert client.get(URL).json()["editable"] is False
     assert save(client, []).status_code == 409
     assert upload(client).status_code == 409
+    assert client.delete(URL).status_code == 409
     client.post("/projects/busy/cancel")
     assert upload(client).status_code == 200
+
+
+def test_reset_deletes_unreadable_settings_without_password_and_preserves_imports(
+    client, tmp_path
+):
+    assert upload(client).status_code == 200
+    path = tmp_path / ".env.encrypt"
+    path.write_bytes(b"\xffunreadable-settings")
+    manual = tmp_path / ".env"
+    manual.write_text("MANUAL=keep\n")
+    assert client.get(URL).status_code == 400
+    response = client.delete(URL)
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert not path.exists()
+    view = client.get(URL).json()
+    assert view["entries"] == []
+    assert view["requires_password"] is False
+    assert view["imports"][0]["name"] == "bundle"
+    assert (tmp_path / "local/imports/bundle/__init__.py").is_file()
+    assert manual.read_text() == "MANUAL=keep\n"
+    assert client.delete(URL).status_code == 200
+
+
+@pytest.mark.parametrize("unlocked", [False, True])
+def test_reset_forgets_cached_secrets_and_accepts_a_new_password(
+    client, tmp_path, monkeypatch, unlocked
+):
+    name = "TEST_RESET_TOKEN"
+    monkeypatch.delenv(name, raising=False)
+    assert (
+        save(
+            client, [{"name": name, "value": "old-secret", "secret": True}], "forgotten"
+        ).status_code
+        == 200
+    )
+    ciphertext = dotenv_values(tmp_path / ".env.encrypt")[name + "_ENCRYPTED"]
+    monkeypatch.setenv(name + "_ENCRYPTED", ciphertext)
+    # Compose also passes ciphertext into the process at startup.
+    restarted = TestClient(create_app(deployment=load_hub(start=tmp_path)))
+    if unlocked:
+        assert (
+            restarted.post(
+                "/credentials/unlock", json={"password": "forgotten"}
+            ).status_code
+            == 200
+        )
+        assert os.environ[name] == "old-secret"
+    assert restarted.delete(URL).status_code == 200
+    assert name not in os.environ
+    assert name + "_ENCRYPTED" not in os.environ
+    assert restarted.get("/credentials").json() == {
+        "available": False,
+        "locked": False,
+        "removable": False,
+    }
+    assert (
+        save(
+            restarted,
+            [{"name": name, "value": "new-secret", "secret": True}],
+            "new-password",
+        ).status_code
+        == 200
+    )
+    assert (
+        restarted.post(
+            "/credentials/unlock", json={"password": "new-password"}
+        ).status_code
+        == 200
+    )
+    assert os.environ[name] == "new-secret"
+
+
+def test_failed_reset_preserves_settings(client, tmp_path, monkeypatch):
+    path = tmp_path / ".env.encrypt"
+    path.write_text("SETTING=keep\n")
+    unlink = type(path).unlink
+
+    def unavailable(target, *args, **kwargs):
+        if target == path:
+            raise PermissionError("cannot delete")
+        return unlink(target, *args, **kwargs)
+
+    monkeypatch.setattr(type(path), "unlink", unavailable)
+    response = client.delete(URL)
+    assert response.status_code == 503
+    assert path.read_text() == "SETTING=keep\n"
+
+
+def test_reset_rejects_cross_origin_requests(client, tmp_path):
+    path = tmp_path / ".env.encrypt"
+    path.write_text("SETTING=keep\n")
+    response = client.delete(URL, headers={"Origin": "https://elsewhere.example"})
+    assert response.status_code == 403
+    assert path.read_text() == "SETTING=keep\n"
 
 
 def test_configuration_boundaries_reject_cross_origin_oversized_and_private_errors(

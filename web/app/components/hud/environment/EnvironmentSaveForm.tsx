@@ -8,20 +8,24 @@ type EnvironmentSaveFormProps = {
 	pending: boolean
 	needsPassword: boolean
 	confirmPassword: boolean
+	canReset: boolean
 	onValidate: () => boolean
 	onSave: (password: string) => Promise<void>
+	onReset: () => Promise<boolean>
 }
 
 export function EnvironmentSaveForm({
-	editable, dirty, pending, needsPassword, confirmPassword, onValidate, onSave,
+	editable, dirty, pending, needsPassword, confirmPassword, canReset, onValidate, onSave, onReset,
 }: EnvironmentSaveFormProps) {
 	const [password, setPassword] = useState("")
 	const [confirmation, setConfirmation] = useState("")
+	const [confirmingReset, setConfirmingReset] = useState(false)
 	const label = needsPassword ? "Encrypt and save" : "Save"
+	const canSave = editable && dirty && !confirmingReset
 
 	const submit = (event: SubmitEvent<HTMLFormElement>) => {
 		event.preventDefault()
-		if (!editable || !dirty || !onValidate()) return
+		if (!canSave || !onValidate()) return
 		if (needsPassword && !password) {
 			showErrorToast({
 				title: "Encryption password required",
@@ -40,6 +44,14 @@ export function EnvironmentSaveForm({
 		setConfirmation("")
 		void onSave(password)
 	}
+	const reset = async () => {
+		if (!canReset) return
+		if (await onReset()) {
+			setPassword("")
+			setConfirmation("")
+		}
+		setConfirmingReset(false)
+	}
 
 	return (
 		<form
@@ -53,7 +65,7 @@ export function EnvironmentSaveForm({
 						className="agent-hud__project-input min-w-0 flex-1"
 						type="password"
 						autoComplete="off"
-						disabled={!editable || !dirty}
+						disabled={!canSave}
 						placeholder="Encryption password"
 						value={password}
 						onChange={event => setPassword(event.target.value)}
@@ -64,7 +76,7 @@ export function EnvironmentSaveForm({
 							className="agent-hud__project-input min-w-0 flex-1"
 							type="password"
 							autoComplete="off"
-							disabled={!editable || !dirty}
+							disabled={!canSave}
 							placeholder="Confirm password"
 							value={confirmation}
 							onChange={event => setConfirmation(event.target.value)}
@@ -72,8 +84,15 @@ export function EnvironmentSaveForm({
 					)}
 				</div>
 			)}
-			<div className="flex justify-end">
-				<HudButton type="submit" variant="success" disabled={!editable || !dirty}>
+			{confirmingReset && <p>Are you sure? This permanently deletes all saved settings and secrets.</p>}
+			<div className="flex flex-wrap justify-between gap-3">
+				<div className="flex gap-3">
+					{confirmingReset ? <>
+						<HudButton variant="danger-confirm" disabled={!canReset} onClick={() => void reset()}>Yes, reset</HudButton>
+						<HudButton variant="warning" disabled={!canReset} onClick={() => setConfirmingReset(false)}>Keep settings</HudButton>
+					</> : <HudButton variant="danger" disabled={!canReset} onClick={() => setConfirmingReset(true)}>Reset environment</HudButton>}
+				</div>
+				<HudButton type="submit" variant="success" disabled={!canSave}>
 					{pending ? "Saving…" : label}
 				</HudButton>
 			</div>

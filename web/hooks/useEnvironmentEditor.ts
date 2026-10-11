@@ -128,6 +128,16 @@ export function useEnvironmentEditor() {
 	const save = async (password: string) => {
 		if (await environment.save(password, currentEntries)) closeEditor()
 	}
+	const reset = async () => {
+		if (!await environment.reset()) return false
+		closeEditor()
+		setHiddenSuggestions(new Set())
+		showNotificationToast({
+			tone: "success", title: "Environment reset",
+			message: "Saved settings and secrets deleted. Enter them again and restart the app.",
+		})
+		return true
+	}
 
 	return {
 		...environment,
@@ -135,6 +145,6 @@ export function useEnvironmentEditor() {
 		variables: [...variables.values()],
 		openEditor, closeEditor, updateEditor, applyEditor, removeVariable, importPackage,
 		validateSave: () => !edited || validateEditor(),
-		save,
+		save, reset,
 	}
 }

@@ -71,7 +71,14 @@ def import_folder(
         )
 
 
-def _validate_write_headers(request: Request, content_type: str, limit: int) -> None:
+@router.delete("")
+def reset_environment(request: Request) -> dict[str, str]:
+    with _environment(request) as environment:
+        environment.reset()
+    return {"status": "reset"}
+
+
+def _validate_write_headers(request: Request, content_type: str | None, limit: int) -> None:
     origin = request.headers.get("origin")
     if origin:
         try:
@@ -86,7 +93,7 @@ def _validate_write_headers(request: Request, content_type: str, limit: int) -> 
     actual_type = (
         request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
     )
-    if actual_type != content_type:
+    if content_type is not None and actual_type != content_type:
         raise HTTPException(415, f"Expected {content_type}")
     length = request.headers.get("content-length")
     if length is not None:
@@ -116,12 +123,14 @@ class EnvironmentRequestMiddleware:
                 MutableHeaders(scope=message)["Cache-Control"] = "no-store"
             await send(message)
 
-        if scope["method"] != "POST":
+        if scope["method"] not in {"POST", "DELETE"}:
             await self.app(scope, receive, no_store_send)
             return
 
         request = Request(scope)
-        content_type, limit = _REQUEST_LIMITS[scope["path"]]
+        content_type, limit = (
+            (None, 0) if scope["method"] == "DELETE" else _REQUEST_LIMITS[scope["path"]]
+        )
         size = 0
 
         async def bounded_receive() -> Message:

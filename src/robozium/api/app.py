@@ -109,7 +109,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
     app.state.transcription_endpoint = deployment.settings.transcription_endpoint
     app.state.loaded_credentials = LoadedCredentials(deployment.settings.config_file.parent / ".env.encrypt")
     app.state.environment = EnvironmentService(
-        deployment, projects, app.state.loaded_credentials.path,
+        deployment, projects, app.state.loaded_credentials,
     )
     app.add_middleware(CredentialGateMiddleware, loaded=app.state.loaded_credentials)
     app.add_middleware(EnvironmentRequestMiddleware)

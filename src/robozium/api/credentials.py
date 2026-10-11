@@ -41,6 +41,24 @@ class LoadedCredentials:
             if name.endswith(ENCRYPTED_SUFFIX) and value.startswith(ENCRYPTED_NAMESPACE)
         }
 
+    def clear(self) -> None:
+        """Remove values unlocked by this process unless something replaced them."""
+        with self.lock:
+            for name, fingerprint in self.keys.items():
+                value = os.environ.get(name)
+                if value is not None and _fingerprint(value) == fingerprint:
+                    os.environ.pop(name, None)
+            self.keys.clear()
+
+    def reset(self) -> None:
+        """Delete saved settings and forget loaded credentials without a password."""
+        with self.lock:
+            self.path.unlink(missing_ok=True)
+            self.clear()
+            for name, value in self.encrypted.items():
+                if os.environ.get(name) == value:
+                    os.environ.pop(name, None)
+            self.encrypted.clear()
 
 
 def _fingerprint(value: str) -> bytes:
@@ -181,14 +199,6 @@ async def unlock_credentials(request: Request, response: Response) -> Credential
 def clear_credentials(request: Request, response: Response) -> CredentialStatus:
     loaded: LoadedCredentials = request.app.state.loaded_credentials
 
-    def clear() -> None:
-        with loaded.lock:
-            for name, fingerprint in loaded.keys.items():
-                value = os.environ.get(name)
-                if value is not None and _fingerprint(value) == fingerprint:
-                    os.environ.pop(name, None)
-            loaded.keys.clear()
-
-    clear()
+    loaded.clear()
     response.headers["Cache-Control"] = "no-store"
     return credential_status(loaded)
