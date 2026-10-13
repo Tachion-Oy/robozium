@@ -32,7 +32,9 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: |
+            web/package-lock.json
+            desktop/package-lock.json
       - name: Install tested Process Compose
         run: |
           version=v1.122.0
@@ -56,6 +58,12 @@ jobs:
           npm --prefix web run lint
           npm --prefix web run typecheck
           npm --prefix web run test:run
+      - name: Desktop lint, types, and build
+        run: |
+          npm --prefix desktop ci
+          npm --prefix desktop run lint
+          npm --prefix desktop run typecheck
+          npm --prefix desktop run build
 
   launcher-windows:
     name: Windows launcher

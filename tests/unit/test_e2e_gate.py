@@ -13,7 +13,9 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = yaml.load(
     (ROOT / ".github/workflows/e2e.yml").read_text(), Loader=yaml.BaseLoader
 )
-REQUIRED_JOBS = {"chromium", "firefox", "webkit", "installation", "runner", "docker"}
+REQUIRED_JOBS = {
+    "chromium", "firefox", "webkit", "installation", "runner", "docker", "electron"
+}
 
 
 def check(results: dict[str, dict[str, object]]) -> int:
@@ -43,9 +45,10 @@ def test_any_unsuccessful_job_fails(name, result):
     assert check(results) == 1
 
 
-def test_missing_job_fails():
+@pytest.mark.parametrize("name", sorted(REQUIRED_JOBS))
+def test_missing_job_fails(name):
     results = {name: {"result": "success"} for name in REQUIRED_JOBS}
-    results.pop("webkit")
+    results.pop(name)
     assert check(results) == 1
 
 
