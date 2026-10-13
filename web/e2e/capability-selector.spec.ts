@@ -109,6 +109,8 @@ test("relaunch restores saved choices, discards cancelled edits, and retains pro
 	const response = await request.get(`/api/runs/${encodeURIComponent(secondRun)}/view`)
 	expect((await response.json()).capabilities).toMatchObject({ mock_information: true, mock_guidance: false })
 	await request.post(`/api/projects/${encodeURIComponent(slug)}/cancel`)
+	// Let cancellation clear the run URL before starting a full document navigation.
+	await expect(page).toHaveURL("/")
 	await gotoLanding(page)
 	await waitForProjectRowStatus(page, slug, "DORMANT")
 	await row.getByRole("button", { name: "Tools", exact: true }).click()

@@ -6,9 +6,8 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "types": [],
-    "rootDir": "src",
-    "outDir": "dist",
-    "noEmitOnError": true
+    "jsx": "react-jsx",
+    "noEmit": true
   },
-  "include": ["src/renderer.ts", "src/bridge.d.ts"]
+  "include": ["renderer/src/**/*.tsx", "src/bridge.d.ts"]
 }
