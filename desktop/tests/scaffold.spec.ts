@@ -1,13 +1,12 @@
 import { _electron, expect, test as base, type ElectronApplication, type Page } from "@playwright/test"
 import { once } from "node:events"
 import type { ChildProcess } from "node:child_process"
-import { mkdtemp, rm } from "node:fs/promises"
+import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { pathToFileURL } from "node:url"
 
 const desktopRoot = path.resolve(__dirname, "..")
-const documentUrl = pathToFileURL(path.join(desktopRoot, "renderer/index.html")).href
+const documentUrl = "robozium://app/index.html"
 const preload = path.join(desktopRoot, "dist/preload.js")
 
 const test = base.extend<{ desktop: { app: ElectronApplication; page: Page } }>({
@@ -63,6 +62,59 @@ test("displays the version from main when launched outside the checkout", async 
 	}))).toEqual({ require: "undefined", process: "undefined", ipcRenderer: "undefined", bridge: ["getVersion"] })
 	// Playwright disables Chromium sandboxing unless explicitly told otherwise.
 	expect(await app.evaluate(({ app }) => app.commandLine.hasSwitch("no-sandbox"))).toBe(false)
+})
+
+test("loads the built React script and stylesheet through the local protocol", async ({ desktop: { page } }) => {
+	await expect(page.getByRole("status")).toHaveText(/^Version /)
+	await expect(page.locator("script[src]")).toHaveAttribute("src", /^\/assets\/.+\.js$/)
+	await expect(page.locator('link[rel="stylesheet"]')).toHaveAttribute("href", /^\/assets\/.+\.css$/)
+	await expect(page.locator("main")).toHaveCSS("text-align", "center")
+	await expect(page.getByRole("heading")).toHaveCSS("font-size", "32px")
+})
+
+for (const [name, url, method, status] of [
+	["unknown host", "robozium://other/index.html", "GET", 404],
+	["missing file", "robozium://app/missing.html", "GET", 404],
+	["directory", "robozium://app/assets/", "GET", 404],
+	["malformed encoding", "robozium://app/%E0%A4%A", "GET", 400],
+	["null byte", "robozium://app/index.html%00", "GET", 400],
+	["POST", documentUrl, "POST", 405],
+	["HEAD", documentUrl, "HEAD", 405],
+] as const) {
+	test(`rejects a resource request with ${name}`, async ({ desktop: { app } }) => {
+		const result = await app.evaluate(async ({ net }, { url, method }) => {
+			const response = await net.fetch(url, { method })
+			return { status: response.status, allow: response.headers.get("allow") }
+		}, { url, method })
+		expect(result.status).toBe(status)
+		if (status === 405) expect(result.allow).toBe("GET")
+	})
+}
+
+test("cannot read outside the renderer directory through traversal or symlinks", async ({ desktop: { app } }) => {
+	const outside = await mkdtemp(path.join(desktopRoot, "dist/outside-"))
+	const link = path.join(desktopRoot, "dist/renderer", path.basename(outside))
+	const marker = "This fixture must never be served by the renderer protocol."
+	try {
+		await writeFile(path.join(outside, "fixture.html"), marker)
+		await symlink(outside, link, "dir")
+		for (const [pathname, status] of [
+			[`/../${path.basename(outside)}/fixture.html`, 404],
+			[`/..%2f${path.basename(outside)}/fixture.html`, 400],
+			[`/%2e%2e%5c${path.basename(outside)}/fixture.html`, 400],
+			[`/${path.basename(outside)}/fixture.html`, 404],
+		] as const) {
+			const result = await app.evaluate(async ({ net }, url) => {
+				const response = await net.fetch(url)
+				return { status: response.status, body: await response.text() }
+			}, `robozium://app${pathname}`)
+			expect(result.status, pathname).toBe(status)
+			expect(result.body).not.toContain(marker)
+		}
+	} finally {
+		await rm(link, { force: true })
+		await rm(outside, { recursive: true, force: true })
+	}
 })
 
 test("rejects the version request from a different window", async ({ desktop: { app } }) => {

@@ -44,7 +44,7 @@ code have different responsibilities:
 | `tests/infrastructure/` | Startup, failure, interruption, and cleanup of the test machinery | Explicit pytest command; Full E2E |
 | `web/tests/` | Frontend state, hooks, parsing, and component behavior through Vitest | CI |
 | `web/e2e/` | Application interactions in real browsers through Playwright | Browser commands; Full E2E |
-| `desktop/tests/` | Native Electron startup, IPC isolation, navigation, and shutdown | Desktop command; Full E2E |
+| `desktop/tests/` | Native Electron startup, bundled resources, IPC isolation, navigation, and shutdown | Desktop command; Full E2E |
 | `tests/container/` | Docker onboarding and restart recovery | Full E2E |
 
 Unit tests include such behavior as project paths, run state transitions, and
@@ -125,10 +125,20 @@ npm --prefix desktop run test:electron
 ```
 
 On headless Linux, prefix the test command with `xvfb-run -a`. The suite uses one
-worker and no retries, checks the version bridge and renderer isolation, rejects
-untrusted IPC senders and navigation, and verifies native close and reopening.
+worker and no retries, checks the React version display and renderer isolation,
+rejects untrusted IPC senders and navigation, and verifies native close and
+reopening. Resource checks cover built JavaScript/CSS, unknown resources,
+unsupported methods, malformed paths, traversal, and symlink escapes.
 It cleans up its profiles and processes. Failure diagnostics are retained in
 `desktop/test-results/` and `desktop/playwright-report/`.
+
+The native CI job checks out only desktop and root files and installs desktop's
+own dependencies. Browser CI continues to exercise the full checkout separately.
+CI sets `DEBUG=pw:browser` and saves combined command output in
+`.artifacts/desktop/electron-launch.log`, uploaded with failure reports. This
+includes native errors before Playwright's Electron launch resolves; the
+fixture's per-test log cannot capture that stage. For local launch debugging,
+use `DEBUG=pw:browser xvfb-run -a npm --prefix desktop run test:electron`.
 
 CI checks desktop lint, types, and compilation. Full E2E runs the native suite on
 Ubuntu with Chromium sandboxing enabled and requires the Electron job to pass.

@@ -1,19 +1,22 @@
-import { app, BrowserWindow, ipcMain } from "electron"
+import { app, BrowserWindow, ipcMain, protocol } from "electron"
 import { mkdirSync } from "node:fs"
 import path from "node:path"
-import { pathToFileURL } from "node:url"
+import { registerRendererProtocol, rendererUrl } from "./renderer-protocol"
+
+protocol.registerSchemesAsPrivileged([
+	{ scheme: "robozium", privileges: { standard: true, secure: true } },
+])
 
 app.setName("Robozium Desktop")
 // Keep this scaffold's Chromium profile separate from the working application.
 const profile = path.resolve(process.env.ROBOZIUM_DESKTOP_TEST_DATA
 	?? path.join(__dirname, "../../.artifacts/desktop/scaffold"))
-const documentPath = path.join(__dirname, "../renderer/index.html")
-const documentUrl = pathToFileURL(documentPath).href
 
 async function start(): Promise<void> {
 	mkdirSync(profile, { recursive: true, mode: 0o700 })
 	app.setPath("userData", profile)
 	await app.whenReady()
+	await registerRendererProtocol()
 
 	const window = new BrowserWindow({
 		width: 900,
@@ -38,15 +41,15 @@ async function start(): Promise<void> {
 	contents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
 
 	ipcMain.handle("desktop:version", event => {
-		// file: documents share an opaque origin; trust this exact document instead.
+		// Only this window's main document may use the version operation.
 		if (window.isDestroyed() || event.sender !== contents
 			|| event.senderFrame !== contents.mainFrame
-			|| event.senderFrame.url !== documentUrl) {
+			|| event.senderFrame.url !== rendererUrl) {
 			throw new Error("Unauthorized desktop operation.")
 		}
 		return app.getVersion()
 	})
-	await window.loadFile(documentPath)
+	await window.loadURL(rendererUrl)
 	window.show()
 }
 

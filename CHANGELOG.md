@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Render the Electron example with React and Vite, serving bundled assets through
+  a restricted local protocol while keeping the browser application independent.
+
 - Add a Linux Electron scaffold with a native window, a typed version bridge,
   and required native startup, isolation, and shutdown checks.
 

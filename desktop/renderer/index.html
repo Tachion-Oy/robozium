@@ -5,13 +5,9 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 		<title>Robozium Desktop</title>
-		<link rel="stylesheet" href="style.css">
-		<script type="module" src="../dist/renderer.js"></script>
+		<script type="module" src="./src/main.tsx"></script>
 	</head>
 	<body>
-		<main>
-			<h1>Robozium Desktop</h1>
-			<p id="version" role="status">Loading version…</p>
-		</main>
+		<div id="root"></div>
 	</body>
 </html>

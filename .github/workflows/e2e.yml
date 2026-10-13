@@ -102,6 +102,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          sparse-checkout: desktop
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22.22.2"
@@ -116,14 +117,22 @@ jobs:
           sudo chown root:root desktop/node_modules/electron/dist/chrome-sandbox
           sudo chmod 4755 desktop/node_modules/electron/dist/chrome-sandbox
       - name: Exercise the native application with sandboxing enabled
-        run: xvfb-run -a npm --prefix desktop run test:electron
+        shell: bash
+        env:
+          DEBUG: pw:browser
+        run: |
+          set -o pipefail
+          mkdir -p .artifacts/desktop
+          xvfb-run -a npm --prefix desktop run test:electron 2>&1 | tee .artifacts/desktop/electron-launch.log
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ failure() }}
         with:
           name: electron-scaffold-reports
           path: |
+            .artifacts/desktop/electron-launch.log
             desktop/test-results/
             desktop/playwright-report/
+          include-hidden-files: true
           retention-days: 7
 
   full-e2e:
