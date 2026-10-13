@@ -158,8 +158,8 @@ xvfb-run -a npm --prefix desktop run test:electron
 git diff --check
 ```
 
-Update the desktop walkthrough and testing documentation, and add a brief
-Unreleased entry describing the renderer change. Explain the build output and
+Keep the README focused on setup, running, and checks. Update testing
+documentation and add a brief Unreleased entry. Explain the build output and
 local protocol in the PR, with generated lockfile changes identified separately.
 Target 200–400 production-code lines; split the resource-loading preparation into
 its own runnable PR if the combined implementation exceeds the review limit.

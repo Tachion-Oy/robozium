@@ -2,7 +2,7 @@
 
 ## Outcome
 
-Running these commands opens a native window showing **Robozium Desktop** and
+Running these commands opens a native window showing **Robozium** and
 the application version:
 
 ```sh
@@ -98,7 +98,7 @@ desktop job must fail Full E2E.
 
 ## Documentation and review
 
-The desktop README should explain:
+The PR description should explain:
 
 - Electron supplies Chromium for the UI and Node.js for main.
 - Preload runs in an isolated renderer context; it is not another process.
@@ -113,8 +113,8 @@ Renderer calls getVersion()
     → renderer displays the result
 ```
 
-Include a brief file walkthrough, validation commands, and a note that Docker
-integration arrives later. Add the relevant testing documentation and a short
+Include a brief file walkthrough in the PR description. Keep the README focused
+on setup, running, and checks. Add the relevant testing documentation and a short
 Unreleased changelog entry.
 
 Keep production code around 150–250 lines, with tests and configuration reviewed

@@ -7,7 +7,7 @@ protocol.registerSchemesAsPrivileged([
 	{ scheme: "robozium", privileges: { standard: true, secure: true } },
 ])
 
-app.setName("Robozium Desktop")
+app.setName("Robozium")
 // Keep this scaffold's Chromium profile separate from the working application.
 const profile = path.resolve(process.env.ROBOZIUM_DESKTOP_TEST_DATA
 	?? path.join(__dirname, "../../.artifacts/desktop/scaffold"))
@@ -21,7 +21,7 @@ async function start(): Promise<void> {
 	const window = new BrowserWindow({
 		width: 900,
 		height: 600,
-		title: "Robozium Desktop",
+		title: "Robozium",
 		show: false,
 		webPreferences: {
 			preload: path.join(__dirname, "preload.js"),
@@ -55,6 +55,6 @@ async function start(): Promise<void> {
 
 app.on("window-all-closed", () => app.quit())
 void start().catch(error => {
-	console.error("Robozium Desktop could not start:", error)
+	console.error("Robozium could not start:", error)
 	app.exit(1)
 })

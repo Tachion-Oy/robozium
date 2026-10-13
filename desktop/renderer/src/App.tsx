@@ -15,7 +15,7 @@ export function App() {
 
 	return (
 		<main>
-			<h1>Robozium Desktop</h1>
+			<h1>Robozium</h1>
 			<p role={failed ? "alert" : "status"}>
 				{failed ? "Unable to read the application version."
 					: version === undefined ? "Loading version…" : `Version ${version}`}

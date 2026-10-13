@@ -29,7 +29,7 @@ const test = base.extend<{ desktop: { app: ElectronApplication; page: Page } }>(
 			const page = await app.firstWindow()
 			const errors: string[] = []
 			page.on("pageerror", error => errors.push(error.message))
-			await expect(page.getByRole("heading", { name: "Robozium Desktop" })).toBeVisible()
+			await expect(page.getByRole("heading", { name: "Robozium", exact: true })).toBeVisible()
 			await use({ app, page })
 			expect(errors).toEqual([])
 		} finally {

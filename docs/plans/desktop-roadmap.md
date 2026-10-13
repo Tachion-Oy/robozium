@@ -47,7 +47,7 @@ with regression coverage for both clients, not an incidental UI refactor.
 ## PR 1 — Introduce the Electron scaffold
 
 **Result:** `npm --prefix desktop start` opens a native window containing a
-bundled page showing “Robozium Desktop” and its application version.
+bundled page showing “Robozium” and its application version.
 
 Keep the implementation small and explicit:
 
@@ -66,15 +66,15 @@ lockfile. Load the local page with `loadFile`. Enable sandboxing and context
 isolation, disable Node integration, restrict navigation/popups, apply a
 local-content CSP, and validate the IPC sender.
 
-The README explains this exact call:
+The PR description explains this exact call:
 
 ```text
 Page → preload.getVersion() → IPC → main → application version → page
 ```
 
-Include a short file walkthrough and instructions for running and debugging it.
-Keep technical explanations in documentation; the window itself contains only
-the application title and version.
+Include a short file walkthrough in the PR description. Keep the README focused
+on setup, running, and checks. The application is named Robozium; the window
+contains only its title and version.
 
 **Acceptance:** a Linux native CI test launches the window, verifies the version,
 confirms the renderer cannot access Node APIs, and closes the application

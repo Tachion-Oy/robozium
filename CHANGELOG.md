@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Render the Electron example with React and Vite, serving bundled assets through
+- Render the Robozium Electron app with React and Vite, serving bundled assets through
   a restricted local protocol while keeping the browser application independent.
 
 - Add a Linux Electron scaffold with a native window, a typed version bridge,
