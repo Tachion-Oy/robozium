@@ -132,6 +132,23 @@ unsupported methods, malformed paths, traversal, and symlink escapes.
 It cleans up its profiles and processes. Failure diagnostics are retained in
 `desktop/test-results/` and `desktop/playwright-report/`.
 
+Frame checks cover the bundled font, mouse/keyboard theme switching, focus,
+and both themes at 1260×780 and 640×420 client sizes with native zoom 1 and 1.25.
+Linux screenshot baselines live beside the native tests. Review visual changes
+against the experiment before explicitly updating them:
+
+```sh
+xvfb-run -a npm --prefix desktop run test:electron -- --update-snapshots --grep 'frame fits'
+```
+
+Ordinary runs never create or update baselines. Run without `--update-snapshots`
+to validate the reviewed images. The frame has no animations. Tests wait for
+fonts, the requested native viewport dimensions, and painting before capturing
+the full client area through Electron. They also verify the image dimensions
+so a cropped capture cannot become a passing baseline at native zoom.
+The test launcher selects X11 and display scale 1 so host Wayland and monitor
+scaling cannot bypass Xvfb or change the baseline dimensions.
+
 The native CI job checks out only desktop and root files and installs desktop's
 own dependencies. Browser CI continues to exercise the full checkout separately.
 CI sets `DEBUG=pw:browser` and saves combined command output in

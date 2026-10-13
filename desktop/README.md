@@ -1,7 +1,7 @@
 # Robozium
 
 The Electron app is under development. It currently shows the application name
-and version.
+and version, with a button to switch between dark and light themes.
 
 ## Run on Linux
 

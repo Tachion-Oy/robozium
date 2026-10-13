@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add the full-window Robozium frame with dark and light themes and bundled HUD typography.
+
 - Keep the web HUD outer glow at full strength while waiting, streaming, and after completion.
 
 - Render the Robozium Electron app with React and Vite, serving bundled assets through
