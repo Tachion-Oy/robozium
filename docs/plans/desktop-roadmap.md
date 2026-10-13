@@ -88,6 +88,7 @@ refactoring, or packaging. See the [detailed scaffold plan](electron-scaffold.md
 PR 1 remains the small, framework-free scaffold above. The following PRs build
 out `desktop/` while retaining the browser implementation and its regression
 checks. Each adds a runnable result and explains one new responsibility.
+The next implementation step has a [detailed PR 2 plan](react-vite-renderer.md).
 
 | PR | Change | Acceptance |
 | --- | --- | --- |
