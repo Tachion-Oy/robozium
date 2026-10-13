@@ -1,0 +1,27 @@
+{
+  "name": "robozium-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Robozium Electron scaffold",
+  "license": "Apache-2.0",
+  "type": "commonjs",
+  "main": "dist/main.js",
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "postinstall": "install-electron",
+    "build": "tsc -p tsconfig.node.json && tsc -p tsconfig.renderer.json",
+    "start": "npm run build && electron .",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.renderer.json --noEmit && tsc -p tsconfig.tests.json",
+    "test:electron": "npm run build && playwright test"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.4",
+    "@playwright/test": "1.59.1",
+    "@types/node": "20.19.39",
+    "electron": "44.7.0",
+    "eslint": "9.39.4",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.59.0"
+  }
+}

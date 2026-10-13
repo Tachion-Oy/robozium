@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a Linux Electron scaffold with a native window, a typed version bridge,
+  and required native startup, isolation, and shutdown checks.
+
 - Wrap HUD table headers and cells within the panel, keeping readable minimum
   column widths and horizontal scrolling for tables with too many columns.
 - Keep dependency metadata and diagnostics within their table cells in both themes.
