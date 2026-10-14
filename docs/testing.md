@@ -137,6 +137,8 @@ focus, skipped disabled header controls, and both themes at 1260×780 and 640×4
 client sizes with native zoom 1 and 1.25. Header geometry checks verify the single
 row, model width cap, contained controls, and ellipsized labels with full names
 and tooltips.
+Native key-input checks cover Ctrl-plus/equal/minus/zero and keypad zoom in/out,
+including focus retention and a single zoom step per key press.
 Linux screenshot baselines live beside the native tests. Review visual changes
 against the experiment before explicitly updating them:
 

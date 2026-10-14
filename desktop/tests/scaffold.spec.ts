@@ -119,6 +119,28 @@ test("switches themes with the keyboard and mouse while retaining focus", async 
 	await expect(toggle).toBeFocused()
 })
 
+test("native Ctrl shortcuts zoom both ways and reset with main and keypad keys", async ({ desktop: { app, page } }) => {
+	const toggle = page.getByRole("button", { name: "Toggle color theme" })
+	await toggle.focus()
+	for (const [keyCode, level] of [
+		["-", -0.5], ["=", 0], ["+", 0.5], ["numadd", 1],
+		["numsub", 0.5], ["-", 0], ["=", 0.5], ["0", 0],
+	] as const) {
+		// CDP page.keyboard bypasses Electron's native shortcut handling.
+		await app.evaluate(({ BrowserWindow }, keyCode) => {
+			const window = BrowserWindow.getAllWindows()[0]
+			window.focus()
+			const modifier = process.platform === "darwin" ? "meta" : "control"
+			window.webContents.sendInputEvent({ type: "keyDown", keyCode, modifiers: [modifier] })
+			window.webContents.sendInputEvent({ type: "keyUp", keyCode, modifiers: [modifier] })
+		}, keyCode)
+		await expect.poll(() => app.evaluate(({ BrowserWindow }) =>
+			BrowserWindow.getAllWindows()[0].webContents.getZoomLevel()), { message: `Zoom after Ctrl+${keyCode}` })
+			.toBeCloseTo(level)
+		await expect(toggle).toBeFocused()
+	}
+})
+
 for (const [width, height] of [[1260, 780], [640, 420]]) {
 	for (const zoom of [1, 1.25]) {
 		test(`frame fits ${width}x${height} at ${zoom} zoom in both themes`, async ({ desktop: { app, page } }) => {

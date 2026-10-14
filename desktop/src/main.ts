@@ -32,6 +32,22 @@ async function start(): Promise<void> {
 	})
 	window.setMenuBarVisibility(false)
 	const contents = window.webContents
+	contents.on("before-input-event", (event, input) => {
+		const modifier = process.platform === "darwin"
+			? input.meta && !input.control : input.control && !input.meta
+		if (input.type !== "keyDown" || !modifier || input.alt || input.isComposing) return
+		let level = contents.getZoomLevel()
+		switch (input.key) {
+			case "+":
+			case "=": level += 0.5; break
+			case "-": level -= 0.5; break
+			case "0": level = 0; break
+			default: return
+		}
+		// Match logical keys across layouts/keypads and suppress the menu's second step.
+		event.preventDefault()
+		contents.setZoomLevel(level)
+	})
 	contents.setWindowOpenHandler(() => ({ action: "deny" }))
 	contents.on("will-navigate", event => event.preventDefault())
 	contents.on("will-frame-navigate", event => event.preventDefault())

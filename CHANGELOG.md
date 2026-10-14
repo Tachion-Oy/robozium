@@ -4,6 +4,7 @@
 
 - Add the desktop HUD header with shared buttons, disabled model/secrets/view
   previews, and a working theme toggle that fits narrow windows and native zoom.
+- Make desktop Ctrl zoom shortcuts work with plus/equal and keypad keys.
 
 - Add the full-window Robozium frame with dark and light themes and bundled HUD typography.
 

@@ -21,6 +21,9 @@ The app starts in dark mode. Press Tab to focus the theme button, then Space or
 Enter to switch themes; the disabled controls are skipped. Resize the window to
 try the compact header. Truncated labels retain their full hover tooltips.
 
+Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset.
+The keypad + and - keys also work with Ctrl.
+
 ## Checks
 
 ```sh
