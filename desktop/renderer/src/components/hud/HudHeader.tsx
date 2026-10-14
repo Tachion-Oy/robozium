@@ -1,4 +1,6 @@
 import { HudButton } from "./HudButton"
+import "./hud-header.css"
+import "./theme-toggle.css"
 
 type HudHeaderProps = {
 	theme: "dark" | "light"

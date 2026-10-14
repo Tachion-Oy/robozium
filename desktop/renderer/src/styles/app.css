@@ -1,7 +1,4 @@
 @import "@fontsource/source-code-pro/latin-400.css";
-@import "./hud-button.css";
-@import "./hud-header.css";
-@import "./theme-toggle.css";
 
 :root {
 	color-scheme: dark;

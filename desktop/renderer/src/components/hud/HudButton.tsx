@@ -1,4 +1,5 @@
 import type { ComponentPropsWithRef } from "react"
+import "./hud-button.css"
 
 const variants = {
 	info: "hud-button--info",

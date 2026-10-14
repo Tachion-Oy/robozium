@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { HudHeader } from "./HudHeader"
+import { HudHeader } from "./components/hud/HudHeader"
 
 export function App() {
 	const [theme, setTheme] = useState<"dark" | "light">("dark")

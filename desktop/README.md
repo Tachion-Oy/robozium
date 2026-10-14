@@ -37,3 +37,17 @@ On Linux without a display, run the tests with
 
 See the [testing guide](../docs/testing.md#electron-scaffold-checks) for diagnostics
 and CI details.
+
+## Code layout
+
+- `src/` contains Electron main, preload, and the typed bridge.
+- `renderer/src/` contains the React entry point and app state.
+- `renderer/src/components/hud/` contains HUD components and their CSS.
+  Components import the styles they own; the header currently owns its inline
+  theme toggle's styling.
+- `renderer/src/styles/app.css` contains app-wide typography, theme tokens,
+  base styles, and the frame.
+- `tests/` contains native scenarios and screenshot baselines.
+
+Keep new components with their feature and their styles beside them. Add folders
+as those features arrive in the desktop roadmap.
