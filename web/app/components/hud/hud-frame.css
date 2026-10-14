@@ -199,8 +199,7 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
     ),
     rgb(var(--hud-shell-rgb) / 0.72);
   background-size: 3.5rem 3.5rem, 3.5rem 3.5rem, auto, auto;
-  /* Built here (not from a :root var) so --hud-glow-scale resolves against this
-     element -- letting .agent-hud__box--inactive dim it. */
+  /* Keep the title-cover shadow alongside the full-strength cyan edge glow. */
   box-shadow:
     var(--hud-title-shadow, 0 0 0 transparent),
     0 0 10px rgba(64, 200, 255, calc(0.38 * var(--hud-glow-scale))),
@@ -217,11 +216,9 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
     height 200ms ease;
 }
 
-/* Idle HUD (waiting / streaming -- not awaiting a prompt): dim the blue edge
-   glow. Strength lives in --hud-inactive-glow-scale (one knob to tweak). */
+/* Idle HUD (waiting / streaming -- not awaiting a prompt): dim the event badge. */
 
 .agent-hud__box--inactive {
-  --hud-glow-scale: var(--hud-inactive-glow-scale);
   /* Dim the top-edge event badge uniformly while idle (same look, darker). */
   --hud-event-brightness: var(--hud-inactive-event-brightness);
 }

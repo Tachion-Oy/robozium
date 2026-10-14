@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep the web HUD outer glow at full strength while waiting, streaming, and after completion.
+
 - Render the Robozium Electron app with React and Vite, serving bundled assets through
   a restricted local protocol while keeping the browser application independent.
 
