@@ -1,10 +1,11 @@
-.theme-toggle {
+.hud-button {
+	--btn-accent: var(--term-blue);
 	--btn-cut: 0.5625rem;
 	--btn-ring: 2px;
-	--btn-edge: color-mix(in oklab, var(--term-blue) 62%, transparent);
+	--btn-edge: color-mix(in oklab, var(--btn-accent) 62%, transparent);
 	--btn-fill-strength: 10%;
 	--btn-surface: color-mix(in oklab, var(--hud-input-bg) 90%, transparent);
-	--btn-fill: color-mix(in oklab, var(--term-blue) var(--btn-fill-strength), transparent);
+	--btn-fill: color-mix(in oklab, var(--btn-accent) var(--btn-fill-strength), transparent);
 	position: relative;
 	z-index: 0;
 	display: inline-flex;
@@ -14,7 +15,7 @@
 	padding: 0.48rem 0.72rem;
 	border: 0;
 	background: transparent;
-	color: color-mix(in oklab, var(--term-blue) 76%, white 24%);
+	color: color-mix(in oklab, var(--btn-accent) 76%, white 24%);
 	font: inherit;
 	line-height: 1;
 	letter-spacing: 0.02em;
@@ -22,8 +23,8 @@
 }
 
 /* Nested polygons retain continuous edges at fractional native zoom. */
-.theme-toggle::before,
-.theme-toggle::after {
+.hud-button::before,
+.hud-button::after {
 	content: "";
 	position: absolute;
 	clip-path: polygon(
@@ -35,14 +36,14 @@
 	pointer-events: none;
 }
 
-.theme-toggle::before {
+.hud-button::before {
 	--cut: var(--btn-cut);
 	inset: 0;
 	z-index: -2;
 	background: var(--btn-edge);
 }
 
-.theme-toggle::after {
+.hud-button::after {
 	--cut: calc(var(--btn-cut) - var(--btn-ring) / 2);
 	inset: var(--btn-ring);
 	z-index: -1;
@@ -50,29 +51,19 @@
 	backdrop-filter: blur(3px);
 }
 
-.theme-toggle:hover {
-	--btn-edge: color-mix(in oklab, var(--term-blue) 88%, white 12%);
+.hud-button:not(:disabled):hover {
+	--btn-edge: color-mix(in oklab, var(--btn-accent) 88%, white 12%);
 	--btn-fill-strength: 24%;
 }
 
-.theme-toggle:focus-visible {
-	outline: 2px solid color-mix(in oklab, var(--term-blue) 80%, white 20%);
+.hud-button:focus-visible {
+	outline: 2px solid color-mix(in oklab, var(--btn-accent) 80%, white 20%);
 	outline-offset: 2px;
 }
 
-.theme-toggle__indicator {
-	flex: 0 0 auto;
-	width: 0.62rem;
-	height: 0.62rem;
-	border: 1px solid currentColor;
-	border-radius: 50%;
-	background: currentColor;
-	box-shadow: 0 0 7px currentColor;
-}
-
-:root[data-theme="light"] .theme-toggle {
-	--btn-edge: color-mix(in oklab, var(--term-blue) 58%, var(--hud-input-border));
-	--btn-fill: color-mix(in oklab, var(--term-blue) 13%, var(--hud-input-bg));
+:root[data-theme="light"] .hud-button {
+	--btn-edge: color-mix(in oklab, var(--btn-accent) 58%, var(--hud-input-border));
+	--btn-fill: color-mix(in oklab, var(--btn-accent) 13%, var(--hud-input-bg));
 	min-height: 2.35rem;
 	padding: 0.5rem 0.78rem;
 	border: 1px solid var(--btn-edge);
@@ -80,7 +71,7 @@
 	background:
 		linear-gradient(
 			to top,
-			color-mix(in oklab, var(--term-blue) 68%, transparent) 0 0.16rem,
+			color-mix(in oklab, var(--btn-accent) 68%, transparent) 0 0.16rem,
 			transparent 0.16rem
 		),
 		linear-gradient(
@@ -94,12 +85,22 @@
 	letter-spacing: 0.045em;
 }
 
-:root[data-theme="light"] .theme-toggle::before,
-:root[data-theme="light"] .theme-toggle::after {
+:root[data-theme="light"] .hud-button::before,
+:root[data-theme="light"] .hud-button::after {
 	content: none;
 }
 
-:root[data-theme="light"] .theme-toggle:is(:hover, :focus-visible) {
-	border-color: color-mix(in oklab, var(--term-blue) 72%, var(--hud-control-ink));
-	background: color-mix(in oklab, var(--term-blue) 16%, var(--hud-input-bg));
+:root[data-theme="light"] .hud-button:not(:disabled):is(:hover, :focus-visible) {
+	border-color: color-mix(in oklab, var(--btn-accent) 72%, var(--hud-control-ink));
+	background: color-mix(in oklab, var(--btn-accent) 16%, var(--hud-input-bg));
+}
+
+.hud-button--info { --btn-accent: var(--term-blue); }
+.hud-button--success { --btn-accent: var(--term-green); }
+.hud-button--warning { --btn-accent: var(--term-amber); }
+.hud-button--danger { --btn-accent: var(--term-red); }
+
+.hud-button:disabled {
+	opacity: 0.55;
+	cursor: default;
 }

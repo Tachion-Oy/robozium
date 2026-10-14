@@ -84,6 +84,16 @@ test("loads the built React script, stylesheet, and font through the local proto
 test("switches themes with the keyboard and mouse while retaining focus", async ({ desktop: { page } }) => {
 	const root = page.locator("html")
 	const toggle = page.getByRole("button", { name: "Toggle color theme" })
+	await expect(page.locator("header button")).toHaveText([
+		"Mock model", "Light", "Secrets unavailable", "Runs Overview",
+	])
+	for (const name of ["Mock model", "Secrets unavailable", "Runs Overview"]) {
+		const fixture = page.getByRole("button", { name, exact: true })
+		await expect(fixture).toBeDisabled()
+		await expect(fixture).toHaveAttribute("disabled", "")
+		await expect(fixture).not.toHaveAttribute("aria-haspopup")
+		await expect(fixture).not.toHaveAttribute("aria-expanded")
+	}
 	await expect(root).toHaveAttribute("data-theme", "dark")
 	await expect(toggle).toHaveText("Light")
 	await page.keyboard.press("Tab")
@@ -96,12 +106,39 @@ test("switches themes with the keyboard and mouse while retaining focus", async 
 	await expect(toggle).toHaveText("Dark")
 	await expect(toggle).toBeFocused()
 	await expect(toggle).toHaveCSS("outline-width", "2px")
+	// The native window wraps focus to its only enabled control in both directions.
+	for (const key of ["Tab", "Shift+Tab"]) {
+		await page.keyboard.press(key)
+		await expect(toggle).toBeFocused()
+	}
 	await page.keyboard.press("Enter")
 	await expect(root).toHaveAttribute("data-theme", "dark")
 	await expect(toggle).toBeFocused()
 	await toggle.click()
 	await expect(root).toHaveAttribute("data-theme", "light")
 	await expect(toggle).toBeFocused()
+})
+
+test("native Ctrl shortcuts zoom both ways and reset with main and keypad keys", async ({ desktop: { app, page } }) => {
+	const toggle = page.getByRole("button", { name: "Toggle color theme" })
+	await toggle.focus()
+	for (const [keyCode, level] of [
+		["-", -0.5], ["=", 0], ["+", 0.5], ["numadd", 1],
+		["numsub", 0.5], ["-", 0], ["=", 0.5], ["0", 0],
+	] as const) {
+		// CDP page.keyboard bypasses Electron's native shortcut handling.
+		await app.evaluate(({ BrowserWindow }, keyCode) => {
+			const window = BrowserWindow.getAllWindows()[0]
+			window.focus()
+			const modifier = process.platform === "darwin" ? "meta" : "control"
+			window.webContents.sendInputEvent({ type: "keyDown", keyCode, modifiers: [modifier] })
+			window.webContents.sendInputEvent({ type: "keyUp", keyCode, modifiers: [modifier] })
+		}, keyCode)
+		await expect.poll(() => app.evaluate(({ BrowserWindow }) =>
+			BrowserWindow.getAllWindows()[0].webContents.getZoomLevel()), { message: `Zoom after Ctrl+${keyCode}` })
+			.toBeCloseTo(level)
+		await expect(toggle).toBeFocused()
+	}
 })
 
 for (const [width, height] of [[1260, 780], [640, 420]]) {
@@ -119,9 +156,20 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 			for (const theme of ["dark", "light"]) {
 				if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 				await expect(page.locator("html")).toHaveAttribute("data-theme", theme)
+				for (const name of ["Mock model", "Secrets unavailable", "Runs Overview"]) {
+					const fixture = page.getByRole("button", { name, exact: true })
+					await expect(fixture).toHaveAccessibleName(name)
+					await expect(fixture).toHaveAttribute("title", name)
+				}
+				await expect(page.getByRole("button", { name: "Toggle color theme" }))
+					.toHaveAttribute("title", `Switch to ${theme === "dark" ? "light" : "dark"} theme`)
 				await page.mouse.move(0, 0)
 				const geometry = await page.evaluate(() => {
 					const frame = document.querySelector("main")!.getBoundingClientRect()
+					const header = document.querySelector("header")!.getBoundingClientRect()
+					const buttons = [...document.querySelectorAll("header button")]
+						.map(element => element.getBoundingClientRect())
+					const labels = [...document.querySelectorAll(".hud-header__label")]
 					const contents = [...document.querySelectorAll("h1, p, button")]
 					return {
 						frame: [frame.x, frame.y, frame.width, frame.height],
@@ -130,12 +178,28 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 							return rect.x >= 0 && rect.y >= 0 && rect.right <= innerWidth
 								&& rect.bottom <= innerHeight && element.scrollWidth <= element.clientWidth
 						}),
+						// Native zoom introduces subpixel rounding in DOMRect sums.
+						headerContained: buttons.every((rect, index) =>
+							rect.x >= header.x - 0.01 && rect.right <= header.right + 0.01
+							&& rect.y >= header.y - 0.01 && rect.bottom <= header.bottom + 0.01 && rect.width > 0
+							&& (index === 0 || rect.x > buttons[index - 1].right)
+							&& Math.abs(rect.y + rect.height / 2 - header.y - header.height / 2) < 1),
+						modelCapped: buttons[0].width <= header.width * 0.4,
+						labelsReadable: labels.every(element => {
+							const style = getComputedStyle(element)
+							return element.clientWidth > 0 && (element.scrollWidth <= element.clientWidth
+								|| (style.overflow === "hidden" && style.textOverflow === "ellipsis"
+									&& style.whiteSpace === "nowrap"))
+						}),
 						scroll: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
 					}
 				})
 				expect(geometry).toEqual({
 					frame: [0, 0, width / zoom, height / zoom],
 					contained: true,
+					headerContained: true,
+					modelCapped: true,
+					labelsReadable: true,
 					scroll: [width / zoom, height / zoom],
 				})
 				await page.getByRole("button", { name: "Toggle color theme" }).click({ trial: true })

@@ -1,0 +1,9 @@
+.theme-toggle__indicator {
+	flex: 0 0 auto;
+	width: 0.62rem;
+	height: 0.62rem;
+	border: 1px solid currentColor;
+	border-radius: 50%;
+	background: currentColor;
+	box-shadow: 0 0 7px currentColor;
+}

@@ -1,11 +1,13 @@
 @import "@fontsource/source-code-pro/latin-400.css";
-@import "./theme-toggle.css";
 
 :root {
 	color-scheme: dark;
 	font-family: "Source Code Pro", ui-monospace, monospace;
 	font-size: 75%;
 	--term-blue: #40c8ff;
+	--term-green: #33ff7a;
+	--term-amber: #ffb000;
+	--term-red: #ff3b30;
 	--hud-shell-bg: #091426;
 	--hud-input-bg: color-mix(in oklab, #0d0f12 85%, #00080f 15%);
 	--hud-input-text: color-mix(in oklab, var(--term-blue) 50%, white 50%);
@@ -17,6 +19,9 @@
 :root[data-theme="light"] {
 	color-scheme: light;
 	--term-blue: #788bb5;
+	--term-green: #26787a;
+	--term-amber: #b9872f;
+	--term-red: #a8443e;
 	--hud-box-bg: #dcd8cf;
 	--hud-input-bg: #f1ede5;
 	--hud-input-text: #505762;
@@ -52,12 +57,6 @@ body {
 		linear-gradient(90deg, rgba(64, 200, 255, 0.04) 0 2px, transparent 2px),
 		var(--hud-shell-bg);
 	background-size: 3.5rem 3.5rem;
-}
-
-.hud-frame__toolbar {
-	display: flex;
-	justify-content: flex-end;
-	min-width: 0;
 }
 
 .hud-frame__content {

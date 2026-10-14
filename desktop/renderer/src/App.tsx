@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { HudHeader } from "./components/hud/HudHeader"
 
 export function App() {
 	const [theme, setTheme] = useState<"dark" | "light">("dark")
@@ -18,16 +19,8 @@ export function App() {
 
 	return (
 		<main className="hud-frame">
-			<div className="hud-frame__toolbar">
-				<button
-					type="button"
-					className="theme-toggle"
-					aria-label="Toggle color theme"
-					onClick={() => setTheme(current => current === "dark" ? "light" : "dark")}>
-					<span className="theme-toggle__indicator" aria-hidden="true" />
-					{theme === "dark" ? "Light" : "Dark"}
-				</button>
-			</div>
+			<HudHeader theme={theme}
+				onToggleTheme={() => setTheme(current => current === "dark" ? "light" : "dark")} />
 			<div className="hud-frame__content">
 				<h1>Robozium</h1>
 				<p role={failed ? "alert" : "status"}>

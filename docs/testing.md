@@ -132,13 +132,18 @@ unsupported methods, malformed paths, traversal, and symlink escapes.
 It cleans up its profiles and processes. Failure diagnostics are retained in
 `desktop/test-results/` and `desktop/playwright-report/`.
 
-Frame checks cover the bundled font, mouse/keyboard theme switching, focus,
-and both themes at 1260×780 and 640×420 client sizes with native zoom 1 and 1.25.
+Frame checks cover the bundled font, mouse/keyboard theme switching, retained
+focus, skipped disabled header controls, and both themes at 1260×780 and 640×420
+client sizes with native zoom 1 and 1.25. Header geometry checks verify the single
+row, model width cap, contained controls, and ellipsized labels with full names
+and tooltips.
+Native key-input checks cover Ctrl-plus/equal/minus/zero and keypad zoom in/out,
+including focus retention and a single zoom step per key press.
 Linux screenshot baselines live beside the native tests. Review visual changes
 against the experiment before explicitly updating them:
 
 ```sh
-xvfb-run -a npm --prefix desktop run test:electron -- --update-snapshots --grep 'frame fits'
+xvfb-run -a npm --prefix desktop run test:electron -- --update-snapshots=all --grep 'frame fits'
 ```
 
 Ordinary runs never create or update baselines. Run without `--update-snapshots`
