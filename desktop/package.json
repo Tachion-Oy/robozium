@@ -12,7 +12,7 @@
     "build": "npm run typecheck && tsc -p tsconfig.node.json && vite build",
     "start": "npm run build && electron .",
     "lint": "eslint .",
-    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.renderer.json && tsc -p tsconfig.tests.json && tsc -p tsconfig.vite.json",
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p renderer/tsconfig.json && tsc -p tsconfig.tests.json && tsc -p tsconfig.vite.json",
     "test:electron": "npm run build && playwright test"
   },
   "dependencies": {

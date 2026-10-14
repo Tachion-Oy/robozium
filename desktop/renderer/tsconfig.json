@@ -5,9 +5,10 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "strict": true,
-    "types": [],
+    "types": ["vite/client"],
     "jsx": "react-jsx",
+    "noUncheckedSideEffectImports": true,
     "noEmit": true
   },
-  "include": ["renderer/src/**/*.tsx", "src/bridge.d.ts"]
+  "include": ["src/**/*.tsx", "../src/bridge.d.ts"]
 }

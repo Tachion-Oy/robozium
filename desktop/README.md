@@ -47,6 +47,8 @@ and CI details.
   theme toggle's styling.
 - `renderer/src/styles/app.css` contains app-wide typography, theme tokens,
   base styles, and the frame.
+- `renderer/tsconfig.json` supplies the renderer's browser and Vite asset types
+  to both the editor and the command-line type check.
 - `tests/` contains native scenarios and screenshot baselines.
 
 Keep new components with their feature and their styles beside them. Add folders
