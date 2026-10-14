@@ -2,10 +2,18 @@
 
 ## Unreleased
 
+- Keep the web HUD outer glow at full strength while waiting, streaming, and after completion.
+
+- Render the Robozium Electron app with React and Vite, serving bundled assets through
+  a restricted local protocol while keeping the browser application independent.
+
+- Add a Linux Electron scaffold with a native window, a typed version bridge,
+  and required native startup, isolation, and shutdown checks.
 
 - Wrap HUD table headers and cells within the panel, keeping readable minimum
   column widths and horizontal scrolling for tables with too many columns.
 - Keep dependency metadata and diagnostics within their table cells in both themes.
+
 - Show Environment save confirmations and example-file errors through toasts.
 
 - Add a confirmed Environment reset for forgotten passwords. Delete saved settings
