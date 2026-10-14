@@ -88,15 +88,15 @@ refactoring, or packaging. See the [detailed scaffold plan](electron-scaffold.md
 PR 1 remains the small, framework-free scaffold above. The following PRs build
 out `desktop/` while retaining the browser implementation and its regression
 checks. Each adds a runnable result and explains one new responsibility.
-PRs 1, 2, and 3a are merged. The next HUD increment follows the
-[PR 3b.1 header plan](desktop-hud-header.md).
+PRs 1, 2, 3a, and 3b.1 are merged. The next HUD increment follows the
+[PR 3b.2 selector plan](desktop-hud-selectors.md).
 
 | PR | Change | Acceptance |
 | --- | --- | --- |
 | **2. Add the React and Vite renderer** | Render the existing name/version example with React. Build with Vite and load bundled assets through a restricted custom protocol. Keep main/preload explicit and preserve their security settings. | The native example and error state work in development and from built assets, without Next.js or anything installed under `web/`. Existing IPC, navigation, and close/reopen checks pass. |
 | **3a. Port the frame and themes** | Port the experiment's full-window surface, insets, typography, and dark/light themes around the existing Robozium name/version display. | Native visual checks cover both themes, narrow windows, zoom, and keyboard focus. Assets and dependencies are local to desktop. |
 | **3b.1. Add the shared button and header layout** | Add a desktop-local `HudButton` and the complete header with disabled model, secrets, and view fixtures; keep theme switching functional. | Both themes, narrow layouts, and zoom preserve the single row, full accessible names, and keyboard focus without backend requests. |
-| **3b.2. Add interactive header selectors** | Add model/view selectors using local fixture state. Keep credential operations in PR 10. | Menus support selection, keyboard navigation, dismissal, and focus restoration in both themes and narrow layouts. |
+| **3b.2. Add interactive header selectors** | Add model/view selectors using local fixture state and a placeholder panel for each selected view. Keep credential operations in PR 10. | Menus support selection, keyboard navigation, dismissal, and focus retention in both themes and narrow layouts; view choices update the placeholder. |
 | **3c. Port the content panels** | Add the message/composer layout with local fixture content and divider controls. | Opaque panels remain usable in both themes at narrow sizes and zoom. |
 | **3d. Port the footer controls** | Add the accepted footer presentation and wrapping with local fixture state. | Controls stay reachable, preserve focus, and retain their layout while resizing. |
 | **4. Add desktop Docker configuration** | Add a desktop-owned Compose definition and allowlisted build inputs for the existing Python backend. Document manual mock startup and shutdown. | Build and start the backend without the Next.js service. Verify mounts, credential handling, loopback-only access, health checks, and one worker per hub. Existing browser launchers remain unchanged. |

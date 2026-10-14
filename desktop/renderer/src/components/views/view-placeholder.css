@@ -1,0 +1,9 @@
+.view-placeholder {
+	margin-top: 1.5rem;
+	padding: 1.25rem;
+	border: 1px solid color-mix(in oklab, var(--term-amber) 45%, transparent);
+	border-radius: 0.3rem;
+	background: var(--hud-input-bg);
+}
+
+.view-placeholder h2 { margin: 0; font-size: 1.35rem; font-weight: 400; }

@@ -1,9 +1,10 @@
 # Robozium
 
 The Electron app is under development. It currently shows the application name
-and version beneath a four-control HUD header. Light/Dark switches the theme;
-Mock model, Secrets unavailable, and Runs Overview are disabled preview controls.
-This preview needs no Docker services or provider credentials.
+and version beneath a four-control HUD header. Model and view selectors use
+local preview choices; selecting a view shows its placeholder panel. Light/Dark
+switches the theme, and Secrets unavailable is disabled. This preview needs no
+Docker services or provider credentials.
 
 ## Run on Linux
 
@@ -17,9 +18,18 @@ npm --prefix desktop start
 Close and restart the app to rebuild after changes. Local app data is stored in
 `.artifacts/desktop/scaffold/`.
 
-The app starts in dark mode. Press Tab to focus the theme button, then Space or
-Enter to switch themes; the disabled controls are skipped. Resize the window to
-try the compact header. Truncated labels retain their full hover tooltips.
+The app starts in dark mode with Mock model and Runs Overview selected. Tab moves
+through the model selector, theme button, and view selector, skipping Secrets.
+Open a selector with a click, Enter, Space, or an arrow key. Use arrows, Home/End,
+or type a name prefix to explore choices. Enter, Space, or Tab accepts the
+highlighted choice; Escape or clicking the open trigger cancels. Clicking outside
+accepts the highlighted choice and dismisses the popup. Only one popup opens at
+a time. Model/view choices survive theme changes and reset when the page reloads
+or the app restarts.
+
+Runs Overview, Dependencies, and Environment currently display “This view is
+coming soon.” Resize the window to try the compact header. Truncated labels retain
+their full hover tooltips.
 
 Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset.
 The keypad + and - keys also work with Ctrl.
@@ -45,6 +55,8 @@ and CI details.
 - `renderer/src/components/hud/` contains HUD components and their CSS.
   Components import the styles they own; the header currently owns its inline
   theme toggle's styling.
+- `renderer/src/components/views/` contains the view placeholder and its CSS.
+- `renderer/src/fixtures/` contains local model and view choices.
 - `renderer/src/styles/app.css` contains app-wide typography, theme tokens,
   base styles, and the frame.
 - `renderer/tsconfig.json` supplies the renderer's browser and Vite asset types
