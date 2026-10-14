@@ -88,12 +88,16 @@ refactoring, or packaging. See the [detailed scaffold plan](electron-scaffold.md
 PR 1 remains the small, framework-free scaffold above. The following PRs build
 out `desktop/` while retaining the browser implementation and its regression
 checks. Each adds a runnable result and explains one new responsibility.
-The next implementation step has a [detailed PR 2 plan](react-vite-renderer.md).
+PRs 1 and 2 are merged. The HUD port starts with the
+[PR 3a frame and themes plan](desktop-hud-frame.md).
 
 | PR | Change | Acceptance |
 | --- | --- | --- |
 | **2. Add the React and Vite renderer** | Render the existing name/version example with React. Build with Vite and load bundled assets through a restricted custom protocol. Keep main/preload explicit and preserve their security settings. | The native example and error state work in development and from built assets, without Next.js or anything installed under `web/`. Existing IPC, navigation, and close/reopen checks pass. |
-| **3. Port the desktop HUD frame** | Copy only the components, styles, fonts, and assets needed for the accepted full-window frame. Use local fixture content. Preserve opaque panels, spacing, footer, themes, and focus behavior. | Native visual checks cover both themes, narrow windows, and zoom. No production imports point into `web/`. |
+| **3a. Port the frame and themes** | Port the experiment's full-window surface, insets, typography, and dark/light themes around the existing Robozium name/version display. | Native visual checks cover both themes, narrow windows, zoom, and keyboard focus. Assets and dependencies are local to desktop. |
+| **3b. Port the HUD header** | Add the header's presentation with local fixture selections. Preserve spacing and keyboard behavior. | Both themes and narrow layouts work without backend requests. |
+| **3c. Port the content panels** | Add the message/composer layout with local fixture content and divider controls. | Opaque panels remain usable in both themes at narrow sizes and zoom. |
+| **3d. Port the footer controls** | Add the accepted footer presentation and wrapping with local fixture state. | Controls stay reachable, preserve focus, and retain their layout while resizing. |
 | **4. Add desktop Docker configuration** | Add a desktop-owned Compose definition and allowlisted build inputs for the existing Python backend. Document manual mock startup and shutdown. | Build and start the backend without the Next.js service. Verify mounts, credential handling, loopback-only access, health checks, and one worker per hub. Existing browser launchers remain unchanged. |
 | **5. Manage Docker from main** | Add a focused controller for Docker discovery, image reuse/building, startup, readiness, cancellation, and owned-service shutdown. Expose only the startup status needed by the renderer. | Launch and close the native app against the real mock backend. Cover missing Docker, ownership mismatch, occupied ports, readiness failure, and cancellation without deleting user data. |
 | **6. Connect the desktop API client** | Add the desktop HTTP/SSE client and a minimal connection/error/retry view. Establish the allowed renderer origin and backend access checks before exposing application operations. Preserve applicable BFF validation in the backend. | Native tests reach the real Python backend directly with no Next.js proxy. Verify allowed and rejected requests, request cancellation, connection failure, and recovery. |

@@ -6,6 +6,8 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 
 const desktopRoot = path.resolve(__dirname, "..")
+// Use Xvfb even when the host has Wayland; keep screenshot density reproducible.
+const launchArgs = [desktopRoot, "--ozone-platform=x11", "--force-device-scale-factor=1"]
 const documentUrl = "robozium://app/index.html"
 const preload = path.join(desktopRoot, "dist/preload.js")
 
@@ -17,7 +19,7 @@ const test = base.extend<{ desktop: { app: ElectronApplication; page: Page } }>(
 		let child: ChildProcess | undefined
 		try {
 			app = await playwright._electron.launch({
-				args: [desktopRoot],
+				args: launchArgs,
 				chromiumSandbox: true,
 				cwd: directory,
 				env: { ...process.env, ROBOZIUM_DESKTOP_TEST_DATA: path.join(directory, "profile") },
@@ -64,13 +66,100 @@ test("displays the version from main when launched outside the checkout", async 
 	expect(await app.evaluate(({ app }) => app.commandLine.hasSwitch("no-sandbox"))).toBe(false)
 })
 
-test("loads the built React script and stylesheet through the local protocol", async ({ desktop: { page } }) => {
+test("loads the built React script, stylesheet, and font through the local protocol", async ({ desktop: { page } }) => {
+	const fontResponse = page.waitForResponse(response =>
+		/^robozium:\/\/app\/assets\/source-code-pro-latin-400-normal-.+\.woff2$/.test(response.url()))
+	await page.reload()
+	expect((await fontResponse).ok()).toBe(true)
 	await expect(page.getByRole("status")).toHaveText(/^Version /)
 	await expect(page.locator("script[src]")).toHaveAttribute("src", /^\/assets\/.+\.js$/)
 	await expect(page.locator('link[rel="stylesheet"]')).toHaveAttribute("href", /^\/assets\/.+\.css$/)
-	await expect(page.locator("main")).toHaveCSS("text-align", "center")
-	await expect(page.getByRole("heading")).toHaveCSS("font-size", "32px")
+	expect(await page.evaluate(async () => {
+		await document.fonts.ready
+		return [...document.fonts].map(font => ({ weight: font.weight, status: font.status }))
+	})).toEqual([{ weight: "400", status: "loaded" }])
+	await expect(page.getByRole("heading")).toHaveCSS("font-family", '"Source Code Pro", ui-monospace, monospace')
 })
+
+test("switches themes with the keyboard and mouse while retaining focus", async ({ desktop: { page } }) => {
+	const root = page.locator("html")
+	const toggle = page.getByRole("button", { name: "Toggle color theme" })
+	await expect(root).toHaveAttribute("data-theme", "dark")
+	await expect(toggle).toHaveText("Light")
+	await page.keyboard.press("Tab")
+	await expect(toggle).toBeFocused()
+	await expect(toggle).toHaveCSS("outline-style", "solid")
+	await expect(toggle).toHaveCSS("outline-width", "2px")
+	await page.keyboard.press("Space")
+	await expect(root).toHaveAttribute("data-theme", "light")
+	await expect(root).toHaveCSS("color-scheme", "light")
+	await expect(toggle).toHaveText("Dark")
+	await expect(toggle).toBeFocused()
+	await expect(toggle).toHaveCSS("outline-width", "2px")
+	await page.keyboard.press("Enter")
+	await expect(root).toHaveAttribute("data-theme", "dark")
+	await expect(toggle).toBeFocused()
+	await toggle.click()
+	await expect(root).toHaveAttribute("data-theme", "light")
+	await expect(toggle).toBeFocused()
+})
+
+for (const [width, height] of [[1260, 780], [640, 420]]) {
+	for (const zoom of [1, 1.25]) {
+		test(`frame fits ${width}x${height} at ${zoom} zoom in both themes`, async ({ desktop: { app, page } }) => {
+			await app.evaluate(({ BrowserWindow }, { width, height, zoom }) => {
+				const window = BrowserWindow.getAllWindows()[0]
+				window.setContentSize(width, height)
+				window.webContents.setZoomFactor(zoom)
+			}, { width, height, zoom })
+			await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight]))
+				.toEqual([width / zoom, height / zoom])
+			await expect(page.getByRole("status")).toHaveText(/^Version /)
+			await page.evaluate(() => document.fonts.ready.then(() => undefined))
+			for (const theme of ["dark", "light"]) {
+				if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+				await expect(page.locator("html")).toHaveAttribute("data-theme", theme)
+				await page.mouse.move(0, 0)
+				const geometry = await page.evaluate(() => {
+					const frame = document.querySelector("main")!.getBoundingClientRect()
+					const contents = [...document.querySelectorAll("h1, p, button")]
+					return {
+						frame: [frame.x, frame.y, frame.width, frame.height],
+						contained: contents.every(element => {
+							const rect = element.getBoundingClientRect()
+							return rect.x >= 0 && rect.y >= 0 && rect.right <= innerWidth
+								&& rect.bottom <= innerHeight && element.scrollWidth <= element.clientWidth
+						}),
+						scroll: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
+					}
+				})
+				expect(geometry).toEqual({
+					frame: [0, 0, width / zoom, height / zoom],
+					contained: true,
+					scroll: [width / zoom, height / zoom],
+				})
+				await page.getByRole("button", { name: "Toggle color theme" }).click({ trial: true })
+				await page.mouse.move(0, 0)
+				await page.evaluate(() => new Promise<void>(resolve =>
+					requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+				// Capture the native client area: CDP screenshots crop at Electron zoom.
+				// The compositor may still have the old surface after DOM resize completes.
+				let screenshot: Buffer | undefined
+				await expect.poll(async () => {
+					const capture = await app.evaluate(async ({ BrowserWindow }) => {
+						const image = await BrowserWindow.getAllWindows()[0].webContents.capturePage()
+						return { size: image.getSize(), png: image.toPNG().toString("base64") }
+					})
+					screenshot = Buffer.from(capture.png, "base64")
+					return capture.size
+				}).toEqual({ width, height })
+				expect(screenshot).toMatchSnapshot(`frame-${theme}-${width}x${height}-${zoom}.png`, {
+					threshold: 0.2, maxDiffPixelRatio: 0.002,
+				})
+			}
+		})
+	}
+}
 
 for (const [name, url, method, status] of [
 	["unknown host", "robozium://other/index.html", "GET", 404],
@@ -160,7 +249,7 @@ test("native close exits and the same profile can reopen", async ({ desktop: { a
 	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())
 	expect(await exited).toEqual([0, null])
 	const reopened = await _electron.launch({
-		args: [desktopRoot],
+		args: launchArgs,
 		chromiumSandbox: true,
 		cwd: path.dirname(profile),
 		env: { ...process.env, ROBOZIUM_DESKTOP_TEST_DATA: profile },
