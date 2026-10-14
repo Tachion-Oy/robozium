@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add the desktop HUD header with shared buttons, disabled model/secrets/view
+  previews, and a working theme toggle that fits narrow windows and native zoom.
+
 - Add the full-window Robozium frame with dark and light themes and bundled HUD typography.
 
 - Keep the web HUD outer glow at full strength while waiting, streaming, and after completion.

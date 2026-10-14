@@ -1,0 +1,106 @@
+.hud-button {
+	--btn-accent: var(--term-blue);
+	--btn-cut: 0.5625rem;
+	--btn-ring: 2px;
+	--btn-edge: color-mix(in oklab, var(--btn-accent) 62%, transparent);
+	--btn-fill-strength: 10%;
+	--btn-surface: color-mix(in oklab, var(--hud-input-bg) 90%, transparent);
+	--btn-fill: color-mix(in oklab, var(--btn-accent) var(--btn-fill-strength), transparent);
+	position: relative;
+	z-index: 0;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.55rem;
+	max-width: 100%;
+	padding: 0.48rem 0.72rem;
+	border: 0;
+	background: transparent;
+	color: color-mix(in oklab, var(--btn-accent) 76%, white 24%);
+	font: inherit;
+	line-height: 1;
+	letter-spacing: 0.02em;
+	cursor: pointer;
+}
+
+/* Nested polygons retain continuous edges at fractional native zoom. */
+.hud-button::before,
+.hud-button::after {
+	content: "";
+	position: absolute;
+	clip-path: polygon(
+		var(--cut) 0, calc(100% - var(--cut)) 0,
+		100% var(--cut), 100% calc(100% - var(--cut)),
+		calc(100% - var(--cut)) 100%, var(--cut) 100%,
+		0 calc(100% - var(--cut)), 0 var(--cut)
+	);
+	pointer-events: none;
+}
+
+.hud-button::before {
+	--cut: var(--btn-cut);
+	inset: 0;
+	z-index: -2;
+	background: var(--btn-edge);
+}
+
+.hud-button::after {
+	--cut: calc(var(--btn-cut) - var(--btn-ring) / 2);
+	inset: var(--btn-ring);
+	z-index: -1;
+	background: linear-gradient(var(--btn-fill), var(--btn-fill)), var(--btn-surface);
+	backdrop-filter: blur(3px);
+}
+
+.hud-button:not(:disabled):hover {
+	--btn-edge: color-mix(in oklab, var(--btn-accent) 88%, white 12%);
+	--btn-fill-strength: 24%;
+}
+
+.hud-button:focus-visible {
+	outline: 2px solid color-mix(in oklab, var(--btn-accent) 80%, white 20%);
+	outline-offset: 2px;
+}
+
+:root[data-theme="light"] .hud-button {
+	--btn-edge: color-mix(in oklab, var(--btn-accent) 58%, var(--hud-input-border));
+	--btn-fill: color-mix(in oklab, var(--btn-accent) 13%, var(--hud-input-bg));
+	min-height: 2.35rem;
+	padding: 0.5rem 0.78rem;
+	border: 1px solid var(--btn-edge);
+	border-radius: 0.3rem;
+	background:
+		linear-gradient(
+			to top,
+			color-mix(in oklab, var(--btn-accent) 68%, transparent) 0 0.16rem,
+			transparent 0.16rem
+		),
+		linear-gradient(
+			180deg,
+			color-mix(in oklab, white 30%, var(--btn-fill)),
+			color-mix(in oklab, var(--btn-fill) 88%, var(--hud-input-bg))
+		);
+	box-shadow: inset 0 1px 0 color-mix(in oklab, white 68%, transparent),
+		0 0.13rem 0.2rem color-mix(in oklab, var(--hud-control-ink) 11%, transparent);
+	color: var(--hud-control-ink);
+	letter-spacing: 0.045em;
+}
+
+:root[data-theme="light"] .hud-button::before,
+:root[data-theme="light"] .hud-button::after {
+	content: none;
+}
+
+:root[data-theme="light"] .hud-button:not(:disabled):is(:hover, :focus-visible) {
+	border-color: color-mix(in oklab, var(--btn-accent) 72%, var(--hud-control-ink));
+	background: color-mix(in oklab, var(--btn-accent) 16%, var(--hud-input-bg));
+}
+
+.hud-button--info { --btn-accent: var(--term-blue); }
+.hud-button--success { --btn-accent: var(--term-green); }
+.hud-button--warning { --btn-accent: var(--term-amber); }
+.hud-button--danger { --btn-accent: var(--term-red); }
+
+.hud-button:disabled {
+	opacity: 0.55;
+	cursor: default;
+}

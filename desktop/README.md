@@ -1,7 +1,9 @@
 # Robozium
 
 The Electron app is under development. It currently shows the application name
-and version, with a button to switch between dark and light themes.
+and version beneath a four-control HUD header. Light/Dark switches the theme;
+Mock model, Secrets unavailable, and Runs Overview are disabled preview controls.
+This preview needs no Docker services or provider credentials.
 
 ## Run on Linux
 
@@ -14,6 +16,10 @@ npm --prefix desktop start
 
 Close and restart the app to rebuild after changes. Local app data is stored in
 `.artifacts/desktop/scaffold/`.
+
+The app starts in dark mode. Press Tab to focus the theme button, then Space or
+Enter to switch themes; the disabled controls are skipped. Resize the window to
+try the compact header. Truncated labels retain their full hover tooltips.
 
 ## Checks
 
