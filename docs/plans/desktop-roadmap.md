@@ -88,8 +88,8 @@ refactoring, or packaging. See the [detailed scaffold plan](electron-scaffold.md
 PR 1 remains the small, framework-free scaffold above. The following PRs build
 out `desktop/` while retaining the browser implementation and its regression
 checks. Each adds a runnable result and explains one new responsibility.
-PRs 1, 2, 3a, 3b.1, and 3b.2 are merged. The content-panel increment follows
-the [PR 3c panel plan](desktop-hud-panels.md); footer controls follow in PR 3d.
+PRs 1, 2, 3a, 3b.1, 3b.2, and 3c are merged. The footer increment follows the
+[PR 3d footer plan](desktop-hud-footer.md). PR 4 remains the next increment.
 
 | PR | Change | Acceptance |
 | --- | --- | --- |
@@ -98,7 +98,7 @@ the [PR 3c panel plan](desktop-hud-panels.md); footer controls follow in PR 3d.
 | **3b.1. Add the shared button and header layout** | Add a desktop-local `HudButton` and the complete header with disabled model, secrets, and view fixtures; keep theme switching functional. | Both themes, narrow layouts, and zoom preserve the single row, full accessible names, and keyboard focus without backend requests. |
 | **3b.2. Add interactive header selectors** | Add model/view selectors using local fixture state and a placeholder panel for each selected view. Keep credential operations in PR 10. | Menus support selection, keyboard navigation, dismissal, and focus retention in both themes and narrow layouts; view choices update the placeholder. |
 | **3c. Port the content panels** | Start a local mock run from Runs Overview and show the message/composer layout with divider controls and a retained draft. | Opaque panels remain usable in both themes at narrow sizes and zoom. |
-| **3d. Port the footer controls** | Add the accepted footer presentation and wrapping with local fixture state. | Controls stay reachable, preserve focus, and retain their layout while resizing. |
+| **3d. Port the footer controls** | Add centered fixture-history navigation, Clear, and native clipboard writes. Keep Send/Cancel/Interrupt/Record disabled. | Local helpers preserve draft/selection, transfer focus at history boundaries, report copy success/failure, and retain DOM identity while wrapping in both themes. |
 | **4. Add desktop Docker configuration** | Add a desktop-owned Compose definition and allowlisted build inputs for the existing Python backend. Document manual mock startup and shutdown. | Build and start the backend without the Next.js service. Verify mounts, credential handling, loopback-only access, health checks, and one worker per hub. Existing browser launchers remain unchanged. |
 | **5. Manage Docker from main** | Add a focused controller for Docker discovery, image reuse/building, startup, readiness, cancellation, and owned-service shutdown. Expose only the startup status needed by the renderer. | Launch and close the native app against the real mock backend. Cover missing Docker, ownership mismatch, occupied ports, readiness failure, and cancellation without deleting user data. |
 | **6. Connect the desktop API client** | Add the desktop HTTP/SSE client and a minimal connection/error/retry view. Establish the allowed renderer origin and backend access checks before exposing application operations. Preserve applicable BFF validation in the backend. | Native tests reach the real Python backend directly with no Next.js proxy. Verify allowed and rejected requests, request cancellation, connection failure, and recovery. |

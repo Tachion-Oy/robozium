@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, type RefObject } from "react"
 import type { LayoutMode } from "./HudDividerControls"
 import "./hud-panels.css"
 
@@ -12,13 +12,13 @@ function AgentMessagePanel({ message }: { message: string }) {
 	)
 }
 
-function ReplyEditor({ draft, onChange, focusOnOpen }: {
+function ReplyEditor({ draft, onChange, focusOnOpen, editor }: {
 	draft: string; onChange: (draft: string) => void; focusOnOpen: boolean
+	editor: RefObject<HTMLTextAreaElement | null>
 }) {
-	const editor = useRef<HTMLTextAreaElement>(null)
 	useEffect(() => {
 		if (focusOnOpen) editor.current?.focus()
-	}, [focusOnOpen])
+	}, [focusOnOpen, editor])
 	return (
 		<div className="hud-panel hud-panel--user">
 			<textarea ref={editor} aria-label="Reply" placeholder="Type your reply..."
@@ -27,17 +27,18 @@ function ReplyEditor({ draft, onChange, focusOnOpen }: {
 	)
 }
 
-export function HudPanels({ message, draft, onDraftChange, layout, focusOnOpen }: {
+export function HudPanels({ message, draft, onDraftChange, layout, focusOnOpen, editor }: {
 	message: string
 	draft: string
 	onDraftChange: (draft: string) => void
 	layout: LayoutMode
 	focusOnOpen: boolean
+	editor: RefObject<HTMLTextAreaElement | null>
 }) {
 	return (
 		<section className="hud-panels" data-layout={layout} aria-label="Current Run">
 			<AgentMessagePanel message={message} />
-			<ReplyEditor draft={draft} onChange={onDraftChange} focusOnOpen={focusOnOpen} />
+			<ReplyEditor draft={draft} onChange={onDraftChange} focusOnOpen={focusOnOpen} editor={editor} />
 		</section>
 	)
 }

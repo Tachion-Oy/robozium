@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add the desktop Current Run footer with three-message history, Clear reply,
+  exact native clipboard copying, accessible success/failure feedback, and
+  centered controls that wrap while retaining focus. Sending and run actions
+  remain disabled previews.
+
 - Keep both desktop selectors stable across label changes while shrinking in
   narrow windows, center the divider arrows in square light-theme buttons, and
   animate panel resizing with the web HUD’s 220ms easing.

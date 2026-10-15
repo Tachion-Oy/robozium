@@ -1,82 +1,9 @@
-import { _electron, expect, test as base, type ElectronApplication, type Page } from "@playwright/test"
+import { _electron, expect, type Page } from "@playwright/test"
 import { once } from "node:events"
-import type { ChildProcess } from "node:child_process"
 import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
 import path from "node:path"
-
-const desktopRoot = path.resolve(__dirname, "..")
-// Use Xvfb even when the host has Wayland; keep screenshot density reproducible.
-const launchArgs = [desktopRoot, "--ozone-platform=x11", "--force-device-scale-factor=1"]
-const documentUrl = "robozium://app/index.html"
-const preload = path.join(desktopRoot, "dist/preload.js")
-
-const test = base.extend<{ desktop: { app: ElectronApplication; page: Page } }>({
-	desktop: async ({ playwright }, use, testInfo) => {
-		const directory = await mkdtemp(path.join(tmpdir(), "robozium-scaffold-"))
-		const logs: string[] = []
-		let app: ElectronApplication | undefined
-		let child: ChildProcess | undefined
-		try {
-			app = await playwright._electron.launch({
-				args: launchArgs,
-				chromiumSandbox: true,
-				cwd: directory,
-				env: { ...process.env, ROBOZIUM_DESKTOP_TEST_DATA: path.join(directory, "profile") },
-				timeout: 15_000,
-			})
-			child = app.process()
-			child.stdout?.on("data", chunk => logs.push(String(chunk)))
-			child.stderr?.on("data", chunk => logs.push(String(chunk)))
-			const page = await app.firstWindow()
-			const errors: string[] = []
-			page.on("pageerror", error => errors.push(error.message))
-			await expect(page.getByRole("heading", { name: "Robozium", exact: true })).toBeVisible()
-			await use({ app, page })
-			expect(errors).toEqual([])
-		} finally {
-			try {
-				if (app && child?.exitCode === null && child.signalCode === null) {
-					await app.close()
-				}
-			} finally {
-				if (child?.exitCode === null && child.signalCode === null) {
-					const exited = once(child, "exit")
-					child.kill("SIGKILL")
-					await exited
-				}
-				await testInfo.attach("electron.log", { body: logs.join(""), contentType: "text/plain" })
-				await rm(directory, { recursive: true, force: true })
-			}
-		}
-	},
-})
-
-async function waitForPanelLayout(page: Page) {
-	await page.evaluate(async () => {
-		await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
-		const animations = document.querySelector(".hud-panels")?.getAnimations({ subtree: true }) ?? []
-		await Promise.all(animations.map(animation => animation.finished.catch(() => {})))
-	})
-}
-
-async function captureNative(app: ElectronApplication, page: Page, width: number, height: number) {
-	await waitForPanelLayout(page)
-	await page.mouse.move(0, 0)
-	await page.evaluate(() => new Promise<void>(resolve =>
-		requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
-	// CDP screenshots crop at Electron zoom. Wait for the full native surface.
-	let screenshot: Buffer | undefined
-	await expect.poll(async () => {
-		const capture = await app.evaluate(async ({ BrowserWindow }) => {
-			const image = await BrowserWindow.getAllWindows()[0].webContents.capturePage()
-			return { size: image.getSize(), png: image.toPNG().toString("base64") }
-		})
-		screenshot = Buffer.from(capture.png, "base64")
-		return capture.size
-	}).toEqual({ width, height })
-	return screenshot
-}
+import { test, desktopRoot, launchArgs, documentUrl, preload, waitForPanelLayout, captureNative } from "./native"
+import { expectFooterGeometry } from "./footer-geometry"
 
 async function expectPanelGeometry(page: Page, layout: "top" | "equal" | "bottom") {
 	await waitForPanelLayout(page)
@@ -335,14 +262,14 @@ for (const theme of ["dark", "light"]) {
 
 test("displays the version from main when launched outside the checkout", async ({ desktop: { app, page } }) => {
 	const version = await app.evaluate(({ app }) => app.getVersion())
-	await expect(page.getByRole("status")).toHaveText(`Version ${version}`)
+	await expect(page.locator(".hud-frame__identity").getByRole("status")).toHaveText(`Version ${version}`)
 	expect(page.url()).toBe(documentUrl)
 	expect(await page.evaluate(() => ({
 		require: typeof Reflect.get(window, "require"),
 		process: typeof Reflect.get(window, "process"),
 		ipcRenderer: typeof Reflect.get(window, "ipcRenderer"),
 		bridge: Object.keys(window.robozium),
-	}))).toEqual({ require: "undefined", process: "undefined", ipcRenderer: "undefined", bridge: ["getVersion"] })
+	}))).toEqual({ require: "undefined", process: "undefined", ipcRenderer: "undefined", bridge: ["getVersion", "writeClipboardText"] })
 	// Playwright disables Chromium sandboxing unless explicitly told otherwise.
 	expect(await app.evaluate(({ app }) => app.commandLine.hasSwitch("no-sandbox"))).toBe(false)
 })
@@ -352,12 +279,12 @@ test("loads the built React script, stylesheet, and font through the local proto
 		/^robozium:\/\/app\/assets\/source-code-pro-latin-400-normal-.+\.woff2$/.test(response.url()))
 	await page.reload()
 	expect((await fontResponse).ok()).toBe(true)
-	await expect(page.getByRole("status")).toHaveText(/^Version /)
+	await expect(page.locator(".hud-frame__identity").getByRole("status")).toHaveText(/^Version /)
 	await expect(page.locator("script[src]")).toHaveAttribute("src", /^\/assets\/.+\.js$/)
 	await expect(page.locator('link[rel="stylesheet"]')).toHaveAttribute("href", /^\/assets\/.+\.css$/)
 	expect(await page.evaluate(async () => {
 		await document.fonts.ready
-		return [...document.fonts].map(font => ({ weight: font.weight, status: font.status }))
+		return [...document.fonts].filter(font => font.family === "Source Code Pro").map(font => ({ weight: font.weight, status: font.status }))
 	})).toEqual([{ weight: "400", status: "loaded" }])
 	await expect(page.getByRole("heading", { level: 1 })).toHaveCSS("font-family", '"Source Code Pro", ui-monospace, monospace')
 })
@@ -420,7 +347,7 @@ for (const theme of ["dark", "light"]) {
 			await expect(view).toBeFocused()
 			await expect(page.getByRole("listbox")).toHaveCount(0)
 			await expect(page.getByRole("region", { name, exact: true })).toContainText(name === "Runs Overview" ? "Start run" : "This view is coming soon.")
-			await expect(page.getByRole("status")).toHaveText(/^Version /)
+			await expect(page.locator(".hud-frame__identity").getByRole("status")).toHaveText(/^Version /)
 		}
 		await toggle.click()
 		await expect(model).toHaveText("Mock fast model")
@@ -550,7 +477,7 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 			}, { width, height, zoom })
 			await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight]))
 				.toEqual([width / zoom, height / zoom])
-			await expect(page.getByRole("status")).toHaveText(/^Version /)
+			await expect(page.locator(".hud-frame__identity").getByRole("status")).toHaveText(/^Version /)
 			await page.evaluate(() => document.fonts.ready.then(() => undefined))
 			for (const theme of ["dark", "light"]) {
 				if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
@@ -637,6 +564,7 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 					if (layout !== "top") await page.getByRole("button", { name: "Move panel divider up" }).click()
 					await expect(page.getByRole("region", { name: "Current Run", exact: true })).toHaveAttribute("data-layout", layout)
 					await expectPanelGeometry(page, layout)
+					await expectFooterGeometry(page)
 					if (layout !== "top" && width === 640 && zoom === 1.25) {
 						await page.getByRole("button", { name: "Move panel divider down" }).blur()
 						expect(await captureNative(app, page, width, height)).toMatchSnapshot(`panels-${layout}-${theme}.png`, {

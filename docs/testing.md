@@ -159,11 +159,29 @@ screenshots show a started mock run with the default message-expanded layout.
 Native key-input checks cover Ctrl-plus/equal/minus/zero and keypad zoom in/out,
 including focus retention and a single zoom step per key press while a selector
 is open.
+
+Footer checks exercise all four history directions, disabled boundaries, focus
+transfer, retained selection/draft/divider state, and Clear returning focus to
+the existing textarea. Clipboard tests run on the isolated Xvfb display and
+assert exact native clipboard text, including whitespace and newlines. They
+cover success announcements, two-second feedback expiry, content invalidation,
+native write failure and retry, invalid payloads, untrusted windows/documents,
+and continued browser permission denial. Only Electron main writes the native
+clipboard; the renderer's typed bridge provides no read operation.
+
+Footer geometry joins the full size/theme/zoom and three-divider-position
+matrix. Checks assert centered navigation, contained controls, centered icons,
+readable labels, and no document overflow. Resizing across wrap boundaries
+preserves helper focus, DOM identity, and visible copy feedback. Two additional
+footer screenshots show populated drafts and enabled helpers in both themes.
+The native test fixture and capture helpers are shared by the scaffold and
+footer scenarios.
+
 Linux screenshot baselines live beside the native tests. Review visual changes
 against the experiment before explicitly updating them:
 
 ```sh
-xvfb-run -a npm --prefix desktop run test:electron -- --update-snapshots=all --grep 'frame fits'
+xvfb-run -a npm --prefix desktop run test:electron -- --update-snapshots=all --grep 'frame fits|footer keeps'
 ```
 
 Ordinary runs never create or update baselines. Run without `--update-snapshots`

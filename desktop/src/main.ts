@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, protocol } from "electron"
+import { app, BrowserWindow, clipboard, ipcMain, protocol, type IpcMainInvokeEvent } from "electron"
 import { mkdirSync } from "node:fs"
 import path from "node:path"
 import { registerRendererProtocol, rendererUrl } from "./renderer-protocol"
@@ -56,14 +56,22 @@ async function start(): Promise<void> {
 	contents.session.setPermissionCheckHandler(() => false)
 	contents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
 
-	ipcMain.handle("desktop:version", event => {
-		// Only this window's main document may use the version operation.
+	const requireTrustedDocument = (event: IpcMainInvokeEvent) => {
+		// Only this window's main document may use desktop operations.
 		if (window.isDestroyed() || event.sender !== contents
 			|| event.senderFrame !== contents.mainFrame
 			|| event.senderFrame.url !== rendererUrl) {
 			throw new Error("Unauthorized desktop operation.")
 		}
+	}
+	ipcMain.handle("desktop:version", event => {
+		requireTrustedDocument(event)
 		return app.getVersion()
+	})
+	ipcMain.handle("desktop:write-clipboard-text", (event, text: unknown) => {
+		requireTrustedDocument(event)
+		if (typeof text !== "string") throw new TypeError("Clipboard text must be a string.")
+		clipboard.writeText(text)
 	})
 	await window.loadURL(rendererUrl)
 	window.show()
