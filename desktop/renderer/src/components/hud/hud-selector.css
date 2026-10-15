@@ -8,6 +8,15 @@
 .hud-select > .hud-button { width: 100%; }
 .hud-select [aria-expanded="true"] .hud-header__caret { transform: rotate(180deg); }
 
+/* Reserve the longest label's natural width, while letting the row shrink it. */
+.hud-select__label { display: grid; }
+.hud-select__label::after { content: attr(data-width-label); visibility: hidden; }
+.hud-select__label::after, .hud-select__label > span {
+	grid-area: 1 / 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 .hud-select__menu {
 	--menu-cut: 0.5rem;
 	--menu-ring: 2px;

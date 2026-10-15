@@ -164,8 +164,12 @@ xvfb-run -a npm --prefix desktop run test:electron -- --update-snapshots=all --g
 ```
 
 Ordinary runs never create or update baselines. Run without `--update-snapshots`
-to validate the reviewed images. The frame has no animations. Tests wait for
-fonts, the requested native viewport dimensions, and painting before capturing
+to validate the reviewed images. Panel resizing uses the web HUD’s 220ms ease
+transitions for flex-grow and flex-basis, disabled for reduced motion. Dedicated
+native tests check intermediate geometry and reduced motion separately from
+settled captures; selector checks verify stable header positions across view
+labels and shrinking at narrow sizes. Tests wait for panel transitions, fonts,
+the requested native viewport dimensions, and painting before capturing
 the full client area through Electron. They also verify the image dimensions
 so a cropped capture cannot become a passing baseline at native zoom.
 The test launcher selects X11 and display scale 1 so host Wayland and monitor

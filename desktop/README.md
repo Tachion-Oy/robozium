@@ -32,7 +32,8 @@ appears above an empty reply editor. Draft freely: Enter and Shift+Enter insert
 newlines; replies are not sent yet. The arrow buttons in the left rail move the
 divider between message-expanded, equal, and reply-expanded positions. At each
 limit, the unavailable direction is disabled. Messages and long drafts scroll
-inside their own panels.
+inside their own panels. Divider changes animate over 220ms, or move immediately
+when reduced motion is enabled.
 
 Switch views using the header, or use **Return to run** in Runs Overview. The
 draft and divider position survive view, model, theme, window-size, and zoom
@@ -40,8 +41,9 @@ changes. Reloading or restarting resets the preview to Runs Overview with no
 active run. Dependencies and Environment still display “This view is coming
 soon.” Divider controls remain visible but disabled outside Current Run.
 
-Resize the window to try the compact header. Truncated labels retain their full
-hover tooltips. API connections, provider credentials, and environment editing
+The view selector reserves room for its longest label, so switching views keeps
+the other header controls in place. It shrinks with the window; truncated labels
+retain their full hover tooltips. API connections, provider credentials, and environment editing
 arrive in their later roadmap steps.
 
 Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset.

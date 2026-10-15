@@ -52,7 +52,16 @@ const test = base.extend<{ desktop: { app: ElectronApplication; page: Page } }>(
 	},
 })
 
+async function waitForPanelLayout(page: Page) {
+	await page.evaluate(async () => {
+		await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+		const animations = document.querySelector(".hud-panels")?.getAnimations({ subtree: true }) ?? []
+		await Promise.all(animations.map(animation => animation.finished.catch(() => {})))
+	})
+}
+
 async function captureNative(app: ElectronApplication, page: Page, width: number, height: number) {
+	await waitForPanelLayout(page)
 	await page.mouse.move(0, 0)
 	await page.evaluate(() => new Promise<void>(resolve =>
 		requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
@@ -70,6 +79,7 @@ async function captureNative(app: ElectronApplication, page: Page, width: number
 }
 
 async function expectPanelGeometry(page: Page, layout: "top" | "equal" | "bottom") {
+	await waitForPanelLayout(page)
 	const geometry = await page.locator(".hud-panels").evaluate(container => {
 		const panels = [...container.querySelectorAll<HTMLElement>(".hud-panel")]
 		const bounds = panels.map(panel => panel.getBoundingClientRect())
@@ -97,6 +107,73 @@ async function expectPanelGeometry(page: Page, layout: "top" | "equal" | "bottom
 }
 
 for (const theme of ["dark", "light"]) {
+	test(`view selector keeps header positions stable and shrinks in ${theme}`, async ({ desktop: { app, page } }) => {
+		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		await page.evaluate(() => document.fonts.ready.then(() => undefined))
+		const view = page.getByRole("combobox", { name: /^HUD view:/ })
+		const bounds = () => page.locator("header button").evaluateAll(buttons => buttons.map(button => {
+			const { x, width } = button.getBoundingClientRect()
+			return { x, width }
+		}))
+		let fullWidth = 0
+		for (const [width, height, zoom] of [[1260, 780, 1], [640, 420, 1.25]]) {
+			await app.evaluate(({ BrowserWindow }, { width, height, zoom }) => {
+				const window = BrowserWindow.getAllWindows()[0]
+				window.setContentSize(width, height)
+				window.webContents.setZoomFactor(zoom)
+			}, { width, height, zoom })
+			await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([width / zoom, height / zoom])
+			const initial = await bounds()
+			if (width === 1260) fullWidth = initial[3].width
+			else expect(initial[3].width).toBeLessThan(fullWidth)
+			for (const name of ["Runs Overview", "Dependencies", "Environment", "Current Run"]) {
+				await view.click()
+				await page.getByRole("option", { name, exact: true }).click()
+				await expect(view).toHaveAccessibleName(`HUD view: ${name}`)
+				await expect(view).toHaveAttribute("title", name)
+				expect(await bounds()).toEqual(initial)
+				if (width === 1260) expect(await view.locator(".hud-header__label > span")
+					.evaluate(label => label.scrollWidth <= label.clientWidth)).toBe(true)
+			}
+		}
+	})
+
+	test(`panel divider interpolates and respects reduced motion in ${theme}`, async ({ desktop: { page } }) => {
+		await page.emulateMedia({ reducedMotion: "no-preference" })
+		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		const motion = await page.evaluate(async () => {
+			const panels = document.querySelector(".hud-panels")!
+			const agent = panels.firstElementChild!
+			const before = agent.getBoundingClientRect().height
+			const started = new Promise<void>(resolve => panels.addEventListener("transitionrun", () => resolve(), { once: true }))
+			document.querySelector<HTMLButtonElement>('[aria-label="Move panel divider up"]')!.click()
+			await started
+			const animations = panels.getAnimations({ subtree: true })
+			for (const animation of animations) { animation.pause(); animation.currentTime = 110 }
+			const middle = agent.getBoundingClientRect().height
+			const timing = animations.map(animation => ({
+				property: (animation as CSSTransition).transitionProperty,
+				duration: animation.effect!.getTiming().duration,
+				easing: animation.effect!.getTiming().easing,
+			}))
+			for (const animation of animations) animation.finish()
+			return { before, middle, after: agent.getBoundingClientRect().height, timing }
+		})
+		expect(motion.middle).toBeLessThan(motion.before)
+		expect(motion.middle).toBeGreaterThan(motion.after)
+		expect(motion.timing).toEqual(expect.arrayContaining([
+			{ property: "flex-grow", duration: 220, easing: "ease" },
+			{ property: "flex-basis", duration: 220, easing: "ease" },
+		]))
+		await expectPanelGeometry(page, "equal")
+		await page.emulateMedia({ reducedMotion: "reduce" })
+		await page.getByRole("button", { name: "Move panel divider down" }).click()
+		expect(await page.locator(".hud-panels").evaluate(panels => panels.getAnimations({ subtree: true }).length)).toBe(0)
+		await expectPanelGeometry(page, "top")
+	})
+
 	test(`mock run preserves editing and divider state in ${theme}`, async ({ desktop: { app, page } }) => {
 		const requests: string[] = []
 		page.on("request", request => { if (/^https?:/.test(request.url())) requests.push(request.url()) })

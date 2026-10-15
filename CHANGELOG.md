@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Keep the desktop view selector stable across label changes while shrinking in
+  narrow windows, and animate panel resizing with the web HUD’s 220ms easing.
+
 - Start a desktop mock run from Runs Overview, with opaque message/reply panels,
   a retained multiline draft, and keyboard-accessible three-position divider controls.
 

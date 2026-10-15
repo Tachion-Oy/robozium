@@ -24,6 +24,7 @@ export function HudSelector<Value extends string>({
 	const selected = options.findIndex(option => option.value === value)
 	const [active, setActive] = useState(selected)
 	const selectedLabel = options[selected].label
+	const widestLabel = options.reduce((longest, option) => option.label.length > longest.length ? option.label : longest, "")
 	const close = (commit: boolean) => {
 		if (commit) onSelect(options[active].value)
 		search.current.text = ""
@@ -107,7 +108,11 @@ export function HudSelector<Value extends string>({
 				title={selectedLabel} aria-haspopup="listbox" aria-expanded={open}
 				aria-controls={open ? id : undefined} aria-activedescendant={open ? `${id}-${active}` : undefined}
 				onKeyDown={onKeyDown} onClick={() => open ? close(false) : openAt(selected)}>
-				<span className="hud-header__label">{selectedLabel}</span>
+				{variant === "view" ? (
+					<span className="hud-header__label hud-select__label" data-width-label={widestLabel}>
+						<span>{selectedLabel}</span>
+					</span>
+				) : <span className="hud-header__label">{selectedLabel}</span>}
 				<SelectorCaret />
 			</HudButton>
 			{open && (
