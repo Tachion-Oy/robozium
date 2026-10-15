@@ -139,11 +139,20 @@ row, model width cap, contained controls, and ellipsized labels with full names
 and tooltips. Selector scenarios cover pointer selection, keyboard exploration,
 prefix search, acceptance/cancellation, outside dismissal, one open popup, and
 view placeholders. Choices survive theme/view changes and reset on reload;
-selector interactions make no HTTP requests.
+selector interactions make no HTTP requests. Mock-run checks start from Runs
+Overview, verify Current Run becomes available, and exercise returning to the
+same draft through the overview and view selector. They cover multiline editing,
+caret retention during resizing/theme/zoom changes, bounded divider movement,
+focus transfer at disabled limits, reset on reload, and independent scrolling
+with a long draft. All three panel layouts run through the size/theme/zoom matrix
+with wrapping, containment, and document-overflow assertions. Native pixel samples
+in both themes verify opacity against an injected contrasting underlay.
 Both open popups are checked throughout the size/theme/zoom matrix, including
 viewport containment, visible options, keyboard highlights, and long selected
 labels. Four additional popup screenshots cover both selectors and themes at
-640×420 with native zoom 1.25.
+640×420 with native zoom 1.25. Four panel screenshots additionally cover equal
+and composer-expanded layouts at that size/zoom in both themes. The eight frame
+screenshots show a started mock run with the default message-expanded layout.
 Native key-input checks cover Ctrl-plus/equal/minus/zero and keypad zoom in/out,
 including focus retention and a single zoom step per key press while a selector
 is open.

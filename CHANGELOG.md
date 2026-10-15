@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Start a desktop mock run from Runs Overview, with opaque message/reply panels,
+  a retained multiline draft, and keyboard-accessible three-position divider controls.
+
 - Enable desktop model/view selectors with keyboard navigation and local choices;
   show placeholder panels for Runs Overview, Dependencies, and Environment.
 

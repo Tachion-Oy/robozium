@@ -1,0 +1,111 @@
+.hud-panels {
+	--panel-pad-start: 0.95rem;
+	--panel-pad-end: 1.1rem;
+	--panel-pad-inline: 1.15rem;
+	--compact-height: calc(5.4em + var(--panel-pad-start) + var(--panel-pad-end) + 2px);
+	display: flex;
+	flex-direction: column;
+	gap: 0.9rem;
+	min-width: 0;
+	min-height: 0;
+	height: 100%;
+}
+
+.hud-panel {
+	--panel-cut: 1.5rem;
+	--panel-ring: 1.5px;
+	--panel-edge: color-mix(in oklab, var(--term-blue) 45%, transparent);
+	--panel-fill: var(--hud-input-bg);
+	position: relative;
+	isolation: isolate;
+	display: flex;
+	flex: 1 1 0;
+	min-width: 0;
+	min-height: 0;
+	padding: var(--panel-pad-start) var(--panel-pad-inline) var(--panel-pad-end);
+	text-align: left;
+}
+
+.hud-panels[data-layout="top"] .hud-panel--user,
+.hud-panels[data-layout="bottom"] .hud-panel--agent {
+	flex: 0 0 min(var(--compact-height), 45%);
+}
+
+/* Opaque nested plates retain continuous bevels at fractional native zoom. */
+.hud-panel::before, .hud-panel::after {
+	content: "";
+	position: absolute;
+	pointer-events: none;
+	clip-path: polygon(
+		var(--cut) 0, calc(100% - var(--cut)) 0,
+		100% var(--cut), 100% calc(100% - var(--cut)),
+		calc(100% - var(--cut)) 100%, var(--cut) 100%,
+		0 calc(100% - var(--cut)), 0 var(--cut)
+	);
+}
+
+.hud-panel::before { --cut: var(--panel-cut); inset: 0; z-index: -2; background: var(--panel-edge); }
+.hud-panel::after {
+	--cut: calc(var(--panel-cut) - var(--panel-ring) / 2);
+	inset: var(--panel-ring);
+	z-index: -1;
+	background: var(--panel-fill);
+}
+
+.hud-panel:focus-within { --panel-edge: color-mix(in oklab, var(--term-blue) 80%, white 20%); }
+.hud-panel__scroll, .hud-panel textarea {
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	scrollbar-color: var(--term-blue) var(--panel-fill);
+	scrollbar-width: thin;
+}
+
+.hud-panel pre {
+	margin: 0;
+	font: inherit;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.hud-panel textarea {
+	width: 100%;
+	border: 0;
+	padding: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	letter-spacing: inherit;
+	resize: none;
+}
+
+.hud-panel textarea:focus-visible, .hud-panel__scroll:focus-visible { outline: none; }
+.hud-panel textarea::placeholder { color: color-mix(in oklab, var(--hud-input-text) 65%, var(--hud-input-bg)); }
+
+:root[data-theme="light"] .hud-panels {
+	--panel-pad-start: 0.8rem;
+	--panel-pad-end: 0.85rem;
+	--panel-pad-inline: 1.25rem;
+}
+
+:root[data-theme="light"] .hud-panel { --panel-ring: 1px; --panel-edge: var(--hud-input-border); }
+:root[data-theme="light"] .hud-panel--user { --panel-fill: color-mix(in oklab, var(--hud-box-bg) 72%, var(--hud-input-bg)); }
+:root[data-theme="light"] .hud-panel::before, :root[data-theme="light"] .hud-panel::after {
+	clip-path: none;
+	border-radius: 0.42rem;
+}
+
+:root[data-theme="light"] .hud-panel::after {
+	background:
+		repeating-linear-gradient(0deg, transparent 0 3px, color-mix(in oklab, var(--hud-input-text) 1.2%, transparent) 3px 4px),
+		linear-gradient(180deg, color-mix(in oklab, white 12%, var(--panel-fill)), var(--panel-fill) 24%);
+	box-shadow: inset 0 1px 0 color-mix(in oklab, white 42%, transparent);
+}
+
+:root[data-theme="light"] .hud-panel:focus-within { --panel-edge: color-mix(in oklab, var(--term-blue) 62%, var(--hud-input-border)); }
+
+@media (max-height: 360px) {
+	.hud-panels { --panel-pad-start: 0.4rem; --panel-pad-end: 0.4rem; gap: 0.6rem; }
+}

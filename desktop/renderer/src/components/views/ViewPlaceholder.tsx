@@ -1,7 +1,7 @@
 import { viewOptions, type HudView } from "../../fixtures/header"
 import "./view-placeholder.css"
 
-export function ViewPlaceholder({ view }: { view: HudView }) {
+export function ViewPlaceholder({ view }: { view: Exclude<HudView, "run"> }) {
 	return (
 		<section className="view-placeholder" aria-labelledby="view-heading">
 			<h2 id="view-heading">{viewOptions.find(option => option.value === view)!.label}</h2>
