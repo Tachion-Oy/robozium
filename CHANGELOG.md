@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Enable desktop model/view selectors with keyboard navigation and local choices;
+  show placeholder panels for Runs Overview, Dependencies, and Environment.
+
 - Add the desktop HUD header with shared buttons, disabled model/secrets/view
   previews, and a working theme toggle that fits narrow windows and native zoom.
 - Make desktop Ctrl zoom shortcuts work with plus/equal and keypad keys.

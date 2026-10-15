@@ -1,29 +1,30 @@
+import { useState } from "react"
+import { modelOptions, viewOptions, type ModelId, type HudView } from "../../fixtures/header"
 import { HudButton } from "./HudButton"
+import { HudSelector } from "./HudSelector"
+import { SelectorCaret } from "./SelectorCaret"
 import "./hud-header.css"
 import "./theme-toggle.css"
 
 type HudHeaderProps = {
 	theme: "dark" | "light"
 	onToggleTheme: () => void
+	model: ModelId
+	onSelectModel: (model: ModelId) => void
+	view: HudView
+	onSelectView: (view: HudView) => void
 }
 
-function SelectorCaret() {
-	return (
-		<svg className="hud-header__caret" viewBox="0 0 16 14" aria-hidden="true">
-			<path d="M8 12.75 1.25 1.25h13.5Z" />
-		</svg>
-	)
-}
-
-export function HudHeader({ theme, onToggleTheme }: HudHeaderProps) {
+export function HudHeader({ theme, onToggleTheme, model, onSelectModel, view, onSelectView }: HudHeaderProps) {
+	const [openSelector, setOpenSelector] = useState<"model" | "view" | null>(null)
+	const toggleSelector = (selector: "model" | "view", open: boolean) =>
+		setOpenSelector(current => open ? selector : current === selector ? null : current)
 	const nextTheme = theme === "dark" ? "Light" : "Dark"
 	return (
 		<header className="hud-header">
-			<HudButton variant="success" className="hud-header__selector hud-header__model"
-				title="Mock model" disabled>
-				<span className="hud-header__label">Mock model</span>
-				<SelectorCaret />
-			</HudButton>
+			<HudSelector value={model} options={modelOptions} label="Base model" variant="model"
+				onSelect={onSelectModel} open={openSelector === "model"}
+				onOpenChange={open => toggleSelector("model", open)} />
 			<HudButton variant="info" className="theme-toggle" aria-label="Toggle color theme"
 				title={`Switch to ${nextTheme.toLowerCase()} theme`} onClick={onToggleTheme}>
 				<span className="theme-toggle__indicator" aria-hidden="true" />
@@ -34,11 +35,9 @@ export function HudHeader({ theme, onToggleTheme }: HudHeaderProps) {
 				<span className="hud-header__label">Secrets unavailable</span>
 				<SelectorCaret />
 			</HudButton>
-			<HudButton variant="warning" className="hud-header__selector"
-				title="Runs Overview" disabled>
-				<span className="hud-header__label">Runs Overview</span>
-				<SelectorCaret />
-			</HudButton>
+			<HudSelector value={view} options={viewOptions} label="HUD view" variant="view"
+				onSelect={onSelectView} open={openSelector === "view"}
+				onOpenChange={open => toggleSelector("view", open)} />
 		</header>
 	)
 }

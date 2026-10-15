@@ -7,13 +7,14 @@
 	min-width: 0;
 }
 
-.hud-header > .hud-button {
+.hud-header > .hud-button,
+.hud-header > .hud-select {
 	flex: 0 1 auto;
 	width: max-content;
 	min-width: 0;
 }
 
-.hud-header > .hud-header__model { max-width: 40%; }
+.hud-header > .hud-select--model { max-width: 40%; }
 
 .hud-header__label {
 	min-width: 0;

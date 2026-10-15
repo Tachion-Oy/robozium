@@ -133,12 +133,20 @@ It cleans up its profiles and processes. Failure diagnostics are retained in
 `desktop/test-results/` and `desktop/playwright-report/`.
 
 Frame checks cover the bundled font, mouse/keyboard theme switching, retained
-focus, skipped disabled header controls, and both themes at 1260×780 and 640×420
-client sizes with native zoom 1 and 1.25. Header geometry checks verify the single
+focus, the model/theme/view Tab order with Secrets skipped, and both themes at
+1260×780 and 640×420 client sizes with native zoom 1 and 1.25. Header geometry checks verify the single
 row, model width cap, contained controls, and ellipsized labels with full names
-and tooltips.
+and tooltips. Selector scenarios cover pointer selection, keyboard exploration,
+prefix search, acceptance/cancellation, outside dismissal, one open popup, and
+view placeholders. Choices survive theme/view changes and reset on reload;
+selector interactions make no HTTP requests.
+Both open popups are checked throughout the size/theme/zoom matrix, including
+viewport containment, visible options, keyboard highlights, and long selected
+labels. Four additional popup screenshots cover both selectors and themes at
+640×420 with native zoom 1.25.
 Native key-input checks cover Ctrl-plus/equal/minus/zero and keypad zoom in/out,
-including focus retention and a single zoom step per key press.
+including focus retention and a single zoom step per key press while a selector
+is open.
 Linux screenshot baselines live beside the native tests. Review visual changes
 against the experiment before explicitly updating them:
 

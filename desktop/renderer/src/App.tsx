@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react"
 import { HudHeader } from "./components/hud/HudHeader"
+import { ViewPlaceholder } from "./components/views/ViewPlaceholder"
+import type { ModelId, HudView } from "./fixtures/header"
 
 export function App() {
 	const [theme, setTheme] = useState<"dark" | "light">("dark")
+	const [model, setModel] = useState<ModelId>("mock")
+	const [view, setView] = useState<HudView>("projects")
 	const [version, setVersion] = useState<string>()
 	const [failed, setFailed] = useState(false)
 
@@ -32,6 +36,7 @@ export function App() {
 	return (
 		<main className="hud-frame">
 			<HudHeader
+				model={model} onSelectModel={setModel} view={view} onSelectView={setView}
 				theme={theme}
 				onToggleTheme={() =>
 					setTheme((current) =>
@@ -48,6 +53,7 @@ export function App() {
 							? "Loading version…"
 							: `Version ${version}`}
 				</p>
+				<ViewPlaceholder view={view} />
 			</div>
 		</main>
 	)
