@@ -2,7 +2,7 @@
 
 The Electron app is under development. It currently shows the application name
 and version beneath a four-control HUD header. Start run in Runs Overview opens
-a local mock message and editable reply panels. Model choices remain local;
+a local mock history and editable reply panels. Model choices remain local;
 Light/Dark switches the theme, and Secrets unavailable is disabled. This preview
 needs no Docker services or provider credentials.
 
@@ -27,7 +27,7 @@ accepts the highlighted choice and dismisses the popup. Only one popup opens at
 a time. Model/view choices survive theme changes and reset when the page reloads
 or the app restarts.
 
-Select **Start run** in Runs Overview to open **Current Run**. The mock message
+Select **Start run** in Runs Overview to open **Current Run**. The latest mock message
 appears above an empty reply editor. Draft freely: Enter and Shift+Enter insert
 newlines; replies are not sent yet. The arrow buttons in the left rail move the
 divider between message-expanded, equal, and reply-expanded positions. At each
@@ -35,9 +35,23 @@ limit, the unavailable direction is disabled. Messages and long drafts scroll
 inside their own panels. Divider changes animate over 220ms, or move immediately
 when reduced motion is enabled.
 
+The footer's four history arrows select the first, previous, next, or latest of
+three local messages without wrapping. At either end, unavailable directions
+are disabled and keyboard focus moves to the nearest reverse arrow. The “A”
+mark shows a static awaiting-input state. Cancel, Interrupt, Record, and Send
+are disabled previews.
+
+**Clear reply** empties the draft and returns focus to the editor. **Copy reply**
+and **Copy agent output** copy the exact displayed text, including whitespace
+and newlines. Clear and Copy reply are disabled only for an empty draft. Copy
+success shows a green checkmark for two seconds and is announced to assistive
+technology; changing the copied content clears that feedback. Copy failure
+shows a footer alert and allows retry. These controls appear only in Current
+Run and wrap beneath the centered history controls when space is tight.
+
 Switch views using the header, or use **Return to run** in Runs Overview. The
-draft and divider position survive view, model, theme, window-size, and zoom
-changes. Reloading or restarting resets the preview to Runs Overview with no
+draft, selected message, and divider position survive view, model, theme,
+window-size, and zoom changes. Reloading or restarting resets the preview to Runs Overview with no
 active run. Dependencies and Environment still display “This view is coming
 soon.” Divider controls remain visible but disabled outside Current Run.
 
@@ -65,13 +79,17 @@ and CI details.
 
 ## Code layout
 
-- `src/` contains Electron main, preload, and the typed bridge.
+- `src/` contains Electron main, preload, and the typed bridge. Main owns native
+  clipboard writes through `writeClipboardText(text)`, validating the window,
+  main frame, document URL, and string payload. Browser clipboard permissions
+  remain denied; the bridge exposes no clipboard-read operation.
 - `renderer/src/` contains the React entry point and app state.
-- `renderer/src/components/hud/` contains the header, panels, divider controls, and their CSS.
+- `renderer/src/components/hud/` contains the header, panels, divider, footer, and their CSS.
   Components import the styles they own; the header currently owns its inline
   theme toggle's styling.
 - `renderer/src/components/views/` contains Runs Overview, view placeholders, and their CSS.
-- `renderer/src/fixtures/` contains local model/view choices and the mock run message.
+- `renderer/src/fixtures/` contains local model/view choices and three mock run messages.
+- `renderer/src/assets/` contains the bundled Anurati status-mark font.
 - `renderer/src/styles/app.css` contains app-wide typography, theme tokens,
   base styles, and the frame.
 - `renderer/tsconfig.json` supplies the renderer's browser and Vite asset types

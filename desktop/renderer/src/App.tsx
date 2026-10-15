@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { HudHeader } from "./components/hud/HudHeader"
 import { ViewPlaceholder } from "./components/views/ViewPlaceholder"
 import { RunOverview } from "./components/views/RunOverview"
 import { HudPanels } from "./components/hud/HudPanels"
 import { HudDividerControls, type LayoutMode } from "./components/hud/HudDividerControls"
-import { mockMessage } from "./fixtures/run"
+import { HudFooter } from "./components/hud/HudFooter"
+import { mockMessages } from "./fixtures/run"
 import type { ModelId, HudView } from "./fixtures/header"
 
 export function App() {
@@ -13,6 +14,8 @@ export function App() {
 	const [view, setView] = useState<HudView>("projects")
 	const [hasRun, setHasRun] = useState(false)
 	const [draft, setDraft] = useState("")
+	const [selectedMessage, setSelectedMessage] = useState(mockMessages.length - 1)
+	const editor = useRef<HTMLTextAreaElement>(null)
 	const [layout, setLayout] = useState<LayoutMode>("top")
 	const [focusRunEditor, setFocusRunEditor] = useState(false)
 	const [version, setVersion] = useState<string>()
@@ -65,8 +68,8 @@ export function App() {
 			</div>
 			<div className="hud-frame__content">
 				{view === "run" ? (
-					<HudPanels message={mockMessage} draft={draft} onDraftChange={setDraft}
-						layout={layout} focusOnOpen={focusRunEditor} />
+					<HudPanels message={mockMessages[selectedMessage]} draft={draft} onDraftChange={setDraft}
+						layout={layout} focusOnOpen={focusRunEditor} editor={editor} />
 				) : view === "projects" ? (
 					<RunOverview hasRun={hasRun} onOpen={() => {
 						setHasRun(true)
@@ -75,6 +78,9 @@ export function App() {
 					}} />
 				) : <ViewPlaceholder view={view} />}
 			</div>
+			{view === "run" && <HudFooter message={mockMessages[selectedMessage]} selected={selectedMessage}
+				count={mockMessages.length} onSelect={setSelectedMessage} draft={draft}
+				onClear={() => { setDraft(""); editor.current?.focus() }} />}
 			<HudDividerControls mode={layout} disabled={view !== "run"} onChange={setLayout} />
 		</main>
 	)

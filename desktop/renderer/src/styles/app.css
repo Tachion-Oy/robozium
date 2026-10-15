@@ -60,6 +60,8 @@ body {
 	background-size: 3.5rem 3.5rem;
 }
 
+.hud-frame:has(.hud-footer) { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+
 .hud-frame__content {
 	display: grid;
 	min-width: 0;
