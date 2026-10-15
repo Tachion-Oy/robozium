@@ -1,11 +1,15 @@
-import { useEffect, type RefObject } from "react"
+import { useEffect, useLayoutEffect, useRef, type RefObject } from "react"
 import type { LayoutMode } from "./HudDividerControls"
 import "./hud-panels.css"
 
 function AgentMessagePanel({ message }: { message: string }) {
+	const scroller = useRef<HTMLDivElement>(null)
+	useLayoutEffect(() => {
+		if (scroller.current) scroller.current.scrollTop = 0
+	}, [message])
 	return (
 		<section className="hud-panel hud-panel--agent" aria-label="Agent message">
-			<div className="hud-panel__scroll" tabIndex={0} aria-label="Agent message text" role="region">
+			<div ref={scroller} className="hud-panel__scroll" tabIndex={0} aria-label="Agent message text" role="region">
 				<pre>{message}</pre>
 			</div>
 		</section>
