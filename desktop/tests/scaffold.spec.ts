@@ -107,16 +107,19 @@ async function expectPanelGeometry(page: Page, layout: "top" | "equal" | "bottom
 }
 
 for (const theme of ["dark", "light"]) {
-	test(`view selector keeps header positions stable and shrinks in ${theme}`, async ({ desktop: { app, page } }) => {
+	test(`selectors keep header positions stable and shrink in ${theme}`, async ({ desktop: { app, page } }) => {
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 		await page.getByRole("button", { name: "Start run", exact: true }).click()
 		await page.evaluate(() => document.fonts.ready.then(() => undefined))
-		const view = page.getByRole("combobox", { name: /^HUD view:/ })
+		const selectors = [
+			{ label: "Base model", index: 0, names: ["Mock model", "Mock fast model", "Mock extended context model"] },
+			{ label: "HUD view", index: 3, names: ["Runs Overview", "Dependencies", "Environment", "Current Run"] },
+		]
 		const bounds = () => page.locator("header button").evaluateAll(buttons => buttons.map(button => {
 			const { x, width } = button.getBoundingClientRect()
 			return { x, width }
 		}))
-		let fullWidth = 0
+		let fullWidths: number[] = []
 		for (const [width, height, zoom] of [[1260, 780, 1], [640, 420, 1.25]]) {
 			await app.evaluate(({ BrowserWindow }, { width, height, zoom }) => {
 				const window = BrowserWindow.getAllWindows()[0]
@@ -125,16 +128,48 @@ for (const theme of ["dark", "light"]) {
 			}, { width, height, zoom })
 			await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([width / zoom, height / zoom])
 			const initial = await bounds()
-			if (width === 1260) fullWidth = initial[3].width
-			else expect(initial[3].width).toBeLessThan(fullWidth)
-			for (const name of ["Runs Overview", "Dependencies", "Environment", "Current Run"]) {
-				await view.click()
-				await page.getByRole("option", { name, exact: true }).click()
-				await expect(view).toHaveAccessibleName(`HUD view: ${name}`)
-				await expect(view).toHaveAttribute("title", name)
-				expect(await bounds()).toEqual(initial)
-				if (width === 1260) expect(await view.locator(".hud-header__label > span")
-					.evaluate(label => label.scrollWidth <= label.clientWidth)).toBe(true)
+			if (width === 1260) fullWidths = initial.map(button => button.width)
+			for (const { label, index, names } of selectors) {
+				const selector = page.getByRole("combobox", { name: new RegExp(`^${label}:`) })
+				if (width !== 1260) expect(initial[index].width).toBeLessThan(fullWidths[index])
+				for (const name of names) {
+					await selector.click()
+					await page.getByRole("option", { name, exact: true }).click()
+					await expect(selector).toHaveAccessibleName(`${label}: ${name}`)
+					await expect(selector).toHaveAttribute("title", name)
+					expect(await bounds()).toEqual(initial)
+					if (width === 1260) expect(await selector.locator(".hud-header__label")
+						.evaluate(label => label.scrollWidth <= label.clientWidth)).toBe(true)
+				}
+			}
+		}
+	})
+
+	test(`divider buttons stay square with centered arrows in ${theme}`, async ({ desktop: { app, page } }) => {
+		for (const zoom of [1, 1.25]) {
+			await app.evaluate(({ BrowserWindow }, zoom) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(zoom), zoom)
+			await page.reload()
+			if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+			for (const state of ["idle", "top", "equal", "bottom"]) {
+				if (state === "top") await page.getByRole("button", { name: "Start run", exact: true }).click()
+				else if (state !== "idle") await page.getByRole("button", { name: "Move panel divider up" }).click()
+				const geometry = await page.getByRole("group", { name: /^Panel divider:/ }).getByRole("button")
+					.evaluateAll(buttons => buttons.map(button => {
+						const rect = button.getBoundingClientRect()
+						const arrow = button.querySelector("svg")!.getBoundingClientRect()
+						return {
+							squareError: Math.abs(rect.width - rect.height),
+							xOffset: Math.abs(rect.x + rect.width / 2 - arrow.x - arrow.width / 2),
+							yOffset: Math.abs(rect.y + rect.height / 2 - arrow.y - arrow.height / 2),
+							contained: arrow.x > rect.x && arrow.y > rect.y && arrow.right < rect.right && arrow.bottom < rect.bottom,
+						}
+					}))
+				for (const button of geometry) {
+					expect(button.squareError).toBeLessThan(0.1)
+					expect(button.xOffset).toBeLessThan(0.1)
+					expect(button.yOffset).toBeLessThan(0.1)
+					expect(button.contained).toBe(true)
+				}
 			}
 		}
 	})

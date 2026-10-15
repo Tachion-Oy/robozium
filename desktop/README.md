@@ -41,10 +41,10 @@ changes. Reloading or restarting resets the preview to Runs Overview with no
 active run. Dependencies and Environment still display “This view is coming
 soon.” Divider controls remain visible but disabled outside Current Run.
 
-The view selector reserves room for its longest label, so switching views keeps
-the other header controls in place. It shrinks with the window; truncated labels
-retain their full hover tooltips. API connections, provider credentials, and environment editing
-arrive in their later roadmap steps.
+Both selectors reserve room for their longest labels, so changing the model or
+view keeps the other header controls in place. They shrink with the window;
+truncated labels retain their full hover tooltips. API connections, provider
+credentials, and environment editing arrive in their later roadmap steps.
 
 Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset.
 The keypad + and - keys also work with Ctrl.

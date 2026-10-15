@@ -135,8 +135,11 @@ It cleans up its profiles and processes. Failure diagnostics are retained in
 Frame checks cover the bundled font, mouse/keyboard theme switching, retained
 focus, the model/theme/view Tab order with Secrets skipped, and both themes at
 1260×780 and 640×420 client sizes with native zoom 1 and 1.25. Header geometry checks verify the single
-row, model width cap, contained controls, and ellipsized labels with full names
-and tooltips. Selector scenarios cover pointer selection, keyboard exploration,
+row, stable widths across model/view selections, narrow-window contraction,
+the model width cap, contained controls, and ellipsized labels with full names
+and tooltips. Divider checks verify square buttons and centered, contained arrows
+in both themes and zoom levels, including disabled states.
+Selector scenarios cover pointer selection, keyboard exploration,
 prefix search, acceptance/cancellation, outside dismissal, one open popup, and
 view placeholders. Choices survive theme/view changes and reset on reload;
 selector interactions make no HTTP requests. Mock-run checks start from Runs

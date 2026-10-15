@@ -1,4 +1,5 @@
 .hud-divider {
+	--divider-button-size: 2.11rem;
 	position: absolute;
 	left: 0.9rem;
 	top: 50%;
@@ -8,13 +9,17 @@
 	gap: 0.22rem;
 }
 
-.hud-divider .hud-divider__button {
+/* Match the web corner-control reset in both themes, including light buttons'
+   padding and minimum height. */
+.hud-divider .hud-divider__button,
+:root[data-theme="light"] .hud-divider .hud-divider__button {
 	--btn-cut: 0.4375rem;
 	display: grid;
 	place-items: center;
-	width: 2.11rem;
-	height: 2.11rem;
-	min-height: 0;
+	width: var(--divider-button-size);
+	height: var(--divider-button-size);
+	min-width: var(--divider-button-size);
+	min-height: var(--divider-button-size);
 	padding: 0;
 }
 
@@ -27,6 +32,10 @@
 
 .hud-divider__arrow--down { transform: rotate(180deg); }
 .hud-divider__button:disabled .hud-divider__arrow { filter: none; }
-:root[data-theme="light"] .hud-divider { left: 0.95rem; }
-:root[data-theme="light"] .hud-divider__button { width: 1.9rem; height: 1.9rem; }
+
+:root[data-theme="light"] .hud-divider {
+	--divider-button-size: 1.9rem;
+	left: 0.95rem;
+}
+
 :root[data-theme="light"] .hud-divider__arrow { filter: none; }
