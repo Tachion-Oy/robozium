@@ -33,6 +33,7 @@ export class BackendController {
 	private verified = false
 	private docker = ""
 	private env: NodeJS.ProcessEnv = {}
+	private targetPinned = false
 	private readonly settings: ReturnType<typeof backendProfile>
 	private readonly run: typeof runCommand
 	constructor(private readonly options: Options) {
@@ -90,7 +91,22 @@ export class BackendController {
 		writeFileSync(path.join(runtime, ".runtime/compose.env"), "# Controlled desktop interpolation only.\n", { mode: 0o600 })
 		this.docker = (this.options.findDocker ?? findDocker)() ?? ""
 		if (!this.docker) throw new Error("Docker was not found. Install Docker with Compose, then retry.")
-		this.env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(COMPOSE_|ROBOZIUM_)/.test(name)))
+		if (!this.targetPinned) {
+			this.env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(COMPOSE_|ROBOZIUM_)/.test(name)))
+			// Keep every command, retry, and cleanup on the original target even after `docker context use`.
+			// Explicit host/context settings retain Docker's own precedence and TLS configuration.
+			if (!this.env.DOCKER_HOST && !this.env.DOCKER_CONTEXT) {
+				try {
+					const context = (await this.command(["context", "show"])).trim()
+					if (!context) throw new Error("Empty Docker context.")
+					this.env.DOCKER_CONTEXT = context
+				} catch {
+					this.abort.signal.throwIfAborted()
+					throw new Error("Could not resolve Docker's context. Check Docker configuration and retry.")
+				}
+			}
+			this.targetPinned = true
+		}
 		let versionText: string
 		try { versionText = await this.command(["compose", "version", "--short"]) }
 		catch { throw new Error("Docker Compose is unavailable. Install Compose v2.24 or newer, then retry.") }

@@ -392,6 +392,8 @@ scripted Docker/HTTP boundaries and real temporary files. It checks discovery
 failure, Compose/daemon requirements, installation identity and legacy settings,
 image reuse/rebuild, occupied ports, label/mount ownership, readiness failure and
 retry, cancellation during build/start/readiness, and shutdown ownership rechecks.
+Docker target tests preserve explicit context/host/TLS settings across retries
+and reject failed or empty context resolution before changing containers.
 Process tests execute disposable Node children to check bounded output, argument
 isolation, timeout, forced cancellation, and safe failures. These checks run in CI.
 
@@ -404,6 +406,10 @@ separate scenario closes during a blocked build and verifies that the Docker
 client exits. Logs and a startup-error capture are attached to the report.
 Cleanup validates the exact temporary installation before removing its containers,
 image tag, and test directory; it never uses `--volumes` or a user's hub.
+The same suite also drives the real Docker CLI against two simulated daemons
+using a temporary Docker configuration. Switching its default context must leave
+startup, retry, cancellation, and shutdown on the original daemon, with no
+requests to the second daemon or changes to the user's Docker configuration.
 
 Full E2E runs native lifecycle checks in the existing Docker job. The Electron
 preview job still uses a desktop-only checkout. All seven existing jobs remain

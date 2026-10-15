@@ -35,6 +35,7 @@ function fixture(t, options = {}) {
 			const result = await state.intercept(args, command)
 			if (result !== undefined) return result
 		}
+		if (args[0] === "context") return "test-context"
 		if (args[0] === "info") return state.security ?? '["name=seccomp"]'
 		if (args[1] === "version") return state.version ?? "2.35.1"
 		if (args[0] === "ps") return state.exists ? id : ""
@@ -220,4 +221,53 @@ test("inherited Compose and Robozium overrides cannot change managed ownership",
 	assert.equal(command.args[command.args.indexOf("--project-name") + 1], settings.project)
 	assert.equal(command.args[command.args.indexOf("--env-file") + 1], path.join(settings.runtime, ".runtime/compose.env"))
 	await controller.close()
+})
+
+function dockerEnvironment(t, overrides = {}) {
+	for (const name of ["DOCKER_CONTEXT", "DOCKER_HOST", "DOCKER_CONFIG", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"]) {
+		const original = process.env[name]
+		t.after(() => {
+			if (original === undefined) delete process.env[name]
+			else process.env[name] = original
+		})
+		if (overrides[name] === undefined) delete process.env[name]
+		else process.env[name] = overrides[name]
+	}
+}
+
+for (const explicit of [
+	{ DOCKER_CONTEXT: "chosen-context" },
+	{ DOCKER_HOST: "tcp://chosen-host:2376", DOCKER_TLS_VERIFY: "1", DOCKER_CERT_PATH: "/test/certificates" },
+	{ DOCKER_CONTEXT: "chosen-context", DOCKER_HOST: "tcp://ignored-host:2376" },
+]) test(`explicit Docker target survives retry and shutdown: ${Object.keys(explicit).join(", ")}`, async t => {
+	const original = { DOCKER_CONFIG: "/test/docker-config", ...explicit }
+	dockerEnvironment(t, original)
+	const { controller, state } = fixture(t, { ready: false })
+	await assert.rejects(controller.start(), /readiness timed out/)
+	process.env.DOCKER_CONTEXT = "different-context"
+	process.env.DOCKER_HOST = "tcp://different-host:2376"
+	process.env.DOCKER_CONFIG = "/different/config"
+	state.ready = true
+	await controller.start()
+	await controller.close()
+	assert.equal(commands(state).some(args => args[0] === "context"), false)
+	for (const { command } of state.calls) {
+		for (const [name, value] of Object.entries(original)) assert.equal(command.env[name], value)
+		if (!explicit.DOCKER_CONTEXT) assert.equal(command.env.DOCKER_CONTEXT, undefined)
+	}
+})
+
+for (const result of ["", "failure"]) test(`context resolution ${result || "empty output"} fails before mutation and can retry`, async t => {
+	dockerEnvironment(t)
+	const { controller, state } = fixture(t, { intercept: async args => {
+		if (args[0] !== "context") return
+		if (result === "failure") throw new Error("context lookup failed")
+		return "\n"
+	} })
+	await assert.rejects(controller.start(), /Could not resolve Docker's context/)
+	noMutation(state)
+	state.intercept = undefined
+	await controller.start()
+	await controller.close()
+	assert.equal(state.calls.at(-1).command.env.DOCKER_CONTEXT, "test-context")
 })

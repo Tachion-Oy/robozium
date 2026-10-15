@@ -30,6 +30,10 @@ Startup failures show an explanation and **Retry**. Closing the window cancels
 startup, waits for its Docker client to exit, and stops only the installation's
 verified API containers. Containers, images, credentials, and host data remain.
 A second managed launch using the same profile exits without changing its backend.
+Docker's target is selected once at startup and retained for Retry and shutdown,
+even if another terminal changes the current context. Explicit `DOCKER_CONTEXT`
+and `DOCKER_HOST` settings retain Docker's normal precedence and TLS settings.
+Restart the app to select a different target.
 
 Managed app data lives in `.artifacts/desktop/data/`, with separate `live/` and
 `mock/` runtime directories. A saved installation identifier scopes Docker project

@@ -15,6 +15,8 @@ process cancellation, and installation identity handling to the typed scaffold.
 - Add a focused main-process controller for Docker discovery, Compose/daemon
   checks, image reuse/building, startup, readiness, cancellation, and shutdown.
   Bound child command duration/output; cancel Linux process groups without a shell.
+  Resolve and pin the selected Docker target for all commands, retries, and cleanup;
+  retain explicit context/host precedence and TLS settings.
 - Hash allowlisted staged inputs and label built images with their identifier.
   Rebuild on missing/changed images and reuse matching images on later launches.
 - Preserve `.artifacts/desktop/data/{live,mock}` and the experiment's saved
