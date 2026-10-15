@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test"
-import { test, captureNative, documentUrl, preload } from "./native"
+import { test, captureNative, documentUrl, preload, waitForPanelLayout } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
 test("fixture history navigates without wrapping and retains selection with draft and divider", async ({ desktop: { page } }) => {
@@ -134,6 +134,47 @@ test("copy failure reports a compact alert and retry preserves draft and selecti
 })
 
 for (const theme of ["dark", "light"]) {
+	test(`history navigation opens messages at the top without resetting the draft in ${theme}`, async ({ desktop: { app, page } }) => {
+		await app.evaluate(({ BrowserWindow }) => {
+			const window = BrowserWindow.getAllWindows()[0]
+			window.setContentSize(640, 420)
+			window.webContents.setZoomFactor(1.25)
+		})
+		await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([512, 336])
+		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		await page.evaluate(() => document.fonts.ready.then(() => undefined))
+		await waitForPanelLayout(page)
+		const message = page.getByRole("region", { name: "Agent message text", exact: true })
+		const reply = page.getByRole("textbox", { name: "Reply", exact: true })
+		const draft = "Retained draft line\n".repeat(30)
+		await reply.fill(draft)
+		await reply.evaluate((element: HTMLTextAreaElement) => {
+			element.setSelectionRange(2, 6)
+			element.scrollTop = element.scrollHeight
+			Reflect.set(window, "originalEditor", element)
+		})
+		const replyScroll = await reply.evaluate(element => element.scrollTop)
+		expect(replyScroll).toBeGreaterThan(0)
+		for (const [action, text] of [
+			["Previous agent message", "Planning the next steps."],
+			["Jump to latest agent message", "Mock run ready."],
+			["Jump to first agent message", "Mock run created."],
+			["Next agent message", "Planning the next steps."],
+			["Jump to latest agent message", "Mock run ready."],
+		]) {
+			await message.evaluate(element => { element.scrollTop = element.scrollHeight })
+			await expect.poll(() => message.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+			await page.getByRole("button", { name: action, exact: true }).click()
+			await expect(message).toContainText(text)
+			await expect.poll(() => message.evaluate(element => element.scrollTop)).toBe(0)
+			await expect(reply).toHaveValue(draft)
+			expect(await reply.evaluate((element: HTMLTextAreaElement) => [
+				element === Reflect.get(window, "originalEditor"), element.scrollTop, element.selectionStart, element.selectionEnd,
+			])).toEqual([true, replyScroll, 2, 6])
+		}
+	})
+
 	test(`footer keeps mounted controls, focus, and feedback while wrapping in ${theme}`, async ({ desktop: { app, page } }) => {
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 		await page.getByRole("button", { name: "Start run", exact: true }).click()
