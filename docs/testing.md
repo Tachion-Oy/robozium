@@ -207,6 +207,36 @@ use `DEBUG=pw:browser xvfb-run -a npm --prefix desktop run test:electron`.
 CI checks desktop lint, types, and compilation. Full E2E runs the native suite on
 Ubuntu with Chromium sandboxing enabled and requires the Electron job to pass.
 
+## Desktop backend checks
+
+With Linux Docker Engine/Compose and Node.js 22.12 or newer:
+
+```sh
+npm --prefix desktop run test:backend
+npm --prefix desktop run test:backend:docker
+```
+
+These dependency-free checks live under `desktop/backend-tests/` and run in the
+existing Docker Full E2E job alongside the browser container checks. They need
+neither Electron nor npm dependencies. Normal desktop builds/native tests still
+work from a desktop-only checkout; backend builds also need the shared Python
+source, lockfile, and package metadata, but no `web/` files.
+
+Staging checks cover the public allowlist, synthetic private-file exclusion,
+symlink rejection, and stale-output replacement. Compose checks cover default
+live mode, explicit mock mode, port/user overrides, credential-file precedence,
+optional credentials, required runtime selection, bind paths/permissions,
+readiness, loopback binding, and a single worker.
+
+The Docker smoke test builds an API-only image, checks non-root execution and
+synthetic credential exclusion from the image, creates a project through the
+existing mock API, and verifies data after restart and shutdown. It uses a
+unique project, temporary runtime, and dynamically selected loopback port; live
+provider calls are never needed. On failure it prints the exact project's API
+logs, then removes its test containers/image without `--volumes`. On success it verifies
+host-data preservation before deleting the temporary runtime. Manual startup and
+data locations are documented in the [desktop README](../desktop/README.md#manual-desktop-backend-linux).
+
 ## Installation checks
 
 Build and install the wheel and source archive in disposable environments:

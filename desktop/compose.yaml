@@ -1,0 +1,61 @@
+# API-only desktop runtime; invoke with an explicit project and empty --env-file.
+services:
+  api:
+    build:
+      context: ./.stage/backend
+      target: api
+    network_mode: host
+    env_file:
+      - path: "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/.env.encrypt"
+        required: false
+      - path: "${ROBOZIUM_DESKTOP_RUNTIME}/.env"
+        required: false
+    environment:
+      ROBOZIUM_CONFIG: /app/hub.config.py
+      ROBOZIUM_HUB_ROOT: /hub
+      ROBOZIUM_LOG_DIR: /logs
+      ROBOZIUM_ENCRYPTED_ENV_PATH: /configuration/.env.encrypt
+      ROBOZIUM_MODE: "${ROBOZIUM_MODE:-live}"
+      ROBOZIUM_HOST_SCRIPT_SOCKET: /host-scripts/scripts.sock
+      ROBOZIUM_DESKTOP_API_PORT: "${ROBOZIUM_DESKTOP_API_PORT:-18001}"
+    command: [uvicorn, "robozium.api.app:${ROBOZIUM_MODE:-live}_app", --factory, --host, "127.0.0.1", --port, "${ROBOZIUM_DESKTOP_API_PORT:-18001}", --workers, "1"]
+    healthcheck:
+      test: [CMD, python, -c, "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:'+os.environ['ROBOZIUM_DESKTOP_API_PORT']+'/ready',timeout=2).read()"]
+      interval: 5s
+      timeout: 3s
+      start_period: 180s
+      retries: 12
+    user: "${ROBOZIUM_API_USER:-10001:10001}"
+    init: true
+    stop_grace_period: 30s
+    volumes:
+      - type: bind
+        source: "${ROBOZIUM_DESKTOP_RUNTIME}"
+        target: /configuration
+        bind: { create_host_path: false }
+      - type: bind
+        source: "${ROBOZIUM_DESKTOP_RUNTIME}/local"
+        target: /app/local
+        bind: { create_host_path: false }
+      - type: bind
+        source: "${ROBOZIUM_DESKTOP_RUNTIME}/.runtime/local-deps"
+        target: /app/.runtime/local-deps
+        bind: { create_host_path: false }
+      - type: bind
+        source: "${ROBOZIUM_DESKTOP_RUNTIME}/hub"
+        target: /hub
+        bind: { create_host_path: false }
+      - type: bind
+        source: "${ROBOZIUM_DESKTOP_RUNTIME}/.runtime/logs"
+        target: /logs
+        bind: { create_host_path: false }
+      - type: bind
+        source: "${ROBOZIUM_DESKTOP_RUNTIME}/.runtime/host-socket"
+        target: /host-scripts
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: "${ROBOZIUM_DESKTOP_RUNTIME}/hub/readonly/safe-scripts"
+        target: /hub/readonly/safe-scripts
+        read_only: true
+        bind: { create_host_path: false }

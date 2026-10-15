@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+
+- Add desktop-owned Docker configuration for manual live and mock API startup,
+  with isolated runtime data, credential-free build staging, and restart checks.
+
 - Open each selected desktop history message at the top while preserving the
   reply draft, editor scroll position, and text selection.
 
