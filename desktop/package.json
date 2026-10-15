@@ -10,11 +10,14 @@
   "scripts": {
     "postinstall": "install-electron",
     "build": "npm run typecheck && tsc -p tsconfig.node.json && vite build",
-    "start": "npm run build && electron .",
+    "start": "npm run backend:stage && npm run build && electron .",
+    "start:preview": "npm run build && electron . --preview",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p renderer/tsconfig.json && tsc -p tsconfig.tests.json && tsc -p tsconfig.vite.json",
     "backend:stage": "node scripts/stage-backend.mjs",
     "test:backend": "node --test backend-tests/*.test.mjs",
+    "test:backend:lifecycle": "tsc -p tsconfig.node.json && node --test backend-tests/lifecycle/*.test.mjs",
+    "test:backend:electron": "npm run backend:stage && npm run build && playwright test --config playwright.lifecycle.config.ts",
     "test:backend:docker": "node backend-tests/smoke.mjs",
     "test:electron": "npm run build && playwright test"
   },

@@ -88,9 +88,10 @@ refactoring, or packaging. See the [detailed scaffold plan](electron-scaffold.md
 PR 1 remains the small, framework-free scaffold above. The following PRs build
 out `desktop/` while retaining the browser implementation and its regression
 checks. Each adds a runnable result and explains one new responsibility.
-PRs 1, 2, 3a, 3b.1, 3b.2, 3c, and 3d are merged. The current backend increment
-follows the [PR 4 backend plan](desktop-backend-docker.md). Docker lifecycle
-management from Electron main follows in PR 5.
+PRs 1, 2, 3a, 3b.1, 3b.2, 3c, 3d, and 4 are merged. The current increment
+follows the [PR 5 lifecycle plan](desktop-backend-lifecycle.md): main manages
+the API container while the HUD retains local fixtures. Next is PR 6, the
+desktop HTTP/SSE client and its connection/access checks.
 
 | PR | Change | Acceptance |
 | --- | --- | --- |
@@ -113,7 +114,7 @@ management from Electron main follows in PR 5.
 | **14. Restore the accepted startup sequence** | Copy the introduction and loading presentation into the existing Vite renderer. Add the offline introduction, translucent loading HUD, and painted-application handoff. | Test fast/slow startup, failure/retry, closing during startup, reduced motion, and both themes. |
 | **15. Add the docked message log** | Use the desktop's copied terminal rendering and existing desktop run session. Preserve shadows, stacked layout, temporary window expansion, and restoration. | Preserve drafts, focus, and recording. Avoid duplicate session subscriptions; unmount the transcript when closed. |
 | **16. Add desktop restart controls** | Connect Environment's app restart and Dependencies' restart/recreation actions through named preload methods. | Verify unsaved-edit confirmation, imported-tool activation, readiness before reveal, introduction replay, and operations restricted to owned backend services. |
-| **17. Add desktop instance and preference handling** | Add single-instance behavior and persistence of window size, theme, and zoom. | Verify duplicate launch, invalid/stale saved settings, reliable close/reopen, and independent test profiles. |
+| **17. Add desktop instance and preference handling** | Extend the basic backend ownership lock introduced in PR 5 with duplicate-launch focus behavior and persistence of window size, theme, and zoom. | Verify duplicate launch, invalid/stale saved settings, reliable close/reopen, and independent test profiles. |
 | **18. Package and validate Linux installation** | Build a `.deb` with allowlisted resources and locked backend inputs. Document prerequisites, installation, first launch, diagnostics, and recovery. | Install and exercise the package in disposable Linux CI outside the checkout, without host Node/npm/Python or a Next.js installation. Confirm the accepted desktop workflow and appearance before consolidation. |
 
 These are ordered review topics, not a requirement to force a large feature into

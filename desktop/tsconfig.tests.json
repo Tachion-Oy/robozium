@@ -5,5 +5,5 @@
     "rootDir": ".",
     "noEmit": true
   },
-  "include": ["tests/**/*.ts", "playwright.config.ts", "src/bridge.d.ts"]
+  "include": ["tests/**/*.ts", "lifecycle-tests/**/*.ts", "playwright.lifecycle.config.ts", "playwright.config.ts", "src/bridge.d.ts"]
 }

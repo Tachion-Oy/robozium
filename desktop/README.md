@@ -1,22 +1,65 @@
 # Robozium
 
 The Electron app is under development. It currently shows the application name
-and version beneath a four-control HUD header. Start run in Runs Overview opens
-a local mock history and editable reply panels. Model choices remain local;
-Light/Dark switches the theme, and Secrets unavailable is disabled. This preview
-needs no Docker services or provider credentials.
+and version beneath a four-control HUD header after its backend is ready. Start
+run in Runs Overview opens a local mock history and editable reply panels. Model
+choices remain local; Light/Dark switches the theme, and Secrets unavailable is
+disabled. The HUD still uses local fixtures; the API connection follows in PR 6.
 
 ## Run on Linux
 
-Requires Node.js 22.12 or newer and npm. From the repository root:
+Requires Linux Docker Engine with Compose v2.24 or newer, Node.js 22.12 or newer,
+and npm. From the repository root:
 
 ```sh
 npm --prefix desktop ci
 npm --prefix desktop start
 ```
 
-Close and restart the app to rebuild after changes. Local app data is stored in
-`.artifacts/desktop/scaffold/`.
+Normal startup uses live mode. For a credential-free mock backend:
+
+```sh
+npm --prefix desktop start -- --mock
+```
+
+The start command stages the allowlisted Python source. Main builds the API
+image on first launch and waits for readiness before showing the HUD. The first
+build requires internet.
+Later launches reuse the image when the staged inputs match its build identifier.
+Startup failures show an explanation and **Retry**. Closing the window cancels
+startup, waits for its Docker client to exit, and stops only the installation's
+verified API containers. Containers, images, credentials, and host data remain.
+A second managed launch using the same profile exits without changing its backend.
+
+Managed app data lives in `.artifacts/desktop/data/`, with separate `live/` and
+`mock/` runtime directories. A saved installation identifier scopes Docker project
+ownership; existing experiment `settings.json` installation IDs and API ports
+are read without rewriting the file. Defaults are live **18001** and mock **18000**.
+Set `ROBOZIUM_DESKTOP_API_PORT` to an unused port to override that mode's port.
+Stop the app before changing a port; existing containers with different ownership,
+ports, or mounts are rejected. Do not share a hub between managed and manual runs.
+
+Main selects your host UID/GID for rootful Docker or `0:0` for rootless Docker.
+Provider configuration belongs in the selected runtime's `.env` or `.env.encrypt`;
+see the [credential guidance](../README.md#optional-encrypted-credentials).
+Keys and decryption remain in the Python backend. Startup currently opens the
+fixture HUD; credential-unlock controls follow in PR 10.
+
+Build/start diagnostics append to the mode's `.runtime/logs/docker.log`. For API
+logs, use `docker logs --tail=200 <container>` with the API container from the
+`robozium-desktop-<installation-id>-<mode>` project. Ownership failures leave
+unrecognized containers alone; inspect the project and mounts before retrying.
+Shutdown failures are reported on stderr and exit with a nonzero status.
+
+For UI development without Docker or the shared Python checkout:
+
+```sh
+npm --prefix desktop run start:preview
+```
+
+Preview profiles stay in `.artifacts/desktop/scaffold/`. Close and restart either
+command to rebuild after source changes. `.artifacts/desktop/data/` is persistent
+user data; `desktop/.stage/` and `desktop/dist/` are regenerable build outputs.
 
 The app starts in dark mode with Mock model and Runs Overview selected. Tab moves
 through the model selector, theme button, and view selector, skipping Secrets.
@@ -79,10 +122,12 @@ and CI details.
 
 ## Code layout
 
-- `src/` contains Electron main, preload, and the typed bridge. Main owns native
-  clipboard writes through `writeClipboardText(text)`, validating the window,
-  main frame, document URL, and string payload. Browser clipboard permissions
-  remain denied; the bridge exposes no clipboard-read operation.
+- `src/` contains Electron main, preload, and the typed bridge. Main owns
+  backend lifecycle. Native clipboard writes use `writeClipboardText(text)`,
+  validating the window, main frame, document URL, and string payload. Browser clipboard permissions
+  remain denied; the bridge exposes no clipboard-read operation. Backend IPC is
+  limited to `getBackendStatus()` and `retryBackend()` with the same trusted
+  document checks; it exposes no shell or Docker command interface.
 - `renderer/src/` contains the React entry point and app state.
 - `renderer/src/components/hud/` contains the header, panels, divider, footer, and their CSS.
   Components import the styles they own; the header currently owns its inline
@@ -102,9 +147,9 @@ as those features arrive in the desktop roadmap.
 ## Manual desktop backend (Linux)
 
 The desktop Docker configuration runs the existing Python API in its own
-container. The renderer still uses local fixtures; automatic Docker startup
-and the API connection follow in PRs 5 and 6. The browser's `./start` workflow
-is unchanged. These development commands require Linux Docker Engine with
+container. Electron normally manages startup and shutdown. The commands below
+are for manual diagnostics using a separate project and runtime. The browser's
+`./start` workflow is unchanged. These development commands require Linux Docker Engine with
 Compose v2.24 or newer and Node.js 22.12 or newer; npm dependencies, host Python,
 and `web/` are not needed to stage or run this backend.
 
@@ -137,7 +182,7 @@ export ROBOZIUM_DESKTOP_API_PORT=18000
 Then prepare that mode's runtime and define a command scoped to its project:
 
 ```sh
-export ROBOZIUM_DESKTOP_RUNTIME="$PWD/.artifacts/desktop/data/$ROBOZIUM_MODE"
+export ROBOZIUM_DESKTOP_RUNTIME="$PWD/.artifacts/desktop/manual-data/$ROBOZIUM_MODE"
 export ROBOZIUM_API_USER="$(id -u):$(id -g)"
 umask 077
 mkdir -p "$ROBOZIUM_DESKTOP_RUNTIME/local/tools" \
@@ -182,9 +227,9 @@ desktop_compose down --remove-orphans
 The API uses host networking, listens only on `127.0.0.1`, and runs one worker.
 Its runtime contains the hub, credentials, local packages, dependency cache,
 and logs; Docker stores images separately. The socket and safe-script mounts
-are read-only. Host-helper process management is deferred to the controller
-increment. `.artifacts/desktop/data/` is persistent data, not disposable build
-output. Live and mock directories remain separate, and shutdown does not delete
+are read-only. Host-helper process management remains deferred. Manual
+`.artifacts/desktop/manual-data/` and managed `.artifacts/desktop/data/` contain
+persistent data, not disposable build output. Live and mock directories remain separate, and shutdown does not delete
 either. Restage and rebuild after changing backend source or desktop config.
 
 Backend validation runs separately from the native UI suite:
@@ -192,9 +237,15 @@ Backend validation runs separately from the native UI suite:
 ```sh
 npm --prefix desktop run test:backend
 npm --prefix desktop run test:backend:docker
+npm --prefix desktop run test:backend:lifecycle
+xvfb-run -a npm --prefix desktop run test:backend:electron
 ```
 
 The first command checks staging and Compose with synthetic inputs. The second
 builds the real image and checks mock readiness and restart persistence using
 a temporary runtime, unused loopback port, and unique Compose project. It removes
 only its own test containers/image and temporary data, including after failures.
+
+Lifecycle unit tests cover ownership, errors, cancellation, and process cleanup.
+The native backend suite verifies retry, first build/image reuse, close/reopen
+persistence, and cancellation against isolated mock Docker resources.

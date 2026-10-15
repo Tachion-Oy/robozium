@@ -115,9 +115,10 @@ review links, command accuracy, and Markdown rendering, then run
 
 ## Electron scaffold checks
 
-The [desktop scaffold](../desktop/README.md) runs independently of Docker and the
-browser application. Its native tests launch the built application from outside
-the checkout using temporary Chromium profiles:
+The [desktop preview](../desktop/README.md) runs independently of Docker and the
+browser application. Its native UI tests launch with `--preview` from outside
+the checkout using temporary Chromium profiles. Managed startup has a separate
+backend suite below:
 
 ```sh
 npm --prefix desktop ci
@@ -223,7 +224,8 @@ work from a desktop-only checkout; backend builds also need the shared Python
 source, lockfile, and package metadata, but no `web/` files.
 
 Staging checks cover the public allowlist, synthetic private-file exclusion,
-symlink rejection, and stale-output replacement. Compose checks cover default
+symlink rejection, stale-output replacement, and stable build identifiers that
+change when staged content changes. Compose checks cover default
 live mode, explicit mock mode, port/user overrides, credential-file precedence,
 optional credentials, required runtime selection, bind paths/permissions,
 readiness, loopback binding, and a single worker.
@@ -375,3 +377,36 @@ skips fail result evaluation. Failure reports upload before the job limit.
 
 For local Docker reproduction, use a dedicated test checkout/project rather than
 an existing user deployment; the workflow defines setup and cleanup.
+
+## Desktop backend lifecycle checks
+
+After installing desktop dependencies:
+
+```sh
+npm --prefix desktop run test:backend:lifecycle
+xvfb-run -a npm --prefix desktop run test:backend:electron
+```
+
+The lifecycle unit suite compiles Electron main and exercises the controller with
+scripted Docker/HTTP boundaries and real temporary files. It checks discovery
+failure, Compose/daemon requirements, installation identity and legacy settings,
+image reuse/rebuild, occupied ports, label/mount ownership, readiness failure and
+retry, cancellation during build/start/readiness, and shutdown ownership rechecks.
+Process tests execute disposable Node children to check bounded output, argument
+isolation, timeout, forced cancellation, and safe failures. These checks run in CI.
+
+The native backend suite stages real shared Python inputs and launches sandboxed
+Electron on an isolated display with a temporary profile and unused loopback port.
+It exercises a Docker-unavailable alert and Retry, then builds and starts the real
+mock API, creates a project, closes the native window, and verifies stopped
+containers and retained data. Reopening must reuse its image and project. A
+separate scenario closes during a blocked build and verifies that the Docker
+client exits. Logs and a startup-error capture are attached to the report.
+Cleanup validates the exact temporary installation before removing its containers,
+image tag, and test directory; it never uses `--volumes` or a user's hub.
+
+Full E2E runs native lifecycle checks in the existing Docker job. The Electron
+preview job still uses a desktop-only checkout. All seven existing jobs remain
+required. Renderer tests also reject untrusted callers of both named lifecycle
+IPC methods. API application traffic and credential unlocking follow in their
+later roadmap increments.

@@ -64,6 +64,7 @@ jobs:
           npm --prefix desktop run lint
           npm --prefix desktop run typecheck
           npm --prefix desktop run build
+          npm --prefix desktop run test:backend:lifecycle
 
   launcher-windows:
     name: Windows launcher

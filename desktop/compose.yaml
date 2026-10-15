@@ -2,8 +2,13 @@
 services:
   api:
     build:
-      context: ./.stage/backend
+      context: "${ROBOZIUM_DESKTOP_SOURCE:-./.stage/backend}"
       target: api
+      args:
+        ROBOZIUM_DESKTOP_BUILD_ID: "${ROBOZIUM_DESKTOP_BUILD_ID:-manual}"
+    labels:
+      fi.tachion.robozium.desktop.installation: "${ROBOZIUM_DESKTOP_INSTALLATION:-manual}"
+      fi.tachion.robozium.desktop.port: "${ROBOZIUM_DESKTOP_API_PORT:-18001}"
     network_mode: host
     env_file:
       - path: "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/.env.encrypt"

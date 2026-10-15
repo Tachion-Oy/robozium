@@ -1,4 +1,5 @@
 import fs from "node:fs"
+import { createHash } from "node:crypto"
 import path from "node:path"
 import process from "node:process"
 import { fileURLToPath } from "node:url"
@@ -39,11 +40,14 @@ export function stageBackend(root = path.resolve(import.meta.dirname, "../..")) 
 	if (fs.existsSync(target)) inspect("desktop/.stage/backend")
 	const pending = fs.mkdtempSync(path.join(stage, "backend-"))
 	try {
+		const hash = createHash("sha256")
 		for (const [source, destination] of inputs) {
 			const output = path.join(pending, destination)
 			fs.mkdirSync(path.dirname(output), { recursive: true })
 			fs.copyFileSync(path.join(root, source), output)
+			hash.update(destination + "\0").update(fs.readFileSync(output))
 		}
+		fs.writeFileSync(path.join(pending, "build-id.json"), JSON.stringify({ id: hash.digest("hex") }) + "\n")
 		fs.rmSync(target, { recursive: true, force: true })
 		fs.renameSync(pending, target)
 	} finally {

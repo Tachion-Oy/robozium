@@ -1,6 +1,7 @@
 import { app, BrowserWindow, clipboard, ipcMain, protocol, type IpcMainInvokeEvent } from "electron"
 import { mkdirSync } from "node:fs"
 import path from "node:path"
+import { BackendController } from "./backend-controller"
 import { registerRendererProtocol, rendererUrl } from "./renderer-protocol"
 
 protocol.registerSchemesAsPrivileged([
@@ -8,13 +9,15 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 app.setName("Robozium")
-// Keep this scaffold's Chromium profile separate from the working application.
+const preview = process.argv.includes("--preview")
 const profile = path.resolve(process.env.ROBOZIUM_DESKTOP_TEST_DATA
-	?? path.join(__dirname, "../../.artifacts/desktop/scaffold"))
+	?? path.join(__dirname, "../../.artifacts/desktop", preview ? "scaffold" : "data"))
 
 async function start(): Promise<void> {
 	mkdirSync(profile, { recursive: true, mode: 0o700 })
 	app.setPath("userData", profile)
+	// A second process must not take over or stop the same installation's backend.
+	if (!preview && !app.requestSingleInstanceLock()) { app.exit(0); return }
 	await app.whenReady()
 	await registerRendererProtocol()
 
@@ -30,6 +33,20 @@ async function start(): Promise<void> {
 			nodeIntegration: false,
 		},
 	})
+	const backend = preview ? undefined : new BackendController({
+		profile, mode: process.argv.includes("--mock") ? "mock" : "live", port: process.env.ROBOZIUM_DESKTOP_API_PORT,
+		source: path.join(__dirname, "../.stage/backend"), compose: path.join(__dirname, "../compose.yaml"),
+	})
+	let closing = false
+	const quit = async () => {
+		if (closing) return
+		closing = true
+		window.hide()
+		try { await backend?.close(); app.exit(0) }
+		catch (error) { console.error("Backend shutdown failed:", error); app.exit(1) }
+	}
+	window.on("close", event => { event.preventDefault(); void quit() })
+	app.on("before-quit", event => { event.preventDefault(); void quit() })
 	window.setMenuBarVisibility(false)
 	const contents = window.webContents
 	contents.on("before-input-event", (event, input) => {
@@ -64,6 +81,14 @@ async function start(): Promise<void> {
 			throw new Error("Unauthorized desktop operation.")
 		}
 	}
+	ipcMain.handle("desktop:backend-status", event => {
+		requireTrustedDocument(event)
+		return backend?.snapshot() ?? { state: "ready", message: "Local preview" }
+	})
+	ipcMain.handle("desktop:retry-backend", event => {
+		requireTrustedDocument(event)
+		void backend?.start().catch(() => {})
+	})
 	ipcMain.handle("desktop:version", event => {
 		requireTrustedDocument(event)
 		return app.getVersion()
@@ -75,6 +100,7 @@ async function start(): Promise<void> {
 	})
 	await window.loadURL(rendererUrl)
 	window.show()
+	void backend?.start().catch(() => {})
 }
 
 app.on("window-all-closed", () => app.quit())
