@@ -1,4 +1,4 @@
-import { fetchAgentUpstream, passthroughResponse } from "@/lib/robozium/http";
+import { fetchAgentUpstream, passthroughResponse, readBoundedBody } from "@/lib/robozium/http";
 import type { ReplyBody } from "@/lib/robozium/wire";
 
 export const runtime = "nodejs";
@@ -13,33 +13,8 @@ export async function POST(
   const multipart = contentType.split(";", 1)[0].trim().toLowerCase() === "multipart/form-data";
   let body: BodyInit;
   if (multipart) {
-    const limit = 41 * 1024 * 1024;
-    if (Number(request.headers.get("content-length")) > limit) {
-      return Response.json({ detail: "Reply body exceeds 41 MiB" }, { status: 413 });
-    }
-    const reader = request.body?.getReader();
-    if (!reader) return Response.json({ detail: "Missing reply body" }, { status: 400 });
-    const chunks: Uint8Array[] = [];
-    let length = 0;
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        length += value.length;
-        if (length > limit) {
-          await reader.cancel();
-          return Response.json({ detail: "Reply body exceeds 41 MiB" }, { status: 413 });
-        }
-        chunks.push(value);
-      }
-    } catch {
-      return Response.json({ detail: "Incomplete reply body" }, { status: 400 });
-    } finally {
-      reader.releaseLock();
-    }
-    const bytes = new Uint8Array(length);
-    let offset = 0;
-    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+    const bytes = await readBoundedBody(request, 41 * 1024 * 1024, "Reply body exceeds 41 MiB");
+    if (bytes instanceof Response) return bytes;
     body = bytes;
   } else {
     const reply = (await request.json()) as ReplyBody;

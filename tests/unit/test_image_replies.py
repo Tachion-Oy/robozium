@@ -434,6 +434,32 @@ def test_concurrent_duplicate_images_commit_exactly_once(tmp_path):
         assert followup["status"] == "awaiting_user_input"
 
 
+def test_read_images_prevents_switching_to_a_text_only_model(tmp_path):
+    responses = [
+        action("read_images", paths=["projects/alpha/saved.png"]),
+        action("prompt_user", value="Continue inspecting the saved image"),
+        action("stop", value="done"),
+    ]
+    with image_run(tmp_path, responses) as (client, run_id, hub, requests):
+        initial = wait_view(client, run_id)
+        (hub.project("alpha").root / "saved.png").write_bytes(image_bytes())
+        assert client.post(
+            f"/run/{run_id}/reply", json={"content": "Read the saved image"}
+        ).status_code == 200
+        wait_view(client, run_id, prompt_id=initial["current_prompt_id"])
+        assert len(image_urls(requests[1])) == 1
+        text_model = client.get("/models").json()["models"][1]["model_id"]
+        response = client.post(
+            "/models", json={"run_id": run_id, "model_id": text_model}
+        )
+        assert response.status_code == 400
+        assert response.json()["code"] == "images_not_supported"
+        assert client.post(
+            f"/run/{run_id}/reply", json={"content": "Finish"}
+        ).status_code == 200
+        assert wait_view(client, run_id, terminal=True)["status"] == "completed"
+
+
 @pytest.mark.parametrize(
     "body",
     [

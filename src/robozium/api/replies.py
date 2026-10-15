@@ -30,15 +30,18 @@ class _CompleteMultipartParser(MultiPartParser):
         super().on_end()
 
     async def parse(self) -> FormData:
-        try:
-            form = await super().parse()
+        source = self.stream
+
+        async def complete_stream() -> AsyncGenerator[bytes]:
+            async for chunk in source:
+                yield chunk
+            # Raise while Starlette owns parsing so it closes every spool,
+            # including the unfinished part that is not yet in FormData.
             if not self.complete:
                 raise MultiPartException("Incomplete multipart reply")
-            return form
-        except BaseException:
-            for stream in self._files_to_close_on_error:
-                stream.close()
-            raise
+
+        self.stream = complete_stream()
+        return await super().parse()
 
 
 async def _multipart(request: Request) -> FormData:
@@ -50,15 +53,13 @@ async def _multipart(request: Request) -> FormData:
             raise HTTPException(400, "Invalid Content-Length") from None
         if oversized:
             raise HTTPException(413, "Reply body exceeds 41 MiB")
-    # Bound the complete body before the multipart parser can spool any files.
-    body = bytearray()
-    async for chunk in request.stream():
-        if len(body) + len(chunk) > MAX_REPLY_BYTES:
-            raise HTTPException(413, "Reply body exceeds 41 MiB")
-        body.extend(chunk)
-
     async def stream() -> AsyncGenerator[bytes]:
-        yield bytes(body)
+        length = 0
+        async for chunk in request.stream():
+            length += len(chunk)
+            if length > MAX_REPLY_BYTES:
+                raise HTTPException(413, "Reply body exceeds 41 MiB")
+            yield chunk
 
     try:
         return await _CompleteMultipartParser(
@@ -67,6 +68,8 @@ async def _multipart(request: Request) -> FormData:
             max_files=MAX_IMAGES,
             max_fields=2,
         ).parse()
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(400, "Invalid or incomplete multipart reply") from exc
 

@@ -1,8 +1,10 @@
 // @vitest-environment node
 import { beforeEach, expect, it, vi } from "vitest"
+vi.mock("@/lib/robozium/config", () => ({ ROBOZIUM_API_BASE_URL: "http://backend" }))
 
 const { fetchAgentUpstream } = vi.hoisted(() => ({ fetchAgentUpstream: vi.fn() }))
-vi.mock("@/lib/robozium/http", () => ({
+vi.mock("@/lib/robozium/http", async (importOriginal) => ({
+	...await importOriginal<typeof import("@/lib/robozium/http")>(),
 	fetchAgentUpstream,
 	passthroughResponse: (response: Response) => response,
 }))

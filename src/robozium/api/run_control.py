@@ -15,7 +15,13 @@ from roboz.agent import Agent, get_active_agent_stack
 from roboz.deployment import DeployableAgent
 from roboz.llm import EndpointLike, LLMEndpoint, resolve_endpoint
 from roboz.models import Str, StrImage
-from roboz.runtime.events import EventSink, PipeEvent, RunLifecycleEvent, RuntimeEvent
+from roboz.runtime.events import (
+    EventSink,
+    MessageEvent,
+    PipeEvent,
+    RunLifecycleEvent,
+    RuntimeEvent,
+)
 from roboz.runtime.pipe import EventPipe
 
 from robozium.api.attachments import AttachmentStore, ImagesNotSupported, UploadedImage
@@ -63,6 +69,7 @@ class RunControl:
         self._can_interrupt = False
         self._agent_status: RunStatus | None = None
         self._attachments = AttachmentStore(project, run_id or str(uuid4()))
+        self._attachment_cleanup_started = False
         self._has_images = False
         self._agent_endpoints: dict[str, EndpointLike | None] = {}
         self._active_tools: dict[str, str] = {}
@@ -190,26 +197,7 @@ class RunControl:
             self._events.complete()
             self._attachments.cleanup()
             raise failure
-        threading.Thread(
-            target=self._cleanup_after_workers,
-            daemon=True,
-            name=f"{thread_name}-attachments",
-        ).start()
         return True
-
-    def _cleanup_after_workers(self) -> None:
-        thread = self._thread
-        if thread is not None:
-            thread.join()
-        # The foreground may have launched background workers while unwinding.
-        while True:
-            with self._lock:
-                background = tuple(t for t in self._background_threads if t.is_alive())
-            if not background:
-                break
-            for worker in background:
-                worker.join()
-        self._attachments.cleanup()
 
     def attach(self, agents: tuple[Agent, tuple[Agent, ...]]) -> bool:
         agent, background_agents = agents
@@ -239,6 +227,8 @@ class RunControl:
 
     def dispatch(self, event: PipeEvent) -> None:
         with self._lock:
+            if isinstance(event, MessageEvent) and event.message.images:
+                self._has_images = True
             if isinstance(event, RuntimeEvent) and event.category == "tool":
                 tool = (event.data or {}).get("tool")
                 if isinstance(tool, str):
@@ -335,7 +325,17 @@ class RunControl:
     def submit_images(
         self, prompt_id: str, content: str, images: list[UploadedImage]
     ) -> None:
-        self.validate_image_reply(prompt_id)
+        with self._lock:
+            self._validate_reply(prompt_id, images=True)
+            if not self._attachment_cleanup_started:
+                # Only runs that stage uploads need an automatic cleanup waiter.
+                # Shutdown uses the same worker-waiting and cleanup operation.
+                threading.Thread(
+                    target=self.join,
+                    daemon=True,
+                    name=f"{self._attachments.root.name}-attachments",
+                ).start()
+                self._attachment_cleanup_started = True
         staged = self._attachments.stage(content, images)
         try:
             # Model changes, expiry, cancellation, and competing replies all
@@ -437,20 +437,22 @@ class RunControl:
             self._cancel_requested = False
             return False
 
-    def join(self, deadline: float) -> bool:
-        with self._lock:
-            thread = self._thread
-        if thread is not None:
-            thread.join(max(0.0, deadline - time.monotonic()))
-        # The root can start background work while it unwinds.
-        with self._lock:
-            background = tuple(self._background_threads)
-        for thread in background:
-            thread.join(max(0.0, deadline - time.monotonic()))
-        stopped = not self.is_busy()
-        if stopped:
-            self._attachments.cleanup()
-        return stopped
+    def join(self, deadline: float | None = None) -> bool:
+        while True:
+            with self._lock:
+                threads = set(self._background_threads)
+                if self._thread is not None:
+                    threads.add(self._thread)
+            for thread in threads:
+                thread.join(
+                    None if deadline is None else max(0.0, deadline - time.monotonic())
+                )
+            if not self.is_busy():
+                self._attachments.cleanup()
+                return True
+            if deadline is not None and time.monotonic() >= deadline:
+                return False
+            # Workers may have started more background work while unwinding.
 
     def subscribe(
         self, listener: EventSink, on_complete: Callable[[], None] | None = None

@@ -11,7 +11,7 @@ Paste/drop controls and browser previews are separate frontend work.
 there is no active prompt. It describes the receiving agent's current endpoint,
 including specialists, and may change when a model changes. Ordinary and initial
 user prompts can accept images; filesystem and other permission prompts remain
-text-only. A run that has accepted images can switch between image-capable
+text-only. Once images enter a run through replies or file tools, it can switch between image-capable
 orchestrator models, but cannot switch to a text-only model.
 
 ## Submitting a reply
@@ -62,7 +62,7 @@ Only nonanimated PNG, JPEG, WebP, and GIF files are accepted. Pillow verifies th
 format and decodes the pixels; the uploaded MIME type and filename do not select
 the decoder. Limits are four images per reply, 10 MiB per image, 25 megapixels
 per image, and 100 MiB retained in temporary storage per run. Multipart bodies
-are bounded to 41 MiB before parsing, including chunked bodies; multipart text
+are streamed through a 41 MiB limit before reaching the parser, including chunked bodies; multipart text
 fields are bounded to 1 MiB each.
 
 The host writes generated filenames under
