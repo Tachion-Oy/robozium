@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { modelOptions, viewOptions, type ModelId, type HudView } from "../../fixtures/header"
+import { modelOptions, viewOptions, runViewOptions, type ModelId, type HudView } from "../../fixtures/header"
 import { HudButton } from "./HudButton"
 import { HudSelector } from "./HudSelector"
 import { SelectorCaret } from "./SelectorCaret"
@@ -12,10 +12,11 @@ type HudHeaderProps = {
 	model: ModelId
 	onSelectModel: (model: ModelId) => void
 	view: HudView
+	hasRun: boolean
 	onSelectView: (view: HudView) => void
 }
 
-export function HudHeader({ theme, onToggleTheme, model, onSelectModel, view, onSelectView }: HudHeaderProps) {
+export function HudHeader({ theme, onToggleTheme, model, onSelectModel, view, hasRun, onSelectView }: HudHeaderProps) {
 	const [openSelector, setOpenSelector] = useState<"model" | "view" | null>(null)
 	const toggleSelector = (selector: "model" | "view", open: boolean) =>
 		setOpenSelector(current => open ? selector : current === selector ? null : current)
@@ -35,7 +36,7 @@ export function HudHeader({ theme, onToggleTheme, model, onSelectModel, view, on
 				<span className="hud-header__label">Secrets unavailable</span>
 				<SelectorCaret />
 			</HudButton>
-			<HudSelector value={view} options={viewOptions} label="HUD view" variant="view"
+			<HudSelector value={view} options={hasRun ? runViewOptions : viewOptions} label="HUD view" variant="view"
 				onSelect={onSelectView} open={openSelector === "view"}
 				onOpenChange={open => toggleSelector("view", open)} />
 		</header>

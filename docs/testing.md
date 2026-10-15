@@ -135,15 +135,27 @@ It cleans up its profiles and processes. Failure diagnostics are retained in
 Frame checks cover the bundled font, mouse/keyboard theme switching, retained
 focus, the model/theme/view Tab order with Secrets skipped, and both themes at
 1260×780 and 640×420 client sizes with native zoom 1 and 1.25. Header geometry checks verify the single
-row, model width cap, contained controls, and ellipsized labels with full names
-and tooltips. Selector scenarios cover pointer selection, keyboard exploration,
+row, stable widths across model/view selections, narrow-window contraction,
+the model width cap, contained controls, and ellipsized labels with full names
+and tooltips. Divider checks verify square buttons and centered, contained arrows
+in both themes and zoom levels, including disabled states.
+Selector scenarios cover pointer selection, keyboard exploration,
 prefix search, acceptance/cancellation, outside dismissal, one open popup, and
 view placeholders. Choices survive theme/view changes and reset on reload;
-selector interactions make no HTTP requests.
+selector interactions make no HTTP requests. Mock-run checks start from Runs
+Overview, verify Current Run becomes available, and exercise returning to the
+same draft through the overview and view selector. They cover multiline editing,
+caret retention during resizing/theme/zoom changes, bounded divider movement,
+focus transfer at disabled limits, reset on reload, and independent scrolling
+with a long draft. All three panel layouts run through the size/theme/zoom matrix
+with wrapping, containment, and document-overflow assertions. Native pixel samples
+in both themes verify opacity against an injected contrasting underlay.
 Both open popups are checked throughout the size/theme/zoom matrix, including
 viewport containment, visible options, keyboard highlights, and long selected
 labels. Four additional popup screenshots cover both selectors and themes at
-640×420 with native zoom 1.25.
+640×420 with native zoom 1.25. Four panel screenshots additionally cover equal
+and composer-expanded layouts at that size/zoom in both themes. The eight frame
+screenshots show a started mock run with the default message-expanded layout.
 Native key-input checks cover Ctrl-plus/equal/minus/zero and keypad zoom in/out,
 including focus retention and a single zoom step per key press while a selector
 is open.
@@ -155,8 +167,12 @@ xvfb-run -a npm --prefix desktop run test:electron -- --update-snapshots=all --g
 ```
 
 Ordinary runs never create or update baselines. Run without `--update-snapshots`
-to validate the reviewed images. The frame has no animations. Tests wait for
-fonts, the requested native viewport dimensions, and painting before capturing
+to validate the reviewed images. Panel resizing uses the web HUD’s 220ms ease
+transitions for flex-grow and flex-basis, disabled for reduced motion. Dedicated
+native tests check intermediate geometry and reduced motion separately from
+settled captures; selector checks verify stable header positions across view
+labels and shrinking at narrow sizes. Tests wait for panel transitions, fonts,
+the requested native viewport dimensions, and painting before capturing
 the full client area through Electron. They also verify the image dimensions
 so a cropped capture cannot become a passing baseline at native zoom.
 The test launcher selects X11 and display scale 1 so host Wayland and monitor

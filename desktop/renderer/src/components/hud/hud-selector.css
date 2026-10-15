@@ -3,7 +3,18 @@
 	position: relative;
 }
 
-.hud-select--view { --selector-accent: var(--term-amber); }
+/* Preferred widths fit the longest fixture labels in both themes. The header
+   allows them to shrink, and the model never occupies more than 40% of the row. */
+.hud-select--model {
+	width: 24rem;
+	max-width: 40%;
+}
+
+.hud-select--view {
+	--selector-accent: var(--term-amber);
+	width: 14rem;
+}
+
 .hud-select[data-open] { z-index: 1; }
 .hud-select > .hud-button { width: 100%; }
 .hud-select [aria-expanded="true"] .hud-header__caret { transform: rotate(180deg); }

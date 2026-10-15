@@ -52,7 +52,16 @@ const test = base.extend<{ desktop: { app: ElectronApplication; page: Page } }>(
 	},
 })
 
+async function waitForPanelLayout(page: Page) {
+	await page.evaluate(async () => {
+		await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+		const animations = document.querySelector(".hud-panels")?.getAnimations({ subtree: true }) ?? []
+		await Promise.all(animations.map(animation => animation.finished.catch(() => {})))
+	})
+}
+
 async function captureNative(app: ElectronApplication, page: Page, width: number, height: number) {
+	await waitForPanelLayout(page)
 	await page.mouse.move(0, 0)
 	await page.evaluate(() => new Promise<void>(resolve =>
 		requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
@@ -67,6 +76,261 @@ async function captureNative(app: ElectronApplication, page: Page, width: number
 		return capture.size
 	}).toEqual({ width, height })
 	return screenshot
+}
+
+async function expectPanelGeometry(page: Page, layout: "top" | "equal" | "bottom") {
+	await waitForPanelLayout(page)
+	const geometry = await page.locator(".hud-panels").evaluate(container => {
+		const panels = [...container.querySelectorAll<HTMLElement>(".hud-panel")]
+		const bounds = panels.map(panel => panel.getBoundingClientRect())
+		const content = panels.map(panel => panel.firstElementChild as HTMLElement)
+		return {
+			contained: bounds.every(rect => rect.x >= 0 && rect.y >= 0
+				&& rect.right <= innerWidth && rect.bottom <= innerHeight),
+			usable: content.every(element => element.clientHeight >= 32 && element.clientWidth > 0
+				&& element.scrollWidth <= element.clientWidth),
+			separated: bounds[0].bottom < bounds[1].top,
+			heights: bounds.map(rect => rect.height),
+			available: container.clientHeight,
+			noOverflow: document.documentElement.scrollHeight === innerHeight
+				&& document.documentElement.scrollWidth === innerWidth,
+		}
+	})
+	expect(geometry).toMatchObject({ contained: true, usable: true, separated: true, noOverflow: true })
+	const [agent, composer] = geometry.heights
+	if (layout === "equal") expect(Math.abs(agent - composer)).toBeLessThan(2)
+	else {
+		const compact = layout === "top" ? composer : agent
+		expect(compact).toBeLessThanOrEqual(geometry.available * 0.45 + 1)
+		expect(layout === "top" ? agent : composer).toBeGreaterThan(compact)
+	}
+}
+
+for (const theme of ["dark", "light"]) {
+	test(`selectors keep header positions stable and shrink in ${theme}`, async ({ desktop: { app, page } }) => {
+		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		await page.evaluate(() => document.fonts.ready.then(() => undefined))
+		const selectors = [
+			{ label: "Base model", index: 0, names: ["Mock model", "Mock fast model", "Mock extended context model"] },
+			{ label: "HUD view", index: 3, names: ["Runs Overview", "Dependencies", "Environment", "Current Run"] },
+		]
+		const bounds = () => page.locator("header button").evaluateAll(buttons => buttons.map(button => {
+			const { x, width } = button.getBoundingClientRect()
+			return { x, width }
+		}))
+		let fullWidths: number[] = []
+		for (const [width, height, zoom] of [[1260, 780, 1], [640, 420, 1.25]]) {
+			await app.evaluate(({ BrowserWindow }, { width, height, zoom }) => {
+				const window = BrowserWindow.getAllWindows()[0]
+				window.setContentSize(width, height)
+				window.webContents.setZoomFactor(zoom)
+			}, { width, height, zoom })
+			await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([width / zoom, height / zoom])
+			const initial = await bounds()
+			if (width === 1260) fullWidths = initial.map(button => button.width)
+			for (const { label, index, names } of selectors) {
+				const selector = page.getByRole("combobox", { name: new RegExp(`^${label}:`) })
+				if (width !== 1260) expect(initial[index].width).toBeLessThan(fullWidths[index])
+				for (const name of names) {
+					await selector.click()
+					await page.getByRole("option", { name, exact: true }).click()
+					await expect(selector).toHaveAccessibleName(`${label}: ${name}`)
+					await expect(selector).toHaveAttribute("title", name)
+					expect(await bounds()).toEqual(initial)
+					if (width === 1260) expect(await selector.locator(".hud-header__label")
+						.evaluate(label => label.scrollWidth <= label.clientWidth)).toBe(true)
+				}
+			}
+		}
+	})
+
+	test(`divider buttons stay square with centered arrows in ${theme}`, async ({ desktop: { app, page } }) => {
+		for (const zoom of [1, 1.25]) {
+			await app.evaluate(({ BrowserWindow }, zoom) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(zoom), zoom)
+			await page.reload()
+			if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+			for (const state of ["idle", "top", "equal", "bottom"]) {
+				if (state === "top") await page.getByRole("button", { name: "Start run", exact: true }).click()
+				else if (state !== "idle") await page.getByRole("button", { name: "Move panel divider up" }).click()
+				const geometry = await page.getByRole("group", { name: /^Panel divider:/ }).getByRole("button")
+					.evaluateAll(buttons => buttons.map(button => {
+						const rect = button.getBoundingClientRect()
+						const arrow = button.querySelector("svg")!.getBoundingClientRect()
+						return {
+							squareError: Math.abs(rect.width - rect.height),
+							xOffset: Math.abs(rect.x + rect.width / 2 - arrow.x - arrow.width / 2),
+							yOffset: Math.abs(rect.y + rect.height / 2 - arrow.y - arrow.height / 2),
+							contained: arrow.x > rect.x && arrow.y > rect.y && arrow.right < rect.right && arrow.bottom < rect.bottom,
+						}
+					}))
+				for (const button of geometry) {
+					expect(button.squareError).toBeLessThan(0.1)
+					expect(button.xOffset).toBeLessThan(0.1)
+					expect(button.yOffset).toBeLessThan(0.1)
+					expect(button.contained).toBe(true)
+				}
+			}
+		}
+	})
+
+	test(`panel divider interpolates and respects reduced motion in ${theme}`, async ({ desktop: { page } }) => {
+		await page.emulateMedia({ reducedMotion: "no-preference" })
+		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		const motion = await page.evaluate(async () => {
+			const panels = document.querySelector(".hud-panels")!
+			const agent = panels.firstElementChild!
+			const before = agent.getBoundingClientRect().height
+			const started = new Promise<void>(resolve => panels.addEventListener("transitionrun", () => resolve(), { once: true }))
+			document.querySelector<HTMLButtonElement>('[aria-label="Move panel divider up"]')!.click()
+			await started
+			const animations = panels.getAnimations({ subtree: true })
+			for (const animation of animations) { animation.pause(); animation.currentTime = 110 }
+			const middle = agent.getBoundingClientRect().height
+			const timing = animations.map(animation => ({
+				property: (animation as CSSTransition).transitionProperty,
+				duration: animation.effect!.getTiming().duration,
+				easing: animation.effect!.getTiming().easing,
+			}))
+			for (const animation of animations) animation.finish()
+			return { before, middle, after: agent.getBoundingClientRect().height, timing }
+		})
+		expect(motion.middle).toBeLessThan(motion.before)
+		expect(motion.middle).toBeGreaterThan(motion.after)
+		expect(motion.timing).toEqual(expect.arrayContaining([
+			{ property: "flex-grow", duration: 220, easing: "ease" },
+			{ property: "flex-basis", duration: 220, easing: "ease" },
+		]))
+		await expectPanelGeometry(page, "equal")
+		await page.emulateMedia({ reducedMotion: "reduce" })
+		await page.getByRole("button", { name: "Move panel divider down" }).click()
+		expect(await page.locator(".hud-panels").evaluate(panels => panels.getAnimations({ subtree: true }).length)).toBe(0)
+		await expectPanelGeometry(page, "top")
+	})
+
+	test(`mock run preserves editing and divider state in ${theme}`, async ({ desktop: { app, page } }) => {
+		const requests: string[] = []
+		page.on("request", request => { if (/^https?:/.test(request.url())) requests.push(request.url()) })
+		const toggle = page.getByRole("button", { name: "Toggle color theme" })
+		const view = page.getByRole("combobox", { name: /^HUD view:/ })
+		const up = page.getByRole("button", { name: "Move panel divider up" })
+		const down = page.getByRole("button", { name: "Move panel divider down" })
+		const reply = page.getByRole("textbox", { name: "Reply", exact: true })
+		if (theme === "light") await toggle.click()
+		await expect(up).toBeDisabled()
+		await expect(down).toBeDisabled()
+		await view.click()
+		await expect(page.getByRole("option", { name: "Current Run", exact: true })).toHaveCount(0)
+		await view.press("Escape")
+		await page.getByRole("button", { name: "Start run", exact: true }).press("Enter")
+		await expect(reply).toBeFocused()
+		await expect(view).toHaveAccessibleName("HUD view: Current Run")
+		await expect(page.getByRole("region", { name: "Agent message", exact: true })).toContainText("Mock run ready.")
+		await reply.fill("First line")
+		await reply.press("Enter")
+		await reply.press("Shift+Enter")
+		await reply.pressSequentially("Last line")
+		const draft = "First line\n\nLast line"
+		await expect(reply).toHaveValue(draft)
+		const model = page.getByRole("combobox", { name: /^Base model:/ })
+		await model.click()
+		await page.getByRole("option", { name: "Mock fast model", exact: true }).click()
+		await expect(reply).toHaveValue(draft)
+		await reply.focus()
+		await reply.evaluate((element: HTMLTextAreaElement) => { element.setSelectionRange(2, 6); Reflect.set(window, "originalEditor", element) })
+		await app.evaluate(({ BrowserWindow }) => {
+			const window = BrowserWindow.getAllWindows()[0]
+			window.setContentSize(640, 420)
+			window.focus()
+			window.webContents.sendInputEvent({ type: "keyDown", keyCode: "+", modifiers: ["control"] })
+			window.webContents.sendInputEvent({ type: "keyUp", keyCode: "+", modifiers: ["control"] })
+		})
+		await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.getZoomLevel())).toBeCloseTo(0.5)
+		await expect(reply).toBeFocused()
+		await toggle.click()
+		await toggle.click()
+		await up.click()
+		await expect(up).toBeFocused()
+		await expectPanelGeometry(page, "equal")
+		await up.press("Space")
+		await expect(up).toBeDisabled()
+		await expect(down).toBeFocused()
+		await expectPanelGeometry(page, "bottom")
+		expect(await reply.evaluate((element: HTMLTextAreaElement) => [
+			element === Reflect.get(window, "originalEditor"), element.selectionStart, element.selectionEnd,
+		])).toEqual([true, 2, 6])
+		for (const name of ["Dependencies", "Environment", "Runs Overview"]) {
+			await view.click()
+			await page.getByRole("option", { name, exact: true }).click()
+			await expect(view).toBeFocused()
+			await expect(up).toBeDisabled()
+			await expect(down).toBeDisabled()
+			await expect(reply).toHaveCount(0)
+		}
+		await page.getByRole("button", { name: "Return to run", exact: true }).click()
+		await expect(reply).toBeFocused()
+		await expect(reply).toHaveValue(draft)
+		await expect(page.getByRole("group", { name: "Panel divider: bottom" })).toBeVisible()
+		await down.press("Enter")
+		await down.press("Enter")
+		await expect(down).toBeDisabled()
+		await expect(up).toBeFocused()
+		await view.click()
+		await page.getByRole("option", { name: "Runs Overview", exact: true }).click()
+		await view.click()
+		await page.getByRole("option", { name: "Current Run", exact: true }).click()
+		await expect(view).toBeFocused()
+		await expect(reply).toHaveValue(draft)
+		await page.reload()
+		await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeVisible()
+		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		await expect(reply).toHaveValue("")
+		await expect(page.getByRole("group", { name: "Panel divider: top" })).toBeVisible()
+		expect(requests).toEqual([])
+	})
+
+	test(`mock panels scroll independently and wrap long drafts in ${theme}`, async ({ desktop: { app, page } }) => {
+		await app.evaluate(({ BrowserWindow }) => {
+			const window = BrowserWindow.getAllWindows()[0]
+			window.setContentSize(640, 420)
+			window.webContents.setZoomFactor(1.25)
+		})
+		await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([512, 336])
+		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		const reply = page.getByRole("textbox", { name: "Reply", exact: true })
+		// Sample actual native pixels over an injected contrasting underlay. An
+		// opaque panel must paint identically regardless of what is behind it.
+		const samples = await page.locator(".hud-panel").evaluateAll(panels => panels.map(panel => {
+			const rect = panel.getBoundingClientRect()
+			return { x: Math.round((rect.x + rect.width / 2) * 1.25), y: Math.round((rect.bottom - 3) * 1.25) }
+		}))
+		const samplePixels = () => app.evaluate(async ({ BrowserWindow }, points) => {
+			const image = await BrowserWindow.getAllWindows()[0].webContents.capturePage()
+			return points.map(point => image.crop({ ...point, width: 5, height: 1 }).toBitmap().toString("hex"))
+		}, samples)
+		const before = await samplePixels()
+		await page.locator(".hud-panel").evaluateAll(panels => panels.forEach(panel => {
+			(panel as HTMLElement).style.background = "#ff00ff"
+		}))
+		await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+		expect(await samplePixels()).toEqual(before)
+		await page.locator(".hud-panel").evaluateAll(panels => panels.forEach(panel => panel.removeAttribute("style")))
+		await reply.fill(("A long draft " + "x".repeat(180) + "\n").repeat(30))
+		await expectPanelGeometry(page, "top")
+		await reply.press("Control+End")
+		expect(await reply.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+		await page.getByRole("button", { name: "Move panel divider up" }).click()
+		await page.getByRole("button", { name: "Move panel divider up" }).click()
+		const message = page.getByRole("region", { name: "Agent message text", exact: true })
+		await message.focus()
+		await message.press("Control+End")
+		await expect.poll(() => message.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+		await expectPanelGeometry(page, "bottom")
+		await expect(page.getByRole("button", { name: "Move panel divider down" })).toBeEnabled()
+		expect(await page.evaluate(() => [scrollX, scrollY])).toEqual([0, 0])
+	})
 }
 
 test("displays the version from main when launched outside the checkout", async ({ desktop: { app, page } }) => {
@@ -143,7 +407,7 @@ for (const theme of ["dark", "light"]) {
 		if (theme === "light") await toggle.click()
 		const model = page.getByRole("combobox", { name: /^Base model:/ })
 		const view = page.getByRole("combobox", { name: /^HUD view:/ })
-		await expect(page.getByRole("region", { name: "Runs Overview" })).toContainText("This view is coming soon.")
+		await expect(page.getByRole("region", { name: "Runs Overview" })).toContainText("Start run")
 		await model.click()
 		await page.getByRole("option", { name: "Mock fast model", exact: true }).click()
 		await expect(model).toHaveAccessibleName("Base model: Mock fast model")
@@ -155,7 +419,7 @@ for (const theme of ["dark", "light"]) {
 			await expect(view).toHaveAccessibleName(`HUD view: ${name}`)
 			await expect(view).toBeFocused()
 			await expect(page.getByRole("listbox")).toHaveCount(0)
-			await expect(page.getByRole("region", { name, exact: true })).toContainText("This view is coming soon.")
+			await expect(page.getByRole("region", { name, exact: true })).toContainText(name === "Runs Overview" ? "Start run" : "This view is coming soon.")
 			await expect(page.getByRole("status")).toHaveText(/^Version /)
 		}
 		await toggle.click()
@@ -277,6 +541,8 @@ test("native Ctrl shortcuts zoom both ways and reset with an open selector", asy
 for (const [width, height] of [[1260, 780], [640, 420]]) {
 	for (const zoom of [1, 1.25]) {
 		test(`frame fits ${width}x${height} at ${zoom} zoom in both themes`, async ({ desktop: { app, page } }) => {
+			await page.getByRole("button", { name: "Start run", exact: true }).click()
+			await page.getByRole("textbox", { name: "Reply", exact: true }).blur()
 			await app.evaluate(({ BrowserWindow }, { width, height, zoom }) => {
 				const window = BrowserWindow.getAllWindows()[0]
 				window.setContentSize(width, height)
@@ -292,7 +558,7 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 				for (const [role, name, title] of [
 					["combobox", "Base model: Mock model", "Mock model"],
 					["button", "Secrets unavailable", "Secrets unavailable"],
-					["combobox", "HUD view: Runs Overview", "Runs Overview"],
+					["combobox", "HUD view: Current Run", "Current Run"],
 				] as const) {
 					const control = page.getByRole(role, { name, exact: true })
 					await expect(control).toHaveAccessibleName(name)
@@ -367,6 +633,19 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 					}
 					await selector.press("Escape")
 				}
+				for (const layout of ["top", "equal", "bottom"] as const) {
+					if (layout !== "top") await page.getByRole("button", { name: "Move panel divider up" }).click()
+					await expect(page.getByRole("region", { name: "Current Run", exact: true })).toHaveAttribute("data-layout", layout)
+					await expectPanelGeometry(page, layout)
+					if (layout !== "top" && width === 640 && zoom === 1.25) {
+						await page.getByRole("button", { name: "Move panel divider down" }).blur()
+						expect(await captureNative(app, page, width, height)).toMatchSnapshot(`panels-${layout}-${theme}.png`, {
+							threshold: 0.2, maxDiffPixelRatio: 0.002,
+						})
+					}
+				}
+				await page.getByRole("button", { name: "Move panel divider down" }).click()
+				await page.getByRole("button", { name: "Move panel divider down" }).click()
 				const model = page.getByRole("combobox", { name: /^Base model:/ })
 				await model.press("End")
 				await model.press("Enter")
@@ -380,6 +659,19 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 				})).toBe(true)
 				await model.press("Home")
 				await model.press("Enter")
+				const view = page.getByRole("combobox", { name: /^HUD view:/ })
+				for (const name of ["Runs Overview", "Dependencies", "Environment"]) {
+					await view.click()
+					await page.getByRole("option", { name, exact: true }).click()
+					await expect(page.getByRole("region", { name, exact: true })).toBeVisible()
+					expect(await page.locator(".hud-frame__content").evaluate(content => {
+						const bounds = content.firstElementChild!.getBoundingClientRect()
+						return bounds.x >= 0 && bounds.y >= 0 && bounds.right <= innerWidth && bounds.bottom <= innerHeight
+							&& document.documentElement.scrollWidth === innerWidth && document.documentElement.scrollHeight === innerHeight
+					})).toBe(true)
+				}
+				await view.click()
+				await page.getByRole("option", { name: "Current Run", exact: true }).click()
 			}
 		})
 	}

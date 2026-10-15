@@ -1,5 +1,7 @@
 .view-placeholder {
-	margin-top: 1.5rem;
+	place-self: center;
+	max-width: 100%;
+	text-align: center;
 	padding: 1.25rem;
 	border: 1px solid color-mix(in oklab, var(--term-amber) 45%, transparent);
 	border-radius: 0.3rem;

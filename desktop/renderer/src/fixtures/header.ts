@@ -10,5 +10,7 @@ export const viewOptions = [
 	{ value: "environment", label: "Environment" },
 ] as const
 
+export const runViewOptions = [{ value: "run", label: "Current Run" }, ...viewOptions] as const
+
 export type ModelId = typeof modelOptions[number]["value"]
-export type HudView = typeof viewOptions[number]["value"]
+export type HudView = typeof runViewOptions[number]["value"]
