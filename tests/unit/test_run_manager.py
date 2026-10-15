@@ -277,8 +277,8 @@ def test_run_manager_api_user_io_unblocks_on_resolve() -> None:
 def test_wait_registry_resolve_before_wait_returns_immediately() -> None:
     reg = WaitRegistry()
     reg.register("p1")
-    assert reg.resolve("p1", "early")
-    assert reg.wait("p1", timeout_s=1.0) == "early"
+    assert reg.resolve("p1", Str(value="early"))
+    assert reg.wait("p1", timeout_s=1.0) == Str(value="early")
 
 
 def test_api_user_io_returns_none_when_prompt_times_out() -> None:

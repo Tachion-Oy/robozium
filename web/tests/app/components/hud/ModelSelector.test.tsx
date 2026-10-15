@@ -23,11 +23,11 @@ import {
 
 const glm = {
 	model_id: "model:openrouter:z-ai/glm-5.3-flash",
-	label: "GLM-5.3 Flash · OpenRouter",
+	label: "GLM-5.3 Flash · OpenRouter", accepts_images: false,
 }
 const gptOss = {
 	model_id: "model:cerebras:gpt-oss-120b",
-	label: "GPT-OSS-120B · Cerebras",
+	label: "GPT-OSS-120B · Cerebras", accepts_images: false,
 }
 const initialSelection = {
 	models: [glm, gptOss],

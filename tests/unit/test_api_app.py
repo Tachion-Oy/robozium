@@ -276,14 +276,17 @@ def test_models_get_and_post_update_process_selection(tmp_path: Path) -> None:
             {
                 "model_id": "model:openrouter:z-ai/glm-5.3",
                 "label": "GLM-5.3 · OpenRouter",
+                "accepts_images": False,
             },
             {
                 "model_id": "model:openrouter:z-ai/glm-5.3-flash",
                 "label": "GLM-5.3 Flash · OpenRouter",
+                "accepts_images": False,
             },
             {
                 "model_id": "model:cerebras:gpt-oss-120b",
                 "label": "GPT-OSS-120B · Cerebras",
+                "accepts_images": False,
             },
         ],
         "selected_model_id": "model:openrouter:z-ai/glm-5.3",

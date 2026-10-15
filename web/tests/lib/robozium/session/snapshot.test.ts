@@ -19,7 +19,7 @@ const runningView: RunView = {
 		payload: { role: WireRole.Assistant, content: "Question", truncation: null },
 	}],
 	current_prompt_id: null,
-	current_prompt: null,
+	current_prompt: null, current_prompt_accepts_images: false,
 	error: null,
 }
 
@@ -53,12 +53,12 @@ describe("session snapshot loader", () => {
 			...runningView,
 			status: "awaiting_user_input",
 			current_prompt_id: "p-1",
-			current_prompt: "Question",
+			current_prompt: "Question", current_prompt_accepts_images: false,
 		}
 		const nextPromptingView: RunView = {
 			...promptingView,
 			current_prompt_id: "p-2",
-			current_prompt: "Follow-up question",
+			current_prompt: "Follow-up question", current_prompt_accepts_images: false,
 		}
 		let state = createInitialRunSessionState("run-1")
 		const fetch = vi.fn()

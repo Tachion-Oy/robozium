@@ -6,7 +6,7 @@ from config_support import write_config
 from deployment_support import configured_hub
 from roboz.endpoints.inventory import openrouter
 from roboz.llm import MockLLMEndpoint, MockProviderError
-from roboz.models import AgentMode
+from roboz.models import AgentMode, Str
 from roboz.shed.identifiers import (
     CONSOLIDATE_MEMORY_TOOL_NAME,
     LIBRARIAN_AGENT_NAME,
@@ -264,7 +264,7 @@ def test_stream_mock_repeats_specialist_and_recreates_scripts_per_run(
 
     def reply(message, timeout=None):
         replies.append(message)
-        return "continue"
+        return Str(value="continue")
 
     token = bind_api_user_io(
         SimpleNamespace(request_input=reply, notify=lambda message: None)

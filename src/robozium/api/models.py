@@ -42,6 +42,7 @@ class ModelSelectBody(BaseModel):
 class AvailableModelView(BaseModel):
     model_id: str
     label: str
+    accepts_images: bool
 
 
 class ModelSelectionView(BaseModel):
@@ -194,6 +195,7 @@ class RunView(BaseModel):
     message_trace: list[TraceEntry]
     current_prompt_id: str | None
     current_prompt: str | None
+    current_prompt_accepts_images: bool
     error: str | None
 
 

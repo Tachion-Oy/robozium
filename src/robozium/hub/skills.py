@@ -42,6 +42,16 @@ Use the runtime-supplied file tool base, project slug, writable project director
 read-only directory, and shared directory. The role name does not determine the
 project directory. Use the supplied paths instead of guessing folder names.
 
+## Uploaded images
+
+User replies may include images and file links under the project's reserved
+`.robozium-attachments/<run-id>/` directory. Those files last until the run and
+its background work stop. Copy images needed later to ordinary project files
+using the existing file commands; moving them is also available. Keep useful
+file paths in continuation summaries. Use the filesystem skill's `read_images`
+to inspect temporary or saved images again, including after compaction. An old
+temporary link remains provenance even after its file has been removed.
+
 ## Sandbox permissions
 
 The hub is the file-tool base. The standard Robozium layout is shown below;

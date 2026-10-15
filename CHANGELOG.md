@@ -5,6 +5,10 @@
 - Open each selected desktop history message at the top while preserving the
   reply draft, editor scroll position, and text selection.
 
+- Accept validated image attachments in backend prompt replies, with receiving-model
+  capability flags, temporary file links, image-free persisted history, and cleanup
+  after foreground and background work stops. Pin RoboZ to `0.13.0a1`.
+
 - Add the desktop Current Run footer with three-message history, Clear reply,
   exact native clipboard copying, accessible success/failure feedback, and
   centered controls that wrap while retaining focus. Sending and run actions

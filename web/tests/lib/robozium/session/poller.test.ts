@@ -73,7 +73,7 @@ describe("startRunSessionPoller", () => {
 			capabilities: {},
 			project: "alpha", status: "running", current_agent_name: null,
 			parent_agent_name: null, message_trace: [], current_prompt_id: null,
-			current_prompt: null, error: null,
+			current_prompt: null, current_prompt_accepts_images: false, error: null,
 		})
 		await vi.advanceTimersByTimeAsync(2000)
 		expect(mockedFetchRunView).toHaveBeenCalledTimes(2)
@@ -83,7 +83,7 @@ describe("startRunSessionPoller", () => {
 			capabilities: {},
 			project: "alpha", status: "completed", current_agent_name: null,
 			parent_agent_name: null, message_trace: [], current_prompt_id: null,
-			current_prompt: null, error: null,
+			current_prompt: null, current_prompt_accepts_images: false, error: null,
 		})
 		await vi.advanceTimersByTimeAsync(4000)
 		expect(events).toHaveLength(count)

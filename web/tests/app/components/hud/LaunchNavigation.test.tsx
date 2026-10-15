@@ -47,7 +47,7 @@ function submit() {
 }
 
 it.each(["before", "after"])("keeps model selection when saving finishes %s switching scopes", async (timing) => {
-	const models = [{ model_id: "a", label: "Model A" }, { model_id: "b", label: "Model B" }]
+	const models = [{ model_id: "a", label: "Model A", accepts_images: false }, { model_id: "b", label: "Model B", accepts_images: false }]
 	const initial = { models, selected_model_id: "a" }
 	const selections = new Map([["default", initial], ["existing-run", initial]])
 	let completeSave!: () => void

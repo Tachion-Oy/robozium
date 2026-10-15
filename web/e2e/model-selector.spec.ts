@@ -5,7 +5,7 @@ test("mock mode exposes only the mock model", async ({ page, request }) => {
 	const response = await request.get("/api/models")
 	expect(response.ok()).toBeTruthy()
 	expect(await response.json()).toEqual({
-		models: [{ model_id: "model:mock:mock", label: "Mock" }],
+		models: [{ model_id: "model:mock:mock", label: "Mock", accepts_images: false }],
 		selected_model_id: "model:mock:mock",
 	})
 

@@ -41,7 +41,7 @@ function seededRunView(
 		parent_agent_name: null,
 		message_trace: [],
 		current_prompt_id: null,
-		current_prompt: null,
+		current_prompt: null, current_prompt_accepts_images: false,
 		error: null,
 	}
 }
@@ -204,7 +204,7 @@ describe("createRunSession HUD messages", () => {
 		const session = createRunSession("run-1", {
 			...seededRunView("awaiting_user_input"),
 			current_prompt_id: "prompt-1",
-			current_prompt: "Question",
+			current_prompt: "Question", current_prompt_accepts_images: false,
 		})
 		const before = session.store.getState()
 		await expect(session.submitReply("answer")).rejects.toThrow("offline")
@@ -220,7 +220,7 @@ describe("createRunSession HUD messages", () => {
 			...seededRunView(),
 			status: "awaiting_user_input",
 			current_prompt_id: "prompt-1",
-			current_prompt: "Approve these hours?",
+			current_prompt: "Approve these hours?", current_prompt_accepts_images: false,
 		})
 		session.store.setState((state) => ({
 			...state,

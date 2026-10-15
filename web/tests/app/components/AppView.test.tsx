@@ -100,7 +100,7 @@ describe("AppView run completion navigation", () => {
 			parent_agent_name: null,
 			message_trace: [],
 			current_prompt_id: null,
-			current_prompt: null,
+			current_prompt: null, current_prompt_accepts_images: false,
 			error: null,
 		}} />)
 		await waitFor(() => expect(window.location.search).toBe(""))

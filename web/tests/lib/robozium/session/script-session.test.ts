@@ -28,7 +28,7 @@ const received = (frame: PipeEventFrame): SessionEvent => ({ class: "stream", ty
 const view = (trace: PipeEventFrame[], overrides: Partial<RunView> = {}): RunView => ({
 	capabilities: {},
 	project: "alpha", status: "running", current_agent_name: "root", parent_agent_name: null,
-	message_trace: trace, current_prompt_id: null, current_prompt: null, error: null, ...overrides,
+	message_trace: trace, current_prompt_id: null, current_prompt: null, current_prompt_accepts_images: false, error: null, ...overrides,
 })
 const snapshot = (trace: PipeEventFrame[], overrides: Partial<RunView> = {}): SessionEvent => ({
 	class: "runView", type: "received", runView: view(trace, overrides),
@@ -52,7 +52,7 @@ describe("session script groups", () => {
 		}
 		let state = apply([notification, native(2, "prompt-message")])
 		expect(state.hud.streaming).not.toBeNull()
-		const polled = snapshot([completion], { status: "awaiting_user_input", current_prompt: "Reply?", current_prompt_id: "p" })
+		const polled = snapshot([completion], { status: "awaiting_user_input", current_prompt: "Reply?", current_prompt_accepts_images: false, current_prompt_id: "p" })
 		state = reduceRunSessionState(state, polled)
 		expect(state.hud.streaming).toBeNull()
 		expect(displayed(state)?.content).toBe("Reply?")
@@ -91,7 +91,7 @@ describe("session script groups", () => {
 		["message", received(message(3))], ["native delta", received(native(3))],
 		["agent started", received(lifecycle(3, RunLifecycleKind.Started))],
 		["agent stopped", received(lifecycle(3, RunLifecycleKind.Stopped))],
-		["new prompt", snapshot([], { status: "awaiting_user_input", current_prompt: "Reply?", current_prompt_id: "p" })],
+		["new prompt", snapshot([], { status: "awaiting_user_input", current_prompt: "Reply?", current_prompt_accepts_images: false, current_prompt_id: "p" })],
 		["reply submitted", { class: "control", type: "reply_submitted", promptId: "p" }],
 		...["completed", "failed", "cancelled"].map((status) => [status, snapshot([], { status: status as RunView["status"] })] as [string, SessionEvent]),
 	]

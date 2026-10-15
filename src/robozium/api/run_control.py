@@ -11,11 +11,15 @@ from contextvars import copy_context
 from types import MappingProxyType
 from uuid import uuid4
 
-from roboz.agent import Agent
-from roboz.llm import LLMEndpoint
-from roboz.runtime.events import EventSink, PipeEvent, RunLifecycleEvent
+from roboz.agent import Agent, get_active_agent_stack
+from roboz.deployment import DeployableAgent
+from roboz.llm import EndpointLike, LLMEndpoint, resolve_endpoint
+from roboz.models import Str, StrImage
+from roboz.runtime.events import EventSink, PipeEvent, RunLifecycleEvent, RuntimeEvent
 from roboz.runtime.pipe import EventPipe
 
+from robozium.api.attachments import AttachmentStore, ImagesNotSupported, UploadedImage
+from robozium.api.history import text_event
 from robozium.api.projects import Project
 from robozium.api.run_events import RunEvents
 from robozium.api.state import CapabilitySelection, ProjectRunItem, RunState, RunStatus
@@ -34,6 +38,7 @@ class RunControl:
         *,
         history_limit: int,
         capabilities: CapabilitySelection | None = None,
+        run_id: str | None = None,
     ) -> None:
         self._project = project
         self._capabilities: CapabilitySelection = MappingProxyType(
@@ -57,6 +62,35 @@ class RunControl:
         self._error: str | None = None
         self._can_interrupt = False
         self._agent_status: RunStatus | None = None
+        self._attachments = AttachmentStore(project, run_id or str(uuid4()))
+        self._has_images = False
+        self._agent_endpoints: dict[str, EndpointLike | None] = {}
+        self._active_tools: dict[str, str] = {}
+        self._prompt_agent: str | None = None
+        self._prompt_is_user = False
+
+    def bind_definition(self, definition: DeployableAgent) -> None:
+        """Capture foreground receiving routes before any agent can prompt."""
+        pending = [definition]
+        endpoints: dict[str, EndpointLike | None] = {}
+        while pending:
+            node = pending.pop()
+            if node.name in endpoints:
+                # build() reports invalid graphs; do not loop on a cycle here.
+                continue
+            endpoints[node.name] = node.agent_endpoint
+            pending.extend(node.nested_agents)
+        with self._lock:
+            self._agent_endpoints = endpoints
+
+    def _prompt_accepts_images(self) -> bool:
+        endpoint = self._agent_endpoints.get(self._prompt_agent or "")
+        return (
+            self._prompt_id is not None
+            and self._prompt_is_user
+            and endpoint is not None
+            and resolve_endpoint(endpoint).accepts_images
+        )
 
     @property
     def capabilities(self) -> CapabilitySelection:
@@ -77,6 +111,8 @@ class RunControl:
 
     def replace_endpoint(self, endpoint: LLMEndpoint) -> None:
         with self._lock:
+            if self._has_images and not endpoint.accepts_images:
+                raise ImagesNotSupported("This run has accepted images; select an image-capable model")
             self._endpoint = endpoint
 
     @property
@@ -119,6 +155,7 @@ class RunControl:
                 "background_active": self.is_busy(background_only=True),
                 "current_prompt_id": self._prompt_id,
                 "current_prompt": self._prompt,
+                "current_prompt_accepts_images": self._prompt_accepts_images(),
                 "error": self._error,
                 **self._events.snapshot(),
             }
@@ -151,8 +188,28 @@ class RunControl:
                 failure = exc
         if failure is not None:
             self._events.complete()
+            self._attachments.cleanup()
             raise failure
+        threading.Thread(
+            target=self._cleanup_after_workers,
+            daemon=True,
+            name=f"{thread_name}-attachments",
+        ).start()
         return True
+
+    def _cleanup_after_workers(self) -> None:
+        thread = self._thread
+        if thread is not None:
+            thread.join()
+        # The foreground may have launched background workers while unwinding.
+        while True:
+            with self._lock:
+                background = tuple(t for t in self._background_threads if t.is_alive())
+            if not background:
+                break
+            for worker in background:
+                worker.join()
+        self._attachments.cleanup()
 
     def attach(self, agents: tuple[Agent, tuple[Agent, ...]]) -> bool:
         agent, background_agents = agents
@@ -182,6 +239,13 @@ class RunControl:
 
     def dispatch(self, event: PipeEvent) -> None:
         with self._lock:
+            if isinstance(event, RuntimeEvent) and event.category == "tool":
+                tool = (event.data or {}).get("tool")
+                if isinstance(tool, str):
+                    if event.kind == "started":
+                        self._active_tools[event.agent_name] = tool
+                    elif self._active_tools.get(event.agent_name) == tool:
+                        self._active_tools.pop(event.agent_name, None)
             if isinstance(event, RunLifecycleEvent) and event.parent_agent_name is None:
                 if event.kind == "started":
                     if self._cancel_requested and self._pipe is not None:
@@ -192,13 +256,15 @@ class RunControl:
                         self._agent_status = RunStatus(event.status)
             elif self._pipe is not None and self._agent_status is None:
                 self._can_interrupt = True
-        self._events.dispatch(event)
+        self._events.dispatch(text_event(event))
 
     def finish(self, status: RunStatus, *, error: str | None = None) -> None:
         with self._lock:
             changed = self._finish_locked(status, error=error)
         if changed:
             self._events.complete()
+            if self._thread is None:
+                self._attachments.cleanup()
 
     def _finish_locked(self, status: RunStatus, *, error: str | None) -> bool:
         """Record a terminal outcome while holding the lifecycle lock."""
@@ -217,13 +283,20 @@ class RunControl:
         self._can_interrupt = False
         return True
 
-    def request_input(self, message: str, timeout: float | None = None) -> str | None:
+    def request_input(
+        self, message: str, timeout: float | None = None
+    ) -> Str | StrImage | None:
         prompt_id = str(uuid4())
         with self._lock:
             if self._cancel_requested or self._status.is_terminal:
                 raise RunCancelled("run cancelled before user input")
             self._registry.register(prompt_id)
             self._prompt_id, self._prompt = prompt_id, message
+            stack = get_active_agent_stack()
+            self._prompt_agent = stack[-1] if stack else None
+            self._prompt_is_user = self._active_tools.get(self._prompt_agent or "") in {
+                "prompt_user", "prompt_user_at_start",
+            }
             self._status = RunStatus.AWAITING_USER_INPUT
         try:
             return self._registry.wait(prompt_id, timeout_s=timeout)
@@ -233,19 +306,44 @@ class RunControl:
             with self._lock:
                 self._registry.discard(prompt_id)
                 self._prompt_id = self._prompt = None
+                self._prompt_agent = None
+                self._prompt_is_user = False
                 if self._status == RunStatus.AWAITING_USER_INPUT:
                     self._status = RunStatus.RUNNING
 
-    def submit_reply(self, prompt_id: str | None, content: str) -> None:
+    def _validate_reply(self, prompt_id: str | None, *, images: bool) -> None:
+        if self._status != RunStatus.AWAITING_USER_INPUT or self._prompt_id is None:
+            raise ValueError("run is not currently awaiting user input")
+        if prompt_id is not None and prompt_id != self._prompt_id:
+            raise ValueError("prompt_id does not match the active prompt for this run")
+        if images and not self._prompt_accepts_images():
+            raise ImagesNotSupported("The current prompt or receiving model does not accept images")
+
+    def validate_image_reply(self, prompt_id: str) -> None:
         with self._lock:
-            if self._status != RunStatus.AWAITING_USER_INPUT or self._prompt_id is None:
-                raise ValueError("run is not currently awaiting user input")
-            if prompt_id is not None and prompt_id != self._prompt_id:
-                raise ValueError(
-                    "prompt_id does not match the active prompt for this run"
-                )
+            self._validate_reply(prompt_id, images=True)
+
+    def submit_reply(self, prompt_id: str | None, content: Str | StrImage) -> None:
+        with self._lock:
+            images = isinstance(content, StrImage) and bool(content.images)
+            self._validate_reply(prompt_id, images=images)
+            assert self._prompt_id is not None
             if not self._registry.resolve(self._prompt_id, content):
                 raise ValueError(f"unknown or inactive prompt_id: {prompt_id}")
+            self._has_images |= images
+
+    def submit_images(
+        self, prompt_id: str, content: str, images: list[UploadedImage]
+    ) -> None:
+        self.validate_image_reply(prompt_id)
+        staged = self._attachments.stage(content, images)
+        try:
+            # Model changes, expiry, cancellation, and competing replies all
+            # recheck here under the same lock as text replies and model changes.
+            self.submit_reply(prompt_id, staged.reply)
+        except BaseException:
+            self._attachments.discard(staged)
+            raise
 
     def cancel(self, *, background: bool = False) -> bool:
         queued = False
@@ -349,7 +447,10 @@ class RunControl:
             background = tuple(self._background_threads)
         for thread in background:
             thread.join(max(0.0, deadline - time.monotonic()))
-        return not self.is_busy()
+        stopped = not self.is_busy()
+        if stopped:
+            self._attachments.cleanup()
+        return stopped
 
     def subscribe(
         self, listener: EventSink, on_complete: Callable[[], None] | None = None

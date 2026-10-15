@@ -136,7 +136,7 @@ def test_mock_app_dependency_contract_allows_startup(tmp_path, monkeypatch) -> N
     with TestClient(mock_app()) as client:
         assert client.get("/ready").status_code == 200
         assert client.get("/models").json() == {
-            "models": [{"model_id": "model:mock:mock", "label": "Mock"}],
+            "models": [{"model_id": "model:mock:mock", "label": "Mock", "accepts_images": False}],
             "selected_model_id": "model:mock:mock",
         }
 
