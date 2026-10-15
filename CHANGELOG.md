@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add desktop-owned Docker configuration for manual live and mock API startup,
+  with isolated runtime data, credential-free build staging, and restart checks.
+
 - Add the desktop Current Run footer with three-message history, Clear reply,
   exact native clipboard copying, accessible success/failure feedback, and
   centered controls that wrap while retaining focus. Sending and run actions

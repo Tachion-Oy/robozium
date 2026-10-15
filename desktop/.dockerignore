@@ -1,0 +1,13 @@
+# The staged context is allowlisted again before Docker receives it.
+**
+!Dockerfile
+!hub.config.py
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE
+!CHANGELOG.md
+!src/robozium/**/*.py
+**/.env*
+**/__pycache__
+**/*.pyc

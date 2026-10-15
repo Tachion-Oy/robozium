@@ -13,6 +13,9 @@
     "start": "npm run build && electron .",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p renderer/tsconfig.json && tsc -p tsconfig.tests.json && tsc -p tsconfig.vite.json",
+    "backend:stage": "node scripts/stage-backend.mjs",
+    "test:backend": "node --test backend-tests/*.test.mjs",
+    "test:backend:docker": "node backend-tests/smoke.mjs",
     "test:electron": "npm run build && playwright test"
   },
   "dependencies": {
