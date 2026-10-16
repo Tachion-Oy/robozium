@@ -77,6 +77,10 @@ export class BackendController {
 		return { ...this.status }
 	}
 
+	connection(): { baseUrl: string } {
+		return { baseUrl: `http://127.0.0.1:${this.settings.port}` }
+	}
+
 	start(): Promise<void> {
 		if (this.closing) {
 			return Promise.reject(new Error("Robozium is closing."))
@@ -305,12 +309,14 @@ export class BackendController {
 
 	private async waitUntilReady(): Promise<void> {
 		const deadline = Date.now() + (this.options.readinessTimeout ?? 180_000)
-		const url = `http://127.0.0.1:${this.settings.port}/ready`
+		const url = `${this.connection().baseUrl}/ready`
 
 		while (Date.now() < deadline) {
 			this.startupAbort.signal.throwIfAborted()
 			try {
 				const response = await (this.options.fetch ?? fetch)(url, {
+					// Node fetch sends Fetch Metadata too; identify this desktop health request.
+					headers: { Origin: "robozium://app" },
 					signal: AbortSignal.any([this.startupAbort.signal, AbortSignal.timeout(2500)]),
 				})
 				if (response.ok && (await response.json()).status === "ready") {

@@ -178,6 +178,12 @@ footer screenshots show populated drafts and enabled helpers in both themes.
 The native test fixture and capture helpers are shared by the scaffold and
 footer scenarios.
 
+Desktop transport tests also run in this suite, using disposable loopback HTTP
+servers and the actual client. They cover JSON request policy, origin/redirect
+rejection, HTTP status and safe detail, malformed JSON, cancellation, SSE UTF-8
+and line/chunk boundaries, comments/multiline data, stream errors, early disposal,
+and reader cleanup. Preview remains local; its bridge returns no API address.
+
 Linux screenshot baselines live beside the native tests. Review visual changes
 against the experiment before explicitly updating them:
 
@@ -413,9 +419,20 @@ requests to the second daemon or changes to the user's Docker configuration.
 
 Full E2E runs native lifecycle checks in the existing Docker job. The Electron
 preview job still uses a desktop-only checkout. All seven existing jobs remain
-required. Renderer tests also reject untrusted callers of both named lifecycle
-IPC methods. API application traffic and credential unlocking follow in their
-later roadmap increments.
+required. Renderer tests also reject untrusted callers of the lifecycle and
+connection-address IPC methods. The native scenario blocks initial renderer
+readiness, recovers through Retry without Docker commands, seeds a project/run
+through the actual desktop client, and consumes its SSE in Electron. It stops
+only its disposable container to verify outage/recovery, retained editor identity,
+draft/selection/divider/theme, and resumed polling. Outage captures and containment
+checks cover both themes at 1260×780 and 640×420, including 125% zoom. No production
+demonstration controls are added; the test loads the actual transport source into
+its renderer through Playwright. Credential-unlock controls remain a later increment.
+
+`tests/unit/test_desktop_access.py` checks accepted/rejected origins and Hosts,
+explicit preflight policy, native requests, Fetch Metadata, unchanged browser
+mode, Environment request limits/storage/busy gates, and locked provider actions.
+The existing Environment and credential suites remain in the default Python run.
 
 Desktop layout coverage also relocates log and local-extension directories in an
 isolated copy of `desktop/src/backend-layout.json`, runs the standalone runtime

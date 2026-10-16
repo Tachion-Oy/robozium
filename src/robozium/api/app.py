@@ -21,11 +21,17 @@ from roboz.llm.calls import call_transcription_api
 from roboz.models import Str
 from roboz.runtime import log_with_data
 from roboz.runtime.events import PipeEvent
+from starlette.middleware.cors import CORSMiddleware
 
 from robozium.api.capabilities import router as capability_router
 from robozium.api.credentials import CredentialGateMiddleware, LoadedCredentials
 from robozium.api.credentials import router as credential_router
 from robozium.api.dependencies import router as dependency_router
+from robozium.api.desktop_access import (
+    DESKTOP_ORIGIN,
+    DesktopAccessMiddleware,
+    desktop_host,
+)
 from robozium.api.environment import EnvironmentRequestMiddleware
 from robozium.api.environment import router as environment_router
 from robozium.api.environment_service import EnvironmentService
@@ -117,7 +123,20 @@ def create_app(*, deployment: Hub) -> FastAPI:
         deployment, projects, app.state.loaded_credentials,
     )
     app.add_middleware(CredentialGateMiddleware, loaded=app.state.loaded_credentials)
-    app.add_middleware(EnvironmentRequestMiddleware)
+    host = desktop_host()
+    app.add_middleware(
+        EnvironmentRequestMiddleware,
+        trusted_origin=DESKTOP_ORIGIN if host else None,
+    )
+    if host:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=[DESKTOP_ORIGIN],
+            allow_methods=["GET", "POST", "DELETE"],
+            allow_headers=["Accept", "Content-Type"],
+            allow_credentials=False,
+        )
+        app.add_middleware(DesktopAccessMiddleware, host=host)
     app.include_router(dependency_router)
     app.include_router(credential_router)
     app.include_router(capability_router)
