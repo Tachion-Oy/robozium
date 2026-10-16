@@ -80,6 +80,7 @@ export class DesktopApiClient {
 export async function* parseEventStream(body: ReadableStream<Uint8Array>, signal?: AbortSignal): AsyncGenerator<unknown> {
 	const reader = body.getReader(), decoder = new TextDecoder("utf-8", { fatal: true })
 	let buffer = "", data: string[] = []
+	let skipLf = false
 	const cancel = async () => {
 		try { await reader.cancel() } catch { /* Preserve the original stream error. */ }
 	}
@@ -93,10 +94,16 @@ export async function* parseEventStream(body: ReadableStream<Uint8Array>, signal
 			try { buffer += done ? decoder.decode() : decoder.decode(value, { stream: true }) }
 			catch { throw new ApiError("malformed", "The backend returned invalid event text.") }
 			for (;;) {
+				if (skipLf) {
+					if (!buffer.length) break
+					if (buffer[0] === "\n") buffer = buffer.slice(1)
+					skipLf = false
+				}
 				const index = buffer.search(/[\r\n]/)
-				if (index < 0 || (!done && index === buffer.length - 1 && buffer[index] === "\r")) break
+				if (index < 0) break
 				const line = buffer.slice(0, index)
-				buffer = buffer.slice(index + (buffer.slice(index, index + 2) === "\r\n" ? 2 : 1))
+				skipLf = buffer[index] === "\r"
+				buffer = buffer.slice(index + 1)
 				if (line === "") {
 					if (data.length) {
 						let parsed: unknown

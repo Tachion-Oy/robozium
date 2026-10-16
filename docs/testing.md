@@ -182,7 +182,9 @@ Desktop transport tests also run in this suite, using disposable loopback HTTP
 servers and the actual client. They cover JSON request policy, origin/redirect
 rejection, HTTP status and safe detail, malformed JSON, cancellation, SSE UTF-8
 and line/chunk boundaries, comments/multiline data, stream errors, early disposal,
-and reader cleanup. Preview remains local; its bridge returns no API address.
+and reader cleanup. An open-stream regression dispatches CR-terminated events
+without another chunk or EOF and checks split CRLF handling. Preview remains
+local; its bridge returns no API address.
 
 Linux screenshot baselines live beside the native tests. Review visual changes
 against the experiment before explicitly updating them:
@@ -431,7 +433,8 @@ its renderer through Playwright. Credential-unlock controls remain a later incre
 
 `tests/unit/test_desktop_access.py` checks accepted/rejected origins and Hosts,
 explicit preflight policy, native requests, Fetch Metadata, unchanged browser
-mode, Environment request limits/storage/busy gates, and locked provider actions.
+mode, CORS headers on unhandled storage-error responses, Environment request
+limits/storage/busy gates, and locked provider actions.
 The existing Environment and credential suites remain in the default Python run.
 
 Desktop layout coverage also relocates log and local-extension directories in an

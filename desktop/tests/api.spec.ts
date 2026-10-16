@@ -86,6 +86,32 @@ test("early SSE disposal cancels the source and releases its reader", async () =
 	expect(body.locked).toBe(false)
 })
 
+test("CR dispatches an event on an open stream and skips a later optional LF", async () => {
+	const controller = new AbortController()
+	let source!: ReadableStreamDefaultController<Uint8Array>
+	let cancelled = false
+	const encode = (text: string) => new TextEncoder().encode(text)
+	const body = new ReadableStream<Uint8Array>({
+		start(stream) { source = stream; stream.enqueue(encode("data: 1\r\r")) },
+		cancel() { cancelled = true },
+	})
+	const events = parseEventStream(body, controller.signal)
+	const deadline = setTimeout(() => controller.abort(), 1000)
+	try {
+		// Neither close the source nor send another chunk until this event arrives.
+		expect(await events.next()).toEqual({ value: 1, done: false })
+		source.enqueue(encode('\ndata: {"text":\r'))
+		source.enqueue(encode('\ndata: "ok"}\r\r'))
+		expect(await events.next()).toEqual({ value: { text: "ok" }, done: false })
+	} finally {
+		clearTimeout(deadline)
+		controller.abort()
+		await events.return(undefined)
+	}
+	expect(cancelled).toBe(true)
+	expect(body.locked).toBe(false)
+})
+
 test("abort interrupts a pending stream read and releases the reader", async () => {
 	let cancelled = 0
 	const body = new ReadableStream<Uint8Array>({ cancel() { cancelled++ } })

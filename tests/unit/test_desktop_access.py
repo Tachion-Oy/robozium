@@ -72,6 +72,32 @@ def test_preflight_is_explicit_and_cannot_bypass_policy(client):
         assert client.options("/projects", headers=headers | extra).status_code == status
 
 
+@pytest.mark.parametrize("origin", [ORIGIN, None])
+def test_unhandled_server_errors_preserve_cors_for_allowed_origin(client, origin):
+    # A file at the projects directory provokes a real storage error without
+    # depending on the test user's ability to bypass filesystem permissions.
+    directory = client.app.state.hub.settings.sandbox.projects_dir
+    directory.parent.mkdir(parents=True, exist_ok=True)
+    directory.write_text("not a directory")
+    errors = TestClient(client.app, base_url=BASE, raise_server_exceptions=False)
+    response = errors.post(
+        "/projects", json={"name": "storage failure"},
+        headers={"Origin": origin} if origin else {},
+    )
+    assert response.status_code == 500
+    assert response.text == "Internal Server Error"
+    assert response.headers.get("access-control-allow-origin") == origin
+    if origin:
+        assert "Origin" in response.headers["vary"].split(", ")
+    assert "access-control-allow-credentials" not in response.headers
+    rejected = errors.post(
+        "/projects", json={"name": "forbidden"},
+        headers={"Origin": "https://evil.example"},
+    )
+    assert rejected.status_code == 403
+    assert "access-control-allow-origin" not in rejected.headers
+
+
 def test_environment_keeps_validation_storage_and_busy_gate(client, tmp_path):
     client.headers["Origin"] = ORIGIN
     view = client.get(ENVIRONMENT).json()
