@@ -37,7 +37,7 @@ for (const theme of ["dark", "light"]) {
 	test(`selectors keep header positions stable and shrink in ${theme}`, async ({ desktop: { app, page } }) => {
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 		await page.getByRole("button", { name: "Start run", exact: true }).click()
-		await page.evaluate(() => document.fonts.ready.then(() => undefined))
+		await page.evaluate(async () => { await document.fonts.ready })
 		const selectors = [
 			{ label: "Base model", index: 0, names: ["Mock model", "Mock fast model", "Mock extended context model"] },
 			{ label: "HUD view", index: 3, names: ["Runs Overview", "Dependencies", "Environment", "Current Run"] },
@@ -478,7 +478,7 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 			await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight]))
 				.toEqual([width / zoom, height / zoom])
 			await expect(page.locator(".hud-frame__identity").getByRole("status")).toHaveText(/^Version /)
-			await page.evaluate(() => document.fonts.ready.then(() => undefined))
+			await page.evaluate(async () => { await document.fonts.ready })
 			for (const theme of ["dark", "light"]) {
 				if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 				await expect(page.locator("html")).toHaveAttribute("data-theme", theme)
@@ -655,7 +655,14 @@ test("rejects the version request from a different window", async ({ desktop: { 
 		const other = new BrowserWindow({ show: false, webPreferences: { preload, sandbox: true, contextIsolation: true, nodeIntegration: false } })
 		try {
 			await other.loadURL(documentUrl)
-			return await other.webContents.executeJavaScript("window.robozium.getVersion().then(() => 'allowed', () => 'denied')")
+			return await other.webContents.executeJavaScript(`(async () => {
+				try {
+					await window.robozium.getVersion()
+					return "allowed"
+				} catch {
+					return "denied"
+				}
+			})()`)
 		} finally { other.destroy() }
 	}, { preload, documentUrl })
 	expect(result).toBe("denied")
@@ -663,7 +670,14 @@ test("rejects the version request from a different window", async ({ desktop: { 
 
 test("rejects the version request from a different document in the main window", async ({ desktop: { app, page } }) => {
 	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].loadURL("about:blank"))
-	expect(await page.evaluate(() => window.robozium.getVersion().then(() => "allowed", () => "denied"))).toBe("denied")
+	expect(await page.evaluate(async () => {
+		try {
+			await window.robozium.getVersion()
+			return "allowed"
+		} catch {
+			return "denied"
+		}
+	})).toBe("denied")
 })
 
 test("shows a readable error when the version request fails", async ({ desktop: { app, page } }) => {

@@ -59,7 +59,12 @@ const test = base.extend<{ runtime: { directory: string; profile: string; port: 
 						execFileSync(docker, ["rm", "--force", id], { stdio: "pipe" })
 					}
 					try { execFileSync(docker, ["image", "rm", `${project}-api`], { stdio: "pipe" }) } catch { /* Startup may not have built an image. */ }
-					const buildLog = await readFile(path.join(profile, "mock/.runtime/logs/docker.log"), "utf8").catch(() => "")
+					let buildLog = ""
+					try {
+						buildLog = await readFile(path.join(profile, "mock/.runtime/logs/docker.log"), "utf8")
+					} catch {
+						// Startup may fail before a Docker log exists.
+					}
 					await testInfo.attach("docker.log", { body: buildLog, contentType: "text/plain" })
 				} finally { await rm(directory, { recursive: true, force: true }) }
 			}
@@ -132,7 +137,13 @@ test("closing the native window cancels an in-progress build client", async ({ r
 	const app = await runtime.launch()
 	const page = await app.firstWindow()
 	await expect(page.getByRole("status")).toContainText("Building the backend", { timeout: 15_000 })
-	await expect.poll(() => readFile(marker, "utf8").catch(() => "")).toMatch(/^\d+\n$/)
+	await expect.poll(async () => {
+		try {
+			return await readFile(marker, "utf8")
+		} catch {
+			return ""
+		}
+	}).toMatch(/^\d+\n$/)
 	const pid = Number(await readFile(marker, "utf8"))
 	await closeWindow(app)
 	expect(() => process.kill(pid, 0)).toThrow()

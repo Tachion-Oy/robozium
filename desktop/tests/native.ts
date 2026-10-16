@@ -57,7 +57,7 @@ export async function waitForPanelLayout(page: Page) {
 	await page.evaluate(async () => {
 		await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
 		const animations = document.querySelector(".hud-panels")?.getAnimations({ subtree: true }) ?? []
-		await Promise.all(animations.map(animation => animation.finished.catch(() => {})))
+		await Promise.allSettled(animations.map(animation => animation.finished))
 	})
 }
 

@@ -31,6 +31,13 @@ Treat HTTP/SSE payloads, configuration choices, persisted paths, and credentials
 as contracts. Keep backend models and frontend wire types aligned. Preserve one
 API worker per hub directory and loopback-only API and web listeners in Compose.
 
+## JavaScript and TypeScript
+
+Use `async`/`await` for asynchronous control flow. Promise `.then()`, `.catch()`,
+and `.finally()` chains are prohibited in source, scripts, and tests. Handle
+errors and cleanup with `try`/`catch`/`finally`. Callback and event APIs may be
+wrapped in a Promise and then awaited. Desktop ESLint enforces this rule.
+
 ## Frontend
 
 Use TypeScript's strict checks and the existing Next.js ESLint configuration.

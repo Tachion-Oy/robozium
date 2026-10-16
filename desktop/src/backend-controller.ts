@@ -87,16 +87,7 @@ export class BackendController {
 
 		this.startupAbort = new AbortController()
 		this.status = { state: "starting", message: "Checking Docker…" }
-		this.pendingStartup = this.launch()
-			.catch(error => {
-				if (!this.closing) {
-					this.status = { state: "error", message: error.message }
-				}
-				throw error
-			})
-			.finally(() => {
-				this.pendingStartup = undefined
-			})
+		this.pendingStartup = this.launchWithStatus()
 
 		return this.pendingStartup
 	}
@@ -110,6 +101,20 @@ export class BackendController {
 		this.startupAbort.abort()
 		this.pendingShutdown = this.stopBackend()
 		return this.pendingShutdown
+	}
+
+	private async launchWithStatus(): Promise<void> {
+		try {
+			await this.launch()
+		} catch (error) {
+			if (!this.closing) {
+				const message = error instanceof Error ? error.message : String(error)
+				this.status = { state: "error", message }
+			}
+			throw error
+		} finally {
+			this.pendingStartup = undefined
+		}
 	}
 
 	private async launch(): Promise<void> {
@@ -350,7 +355,11 @@ export class BackendController {
 	}
 
 	private async stopBackend(): Promise<void> {
-		await this.pendingStartup?.catch(() => {})
+		try {
+			await this.pendingStartup
+		} catch {
+			// Failed or cancelled startup still needs ownership-checked cleanup.
+		}
 		if (!this.ownershipVerified) {
 			return
 		}

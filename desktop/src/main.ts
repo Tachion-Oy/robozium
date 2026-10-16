@@ -37,6 +37,13 @@ async function start(): Promise<void> {
 		profile, mode: process.argv.includes("--mock") ? "mock" : "live", port: process.env.ROBOZIUM_DESKTOP_API_PORT,
 		source: path.join(__dirname, "../.stage/backend"), compose: path.join(__dirname, "../compose.yaml"),
 	})
+	const startBackend = async () => {
+		try {
+			await backend?.start()
+		} catch {
+			// The controller exposes startup failures through its status for the UI.
+		}
+	}
 	let closing = false
 	const quit = async () => {
 		if (closing) return
@@ -87,7 +94,7 @@ async function start(): Promise<void> {
 	})
 	ipcMain.handle("desktop:retry-backend", event => {
 		requireTrustedDocument(event)
-		void backend?.start().catch(() => {})
+		void startBackend()
 	})
 	ipcMain.handle("desktop:version", event => {
 		requireTrustedDocument(event)
@@ -100,11 +107,17 @@ async function start(): Promise<void> {
 	})
 	await window.loadURL(rendererUrl)
 	window.show()
-	void backend?.start().catch(() => {})
+	void startBackend()
+}
+
+async function main(): Promise<void> {
+	try {
+		await start()
+	} catch (error) {
+		console.error("Robozium could not start:", error)
+		app.exit(1)
+	}
 }
 
 app.on("window-all-closed", () => app.quit())
-void start().catch(error => {
-	console.error("Robozium could not start:", error)
-	app.exit(1)
-})
+void main()

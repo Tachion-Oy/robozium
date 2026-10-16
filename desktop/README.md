@@ -126,6 +126,14 @@ and CI details.
 
 ## Code layout
 
+**Hard rule: do not hardcode filesystem locations in application code.** Resolve
+paths from configured profile/runtime roots. Define runtime subdirectories once
+in the authoritative backend layout/configuration and use that definition for
+directory creation, mount validation, logging, and Compose integration. This
+includes relative locations such as `local/tools`, `.runtime/local-deps`, and
+`hub/readonly/safe-scripts`; repeating them in controller or helper path lists
+is prohibited.
+
 - `src/` contains Electron main, preload, and the typed bridge. Main owns
   backend lifecycle. Native clipboard writes use `writeClipboardText(text)`,
   validating the window, main frame, document URL, and string payload. Browser clipboard permissions
