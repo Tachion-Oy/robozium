@@ -12,14 +12,17 @@ from uuid import uuid4
 from roboz.agent import Agent
 from roboz.deployment import DeployableAgent
 from roboz.llm import LLMEndpoint
+from roboz.models import Str, StrImage
 from roboz.runtime import bind_api_user_io, default_event_sinks, reset_api_user_io
 from roboz.runtime.events import EventSink
 
+from robozium.api.attachments import UploadedImage
 from robozium.api.errors import (
     InvalidCapabilitySelection,
     ProjectBusyError,
     ProjectCancellationInProgressError,
 )
+from robozium.api.history import text_sink
 from robozium.api.projects import Project
 from robozium.api.run_control import RunControl
 from robozium.api.state import (
@@ -109,6 +112,7 @@ class RunManager:
                 self._default_endpoint(),
                 history_limit=self._history_limit,
                 capabilities=selected,
+                run_id=run_id,
             )
             return run_id
 
@@ -163,11 +167,13 @@ class RunManager:
             endpoint_getter=control.endpoint,
         )
         definition.set_capability_selection(control.capabilities)
+        control.bind_definition(definition)
         return definition.build(
             event_sinks=(control.dispatch,),
-            event_sink_factory=lambda name: default_event_sinks(
-                data_path=control.project.logs / name,
-                include_cli=False,
+            event_sink_factory=lambda name: tuple(
+                text_sink(sink) for sink in default_event_sinks(
+                    data_path=control.project.logs / name, include_cli=False,
+                )
             ),
         )
 
@@ -224,6 +230,7 @@ class RunManager:
             "message_trace": raw["message_trace"],
             "current_prompt_id": raw["current_prompt_id"],
             "current_prompt": raw["current_prompt"],
+            "current_prompt_accepts_images": raw["current_prompt_accepts_images"],
             "error": raw["error"],
         }
 
@@ -281,8 +288,20 @@ class RunManager:
         if control is not None:
             control.unsubscribe(event_listener)
 
-    def submit_reply(self, run_id: str, prompt_id: str | None, content: str) -> None:
-        self._control(run_id).submit_reply(prompt_id, content)
+    def submit_reply(
+        self, run_id: str, prompt_id: str | None, content: str | Str | StrImage
+    ) -> None:
+        self._control(run_id).submit_reply(
+            prompt_id, Str(value=content) if isinstance(content, str) else content
+        )
+
+    def validate_image_reply(self, run_id: str, prompt_id: str) -> None:
+        self._control(run_id).validate_image_reply(prompt_id)
+
+    def submit_images(
+        self, run_id: str, prompt_id: str, content: str, images: list[UploadedImage]
+    ) -> None:
+        self._control(run_id).submit_images(prompt_id, content, images)
 
     def cancel(self, run_id: str) -> bool:
         return self._control(run_id).cancel()

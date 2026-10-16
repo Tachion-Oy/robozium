@@ -52,7 +52,7 @@ function runningView(messageTrace: RunView["message_trace"]): RunView {
 		parent_agent_name: null,
 		message_trace: messageTrace,
 		current_prompt_id: null,
-		current_prompt: null,
+		current_prompt: null, current_prompt_accepts_images: false,
 		error: null,
 	}
 }

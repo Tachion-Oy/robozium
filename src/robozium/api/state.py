@@ -113,6 +113,7 @@ class RunState(RunProjection):
     background_active: bool
     current_prompt_id: str | None
     current_prompt: str | None
+    current_prompt_accepts_images: bool
     error: str | None
 
 
@@ -125,6 +126,7 @@ class RunView(TypedDict):
     message_trace: list[TraceEntry]
     current_prompt_id: str | None
     current_prompt: str | None
+    current_prompt_accepts_images: bool
     error: str | None
 
 

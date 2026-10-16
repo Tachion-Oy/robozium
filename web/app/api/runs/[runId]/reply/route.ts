@@ -1,4 +1,4 @@
-import { fetchAgentUpstream, passthroughResponse } from "@/lib/robozium/http";
+import { fetchAgentUpstream, passthroughResponse, readBoundedBody } from "@/lib/robozium/http";
 import type { ReplyBody } from "@/lib/robozium/wire";
 
 export const runtime = "nodejs";
@@ -9,7 +9,17 @@ export async function POST(
   { params }: { params: Promise<{ runId: string }> },
 ) {
   const { runId } = await params;
-  const body: ReplyBody = (await request.json()) as ReplyBody;
+  const contentType = request.headers.get("content-type") ?? "application/json";
+  const multipart = contentType.split(";", 1)[0].trim().toLowerCase() === "multipart/form-data";
+  let body: BodyInit;
+  if (multipart) {
+    const bytes = await readBoundedBody(request, 41 * 1024 * 1024, "Reply body exceeds 41 MiB");
+    if (bytes instanceof Response) return bytes;
+    body = bytes;
+  } else {
+    const reply = (await request.json()) as ReplyBody;
+    body = JSON.stringify(reply);
+  }
 
   const upstream = await fetchAgentUpstream({
     request,
@@ -18,9 +28,9 @@ export async function POST(
       method: "POST",
       headers: {
         Accept: "application/json",
-        "Content-Type": "application/json",
+        "Content-Type": multipart ? contentType : "application/json",
       },
-      body: JSON.stringify(body),
+      body,
     },
   });
 

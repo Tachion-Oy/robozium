@@ -94,6 +94,7 @@ export type RunView = {
 	message_trace: PipeEventFrame[]
 	current_prompt_id: string | null
 	current_prompt: string | null
+	current_prompt_accepts_images: boolean
 	error: string | null
 }
 
@@ -175,6 +176,7 @@ export type EnvironmentSaveResult = { status: "saved" }
 export type AvailableModel = {
 	model_id: string
 	label: string
+	accepts_images: boolean
 }
 export type ModelSelection = {
 	models: AvailableModel[]

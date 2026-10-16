@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from threading import Event, Lock
 
 from roboz.exceptions import ExternalCallCancelledError
+from roboz.models import Str, StrImage
 from roboz.runtime import log_with_data
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ class RunCancelled(ExternalCallCancelledError):
 @dataclass
 class _WaitSlot:
     event: Event = field(default_factory=Event)
-    reply: str | None = None
+    reply: Str | StrImage | None = None
     cancelled: bool = False
 
 
@@ -42,20 +43,20 @@ class WaitRegistry:
             self._slots[prompt_id] = _WaitSlot()
         logger.debug("Wait slot registered (prompt_id=%s)", prompt_id)
 
-    def wait(self, prompt_id: str, *, timeout_s: float | None = None) -> str:
+    def wait(self, prompt_id: str, *, timeout_s: float | None = None) -> Str | StrImage:
         with self._lock:
             slot = self._slots.get(prompt_id)
         if slot is None:
             msg = f"unknown prompt_id: {prompt_id}"
             raise RuntimeError(msg)
 
-        if not slot.event.wait(timeout_s):
-            with self._lock:
-                self._slots.pop(prompt_id, None)
-            msg = f"timed out waiting for prompt_id={prompt_id}"
-            raise TimeoutError(msg)
-
+        slot.event.wait(timeout_s)
         with self._lock:
+            # Resolve and expiry compete under the same lock. A reply accepted
+            # just as Event.wait expires must still reach the waiting agent.
+            if not slot.event.is_set():
+                self._slots.pop(prompt_id, None)
+                raise TimeoutError(f"timed out waiting for prompt_id={prompt_id}")
             popped = self._slots.pop(prompt_id, None)
         if popped is None:
             msg = f"wait slot missing after signal: {prompt_id}"
@@ -73,7 +74,7 @@ class WaitRegistry:
         with self._lock:
             self._slots.pop(prompt_id, None)
 
-    def resolve(self, prompt_id: str, content: str) -> bool:
+    def resolve(self, prompt_id: str, content: Str | StrImage) -> bool:
         with self._lock:
             slot = self._slots.get(prompt_id)
             if slot is None:

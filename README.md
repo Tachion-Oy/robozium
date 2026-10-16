@@ -86,3 +86,5 @@ report vulnerabilities through [Security](SECURITY.md). Do not run
 
 Robozium uses the [Apache License 2.0](LICENSE). Pirulen lettering is by
 Raymond Larabie ([terms](https://typodermicfonts.com/license/)); the HUD mark uses Anurati A.
+
+Backend clients can submit image attachments through the [image reply API](docs/image-input-api.md).

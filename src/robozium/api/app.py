@@ -21,6 +21,7 @@ from roboz.llm.calls import call_transcription_api
 from roboz.runtime import log_with_data
 from roboz.runtime.events import PipeEvent
 
+from robozium.api.attachments import ImagesNotSupported
 from robozium.api.capabilities import router as capability_router
 from robozium.api.credentials import CredentialGateMiddleware, LoadedCredentials
 from robozium.api.credentials import router as credential_router
@@ -37,6 +38,7 @@ from robozium.api.files import serve_hub_file
 from robozium.api.lifespan import application_lifespan
 from robozium.api.models import *
 from robozium.api.project_service import ProjectService
+from robozium.api.replies import submit_http_reply
 from robozium.api.run_manager import RunManager
 from robozium.api.sse import event_to_sse_frame
 from robozium.api.state import RunStatus
@@ -75,7 +77,10 @@ def _model_selection_view(
 ) -> ModelSelectionView:
     return ModelSelectionView(
         models=[
-            AvailableModelView(model_id=endpoint.dependency_id, label=label)
+            AvailableModelView(
+                model_id=endpoint.dependency_id, label=label,
+                accepts_images=endpoint.accepts_images,
+            )
             for label, endpoint in selector.models.items()
         ],
         selected_model_id=selected_model_id or selector.selected_model_id,
@@ -120,6 +125,12 @@ def create_app(*, deployment: Hub) -> FastAPI:
     app.include_router(credential_router)
     app.include_router(capability_router)
     app.include_router(environment_router)
+
+    @app.exception_handler(ImagesNotSupported)
+    async def images_not_supported(request: Request, exc: ImagesNotSupported) -> Response:
+        return JSONResponse(
+            {"code": "images_not_supported", "message": str(exc)}, status_code=400,
+        )
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError) -> Response:
@@ -227,13 +238,29 @@ def create_app(*, deployment: Hub) -> FastAPI:
             raise HTTPException(status_code=404, detail="unknown run_id") from None
         return {"ok": interrupted}
 
-    @app.post("/run/{run_id}/reply")
-    def run_reply(run_id: str, body: ReplyBody, request: Request) -> dict[str, bool]:
+    @app.post("/run/{run_id}/reply", openapi_extra={
+        "requestBody": {"required": True, "content": {
+            "application/json": {"schema": ReplyBody.model_json_schema()},
+            "multipart/form-data": {"schema": {
+                "type": "object", "required": ["prompt_id"],
+                "properties": {
+                    "prompt_id": {"type": "string"},
+                    "content": {"type": "string"},
+                    "images": {"type": "array", "maxItems": 4, "items": {
+                        "type": "string", "format": "binary",
+                    }},
+                },
+            }},
+        }},
+    })
+    async def run_reply(run_id: str, request: Request) -> dict[str, bool]:
         manager: RunManager = request.app.state.run_manager
         try:
-            manager.submit_reply(run_id, body.prompt_id, body.content)
+            await submit_http_reply(manager, run_id, request)
         except KeyError:
             raise HTTPException(status_code=404, detail="unknown run_id") from None
+        except ImagesNotSupported:
+            raise
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"ok": True}
