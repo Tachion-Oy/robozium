@@ -10,5 +10,5 @@
     "outDir": "dist",
     "noEmitOnError": true
   },
-  "include": ["src/main.ts", "src/preload.ts"]
+  "include": ["src/**/*.ts"]
 }

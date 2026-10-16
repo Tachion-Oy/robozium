@@ -149,6 +149,9 @@ is prohibited.
 - `renderer/src/assets/` contains the bundled Anurati status-mark font.
 - `renderer/src/styles/app.css` contains app-wide typography, theme tokens,
   base styles, and the frame.
+- `tsconfig.json` supplies Node types and module settings for every file in
+  `src/`. Its standard name lets editors discover the same project used by the
+  build. The test and Vite configurations extend it.
 - `renderer/tsconfig.json` supplies the renderer's browser and Vite asset types
   to both the editor and the command-line type check.
 - `tests/` contains native scenarios and screenshot baselines.
