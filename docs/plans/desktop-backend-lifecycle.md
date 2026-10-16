@@ -59,3 +59,12 @@ Update the roadmap, desktop README, testing guide, and changelog. Record source
 adaptations, changed production-line count, and local validation in one PR.
 Commit, push, open the PR, and stop without waiting for CI or merging, as requested.
 Required CI must still pass before merge. The next increment remains PR 6.
+
+## Module responsibilities
+
+`backend-controller.ts` coordinates lifecycle decisions. `docker-command.ts`
+executes one CLI command and handles its output, timeout, and cancellation.
+`loadOrCreateBackendProfile()` names the profile loader's identity persistence
+explicitly. `backend-layout.json` supplies the runtime mounts and paths to both
+Compose and the shared runtime preparation helper; controllers contain no
+separate directory or mount lists.

@@ -140,6 +140,16 @@ is prohibited.
   remain denied; the bridge exposes no clipboard-read operation. Backend IPC is
   limited to `getBackendStatus()` and `retryBackend()` with the same trusted
   document checks; it exposes no shell or Docker command interface.
+- `src/backend-controller.ts` coordinates startup, readiness, retry, and shutdown.
+- `src/docker-command.ts` runs one Docker CLI command, handling its output,
+  timeout, and cancellation.
+- `src/backend-profile.ts` exposes `loadOrCreateBackendProfile()`, which reads or
+  creates the installation identity and selects the mode's runtime and port.
+- `src/backend-layout.json` defines bind mounts, runtime subdirectories, and
+  runtime file locations. Compose extends this configuration directly.
+- `src/backend-layout.cjs` resolves and prepares that layout for Electron and
+  `scripts/prepare-runtime.mjs`. TypeScript checks this shared Node module; the
+  standalone setup command can also run before installing desktop dependencies.
 - `renderer/src/` contains the React entry point and app state.
 - `renderer/src/components/hud/` contains the header, panels, divider, footer, and their CSS.
   Components import the styles they own; the header currently owns its inline
@@ -199,18 +209,10 @@ Then prepare that mode's runtime and define a command scoped to its project:
 ```sh
 export ROBOZIUM_DESKTOP_RUNTIME="$PWD/.artifacts/desktop/manual-data/$ROBOZIUM_MODE"
 export ROBOZIUM_API_USER="$(id -u):$(id -g)"
-umask 077
-mkdir -p "$ROBOZIUM_DESKTOP_RUNTIME/local/tools" \
-  "$ROBOZIUM_DESKTOP_RUNTIME/local/skills" \
-  "$ROBOZIUM_DESKTOP_RUNTIME/local/imports" \
-  "$ROBOZIUM_DESKTOP_RUNTIME/.runtime/local-deps" \
-  "$ROBOZIUM_DESKTOP_RUNTIME/.runtime/logs" \
-  "$ROBOZIUM_DESKTOP_RUNTIME/.runtime/host-socket" \
-  "$ROBOZIUM_DESKTOP_RUNTIME/hub/readonly/safe-scripts"
-: > "$ROBOZIUM_DESKTOP_RUNTIME/.runtime/compose.env"
+ROBOZIUM_DESKTOP_COMPOSE_ENV="$(node desktop/scripts/prepare-runtime.mjs)"
 desktop_compose() {
   docker compose --project-name "robozium-desktop-manual-$ROBOZIUM_MODE" \
-    --env-file "$ROBOZIUM_DESKTOP_RUNTIME/.runtime/compose.env" \
+    --env-file "$ROBOZIUM_DESKTOP_COMPOSE_ENV" \
     --file "$PWD/desktop/compose.yaml" "$@"
 }
 ```

@@ -6,7 +6,8 @@ import net from "node:net"
 import process from "node:process"
 import { test } from "node:test"
 import { BackendController, portAvailable } from "../../dist/backend-controller.js"
-import { backendProfile } from "../../dist/backend-profile.js"
+import { loadOrCreateBackendProfile } from "../../dist/backend-profile.js"
+import { resolveBackendLayout } from "../../dist/backend-layout.cjs"
 
 const id = "a".repeat(64)
 const hash = "b".repeat(64)
@@ -16,15 +17,13 @@ function fixture(t, options = {}) {
 	const profile = path.join(directory, "profile"), source = path.join(directory, "source")
 	mkdirSync(source)
 	writeFileSync(path.join(source, "build-id.json"), JSON.stringify({ id: hash }))
-	const settings = backendProfile(profile, "mock")
+	const settings = loadOrCreateBackendProfile(profile, "mock")
 	const state = { exists: false, running: false, cached: hash, ready: true, available: true, calls: [], ...options }
-	const mounts = { "/configuration": "", "/hub": "hub", "/app/local": "local", "/app/.runtime/local-deps": ".runtime/local-deps",
-		"/logs": ".runtime/logs", "/host-scripts": ".runtime/host-socket", "/hub/readonly/safe-scripts": "hub/readonly/safe-scripts" }
+	const layout = resolveBackendLayout(settings.runtime)
 	const inspection = () => ({
 		labels: { "com.docker.compose.project": settings.project, "com.docker.compose.service": "api",
 			"fi.tachion.robozium.desktop.installation": settings.installation, "fi.tachion.robozium.desktop.port": String(settings.port) },
-		mounts: Object.entries(mounts).map(([Destination, relative]) => ({ Destination, Source: path.join(settings.runtime, relative),
-			RW: !["/host-scripts", "/hub/readonly/safe-scripts"].includes(Destination) })),
+		mounts: layout.mounts.map(mount => ({ Source: mount.source, Destination: mount.destination, RW: mount.writable })),
 		running: state.running,
 	})
 	const run = async (executable, args, command) => {
@@ -61,24 +60,24 @@ const noMutation = state => assert.equal(commands(state).some(args => ["stop", "
 
 test("profile keeps stable mode identities and imports experiment settings without rewriting them", t => {
 	const { profile, settings } = fixture(t)
-	assert.equal(backendProfile(profile, "live").installation, settings.installation)
-	assert.equal(backendProfile(profile, "live").port, 18001)
+	assert.equal(loadOrCreateBackendProfile(profile, "live").installation, settings.installation)
+	assert.equal(loadOrCreateBackendProfile(profile, "live").port, 18001)
 	const file = path.join(profile, "settings.json")
 	const original = JSON.stringify({ installationId: settings.installation, ports: { live: { api: 23001 }, mock: { api: 23000 } }, theme: "light", future: true })
 	writeFileSync(file, original)
-	assert.equal(backendProfile(profile, "live").port, 23001)
-	assert.equal(backendProfile(profile, "mock", "24000").port, 24000)
+	assert.equal(loadOrCreateBackendProfile(profile, "live").port, 23001)
+	assert.equal(loadOrCreateBackendProfile(profile, "mock", "24000").port, 24000)
 	assert.equal(readFileSync(file, "utf8"), original)
-	for (const port of ["", "0", "1023", "65536", "1.5", "bad"]) assert.throws(() => backendProfile(profile, "live", port), /API port/)
+	for (const port of ["", "0", "1023", "65536", "1.5", "bad"]) assert.throws(() => loadOrCreateBackendProfile(profile, "live", port), /API port/)
 	writeFileSync(file, JSON.stringify({ installationId: "abcdefabcdef" }))
-	assert.throws(() => backendProfile(profile, "mock"), /ownership/)
+	assert.throws(() => loadOrCreateBackendProfile(profile, "mock"), /ownership/)
 })
 
 test("imports the experiment identity on first launch", t => {
 	const { profile, settings } = fixture(t)
 	rmSync(path.join(profile, "backend-installation-id"))
 	writeFileSync(path.join(profile, "settings.json"), JSON.stringify({ installationId: "abcdefabcdef" }))
-	assert.equal(backendProfile(profile, "live").installation, "abcdefabcdef")
+	assert.equal(loadOrCreateBackendProfile(profile, "live").installation, "abcdefabcdef")
 	assert.notEqual(settings.installation, "abcdefabcdef")
 })
 

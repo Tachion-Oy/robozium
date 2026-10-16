@@ -10,7 +10,7 @@ interface BackendProfile {
 }
 
 /** Keep a shared installation identity across modes without rewriting legacy settings. */
-export function backendProfile(directory: string, mode: "live" | "mock", portOverride?: string): BackendProfile {
+export function loadOrCreateBackendProfile(directory: string, mode: "live" | "mock", portOverride?: string): BackendProfile {
 	mkdirSync(directory, { recursive: true, mode: 0o700 })
 	const profileDirectory = realpathSync(directory)
 

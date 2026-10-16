@@ -1,10 +1,11 @@
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { appendFileSync, readFileSync } from "node:fs"
 import net from "node:net"
 import path from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
 import type { BackendStatus } from "./bridge"
-import { backendProfile } from "./backend-profile"
-import { findDocker, runCommand, type CommandOptions } from "./backend-process"
+import { loadOrCreateBackendProfile } from "./backend-profile"
+import { prepareBackendRuntime, resolveBackendLayout } from "./backend-layout.cjs"
+import { findDocker, runCommand, type CommandOptions } from "./docker-command"
 
 interface BackendOptions {
 	profile: string
@@ -62,11 +63,13 @@ export class BackendController {
 	private dockerExecutable = ""
 	private environment: NodeJS.ProcessEnv = {}
 	private targetPinned = false
-	private readonly settings: ReturnType<typeof backendProfile>
+	private readonly settings: ReturnType<typeof loadOrCreateBackendProfile>
+	private readonly layout: ReturnType<typeof resolveBackendLayout>
 	private readonly run: typeof runCommand
 
 	constructor(private readonly options: BackendOptions) {
-		this.settings = backendProfile(options.profile, options.mode, options.port)
+		this.settings = loadOrCreateBackendProfile(options.profile, options.mode, options.port)
+		this.layout = resolveBackendLayout(this.settings.runtime)
 		this.run = options.run ?? runCommand
 	}
 
@@ -118,7 +121,7 @@ export class BackendController {
 	}
 
 	private async launch(): Promise<void> {
-		this.prepareRuntime()
+		prepareBackendRuntime(this.layout)
 		const securityOptions = await this.prepareDocker()
 		const buildId = this.readBuildId()
 		const { runtime, port, installation } = this.settings
@@ -138,8 +141,7 @@ export class BackendController {
 		await this.verifyRuntimeOwnership()
 
 		const log = (output: string) => {
-			const logFile = path.join(runtime, ".runtime/logs/docker.log")
-			appendFileSync(logFile, output, { mode: 0o600 })
+			appendFileSync(this.layout.dockerLog, output, { mode: 0o600 })
 		}
 		await this.ensureImage(buildId, log)
 
@@ -147,24 +149,6 @@ export class BackendController {
 		await this.compose(["up", "--detach", "--no-build", "api"], { timeout: 120_000, log })
 		await this.ownedContainers()
 		await this.waitUntilReady()
-	}
-
-	private prepareRuntime(): void {
-		const directories = [
-			"local/tools",
-			"local/skills",
-			"local/imports",
-			".runtime/local-deps",
-			".runtime/logs",
-			".runtime/host-socket",
-			"hub/readonly/safe-scripts",
-		]
-		for (const directory of directories) {
-			mkdirSync(path.join(this.settings.runtime, directory), { recursive: true, mode: 0o700 })
-		}
-
-		const interpolationFile = path.join(this.settings.runtime, ".runtime/compose.env")
-		writeFileSync(interpolationFile, "# Controlled desktop interpolation only.\n", { mode: 0o600 })
 	}
 
 	private async prepareDocker(): Promise<string> {
@@ -274,31 +258,20 @@ export class BackendController {
 	}
 
 	private validateOwnership(container: ContainerInspection): void {
-		const { project, installation, runtime, port } = this.settings
+		const { project, installation, port } = this.settings
 		const expectedLabels = {
 			"com.docker.compose.project": project,
 			"com.docker.compose.service": "api",
 			"fi.tachion.robozium.desktop.installation": installation,
 			"fi.tachion.robozium.desktop.port": String(port),
 		}
-		const expectedMounts = [
-			{ destination: "/configuration", source: "", writable: true },
-			{ destination: "/hub", source: "hub", writable: true },
-			{ destination: "/app/local", source: "local", writable: true },
-			{ destination: "/app/.runtime/local-deps", source: ".runtime/local-deps", writable: true },
-			{ destination: "/logs", source: ".runtime/logs", writable: true },
-			{ destination: "/host-scripts", source: ".runtime/host-socket", writable: false },
-			{ destination: "/hub/readonly/safe-scripts", source: "hub/readonly/safe-scripts", writable: false },
-		]
-
 		const labelsMatch = Object.entries(expectedLabels).every(([label, expected]) => {
 			return container.labels?.[label] === expected
 		})
-		const mountsMatch = expectedMounts.every(expected => {
-			const expectedSource = path.join(runtime, expected.source)
+		const mountsMatch = this.layout.mounts.every(expected => {
 			return container.mounts?.some(mount => {
 				return mount.Destination === expected.destination
-					&& mount.Source === expectedSource
+					&& mount.Source === expected.source
 					&& mount.RW === expected.writable
 			})
 		})
@@ -386,7 +359,7 @@ export class BackendController {
 		return this.command([
 			"compose",
 			"--project-name", this.settings.project,
-			"--env-file", path.join(this.settings.runtime, ".runtime/compose.env"),
+			"--env-file", this.layout.composeEnvironment,
 			"--file", this.options.compose,
 			...args,
 		], overrides)

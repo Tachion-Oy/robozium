@@ -6,6 +6,7 @@ import net from "node:net"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { captureNative } from "../tests/native"
+import { resolveBackendLayout } from "../src/backend-layout.cjs"
 
 const desktop = path.resolve(__dirname, "..")
 const docker = execFileSync("which", ["docker"], { encoding: "utf8" }).trim()
@@ -61,7 +62,7 @@ const test = base.extend<{ runtime: { directory: string; profile: string; port: 
 					try { execFileSync(docker, ["image", "rm", `${project}-api`], { stdio: "pipe" }) } catch { /* Startup may not have built an image. */ }
 					let buildLog = ""
 					try {
-						buildLog = await readFile(path.join(profile, "mock/.runtime/logs/docker.log"), "utf8")
+						buildLog = await readFile(resolveBackendLayout(path.join(profile, "mock")).dockerLog, "utf8")
 					} catch {
 						// Startup may fail before a Docker log exists.
 					}

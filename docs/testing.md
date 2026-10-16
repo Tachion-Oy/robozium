@@ -416,3 +416,9 @@ preview job still uses a desktop-only checkout. All seven existing jobs remain
 required. Renderer tests also reject untrusted callers of both named lifecycle
 IPC methods. API application traffic and credential unlocking follow in their
 later roadmap increments.
+
+Desktop layout coverage also relocates log and local-extension directories in an
+isolated copy of `desktop/src/backend-layout.json`, runs the standalone runtime
+preparation command, and compares its paths and permissions with Docker Compose's
+resolved bind mounts. This guards the shared layout used by preparation, logging,
+and container ownership validation.

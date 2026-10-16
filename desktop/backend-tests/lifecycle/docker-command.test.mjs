@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import process from "node:process"
-import { runCommand } from "../../dist/backend-process.js"
+import { runCommand } from "../../dist/docker-command.js"
 
 const options = () => ({ cwd: process.cwd(), env: {}, signal: new globalThis.AbortController().signal })
 test("command output is bounded, stderr stays out of JSON, and arguments never enter a shell", async () => {

@@ -4,8 +4,9 @@ import http from "node:http"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { BackendController } from "../src/backend-controller"
-import { backendProfile } from "../src/backend-profile"
-import { findDocker, runCommand, type CommandOptions } from "../src/backend-process"
+import { loadOrCreateBackendProfile } from "../src/backend-profile"
+import { resolveBackendLayout } from "../src/backend-layout.cjs"
+import { findDocker, runCommand, type CommandOptions } from "../src/docker-command"
 
 async function checkedCommand(docker: string, args: string[], options: CommandOptions) {
 	let output = ""
@@ -20,7 +21,8 @@ for (const phase of ["ready", "retry", "cancel"] as const) {
 		await mkdir(config)
 		const build = "b".repeat(64), id = "a".repeat(12)
 		await writeFile(path.join(directory, "build-id.json"), JSON.stringify({ id: build }))
-		const settings = backendProfile(profile, "mock")
+		const settings = loadOrCreateBackendProfile(profile, "mock")
+		const layout = resolveBackendLayout(settings.runtime)
 		const environment = ["DOCKER_CONFIG", "DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_TLS", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH", "DOCKER_API_VERSION"]
 		const originals = Object.fromEntries(environment.map(name => [name, process.env[name]]))
 		for (const name of environment) delete process.env[name]
@@ -41,10 +43,7 @@ for (const phase of ["ready", "retry", "cancel"] as const) {
 					Id: id, Config: { Labels: { "com.docker.compose.project": settings.project, "com.docker.compose.service": "api",
 						"fi.tachion.robozium.desktop.installation": settings.installation, "fi.tachion.robozium.desktop.port": String(settings.port) } },
 					State: { Running: state.running },
-					Mounts: Object.entries({ "/configuration": "", "/hub": "hub", "/app/local": "local", "/app/.runtime/local-deps": ".runtime/local-deps",
-						"/logs": ".runtime/logs", "/host-scripts": ".runtime/host-socket", "/hub/readonly/safe-scripts": "hub/readonly/safe-scripts" })
-						.map(([Destination, relative]) => ({ Destination, Source: path.join(settings.runtime, relative),
-							RW: !["/host-scripts", "/hub/readonly/safe-scripts"].includes(Destination) })),
+					Mounts: layout.mounts.map(mount => ({ Source: mount.source, Destination: mount.destination, RW: mount.writable })),
 				}))
 				else if (route === `/containers/${id}/stop`) { state.running = false; response.writeHead(204); response.end() }
 				else { response.writeHead(404); response.end(JSON.stringify({ message: `Unexpected request: ${route}` })) }
