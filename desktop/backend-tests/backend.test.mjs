@@ -5,16 +5,17 @@ import os from "node:os"
 import path from "node:path"
 import process from "node:process"
 import { test } from "node:test"
+import { createRequire } from "node:module"
 import { stageBackend } from "../scripts/stage-backend.mjs"
 
 const desktop = path.resolve(import.meta.dirname, "..")
 function fixture(t) {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "desktop-backend-"))
 	t.after(() => fs.rmSync(root, { recursive: true, force: true }))
-	for (const directory of ["desktop/scripts", "src/robozium/nested", "private", "local/imports", ".runtime", ".artifacts"]) {
+	for (const directory of ["desktop/scripts", "desktop/src", "src/robozium/nested", "private", "local/imports", ".runtime", ".artifacts"]) {
 		fs.mkdirSync(path.join(root, directory), { recursive: true })
 	}
-	for (const name of ["Dockerfile", ".dockerignore", "hub.config.py", "compose.yaml", "scripts/stage-backend.mjs"]) {
+	for (const name of ["Dockerfile", ".dockerignore", "hub.config.py", "compose.yaml", "scripts/stage-backend.mjs", "scripts/prepare-runtime.mjs", "src/backend-layout.json", "src/backend-layout.cjs"]) {
 		fs.copyFileSync(path.join(desktop, name), path.join(root, "desktop", name))
 	}
 	for (const name of ["pyproject.toml", "uv.lock", "README.md", "LICENSE", "CHANGELOG.md", "src/robozium/__init__.py", "src/robozium/nested/module.py"]) {
@@ -32,8 +33,15 @@ test("staging works without web, copies only public inputs, and replaces stale o
 	execFileSync(process.execPath, [path.join(root, "desktop/scripts/stage-backend.mjs")], { cwd: os.tmpdir() })
 	const target = stageBackend(root)
 	const files = fs.readdirSync(target, { recursive: true }).filter(name => fs.statSync(path.join(target, name)).isFile()).sort()
-	assert.deepEqual(files, [".dockerignore", "CHANGELOG.md", "Dockerfile", "LICENSE", "README.md", "hub.config.py", "pyproject.toml", "src/robozium/__init__.py", "src/robozium/nested/module.py", "uv.lock"])
+	assert.deepEqual(files, [".dockerignore", "CHANGELOG.md", "Dockerfile", "LICENSE", "README.md", "build-id.json", "hub.config.py", "pyproject.toml", "src/robozium/__init__.py", "src/robozium/nested/module.py", "uv.lock"])
 	for (const file of files) assert.doesNotMatch(fs.readFileSync(path.join(target, file), "utf8"), /SYNTHETIC_PRIVATE_SENTINEL/)
+	const build = JSON.parse(fs.readFileSync(path.join(target, "build-id.json"), "utf8")).id
+	assert.match(build, /^[a-f0-9]{64}$/)
+	stageBackend(root)
+	assert.equal(JSON.parse(fs.readFileSync(path.join(target, "build-id.json"), "utf8")).id, build)
+	fs.appendFileSync(path.join(root, "src/robozium/nested/module.py"), "# changed source\n")
+	stageBackend(root)
+	assert.notEqual(JSON.parse(fs.readFileSync(path.join(target, "build-id.json"), "utf8")).id, build)
 	fs.writeFileSync(path.join(target, "stale-secret"), "old")
 	stageBackend(root)
 	assert.equal(fs.existsSync(path.join(target, "stale-secret")), false)
@@ -117,6 +125,48 @@ for (const [mode, port, user, overrides] of [
 		assert.equal(compose(root, runtime, overrides).status, 0, "credential files are optional")
 	})
 }
+
+test("runtime preparation and Compose follow relocated paths from the shared layout", t => {
+	const root = fixture(t)
+	const runtime = path.join(root, "relocated runtime with spaces")
+	const configuration = path.join(root, "desktop/src/backend-layout.json")
+	const definition = JSON.parse(fs.readFileSync(configuration, "utf8"))
+	const logMount = definition.services.api.volumes.find(mount => mount.target === "/logs")
+	logMount.source = "${ROBOZIUM_DESKTOP_RUNTIME}/diagnostics"
+	const localMount = definition.services.api.volumes.find(mount => mount.target === "/app/local")
+	localMount.source = "${ROBOZIUM_DESKTOP_RUNTIME}/extensions"
+	definition["x-desktop"].composeEnvironment = "configuration/compose.env"
+	definition["x-desktop"].dockerLog.filename = "engine.log"
+	fs.writeFileSync(configuration, JSON.stringify(definition))
+
+	const interpolation = execFileSync(process.execPath, [path.join(root, "desktop/scripts/prepare-runtime.mjs")], {
+		cwd: os.tmpdir(), encoding: "utf8", env: { ...process.env, ROBOZIUM_DESKTOP_RUNTIME: runtime },
+	}).trim()
+	assert.equal(interpolation, path.join(runtime, "configuration/compose.env"))
+	assert.equal(fs.statSync(interpolation).mode & 0o777, 0o600)
+	assert.deepEqual(fs.readdirSync(path.join(runtime, "extensions")), [], "the hub owns local package directories")
+	assert.deepEqual(fs.readdirSync(path.join(runtime, "hub"), { recursive: true }).sort(), [
+		"readonly", "readonly/safe-scripts",
+	], "only the nested read-only mount needs preparation inside the hub")
+	assert.equal(fs.existsSync(path.join(runtime, "local")), false)
+	assert.equal(fs.existsSync(path.join(runtime, ".runtime/logs")), false)
+
+	const { resolveBackendLayout } = createRequire(import.meta.url)(path.join(root, "desktop/src/backend-layout.cjs"))
+	const layout = resolveBackendLayout(runtime)
+	assert.equal(layout.dockerLog, path.join(runtime, "diagnostics/engine.log"))
+	fs.writeFileSync(path.join(root, "empty.env"), "")
+	const result = compose(root, runtime)
+	assert.equal(result.status, 0, result.stderr)
+	const actualMounts = JSON.parse(result.stdout).services.api.volumes.map(mount => ({
+		source: mount.source, destination: mount.target, writable: !mount.read_only,
+	}))
+	const byDestination = (left, right) => left.destination.localeCompare(right.destination)
+	assert.deepEqual(actualMounts.sort(byDestination), layout.mounts.sort(byDestination))
+	for (const mount of actualMounts) {
+		assert.equal(fs.statSync(mount.source).isDirectory(), true)
+		assert.equal(fs.statSync(mount.source).mode & 0o777, 0o700)
+	}
+})
 
 test("Compose refuses an unspecified runtime instead of mounting the checkout", t => {
 	const root = fixture(t)

@@ -45,6 +45,9 @@ COPY --from=python-deps /app/.venv /app/.venv
 COPY --from=python-deps /usr/local/bin/uv /usr/local/bin/uv
 COPY hub.config.py ./hub.config.py
 
+ARG ROBOZIUM_DESKTOP_BUILD_ID=manual
+LABEL fi.tachion.robozium.desktop.build=$ROBOZIUM_DESKTOP_BUILD_ID
+
 USER robozium
 ENV ROBOZIUM_DESKTOP_API_PORT=18001
 EXPOSE 18001

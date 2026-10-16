@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Manage desktop backend startup and shutdown from Electron main, with image
+  reuse, startup status and retry, cancellation, and ownership-checked shutdown
+  that preserves runtime data. Pin the selected Docker context through retries and
+  cleanup so context switches cannot leave the original backend running. Keep a
+  separate Docker-free UI preview command.
+
 
 - Add desktop-owned Docker configuration for manual live and mock API startup,
   with isolated runtime data, credential-free build staging, and restart checks.

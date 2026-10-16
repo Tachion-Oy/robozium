@@ -1,0 +1,94 @@
+{
+  "x-desktop": {
+    "composeEnvironment": ".runtime/compose.env",
+    "dockerLog": {
+      "mount": "/logs",
+      "filename": "docker.log"
+    }
+  },
+  "services": {
+    "api": {
+      "env_file": [
+        {
+          "path": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/.env.encrypt",
+          "required": false
+        },
+        {
+          "path": "${ROBOZIUM_DESKTOP_RUNTIME}/.env",
+          "required": false
+        }
+      ],
+      "environment": {
+        "ROBOZIUM_HUB_ROOT": "/hub",
+        "ROBOZIUM_LOG_DIR": "/logs",
+        "ROBOZIUM_ENCRYPTED_ENV_PATH": "/configuration/.env.encrypt",
+        "ROBOZIUM_HOST_SCRIPT_SOCKET": "/host-scripts/scripts.sock"
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${ROBOZIUM_DESKTOP_RUNTIME}",
+          "target": "/configuration",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${ROBOZIUM_DESKTOP_RUNTIME}/local",
+          "target": "/app/local",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${ROBOZIUM_DESKTOP_RUNTIME}/.runtime/local-deps",
+          "target": "/app/.runtime/local-deps",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${ROBOZIUM_DESKTOP_RUNTIME}/hub",
+          "target": "/hub",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${ROBOZIUM_DESKTOP_RUNTIME}/.runtime/logs",
+          "target": "/logs",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${ROBOZIUM_DESKTOP_RUNTIME}/.runtime/host-socket",
+          "target": "/host-scripts",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${ROBOZIUM_DESKTOP_RUNTIME}/hub/readonly/safe-scripts",
+          "target": "/hub/readonly/safe-scripts",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    }
+  }
+}

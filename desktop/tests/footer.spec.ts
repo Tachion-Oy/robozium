@@ -143,7 +143,7 @@ for (const theme of ["dark", "light"]) {
 		await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([512, 336])
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 		await page.getByRole("button", { name: "Start run", exact: true }).click()
-		await page.evaluate(() => document.fonts.ready.then(() => undefined))
+		await page.evaluate(async () => { await document.fonts.ready })
 		await waitForPanelLayout(page)
 		const message = page.getByRole("region", { name: "Agent message text", exact: true })
 		const reply = page.getByRole("textbox", { name: "Reply", exact: true })
@@ -180,7 +180,7 @@ for (const theme of ["dark", "light"]) {
 		await page.getByRole("button", { name: "Start run", exact: true }).click()
 		await page.getByRole("textbox", { name: "Reply", exact: true }).fill("A local reply\nwith another line.")
 		await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
-		await page.evaluate(() => document.fonts.ready.then(() => undefined))
+		await page.evaluate(async () => { await document.fonts.ready })
 		expect(await page.evaluate(() => document.fonts.check('31px "Anurati Pro"'))).toBe(true)
 		await page.clock.install()
 		const copy = page.getByRole("button", { name: "Copy reply", exact: true })
@@ -219,12 +219,32 @@ for (const theme of ["dark", "light"]) {
 test("clipboard rejects invalid payloads and browser permissions stay denied", async ({ desktop: { app, page } }) => {
 	await page.evaluate(() => window.robozium.writeClipboardText("clipboard sentinel"))
 	for (const value of [null, 42, {}, ["text"], false]) {
-		expect(await page.evaluate(value => Reflect.apply(window.robozium.writeClipboardText, window.robozium, [value])
-			.then(() => "allowed", () => "denied"), value)).toBe("denied")
+		expect(await page.evaluate(async value => {
+			try {
+				await Reflect.apply(window.robozium.writeClipboardText, window.robozium, [value])
+				return "allowed"
+			} catch {
+				return "denied"
+			}
+		}, value)).toBe("denied")
 		expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe("clipboard sentinel")
 	}
-	expect(await page.evaluate(() => navigator.clipboard.writeText("browser write").then(() => "allowed", () => "denied"))).toBe("denied")
-	expect(await page.evaluate(() => navigator.clipboard.readText().then(() => "allowed", () => "denied"))).toBe("denied")
+	expect(await page.evaluate(async () => {
+		try {
+			await navigator.clipboard.writeText("browser write")
+			return "allowed"
+		} catch {
+			return "denied"
+		}
+	})).toBe("denied")
+	expect(await page.evaluate(async () => {
+		try {
+			await navigator.clipboard.readText()
+			return "allowed"
+		} catch {
+			return "denied"
+		}
+	})).toBe("denied")
 	await page.evaluate(() => window.robozium.writeClipboardText(""))
 	expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe("")
 })
@@ -235,11 +255,25 @@ test("clipboard rejects other windows and documents without altering clipboard",
 		const other = new BrowserWindow({ show: false, webPreferences: { preload, sandbox: true, contextIsolation: true, nodeIntegration: false } })
 		try {
 			await other.loadURL(documentUrl)
-			return await other.webContents.executeJavaScript("window.robozium.writeClipboardText('untrusted').then(() => 'allowed', () => 'denied')")
+			return await other.webContents.executeJavaScript(`(async () => {
+				try {
+					await window.robozium.writeClipboardText("untrusted")
+					return "allowed"
+				} catch {
+					return "denied"
+				}
+			})()`)
 		} finally { other.destroy() }
 	}, { preload, documentUrl })
 	expect(result).toBe("denied")
 	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].loadURL("about:blank"))
-	expect(await page.evaluate(() => window.robozium.writeClipboardText("untrusted").then(() => "allowed", () => "denied"))).toBe("denied")
+	expect(await page.evaluate(async () => {
+		try {
+			await window.robozium.writeClipboardText("untrusted")
+			return "allowed"
+		} catch {
+			return "denied"
+		}
+	})).toBe("denied")
 	expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe("clipboard sentinel")
 })

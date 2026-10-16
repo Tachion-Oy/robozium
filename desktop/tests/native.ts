@@ -7,7 +7,7 @@ import path from "node:path"
 
 export const desktopRoot = path.resolve(__dirname, "..")
 // Use Xvfb even when the host has Wayland; keep screenshot density reproducible.
-export const launchArgs = [desktopRoot, "--ozone-platform=x11", "--force-device-scale-factor=1"]
+export const launchArgs = [desktopRoot, "--preview", "--ozone-platform=x11", "--force-device-scale-factor=1"]
 export const documentUrl = "robozium://app/index.html"
 export const preload = path.join(desktopRoot, "dist/preload.js")
 
@@ -32,6 +32,7 @@ export const test = base.extend<{ desktop: { app: ElectronApplication; page: Pag
 			const errors: string[] = []
 			page.on("pageerror", error => errors.push(error.message))
 			await expect(page.getByRole("heading", { name: "Robozium", exact: true })).toBeVisible()
+			await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeVisible()
 			await use({ app, page })
 			expect(errors).toEqual([])
 		} finally {
@@ -56,7 +57,7 @@ export async function waitForPanelLayout(page: Page) {
 	await page.evaluate(async () => {
 		await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
 		const animations = document.querySelector(".hud-panels")?.getAnimations({ subtree: true }) ?? []
-		await Promise.all(animations.map(animation => animation.finished.catch(() => {})))
+		await Promise.allSettled(animations.map(animation => animation.finished))
 	})
 }
 

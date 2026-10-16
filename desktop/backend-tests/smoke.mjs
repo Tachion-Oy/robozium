@@ -8,6 +8,7 @@ import path from "node:path"
 import process from "node:process"
 import { test } from "node:test"
 import { stageBackend } from "../scripts/stage-backend.mjs"
+import layout from "../src/backend-layout.cjs"
 
 test("desktop mock image starts independently and retains projects after restart and shutdown", { timeout: 600_000 }, async t => {
 	const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "desktop-docker-"))
@@ -43,15 +44,18 @@ test("desktop mock image starts independently and retains projects after restart
 	})
 	fs.writeFileSync(path.join(temporary, "empty.env"), "# isolated interpolation\n")
 	fs.copyFileSync(path.join(desktop, "compose.yaml"), path.join(temporary, "compose.yaml"))
+	fs.mkdirSync(path.join(temporary, "src"))
+	fs.copyFileSync(path.join(desktop, "src/backend-layout.json"), path.join(temporary, "src/backend-layout.json"))
 	fs.cpSync(stageBackend(), path.join(temporary, ".stage/backend"), { recursive: true })
 	for (const relative of [".env", ".env.encrypt", "local/imports/private.py", "src/robozium/.env", "src/robozium/private.txt"]) {
 		const file = path.join(temporary, ".stage/backend", relative)
 		fs.mkdirSync(path.dirname(file), { recursive: true })
 		fs.writeFileSync(file, "SYNTHETIC_PRIVATE_SENTINEL=never-in-image\n")
 	}
-	for (const relative of ["local/tools", "local/skills", "local/imports", ".runtime/local-deps", ".runtime/logs", ".runtime/host-socket", "hub/readonly/safe-scripts"]) {
-		fs.mkdirSync(path.join(runtime, relative), { recursive: true, mode: 0o700 })
-	}
+	layout.prepareBackendRuntime(layout.resolveBackendLayout(runtime))
+	assert.deepEqual(fs.readdirSync(path.join(runtime, "local")), [])
+	assert.equal(fs.existsSync(path.join(runtime, "hub/projects")), false)
+
 	const request = async (route, options) => {
 		const response = await globalThis.fetch(`http://127.0.0.1:${port}${route}`, { ...options, headers: { ...options?.headers, Connection: "close" }, signal: globalThis.AbortSignal.timeout(10_000) })
 		assert.equal(response.status, 200, await response.clone().text())

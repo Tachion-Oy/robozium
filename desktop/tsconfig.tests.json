@@ -1,9 +1,9 @@
 {
-  "extends": "./tsconfig.node.json",
+  "extends": "./tsconfig.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "rootDir": ".",
     "noEmit": true
   },
-  "include": ["tests/**/*.ts", "playwright.config.ts", "src/bridge.d.ts"]
+  "include": ["tests/**/*.ts", "lifecycle-tests/**/*.ts", "playwright.lifecycle.config.ts", "playwright.config.ts", "src/bridge.d.ts"]
 }
