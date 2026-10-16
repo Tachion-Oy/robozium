@@ -30,10 +30,11 @@ class DesktopAccessMiddleware:
         if scope["type"] == "http":
             headers = Headers(scope=scope)
             origins = headers.getlist("origin")
-            browser = any(name.startswith("sec-fetch-") for name in headers)
-            if headers.getlist("host") != [self.host] or (
-                origins != [DESKTOP_ORIGIN] and (origins or browser)
-            ):
+            has_expected_host = headers.getlist("host") == [self.host]
+            has_trusted_origin = origins == [DESKTOP_ORIGIN]
+            has_fetch_metadata = any(name.startswith("sec-fetch-") for name in headers)
+            is_originless_native_request = not origins and not has_fetch_metadata
+            if not has_expected_host or not (has_trusted_origin or is_originless_native_request):
                 response = JSONResponse(
                     {"detail": "Desktop request origin or host is not allowed"},
                     status_code=403,

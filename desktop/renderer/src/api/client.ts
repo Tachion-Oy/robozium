@@ -11,6 +11,24 @@ interface JsonRequest {
 	signal?: AbortSignal
 }
 
+function safeErrorDetail(body: unknown): string {
+	if (!body || typeof body !== "object" || !("detail" in body) || typeof body.detail !== "string") return ""
+	return Array.from(body.detail.slice(0, 240), char => char < " " || char === "\u007f" ? " " : char).join("")
+}
+
+async function httpError(response: Response, signal?: AbortSignal | null): Promise<ApiError> {
+	let detail = ""
+	try {
+		detail = safeErrorDetail(await response.json())
+	} catch {
+		// An unreadable error body still has a useful HTTP status; cancellation wins.
+		signal?.throwIfAborted()
+	}
+	signal?.throwIfAborted()
+	const description = detail ? `: ${detail}` : "."
+	return new ApiError("http", `API request failed (${response.status})${description}`, response.status)
+}
+
 export class DesktopApiClient {
 	private readonly base: URL
 
@@ -18,7 +36,9 @@ export class DesktopApiClient {
 		this.base = new URL(baseUrl)
 		if (this.base.protocol !== "http:" || this.base.hostname !== "127.0.0.1"
 			|| this.base.username || this.base.password || this.base.pathname !== "/"
-			|| this.base.search || this.base.hash) throw new TypeError("Invalid backend address.")
+			|| this.base.search || this.base.hash) {
+			throw new TypeError("Invalid backend address.")
+		}
 	}
 
 	private async fetch(path: string, options: RequestInit): Promise<Response> {
@@ -26,41 +46,37 @@ export class DesktopApiClient {
 		if (url.origin !== this.base.origin || url.username || url.password) {
 			throw new TypeError("API requests must use the selected backend origin.")
 		}
+		let response: Response
 		try {
-			const response = await fetch(url, { ...options, credentials: "omit", cache: "no-store", redirect: "error" })
-			if (!response.ok) {
-				let detail = ""
-				try {
-					const body: unknown = await response.json()
-					if (body && typeof body === "object" && "detail" in body && typeof body.detail === "string") {
-						detail = Array.from(body.detail.slice(0, 240), char => char < " " || char === "\u007f" ? " " : char).join("")
-					}
-				} catch { options.signal?.throwIfAborted() }
-				throw new ApiError("http", `API request failed (${response.status})${detail ? `: ${detail}` : "."}`, response.status)
-			}
-			return response
-		} catch (error) {
+			response = await fetch(url, { ...options, credentials: "omit", cache: "no-store", redirect: "error" })
+		} catch {
 			options.signal?.throwIfAborted()
-			if (error instanceof ApiError) throw error
 			throw new ApiError("connection", "Could not reach the backend.")
 		}
+		if (!response.ok) throw await httpError(response, options.signal)
+		return response
 	}
 
 	async request(path: string, options: JsonRequest = {}): Promise<unknown> {
 		const response = await this.fetch(path, {
-			method: options.method ?? "GET", signal: options.signal,
+			method: options.method ?? "GET",
+			signal: options.signal,
 			headers: { Accept: "application/json", ...(options.json === undefined ? {} : { "Content-Type": "application/json" }) },
 			body: options.json === undefined ? undefined : JSON.stringify(options.json),
 		})
 		let text: string
-		try { text = await response.text() }
-		catch {
+		try {
+			text = await response.text()
+		} catch {
 			options.signal?.throwIfAborted()
 			throw new ApiError("connection", "The backend response was interrupted.")
 		}
 		options.signal?.throwIfAborted()
-		try { return JSON.parse(text) as unknown }
-		catch { throw new ApiError("malformed", "The backend returned invalid JSON.") }
+		try {
+			return JSON.parse(text) as unknown
+		} catch {
+			throw new ApiError("malformed", "The backend returned invalid JSON.")
+		}
 	}
 
 	async *streamRunEvents(runId: string, signal?: AbortSignal): AsyncGenerator<unknown> {
@@ -75,14 +91,65 @@ export class DesktopApiClient {
 	}
 }
 
+/** Assemble SSE data fields from decoded text; incomplete events stay buffered. */
+export class SseFramer {
+	private pendingText = ""
+	private dataLines: string[] = []
+	private skipLf = false
+
+	push(text: string): string[] {
+		this.pendingText += text
+		const events: string[] = []
+		for (;;) {
+			if (!this.pendingText.length) return events
+			if (this.skipLf) {
+				if (this.pendingText[0] === "\n") this.pendingText = this.pendingText.slice(1)
+				this.skipLf = false
+			}
+			const lineEnd = this.pendingText.search(/[\r\n]/)
+			if (lineEnd < 0) return events
+			const line = this.pendingText.slice(0, lineEnd)
+			// CR ends the line now; consume an optional LF even if it arrives next time.
+			this.skipLf = this.pendingText[lineEnd] === "\r"
+			this.pendingText = this.pendingText.slice(lineEnd + 1)
+			if (line === "") {
+				if (this.dataLines.length) events.push(this.dataLines.join("\n"))
+				this.dataLines = []
+			} else if (line === "data" || line.startsWith("data:")) {
+				this.dataLines.push(line.slice(5).replace(/^ /, ""))
+			}
+		}
+	}
+}
+
+function decodeEventText(decoder: TextDecoder, bytes?: Uint8Array): string {
+	try {
+		return bytes === undefined ? decoder.decode() : decoder.decode(bytes, { stream: true })
+	} catch {
+		throw new ApiError("malformed", "The backend returned invalid event text.")
+	}
+}
+
+function parseEventData(data: string): unknown {
+	try {
+		return JSON.parse(data) as unknown
+	} catch {
+		throw new ApiError("malformed", "The backend returned an invalid event.")
+	}
+}
+
 // Adapted from web/lib/robozium/sse.ts at 8343b8e: retain streaming UTF-8 and
 // reader ownership; support SSE line endings/multiline data without run schemas.
 export async function* parseEventStream(body: ReadableStream<Uint8Array>, signal?: AbortSignal): AsyncGenerator<unknown> {
-	const reader = body.getReader(), decoder = new TextDecoder("utf-8", { fatal: true })
-	let buffer = "", data: string[] = []
-	let skipLf = false
+	const reader = body.getReader()
+	const decoder = new TextDecoder("utf-8", { fatal: true })
+	const framer = new SseFramer()
 	const cancel = async () => {
-		try { await reader.cancel() } catch { /* Preserve the original stream error. */ }
+		try {
+			await reader.cancel()
+		} catch {
+			// Preserve the original stream error.
+		}
 	}
 	const abort = () => { void cancel() }
 	signal?.addEventListener("abort", abort, { once: true })
@@ -91,31 +158,10 @@ export async function* parseEventStream(body: ReadableStream<Uint8Array>, signal
 			signal?.throwIfAborted()
 			const { done, value } = await reader.read()
 			signal?.throwIfAborted()
-			try { buffer += done ? decoder.decode() : decoder.decode(value, { stream: true }) }
-			catch { throw new ApiError("malformed", "The backend returned invalid event text.") }
-			for (;;) {
-				if (skipLf) {
-					if (!buffer.length) break
-					if (buffer[0] === "\n") buffer = buffer.slice(1)
-					skipLf = false
-				}
-				const index = buffer.search(/[\r\n]/)
-				if (index < 0) break
-				const line = buffer.slice(0, index)
-				skipLf = buffer[index] === "\r"
-				buffer = buffer.slice(index + 1)
-				if (line === "") {
-					if (data.length) {
-						let parsed: unknown
-						try { parsed = JSON.parse(data.join("\n")) as unknown }
-						catch { throw new ApiError("malformed", "The backend returned an invalid event.") }
-						data = []
-						yield parsed
-						signal?.throwIfAborted()
-					}
-				} else if (line === "data" || line.startsWith("data:")) {
-					data.push(line.slice(5).replace(/^ /, ""))
-				}
+			const text = decodeEventText(decoder, done ? undefined : value)
+			for (const data of framer.push(text)) {
+				yield parseEventData(data)
+				signal?.throwIfAborted()
 			}
 			if (done) return // SSE discards unterminated events at EOF.
 		}
