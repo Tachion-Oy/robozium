@@ -135,7 +135,6 @@ test("runtime preparation and Compose follow relocated paths from the shared lay
 	logMount.source = "${ROBOZIUM_DESKTOP_RUNTIME}/diagnostics"
 	const localMount = definition.services.api.volumes.find(mount => mount.target === "/app/local")
 	localMount.source = "${ROBOZIUM_DESKTOP_RUNTIME}/extensions"
-	definition["x-desktop"].subdirectories["/app/local"].push("snippets")
 	definition["x-desktop"].composeEnvironment = "configuration/compose.env"
 	definition["x-desktop"].dockerLog.filename = "engine.log"
 	fs.writeFileSync(configuration, JSON.stringify(definition))
@@ -145,7 +144,10 @@ test("runtime preparation and Compose follow relocated paths from the shared lay
 	}).trim()
 	assert.equal(interpolation, path.join(runtime, "configuration/compose.env"))
 	assert.equal(fs.statSync(interpolation).mode & 0o777, 0o600)
-	assert.equal(fs.statSync(path.join(runtime, "extensions/snippets")).mode & 0o777, 0o700)
+	assert.deepEqual(fs.readdirSync(path.join(runtime, "extensions")), [], "the hub owns local package directories")
+	assert.deepEqual(fs.readdirSync(path.join(runtime, "hub"), { recursive: true }).sort(), [
+		"readonly", "readonly/safe-scripts",
+	], "only the nested read-only mount needs preparation inside the hub")
 	assert.equal(fs.existsSync(path.join(runtime, "local")), false)
 	assert.equal(fs.existsSync(path.join(runtime, ".runtime/logs")), false)
 
@@ -162,6 +164,7 @@ test("runtime preparation and Compose follow relocated paths from the shared lay
 	assert.deepEqual(actualMounts.sort(byDestination), layout.mounts.sort(byDestination))
 	for (const mount of actualMounts) {
 		assert.equal(fs.statSync(mount.source).isDirectory(), true)
+		assert.equal(fs.statSync(mount.source).mode & 0o777, 0o700)
 	}
 })
 

@@ -53,6 +53,8 @@ test("desktop mock image starts independently and retains projects after restart
 		fs.writeFileSync(file, "SYNTHETIC_PRIVATE_SENTINEL=never-in-image\n")
 	}
 	layout.prepareBackendRuntime(layout.resolveBackendLayout(runtime))
+	assert.deepEqual(fs.readdirSync(path.join(runtime, "local")), [])
+	assert.equal(fs.existsSync(path.join(runtime, "hub/projects")), false)
 
 	const request = async (route, options) => {
 		const response = await globalThis.fetch(`http://127.0.0.1:${port}${route}`, { ...options, headers: { ...options?.headers, Connection: "close" }, signal: globalThis.AbortSignal.timeout(10_000) })

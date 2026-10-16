@@ -127,12 +127,17 @@ and CI details.
 ## Code layout
 
 **Hard rule: do not hardcode filesystem locations in application code.** Resolve
-paths from configured profile/runtime roots. Define runtime subdirectories once
-in the authoritative backend layout/configuration and use that definition for
-directory creation, mount validation, logging, and Compose integration. This
-includes relative locations such as `local/tools`, `.runtime/local-deps`, and
-`hub/readonly/safe-scripts`; repeating them in controller or helper path lists
-is prohibited.
+paths from configured profile/runtime roots. Define bind-mount paths and
+desktop-owned runtime file locations in the shared desktop layout configuration.
+Use that definition for mount preparation, ownership validation, Docker logging,
+and Compose integration. Repeating paths such as `.runtime/local-deps` or
+`hub/readonly/safe-scripts` in controller or helper path lists is prohibited.
+
+Desktop setup prepares the host folders Docker needs to mount, including the
+nested read-only safe-scripts mount. The hub owns its application structure and
+files within those mounts; desktop setup must not create or configure internal
+directories such as `local/tools`, `local/skills`, or `local/imports`. The desktop
+also owns its installation identity, Compose interpolation file, and Docker log.
 
 - `src/` contains Electron main, preload, and the typed bridge. Main owns
   backend lifecycle. Native clipboard writes use `writeClipboardText(text)`,
@@ -145,8 +150,8 @@ is prohibited.
   timeout, and cancellation.
 - `src/backend-profile.ts` exposes `loadOrCreateBackendProfile()`, which reads or
   creates the installation identity and selects the mode's runtime and port.
-- `src/backend-layout.json` defines bind mounts, runtime subdirectories, and
-  runtime file locations. Compose extends this configuration directly.
+- `src/backend-layout.json` defines bind mounts and desktop-owned runtime file
+  locations. Compose extends this configuration directly.
 - `src/backend-layout.cjs` resolves and prepares that layout for Electron and
   `scripts/prepare-runtime.mjs`. TypeScript checks this shared Node module; the
   standalone setup command can also run before installing desktop dependencies.

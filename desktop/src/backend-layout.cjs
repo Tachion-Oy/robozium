@@ -34,11 +34,6 @@ function resolveBackendLayout(runtime) {
 	const composeEnvironment = path.join(runtime, desktop.composeEnvironment)
 	const directories = new Set(mounts.map(mount => mount.source))
 	directories.add(path.dirname(composeEnvironment))
-	for (const [destination, children] of Object.entries(desktop.subdirectories)) {
-		for (const child of children) {
-			directories.add(path.join(mountSource(destination), child))
-		}
-	}
 
 	return {
 		mounts,
@@ -48,7 +43,8 @@ function resolveBackendLayout(runtime) {
 	}
 }
 
-/** Create the configured directories and an empty Compose interpolation file.
+/** Prepare bind sources and the desktop's Compose interpolation file.
+ * The hub owns application directories and files within those mounts.
  * Shared by Electron and the standalone Node setup command.
  * @param {ReturnType<typeof resolveBackendLayout>} layout
  */

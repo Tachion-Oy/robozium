@@ -67,4 +67,6 @@ executes one CLI command and handles its output, timeout, and cancellation.
 `loadOrCreateBackendProfile()` names the profile loader's identity persistence
 explicitly. `backend-layout.json` supplies the runtime mounts and paths to both
 Compose and the shared runtime preparation helper; controllers contain no
-separate directory or mount lists.
+separate directory or mount lists. Desktop setup prepares bind-mount sources and
+its own bookkeeping files. The hub controls the application structure and files
+inside the mounts; desktop setup does not pre-create local capability folders.

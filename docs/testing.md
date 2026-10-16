@@ -420,5 +420,8 @@ later roadmap increments.
 Desktop layout coverage also relocates log and local-extension directories in an
 isolated copy of `desktop/src/backend-layout.json`, runs the standalone runtime
 preparation command, and compares its paths and permissions with Docker Compose's
-resolved bind mounts. This guards the shared layout used by preparation, logging,
-and container ownership validation.
+resolved bind mounts. It checks that preparation leaves local package directories
+empty and creates only the separately mounted read-only folder inside the hub.
+The Docker smoke test starts with those mount sources and verifies that the API
+creates a project which survives restart and shutdown. These checks cover the
+boundary between desktop mount preparation and hub-owned application storage.

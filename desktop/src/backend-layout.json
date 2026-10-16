@@ -1,12 +1,5 @@
 {
   "x-desktop": {
-    "subdirectories": {
-      "/app/local": [
-        "tools",
-        "skills",
-        "imports"
-      ]
-    },
     "composeEnvironment": ".runtime/compose.env",
     "dockerLog": {
       "mount": "/logs",
