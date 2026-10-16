@@ -20,7 +20,6 @@ from roboz.runtime.events import (
     MessageEvent,
     PipeEvent,
     RunLifecycleEvent,
-    RuntimeEvent,
 )
 from roboz.runtime.pipe import EventPipe
 
@@ -72,9 +71,8 @@ class RunControl:
         self._attachment_cleanup_started = False
         self._has_images = False
         self._agent_endpoints: dict[str, EndpointLike | None] = {}
-        self._active_tools: dict[str, str] = {}
         self._prompt_agent: str | None = None
-        self._prompt_is_user = False
+        self._prompt_allows_images = False
 
     def bind_definition(self, definition: DeployableAgent) -> None:
         """Capture foreground receiving routes before any agent can prompt."""
@@ -94,7 +92,7 @@ class RunControl:
         endpoint = self._agent_endpoints.get(self._prompt_agent or "")
         return (
             self._prompt_id is not None
-            and self._prompt_is_user
+            and self._prompt_allows_images
             and endpoint is not None
             and resolve_endpoint(endpoint).accepts_images
         )
@@ -229,13 +227,6 @@ class RunControl:
         with self._lock:
             if isinstance(event, MessageEvent) and event.message.images:
                 self._has_images = True
-            if isinstance(event, RuntimeEvent) and event.category == "tool":
-                tool = (event.data or {}).get("tool")
-                if isinstance(tool, str):
-                    if event.kind == "started":
-                        self._active_tools[event.agent_name] = tool
-                    elif self._active_tools.get(event.agent_name) == tool:
-                        self._active_tools.pop(event.agent_name, None)
             if isinstance(event, RunLifecycleEvent) and event.parent_agent_name is None:
                 if event.kind == "started":
                     if self._cancel_requested and self._pipe is not None:
@@ -274,7 +265,11 @@ class RunControl:
         return True
 
     def request_input(
-        self, message: str, timeout: float | None = None
+        self,
+        message: str,
+        timeout: float | None = None,
+        *,
+        accepts_images: bool = False,
     ) -> Str | StrImage | None:
         prompt_id = str(uuid4())
         with self._lock:
@@ -284,9 +279,7 @@ class RunControl:
             self._prompt_id, self._prompt = prompt_id, message
             stack = get_active_agent_stack()
             self._prompt_agent = stack[-1] if stack else None
-            self._prompt_is_user = self._active_tools.get(self._prompt_agent or "") in {
-                "prompt_user", "prompt_user_at_start",
-            }
+            self._prompt_allows_images = accepts_images
             self._status = RunStatus.AWAITING_USER_INPUT
         try:
             return self._registry.wait(prompt_id, timeout_s=timeout)
@@ -297,7 +290,7 @@ class RunControl:
                 self._registry.discard(prompt_id)
                 self._prompt_id = self._prompt = None
                 self._prompt_agent = None
-                self._prompt_is_user = False
+                self._prompt_allows_images = False
                 if self._status == RunStatus.AWAITING_USER_INPUT:
                     self._status = RunStatus.RUNNING
 

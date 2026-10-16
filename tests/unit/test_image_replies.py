@@ -21,7 +21,7 @@ from PIL import Image as PILImage
 from roboz.deployment import Capability, DeployableAgent, ToolLabel
 from roboz.llm import LLMEndpoint, LLMEndpointRoute
 from roboz.shed.agents import orchestrator
-from roboz.tools import prompt_user_at_start, stop
+from roboz.tools import prompt_user, prompt_user_at_start, stop
 
 from robozium.api.app import create_app
 from robozium.api.attachments import (
@@ -81,7 +81,8 @@ def scripted_endpoint(responses, *, accepts_images=True, name="vision"):
 
 @contextmanager
 def image_run(
-    tmp_path, responses=(), *, accepts_images=True, specialists=(), configure_extra=None
+    tmp_path, responses=(), *, accepts_images=True, specialists=(), configure_extra=None,
+    initial_tool_name="prompt_user_at_start",
 ):
     write_config(tmp_path)
     endpoint, requests = scripted_endpoint(responses, accepts_images=accepts_images)
@@ -97,7 +98,7 @@ def image_run(
         root.add_capabilities(
             Capability(
                 label=ToolLabel("initial_prompt", default=True),
-                value=prompt_user_at_start("Send a reply"),
+                value=prompt_user_at_start("Send a reply").rename(initial_tool_name),
             )
         )
         if configure_extra:
@@ -1014,3 +1015,67 @@ def test_partial_multipart_closes_spooled_files(tmp_path, monkeypatch):
             == initial["current_prompt_id"]
         )
         assert requests == []
+
+
+def test_renamed_conversational_prompts_accept_images(tmp_path):
+    def configure(root):
+        root.add_capabilities(Capability(
+            label=ToolLabel("ask_with_images"),
+            value=prompt_user("No reply").copy(name="ask_with_images"),
+        ))
+
+    responses = [
+        action("ask_with_images", value="Another image?"),
+        action("stop", value="done"),
+    ]
+    with image_run(
+        tmp_path, responses, configure_extra=configure,
+        initial_tool_name="begin_with_images",
+    ) as (client, run_id, _, requests):
+        initial = wait_view(client, run_id)
+        assert initial["current_prompt_accepts_images"] is True
+        assert upload(
+            client, run_id, initial["current_prompt_id"], [("first.png", image_bytes())]
+        ).status_code == 200
+        followup = wait_view(client, run_id, prompt_id=initial["current_prompt_id"])
+        assert followup["current_prompt_accepts_images"] is True
+        assert upload(
+            client, run_id, followup["current_prompt_id"], [("second.png", image_bytes())]
+        ).status_code == 200
+        assert wait_view(client, run_id, terminal=True)["status"] == "completed"
+        assert [len(image_urls(request)) for request in requests] == [1, 2]
+
+
+def test_interruption_prompt_accepts_images_and_resumes(tmp_path):
+    from roboz.models import Empty, Message, Str
+    from roboz.tooling.decorators import tool
+
+    entered = Event()
+
+    @tool
+    def busy(input: Empty, messages: list[Message]) -> Str:
+        """Wait in short Python steps so the real host interrupt can land."""
+        entered.set()
+        while True:
+            time.sleep(0.01)
+
+    with image_run(
+        tmp_path,
+        [action("busy"), action("stop", value="done")],
+        configure_extra=lambda root: root.add_capabilities(
+            Capability(label=ToolLabel("busy"), value=busy),
+        ),
+    ) as (client, run_id, _, requests):
+        initial = wait_view(client, run_id)
+        assert client.post(
+            f"/run/{run_id}/reply", json={"content": "Begin"}
+        ).status_code == 200
+        assert entered.wait(3)
+        assert client.post(f"/run/{run_id}/interrupt").json() == {"ok": True}
+        interruption = wait_view(client, run_id, prompt_id=initial["current_prompt_id"])
+        assert interruption["current_prompt_accepts_images"] is True
+        assert upload(
+            client, run_id, interruption["current_prompt_id"], [("new.png", image_bytes())]
+        ).status_code == 200
+        assert wait_view(client, run_id, terminal=True)["status"] == "completed"
+        assert len(image_urls(requests[-1])) == 1

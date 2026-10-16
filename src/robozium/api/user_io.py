@@ -11,9 +11,15 @@ class ApiUserIO:
         self._control = control
 
     def request_input(
-        self, message: str, timeout: float | None = None
+        self,
+        message: str,
+        timeout: float | None = None,
+        *,
+        accepts_images: bool = False,
     ) -> Str | StrImage | None:
-        return self._control.request_input(message, timeout)
+        return self._control.request_input(
+            message, timeout, accepts_images=accepts_images
+        )
 
     def notify(self, message: str) -> None:
         self._control.dispatch(

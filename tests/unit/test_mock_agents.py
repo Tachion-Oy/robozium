@@ -262,7 +262,8 @@ def test_stream_mock_repeats_specialist_and_recreates_scripts_per_run(
     project = load_hub(start=tmp_path).project("stream")
     replies = []
 
-    def reply(message, timeout=None):
+    def reply(message, timeout=None, *, accepts_images=False):
+        assert accepts_images is True
         replies.append(message)
         return Str(value="continue")
 

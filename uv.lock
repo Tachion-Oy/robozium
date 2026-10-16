@@ -1066,7 +1066,7 @@ wheels = [
 
 [[package]]
 name = "roboz"
-version = "0.13.0a1"
+version = "0.13.1a1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
@@ -1077,9 +1077,9 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "rich" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/dd/4a/2ba68f2505b9ea91385fef3e8dbb28cd2c65b93f00fc3de37e0b57d629bd/roboz-0.13.0a1.tar.gz", hash = "sha256:e2be0b79f806d3dad02ec4f197efb046ab20e65e06ddae2aa12c8b32bd644612", size = 229353 }
+sdist = { url = "https://files.pythonhosted.org/packages/d5/4f/741222e5c69386e05d5656548d4c7d98dcd1f0e5180dcd66d5a9be4b3248/roboz-0.13.1a1.tar.gz", hash = "sha256:3c0241dcf0610fa583471441561e9ddd0326589644756a37b15cff8a78937357", size = 230126 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a7/48/e300019062b1c4aa8a4edd3ed483afa8e08cc541cc44ae88ad21a000d58e/roboz-0.13.0a1-py3-none-any.whl", hash = "sha256:5eb3b9f1e742115f268a88fcb1592dd15e1cdc83657f84fb6fb4313d7abb4c8b", size = 275905 },
+    { url = "https://files.pythonhosted.org/packages/79/1d/01b100a4277443af0a5feca041013d6029f0854da30b038e9f73ba3619ea/roboz-0.13.1a1-py3-none-any.whl", hash = "sha256:1b6eeed27ec4fcde51650530ce1ea38d5e3cd52fbdd3058b36fc046039a3adad", size = 276389 },
 ]
 
 [[package]]
@@ -1114,7 +1114,7 @@ requires-dist = [
     { name = "pillow", specifier = ">=12.0.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "python-multipart", specifier = ">=0.0.20" },
-    { name = "roboz", specifier = "==0.13.0a1" },
+    { name = "roboz", specifier = "==0.13.1a1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },
 ]
 

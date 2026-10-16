@@ -1,7 +1,8 @@
 # Image reply API
 
 Robozium accepts images in replies to an active run prompt. This backend contract
-uses the published `roboz==0.13.0a1` package and Shed's existing filesystem skill.
+uses the published RoboZ package pinned in `pyproject.toml` and Shed's existing
+filesystem skill.
 Paste/drop controls and browser previews are separate frontend work.
 
 ## Capabilities
@@ -9,10 +10,11 @@ Paste/drop controls and browser previews are separate frontend work.
 `GET /models` (including `?run_id=...`) returns `accepts_images` on each model.
 `GET /run/{run_id}` returns `current_prompt_accepts_images`, which is false when
 there is no active prompt. It describes the receiving agent's current endpoint,
-including specialists, and may change when a model changes. Ordinary and initial
-user prompts can accept images; filesystem and other permission prompts remain
-text-only. Once images enter a run through replies or file tools, it can switch between image-capable
-orchestrator models, but cannot switch to a text-only model.
+including specialists, and may change when a model changes. Conversational prompts
+(including initial, interruption, and retry prompts) explicitly allow images through
+RoboZ's user-I/O contract; filesystem and other permission prompts remain
+text-only. Once images enter a run through replies or file tools, it can switch
+between image-capable orchestrator models, but cannot switch to a text-only model.
 
 ## Submitting a reply
 
