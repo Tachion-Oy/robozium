@@ -7,6 +7,7 @@ from threading import RLock
 
 from roboz.runtime.persistence import active_marker_paths, clear_active_markers
 
+from robozium.api.attachments import DIRECTORY, remove_attachments
 from robozium.api.errors import ProjectBusyError
 from robozium.api.projects import Project, ProjectListItem, compose_project_list
 from robozium.api.run_manager import RunManager
@@ -47,6 +48,7 @@ class ProjectService:
                 )
         with self._lock:
             for project in self._projects():
+                remove_attachments(project.root / DIRECTORY)
                 clear_active_markers(project.logs)
 
     def _existing(self, name: str) -> Project:

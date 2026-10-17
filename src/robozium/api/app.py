@@ -18,6 +18,7 @@ from roboz.llm import (
     TranscriptionEndpointLike,
 )
 from roboz.llm.calls import call_transcription_api
+from roboz.models import Str
 from roboz.runtime import log_with_data
 from roboz.runtime.events import PipeEvent
 
@@ -33,7 +34,7 @@ from robozium.api.errors import (
     ProjectBusyError,
     ProjectCancellationInProgressError,
 )
-from robozium.api.files import serve_hub_file
+from robozium.api.files import router as file_router
 from robozium.api.lifespan import application_lifespan
 from robozium.api.models import *
 from robozium.api.project_service import ProjectService
@@ -91,6 +92,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
         default_orchestrator_endpoint=lambda: (
             deployment.model_selector.selected_endpoint
         ),
+        attachment_settings=deployment.settings.attachments,
     )
     projects = ProjectService(deployment, manager)
     app = FastAPI(
@@ -120,6 +122,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
     app.include_router(credential_router)
     app.include_router(capability_router)
     app.include_router(environment_router)
+    app.include_router(file_router)
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError) -> Response:
@@ -160,10 +163,6 @@ def create_app(*, deployment: Hub) -> FastAPI:
             deployment.model_selector,
             selected_model_id=endpoint.dependency_id,
         )
-
-    @app.get("/files/{path:path}")
-    def files_get(path: str) -> Response:
-        return serve_hub_file(path, sandbox=deployment.settings.sandbox)
 
     def project_operation(operation):
         try:
@@ -231,7 +230,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
     def run_reply(run_id: str, body: ReplyBody, request: Request) -> dict[str, bool]:
         manager: RunManager = request.app.state.run_manager
         try:
-            manager.submit_reply(run_id, body.prompt_id, body.content)
+            manager.submit_reply(run_id, body.prompt_id, Str(value=body.content))
         except KeyError:
             raise HTTPException(status_code=404, detail="unknown run_id") from None
         except ValueError as exc:

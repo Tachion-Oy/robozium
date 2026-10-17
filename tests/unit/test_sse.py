@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from roboz.models import Message, MessageKind, Role
+from roboz.models import Image, Message, MessageKind, Role
 from roboz.runtime.events import (
     MessageDeltaEvent,
     MessageEvent,
@@ -65,6 +65,23 @@ def test_event_to_sse_frame_serializes_message_event_with_message_id() -> None:
     assert payload["type"] == "message"
     assert payload["sequence"] == 7
     assert payload["message_id"] == "m1"
+
+
+def test_image_message_sends_text_and_links_without_image_payloads() -> None:
+    content = 'Look at <file src="projects/alpha/image.png">image.png</file>'
+    image = Image.from_bytes(b"image payload", media_type="image/png")
+    message = Message(role=Role.USER, content=content, images=[image])
+    event = MessageEvent(message, sequence=8, message_id="image-reply")
+
+    frame = event_to_sse_frame(event)
+    payload = json.loads(frame[6:-2])
+
+    assert payload["sequence"] == 8
+    assert payload["message_id"] == "image-reply"
+    assert payload["payload"]["role"] == "user"
+    assert payload["payload"]["content"] == content
+    assert "images" not in payload["payload"]
+    assert message.images == [image]
 
 
 def test_event_to_sse_frame_serializes_lifecycle_event() -> None:

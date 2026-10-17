@@ -1,6 +1,6 @@
 """API interaction adapter; the run controller owns prompt state."""
 
-from roboz.models import Message, MessageKind, Role
+from roboz.models import Message, MessageKind, Role, Str, StrImage
 from roboz.runtime.events import MessageEvent
 
 from robozium.api.run_control import RunControl
@@ -10,8 +10,10 @@ class ApiUserIO:
     def __init__(self, control: RunControl) -> None:
         self._control = control
 
-    def request_input(self, message: str, timeout: float | None = None) -> str | None:
-        return self._control.request_input(message, timeout)
+    def request_input(
+        self, message: str, timeout: float | None = None, *, accepts_images: bool = False
+    ) -> Str | StrImage | None:
+        return self._control.request_input(message, timeout, accepts_images=accepts_images)
 
     def notify(self, message: str) -> None:
         self._control.dispatch(

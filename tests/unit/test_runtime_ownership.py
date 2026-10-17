@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from roboz import Agent
 from roboz.deployment import DeployableAgent
 from roboz.endpoints.inventory import openrouter
-from roboz.models import AgentMode
+from roboz.models import AgentMode, Str
 from roboz.runtime.io import interact_with_user
 from roboz.runtime.persistence import RunStatus as AgentStatus
 from roboz.runtime.pipe import EventPipe
@@ -150,7 +150,7 @@ def test_prompt_registration_is_atomic_with_control(config, operation, monkeypat
             if operation == "cancel":
                 manager.cancel(run_id)
             else:
-                manager.submit_reply(run_id, None, "answer")
+                manager.submit_reply(run_id, None, Str(value="answer"))
         except Exception as exc:
             errors.append(exc)
         finally:
@@ -169,7 +169,7 @@ def test_prompt_registration_is_atomic_with_control(config, operation, monkeypat
         join_run(manager, run_id)
     assert errors == []
     assert returned.is_set()
-    assert replies == (["answer"] if operation == "reply" else [])
+    assert replies == ([Str(value="answer")] if operation == "reply" else [])
     assert manager.run_view(run_id)["current_prompt_id"] is None
 
 
@@ -390,7 +390,7 @@ def test_interrupted_input_releases_its_wait_slot(config, monkeypatch):
     with pytest.raises(KeyboardInterrupt):
         control.request_input("question")
     registry, prompt_id = seen[0]
-    assert not registry.resolve(prompt_id, "late reply")
+    assert not registry.resolve(prompt_id, Str(value="late reply"))
     assert control.snapshot()["current_prompt_id"] is None
 
 
@@ -399,9 +399,9 @@ def test_wait_slot_accepts_exactly_one_reply():
 
     registry = WaitRegistry()
     registry.register("prompt")
-    assert registry.resolve("prompt", "first")
-    assert not registry.resolve("prompt", "second")
-    assert registry.wait("prompt", timeout_s=0.1) == "first"
+    assert registry.resolve("prompt", Str(value="first"))
+    assert not registry.resolve("prompt", Str(value="second"))
+    assert registry.wait("prompt", timeout_s=0.1) == Str(value="first")
 
 
 def test_concurrent_starts_invoke_factory_once(config):
@@ -529,12 +529,12 @@ def test_replies_cannot_cross_run_prompt_boundaries(config):
         second_prompt = states["second"]["current_prompt_id"]
         assert first_prompt and second_prompt and first_prompt != second_prompt
         with pytest.raises(ValueError, match="does not match"):
-            manager.submit_reply(runs["first"], second_prompt, "wrong run")
+            manager.submit_reply(runs["first"], second_prompt, Str(value="wrong run"))
         assert not replies
-        manager.submit_reply(runs["first"], first_prompt, "one")
-        manager.submit_reply(runs["second"], second_prompt, "two")
+        manager.submit_reply(runs["first"], first_prompt, Str(value="one"))
+        manager.submit_reply(runs["second"], second_prompt, Str(value="two"))
         for run_id in runs.values():
             join_run(manager, run_id)
-        assert replies == {"first": "one", "second": "two"}
+        assert replies == {"first": Str(value="one"), "second": Str(value="two")}
     finally:
         assert manager.shutdown(timeout_s=3)

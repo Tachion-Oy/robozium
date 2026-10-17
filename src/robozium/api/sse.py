@@ -25,7 +25,7 @@ def event_to_sse_frame(event: PipeEvent) -> str:
             payload = {
                 "type": "message",
                 "sequence": sequence,
-                "payload": message.model_dump(mode="json"),
+                "payload": message.model_dump(mode="json", exclude={"images"}),
             }
             if message_id is not None:
                 payload["message_id"] = message_id

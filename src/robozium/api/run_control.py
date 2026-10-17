@@ -13,13 +13,16 @@ from uuid import uuid4
 
 from roboz.agent import Agent
 from roboz.llm import LLMEndpoint
+from roboz.models import Str, StrImage
 from roboz.runtime.events import EventSink, PipeEvent, RunLifecycleEvent
 from roboz.runtime.pipe import EventPipe
 
+from robozium.api.attachments import RunAttachments, UploadedImage
 from robozium.api.projects import Project
 from robozium.api.run_events import RunEvents
 from robozium.api.state import CapabilitySelection, ProjectRunItem, RunState, RunStatus
 from robozium.api.wait_registry import RunCancelled, WaitRegistry
+from robozium.hub.application import AttachmentSettings
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +37,8 @@ class RunControl:
         *,
         history_limit: int,
         capabilities: CapabilitySelection | None = None,
+        run_id: str | None = None,
+        attachment_settings: AttachmentSettings = AttachmentSettings(),
     ) -> None:
         self._project = project
         self._capabilities: CapabilitySelection = MappingProxyType(
@@ -57,6 +62,12 @@ class RunControl:
         self._error: str | None = None
         self._can_interrupt = False
         self._agent_status: RunStatus | None = None
+        self._prompt_accepts_images = False
+        self._attachments = RunAttachments(
+            project.root, project.sandbox.resolved_root, run_id or str(uuid4()),
+            attachment_settings,
+        )
+        self._cleanup_thread: threading.Thread | None = None
 
     @property
     def capabilities(self) -> CapabilitySelection:
@@ -143,16 +154,44 @@ class RunControl:
                     target=context.run, args=(work,), daemon=True, name=thread_name
                 )
                 self._thread = thread
+                self._cleanup_thread = threading.Thread(
+                    target=self._cleanup_after_workers,
+                    daemon=True,
+                    name=f"{thread_name}-attachments",
+                )
+                self._cleanup_thread.start()
                 # Publish a live worker before releasing the lock used by deletion.
                 thread.start()
             except Exception as exc:
                 self._thread = None
+                if (
+                    self._cleanup_thread is not None
+                    and self._cleanup_thread.ident is None
+                ):
+                    self._cleanup_thread = None
                 self._finish_locked(RunStatus.FAILED, error=str(exc))
                 failure = exc
         if failure is not None:
             self._events.complete()
             raise failure
         return True
+
+    def _cleanup_after_workers(self) -> None:
+        with self._lock:
+            foreground = self._thread
+        if foreground is not None:
+            foreground.join()
+        # Workers can start further background work while unwinding.
+        while True:
+            with self._lock:
+                background = [
+                    thread for thread in self._background_threads if thread.is_alive()
+                ]
+                if not background:
+                    self._attachments.cleanup()
+                    return
+            for thread in background:
+                thread.join()
 
     def attach(self, agents: tuple[Agent, tuple[Agent, ...]]) -> bool:
         agent, background_agents = agents
@@ -217,12 +256,15 @@ class RunControl:
         self._can_interrupt = False
         return True
 
-    def request_input(self, message: str, timeout: float | None = None) -> str | None:
+    def request_input(
+        self, message: str, timeout: float | None = None, *, accepts_images: bool = False
+    ) -> Str | StrImage | None:
         prompt_id = str(uuid4())
         with self._lock:
             if self._cancel_requested or self._status.is_terminal:
                 raise RunCancelled("run cancelled before user input")
             self._registry.register(prompt_id)
+            self._prompt_accepts_images = accepts_images
             self._prompt_id, self._prompt = prompt_id, message
             self._status = RunStatus.AWAITING_USER_INPUT
         try:
@@ -232,11 +274,13 @@ class RunControl:
         finally:
             with self._lock:
                 self._registry.discard(prompt_id)
+                self._attachments.clear_pending(delete_files=True)
                 self._prompt_id = self._prompt = None
+                self._prompt_accepts_images = False
                 if self._status == RunStatus.AWAITING_USER_INPUT:
                     self._status = RunStatus.RUNNING
 
-    def submit_reply(self, prompt_id: str | None, content: str) -> None:
+    def check_reply(self, prompt_id: str | None, *, images: bool = False) -> None:
         with self._lock:
             if self._status != RunStatus.AWAITING_USER_INPUT or self._prompt_id is None:
                 raise ValueError("run is not currently awaiting user input")
@@ -244,8 +288,29 @@ class RunControl:
                 raise ValueError(
                     "prompt_id does not match the active prompt for this run"
                 )
-            if not self._registry.resolve(self._prompt_id, content):
+            if images and not self._prompt_accepts_images:
+                raise ValueError("The active prompt does not accept images")
+
+    def stage_image(self, prompt_id: str, image: UploadedImage) -> str:
+        with self._lock:
+            self.check_reply(prompt_id, images=True)
+            return self._attachments.add(image)
+
+    def submit_reply(self, prompt_id: str | None, content: Str | StrImage) -> None:
+        with self._lock:
+            self.check_reply(
+                prompt_id,
+                images=self._attachments.has_pending or isinstance(content, StrImage),
+            )
+            assert self._prompt_id is not None
+            if not self._registry.resolve(
+                self._prompt_id, self._attachments.build_reply(content)
+            ):
                 raise ValueError(f"unknown or inactive prompt_id: {prompt_id}")
+            self._attachments.clear_pending()
+            self._prompt_id = self._prompt = None
+            self._prompt_accepts_images = False
+            self._status = RunStatus.RUNNING
 
     def cancel(self, *, background: bool = False) -> bool:
         queued = False
@@ -328,6 +393,8 @@ class RunControl:
             threads = set(self._background_threads)
             if not background_only and self._thread is not None:
                 threads.add(self._thread)
+            if not background_only and self._cleanup_thread is not None:
+                threads.add(self._cleanup_thread)
             return any(thread.is_alive() for thread in threads)
 
     def is_cancelling(self, *, background_active: bool = False) -> bool:
@@ -349,6 +416,8 @@ class RunControl:
             background = tuple(self._background_threads)
         for thread in background:
             thread.join(max(0.0, deadline - time.monotonic()))
+        if self._cleanup_thread is not None:
+            self._cleanup_thread.join(max(0.0, deadline - time.monotonic()))
         return not self.is_busy()
 
     def subscribe(

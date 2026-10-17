@@ -69,6 +69,7 @@ def load_hub_settings(
             sandbox=replace(sandbox, root=(path.parent / sandbox.root).resolve()),
             logging=replace(logging, path=(path.parent / logging.path).resolve()),
             dependency_health=values["DEPENDENCY_HEALTH"],
+            attachments=values["ATTACHMENTS"],
             models=values["MODELS"],
             default_model=values["DEFAULT_MODEL"],
             memory_endpoint=values["MEMORY_ENDPOINT"],

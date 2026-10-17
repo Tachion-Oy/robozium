@@ -1,11 +1,49 @@
-"""Utilities and implementation for hub-scoped file serving."""
+"""Serve hub files and stage pasted images for a run's next reply."""
 
 from dataclasses import dataclass
 from pathlib import Path
 
-from fastapi import Response
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from roboz.shed.sandbox import Sandbox
+from starlette.concurrency import run_in_threadpool
+
+from robozium.api.run_manager import RunManager
+from robozium.hub.application import Hub
+
+router = APIRouter()
+
+
+@router.get("/files/{path:path}")
+def files_get(path: str, request: Request) -> Response:
+    hub: Hub = request.app.state.hub
+    return serve_hub_file(path, sandbox=hub.settings.sandbox)
+
+
+@router.post("/run/{run_id}/files")
+async def files_upload(
+    run_id: str, prompt_id: str, request: Request, filename: str = "image"
+) -> dict[str, str]:
+    """Upload one image as raw request bytes, before submitting the JSON reply.
+
+    The returned path is readable through /files until the run's workers stop.
+    """
+    hub: Hub = request.app.state.hub
+    manager: RunManager = request.app.state.run_manager
+    data = bytearray()
+    async for chunk in request.stream():
+        if len(data) + len(chunk) > hub.settings.attachments.max_image_bytes:
+            raise HTTPException(413, "Image exceeds the configured byte limit")
+        data.extend(chunk)
+    try:
+        path = await run_in_threadpool(
+            manager.stage_image, run_id, prompt_id, filename, bytes(data)
+        )
+    except KeyError:
+        raise HTTPException(404, "unknown run_id") from None
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"path": path}
 
 
 def _build_expected_file_tag(requested_path: str) -> str:
