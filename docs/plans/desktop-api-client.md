@@ -1,5 +1,9 @@
 # PR 6 — Connect the desktop directly to the Python API
 
+This records the PR 6 transport design. PR 8 moves run endpoint construction
+into the run feature and exposes generic SSE paths from the shared client; see
+the current [code layout](../../desktop/README.md#code-layout).
+
 ## Summary
 
 Deliver HTTP, SSE, and connection/error/retry presentation in one PR. React makes

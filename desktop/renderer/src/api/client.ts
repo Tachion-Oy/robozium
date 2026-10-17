@@ -1,3 +1,5 @@
+// Shared HTTP policy and SSE framing. Callers supply endpoint paths and validate domain payloads.
+// Transport owns response readers; feature/session owners supply cancellation signals.
 export class ApiError extends Error {
 	constructor(readonly kind: "http" | "malformed" | "connection", message: string, readonly status?: number) {
 		super(message)
@@ -79,8 +81,8 @@ export class DesktopApiClient {
 		}
 	}
 
-	async *streamRunEvents(runId: string, signal?: AbortSignal): AsyncGenerator<unknown> {
-		const response = await this.sendRequest(`/run/${encodeURIComponent(runId)}/stream`, {
+	async *streamEvents(path: string, signal?: AbortSignal): AsyncGenerator<unknown> {
+		const response = await this.sendRequest(path, {
 			headers: { Accept: "text/event-stream" }, signal,
 		})
 		if (!response.body || response.headers.get("Content-Type")?.split(";", 1)[0].trim() !== "text/event-stream") {
