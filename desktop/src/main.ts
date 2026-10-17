@@ -5,7 +5,7 @@ import { BackendController } from "./backend-controller"
 import { registerRendererProtocol, rendererUrl } from "./renderer-protocol"
 
 protocol.registerSchemesAsPrivileged([
-	{ scheme: "robozium", privileges: { standard: true, secure: true } },
+	{ scheme: "robozium", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
 ])
 
 app.setName("Robozium")
@@ -19,7 +19,6 @@ async function start(): Promise<void> {
 	// A second process must not take over or stop the same installation's backend.
 	if (!preview && !app.requestSingleInstanceLock()) { app.exit(0); return }
 	await app.whenReady()
-	await registerRendererProtocol()
 
 	const window = new BrowserWindow({
 		width: 900,
@@ -37,6 +36,7 @@ async function start(): Promise<void> {
 		profile, mode: process.argv.includes("--mock") ? "mock" : "live", port: process.env.ROBOZIUM_DESKTOP_API_PORT,
 		source: path.join(__dirname, "../.stage/backend"), compose: path.join(__dirname, "../compose.yaml"),
 	})
+	await registerRendererProtocol(backend?.connection().baseUrl)
 	const startBackend = async () => {
 		try {
 			await backend?.start()
@@ -91,6 +91,10 @@ async function start(): Promise<void> {
 	ipcMain.handle("desktop:backend-status", event => {
 		requireTrustedDocument(event)
 		return backend?.snapshot() ?? { state: "ready", message: "Local preview" }
+	})
+	ipcMain.handle("desktop:backend-connection", event => {
+		requireTrustedDocument(event)
+		return backend?.connection() ?? null
 	})
 	ipcMain.handle("desktop:retry-backend", event => {
 		requireTrustedDocument(event)

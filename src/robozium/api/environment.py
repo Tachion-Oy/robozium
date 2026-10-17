@@ -78,9 +78,11 @@ def reset_environment(request: Request) -> dict[str, str]:
     return {"status": "reset"}
 
 
-def _validate_write_headers(request: Request, content_type: str | None, limit: int) -> None:
+def _validate_write_headers(
+    request: Request, content_type: str | None, limit: int, trusted_origin: str | None,
+) -> None:
     origin = request.headers.get("origin")
-    if origin:
+    if origin and origin != trusted_origin:
         try:
             parsed = urlsplit(origin)
         except ValueError as exc:
@@ -110,8 +112,9 @@ def _validate_write_headers(request: Request, content_type: str | None, limit: i
 class EnvironmentRequestMiddleware:
     """Enforce write boundaries before parsing JSON or multipart request bodies."""
 
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, trusted_origin: str | None = None) -> None:
         self.app = app
+        self.trusted_origin = trusted_origin
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or scope["path"] not in _REQUEST_LIMITS:
@@ -142,7 +145,7 @@ class EnvironmentRequestMiddleware:
             return message
 
         try:
-            _validate_write_headers(request, content_type, limit)
+            _validate_write_headers(request, content_type, limit, self.trusted_origin)
             await self.app(scope, bounded_receive, no_store_send)
         except HTTPException as exc:
             response = JSONResponse({"detail": exc.detail}, status_code=exc.status_code)

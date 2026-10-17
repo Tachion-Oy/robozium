@@ -5,8 +5,9 @@ import { pathToFileURL } from "node:url"
 
 export const rendererUrl = "robozium://app/index.html"
 
-export async function registerRendererProtocol(): Promise<void> {
+export async function registerRendererProtocol(baseUrl?: string): Promise<void> {
 	const root = await realpath(path.join(__dirname, "renderer"))
+	const csp = `default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src ${baseUrl ?? "'none'"}; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'`
 	protocol.handle("robozium", async request => {
 		if (request.method !== "GET") {
 			return new Response("Method not allowed", { status: 405, headers: { Allow: "GET" } })
@@ -28,7 +29,10 @@ export async function registerRendererProtocol(): Promise<void> {
 				|| path.isAbsolute(relative) || !(await stat(file)).isFile()) {
 				return new Response("Not found", { status: 404 })
 			}
-			return await net.fetch(pathToFileURL(file).href)
+			const response = await net.fetch(pathToFileURL(file).href)
+			const headers = new Headers(response.headers)
+			headers.set("Content-Security-Policy", csp)
+			return new Response(response.body, { status: response.status, headers })
 		} catch (error) {
 			if (error instanceof URIError) return new Response("Invalid path", { status: 400 })
 			if (error instanceof Error && "code" in error

@@ -88,10 +88,11 @@ refactoring, or packaging. See the [detailed scaffold plan](electron-scaffold.md
 PR 1 remains the small, framework-free scaffold above. The following PRs build
 out `desktop/` while retaining the browser implementation and its regression
 checks. Each adds a runnable result and explains one new responsibility.
-PRs 1, 2, 3a, 3b.1, 3b.2, 3c, 3d, and 4 are merged. The current increment
-follows the [PR 5 lifecycle plan](desktop-backend-lifecycle.md): main manages
-the API container while the HUD retains local fixtures. Next is PR 6, the
-desktop HTTP/SSE client and its connection/access checks.
+PRs 1, 2, 3a, 3b.1, 3b.2, 3c, 3d, 4, and 5 are merged. The current increment
+follows the [PR 6 API client plan](desktop-api-client.md): React makes direct
+HTTP/SSE requests; main supplies the selected address and manages Docker. The
+HUD retains its fixtures, and connection recovery preserves its mounted state.
+Next is PR 7, project and model selection.
 
 | PR | Change | Acceptance |
 | --- | --- | --- |
@@ -103,7 +104,7 @@ desktop HTTP/SSE client and its connection/access checks.
 | **3d. Port the footer controls** | Add centered fixture-history navigation, Clear, and native clipboard writes. Keep Send/Cancel/Interrupt/Record disabled. | Local helpers preserve draft/selection, transfer focus at history boundaries, report copy success/failure, and retain DOM identity while wrapping in both themes. |
 | **4. Add desktop Docker configuration** | Add a desktop-owned Compose definition and allowlisted build inputs for the existing Python backend. Document manual live/default and mock startup and shutdown; see the [PR 4 backend plan](desktop-backend-docker.md). | Build and start the backend without the Next.js service. Verify isolated data, credential exclusion/precedence, loopback-only access, health checks, one worker per hub, and restart persistence. Existing browser launchers remain unchanged. |
 | **5. Manage Docker from main** | Add a focused controller for Docker discovery, image reuse/building, startup, readiness, cancellation, and owned-service shutdown. Expose only the startup status needed by the renderer. | Launch and close the native app against the real mock backend. Cover missing Docker, ownership mismatch, occupied ports, readiness failure, and cancellation without deleting user data. |
-| **6. Connect the desktop API client** | Add the desktop HTTP/SSE client and a minimal connection/error/retry view. Establish the allowed renderer origin and backend access checks before exposing application operations. Preserve applicable BFF validation in the backend. | Native tests reach the real Python backend directly with no Next.js proxy. Verify allowed and rejected requests, request cancellation, connection failure, and recovery. |
+| **6. Connect the desktop API client** | Add direct HTTP/SSE transport, the selected-address bridge/CSP, backend Host/Origin checks, and readiness/error/Retry presentation; see the [PR 6 plan](desktop-api-client.md). Keep application controls on fixtures. | Native tests seed and stream a real mock run, exercise initial failure/outage/recovery, and preserve HUD state. Python checks protect access policy and existing Environment/credential boundaries. |
 | **7. Port project and model selection** | Copy and adapt project listing, selection/creation, and model selection into desktop. Keep navigation and state local to desktop. | Create/select a project and choose a model using mock backend data. Preserve loading, empty, failure, keyboard, and focus behavior. |
 | **8. Port run creation and live output** | Copy the session code and minimum run presentation needed to start a run and display live updates. Keep the desktop session within `desktop/`. | A native test starts a mock run and observes streamed output and completion. Verify cancellation of obsolete subscriptions and a single active session. |
 | **9. Port replies, interruption, and recovery** | Add reply editing, run interruption, and recovery after reconnect/reopen. | Verify draft preservation, reply submission, interruption, backend restart, and recovery without duplicate messages or subscriptions. |

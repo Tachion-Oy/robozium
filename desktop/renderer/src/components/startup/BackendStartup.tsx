@@ -1,51 +1,27 @@
 import { useEffect, useState, type ReactNode } from "react"
-import type { BackendStatus } from "../../../../src/bridge"
+import { useBackendStartup } from "./useBackendStartup"
+import { useBackendReadiness } from "./useBackendReadiness"
 import { HudButton } from "../hud/HudButton"
 import "./backend-startup.css"
 
-export function BackendStartup({ children }: { children: ReactNode }) {
-	const [status, setStatus] = useState<BackendStatus>({ state: "starting", message: "Starting Robozium…" })
+export function BackendStartup({ children }: { children: (notice: ReactNode) => ReactNode }) {
+	const { startup, retryStartup } = useBackendStartup()
+	const { status: readiness, retryConnection } = useBackendReadiness(startup.state === "ready" ? startup.client : null)
+	const [hasOpenedHud, setHasOpenedHud] = useState(false)
+	const status = startup.state !== "ready" ? startup
+		: startup.client === null ? { state: "ready", message: "Local preview" } : readiness
 
 	useEffect(() => {
-		let active = true
-		let timer: ReturnType<typeof setTimeout> | undefined
+		// Once opened, keep the HUD mounted through outages to retain local UI state.
+		if (status.state === "ready") setHasOpenedHud(true)
+	}, [status.state])
 
-		const poll = async () => {
-			try {
-				const next = await window.robozium.getBackendStatus()
-				if (!active) {
-					return
-				}
-				setStatus(next)
-				if (next.state !== "ready") {
-					timer = setTimeout(poll, 500)
-				}
-			} catch {
-				if (active) {
-					setStatus({ state: "error", message: "Could not read backend startup status. Restart Robozium." })
-					timer = setTimeout(poll, 500)
-				}
-			}
-		}
-		void poll()
-		return () => {
-			active = false
-			clearTimeout(timer)
-		}
-	}, [])
-
-	const retry = async () => {
-		setStatus({ state: "starting", message: "Retrying backend startup…" })
-		try {
-			await window.robozium.retryBackend()
-		} catch {
-			setStatus({ state: "error", message: "Could not retry backend startup. Restart Robozium." })
-		}
-	}
-
-	if (status.state === "ready") {
-		return children
-	}
+	const retry = startup.state === "error" ? retryStartup : retryConnection
+	const notice = <div className="backend-notice">
+		<p role={status.state === "error" ? "alert" : "status"}>{status.message}</p>
+		<HudButton disabled={status.state !== "error"} onClick={retry}>Retry</HudButton>
+	</div>
+	if (hasOpenedHud || status.state === "ready") return children(status.state === "ready" ? null : notice)
 	return <main className="hud-frame backend-startup">
 		<h1>Robozium</h1>
 		<p role={status.state === "error" ? "alert" : "status"}>{status.message}</p>

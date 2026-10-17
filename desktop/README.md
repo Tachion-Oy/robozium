@@ -4,7 +4,9 @@ The Electron app is under development. It currently shows the application name
 and version beneath a four-control HUD header after its backend is ready. Start
 run in Runs Overview opens a local mock history and editable reply panels. Model
 choices remain local; Light/Dark switches the theme, and Secrets unavailable is
-disabled. The HUD still uses local fixtures; the API connection follows in PR 6.
+disabled. React connects directly to the Python API for readiness and owns the
+desktop HTTP/SSE client. Project/model selectors and run controls still use local
+fixtures; connecting those operations follows in later roadmap increments.
 
 ## Run on Linux
 
@@ -23,7 +25,8 @@ npm --prefix desktop start -- --mock
 ```
 
 The start command stages the allowlisted Python source. Main builds the API
-image on first launch and waits for readiness before showing the HUD. The first
+image on first launch and waits for readiness. React then checks `/ready` through
+its HTTP client before showing the HUD. The first
 build requires internet.
 Later launches reuse the image when the staged inputs match its build identifier.
 Startup failures show an explanation and **Retry**. Closing the window cancels
@@ -46,8 +49,23 @@ ports, or mounts are rejected. Do not share a hub between managed and manual run
 Main selects your host UID/GID for rootful Docker or `0:0` for rootless Docker.
 Provider configuration belongs in the selected runtime's `.env` or `.env.encrypt`;
 see the [credential guidance](../README.md#optional-encrypted-credentials).
-Keys and decryption remain in the Python backend. Startup currently opens the
-fixture HUD; credential-unlock controls follow in PR 10.
+Keys and decryption remain in the Python backend. Startup opens the fixture HUD
+after the renderer connects; credential-unlock controls follow in PR 10.
+
+Once connected, React checks readiness every five seconds with a three-second
+timeout. A connection failure stops polling and shows an accessible notice with
+**Retry**. The HUD stays mounted, preserving your draft, model/view and history
+selection, divider position, and theme. Connection Retry checks the existing API
+and resumes polling when ready; it does not rebuild or restart Docker. Backend
+startup Retry still retries Docker setup. Preview makes no API requests.
+
+Main supplies the controller's selected loopback address through the trusted
+bridge and uses that same address in the bundled page's CSP. Application traffic
+uses HTTP/SSE directly. With the desktop API port configured, Python accepts the
+exact `robozium://app` origin and selected `127.0.0.1:port` Host, while retaining
+originless native CLI/health checks. It rejects other origins/hosts and originless
+browser requests carrying Fetch Metadata before invoking endpoints. Browser
+deployment behavior is unchanged. No credentials or tokens enter the bridge.
 
 Build/start diagnostics append to the mode's `.runtime/logs/docker.log`. For API
 logs, use `docker logs --tail=200 <container>` with the API container from the
@@ -104,8 +122,8 @@ soon.” Divider controls remain visible but disabled outside Current Run.
 
 Both selectors reserve room for their longest labels, so changing the model or
 view keeps the other header controls in place. They shrink with the window;
-truncated labels retain their full hover tooltips. API connections, provider
-credentials, and environment editing arrive in their later roadmap steps.
+truncated labels retain their full hover tooltips. Project/model operations,
+provider credentials, and environment editing arrive in later roadmap steps.
 
 Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset.
 The keypad + and - keys also work with Ctrl.
@@ -143,7 +161,7 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   backend lifecycle. Native clipboard writes use `writeClipboardText(text)`,
   validating the window, main frame, document URL, and string payload. Browser clipboard permissions
   remain denied; the bridge exposes no clipboard-read operation. Backend IPC is
-  limited to `getBackendStatus()` and `retryBackend()` with the same trusted
+  limited to `getBackendConnection()`, `getBackendStatus()`, and `retryBackend()` with the same trusted
   document checks; it exposes no shell or Docker command interface.
 - `src/backend-controller.ts` coordinates startup, readiness, retry, and shutdown.
 - `src/docker-command.ts` runs one Docker CLI command, handling its output,
@@ -156,6 +174,11 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   `scripts/prepare-runtime.mjs`. TypeScript checks this shared Node module; the
   standalone setup command can also run before installing desktop dependencies.
 - `renderer/src/` contains the React entry point and app state.
+- `renderer/src/api/client.ts` owns direct JSON HTTP requests and SSE framing.
+  It omits cookies, disables caching, rejects origin changes/redirects, preserves
+  cancellation, and reports HTTP, malformed-response, and connection errors.
+  SSE yields unknown JSON; run validation and reconnection belong to later session
+  integration. Early disposal/abort cancel and release the stream reader.
 - `renderer/src/components/hud/` contains the header, panels, divider, footer, and their CSS.
   Components import the styles they own; the header currently owns its inline
   theme toggle's styling.
