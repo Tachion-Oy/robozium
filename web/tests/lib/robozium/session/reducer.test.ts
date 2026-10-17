@@ -716,6 +716,26 @@ describe("run session reducer", () => {
 		expect(state.notifications).toEqual([])
 	})
 
+	it("keeps the chat usable and collects an image omission notice once", () => {
+		const event: SessionEvent = {
+			class: "stream", type: "frame_received",
+			frame: {
+				type: PipeEventType.RuntimeEvent, sequence: 6,
+				payload: {
+					category: "llm", kind: "images_omitted", level: "info",
+					message: "Images are omitted for text because it cannot read them. Your conversation text is still available.",
+					agent_name: "root", data: { endpoint: "test", model: "text" },
+				},
+			},
+		}
+		const state = reduce([event, event])
+		expect(state.notifications).toHaveLength(1)
+		expect(state.notifications[0]).toMatchObject({ level: "info", kind: "images_omitted" })
+		expect(hasPermanentRunFailure(state)).toBe(false)
+		expect(shouldExitRunView(state)).toBe(false)
+		expect(state.log.items).toEqual([])
+	})
+
 	it("collects runtime error notifications without adding log rows", () => {
 		const state = reduce([
 			{

@@ -6,7 +6,11 @@ function runtimeNotificationFromFrame(
 	frame: PipeEventFrame,
 ): RuntimeErrorNotification | null {
 	if (frame.type !== PipeEventType.RuntimeEvent) return null
-	if (frame.payload.level !== "warning" && frame.payload.level !== "error") {
+	const imageNotice = frame.payload.category === "llm"
+		&& frame.payload.kind === "images_omitted"
+		&& frame.payload.level === "info"
+	if (frame.payload.level === "debug"
+		|| (frame.payload.level === "info" && !imageNotice)) {
 		return null
 	}
 	return {

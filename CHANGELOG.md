@@ -2,11 +2,16 @@
 
 ## Unreleased
 
+- Display image-omission notices as information and keep the chat usable while
+  unsupported attachments are omitted. Integration tests cover restoring uploads
+  after switching back to a vision model. This requires the companion RoboZ fix;
+  the exact dependency pin awaits its published release.
+
 - Stage pasted images in a run's temporary folder and attach them when its JSON
   reply is submitted, using RoboZ 0.13.2a1. Clean temporary files after workers
   stop and remove leftovers on hub startup. Configure image limits through
-  `ATTACHMENTS` in `hub.config.py`. Let RoboZ handle model compatibility through
-  its existing request recovery. Stream text and file links without inline image
+  `ATTACHMENTS` in `hub.config.py`. RoboZ handles model compatibility when
+  preparing requests. Stream text and file links without inline image
   payloads in SSE messages.
 
 - Manage desktop backend startup and shutdown from Electron main, with image
