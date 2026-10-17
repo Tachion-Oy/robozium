@@ -186,6 +186,9 @@ and reader cleanup. Direct framing checks split decoded text at every boundary
 without involving JSON parsing or a stream reader. An open-stream regression
 dispatches CR-terminated events without another chunk or EOF and checks split
 CRLF handling. Preview remains local; its bridge returns no API address.
+The shared client streams any supplied SSE path; the typed run-stream wrapper
+encodes its run ID, ignores unknown events and closes the HTTP response on early
+exit, abort or invalid consumed payloads.
 
 Connected selection tests in `desktop/tests/selection.spec.ts` run the built renderer
 against a disposable HTTP server. The fixture replaces only the connection bridge
@@ -201,6 +204,42 @@ local drafts/selections, and verify recovery reads without automatic write retri
 or reloading models on each healthy readiness poll. Native captures
 and overflow checks cover long names in both themes at normal/narrow sizes and
 125% zoom. Keyboard assertions retain input, row, selector, and Retry focus.
+
+Connected run tests in `desktop/tests/runs.spec.ts` use the same native HTTP
+boundary. They cover launch guards, creation rejection/malformed responses/timeouts,
+late snapshot/SSE overlap, duplicate chunks/messages, partial completion, polling
+without events, terminal states, unknown runs, explicit retry without creation,
+view retention, changed-run disposal, and unmount cancellation. Controlled clocks
+verify the two-second interval after reads settle and ten-second request deadlines.
+Closure and HTTP 409 cases hold an in-flight snapshot open, verify the fresh read
+waits for it, and check that terminal completion stops polling without reconnecting.
+History, streaming scroll, exact clipboard content, retained drafts and keyboard
+focus are exercised in both themes, including narrow windows at 125% zoom.
+Native regressions also exercise provider retries, active prompts followed by
+background notifications, and settled progress while a tool is running. Script
+regressions verify navigation and copying after prefix recovery splits a group,
+duplicate events clearing stale live text, and prompts separating pinned output.
+`desktop/tests/session.spec.ts` exercises run reconciliation and HUD projection without launching
+Electron: retry scoping/replay, prompt selection, settling, completed-token
+suppression, snapshots overtaking SSE, and script identity across recovered
+boundaries. Delivery-order cases cover repeated snapshots, older duplicates that
+must leave newer live text intact, and delayed/status-only prompt snapshots whose
+boundaries survive recovery. Separation checks exercise run reconciliation without
+a HUD, selection changes leaving run data untouched, recovered scripts before a
+live display boundary, and duplicate chunks after live text was cleared.
+Mixed-content checks apply the same message and script grouping expectations to
+streamed events and snapshot recovery, including hidden agent completions.
+A 100,000-token case checks bounded retained records
+and verifies that further tokens leave completed history untouched; it has no machine-specific
+timing threshold. Run those checks alone with
+`cd desktop && npx playwright test session.spec.ts --reporter=list`.
+`desktop/tests/request.spec.ts` checks the shared deadline helper with controlled
+timers: completion cleanup, cancellation reasons, custom/default deadlines and
+late responses. API tests also validate run event normalization and status/role
+contracts against literal wire fixtures.
+The Docker native suite creates/selects a project through the UI, starts it,
+observes both mock prompts, and verifies completed history. Its test helper submits
+required replies over HTTP; desktop Send remains disabled in this increment.
 
 Linux screenshot baselines live beside the native tests. Review visual changes
 against the experiment before explicitly updating them:

@@ -1,5 +1,8 @@
 # PR 7 — Connect project and model selection
 
+This records the PR 7 implementation. PR 8 separates project/model modules and
+reorganizes the renderer; see the current [code layout](../../desktop/README.md#code-layout).
+
 ## Result and scope
 
 Build on merged #92 (`2d6c01a6b997c64bf5362bb0c2cd951ef5401cd1`) using
