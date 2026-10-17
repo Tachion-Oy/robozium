@@ -1,12 +1,11 @@
 # Robozium
 
-The Electron app is under development. It currently shows the application name
-and version beneath a four-control HUD header after its backend is ready. Start
-run in Runs Overview opens a local mock history and editable reply panels. Model
-choices remain local; Light/Dark switches the theme, and Secrets unavailable is
-disabled. React connects directly to the Python API for readiness and owns the
-desktop HTTP/SSE client. Project/model selectors and run controls still use local
-fixtures; connecting those operations follows in later roadmap increments.
+The Electron app is under development. React connects directly to the Python
+API for project listing/creation and default model selection. Runs Overview
+shows real projects; **Preview run** opens the existing local mock history and
+editable reply panels. Light/Dark switches the theme, and Secrets unavailable
+is disabled. Live run creation, streaming presentation, replies, credentials,
+and capability selection follow in later roadmap increments.
 
 ## Run on Linux
 
@@ -49,7 +48,7 @@ ports, or mounts are rejected. Do not share a hub between managed and manual run
 Main selects your host UID/GID for rootful Docker or `0:0` for rootless Docker.
 Provider configuration belongs in the selected runtime's `.env` or `.env.encrypt`;
 see the [credential guidance](../README.md#optional-encrypted-credentials).
-Keys and decryption remain in the Python backend. Startup opens the fixture HUD
+Keys and decryption remain in the Python backend. Startup opens the HUD
 after the renderer connects; credential-unlock controls follow in PR 10.
 
 Once connected, React checks readiness every five seconds with a three-second
@@ -83,16 +82,39 @@ Preview profiles stay in `.artifacts/desktop/scaffold/`. Close and restart eithe
 command to rebuild after source changes. `.artifacts/desktop/data/` is persistent
 user data; `desktop/.stage/` and `desktop/dist/` are regenerable build outputs.
 
-The app starts in dark mode with Mock model and Runs Overview selected. Tab moves
+The app starts in dark mode with Runs Overview selected. Connected mode loads
+the backend's default model; preview uses the local Mock model fixture. Tab moves
 through the model selector, theme button, and view selector, skipping Secrets.
 Open a selector with a click, Enter, Space, or an arrow key. Use arrows, Home/End,
 or type a name prefix to explore choices. Enter, Space, or Tab accepts the
 highlighted choice; Escape or clicking the open trigger cancels. Clicking outside
 accepts the highlighted choice and dismisses the popup. Only one popup opens at
-a time. Model/view choices survive theme changes and reset when the page reloads
-or the app restarts.
+a time. View choices survive theme changes and reset on reload. Connected model
+choices change the displayed default only after backend acknowledgement. Failures
+retain the last confirmed choice; **Refresh models** reads the current backend
+state, while **Retry change** explicitly resubmits the failed choice. After an
+uncertain write, selecting the displayed model also sends that choice again.
+Successful refresh clears the pending retry. Both controls retain keyboard focus.
+Connection recovery reloads the model catalogue and selection without replaying
+writes or resetting drafts and local project selection.
+Preview model choices stay local and reset on reload.
 
-Select **Start run** in Runs Overview to open **Current Run**. The latest mock message
+In connected Runs Overview, select a project row with a click, Enter, or Space.
+Enter a **Project name** and press Enter or **Create project** to create it. Success
+selects the returned slug and refreshes the list. A failed creation retains your
+name; if only the follow-up refresh fails, use **Refresh** without creating again.
+The list loads when entering Runs Overview and on Refresh, retaining existing
+rows and selection on failure. The selected project and typed name survive view
+changes and connection outages, and reset when the application reloads. Projects
+remain stored in the Python backend.
+
+Selection requests have ten-second deadlines and are cancelled on unmount.
+Obsolete project reads are cancelled when refreshing or leaving Runs Overview.
+Writes cannot overlap for the same operation and are never retried automatically.
+A timed-out write may have reached the backend; refresh to check before retrying.
+
+Select **Open preview run** under **Preview run** (or **Start run** in local preview)
+to open **Current Run**. The latest mock message
 appears above an empty reply editor. Draft freely: Enter and Shift+Enter insert
 newlines; replies are not sent yet. The arrow buttons in the left rail move the
 divider between message-expanded, equal, and reply-expanded positions. At each
@@ -120,10 +142,10 @@ window-size, and zoom changes. Reloading or restarting resets the preview to Run
 active run. Dependencies and Environment still display “This view is coming
 soon.” Divider controls remain visible but disabled outside Current Run.
 
-Both selectors reserve room for their longest labels, so changing the model or
+Both selectors reserve stable widths for their labels, so changing the model or
 view keeps the other header controls in place. They shrink with the window;
-truncated labels retain their full hover tooltips. Project/model operations,
-provider credentials, and environment editing arrive in later roadmap steps.
+truncated labels retain their full hover tooltips. Provider credentials and
+environment editing arrive in later roadmap steps.
 
 Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset.
 The keypad + and - keys also work with Ctrl.
@@ -179,6 +201,9 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   cancellation, and reports HTTP, malformed-response, and connection errors.
   SSE yields unknown JSON; run validation and reconnection belong to later session
   integration. Early disposal/abort cancel and release the stream reader.
+- `renderer/src/api/selection.ts` adapts the browser's named project/model requests
+  to direct HTTP and validates the fields used by controls. `useSelection.ts` owns
+  request deadlines, cancellation, draft/project state, and confirmed model state.
 - `renderer/src/components/hud/` contains the header, panels, divider, footer, and their CSS.
   Components import the styles they own; the header currently owns its inline
   theme toggle's styling.

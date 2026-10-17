@@ -2,14 +2,19 @@
 
 ## Unreleased
 
+- Connect desktop Runs Overview to backend project listing, creation, and selection,
+  and the model dropdown to the backend default. Preserve drafts and confirmed
+  selections on failure, keep model refresh separate from write retry, and reload
+  backend model state after reconnect. Retain the local mock history under Preview run.
+
 - Display image-omission notices as information and keep the chat usable while
   unsupported attachments are omitted. Integration tests cover restoring uploads
   after switching back to a vision model. Pin the published RoboZ 0.14.0a1 release
   that supplies the graceful image handling.
+
 - Connect the desktop renderer directly to the Python API with HTTP/SSE transport,
   desktop Host/Origin checks, readiness polling, and connection Retry that preserves
-  the mounted HUD and does not restart Docker. Selectors and run controls retain
-  their local fixtures.
+  the mounted HUD and does not restart Docker.
 
 - Stage pasted images in a run's temporary folder and attach them when its JSON
   reply is submitted, using RoboZ 0.14.0a1. Clean temporary files after workers
