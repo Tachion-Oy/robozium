@@ -6,7 +6,8 @@
   reply is submitted, using RoboZ 0.13.2a1. Clean temporary files after workers
   stop and remove leftovers on hub startup. Configure image limits through
   `ATTACHMENTS` in `hub.config.py`. Let RoboZ handle model compatibility through
-  its existing request recovery.
+  its existing request recovery. Stream text and file links without inline image
+  payloads in SSE messages.
 
 - Manage desktop backend startup and shutdown from Electron main, with image
   reuse, startup status and retry, cancellation, and ownership-checked shutdown
