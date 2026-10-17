@@ -199,8 +199,10 @@ test("outage retry preserves the HUD and resumes readiness polling after recover
 	const { app, page } = await launchConnected(runtime)
 	const { container } = await ownedBackend(profile)
 	let readinessRequests = 0
+	let modelReads = 0
 	page.on("request", request => {
 		if (request.url() === `http://127.0.0.1:${port}/ready`) readinessRequests++
+		if (request.method() === "GET" && request.url() === `http://127.0.0.1:${port}/models`) modelReads++
 	})
 	const projectName = page.getByRole("textbox", { name: "Project name" })
 	await projectName.fill("Outage project")
@@ -257,8 +259,10 @@ test("outage retry preserves the HUD and resumes readiness polling after recover
 				return 0
 			}
 		}, { timeout: 30_000 }).toBe(200)
+		const previousModelReads = modelReads
 		await page.getByRole("button", { name: "Retry", exact: true }).click()
 		await expect(page.locator(".backend-notice")).toHaveCount(0)
+		await expect.poll(() => modelReads).toBeGreaterThan(previousModelReads)
 		await expect(reply).toHaveValue("retained across outage")
 		expect(await reply.evaluate(element => element === Reflect.get(window, "originalEditor"))).toBe(true)
 		await expect(page.getByRole("region", { name: "Agent message text", exact: true })).toContainText("Planning the next steps.")

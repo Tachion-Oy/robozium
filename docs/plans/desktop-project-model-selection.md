@@ -25,7 +25,8 @@ Python changes, or browser changes are included.
 - `api/useSelection.ts` owns project rows/selection/name and confirmed models.
   Each operation has a synchronous in-flight guard, a ten-second deadline, and
   cancellation on unmount. Refresh/navigation cancels obsolete project reads.
-  Model reads and writes share a guard. Writes never retry automatically.
+  Model reads and writes share a guard. Writes never retry automatically. Hooks
+  expose data, statuses, and domain actions; request execution stays private.
 - Project rows use keyboard-operable pressed buttons. The labelled form submits
   on Enter. Creation selects the returned slug, clears the name only on success,
   and starts a separate refresh. Refresh failure preserves rows and selection
@@ -33,13 +34,20 @@ Python changes, or browser changes are included.
   reload resets it while backend projects persist.
 - The existing model dropdown displays only acknowledged choices, handles empty
   catalogues, and retains its keyboard behavior. Failed writes keep the confirmed
-  choice and offer explicit Retry. Refresh models reloads the catalogue after a
-  successful request. Request controls retain their DOM identity and focus;
-  pending writes use guarded `aria-disabled` controls and a read-only name input.
+  choice and offer explicit Retry change. Refresh models remains a separate read
+  after failures; a successful read clears the retry target. Selecting the displayed
+  choice after an uncertain write sends it again instead of assuming it is current.
+  A readiness transition after reconnect cancels obsolete model requests and reloads
+  backend model state without resetting local drafts or project selection. Healthy
+  readiness polls do not reload models. Request controls retain their DOM identity
+  and focus; pending writes use guarded `aria-disabled` controls and a read-only name input.
 - Connected content scrolls within the frame. Project names wrap, while long
   model labels retain the existing ellipsis and full accessible name/tooltip.
   Compact connected status controls and panel padding preserve readable preview
   content during an outage in short windows.
+- Project presentation has a small explicit state/action type. Application layout
+  and model feedback styles live in `app.css`; selector styles stay with the selector.
+  No additional state or transport layer is introduced.
 
 ## Copied sources and adaptations
 
@@ -55,8 +63,8 @@ Both source files were read at `2d6c01a6b997c64bf5362bb0c2cd951ef5401cd1`:
 
 The hooks and project presentation are desktop-local additions. Existing desktop
 header, selector, startup, and preview components are adapted in place.
-Production diff: **265 changed lines** (240 additions, 25 removals), including CSS
-and adapted source, below the roadmap's 200–400-line target. Tests and documents
+Production diff: **303 changed lines** (278 additions, 25 removals), including CSS
+and adapted source, within the roadmap's 200–400-line target. Tests and documents
 are counted separately; there are no lockfile or binary asset changes.
 
 ## Verification and delivery
@@ -74,9 +82,9 @@ and persistence after close/reopen. Backend staging, lifecycle unit tests, and
 Docker smoke checks protect startup and storage behavior. An independent copy
 of desktop installs and builds without browser files/dependencies.
 
-Local validation passed: lint/types/build; 74 native tests with unchanged preview
-baselines; 10 final connected selection scenarios after the layout refinement;
-13 staging/Compose checks; 34 lifecycle unit tests; Docker restart smoke; and all
+Local validation passed: lint/types/build; 78 native tests with unchanged preview
+baselines; 14 connected selection scenarios including uncertain writes and
+reconnect recovery; 13 staging/Compose checks; 34 lifecycle unit tests; Docker restart smoke; and all
 10 native backend scenarios, including the corrected narrow-outage regression.
 A fresh desktop-only install/build and `git diff --check` passed. Python/browser
 regressions remain required in CI/Full E2E.

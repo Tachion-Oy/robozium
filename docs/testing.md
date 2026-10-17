@@ -193,7 +193,12 @@ and protocol registration to select that server; there are no production test
 controls or browser dependencies. Scenarios cover delayed acknowledgement, rejected
 and malformed writes, empty/malformed catalogues, explicit Retry, single submission,
 creation followed by failed refresh, retained names/selections, cancelled obsolete
-reads, ten-second read/write deadlines, and reload cancellation. Native captures
+reads, ten-second read/write deadlines, and reload cancellation. Lost-acknowledgement
+regressions commit a model change before its response times out, then recover by
+reading the backend or explicitly selecting the old displayed choice. Reconnect
+regressions change the backend default, cancel stale reads/pending writes, preserve
+local drafts/selections, and verify recovery reads without automatic write retries
+or reloading models on each healthy readiness poll. Native captures
 and overflow checks cover long names in both themes at normal/narrow sizes and
 125% zoom. Keyboard assertions retain input, row, selector, and Retry focus.
 
@@ -444,8 +449,8 @@ connection-address IPC methods. Separate native scenarios block initial renderer
 readiness and recover through Retry without Docker commands, and verify the
 selected-address CSP with actual desktop HTTP/SSE requests against a seeded run.
 The outage scenario stops only its disposable container to verify recovery,
-retained editor identity, project-name draft and selection, reply draft, model,
-divider/theme, and resumed polling.
+retained editor identity, project-name draft and selection, reply draft,
+divider/theme, resumed polling, and reloading the backend model selection.
 Outage captures and containment
 checks cover both themes at 1260×780 and 640×420, including 125% zoom. No production
 demonstration controls are added; the test loads the actual transport source into

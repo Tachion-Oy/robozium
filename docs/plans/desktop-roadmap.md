@@ -91,7 +91,8 @@ checks. Each adds a runnable result and explains one new responsibility.
 PRs 1, 2, 3a, 3b.1, 3b.2, 3c, 3d, 4, 5, and 6 are merged. The current increment
 follows the [PR 7 selection plan](desktop-project-model-selection.md): React lists,
 creates, and selects projects and changes the backend's default model through the
-PR 6 HTTP client. Connection recovery preserves the mounted HUD and its selections.
+PR 6 HTTP client. Connection recovery preserves local drafts and project selection
+while reloading the backend-owned model selection.
 The local history remains under Preview run; live run creation/output follows in PR 8.
 
 | PR | Change | Acceptance |

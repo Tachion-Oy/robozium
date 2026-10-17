@@ -4,8 +4,8 @@
 
 - Connect desktop Runs Overview to backend project listing, creation, and selection,
   and the model dropdown to the backend default. Preserve drafts and confirmed
-  selections on failure, offer explicit refresh/retry, and retain the local mock
-  history under Preview run.
+  selections on failure, keep model refresh separate from write retry, and reload
+  backend model state after reconnect. Retain the local mock history under Preview run.
 
 - Connect the desktop renderer directly to the Python API with HTTP/SSE transport,
   desktop Host/Origin checks, readiness polling, and connection Retry that preserves

@@ -10,6 +10,7 @@ function useRequest() {
 	const cancel = useCallback(() => {
 		current.current?.abort()
 		current.current = null
+		setPending(false)
 	}, [])
 	useEffect(() => cancel, [cancel])
 	const run = useCallback(async <T,>(request: (signal: AbortSignal) => Promise<T>, accept: (value: T) => void) => {
@@ -34,7 +35,21 @@ function useRequest() {
 	return { run, cancel, pending, error }
 }
 
-export function useProjects(client: DesktopApiClient | null, visible: boolean) {
+export interface ProjectsState {
+	projects: Project[]
+	selected: string
+	name: string
+	loading: boolean
+	creating: boolean
+	loadError: string
+	createError: string
+	select: (slug: string) => void
+	changeName: (name: string) => void
+	refresh: () => void
+	create: () => void
+}
+
+export function useProjects(client: DesktopApiClient | null, visible: boolean): ProjectsState {
 	const [projects, setProjects] = useState<Project[]>([])
 	const [selected, setSelected] = useState("")
 	const [name, setName] = useState("")
@@ -58,24 +73,37 @@ export function useProjects(client: DesktopApiClient | null, visible: boolean) {
 			refresh()
 		})
 	}
-	return { projects, selected, setSelected, name, setName, read, write, refresh, create }
+	return { projects, selected, name, select: setSelected, changeName: setName, refresh, create,
+		loading: read.pending, creating: write.pending, loadError: read.error, createError: write.error }
 }
 
-export function useModels(client: DesktopApiClient | null) {
+export function useModels(client: DesktopApiClient | null, connected: boolean) {
 	const [selection, setSelection] = useState<ModelSelection>()
+	const [retryModel, setRetryModel] = useState<string | null>(null)
 	const request = useRequest()
 	const { run, cancel } = request
-	const retryModel = useRef<string | null>(null)
-	const load = useCallback(() => {
-		if (client) void run(signal => getModelSelection(client, signal), setSelection)
-	}, [client, run])
-	useEffect(() => { load(); return cancel }, [load, cancel])
+	const confirm = useCallback((value: ModelSelection) => {
+		setSelection(value)
+		setRetryModel(null)
+	}, [])
+	const refresh = useCallback(() => {
+		if (client && connected) void run(signal => getModelSelection(client, signal), confirm)
+	}, [client, connected, run, confirm])
+	// Revalidate server state on recovery; keep the mounted application's local state.
+	useEffect(() => {
+		refresh()
+		return cancel
+	}, [refresh, cancel])
 	const choose = (model: string) => {
-		if (!client || request.pending || model === selection?.selected_model_id) return
+		if (!client || !connected || request.pending) return
+		// A failed request can leave the displayed selection out of sync with the backend.
+		if (model === selection?.selected_model_id && retryModel === null && !request.error) return
 		void run(signal => {
-			retryModel.current = model
+			setRetryModel(model)
 			return selectModel(client, model, signal)
-		}, value => { retryModel.current = null; setSelection(value) })
+		}, confirm)
 	}
-	return { selection, ...request, choose, retry: () => retryModel.current === null ? load() : choose(retryModel.current) }
+	return { selection, pending: request.pending, error: request.error, choose, refresh,
+		canRetry: connected && !request.pending && retryModel !== null,
+		retry: () => { if (retryModel !== null) choose(retryModel) } }
 }

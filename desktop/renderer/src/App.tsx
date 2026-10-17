@@ -12,12 +12,18 @@ import { useModels, useProjects } from "./api/useSelection"
 import { Projects } from "./components/views/Projects"
 import { HudButton } from "./components/hud/HudButton"
 
-export function App({ connectionNotice, client = null }: { connectionNotice?: ReactNode; client?: DesktopApiClient | null }) {
+interface AppProps {
+	connectionNotice?: ReactNode
+	client?: DesktopApiClient | null
+	connected?: boolean
+}
+
+export function App({ connectionNotice, client = null, connected = true }: AppProps) {
 	const [theme, setTheme] = useState<"dark" | "light">("dark")
 	const [model, setModel] = useState<string>("mock")
 	const [view, setView] = useState<HudView>("projects")
 	const projects = useProjects(client, view === "projects")
-	const models = useModels(client)
+	const models = useModels(client, connected)
 	const [hasRun, setHasRun] = useState(false)
 	const [draft, setDraft] = useState("")
 	const [selectedMessage, setSelectedMessage] = useState(mockMessages.length - 1)
@@ -55,7 +61,7 @@ export function App({ connectionNotice, client = null }: { connectionNotice?: Re
 			<HudHeader
 				model={client ? models.selection?.selected_model_id ?? "" : model}
 				models={client ? models.selection?.models.map(item => ({ value: item.model_id, label: item.label })) ?? [] : modelOptions}
-				modelDisabled={Boolean(client && models.pending)}
+				modelDisabled={Boolean(client && (!connected || models.pending))}
 				modelPlaceholder={models.pending ? "Loading models…" : models.error ? "Models unavailable" : "No models available"}
 				onSelectModel={client ? models.choose : setModel} view={view} hasRun={hasRun}
 				onSelectView={next => { setFocusRunEditor(false); setView(next) }}
@@ -78,8 +84,8 @@ export function App({ connectionNotice, client = null }: { connectionNotice?: Re
 				{client && <div className="model-feedback">
 					<p role={models.error ? "alert" : "status"}>{models.error || (models.pending
 						? "Updating models…" : models.selection?.models.length ? "" : "No models available.")}</p>
-					<HudButton aria-label={models.error ? "Retry models" : "Refresh models"} aria-disabled={models.pending}
-						onClick={models.retry}>{models.error ? "Retry" : "Refresh models"}</HudButton>
+					<HudButton aria-disabled={!connected || models.pending} onClick={models.refresh}>Refresh models</HudButton>
+					<HudButton aria-label="Retry model change" aria-disabled={!models.canRetry} onClick={models.retry}>Retry change</HudButton>
 				</div>}
 				{connectionNotice}
 			</div>

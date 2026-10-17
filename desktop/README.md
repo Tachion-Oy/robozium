@@ -90,8 +90,13 @@ or type a name prefix to explore choices. Enter, Space, or Tab accepts the
 highlighted choice; Escape or clicking the open trigger cancels. Clicking outside
 accepts the highlighted choice and dismisses the popup. Only one popup opens at
 a time. View choices survive theme changes and reset on reload. Connected model
-choices change the backend default only after acknowledgement; failures retain the
-confirmed choice and offer **Retry**. **Refresh models** reloads the catalogue.
+choices change the displayed default only after backend acknowledgement. Failures
+retain the last confirmed choice; **Refresh models** reads the current backend
+state, while **Retry change** explicitly resubmits the failed choice. After an
+uncertain write, selecting the displayed model also sends that choice again.
+Successful refresh clears the pending retry. Both controls retain keyboard focus.
+Connection recovery reloads the model catalogue and selection without replaying
+writes or resetting drafts and local project selection.
 Preview model choices stay local and reset on reload.
 
 In connected Runs Overview, select a project row with a click, Enter, or Space.

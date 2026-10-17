@@ -18,14 +18,4 @@
 	font: inherit;
 }
 .projects input:focus-visible { outline: 2px solid var(--term-blue); outline-offset: 2px; }
-.selection-overview { overflow: auto; min-height: 0; padding: 0.4rem; }
-.selection-overview .run-overview { margin-top: 1rem; }
-.model-feedback { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.6rem; min-width: 0; overflow-wrap: anywhere; }
-.model-feedback .hud-button { min-height: 0; padding: 0.25rem 0.5rem; font-size: 0.9rem; }
-.projects [aria-disabled="true"], .model-feedback [aria-disabled="true"], .hud-select [aria-disabled="true"] { opacity: 0.55; cursor: default; }
-
-.preview-overview { display: contents; }
-
-@media (max-height: 360px) {
-	:root .hud-frame:has(.model-feedback) .hud-panels { --panel-pad-start: 0.4rem; --panel-pad-end: 0.4rem; }
-}
+.projects [aria-disabled="true"] { opacity: 0.55; cursor: default; }
