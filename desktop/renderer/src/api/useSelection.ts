@@ -4,32 +4,32 @@ import { createProject, getModelSelection, listProjects, selectModel, type Model
 
 /** One request at a time, with explicit cancellation and no automatic write retries. */
 function useRequest() {
-	const current = useRef<AbortController | null>(null)
+	const activeRequest = useRef<AbortController | null>(null)
 	const [pending, setPending] = useState(false)
 	const [error, setError] = useState("")
 	const cancel = useCallback(() => {
-		current.current?.abort()
-		current.current = null
+		activeRequest.current?.abort()
+		activeRequest.current = null
 		setPending(false)
 	}, [])
 	useEffect(() => cancel, [cancel])
 	const run = useCallback(async <T,>(request: (signal: AbortSignal) => Promise<T>, accept: (value: T) => void) => {
-		if (current.current) return
+		if (activeRequest.current) return
 		const controller = new AbortController()
-		current.current = controller
+		activeRequest.current = controller
 		setPending(true)
 		setError("")
 		const deadline = setTimeout(() => controller.abort(), 10_000)
 		try {
 			const value = await request(controller.signal)
-			if (current.current === controller) accept(value)
+			if (activeRequest.current === controller) accept(value)
 		} catch (failure) {
-			if (current.current === controller) setError(controller.signal.aborted
+			if (activeRequest.current === controller) setError(controller.signal.aborted
 				? "Request timed out. Check the backend before trying again."
 				: failure instanceof Error ? failure.message : "Request failed.")
 		} finally {
 			clearTimeout(deadline)
-			if (current.current === controller) { current.current = null; setPending(false) }
+			if (activeRequest.current === controller) { activeRequest.current = null; setPending(false) }
 		}
 	}, [])
 	return { run, cancel, pending, error }
