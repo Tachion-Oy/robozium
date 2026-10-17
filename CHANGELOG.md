@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Connect the desktop renderer directly to the Python API with HTTP/SSE transport,
+  desktop Host/Origin checks, readiness polling, and connection Retry that preserves
+  the mounted HUD and does not restart Docker. Selectors and run controls retain
+  their local fixtures.
+
 - Stage pasted images in a run's temporary folder and attach them when its JSON
   reply is submitted, using RoboZ 0.13.2a1. Clean temporary files after workers
   stop and remove leftovers on hub startup. Configure image limits through

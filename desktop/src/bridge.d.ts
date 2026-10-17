@@ -4,6 +4,7 @@ export interface BackendStatus {
 }
 
 export interface DesktopBridge {
+	getBackendConnection(): Promise<{ baseUrl: string } | null>
 	getBackendStatus(): Promise<BackendStatus>
 	retryBackend(): Promise<void>
 	getVersion(): Promise<string>

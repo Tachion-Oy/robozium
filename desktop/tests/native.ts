@@ -61,6 +61,21 @@ export async function waitForPanelLayout(page: Page) {
 	})
 }
 
+export async function setNativeViewport(app: ElectronApplication, page: Page, width: number, height: number, zoom: number) {
+	const previousZoom = await app.evaluate(({ BrowserWindow }, { width, height }) => {
+		const window = BrowserWindow.getAllWindows()[0]
+		const previousZoom = window.webContents.getZoomFactor()
+		window.setContentSize(width, height)
+		return previousZoom
+	}, { width, height })
+	// A pending native resize can overwrite a zoom set alongside it. Wait for
+	// the renderer to observe the new dimensions before changing its zoom.
+	await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight]))
+		.toEqual([width / previousZoom, height / previousZoom])
+	await app.evaluate(({ BrowserWindow }, zoom) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(zoom), zoom)
+	await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([width / zoom, height / zoom])
+}
+
 export async function captureNative(app: ElectronApplication, page: Page, width: number, height: number) {
 	await waitForPanelLayout(page)
 	await page.mouse.move(0, 0)

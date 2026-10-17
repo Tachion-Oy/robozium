@@ -21,11 +21,18 @@ from roboz.llm.calls import call_transcription_api
 from roboz.models import Str
 from roboz.runtime import log_with_data
 from roboz.runtime.events import PipeEvent
+from starlette.middleware.cors import CORSMiddleware
+from starlette.types import ASGIApp
 
 from robozium.api.capabilities import router as capability_router
 from robozium.api.credentials import CredentialGateMiddleware, LoadedCredentials
 from robozium.api.credentials import router as credential_router
 from robozium.api.dependencies import router as dependency_router
+from robozium.api.desktop_access import (
+    DESKTOP_ORIGIN,
+    DesktopAccessMiddleware,
+    desktop_host,
+)
 from robozium.api.environment import EnvironmentRequestMiddleware
 from robozium.api.environment import router as environment_router
 from robozium.api.environment_service import EnvironmentService
@@ -83,6 +90,27 @@ def _model_selection_view(
     )
 
 
+class ApiApplication(FastAPI):
+    """Keep desktop access and CORS outside FastAPI's generated error responses."""
+
+    desktop_host: str | None = None
+
+    def build_middleware_stack(self) -> ASGIApp:
+        stack = super().build_middleware_stack()
+        if self.desktop_host is None:
+            return stack
+        return DesktopAccessMiddleware(
+            CORSMiddleware(
+                stack,
+                allow_origins=[DESKTOP_ORIGIN],
+                allow_methods=["GET", "POST", "DELETE"],
+                allow_headers=["Accept", "Content-Type"],
+                allow_credentials=False,
+            ),
+            host=self.desktop_host,
+        )
+
+
 def create_app(*, deployment: Hub) -> FastAPI:
     """Host the supplied Hub through ASGI, owning HTTP and runtime lifecycle."""
     manager = RunManager(
@@ -95,7 +123,7 @@ def create_app(*, deployment: Hub) -> FastAPI:
         attachment_settings=deployment.settings.attachments,
     )
     projects = ProjectService(deployment, manager)
-    app = FastAPI(
+    app = ApiApplication(
         title=deployment.settings.name,
         version="0.1.0",
         lifespan=application_lifespan(
@@ -117,7 +145,11 @@ def create_app(*, deployment: Hub) -> FastAPI:
         deployment, projects, app.state.loaded_credentials,
     )
     app.add_middleware(CredentialGateMiddleware, loaded=app.state.loaded_credentials)
-    app.add_middleware(EnvironmentRequestMiddleware)
+    host = app.desktop_host = desktop_host()
+    app.add_middleware(
+        EnvironmentRequestMiddleware,
+        trusted_origin=DESKTOP_ORIGIN if host else None,
+    )
     app.include_router(dependency_router)
     app.include_router(credential_router)
     app.include_router(capability_router)

@@ -57,7 +57,7 @@ test("desktop mock image starts independently and retains projects after restart
 	assert.equal(fs.existsSync(path.join(runtime, "hub/projects")), false)
 
 	const request = async (route, options) => {
-		const response = await globalThis.fetch(`http://127.0.0.1:${port}${route}`, { ...options, headers: { ...options?.headers, Connection: "close" }, signal: globalThis.AbortSignal.timeout(10_000) })
+		const response = await globalThis.fetch(`http://127.0.0.1:${port}${route}`, { ...options, headers: { ...options?.headers, Origin: "robozium://app", Connection: "close" }, signal: globalThis.AbortSignal.timeout(10_000) })
 		assert.equal(response.status, 200, await response.clone().text())
 		return response.json()
 	}

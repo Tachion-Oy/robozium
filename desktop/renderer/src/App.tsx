@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { HudHeader } from "./components/hud/HudHeader"
 import { ViewPlaceholder } from "./components/views/ViewPlaceholder"
 import { RunOverview } from "./components/views/RunOverview"
@@ -8,7 +8,7 @@ import { HudFooter } from "./components/hud/HudFooter"
 import { mockMessages } from "./fixtures/run"
 import type { ModelId, HudView } from "./fixtures/header"
 
-export function App() {
+export function App({ connectionNotice }: { connectionNotice?: ReactNode }) {
 	const [theme, setTheme] = useState<"dark" | "light">("dark")
 	const [model, setModel] = useState<ModelId>("mock")
 	const [view, setView] = useState<HudView>("projects")
@@ -65,6 +65,7 @@ export function App() {
 							? "Loading version…"
 							: `Version ${version}`}
 				</p>
+				{connectionNotice}
 			</div>
 			<div className="hud-frame__content">
 				{view === "run" ? (
