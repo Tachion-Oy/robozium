@@ -2,6 +2,7 @@
 
 import base64
 import json
+import logging
 import re
 import shutil
 import time
@@ -24,6 +25,7 @@ from roboz.tools import prompt_user_at_start, stop
 
 from robozium.api import attachments
 from robozium.api.app import create_app
+from robozium.api.sse import event_to_sse_frame
 from robozium.hub.application import AttachmentSettings
 from robozium.hub.utils import load_hub
 from robozium.mock.agents import mock_deployment
@@ -284,28 +286,43 @@ def test_hub_startup_removes_abandoned_temporary_files(tmp_path):
 
 @pytest.mark.parametrize("specialist", [False, True])
 @pytest.mark.parametrize("vision", [False, True])
-def test_image_errors_reprompt_and_resume_after_model_change(tmp_path, specialist, vision):
+def test_model_changes_omit_and_restore_uploads_without_retry(tmp_path, specialist, vision, caplog):
+    caplog.set_level(logging.DEBUG, logger="roboz")
     with image_run(tmp_path, specialist=specialist, vision=vision) as run:
         path = upload(run).json()["path"]
-        run.endpoint.accepts_images = False
-        assert run.client.post(run.url, json={"prompt_id": run.prompt, "content": ""}).json() == {"ok": True}
-        retry_prompt = wait_prompt(run.client, run.run_id, run.prompt)
-        state = run.client.get(f"/run/{run.run_id}").json()
-        assert "Choose another model" in state["current_prompt"]
-        assert run.calls == []
-        assert run.client.get(f"/files/{path}").content == picture()
-        assert run.client.post(run.url, json={"prompt_id": run.prompt, "content": "duplicate"}).status_code == 400
-        assert wait_prompt(run.client, run.run_id) == retry_prompt
-        run.endpoint.accepts_images = True
-        assert run.client.post(run.url, json={"prompt_id": retry_prompt, "content": "retry"}).json() == {"ok": True}
-        restarted_prompt = wait_prompt(run.client, run.run_id, retry_prompt)
-        assert run.client.get(f"/run/{run.run_id}").json()["current_prompt"] == "image?"
-        assert run.client.post(run.url, json={"prompt_id": restarted_prompt, "content": ""}).json() == {"ok": True}
-        wait_prompt(run.client, run.run_id, restarted_prompt)
-        urls = [part["image_url"]["url"] for message in run.calls[0]
-                if isinstance(message["content"], list) for part in message["content"]
-                if part["type"] == "image_url"]
-        assert [base64.b64decode(url.split(",", 1)[1]) for url in urls] == [picture()]
+        events = []
+        run.app.state.run_manager.subscribe_event_listener(run.run_id, events.append)
+        prompt = run.prompt
+        for index, accepts_images in enumerate([vision, False, False, True, False]):
+            run.endpoint.accepts_images = accepts_images
+            assert run.client.post(run.url, json={
+                "prompt_id": prompt, "content": f"Keep text {index}",
+            }).json() == {"ok": True}
+            prompt = wait_prompt(run.client, run.run_id, prompt)
+            state = run.client.get(f"/run/{run.run_id}").json()
+            assert state["current_prompt"] == "more?"
+            assert len(run.calls) == index + 1
+            sent = run.calls[-1]
+            urls = [part["image_url"]["url"] for message in sent
+                    if isinstance(message["content"], list) for part in message["content"]
+                    if part["type"] == "image_url"]
+            if accepts_images:
+                assert [base64.b64decode(url.split(",", 1)[1]) for url in urls] == [picture()]
+            else:
+                assert urls == []
+                assert "Images omitted" in json.dumps(sent)
+            assert "Keep text 0" in json.dumps(sent)
+            assert "image.png" in json.dumps(sent) and path in json.dumps(sent)
+            notices = [entry["payload"] for entry in state["message_trace"]
+                       if entry["type"] == "runtime_event" and entry["payload"]["kind"] == "images_omitted"]
+            assert len(notices) == (int(index >= (1 if vision else 0)) + int(index >= 4))
+            assert all(notice["level"] == "info" for notice in notices)
+            assert not any(entry["payload"].get("kind") in {"failed", "retrying"}
+                           for entry in state["message_trace"] if entry["type"] == "runtime_event")
+            assert run.client.get(f"/files/{path}").content == picture()
+        serialized = "".join(event_to_sse_frame(event) for event in events)
+        assert "base64," not in serialized + json.dumps(state) + caplog.text
+        assert "images_omitted" in serialized
 
 
 def test_prompt_change_during_upload_is_rechecked(tmp_path):

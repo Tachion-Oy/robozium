@@ -64,7 +64,7 @@ export type RuntimeErrorNotification = {
 	id: string
 	category: string
 	kind: string
-	level: "warning" | "error"
+	level: "info" | "warning" | "error"
 	message: string
 	agentName: string
 	data: Record<string, unknown> | null

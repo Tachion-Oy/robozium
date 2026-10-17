@@ -2,7 +2,7 @@
 
 import toast from "react-hot-toast"
 
-export type NotificationTone = "error" | "warning" | "success"
+export type NotificationTone = "info" | "error" | "warning" | "success"
 
 type ErrorToastContentProps = {
 	title?: string

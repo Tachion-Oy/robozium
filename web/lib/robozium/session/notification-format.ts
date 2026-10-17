@@ -4,7 +4,7 @@ export type FormattedNotification = {
 	title: string
 	message: string
 	detail: string | null
-	tone: "warning" | "error"
+	tone: "info" | "warning" | "error"
 }
 
 const MESSAGE_MAX_LENGTH = 200
@@ -26,16 +26,20 @@ export function formatNotification(
 			? `${endpoint}/${model}`
 			: null
 
+	const imageNotice = notification.category === "llm"
+		&& notification.kind === "images_omitted" && notification.level === "info"
 	const title =
-		notification.category === "llm"
-			? "LLM call failed"
-			: notification.category === "stream"
-				? "Connection problem"
-				: `${notification.category} error`
+		imageNotice
+			? "Images omitted"
+			: notification.category === "llm"
+				? "LLM call failed"
+				: notification.category === "stream"
+					? "Connection problem"
+					: `${notification.category} error`
 
 	return {
 		title,
-		message: truncate(notification.message, MESSAGE_MAX_LENGTH),
+		message: imageNotice ? notification.message : truncate(notification.message, MESSAGE_MAX_LENGTH),
 		detail,
 		tone: notification.level,
 	}

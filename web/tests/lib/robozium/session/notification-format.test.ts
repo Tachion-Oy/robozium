@@ -22,6 +22,18 @@ function llmNotification(
 }
 
 describe("formatNotification", () => {
+	it("presents omitted images as information with the full explanation", () => {
+		const model = "long-model-name".repeat(15)
+		const message = `Images are omitted for ${model} because it cannot read them. Your conversation text is still available.`
+		const notification = llmNotification(undefined, {
+			kind: "images_omitted", level: "info", message,
+		})
+		expect(formatNotification(notification)).toEqual({
+			title: "Images omitted", message, tone: "info", detail: null,
+		})
+		expect(shouldToast(notification)).toBe(true)
+	})
+
 	it("shows the backend message as-is for llm errors", () => {
 		const formatted = formatNotification(llmNotification("auth"))
 		expect(formatted.title).toBe("LLM call failed")
