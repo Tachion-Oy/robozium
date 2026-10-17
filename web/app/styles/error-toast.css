@@ -67,6 +67,12 @@
   --notification-toast-glow: var(--term-glow-amber);
 }
 
+.agent-error-toast--info {
+  --notification-toast-accent: var(--term-blue);
+  --notification-toast-bg: color-mix(in oklab, var(--term-blue) 8%, var(--term-bg));
+  --notification-toast-glow: var(--term-glow-blue);
+}
+
 .agent-error-toast--success {
   --notification-toast-accent: var(--term-green);
   --notification-toast-bg: color-mix(in oklab, var(--term-green) 8%, var(--term-bg));

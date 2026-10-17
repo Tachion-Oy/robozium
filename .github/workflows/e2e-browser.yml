@@ -65,7 +65,8 @@ jobs:
           uv build --no-sources --out-dir .artifacts/distributions
           uv venv --python 3.13.3 .artifacts/browser-backend
           uv export --locked --no-dev --no-emit-project --output-file .artifacts/browser-requirements.txt >/dev/null
-          uv pip install --python .artifacts/browser-backend/bin/python --require-hashes --only-binary roboz --requirement .artifacts/browser-requirements.txt
+          # A restored index cache may predate the pinned RoboZ release.
+          uv pip install --python .artifacts/browser-backend/bin/python --require-hashes --only-binary roboz --refresh-package roboz --requirement .artifacts/browser-requirements.txt
           uv pip install --python .artifacts/browser-backend/bin/python --no-deps .artifacts/distributions/*.whl
       - name: Check wheel and source archive
         if: ${{ inputs.task == 'installation' }}
