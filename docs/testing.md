@@ -250,32 +250,6 @@ data locations are documented in the [desktop README](../desktop/README.md#manua
 
 ## Installation checks
 
-### Testing the pending RoboZ image fix
-
-The graceful image handling integration requires the companion RoboZ changes
-based on `0.13.2a1`. Until that fix is published, leave the exact release pin and
-lockfile unchanged. Build the corrected wheel in the RoboZ worktree, then test
-it in a disposable Robozium worktree environment:
-
-```sh
-# In the RoboZ worktree
-uv build --wheel --out-dir dist
-
-# In the Robozium worktree; replace the wheel path with the built candidate
-uv sync --locked --dev
-uv pip install --python .venv/bin/python --no-deps --reinstall /path/to/roboz-0.13.2a1-py3-none-any.whl
-.venv/bin/python -m pytest --cov-fail-under=90
-```
-
-Use the environment executables directly after installing the candidate;
-`uv run` or another sync can reinstall the published baseline. The candidate
-wheel keeps the baseline version for local validation and must not be published
-as that release. After the fixed release is published, update the exact RoboZ
-pin and run `uv lock` in the Robozium worktree, review the dependency changes,
-and rerun checks against that release. CI and Full E2E must pass before merging.
-
-### Released packages
-
 Build and install the wheel and source archive in disposable environments:
 
 ```sh
