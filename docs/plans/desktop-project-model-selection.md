@@ -74,12 +74,19 @@ and persistence after close/reopen. Backend staging, lifecycle unit tests, and
 Docker smoke checks protect startup and storage behavior. An independent copy
 of desktop installs and builds without browser files/dependencies.
 
-Local validation passed: lint/types/build; 73 native tests with unchanged preview
+Local validation passed: lint/types/build; 74 native tests with unchanged preview
 baselines; 10 final connected selection scenarios after the layout refinement;
 13 staging/Compose checks; 34 lifecycle unit tests; Docker restart smoke; and all
 10 native backend scenarios, including the corrected narrow-outage regression.
 A fresh desktop-only install/build and `git diff --check` passed. Python/browser
 regressions remain required in CI/Full E2E.
+
+The first CI run exposed a viewport setup race in the existing startup-error
+scenario: native size reached 640×420 but zoom returned to 100%. The test helper
+now converges on actual native zoom and renderer size. A controlled regression
+fails against the old helper with the same dimensions and passes with the fix;
+both viewport regressions passed ten repetitions each with retries disabled.
+Application zoom behavior and visual assertions remain unchanged.
 
 Commit, push, open one focused PR, and monitor **CI** and **Full E2E** on its latest
 commit until all required checks pass. Do not merge.

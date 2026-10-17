@@ -72,8 +72,16 @@ export async function setNativeViewport(app: ElectronApplication, page: Page, wi
 	// the renderer to observe the new dimensions before changing its zoom.
 	await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight]))
 		.toEqual([width / previousZoom, height / previousZoom])
-	await app.evaluate(({ BrowserWindow }, zoom) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(zoom), zoom)
-	await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([width / zoom, height / zoom])
+	// A later native synchronization can still reset zoom after the size arrives.
+	// Converge setup on both the actual zoom and renderer dimensions before testing.
+	await expect.poll(async () => {
+		const factor = await app.evaluate(({ BrowserWindow }, zoom) => {
+			const contents = BrowserWindow.getAllWindows()[0].webContents
+			contents.setZoomFactor(zoom)
+			return contents.getZoomFactor()
+		}, zoom)
+		return { factor, size: await page.evaluate(() => [innerWidth, innerHeight]) }
+	}).toEqual({ factor: zoom, size: [width / zoom, height / zoom] })
 }
 
 export async function captureNative(app: ElectronApplication, page: Page, width: number, height: number) {

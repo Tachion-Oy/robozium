@@ -427,8 +427,9 @@ its image and projects while resetting the local selection; named steps make
 these dependent phases explicit. Logs and a startup-error capture are attached
 to the report.
 Native lifecycle captures wait for the renderer to observe a window resize before
-applying zoom, then verify the final viewport dimensions. A delayed-resize
-regression keeps a late resize from silently resetting the requested zoom.
+applying zoom, then converge on both native zoom and renderer dimensions.
+Controlled delayed-resize and late-zoom-reset regressions keep native window
+synchronization from silently returning captures to 100% zoom.
 Cleanup validates the exact temporary installation before removing its containers,
 image tag, and test directory; it never uses `--volumes` or a user's hub.
 The same suite also drives the real Docker CLI against two simulated daemons
