@@ -41,14 +41,14 @@ export class DesktopApiClient {
 		}
 	}
 
-	private async fetch(path: string, options: RequestInit): Promise<Response> {
+	private async sendRequest(path: string, options: RequestInit): Promise<Response> {
 		const url = new URL(path, this.base)
 		if (url.origin !== this.base.origin || url.username || url.password) {
 			throw new TypeError("API requests must use the selected backend origin.")
 		}
 		let response: Response
 		try {
-			response = await fetch(url, { ...options, credentials: "omit", cache: "no-store", redirect: "error" })
+			response = await globalThis.fetch(url, { ...options, credentials: "omit", cache: "no-store", redirect: "error" })
 		} catch {
 			options.signal?.throwIfAborted()
 			throw new ApiError("connection", "Could not reach the backend.")
@@ -58,7 +58,7 @@ export class DesktopApiClient {
 	}
 
 	async request(path: string, options: JsonRequest = {}): Promise<unknown> {
-		const response = await this.fetch(path, {
+		const response = await this.sendRequest(path, {
 			method: options.method ?? "GET",
 			signal: options.signal,
 			headers: { Accept: "application/json", ...(options.json === undefined ? {} : { "Content-Type": "application/json" }) },
@@ -80,7 +80,7 @@ export class DesktopApiClient {
 	}
 
 	async *streamRunEvents(runId: string, signal?: AbortSignal): AsyncGenerator<unknown> {
-		const response = await this.fetch(`/run/${encodeURIComponent(runId)}/stream`, {
+		const response = await this.sendRequest(`/run/${encodeURIComponent(runId)}/stream`, {
 			headers: { Accept: "text/event-stream" }, signal,
 		})
 		if (!response.body || response.headers.get("Content-Type")?.split(";", 1)[0].trim() !== "text/event-stream") {
