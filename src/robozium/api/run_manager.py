@@ -12,9 +12,11 @@ from uuid import uuid4
 from roboz.agent import Agent
 from roboz.deployment import DeployableAgent
 from roboz.llm import LLMEndpoint
+from roboz.models import Str, StrImage
 from roboz.runtime import bind_api_user_io, default_event_sinks, reset_api_user_io
 from roboz.runtime.events import EventSink
 
+from robozium.api.attachments import UploadedImage
 from robozium.api.errors import (
     InvalidCapabilitySelection,
     ProjectBusyError,
@@ -30,6 +32,7 @@ from robozium.api.state import (
     RunView,
 )
 from robozium.api.user_io import ApiUserIO
+from robozium.hub.application import AttachmentSettings
 
 logger = logging.getLogger(__name__)
 MESSAGE_HISTORY_LIMIT = 5_000
@@ -46,6 +49,7 @@ class RunManager:
         default_orchestrator_endpoint: Callable[[], LLMEndpoint],
         message_history_limit: int | None = None,
         completed_ttl_s: float | None = None,
+        attachment_settings: AttachmentSettings = AttachmentSettings(),
     ) -> None:
         if not hub_name.strip():
             raise ValueError("hub_name must be non-empty")
@@ -66,6 +70,7 @@ class RunManager:
         self._closed = False
         self._configure_deployment = configure_deployment
         self._definition = definition
+        self._attachment_settings = attachment_settings
 
     def _control(self, run_id: str) -> RunControl:
         with self._lock:
@@ -109,6 +114,8 @@ class RunManager:
                 self._default_endpoint(),
                 history_limit=self._history_limit,
                 capabilities=selected,
+                run_id=run_id,
+                attachment_settings=self._attachment_settings,
             )
             return run_id
 
@@ -281,8 +288,18 @@ class RunManager:
         if control is not None:
             control.unsubscribe(event_listener)
 
-    def submit_reply(self, run_id: str, prompt_id: str | None, content: str) -> None:
+    def submit_reply(
+        self, run_id: str, prompt_id: str | None, content: Str | StrImage
+    ) -> None:
         self._control(run_id).submit_reply(prompt_id, content)
+
+    def stage_image(
+        self, run_id: str, prompt_id: str, name: str, data: bytes
+    ) -> str:
+        control = self._control(run_id)
+        control.check_reply(prompt_id, images=True)
+        image = UploadedImage.validate(name, data, self._attachment_settings)
+        return control.stage_image(prompt_id, image)
 
     def cancel(self, run_id: str) -> bool:
         return self._control(run_id).cancel()

@@ -957,7 +957,7 @@ def test_minimal_run_emits_message_events_to_run_event_listeners(
                 break
             if view["status"] == "awaiting_user_input":
                 manager.submit_reply(
-                    run_id, view["current_prompt_id"], "from pipe test"
+                    run_id, view["current_prompt_id"], Str(value="from pipe test")
                 )
                 break
             if view["status"] in ("completed", "failed"):

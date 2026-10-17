@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from threading import Event, Lock
 
 from roboz.exceptions import ExternalCallCancelledError
+from roboz.models import Str, StrImage
 from roboz.runtime import log_with_data
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ class RunCancelled(ExternalCallCancelledError):
 @dataclass
 class _WaitSlot:
     event: Event = field(default_factory=Event)
-    reply: str | None = None
+    reply: Str | StrImage | None = None
     cancelled: bool = False
 
 
@@ -42,7 +43,7 @@ class WaitRegistry:
             self._slots[prompt_id] = _WaitSlot()
         logger.debug("Wait slot registered (prompt_id=%s)", prompt_id)
 
-    def wait(self, prompt_id: str, *, timeout_s: float | None = None) -> str:
+    def wait(self, prompt_id: str, *, timeout_s: float | None = None) -> Str | StrImage:
         with self._lock:
             slot = self._slots.get(prompt_id)
         if slot is None:
@@ -73,7 +74,7 @@ class WaitRegistry:
         with self._lock:
             self._slots.pop(prompt_id, None)
 
-    def resolve(self, prompt_id: str, content: str) -> bool:
+    def resolve(self, prompt_id: str, content: Str | StrImage) -> bool:
         with self._lock:
             slot = self._slots.get(prompt_id)
             if slot is None:

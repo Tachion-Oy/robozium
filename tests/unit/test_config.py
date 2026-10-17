@@ -43,6 +43,15 @@ def test_sandbox_rejects_absolute_area_name(tmp_path):
         replace(hub.settings.sandbox, readonly="/etc")
 
 
+@pytest.mark.parametrize("value", [0, -1, True, 1.5])
+def test_attachment_limits_require_positive_integers(tmp_path, value):
+    config = write_config(tmp_path)
+    with config.open("a") as file:
+        file.write(f"\nATTACHMENTS = replace(ATTACHMENTS, max_images={value!r})\n")
+    with pytest.raises(RuntimeError, match="max_images must be a positive integer"):
+        load_hub(start=tmp_path)
+
+
 def test_hub_accepts_explicit_absolute_sandbox(tmp_path):
     write_config(tmp_path)
     hub = load_hub(start=tmp_path)

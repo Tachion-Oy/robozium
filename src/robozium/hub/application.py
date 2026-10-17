@@ -46,6 +46,19 @@ class DependencyHealthSettings:
                 raise ValueError("dependency health timings must be finite and positive")
 
 
+@dataclass(frozen=True)
+class AttachmentSettings:
+    max_images: int = 4
+    max_image_bytes: int = 10 * 1024 * 1024
+    max_pixels: int = 25_000_000
+    max_run_bytes: int = 100 * 1024 * 1024
+
+    def __post_init__(self) -> None:
+        for name, value in vars(self).items():
+            if type(value) is not int or value < 1:
+                raise ValueError(f"attachment {name} must be a positive integer")
+
+
 class HubValues(TypedDict):
     """Required configuration exports; helper constants may coexist in the module."""
 
@@ -53,6 +66,7 @@ class HubValues(TypedDict):
     SANDBOX: Sandbox
     LOGGING: HubLoggingConfig
     DEPENDENCY_HEALTH: DependencyHealthSettings
+    ATTACHMENTS: AttachmentSettings
     MODELS: Mapping[str, LLMEndpoint]
     DEFAULT_MODEL: LLMEndpoint
     MEMORY_ENDPOINT: EndpointLike
@@ -70,6 +84,7 @@ class HubSettings:
     sandbox: Sandbox
     logging: HubLoggingConfig
     dependency_health: DependencyHealthSettings
+    attachments: AttachmentSettings
     models: Mapping[str, LLMEndpoint]
     default_model: LLMEndpoint
     memory_endpoint: EndpointLike

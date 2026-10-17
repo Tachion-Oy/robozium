@@ -262,7 +262,7 @@ def test_run_manager_api_user_io_unblocks_on_resolve() -> None:
         time.sleep(0.05)
     assert prompt_id is not None
 
-    manager.submit_reply(run_id, prompt_id, "from http client")
+    manager.submit_reply(run_id, prompt_id, Str(value="from http client"))
 
     while time.monotonic() < deadline:
         view = manager.run_view(run_id)
@@ -277,8 +277,9 @@ def test_run_manager_api_user_io_unblocks_on_resolve() -> None:
 def test_wait_registry_resolve_before_wait_returns_immediately() -> None:
     reg = WaitRegistry()
     reg.register("p1")
-    assert reg.resolve("p1", "early")
-    assert reg.wait("p1", timeout_s=1.0) == "early"
+    reply = Str(value="early")
+    assert reg.resolve("p1", reply)
+    assert reg.wait("p1", timeout_s=1.0) == reply
 
 
 def test_api_user_io_returns_none_when_prompt_times_out() -> None:

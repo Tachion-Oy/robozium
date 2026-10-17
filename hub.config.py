@@ -7,7 +7,7 @@ from roboz.llm import with_openrouter_policy
 from roboz.shed.sandbox import Sandbox
 
 from robozium.hub import environment as env
-from robozium.hub.application import DependencyHealthSettings
+from robozium.hub.application import AttachmentSettings, DependencyHealthSettings
 from robozium.hub.logging import HubLoggingConfig
 
 NAME: Final = "Robozium"
@@ -25,6 +25,12 @@ LOGGING: Final = HubLoggingConfig(
     / HubLoggingConfig.path.name
 )
 DEPENDENCY_HEALTH: Final = DependencyHealthSettings(interval_s=60.0, timeout_s=20.0)
+ATTACHMENTS: Final = AttachmentSettings(
+    max_images=4,
+    max_image_bytes=10 * 1024 * 1024,
+    max_pixels=25_000_000,
+    max_run_bytes=100 * 1024 * 1024,
+)
 
 OPENROUTER: Final = openrouter.configured()
 GLM: Final = with_openrouter_policy(OPENROUTER.z_ai__glm_5_3, reasoning_effort="low")
