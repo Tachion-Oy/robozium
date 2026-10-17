@@ -6,12 +6,18 @@ import { HudPanels } from "./components/hud/HudPanels"
 import { HudDividerControls, type LayoutMode } from "./components/hud/HudDividerControls"
 import { HudFooter } from "./components/hud/HudFooter"
 import { mockMessages } from "./fixtures/run"
-import type { ModelId, HudView } from "./fixtures/header"
+import { modelOptions, type HudView } from "./fixtures/header"
+import type { DesktopApiClient } from "./api/client"
+import { useModels, useProjects } from "./api/useSelection"
+import { Projects } from "./components/views/Projects"
+import { HudButton } from "./components/hud/HudButton"
 
-export function App({ connectionNotice }: { connectionNotice?: ReactNode }) {
+export function App({ connectionNotice, client = null }: { connectionNotice?: ReactNode; client?: DesktopApiClient | null }) {
 	const [theme, setTheme] = useState<"dark" | "light">("dark")
-	const [model, setModel] = useState<ModelId>("mock")
+	const [model, setModel] = useState<string>("mock")
 	const [view, setView] = useState<HudView>("projects")
+	const projects = useProjects(client, view === "projects")
+	const models = useModels(client)
 	const [hasRun, setHasRun] = useState(false)
 	const [draft, setDraft] = useState("")
 	const [selectedMessage, setSelectedMessage] = useState(mockMessages.length - 1)
@@ -47,7 +53,11 @@ export function App({ connectionNotice }: { connectionNotice?: ReactNode }) {
 	return (
 		<main className="hud-frame">
 			<HudHeader
-				model={model} onSelectModel={setModel} view={view} hasRun={hasRun}
+				model={client ? models.selection?.selected_model_id ?? "" : model}
+				models={client ? models.selection?.models.map(item => ({ value: item.model_id, label: item.label })) ?? [] : modelOptions}
+				modelDisabled={Boolean(client && models.pending)}
+				modelPlaceholder={models.pending ? "Loading models…" : models.error ? "Models unavailable" : "No models available"}
+				onSelectModel={client ? models.choose : setModel} view={view} hasRun={hasRun}
 				onSelectView={next => { setFocusRunEditor(false); setView(next) }}
 				theme={theme}
 				onToggleTheme={() =>
@@ -65,6 +75,12 @@ export function App({ connectionNotice }: { connectionNotice?: ReactNode }) {
 							? "Loading version…"
 							: `Version ${version}`}
 				</p>
+				{client && <div className="model-feedback">
+					<p role={models.error ? "alert" : "status"}>{models.error || (models.pending
+						? "Updating models…" : models.selection?.models.length ? "" : "No models available.")}</p>
+					<HudButton aria-label={models.error ? "Retry models" : "Refresh models"} aria-disabled={models.pending}
+						onClick={models.retry}>{models.error ? "Retry" : "Refresh models"}</HudButton>
+				</div>}
 				{connectionNotice}
 			</div>
 			<div className="hud-frame__content">
@@ -72,11 +88,14 @@ export function App({ connectionNotice }: { connectionNotice?: ReactNode }) {
 					<HudPanels message={mockMessages[selectedMessage]} draft={draft} onDraftChange={setDraft}
 						layout={layout} focusOnOpen={focusRunEditor} editor={editor} />
 				) : view === "projects" ? (
-					<RunOverview hasRun={hasRun} onOpen={() => {
+					<div className={client ? "selection-overview" : "preview-overview"}>
+					{client && <Projects state={projects} />}
+					<RunOverview connected={Boolean(client)} hasRun={hasRun} onOpen={() => {
 						setHasRun(true)
 						setFocusRunEditor(true)
 						setView("run")
 					}} />
+					</div>
 				) : <ViewPlaceholder view={view} />}
 			</div>
 			{view === "run" && <HudFooter message={mockMessages[selectedMessage]} selected={selectedMessage}

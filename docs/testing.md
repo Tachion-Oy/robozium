@@ -143,7 +143,7 @@ in both themes and zoom levels, including disabled states.
 Selector scenarios cover pointer selection, keyboard exploration,
 prefix search, acceptance/cancellation, outside dismissal, one open popup, and
 view placeholders. Choices survive theme/view changes and reset on reload;
-selector interactions make no HTTP requests. Mock-run checks start from Runs
+preview selector interactions make no HTTP requests. Mock-run checks start from Runs
 Overview, verify Current Run becomes available, and exercise returning to the
 same draft through the overview and view selector. They cover multiline editing,
 caret retention during resizing/theme/zoom changes, bounded divider movement,
@@ -186,6 +186,16 @@ and reader cleanup. Direct framing checks split decoded text at every boundary
 without involving JSON parsing or a stream reader. An open-stream regression
 dispatches CR-terminated events without another chunk or EOF and checks split
 CRLF handling. Preview remains local; its bridge returns no API address.
+
+Connected selection tests in `desktop/tests/selection.spec.ts` run the built renderer
+against a disposable HTTP server. The fixture replaces only the connection bridge
+and protocol registration to select that server; there are no production test
+controls or browser dependencies. Scenarios cover delayed acknowledgement, rejected
+and malformed writes, empty/malformed catalogues, explicit Retry, single submission,
+creation followed by failed refresh, retained names/selections, cancelled obsolete
+reads, ten-second read/write deadlines, and reload cancellation. Native captures
+and overflow checks cover long names in both themes at normal/narrow sizes and
+125% zoom. Keyboard assertions retain input, row, selector, and Retry focus.
 
 Linux screenshot baselines live beside the native tests. Review visual changes
 against the experiment before explicitly updating them:
@@ -410,10 +420,12 @@ The native backend suite stages real shared Python inputs and launches sandboxed
 Electron on an isolated display with a temporary profile and unused loopback port.
 Focused scenarios exercise a Docker-unavailable alert and Retry, duplicate-launch
 ownership, and cancellation during a blocked build. A persistence scenario creates
-a project through the desktop client, closes the native window, and verifies
+projects through the labelled form, exercises duplicate-name errors and keyboard
+selection/refresh, closes the native window, and verifies
 stopped containers and retained data. Reopening that same installation must reuse
-its image and project; named steps make these dependent phases explicit. Logs and
-a startup-error capture are attached to the report.
+its image and projects while resetting the local selection; named steps make
+these dependent phases explicit. Logs and a startup-error capture are attached
+to the report.
 Native lifecycle captures wait for the renderer to observe a window resize before
 applying zoom, then verify the final viewport dimensions. A delayed-resize
 regression keeps a late resize from silently resetting the requested zoom.
@@ -431,7 +443,8 @@ connection-address IPC methods. Separate native scenarios block initial renderer
 readiness and recover through Retry without Docker commands, and verify the
 selected-address CSP with actual desktop HTTP/SSE requests against a seeded run.
 The outage scenario stops only its disposable container to verify recovery,
-retained editor identity, draft/selection/divider/theme, and resumed polling.
+retained editor identity, project-name draft and selection, reply draft, model,
+divider/theme, and resumed polling.
 Outage captures and containment
 checks cover both themes at 1260×780 and 640×420, including 125% zoom. No production
 demonstration controls are added; the test loads the actual transport source into

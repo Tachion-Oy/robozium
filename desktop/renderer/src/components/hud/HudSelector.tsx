@@ -5,6 +5,8 @@ import "./hud-selector.css"
 
 type HudSelectorProps<Value extends string> = {
 	value: Value
+	disabled?: boolean
+	placeholder?: string
 	options: readonly { value: Value; label: string }[]
 	label: string
 	variant: "model" | "view"
@@ -14,7 +16,7 @@ type HudSelectorProps<Value extends string> = {
 }
 
 export function HudSelector<Value extends string>({
-	value, options, label, variant, open, onOpenChange, onSelect,
+	value, options, label, variant, open, onOpenChange, onSelect, disabled = false, placeholder = "No choices available",
 }: HudSelectorProps<Value>) {
 	const id = useId()
 	const root = useRef<HTMLDivElement>(null)
@@ -23,14 +25,15 @@ export function HudSelector<Value extends string>({
 	const search = useRef({ text: "", time: 0 })
 	const selected = options.findIndex(option => option.value === value)
 	const [active, setActive] = useState(selected)
-	const selectedLabel = options[selected].label
+	const selectedLabel = options[selected]?.label ?? placeholder
 	const close = (commit: boolean) => {
-		if (commit) onSelect(options[active].value)
+		if (commit && !disabled && options[active]) onSelect(options[active].value)
 		search.current.text = ""
 		onOpenChange(false)
 	}
 	const openAt = (index: number) => {
-		setActive(index)
+		if (disabled || !options.length) return
+		setActive(Math.max(0, index))
 		onOpenChange(true)
 	}
 
@@ -38,13 +41,13 @@ export function HudSelector<Value extends string>({
 		if (!open) return
 		const outside = (event: PointerEvent) => {
 			if (root.current?.contains(event.target as Node)) return
-			onSelect(options[active].value)
+			if (!disabled && options[active]) onSelect(options[active].value)
 			onOpenChange(false)
 			search.current.text = ""
 		}
 		document.addEventListener("pointerdown", outside)
 		return () => document.removeEventListener("pointerdown", outside)
-	}, [open, active, options, onSelect, onOpenChange])
+	}, [open, active, options, onSelect, onOpenChange, disabled])
 
 	useEffect(() => {
 		if (!open || !menu.current) return
@@ -56,7 +59,7 @@ export function HudSelector<Value extends string>({
 	}, [open, active, id])
 
 	const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-		if (event.ctrlKey || event.metaKey || event.nativeEvent.isComposing) return
+		if (disabled || !options.length || event.ctrlKey || event.metaKey || event.nativeEvent.isComposing) return
 		const { key } = event
 		if (event.altKey && key !== "ArrowDown" && key !== "ArrowUp") return
 		const now = performance.now()
@@ -104,6 +107,7 @@ export function HudSelector<Value extends string>({
 			onBlur={event => { if (open && !event.currentTarget.contains(event.relatedTarget)) close(true) }}>
 			<HudButton ref={trigger} variant={variant === "model" ? "success" : "warning"}
 				className="hud-header__selector" role="combobox" aria-label={`${label}: ${selectedLabel}`}
+				aria-disabled={disabled || !options.length || undefined}
 				title={selectedLabel} aria-haspopup="listbox" aria-expanded={open}
 				aria-controls={open ? id : undefined} aria-activedescendant={open ? `${id}-${active}` : undefined}
 				onKeyDown={onKeyDown} onClick={() => open ? close(false) : openAt(selected)}>
@@ -117,7 +121,7 @@ export function HudSelector<Value extends string>({
 							className="hud-select__option" title={option.label}
 							onPointerDown={event => event.preventDefault()}
 							onClick={() => {
-								onSelect(option.value)
+								if (!disabled) onSelect(option.value)
 								close(false)
 								trigger.current?.focus()
 							}}>

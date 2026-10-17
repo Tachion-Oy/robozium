@@ -1,0 +1,31 @@
+.projects { min-width: 0; }
+.projects h2 { margin: 0; font-size: 1.35rem; font-weight: 400; }
+.projects__toolbar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.75rem; }
+.projects__toolbar p { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.projects ul { list-style: none; padding: 0; }
+.projects li { margin: 0.6rem 0; }
+.projects li .hud-button { text-align: left; line-height: 1.4; overflow-wrap: anywhere; }
+.projects [aria-pressed="true"] { outline: 1px solid var(--term-green); }
+.projects form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.projects input {
+	flex: 1;
+	min-width: 8rem;
+	max-width: 100%;
+	border: 1px solid var(--term-blue);
+	padding: 0.55rem;
+	background: var(--hud-input-bg);
+	color: var(--hud-input-text);
+	font: inherit;
+}
+.projects input:focus-visible { outline: 2px solid var(--term-blue); outline-offset: 2px; }
+.selection-overview { overflow: auto; min-height: 0; padding: 0.4rem; }
+.selection-overview .run-overview { margin-top: 1rem; }
+.model-feedback { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.6rem; min-width: 0; overflow-wrap: anywhere; }
+.model-feedback .hud-button { min-height: 0; padding: 0.25rem 0.5rem; font-size: 0.9rem; }
+.projects [aria-disabled="true"], .model-feedback [aria-disabled="true"], .hud-select [aria-disabled="true"] { opacity: 0.55; cursor: default; }
+
+.preview-overview { display: contents; }
+
+@media (max-height: 360px) {
+	:root .hud-frame:has(.model-feedback) .hud-panels { --panel-pad-start: 0.4rem; --panel-pad-end: 0.4rem; }
+}

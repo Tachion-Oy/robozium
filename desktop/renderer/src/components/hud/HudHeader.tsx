@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { modelOptions, viewOptions, runViewOptions, type ModelId, type HudView } from "../../fixtures/header"
+import { viewOptions, runViewOptions, type HudView } from "../../fixtures/header"
 import { HudButton } from "./HudButton"
 import { HudSelector } from "./HudSelector"
 import { SelectorCaret } from "./SelectorCaret"
@@ -9,21 +9,24 @@ import "./theme-toggle.css"
 type HudHeaderProps = {
 	theme: "dark" | "light"
 	onToggleTheme: () => void
-	model: ModelId
-	onSelectModel: (model: ModelId) => void
+	model: string
+	models: readonly { value: string; label: string }[]
+	modelDisabled?: boolean
+	modelPlaceholder?: string
+	onSelectModel: (model: string) => void
 	view: HudView
 	hasRun: boolean
 	onSelectView: (view: HudView) => void
 }
 
-export function HudHeader({ theme, onToggleTheme, model, onSelectModel, view, hasRun, onSelectView }: HudHeaderProps) {
+export function HudHeader({ theme, onToggleTheme, model, models, modelDisabled, modelPlaceholder, onSelectModel, view, hasRun, onSelectView }: HudHeaderProps) {
 	const [openSelector, setOpenSelector] = useState<"model" | "view" | null>(null)
 	const toggleSelector = (selector: "model" | "view", open: boolean) =>
 		setOpenSelector(current => open ? selector : current === selector ? null : current)
 	const nextTheme = theme === "dark" ? "Light" : "Dark"
 	return (
 		<header className="hud-header">
-			<HudSelector value={model} options={modelOptions} label="Base model" variant="model"
+			<HudSelector value={model} options={models} disabled={modelDisabled} placeholder={modelPlaceholder} label="Base model" variant="model"
 				onSelect={onSelectModel} open={openSelector === "model"}
 				onOpenChange={open => toggleSelector("model", open)} />
 			<HudButton variant="info" className="theme-toggle" aria-label="Toggle color theme"
