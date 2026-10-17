@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import net from "node:net"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { captureNative, documentUrl } from "../tests/native"
+import { captureNative, documentUrl, setNativeViewport } from "../tests/native"
 import { expectFooterGeometry } from "../tests/footer-geometry"
 import { resolveBackendLayout } from "../src/backend-layout.cjs"
 import { installTestClient } from "../tests/transport"
@@ -124,12 +124,7 @@ test("Docker startup failure presents an accessible retry that starts the backen
 	const page = await app.firstWindow()
 	await expect(page.getByRole("alert")).toContainText("Docker is unavailable")
 	await expect(page.getByRole("button", { name: "Start run", exact: true })).toHaveCount(0)
-	await app.evaluate(({ BrowserWindow }) => {
-		const window = BrowserWindow.getAllWindows()[0]
-		window.setContentSize(640, 420)
-		window.webContents.setZoomFactor(1.25)
-	})
-	await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([512, 336])
+	await setNativeViewport(app, page, 640, 420, 1.25)
 	expect(await page.evaluate(() => document.documentElement.scrollHeight === innerHeight)).toBe(true)
 	const retry = await page.getByRole("button", { name: "Retry", exact: true }).boundingBox()
 	expect(retry!.height).toBeGreaterThan(24)
@@ -230,12 +225,7 @@ test("outage retry preserves the HUD and resumes readiness polling after recover
 		for (const theme of ["dark", "light"]) {
 			if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 			for (const [width, height, zoom] of [[1260, 780, 1], [640, 420, 1], [640, 420, 1.25]]) {
-				await app.evaluate(({ BrowserWindow }, { width, height, zoom }) => {
-					const window = BrowserWindow.getAllWindows()[0]
-					window.setContentSize(width, height)
-					window.webContents.setZoomFactor(zoom)
-				}, { width, height, zoom })
-				await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([width / zoom, height / zoom])
+				await setNativeViewport(app, page, width, height, zoom)
 				await expectFooterGeometry(page)
 				const bounds = await page.locator(".backend-notice").evaluate(notice => {
 					const rect = notice.getBoundingClientRect()

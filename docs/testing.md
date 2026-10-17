@@ -414,6 +414,9 @@ a project through the desktop client, closes the native window, and verifies
 stopped containers and retained data. Reopening that same installation must reuse
 its image and project; named steps make these dependent phases explicit. Logs and
 a startup-error capture are attached to the report.
+Native lifecycle captures wait for the renderer to observe a window resize before
+applying zoom, then verify the final viewport dimensions. A delayed-resize
+regression keeps a late resize from silently resetting the requested zoom.
 Cleanup validates the exact temporary installation before removing its containers,
 image tag, and test directory; it never uses `--volumes` or a user's hub.
 The same suite also drives the real Docker CLI against two simulated daemons
