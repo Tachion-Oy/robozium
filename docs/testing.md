@@ -143,7 +143,7 @@ in both themes and zoom levels, including disabled states.
 Selector scenarios cover pointer selection, keyboard exploration,
 prefix search, acceptance/cancellation, outside dismissal, one open popup, and
 view placeholders. Choices survive theme/view changes and reset on reload;
-selector interactions make no HTTP requests. Mock-run checks start from Runs
+preview selector interactions make no HTTP requests. Mock-run checks start from Runs
 Overview, verify Current Run becomes available, and exercise returning to the
 same draft through the overview and view selector. They cover multiline editing,
 caret retention during resizing/theme/zoom changes, bounded divider movement,
@@ -186,6 +186,60 @@ and reader cleanup. Direct framing checks split decoded text at every boundary
 without involving JSON parsing or a stream reader. An open-stream regression
 dispatches CR-terminated events without another chunk or EOF and checks split
 CRLF handling. Preview remains local; its bridge returns no API address.
+The shared client streams any supplied SSE path; the typed run-stream wrapper
+encodes its run ID, ignores unknown events and closes the HTTP response on early
+exit, abort or invalid consumed payloads.
+
+Connected selection tests in `desktop/tests/selection.spec.ts` run the built renderer
+against a disposable HTTP server. The fixture replaces only the connection bridge
+and protocol registration to select that server; there are no production test
+controls or browser dependencies. Scenarios cover delayed acknowledgement, rejected
+and malformed writes, empty/malformed catalogues, explicit Retry, single submission,
+creation followed by failed refresh, retained names/selections, cancelled obsolete
+reads, ten-second read/write deadlines, and reload cancellation. Lost-acknowledgement
+regressions commit a model change before its response times out, then recover by
+reading the backend or explicitly selecting the old displayed choice. Reconnect
+regressions change the backend default, cancel stale reads/pending writes, preserve
+local drafts/selections, and verify recovery reads without automatic write retries
+or reloading models on each healthy readiness poll. Native captures
+and overflow checks cover long names in both themes at normal/narrow sizes and
+125% zoom. Keyboard assertions retain input, row, selector, and Retry focus.
+
+Connected run tests in `desktop/tests/runs.spec.ts` use the same native HTTP
+boundary. They cover launch guards, creation rejection/malformed responses/timeouts,
+late snapshot/SSE overlap, duplicate chunks/messages, partial completion, polling
+without events, terminal states, unknown runs, explicit retry without creation,
+view retention, changed-run disposal, and unmount cancellation. Controlled clocks
+verify the two-second interval after reads settle and ten-second request deadlines.
+Closure and HTTP 409 cases hold an in-flight snapshot open, verify the fresh read
+waits for it, and check that terminal completion stops polling without reconnecting.
+History, streaming scroll, exact clipboard content, retained drafts and keyboard
+focus are exercised in both themes, including narrow windows at 125% zoom.
+Native regressions also exercise provider retries, active prompts followed by
+background notifications, and settled progress while a tool is running. Script
+regressions verify navigation and copying after prefix recovery splits a group,
+duplicate events clearing stale live text, and prompts separating pinned output.
+`desktop/tests/session.spec.ts` exercises run reconciliation and HUD projection without launching
+Electron: retry scoping/replay, prompt selection, settling, completed-token
+suppression, snapshots overtaking SSE, and script identity across recovered
+boundaries. Delivery-order cases cover repeated snapshots, older duplicates that
+must leave newer live text intact, and delayed/status-only prompt snapshots whose
+boundaries survive recovery. Separation checks exercise run reconciliation without
+a HUD, selection changes leaving run data untouched, recovered scripts before a
+live display boundary, and duplicate chunks after live text was cleared.
+Mixed-content checks apply the same message and script grouping expectations to
+streamed events and snapshot recovery, including hidden agent completions.
+A 100,000-token case checks bounded retained records
+and verifies that further tokens leave completed history untouched; it has no machine-specific
+timing threshold. Run those checks alone with
+`cd desktop && npx playwright test session.spec.ts --reporter=list`.
+`desktop/tests/request.spec.ts` checks the shared deadline helper with controlled
+timers: completion cleanup, cancellation reasons, custom/default deadlines and
+late responses. API tests also validate run event normalization and status/role
+contracts against literal wire fixtures.
+The Docker native suite creates/selects a project through the UI, starts it,
+observes both mock prompts, and verifies completed history. Its test helper submits
+required replies over HTTP; desktop Send remains disabled in this increment.
 
 Linux screenshot baselines live beside the native tests. Review visual changes
 against the experiment before explicitly updating them:
@@ -410,13 +464,16 @@ The native backend suite stages real shared Python inputs and launches sandboxed
 Electron on an isolated display with a temporary profile and unused loopback port.
 Focused scenarios exercise a Docker-unavailable alert and Retry, duplicate-launch
 ownership, and cancellation during a blocked build. A persistence scenario creates
-a project through the desktop client, closes the native window, and verifies
+projects through the labelled form, exercises duplicate-name errors and keyboard
+selection/refresh, closes the native window, and verifies
 stopped containers and retained data. Reopening that same installation must reuse
-its image and project; named steps make these dependent phases explicit. Logs and
-a startup-error capture are attached to the report.
+its image and projects while resetting the local selection; named steps make
+these dependent phases explicit. Logs and a startup-error capture are attached
+to the report.
 Native lifecycle captures wait for the renderer to observe a window resize before
-applying zoom, then verify the final viewport dimensions. A delayed-resize
-regression keeps a late resize from silently resetting the requested zoom.
+applying zoom, then converge on both native zoom and renderer dimensions.
+Controlled delayed-resize and late-zoom-reset regressions keep native window
+synchronization from silently returning captures to 100% zoom.
 Cleanup validates the exact temporary installation before removing its containers,
 image tag, and test directory; it never uses `--volumes` or a user's hub.
 The same suite also drives the real Docker CLI against two simulated daemons
@@ -431,7 +488,8 @@ connection-address IPC methods. Separate native scenarios block initial renderer
 readiness and recover through Retry without Docker commands, and verify the
 selected-address CSP with actual desktop HTTP/SSE requests against a seeded run.
 The outage scenario stops only its disposable container to verify recovery,
-retained editor identity, draft/selection/divider/theme, and resumed polling.
+retained editor identity, project-name draft and selection, reply draft,
+divider/theme, resumed polling, and reloading the backend model selection.
 Outage captures and containment
 checks cover both themes at 1260×780 and 640×420, including 125% zoom. No production
 demonstration controls are added; the test loads the actual transport source into

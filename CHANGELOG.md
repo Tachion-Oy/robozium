@@ -2,19 +2,39 @@
 
 ## Unreleased
 
+
 - Preview pasted, dropped, or selected images in the web reply composer, with
   run-scoped drafts and local removal/clearing. Image replies cannot be sent yet.
 
+- Start selected projects from the desktop HUD and display live output, prompts,
+  history, and completion. Preserve drafts and output on errors, keep one session
+  across views, and retry output without creating another run. Standalone preview
+  remains available; replies and cancellation controls are still deferred.
+  Separate run reconciliation from desktop HUD selection, clear abandoned model
+  attempts, keep active prompts and settling progress visible, and process token
+  updates without rebuilding completed history. Keep recovered script entries
+  uniquely selectable, apply repeated events to stale live text, and preserve
+  script boundaries across prompts and history recovery.
+
+- Connect desktop Runs Overview to backend project listing, creation, and selection,
+  and the model dropdown to the backend default. Preserve drafts and confirmed
+  selections on failure, keep model refresh separate from write retry, and reload
+  backend model state after reconnect. Retain the local mock history under Preview run.
+
+- Display image-omission notices as information and keep the chat usable while
+  unsupported attachments are omitted. Integration tests cover restoring uploads
+  after switching back to a vision model. Pin the published RoboZ 0.14.0a1 release
+  that supplies the graceful image handling.
+
 - Connect the desktop renderer directly to the Python API with HTTP/SSE transport,
   desktop Host/Origin checks, readiness polling, and connection Retry that preserves
-  the mounted HUD and does not restart Docker. Selectors and run controls retain
-  their local fixtures.
+  the mounted HUD and does not restart Docker.
 
 - Stage pasted images in a run's temporary folder and attach them when its JSON
-  reply is submitted, using RoboZ 0.13.2a1. Clean temporary files after workers
+  reply is submitted, using RoboZ 0.14.0a1. Clean temporary files after workers
   stop and remove leftovers on hub startup. Configure image limits through
-  `ATTACHMENTS` in `hub.config.py`. Let RoboZ handle model compatibility through
-  its existing request recovery. Stream text and file links without inline image
+  `ATTACHMENTS` in `hub.config.py`. RoboZ handles model compatibility when
+  preparing requests. Stream text and file links without inline image
   payloads in SSE messages.
 
 - Manage desktop backend startup and shutdown from Electron main, with image

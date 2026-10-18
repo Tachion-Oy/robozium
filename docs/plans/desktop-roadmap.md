@@ -88,11 +88,26 @@ refactoring, or packaging. See the [detailed scaffold plan](electron-scaffold.md
 PR 1 remains the small, framework-free scaffold above. The following PRs build
 out `desktop/` while retaining the browser implementation and its regression
 checks. Each adds a runnable result and explains one new responsibility.
-PRs 1, 2, 3a, 3b.1, 3b.2, 3c, 3d, 4, and 5 are merged. The current increment
-follows the [PR 6 API client plan](desktop-api-client.md): React makes direct
-HTTP/SSE requests; main supplies the selected address and manages Docker. The
-HUD retains its fixtures, and connection recovery preserves its mounted state.
-Next is PR 7, project and model selection.
+PRs 1 through 7 are merged. The current increment implements the
+[PR 8 run output plan](desktop-run-output.md): React starts the selected project,
+streams its output, merges snapshot history, and keeps one app-level session
+through view changes. Explicit output retry reconnects the known ID; terminal
+runs remain readable. Run reconciliation and desktop HUD presentation have
+separate reducers, composed atomically by the session. Run state owns status,
+prompts and backend events; the HUD owns display boundaries and selection.
+HUD helpers separate typed message extraction, history grouping and display
+selection. Typed run operations share payload validation for snapshots and SSE.
+The renderer keeps all TSX components and CSS in `ui/`, grouped by feature, with
+TypeScript hooks/APIs/state in sibling feature folders. Session ownership
+coordinates run and HUD state; shared `api/` code supplies request infrastructure.
+`watchRun()` coordinates SSE and polling in `run/run-updates.ts`.
+Provider retry resets transient output; active prompts and
+settling text retain their place in the single-message panel, with explicit
+history pinning. Script identities and prompt boundaries survive history
+recovery. Token updates do not rebuild completed history. Standalone preview
+retains its local history. Replies,
+cancellation controls, automatic reconnection, and reopen recovery follow in PR 9.
+Rich Markdown and artifact-link rendering remain tracked presentation parity work.
 
 | PR | Change | Acceptance |
 | --- | --- | --- |
@@ -105,8 +120,8 @@ Next is PR 7, project and model selection.
 | **4. Add desktop Docker configuration** | Add a desktop-owned Compose definition and allowlisted build inputs for the existing Python backend. Document manual live/default and mock startup and shutdown; see the [PR 4 backend plan](desktop-backend-docker.md). | Build and start the backend without the Next.js service. Verify isolated data, credential exclusion/precedence, loopback-only access, health checks, one worker per hub, and restart persistence. Existing browser launchers remain unchanged. |
 | **5. Manage Docker from main** | Add a focused controller for Docker discovery, image reuse/building, startup, readiness, cancellation, and owned-service shutdown. Expose only the startup status needed by the renderer. | Launch and close the native app against the real mock backend. Cover missing Docker, ownership mismatch, occupied ports, readiness failure, and cancellation without deleting user data. |
 | **6. Connect the desktop API client** | Add direct HTTP/SSE transport, the selected-address bridge/CSP, backend Host/Origin checks, and readiness/error/Retry presentation; see the [PR 6 plan](desktop-api-client.md). Keep application controls on fixtures. | Native tests seed and stream a real mock run, exercise initial failure/outage/recovery, and preserve HUD state. Python checks protect access policy and existing Environment/credential boundaries. |
-| **7. Port project and model selection** | Copy and adapt project listing, selection/creation, and model selection into desktop. Keep navigation and state local to desktop. | Create/select a project and choose a model using mock backend data. Preserve loading, empty, failure, keyboard, and focus behavior. |
-| **8. Port run creation and live output** | Copy the session code and minimum run presentation needed to start a run and display live updates. Keep the desktop session within `desktop/`. | A native test starts a mock run and observes streamed output and completion. Verify cancellation of obsolete subscriptions and a single active session. |
+| **7. Port project and model selection** | Adapt project listing, selection/creation, and acknowledged default model selection into desktop; see the [PR 7 plan](desktop-project-model-selection.md). Keep navigation and UI state local to desktop. | Create/select a project and choose a model using mock backend data. Preserve loading, empty, failure, keyboard, and focus behavior. |
+| **8. Port run creation and live output** | Adapt run contracts, session ownership, and text presentation to start the selected project and display live updates; see the [PR 8 notes](desktop-run-output.md). Keep the desktop session within `desktop/`. | A native test starts a mock run and observes streamed output and completion. Verify cancellation of obsolete subscriptions and a single active session. |
 | **9. Port replies, interruption, and recovery** | Add reply editing, run interruption, and recovery after reconnect/reopen. | Verify draft preservation, reply submission, interruption, backend restart, and recovery without duplicate messages or subscriptions. |
 | **10. Port credential unlocking** | Copy and adapt the encrypted-credential unlock state and controls. Keep keys and decryption in the backend. | Verify locked/unlocked/error states using disposable test credentials, with no secrets in frontend configuration, logs, or packaged assets. |
 | **11. Port environment editing** | Copy environment display, editing, and import controls into desktop. Reuse the backend API contract rather than the Next.js routes. | Cover edits, imports, validation failures, unsaved changes, and persistence using isolated mock data. |

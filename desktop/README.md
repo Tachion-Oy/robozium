@@ -1,12 +1,11 @@
 # Robozium
 
-The Electron app is under development. It currently shows the application name
-and version beneath a four-control HUD header after its backend is ready. Start
-run in Runs Overview opens a local mock history and editable reply panels. Model
-choices remain local; Light/Dark switches the theme, and Secrets unavailable is
-disabled. React connects directly to the Python API for readiness and owns the
-desktop HTTP/SSE client. Project/model selectors and run controls still use local
-fixtures; connecting those operations follows in later roadmap increments.
+The Electron app is under development. React connects directly to the Python
+API for projects, default model selection, and live runs. Select a project and
+use **Start run** to watch incremental output, messages, script output, prompts,
+and completion in Current Run. **Return to run** reopens the current session.
+Light/Dark switches the theme, and Secrets unavailable is disabled. Replies,
+credentials, and capability selection follow in later roadmap increments.
 
 ## Run on Linux
 
@@ -49,7 +48,7 @@ ports, or mounts are rejected. Do not share a hub between managed and manual run
 Main selects your host UID/GID for rootful Docker or `0:0` for rootless Docker.
 Provider configuration belongs in the selected runtime's `.env` or `.env.encrypt`;
 see the [credential guidance](../README.md#optional-encrypted-credentials).
-Keys and decryption remain in the Python backend. Startup opens the fixture HUD
+Keys and decryption remain in the Python backend. Startup opens the HUD
 after the renderer connects; credential-unlock controls follow in PR 10.
 
 Once connected, React checks readiness every five seconds with a three-second
@@ -83,28 +82,88 @@ Preview profiles stay in `.artifacts/desktop/scaffold/`. Close and restart eithe
 command to rebuild after source changes. `.artifacts/desktop/data/` is persistent
 user data; `desktop/.stage/` and `desktop/dist/` are regenerable build outputs.
 
-The app starts in dark mode with Mock model and Runs Overview selected. Tab moves
+The app starts in dark mode with Runs Overview selected. Connected mode loads
+the backend's default model; preview uses the local Mock model fixture. Tab moves
 through the model selector, theme button, and view selector, skipping Secrets.
 Open a selector with a click, Enter, Space, or an arrow key. Use arrows, Home/End,
 or type a name prefix to explore choices. Enter, Space, or Tab accepts the
 highlighted choice; Escape or clicking the open trigger cancels. Clicking outside
 accepts the highlighted choice and dismisses the popup. Only one popup opens at
-a time. Model/view choices survive theme changes and reset when the page reloads
-or the app restarts.
+a time. View choices survive theme changes and reset on reload. Connected model
+choices change the displayed default only after backend acknowledgement. Failures
+retain the last confirmed choice; **Refresh models** reads the current backend
+state, while **Retry change** explicitly resubmits the failed choice. After an
+uncertain write, selecting the displayed model also sends that choice again.
+Successful refresh clears the pending retry. Both controls retain keyboard focus.
+Connection recovery reloads the model catalogue and selection without replaying
+writes or resetting drafts and local project selection.
+Preview model choices stay local and reset on reload.
 
-Select **Start run** in Runs Overview to open **Current Run**. The latest mock message
-appears above an empty reply editor. Draft freely: Enter and Shift+Enter insert
+In connected Runs Overview, select a project row with a click, Enter, or Space.
+Enter a **Project name** and press Enter or **Create project** to create it. Success
+selects the returned slug and refreshes the list. A failed creation retains your
+name; if only the follow-up refresh fails, use **Refresh** without creating again.
+The list loads when entering Runs Overview and on Refresh, retaining existing
+rows and selection on failure. The selected project and typed name survive view
+changes and connection outages, and reset when the application reloads. Projects
+remain stored in the Python backend.
+
+Selection requests have ten-second deadlines and are cancelled on unmount.
+Obsolete project reads are cancelled when refreshing or leaving Runs Overview.
+Writes cannot overlap for the same operation and are never retried automatically.
+A timed-out write may have reached the backend; refresh to check before retrying.
+
+**Start run** requires a connected backend, a selected project, and a confirmed
+model. It uses backend capability defaults and the acknowledged default model;
+later model changes affect future runs. Creation has a ten-second deadline,
+blocks duplicate submissions and model changes, and never retries automatically.
+A timeout may still have prepared a backend run; check the backend before trying
+again. Starting another run replaces the local subscription without cancelling
+the previous backend run. The project label always identifies the captured run.
+
+Opening the event stream starts the prepared run. A snapshot is read immediately,
+then every two seconds after the previous read settles, with ten-second deadlines.
+Snapshots and events merge by sequence/message identity. **Retry output** disposes
+old requests and reconnects the known run ID without creating another run.
+Errors preserve output and drafts. Completed, failed, and cancelled runs stay
+readable and stop polling; unknown runs show **Run unavailable**. Automatic
+reconnection and recovery after reopening are planned for PR 9.
+
+In standalone preview, **Start run** opens the latest local mock message above
+an empty reply editor. In either mode, draft freely: Enter and Shift+Enter insert
 newlines; replies are not sent yet. The arrow buttons in the left rail move the
 divider between message-expanded, equal, and reply-expanded positions. At each
 limit, the unavailable direction is disabled. Messages and long drafts scroll
 inside their own panels. Divider changes animate over 220ms, or move immediately
 when reduced motion is enabled.
 
-The footer's four history arrows select the first, previous, next, or latest of
-three local messages without wrapping. At either end, unavailable directions
-are disabled and keyboard focus moves to the nearest reverse arrow. The “A”
-mark shows a static awaiting-input state. Cancel, Interrupt, Record, and Send
-are disabled previews.
+The footer's four history arrows select the first, previous, next, or latest
+message without wrapping. New output follows the latest message unless you are
+reading older history. An active prompt stays current even when a background
+notification arrives afterward; the latest arrow returns to that prompt from a
+pinned history entry. Provider retries discard abandoned partial text. Ordinary
+agent-message completion keeps its last progress visible until new output or a
+prompt replaces it. Live text scrolls downward; selecting another entry resets
+its scroll. At either end, unavailable directions are disabled and keyboard focus
+moves to the nearest reverse arrow. Empty history disables all arrows. The center
+mark names the current run status, also shown above the output. Preview retains
+three local messages and its static awaiting-input mark. Cancel, Interrupt,
+Record, and Send remain disabled; draft editing stays local.
+
+Output uses the existing text renderer. Rich Markdown and artifact-link rendering
+remain tracked desktop parity work.
+
+The run reducer owns run identity, durable event reconciliation, and backend
+status. Run protocol values and derived types live in `run/run-contracts.ts`;
+`api/request.ts` supplies deadlines for selection, run and readiness requests.
+A separate desktop HUD reducer owns transient/settling text, prompt
+identity, and the single-message panel's history selection. App reads one display
+selector. Token deltas update only the active accumulator; completed attempts
+retain message boundaries and completions instead of token chunks. Ordered
+content appends incrementally, while recovered history is reconciled by sequence.
+Script identities remain anchored when recovered prefixes or boundaries change
+their groups. Replayed events still dismiss older live text. A new prompt closes
+the preceding script group, and that boundary survives later history recovery.
 
 **Clear reply** empties the draft and returns focus to the editor. **Copy reply**
 and **Copy agent output** copy the exact displayed text, including whitespace
@@ -116,14 +175,14 @@ Run and wrap beneath the centered history controls when space is tight.
 
 Switch views using the header, or use **Return to run** in Runs Overview. The
 draft, selected message, and divider position survive view, model, theme,
-window-size, and zoom changes. Reloading or restarting resets the preview to Runs Overview with no
-active run. Dependencies and Environment still display “This view is coming
-soon.” Divider controls remain visible but disabled outside Current Run.
+window-size, and zoom changes. Reloading or restarting resets the desktop to
+Runs Overview with no local session; it does not recover an existing run yet.
+Dependencies and Environment still display “This view is coming soon.” Divider controls remain visible but disabled outside Current Run.
 
-Both selectors reserve room for their longest labels, so changing the model or
+Both selectors reserve stable widths for their labels, so changing the model or
 view keeps the other header controls in place. They shrink with the window;
-truncated labels retain their full hover tooltips. Project/model operations,
-provider credentials, and environment editing arrive in later roadmap steps.
+truncated labels retain their full hover tooltips. Provider credentials and
+environment editing arrive in later roadmap steps.
 
 Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset.
 The keypad + and - keys also work with Ctrl.
@@ -173,20 +232,47 @@ also owns its installation identity, Compose interpolation file, and Docker log.
 - `src/backend-layout.cjs` resolves and prepares that layout for Electron and
   `scripts/prepare-runtime.mjs`. TypeScript checks this shared Node module; the
   standalone setup command can also run before installing desktop dependencies.
-- `renderer/src/` contains the React entry point and app state.
+- `renderer/src/ui/main.tsx` mounts backend startup and the application. Renderer
+  `.tsx` components and their CSS live under `ui/`, grouped by feature. TypeScript
+  hooks, contracts and state remain in the corresponding folders outside `ui/`:
+
+  | Folder under `renderer/src/` | Responsibility |
+  | --- | --- |
+  | `ui/` | All rendered components and CSS: app composition, backend startup, projects, run launch and HUD controls. |
+  | `app/` | Navigation definitions and standalone preview data. |
+  | `backend/` | IPC connection discovery and HTTP readiness hooks. |
+  | `projects/` | Project requests, validation and selection/creation state. |
+  | `models/` | Model requests and validation, acknowledged backend selection and explicit retry. |
+  | `run/` | Run contracts, requests, payload decoding, event reconciliation and live updates. |
+  | `session/` | One run's request lifetime and atomic composition of run data with HUD state. |
+  | `hud/` | Message projection, history, display selection and layout logic. |
+  | `api/` | Shared HTTP/SSE transport, request deadlines and React request state. |
+  | `assets/` | Bundled Anurati status-mark font. |
+
+  UI components consume feature hooks/state; TypeScript feature modules do not
+  import UI components. `ui/app/App.tsx` owns composition, theme and draft state;
+  session coordinates run and HUD state. HUD projection consumes validated run
+  data, while run reconciliation has no HUD dependency. Shared `api/` code imports
+  no feature modules. App supplies header navigation choices separately from
+  standalone preview data.
 - `renderer/src/api/client.ts` owns direct JSON HTTP requests and SSE framing.
   It omits cookies, disables caching, rejects origin changes/redirects, preserves
   cancellation, and reports HTTP, malformed-response, and connection errors.
-  SSE yields unknown JSON; run validation and reconnection belong to later session
-  integration. Early disposal/abort cancel and release the stream reader.
-- `renderer/src/components/hud/` contains the header, panels, divider, footer, and their CSS.
-  Components import the styles they own; the header currently owns its inline
-  theme toggle's styling.
-- `renderer/src/components/views/` contains Runs Overview, view placeholders, and their CSS.
-- `renderer/src/fixtures/` contains local model/view choices and three mock run messages.
-- `renderer/src/assets/` contains the bundled Anurati status-mark font.
-- `renderer/src/styles/app.css` contains app-wide typography, theme tokens,
-  base styles, and the frame.
+  `streamEvents(path, signal)` yields unknown JSON and releases its response reader
+  on early disposal/abort. Feature APIs own endpoint paths and payload validation.
+- `renderer/src/api/useRequest.ts` supplies pending/error state, cancellation and
+  stale-response guards to the separate project and model hooks. `request.ts`
+  provides deadlines shared with readiness and run requests.
+- `renderer/src/run/run-api.ts` exposes typed creation, snapshot and stream
+  operations. `run-payloads.ts` decodes snapshots and SSE through the same event
+  validator. `run-updates.ts` coordinates concurrent streaming, serialized
+  snapshots and polling with shared cleanup; `run-reducer.ts` owns backend state.
+- `renderer/src/session/useRunSession.ts` owns creation and subscription lifetimes.
+  `session-reducer.ts` composes run reconciliation and HUD projection atomically.
+  `hud/hud-reducer.ts` coordinates live text, history and selection;
+  `hud-history.ts`, `hud-view.ts` and `hud-messages.ts` own grouping/recovery,
+  prompt/display composition and typed text extraction respectively.
+  [PR 8 notes](../docs/plans/desktop-run-output.md) record browser sources and adaptations.
 - `tsconfig.json` supplies Node types and module settings for every file in
   `src/`. Its standard name lets editors discover the same project used by the
   build. The test and Vite configurations extend it.
@@ -194,8 +280,8 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   to both the editor and the command-line type check.
 - `tests/` contains native scenarios and screenshot baselines.
 
-Keep new components with their feature and their styles beside them. Add folders
-as those features arrive in the desktop roadmap.
+Keep new components in the corresponding `ui/` feature folder with their styles
+beside them; keep hooks and state in the TypeScript feature folders.
 
 ## Manual desktop backend (Linux)
 
