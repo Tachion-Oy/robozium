@@ -2,7 +2,7 @@
 // Reducers own data and presentation; this hook owns requests, cancellation and stale callbacks.
 import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
-import { createRun, submitReply } from "../run/run-api"
+import { createRun, submitReply, interruptRun } from "../run/run-api"
 import { withDeadline } from "../api/request"
 import { watchRun, errorMessage } from "../run/run-updates"
 import { reduceRunSession } from "./session-reducer"
@@ -15,6 +15,8 @@ export function useRunSession(client: DesktopApiClient | null) {
 	const creation = useRef<AbortController | null>(null)
 	const dispose = useRef<ReturnType<typeof watchRun> | null>(null)
 	const generation = useRef(0)
+	const interruptRequest = useRef<AbortController | null>(null)
+	const [interrupting, setInterrupting] = useState(false)
 	const replyRequest = useRef<AbortController | null>(null)
 	const [replying, setReplying] = useState(false)
 	const [actionError, setActionError] = useState("")
@@ -22,6 +24,9 @@ export function useRunSession(client: DesktopApiClient | null) {
 	latest.current = session
 	const stop = useCallback(() => {
 		generation.current++
+		interruptRequest.current?.abort()
+		interruptRequest.current = null
+		setInterrupting(false)
 		replyRequest.current?.abort()
 		replyRequest.current = null
 		setReplying(false)
@@ -91,7 +96,28 @@ export function useRunSession(client: DesktopApiClient | null) {
 			}
 		}
 	}
-	return { session, creating, createError, start, open, reply, replying, actionError,
+	useEffect(() => {
+		if (session?.run.synchronized && (session.run.prompt || session.run.status !== "running")) setInterrupting(false)
+	}, [session])
+	const interrupt = async () => {
+		if (!client || !session?.run.synchronized || session.run.status !== "running" || session.run.prompt || interruptRequest.current || interrupting || creation.current) return
+		const controller = new AbortController()
+		interruptRequest.current = controller
+		setInterrupting(true)
+		setActionError("")
+		try {
+			const accepted = await withDeadline(controller.signal, signal => interruptRun(client, session.run.runId, signal))
+			if (!controller.signal.aborted && !accepted) { setInterrupting(false); setActionError("Interruption was not accepted. Refreshing run status.") }
+		} catch (error) {
+			if (!controller.signal.aborted) { setInterrupting(false); setActionError(errorMessage(error)) }
+		} finally {
+			if (interruptRequest.current === controller) {
+				interruptRequest.current = null
+				dispose.current?.refresh()
+			}
+		}
+	}
+	return { session, interrupt, interrupting, refresh: () => dispose.current?.refresh(), creating, createError, start, open, reply, replying, actionError,
 		select: (index: number) => dispatch({ type: "select", index }),
 		retry: () => {
 			if (!session || creation.current) return

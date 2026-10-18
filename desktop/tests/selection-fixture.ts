@@ -24,7 +24,7 @@ export const test = native.extend<{ backend: Backend }>({
 	backend: async ({ desktop: { app, page } }, use) => {
 		const handlers = new Map<string, Handler>([
 			["GET /ready", response => json(response, { status: "ready" })],
-			["GET /projects", response => json(response, [{ slug: "existing-project" }])],
+			["GET /projects", response => json(response, [{ slug: "existing-project", status: "dormant", run_id: null }])],
 			["GET /models", response => json(response, catalogue)],
 		])
 		const requests: Backend["requests"] = []

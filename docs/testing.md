@@ -513,3 +513,7 @@ empty and creates only the separately mounted read-only folder inside the hub.
 The Docker smoke test starts with those mount sources and verifies that the API
 creates a project which survives restart and shutdown. These checks cover the
 boundary between desktop mount preparation and hub-owned application storage.
+
+Desktop interaction scenarios also cover interruption followed by a reply,
+cancellation during interruption, background status reconciliation and failed
+controls retaining drafts.

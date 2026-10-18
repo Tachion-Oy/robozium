@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Interrupt desktop runs and cancel project work from Current Run or Runs Overview,
+  with shared pending state and polling through background cancellation.
+
 - Send desktop text replies with Enter/Shift+Enter and IME protection. Keep edits
   during requests, suppress acknowledged prompts and retain drafts on failure.
 

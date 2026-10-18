@@ -5,7 +5,9 @@ import { CopyTextButton } from "./CopyTextButton"
 import { useDesktopActionLayout } from "../../hud/useDesktopActionLayout"
 import "./hud-footer.css"
 
-export function HudFooter({ message, selected, count, currentIndex, onSelect, draft, onClear, status, onSend, canSend = false, replying = false }: {
+export function HudFooter({ message, selected, count, currentIndex, onSelect, draft, onClear, status, onSend, canSend = false, replying = false, onInterrupt, canInterrupt = false, interrupting = false, onCancel, canCancel = false, cancelling = false }: {
+	onInterrupt?: () => void; canInterrupt?: boolean; interrupting?: boolean
+	onCancel?: () => void; canCancel?: boolean; cancelling?: boolean
 	onSend?: () => void; canSend?: boolean; replying?: boolean
 	status?: string
 	currentIndex?: number
@@ -18,8 +20,8 @@ export function HudFooter({ message, selected, count, currentIndex, onSelect, dr
 	return (
 		<footer className="hud-footer" role="group" aria-label="Current Run controls">
 			<div className="hud-footer__actions" ref={actions}>
-				<HudButton className="hud-footer__cancel" variant="warning" disabled>Cancel</HudButton>
-				<HudButton className="hud-footer__interrupt" variant="danger" disabled>Interrupt</HudButton>
+				<HudButton className="hud-footer__cancel" variant="warning" disabled={!canCancel} onClick={onCancel}>{cancelling ? "Cancelling…" : "Cancel"}</HudButton>
+				<HudButton className="hud-footer__interrupt" variant="danger" disabled={!canInterrupt} onClick={onInterrupt}>{interrupting ? "Interrupting…" : "Interrupt"}</HudButton>
 				<div className="hud-footer__navigation">
 					<HudMessageNavigation selected={selected} count={count} currentIndex={currentIndex} onSelect={onSelect} status={status} />
 				</div>

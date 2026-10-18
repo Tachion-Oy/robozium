@@ -383,3 +383,9 @@ only its own test containers/image and temporary data, including after failures.
 Lifecycle unit tests cover ownership, errors, cancellation, and process cleanup.
 The native backend suite verifies retry, first build/image reuse, close/reopen
 persistence, and cancellation against isolated mock Docker resources.
+
+Desktop **Interrupt** requests a prompt while a run is running. **Cancel** in
+Current Run and each overview row cancels project work, including background
+syncing. Pending actions reject duplicate submissions. Overview status refreshes
+every three seconds while connected and every 250 ms during cancellation.
+Cancel remains available while interruption is pending.

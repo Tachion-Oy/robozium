@@ -128,7 +128,7 @@ test("snapshots alone update prompts and terminal status, with serialized two-se
 
 test("view changes retain one session, project, history selection and draft; new runs dispose obsolete reads", async ({ desktop: { page }, backend }) => {
 	const first = prepareRun(backend)
-	backend.handlers.set("GET /projects", response => json(response, [{ slug: "existing-project" }, { slug: "second-project" }]))
+	backend.handlers.set("GET /projects", response => json(response, [{ slug: "existing-project", status: "dormant", run_id: null }, { slug: "second-project", status: "dormant", run_id: null }]))
 	await start(page, backend)
 	await expect.poll(() => first.streams.length).toBe(1)
 	emit(first.streams[0], message(1, "First")); emit(first.streams[0], message(2, "Second"))

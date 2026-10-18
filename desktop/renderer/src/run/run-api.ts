@@ -30,3 +30,11 @@ export async function submitReply(client: DesktopApiClient, runId: string, promp
 		throw new ApiError("malformed", "The backend did not acknowledge the reply.")
 	}
 }
+
+export async function interruptRun(client: DesktopApiClient, runId: string, signal: AbortSignal): Promise<boolean> {
+	const value = await client.request(`/run/${encodeURIComponent(runId)}/interrupt`, { method: "POST", signal })
+	if (!value || typeof value !== "object" || !("ok" in value) || typeof value.ok !== "boolean") {
+		throw new ApiError("malformed", "The backend returned an invalid interruption acknowledgement.")
+	}
+	return value.ok
+}

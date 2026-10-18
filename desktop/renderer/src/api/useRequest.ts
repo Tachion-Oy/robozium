@@ -11,7 +11,7 @@ export interface RequestState {
 }
 
 /** One request at a time, with explicit cancellation and no automatic write retries. */
-export function useRequest(): RequestState {
+export function useRequest(preserveErrorWhilePending = false): RequestState {
 	const activeRequest = useRef<AbortController | null>(null)
 	const [pending, setPending] = useState(false)
 	const [error, setError] = useState("")
@@ -26,15 +26,15 @@ export function useRequest(): RequestState {
 		const controller = new AbortController()
 		activeRequest.current = controller
 		setPending(true)
-		setError("")
+		if (!preserveErrorWhilePending) setError("")
 		try {
 			const value = await withDeadline(controller.signal, request)
-			if (activeRequest.current === controller) accept(value)
+			if (activeRequest.current === controller) { setError(""); accept(value) }
 		} catch (failure) {
 			if (activeRequest.current === controller) setError(failure instanceof Error ? failure.message : "Request failed.")
 		} finally {
 			if (activeRequest.current === controller) { activeRequest.current = null; setPending(false) }
 		}
-	}, [])
+	}, [preserveErrorWhilePending])
 	return { run, cancel, pending, error }
 }

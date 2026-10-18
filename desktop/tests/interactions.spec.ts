@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test"
 import type { ServerResponse } from "node:http"
-import { test, json, prepareRun, snapshot, start, output } from "./run-fixture"
+import { test, json, prepareRun, snapshot, start, output, view, runStatus } from "./run-fixture"
 
 const waiting = (prompt = "p1") => snapshot({ status: "awaiting_user_input", current_prompt_id: prompt, current_prompt: `Question ${prompt}` })
 
@@ -90,3 +90,62 @@ test("a late acknowledgement of an obsolete prompt cannot clear a new draft", as
 	await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled()
 	await expect(editor).toHaveValue("Draft")
 })
+
+
+test("interruption reconciles to a prompt and permits a text reply", async ({ desktop: { page }, backend }) => {
+	prepareRun(backend)
+	let waitingForReply = false
+	backend.handlers.set("GET /run/run-one", response => json(response, waitingForReply ? waiting() : snapshot()))
+	backend.handlers.set("POST /run/run-one/interrupt", response => { waitingForReply = true; json(response, { ok: true }) })
+	backend.handlers.set("POST /run/run-one/reply", response => json(response, { ok: true }))
+	await start(page, backend)
+	await expect(runStatus(page)).toContainText("Running")
+	await page.getByRole("button", { name: "Interrupt", exact: true }).click()
+	await expect(output(page)).toHaveText("Question p1")
+	await expect(page.getByRole("button", { name: "Interrupt", exact: true })).toBeDisabled()
+	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Continue")
+	await page.getByRole("button", { name: "Send", exact: true }).click()
+	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("")
+})
+
+test("Cancel remains available during interruption and reconciles background work through overview polls", async ({ desktop: { page }, backend }) => {
+	prepareRun(backend)
+	let status = "running"
+	backend.handlers.set("GET /projects", response => json(response, [{ slug: "existing-project", status, run_id: "run-one" }]))
+	let interrupt: ServerResponse | undefined
+	let cancel: ServerResponse | undefined
+	backend.handlers.set("POST /run/run-one/interrupt", response => { interrupt = response })
+	backend.handlers.set("POST /projects/existing-project/cancel", response => { cancel = response })
+	await start(page, backend)
+	await page.clock.install()
+	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Retained")
+	await page.getByRole("button", { name: "Interrupt", exact: true }).click()
+	await expect.poll(() => interrupt).toBeDefined()
+	await page.getByRole("button", { name: "Cancel", exact: true }).click()
+	await expect.poll(() => cancel).toBeDefined()
+	await expect(page.getByRole("button", { name: "Cancelling…", exact: true })).toBeDisabled()
+	status = "syncing"
+	json(cancel!, { ok: true })
+	await view(page, "Runs Overview")
+	await expect(page.getByRole("button", { name: "Cancel existing-project" })).toBeDisabled()
+	status = "dormant"
+	await page.clock.fastForward(251)
+	await expect(page.getByRole("list", { name: "Projects", exact: true })).toContainText("dormant")
+	await page.getByRole("button", { name: "Return to run" }).click()
+	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Retained")
+	json(interrupt!, { ok: true })
+	expect(backend.requests.filter(request => request.path.endsWith("/cancel"))).toHaveLength(1)
+})
+
+for (const action of ["interrupt", "cancel"] as const) {
+	test(`${action} failure retains drafts and permits explicit retry`, async ({ desktop: { page }, backend }) => {
+		prepareRun(backend)
+		backend.handlers.set(action === "interrupt" ? "POST /run/run-one/interrupt" : "POST /projects/existing-project/cancel", response => json(response, { detail: "Try later" }, 503))
+		await start(page, backend)
+		await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Keep")
+		await page.getByRole("button", { name: action === "interrupt" ? "Interrupt" : "Cancel", exact: true }).click()
+		await expect(page.getByRole("alert")).toContainText("Try later")
+		await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Keep")
+		expect(backend.requests.filter(request => request.path.endsWith(`/${action}`))).toHaveLength(1)
+	})
+}
