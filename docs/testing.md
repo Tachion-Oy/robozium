@@ -523,3 +523,8 @@ gates, delayed acknowledgements, duplicate clicks, stale polls, HTTP 409 and
 uncertain deadlines, selection/session disposal and focus. The native backend
 suite cancels a real mock run and verifies files remain through the first
 activation and disappear only after cancellation and confirmed deletion.
+
+`desktop/tests/reconnection.spec.ts` controls renderer time to verify exponential
+backoff and the four-second cap, queued snapshots after stream open, duplicate
+events, premature closure, snapshot/open deadlines, permanent failures and
+replacement-session cleanup. Readiness recovery preserves the mounted HUD.

@@ -56,7 +56,8 @@ Keys and decryption remain in the Python backend. Startup opens the HUD
 after the renderer connects; credential-unlock controls follow in PR 10.
 
 Once connected, React checks readiness every five seconds with a three-second
-timeout. A connection failure stops polling and shows an accessible notice with
+timeout. A connection failure retries with exponential delays from 500 ms to four seconds
+and shows an accessible notice with
 **Retry**. The HUD stays mounted, preserving your draft, model/view and history
 selection, divider position, and theme. Connection Retry checks the existing API
 and resumes polling when ready; it does not rebuild or restart Docker. Backend
@@ -129,9 +130,11 @@ Opening the event stream starts the prepared run. A snapshot is read immediately
 then every two seconds after the previous read settles, with ten-second deadlines.
 Snapshots and events merge by sequence/message identity. **Retry output** disposes
 old requests and reconnects the known run ID without creating another run.
-Errors preserve output and drafts. Completed, failed, and cancelled runs stay
-readable and stop polling; unknown runs show **Run unavailable**. Automatic
-reconnection and recovery after reopening are planned for PR 9.
+Transient failures reconnect automatically with exponential delays from 500 ms
+to four seconds, preserving output, history selection and drafts. Stream opens
+queue a fresh snapshot to recover missed events. Completed, failed, and cancelled
+runs stay readable and stop polling; unknown runs show **Run unavailable**.
+Malformed responses and permanent HTTP errors stop automatic recovery.
 
 In standalone preview, **Start run** opens the latest local mock message above
 an empty reply editor. Preview editing stays local; Enter inserts a newline. The arrow buttons in the left rail move the

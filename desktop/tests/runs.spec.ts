@@ -196,8 +196,6 @@ test("output retry reconnects only the known ID and retains output and draft", a
 	await expect(page.getByRole("alert")).toContainText("disconnected")
 	await expect(output(page)).toHaveText("Retained")
 	await page.clock.install()
-	await page.clock.fastForward(30_000)
-	expect(run.streams).toHaveLength(1)
 	await page.getByRole("button", { name: "Retry output" }).click()
 	await expect.poll(() => run.streams.length).toBe(2)
 	emit(run.streams[1], message(1, "Retained")); emit(run.streams[1], message(2, "Recovered"))
@@ -233,7 +231,7 @@ for (const invalid of ["snapshot", "event", "unknown"] as const) {
 	})
 }
 
-test("snapshot deadline stops polling and aborts owned stream on timeout", async ({ desktop: { page }, backend }) => {
+test("snapshot deadline cancels the stalled read and retries without replacing the live stream", async ({ desktop: { page }, backend }) => {
 	const run = prepareRun(backend)
 	let pending: ServerResponse | undefined
 	let closed = false
@@ -244,9 +242,12 @@ test("snapshot deadline stops polling and aborts owned stream on timeout", async
 	await page.clock.fastForward(10_001)
 	await expect(page.getByRole("alert")).toContainText("Request timed out")
 	await expect.poll(() => closed).toBe(true)
-	await expect.poll(() => run.closed).toBe(1)
-	await page.clock.fastForward(30_000)
-	expect(backend.requests.filter(request => request.path === "/run/run-one")).toHaveLength(1)
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot()))
+	await page.clock.fastForward(501)
+	await expect(page.getByRole("alert")).toHaveCount(0)
+	expect(run.closed).toBe(0)
+	expect(run.streams).toHaveLength(1)
+	expect(backend.requests.filter(request => request.path === "/run/run-one")).toHaveLength(2)
 })
 
 for (const theme of ["dark", "light"]) {

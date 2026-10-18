@@ -81,7 +81,7 @@ export class DesktopApiClient {
 		}
 	}
 
-	async *streamEvents(path: string, signal?: AbortSignal): AsyncGenerator<unknown> {
+	async *streamEvents(path: string, signal?: AbortSignal, onOpen?: () => void): AsyncGenerator<unknown> {
 		const response = await this.sendRequest(path, {
 			headers: { Accept: "text/event-stream" }, signal,
 		})
@@ -89,6 +89,7 @@ export class DesktopApiClient {
 			await response.body?.cancel()
 			throw new ApiError("malformed", "The backend did not return an event stream.")
 		}
+		onOpen?.()
 		yield* parseEventStream(response.body, signal)
 	}
 }

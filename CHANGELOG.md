@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Automatically reconnect desktop run output and readiness checks with capped
+  backoff, retaining drafts/history and recovering missed events without new runs.
+
 - Delete dormant desktop projects with two-step confirmation after cancellation
   and syncing finish; reconcile uncertain outcomes and retain the reply draft.
 

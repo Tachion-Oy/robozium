@@ -39,3 +39,16 @@ focuses the next row or project-name field. Adapted from
 `web/app/components/hud/projects/ProjectOverview.tsx` and `useProjectOverview.ts`
 at the implementation base. Native fixtures exercise uncertain responses and a
 real mock lifecycle scenario checks cancellation before confirmed file removal.
+
+## 9d — Automatic reconnection
+
+Each session retains one stream and one serialized snapshot reader. Stream opens
+queue a fresh snapshot after any pending read. Reads use ten-second deadlines,
+two-second normal polling and cancellable exponential retries from 500 ms to a
+four-second cap. A stream-open deadline does not limit a healthy long-lived SSE
+response. Terminal snapshots, missing runs, malformed payloads and permanent HTTP
+errors stop automatic recovery; stream HTTP 409 reconciles through a fresh read.
+The generic read retry policy matches the browser's retryable HTTP statuses.
+Readiness recovers through HTTP with the same backoff and retains manual Retry.
+No recovery path restarts Docker or replays writes. Native tests cover retries,
+missed events, deadlines, disposal and the earlier PR 8 output scenarios.

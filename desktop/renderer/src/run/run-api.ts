@@ -14,8 +14,8 @@ export async function getRunSnapshot(client: DesktopApiClient, runId: string, si
 	return parseRunSnapshot(response)
 }
 
-export async function* streamRunEvents(client: DesktopApiClient, runId: string, signal: AbortSignal): AsyncGenerator<RunFrame> {
-	for await (const value of client.streamEvents(`/run/${encodeURIComponent(runId)}/stream`, signal)) {
+export async function* streamRunEvents(client: DesktopApiClient, runId: string, signal: AbortSignal, onOpen?: () => void): AsyncGenerator<RunFrame> {
+	for await (const value of client.streamEvents(`/run/${encodeURIComponent(runId)}/stream`, signal, onOpen)) {
 		const event = parseRunEvent(value)
 		if (event) yield event
 	}
