@@ -7,7 +7,7 @@ import threading
 import time
 from collections.abc import Callable, Collection
 from functools import partial
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from roboz.agent import Agent
 from roboz.deployment import DeployableAgent
@@ -16,7 +16,7 @@ from roboz.models import Str, StrImage
 from roboz.runtime import bind_api_user_io, default_event_sinks, reset_api_user_io
 from roboz.runtime.events import EventSink
 
-from robozium.api.attachments import UploadedImage
+from robozium.api.attachments import AttachmentInfo, UploadedImage
 from robozium.api.errors import (
     InvalidCapabilitySelection,
     ProjectBusyError,
@@ -294,12 +294,19 @@ class RunManager:
         self._control(run_id).submit_reply(prompt_id, content)
 
     def stage_image(
-        self, run_id: str, prompt_id: str, name: str, data: bytes
-    ) -> str:
+        self, run_id: str, prompt_id: str | None, name: str, data: bytes,
+        upload_id: UUID | None = None,
+    ) -> AttachmentInfo:
         control = self._control(run_id)
-        control.check_reply(prompt_id, images=True)
+        control.check_upload(prompt_id)
         image = UploadedImage.validate(name, data, self._attachment_settings)
-        return control.stage_image(prompt_id, image)
+        return control.stage_image(prompt_id, image, upload_id)
+
+    def pending_images(self, run_id: str) -> list[AttachmentInfo]:
+        return self._control(run_id).pending_images()
+
+    def delete_images(self, run_id: str, attachment_id: str | None = None) -> None:
+        self._control(run_id).delete_images(attachment_id)
 
     def cancel(self, run_id: str) -> bool:
         return self._control(run_id).cancel()

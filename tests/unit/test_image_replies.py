@@ -6,10 +6,12 @@ import logging
 import re
 import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from io import BytesIO
-from threading import Event
+from threading import Event, Lock
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 from config_support import write_config
@@ -59,7 +61,7 @@ def upload(run, data=None, filename="image.png", **params):
 
 
 @contextmanager
-def image_run(tmp_path, *, vision=True, specialist=False, accepts_images=True, background=None, failure=False, limits=None, timeout=None):
+def image_run(tmp_path, *, vision=True, specialist=False, accepts_images=True, background=None, failure=False, limits=None, timeout=None, processing=None):
     config = write_config(tmp_path)
     if limits is not None:
         with config.open("a") as file:
@@ -67,6 +69,9 @@ def image_run(tmp_path, *, vision=True, specialist=False, accepts_images=True, b
     calls = []
 
     def create(**request):
+        if processing is not None:
+            processing[0].set()
+            assert processing[1].wait(5)
         calls.append(request["messages"])
         response = {"action": "prompt_user", "rationale": "ask again", "value": "more?"}
         if background is not None:
@@ -141,6 +146,8 @@ def image_run(tmp_path, *, vision=True, specialist=False, accepts_images=True, b
                               path=hub.project("alpha").root / attachments.DIRECTORY / run_id,
                               url=f"/run/{run_id}/reply")
     finally:
+        if processing is not None:
+            processing[1].set()
         if background is not None:
             background.set()
         assert app.state.run_manager.shutdown()
@@ -195,7 +202,7 @@ def test_text_only_prompts_reject_images_and_remain_pending(tmp_path, specialist
         wait_prompt(run.client, run.run_id, run.prompt)
 
 
-@pytest.mark.parametrize("case", ["invalid", "animated", "format", "pixels", "bytes", "missing", "stale"])
+@pytest.mark.parametrize("case", ["invalid", "animated", "format", "pixels", "bytes", "stale"])
 def test_invalid_uploads_leave_no_files_or_consumed_prompt(tmp_path, case):
     image = picture()
     if case == "invalid":
@@ -211,7 +218,7 @@ def test_invalid_uploads_leave_no_files_or_consumed_prompt(tmp_path, case):
     elif case == "bytes":
         image = b"x" * (AttachmentSettings().max_image_bytes + 1)
     with image_run(tmp_path) as run:
-        params = {} if case == "missing" else {"prompt_id": "stale" if case == "stale" else run.prompt}
+        params = {"prompt_id": "stale" if case == "stale" else run.prompt}
         response = run.client.post(f"/run/{run.run_id}/files", params=params, content=image)
         assert response.status_code in {400, 413, 422}
         assert wait_prompt(run.client, run.run_id) == run.prompt
@@ -348,16 +355,186 @@ def test_body_limit_does_not_trust_content_length(tmp_path):
         assert wait_prompt(run.client, run.run_id) == run.prompt
 
 
-@pytest.mark.parametrize("ending", ["cancel", "timeout"])
-def test_unsent_images_are_discarded_when_prompt_ends(tmp_path, ending):
-    with image_run(tmp_path, timeout=1 if ending == "timeout" else None) as run:
+def test_unsent_images_are_discarded_when_run_is_cancelled(tmp_path):
+    with image_run(tmp_path) as run:
         path = upload(run).json()["path"]
-        if ending == "cancel":
-            assert run.app.state.run_manager.cancel(run.run_id)
-            assert run.app.state.run_manager.shutdown()
-        else:
-            wait_prompt(run.client, run.run_id, run.prompt)
+        assert run.app.state.run_manager.cancel(run.run_id)
+        assert run.app.state.run_manager.shutdown()
         assert run.client.get(f"/files/{path}").status_code == 404
+
+
+def test_pending_images_survive_timeout_and_are_consumed_once(tmp_path):
+    with image_run(tmp_path, timeout=1) as run:
+        attachment = upload(run).json()
+        url = f"/run/{run.run_id}/files"
+        next_prompt = wait_prompt(run.client, run.run_id, run.prompt)
+        assert run.client.get(url).json() == [attachment]
+        assert run.client.get(f"/files/{attachment['path']}").content == picture()
+        assert run.client.post(run.url, json={"prompt_id": "stale", "content": ""}).status_code == 400
+        assert run.client.get(url).json() == [attachment]
+        assert run.client.post(run.url, json={"prompt_id": next_prompt, "content": ""}).status_code == 200
+        wait_prompt(run.client, run.run_id, next_prompt)
+        assert run.client.get(url).json() == []
+        assert run.client.get(f"/files/{attachment['path']}").status_code == 200
+
+
+def test_pending_deletion_is_idempotent_isolated_and_preserves_accepted_files(tmp_path):
+    with image_run(tmp_path, limits=AttachmentSettings(max_images=2)) as run:
+        url = f"/run/{run.run_id}/files"
+        first, second = upload(run).json(), upload(run).json()
+        assert first['id'] != second['id']
+        assert run.client.get(url).json() == [first, second]
+        assert run.client.delete(f"{url}/not-an-attachment").status_code == 204
+        for _ in range(2):
+            response = run.client.delete(f"{url}/{first['id']}")
+            assert response.status_code == 204 and response.content == b""
+        assert run.client.get(f"/files/{first['path']}").status_code == 404
+        assert run.client.get(url).json() == [second]
+        third = upload(run).json()
+        assert run.client.get(url).json() == [second, third]
+        assert run.client.post(run.url, json={"prompt_id": run.prompt, "content": ""}).status_code == 200
+        next_prompt = wait_prompt(run.client, run.run_id, run.prompt)
+        unsent = upload(run, prompt_id=next_prompt).json()
+        for _ in range(2):
+            assert run.client.delete(f"{url}/{second['id']}").status_code == 204
+            assert run.client.delete(url).status_code == 204
+        assert run.client.get(url).json() == []
+        assert run.client.get(f"/files/{unsent['path']}").status_code == 404
+        for accepted in [second, third]:
+            assert run.client.get(f"/files/{accepted['path']}").status_code == 200
+
+        assert run.client.post("/projects", json={"name": "other"}).status_code == 200
+        other = run.client.post("/run/create", json={"project": "other"}).json()["run_id"]
+        other_url = f"/run/{other}/files"
+        staged = run.client.post(other_url, content=picture()).json()
+        assert run.client.delete(f"{url}/{staged['id']}").status_code == 204
+        assert run.client.get(other_url).json() == [staged]
+        for method in [run.client.get, run.client.delete]:
+            assert method("/run/unknown/files").status_code == 404
+
+
+def test_queued_uploads_and_cancellation_before_worker_start(tmp_path):
+    hub = configured_hub(load_hub(start=write_config(tmp_path).parent), deployment=mock_deployment)
+    app = create_app(deployment=hub)
+    with TestClient(app) as client:
+        assert client.post("/projects", json={"name": "queued"}).status_code == 200
+        run_id = client.post("/run/create", json={"project": "queued"}).json()["run_id"]
+        url = f"/run/{run_id}/files"
+        response = client.post(url, params={"filename": "queued.png"}, content=picture())
+        assert response.status_code == 200
+        assert set(response.json()) == {"id", "name", "path", "upload_id"}
+        assert response.json()["upload_id"] is None
+        assert client.get(url).json() == [response.json()]
+        assert app.state.run_manager.cancel(run_id)
+        assert client.get(url).json() == []
+        assert client.get(f"/files/{response.json()['path']}").status_code == 404
+        assert client.post(url, content=picture()).status_code == 400
+        assert not (hub.project("queued").root / attachments.DIRECTORY / run_id).exists()
+
+
+def test_upload_during_processing_is_ready_for_the_next_prompt(tmp_path):
+    started, release = Event(), Event()
+    with image_run(tmp_path, processing=(started, release)) as run:
+        assert run.client.post(run.url, json={"content": "start"}).status_code == 200
+        assert started.wait(5)
+        assert run.client.get(f"/run/{run.run_id}").json()["status"] == "running"
+        assert upload(run).status_code == 400
+        url = f"/run/{run.run_id}/files"
+        first = run.client.post(url, params={"filename": "first.png"}, content=picture()).json()
+        second = run.client.post(url, params={"filename": "second.png"}, content=picture()).json()
+        assert run.client.get(url).json() == [first, second]
+        release.set()
+        next_prompt = wait_prompt(run.client, run.run_id, run.prompt)
+        assert run.client.get(url).json() == [first, second]
+        assert run.client.post(run.url, json={"prompt_id": next_prompt, "content": ""}).status_code == 200
+        wait_prompt(run.client, run.run_id, next_prompt)
+        assert run.client.get(url).json() == []
+
+
+def test_cancel_during_upload_prevents_staging(tmp_path):
+    with image_run(tmp_path) as run:
+        def chunks():
+            yield picture()[:10]
+            run.app.state.run_manager.cancel(run.run_id)
+            yield picture()[10:]
+
+        url = f"/run/{run.run_id}/files"
+        assert run.client.post(url, content=chunks()).status_code == 400
+        assert run.client.get(url).json() == []
+
+
+def test_unbound_upload_preserves_images_when_a_text_only_prompt_rejects_reply(tmp_path):
+    with image_run(tmp_path, accepts_images=False) as run:
+        url = f"/run/{run.run_id}/files"
+        response = run.client.post(url, content=picture())
+        assert response.status_code == 200
+        assert run.client.post(run.url, json={"content": "text"}).status_code == 400
+        assert run.client.get(url).json() == [response.json()]
+        assert run.client.delete(url).status_code == 204
+        assert run.client.post(run.url, json={"content": "text"}).status_code == 200
+
+
+def test_removing_pending_image_reclaims_run_byte_budget(tmp_path):
+    with image_run(tmp_path, limits=AttachmentSettings(max_run_bytes=len(picture()))) as run:
+        url = f"/run/{run.run_id}/files"
+        first = upload(run).json()
+        assert upload(run).status_code == 400
+        assert run.client.delete(f"{url}/{first['id']}").status_code == 204
+        assert upload(run).status_code == 200
+
+
+def test_upload_retry_before_original_validation_finishes_stages_and_submits_once(tmp_path, monkeypatch):
+    entered, release, lock = Event(), Event(), Lock()
+    original = Image.open
+
+    def delayed_open(*args, **kwargs):
+        with lock:
+            first = not entered.is_set()
+            if first:
+                entered.set()
+        if first:
+            assert release.wait(5)
+        return original(*args, **kwargs)
+
+    with image_run(tmp_path, limits=AttachmentSettings(max_images=1)) as run, ThreadPoolExecutor(max_workers=1) as pool:
+        monkeypatch.setattr(Image, "open", delayed_open)
+        url = f"/run/{run.run_id}/files"
+        params = {"upload_id": str(uuid4()), "filename": "one.png"}
+        data = picture()
+        first = pool.submit(run.client.post, url, params=params, content=data)
+        try:
+            assert entered.wait(5)
+            assert run.client.get(url).json() == []
+            retry = run.client.post(url, params=params, content=data)
+            assert retry.status_code == 200
+        finally:
+            release.set()
+        response = first.result(timeout=5)
+        assert response.status_code == 200
+        assert response.json() == retry.json()
+        assert response.json()["upload_id"] == params["upload_id"]
+        assert run.client.get(url).json() == [retry.json()]
+        assert len(list(run.path.iterdir())) == 1
+        assert run.client.post(run.url, json={"content": ""}).status_code == 200
+        wait_prompt(run.client, run.run_id, run.prompt)
+        parts = [part for message in run.calls[0] if isinstance(message["content"], list)
+                 for part in message["content"]]
+        assert sum(part["type"] == "image_url" for part in parts) == 1
+        # A retry arriving after acceptance must not stage the image for the next reply.
+        assert run.client.post(url, params=params, content=data).status_code == 400
+        assert run.client.get(url).json() == []
+
+
+@pytest.mark.parametrize("individual", [True, False])
+def test_removed_upload_identity_cannot_be_reused_but_new_selection_can(tmp_path, individual):
+    with image_run(tmp_path) as run:
+        url = f"/run/{run.run_id}/files"
+        upload_id = str(uuid4())
+        item = upload(run, upload_id=upload_id).json()
+        assert run.client.delete(f"{url}/{item['id']}" if individual else url).status_code == 204
+        assert upload(run, upload_id=upload_id).status_code == 400
+        assert run.client.get(url).json() == []
+        assert upload(run, upload_id=str(uuid4())).status_code == 200
 
 
 def test_completed_foreground_keeps_files_until_background_stops(tmp_path):
