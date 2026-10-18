@@ -46,6 +46,15 @@
 - Send desktop text replies with Enter/Shift+Enter and IME protection. Keep edits
   during requests, suppress acknowledged prompts and retain drafts on failure.
 
+- Send pasted, dropped, or selected images in web replies, including image-only
+  replies. Upload while a run is processing, restore pending previews after
+  refresh, and remove or clear pending images through standard DELETE endpoints.
+  Keep drafts on failure, avoid duplicate uploads on retry, and retain accepted
+  files until the run's workers stop.
+
+- Preview pasted, dropped, or selected images in the web reply composer, with
+  run-scoped drafts and removal/clearing controls.
+
 - Start selected projects from the desktop HUD and display live output, prompts,
   history, and completion. Preserve drafts and output on errors, keep one session
   across views, and retry output without creating another run. Standalone preview

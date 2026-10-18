@@ -8,6 +8,7 @@ import {
 } from "@/lib/robozium/session/reducer"
 import { useRunSession, useRunSessionSelector } from "@/hooks/useRunSession"
 import { useDictation } from "@/hooks/useDictation"
+import type { ReplyImagesModel } from "@/hooks/useReplyImages"
 import { getHudMessages } from "@/lib/robozium/hud-messages"
 import { showErrorToast } from "@/app/components/feedback/ErrorToast"
 import type { LayoutMode } from "../HudCornerControls"
@@ -15,12 +16,14 @@ import { ReplyForm } from "./ReplyForm"
 
 type RunHudProps = {
 	draft: string
+	images: ReplyImagesModel
 	onDraftChange: Dispatch<SetStateAction<string>>
 	layoutMode: LayoutMode
 }
 
 export function RunHud({
 	draft,
+	images,
 	onDraftChange,
 	layoutMode,
 }: RunHudProps) {
@@ -72,11 +75,11 @@ export function RunHud({
 	const handleSubmit = async () => {
 		const submittedDraft = draft
 		const content = draft.trim()
-		if (!content || !promptId || isSubmitting || !session) return
+		if ((!content && !images.images.length) || !images.isReady || !promptId || isSubmitting || isCancelling || isInterrupting || !session) return
 
 		setIsSubmitting(true)
 		try {
-			const submitted = await session.submitReply(content)
+			const submitted = await images.submit((hasImages) => session.submitReply(content, { hasImages }))
 			if (submitted) {
 				onDraftChange((current) =>
 					current === submittedDraft ? "" : current,
@@ -104,6 +107,7 @@ export function RunHud({
 			layoutMode={layoutMode}
 			composer={{
 				value: draft,
+				images,
 				isReplyAvailable: promptId !== null,
 				isSubmitting,
 				onChange: onDraftChange,

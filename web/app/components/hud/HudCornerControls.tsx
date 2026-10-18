@@ -1,3 +1,5 @@
+import { HudButton } from "./HudButton"
+
 export type LayoutMode = "equal" | "top" | "bottom"
 export type LayoutDirection = "up" | "down"
 
@@ -34,8 +36,8 @@ export function HudCornerControls({
 		<div
 			className="agent-hud__corner-controls"
 			data-disabled={disabled || undefined}>
-			<button
-				type="button"
+			<HudButton
+				appearance="control"
 				className="agent-hud__minimize agent-hud__corner-control"
 				onClick={layout.onMinimize}
 				disabled={disabled}
@@ -47,13 +49,13 @@ export function HudCornerControls({
 					aria-hidden="true">
 					<path d="M3 8h5V3M17 8h-5V3M3 12h5v5M17 12h-5v5" />
 				</svg>
-			</button>
+			</HudButton>
 			<div
 				className="agent-hud__layout-controls"
 				role="group"
 				aria-label={`Panel divider: ${layout.mode}`}>
-				<button
-					type="button"
+				<HudButton
+					appearance="control"
 					className="agent-hud__layout-direction agent-hud__corner-control"
 					onClick={() => layout.onMove("up")}
 					disabled={disabled || layout.mode === "bottom"}
@@ -64,9 +66,9 @@ export function HudCornerControls({
 						aria-hidden="true">
 						<path d="M8 1.25 14.75 12.75H1.25Z" />
 					</svg>
-				</button>
-				<button
-					type="button"
+				</HudButton>
+				<HudButton
+					appearance="control"
 					className="agent-hud__layout-direction agent-hud__corner-control"
 					onClick={() => layout.onMove("down")}
 					disabled={disabled || layout.mode === "top"}
@@ -77,7 +79,7 @@ export function HudCornerControls({
 						aria-hidden="true">
 						<path d="M8 1.25 14.75 12.75H1.25Z" />
 					</svg>
-				</button>
+				</HudButton>
 			</div>
 		</div>
 	)

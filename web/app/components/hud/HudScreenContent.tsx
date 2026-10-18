@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react"
 import type { Project } from "@/lib/robozium/wire"
+import type { ReplyImagesModel } from "@/hooks/useReplyImages"
 import { useStore } from "zustand"
 import { hudVisibilityStore } from "@/lib/robozium/hud-visibility"
 import type { HudNavigation, HudNavigationEvent, LaunchDraft } from "@/lib/robozium/hud-navigation"
@@ -15,6 +16,7 @@ type HudScreenContentProps = {
 	presentation: HudPresentation
 	runId: string | null
 	replyDraft: string
+	replyImages: ReplyImagesModel
 	onReplyDraftChange: Dispatch<SetStateAction<string>>
 	initialProjects: Project[] | null
 	layoutMode: LayoutMode
@@ -29,6 +31,7 @@ export function HudScreenContent({
 	presentation,
 	runId,
 	replyDraft,
+	replyImages,
 	onReplyDraftChange,
 	initialProjects,
 	layoutMode,
@@ -72,6 +75,7 @@ export function HudScreenContent({
 					<RunHud
 						key={runId}
 						draft={replyDraft}
+						images={replyImages}
 						onDraftChange={onReplyDraftChange}
 						layoutMode={layoutMode}
 					/>

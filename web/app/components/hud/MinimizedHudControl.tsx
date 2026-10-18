@@ -1,5 +1,6 @@
 "use client"
 
+import { HudButton } from "./HudButton"
 import type { AgentActivityState } from "@/lib/robozium/session/reducer"
 
 type MinimizedHudControlProps = {
@@ -38,12 +39,12 @@ export function MinimizedHudControl({
 					aria-hidden="true">
 					A
 				</span>
-				<button
-					type="button"
+				<HudButton
+					appearance="control"
 					className="agent-hud__expand agent-hud__mini-expand"
 					onClick={onExpand}>
 					Expand
-				</button>
+				</HudButton>
 			</div>
 		</div>
 	)

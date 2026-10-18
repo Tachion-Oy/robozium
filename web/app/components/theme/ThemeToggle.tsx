@@ -1,5 +1,6 @@
 "use client"
 
+import { HudButton } from "../hud/HudButton"
 import { useEffect, useRef } from "react"
 import {
 	APP_THEME_CHANNEL_NAME,
@@ -44,8 +45,8 @@ export function ThemeToggle() {
 	}, [])
 
 	return (
-		<button
-			type="button"
+		<HudButton
+			appearance="control"
 			className="theme-toggle agent-hud__selector-trigger"
 			data-hud-ignore-dismiss
 			aria-label="Toggle color theme"
@@ -67,6 +68,6 @@ export function ThemeToggle() {
 			<span className="theme-toggle__label theme-toggle__label--dark">
 				Dark
 			</span>
-		</button>
+		</HudButton>
 	)
 }

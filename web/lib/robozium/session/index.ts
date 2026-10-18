@@ -21,7 +21,7 @@ export type RunSession = {
 	store: StoreApi<RunSessionState>
 	start: () => void
 	dispose: () => void
-	submitReply: (content: string) => Promise<boolean>
+	submitReply: (content: string, options?: { hasImages: boolean }) => Promise<boolean>
 	navigateHudMessage: (direction: HudMessageNavigationDirection) => void
 	cancelRun: () => Promise<boolean>
 	interruptRun: () => Promise<boolean>
@@ -75,10 +75,10 @@ export function createRunSession(
 
 	const dispose = () => stopTransports()
 
-	const submitReply = async (content: string): Promise<boolean> => {
+	const submitReply = async (content: string, options?: { hasImages: boolean }): Promise<boolean> => {
 		const hud = store.getState().hud
 		const promptId = hud.promptId
-		if (!promptId || !content.trim()) return false
+		if (!promptId || (!content.trim() && !options?.hasImages)) return false
 		await submitReplyApi(runId, {
 			prompt_id: promptId,
 			content: content.trim(),
