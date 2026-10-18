@@ -6,10 +6,30 @@ import { withDeadline } from "../api/request"
 import { createRun, submitReply, interruptRun } from "../run/run-api"
 import { RunStatus } from "../run/run-contracts"
 import { watchRun, errorMessage, type RunWatcher } from "../run/run-updates"
-import { reduceRunSession } from "./session-reducer"
+import { reduceRunSession, type RunSession } from "./session-reducer"
+
+export interface RunSessionController {
+	session: RunSession | null
+	creating: boolean
+	creatingProject: string
+	createError: string
+	replying: boolean
+	canReply: boolean
+	interrupting: boolean
+	canInterrupt: boolean
+	actionError: string
+	start: (project: string) => Promise<string | null>
+	restore: (runId: string, project: string) => void
+	closeProject: (project: string) => void
+	reply: (content: string) => Promise<boolean>
+	interrupt: () => Promise<void>
+	retry: () => void
+	refresh: () => void
+	select: (index: number) => void
+}
 
 /** One displayed session; a replacement creation has its own lifetime until accepted. */
-export function useRunSession(client: DesktopApiClient | null) {
+export function useRunSession(client: DesktopApiClient | null): RunSessionController {
 	const [session, dispatch] = useReducer(reduceRunSession, null)
 	const [creatingProject, setCreatingProject] = useState("")
 	const [createError, setCreateError] = useState("")

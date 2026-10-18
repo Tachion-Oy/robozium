@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Separate desktop project listing/selection from cancellation and deletion,
-  with one explicit operation registry and named reconciliation steps.
+- Separate desktop project mutation lifetimes, run navigation, draft handling and
+  screen rendering into focused units with explicit ownership.
 
 - Show the desktop window and animated splash before development preparation.
   Retain the introduction and pulsing `A` through backend startup, then fade

@@ -316,9 +316,9 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   | Folder under `renderer/src/` | Responsibility |
   | --- | --- |
   | `ui/` | All rendered components and CSS: app composition, backend startup, projects, run launch and HUD controls. |
-  | `app/` | Navigation definitions and standalone preview data. |
+  | `app/` | Run workspace coordination, navigation, reply draft, action availability and standalone preview data. |
   | `backend/` | IPC connection discovery and HTTP readiness hooks. |
-  | `projects/` | Project requests, validation and selection/creation state. |
+  | `projects/` | Project requests, listing/selection/creation state and cancellation/deletion reconciliation. |
   | `models/` | Model requests and validation, acknowledged backend selection and explicit retry. |
   | `run/` | Run contracts, requests, payload decoding, event reconciliation and live updates. |
   | `session/` | One run's request lifetime and atomic composition of run data with HUD state. |
@@ -328,11 +328,23 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   | `assets/` | Bundled Anurati status-mark font. |
 
   UI components consume feature hooks/state; TypeScript feature modules do not
-  import UI components. `ui/app/App.tsx` owns composition, theme and draft state;
-  session coordinates run and HUD state. HUD projection consumes validated run
+  import UI components. `ui/app/App.tsx` composes screens and owns theme, layout
+  and preview choices. Session coordinates run and HUD state. HUD projection consumes validated run
   data, while run reconciliation has no HUD dependency. Shared `api/` code imports
   no feature modules. App supplies header navigation choices separately from
   standalone preview data.
+- `projects/useProjects.ts` owns listings, selection, creation and polling.
+  `useProjectMutations.ts` owns cancellation/deletion requests and their outcomes.
+  Its per-project operation has an explicit `requesting` or `settling` phase;
+  pending UI sets are derived from that registry. A cancellation acknowledgement
+  still waits for dormant/absent status, and an uncertain DELETE waits for a fresh
+  listing. Confirmed deletions suppress stale rows until absence is observed.
+- `app/useRunWorkspace.ts` connects the project, model and session owners and
+  coordinates recovery. `useRunNavigation.ts` owns explicit navigation, automatic
+  returns and focus intent. `useReplyDraft.ts` owns draft revisions and clearing
+  after acknowledgement. `run-availability.ts` contains the launch/action rules.
+  Version/model/run feedback is rendered by small components under `ui/`; it
+  does not participate in request reconciliation.
 - `renderer/src/api/client.ts` owns direct JSON HTTP requests and SSE framing.
   It omits cookies, disables caching, rejects origin changes/redirects, preserves
   cancellation, and reports HTTP, malformed-response, and connection errors.
@@ -459,8 +471,3 @@ only its own test containers/image and temporary data, including after failures.
 Lifecycle unit tests cover ownership, errors, cancellation, and process cleanup.
 The native backend suite verifies retry, first build/image reuse, close/reopen
 persistence, and cancellation against isolated mock Docker resources.
-
-Project state ownership is split between `projects/useProjects.ts` (listing,
-selection, creation and polling) and `projects/useProjectMutations.ts` (cancellation,
-DELETE and listing reconciliation). The mutation registry has explicit requesting
-and settling phases; pending UI sets are derived from that registry.

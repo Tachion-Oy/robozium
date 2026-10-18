@@ -189,11 +189,35 @@ These are local measurements, not a startup guarantee or Docker readiness timing
 Compilation remains visible behind the animation. Review also covered native zoom
 after splash disposal and readable startup errors at 640×420 with 125% zoom.
 
-## Project ownership readability follow-up
+## Readability and ownership follow-up
 
-`useProjects` owns listing/polling, selection, creation and removal focus.
-`useProjectMutations` owns cancellation/DELETE requests, duplicate exclusion,
-settlement from authoritative listings and suppression of stale deleted rows.
-One operation registry records requesting/settling phases; React pending sets
-are derived snapshots. Existing deletion, cancellation, selection and recovery
-scenarios verify the same public behavior without changing expectations.
+The project hook and App had accumulated unrelated state, effects and dense
+conditional expressions. The refactor accepts more source lines to expose the
+actual lifecycle and make each owner readable independently:
+
+| Owner | Responsibility |
+| --- | --- |
+| `projects/useProjects.ts` | Listing/polling, selected project, creation draft and removal focus. |
+| `projects/useProjectMutations.ts` | Cancellation/DELETE requests, duplicate exclusion, settlement from listings and suppression of stale deleted rows. |
+| `app/useRunWorkspace.ts` | Connect feature owners; launch/open runs and restore/save recovery intent. |
+| `app/useRunNavigation.ts` | Explicit navigation, guarded automatic return and editor/overview focus intent. |
+| `app/useReplyDraft.ts` | Draft revisions and acknowledgement-dependent clearing. |
+| `app/run-availability.ts` | Launch/action eligibility and projects protected from deletion. |
+| `ui/app/App.tsx` | Screen composition, theme, layout and preview choices. |
+| UI feedback components | Native version lookup and rendering model/run notices. |
+
+Project mutations use one operation registry with explicit `requesting` and
+`settling` phases. React pending sets are snapshots of that registry, rather than
+separately maintained sources of truth. Accepted cancellation waits for project
+status confirmation; uncertain deletion waits for presence/absence. The session
+still owns replies, interruption and subscriptions. Named methods, expanded JSX
+props and an explicit session controller contract replace compressed callbacks.
+
+Validation uses the existing native interaction, navigation, deletion, recovery,
+layout and lifecycle scenarios. No test expectations or screenshot baselines are
+changed to accommodate the refactor.
+
+After the refactor, all 210 desktop tests and all 13 native backend lifecycle
+scenarios passed sequentially against the same build. Desktop lint, all four
+TypeScript projects, production build, local documentation links and
+`git diff --check` also passed. CI/Full E2E were not run; no PR was requested.

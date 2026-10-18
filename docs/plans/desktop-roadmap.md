@@ -115,6 +115,9 @@ reuses unchanged staged and compiled inputs.
 The startup follow-up opens a native window before preparation, restoring the
 reference introduction, loading animation and painted-HUD handoff. Background
 project polling stays visually silent; the activity mark remains the Anurati A.
+The readability follow-up separates project mutation lifetimes from listing state,
+and run navigation/draft ownership from screen rendering. See the PR 9 notes for
+the resulting responsibilities and preserved behavior.
 Rich Markdown and artifact-link rendering remain tracked presentation parity work.
 
 | PR | Change | Acceptance |
@@ -203,6 +206,3 @@ automated tests use isolated mock profiles and disposable data.
 Retain first-launch Docker builds from bundled locked source and subsequent
 image reuse. Concurrent-use features, data migration, automatic updates, other
 desktop platforms, and publishing remain outside this series.
-
-The PR 9 readability follow-up separates project mutations from listing/selection
-state and makes the request/settlement phases explicit.

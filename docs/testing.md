@@ -489,6 +489,10 @@ Preparation and backend failures must keep their error text and Retry readable
 at 640×420 with 125% zoom; native zoom shortcuts must also work after handoff.
 Runs Overview regressions hold background reads pending and assert stable input
 bounds/focus for populated and empty lists and rapid cancellation polling.
+When refactoring project or application state ownership, run the existing desktop
+suite and native backend scenarios against one fixed build. They cover overlapping
+listings and writes, duplicate actions, uncertain deletion, explicit navigation
+winning over late cancellation, restored terminal history and draft revisions.
 
 After installing desktop dependencies:
 
@@ -558,7 +562,3 @@ empty and creates only the separately mounted read-only folder inside the hub.
 The Docker smoke test starts with those mount sources and verifies that the API
 creates a project which survives restart and shutdown. These checks cover the
 boundary between desktop mount preparation and hub-owned application storage.
-
-Project ownership refactors must retain the native deletion/cancellation tests,
-including delayed replies, overlapping polls, uncertain outcomes and duplicate
-actions. Keep existing assertions and screenshot baselines unchanged.
