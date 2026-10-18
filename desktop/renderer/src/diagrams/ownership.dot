@@ -1,0 +1,55 @@
+// Render with Graphviz; see the regeneration commands in ../ARCHITECTURE.md.
+digraph ownership {
+    graph [rankdir=TB, bgcolor="#f8fafc", pad=0.3, nodesep=0.35, ranksep=0.55,
+           fontname="DejaVu Sans", fontsize=17, compound=true];
+    node [shape=box, style="rounded,filled", fillcolor="#ffffff", color="#64748b",
+          fontname="DejaVu Sans", fontsize=15, fontcolor="#0f172a", margin="0.18,0.14"];
+    edge [color="#475569", arrowsize=0.8, penwidth=1.3,
+          fontname="DejaVu Sans", fontsize=13, fontcolor="#334155"];
+
+    app [label="App and view components\nScreens, theme, layout, DOM focus"];
+    workspace [label="useProjectWorkspace\nSelection and coordination",
+               fillcolor="#dbeafe", color="#2563eb", penwidth=1.6];
+    local [label="Workspace state helpers\nNavigation, draft,\nrecovery, models"];
+
+    subgraph cluster_collection {
+        label="Manage the project collection";
+        labelloc=b;
+        style="rounded,filled";
+        color="#94a3b8";
+        fillcolor="#f1f5f9";
+        fontcolor="#334155";
+        margin=20;
+
+        management [label="useProjectManagement\nList, create, delete\nRemoval focus target"];
+        deletion [label="useProjectDeletion\nDELETE lifetime\nand reconciliation"];
+        management -> deletion;
+    }
+
+    subgraph cluster_work {
+        label="Work within projects\nIncludes foreground and background work";
+        labelloc=b;
+        style="rounded,filled";
+        color="#0d9488";
+        fillcolor="#f0fdfa";
+        fontcolor="#115e59";
+        margin=20;
+
+        cancellation [label="useProjectCancellation\nCancel requests\nand status settlement"];
+        session [label="useRunSession\nPublic run controller", fillcolor="#ccfbf1"];
+        lifecycle [label="useRunLifecycle\nIdentity, creation,\nsubscriptions, disposal"];
+        interactions [label="useRunInteractions\nReply and interruption"];
+
+        session -> lifecycle;
+        session -> interactions;
+        lifecycle -> interactions [style=dashed, color="#0f766e", fontcolor="#115e59",
+                                   label="Session, dispatch,\nabort scope"];
+        { rank=same; cancellation; session; }
+    }
+
+    app -> workspace;
+    workspace -> management;
+    workspace -> cancellation;
+    workspace -> session;
+    workspace -> local;
+}

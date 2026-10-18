@@ -11,34 +11,9 @@ Solid arrows mean composition or delegation. The dashed arrow is the internal
 run collaboration contract. State and action callbacks flow back to callers;
 those return paths are omitted to keep the ownership map readable.
 
-```mermaid
-flowchart TB
-    App["App and view components<br/>Screens, theme, layout, DOM focus"]
-    Workspace["useProjectWorkspace<br/>Selection and cross-feature coordination"]
-    Local["Workspace state helpers<br/>Navigation, draft, recovery, models"]
+![Renderer ownership: workspace delegation, project collection and run lifecycle boundaries.](diagrams/ownership.svg)
 
-    subgraph Collection["Manage the project collection"]
-        Management["useProjectManagement<br/>List, create, delete; removal focus target"]
-        Deletion["useProjectDeletion<br/>DELETE lifetime and reconciliation"]
-        Management --> Deletion
-    end
-
-    subgraph Work["Work within projects, including background work"]
-        Cancellation["useProjectCancellation<br/>Cancel requests and status settlement"]
-        Session["useRunSession<br/>Public run controller"]
-        Lifecycle["useRunLifecycle<br/>Run identity, creation, subscriptions, disposal"]
-        Interactions["useRunInteractions<br/>Reply and interruption requests"]
-        Session --> Lifecycle
-        Session --> Interactions
-        Lifecycle -.->|"Session, dispatch, abort scope"| Interactions
-    end
-
-    App --> Workspace
-    Workspace --> Management
-    Workspace --> Cancellation
-    Workspace --> Session
-    Workspace --> Local
-```
+[Open full-size diagram](diagrams/ownership.svg) · [Editable Graphviz source](diagrams/ownership.dot)
 
 The `ProjectManagement` contract exposes collection actions. `ProjectWork` and
 `RunLaunch` expose selection, cancellation and launch/open actions. Views receive
@@ -68,33 +43,9 @@ This diagram follows incoming data. The lifecycle stores the combined
 reconciliation first, then projects its accepted update into HUD state atomically.
 History selection takes the HUD-only path.
 
-```mermaid
-flowchart TB
-    Backend["Python API<br/>Authoritative execution and project data"]
-    Transport["client.ts and run-api.ts<br/>HTTP/SSE transport and payload validation"]
-    Watcher["watchRun<br/>One stream, serialized snapshots, retry timers"]
-    Interactions["useRunInteractions"]
-    Selection["History selection"]
+![Backend data flows through validated transport and run reconciliation into HUD state; history selection updates only the HUD.](diagrams/run-data-flow.svg)
 
-    subgraph Pure["Pure state transitions and display selection"]
-        Session["reduceRunSession"]
-        Run["reduceRun<br/>Events, status, prompt, acknowledged IDs"]
-        Hud["reduceHud<br/>Live text, grouped history, selection"]
-        Display["selectRunDisplay"]
-        Session -->|"Run action"| Run
-        Run -->|"RunUpdate and previous run"| Hud
-        Session -->|"Selection action only"| Hud
-        Run --> Display
-        Hud --> Display
-    end
-
-    Backend -->|"Snapshots and events"| Transport
-    Transport -->|"Validated payloads"| Watcher
-    Watcher -->|"Snapshot, frame, error, retry"| Session
-    Interactions -->|"Replied or retry"| Session
-    Selection --> Session
-    Display --> Views["HUD components"]
-```
+[Open full-size diagram](diagrams/run-data-flow.svg) · [Editable Graphviz source](diagrams/run-data-flow.dot)
 
 [Run reconciliation](run/run-reducer.ts) has no HUD dependency.
 [HUD projection](hud/hud-reducer.ts) consumes run data, while
@@ -135,3 +86,22 @@ features. Add cross-owner coordination to the workspace and explicit result
 contracts to the relevant owner. Update this map and the compact source map in
 `useProjectWorkspace.ts` when those responsibilities change. Regression commands
 and boundary scenarios are in [Testing](../../../docs/testing.md).
+
+## Updating the diagrams
+
+The diagrams are embedded SVG images, so Markdown previews can display them
+without a Mermaid extension or JavaScript. Their explicit background and text
+colours keep them readable in light and dark previews. Edit the linked `.dot`
+sources, then regenerate the committed SVGs with Graphviz from the repository
+root:
+
+```sh
+dot -Tsvg desktop/renderer/src/diagrams/ownership.dot \
+  -o desktop/renderer/src/diagrams/ownership.svg
+dot -Tsvg desktop/renderer/src/diagrams/run-data-flow.dot \
+  -o desktop/renderer/src/diagrams/run-data-flow.svg
+```
+
+Open both rendered images after regeneration and check labels, arrows and group
+boundaries before committing. Graphviz is only needed to edit these diagrams;
+the application has no dependency on it.

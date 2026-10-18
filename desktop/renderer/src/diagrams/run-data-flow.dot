@@ -1,0 +1,45 @@
+// Render with Graphviz; see the regeneration commands in ../ARCHITECTURE.md.
+digraph run_data_flow {
+    graph [rankdir=TB, bgcolor="#f8fafc", pad=0.3, nodesep=0.45, ranksep=0.4,
+           fontname="DejaVu Sans", fontsize=17];
+    node [shape=box, style="rounded,filled", fillcolor="#ffffff", color="#64748b",
+          fontname="DejaVu Sans", fontsize=15, fontcolor="#0f172a", margin="0.18,0.14"];
+    edge [color="#475569", arrowsize=0.8, penwidth=1.3,
+          fontname="DejaVu Sans", fontsize=13, fontcolor="#334155"];
+
+    backend [label="Python API\nAuthoritative execution\nand project data", fillcolor="#e2e8f0"];
+    transport [label="client.ts and run-api.ts\nHTTP/SSE transport\nand payload validation"];
+    watcher [label="watchRun\nOne stream, serialized snapshots,\nretry timers", fillcolor="#dbeafe"];
+    interactions [label="useRunInteractions"];
+    selection [label="History selection"];
+    views [label="HUD components", fillcolor="#e2e8f0"];
+
+    subgraph cluster_pure {
+        label="Pure state\nNo I/O";
+        labeljust=l;
+        style="rounded,filled";
+        color="#0d9488";
+        fillcolor="#f0fdfa";
+        fontcolor="#115e59";
+        margin=20;
+
+        session [label="reduceRunSession", fillcolor="#ccfbf1"];
+        run [label="reduceRun\nEvents, status, prompt,\nacknowledged IDs"];
+        hud [label="reduceHud\nLive text, grouped history,\nselection"];
+        display [label="selectRunDisplay", fillcolor="#ccfbf1"];
+
+        session -> run [label="Run action"];
+        run -> hud [label="RunUpdate and previous run"];
+        session -> hud [label="Selection action only"];
+        run -> display [label="Run state"];
+        hud -> display [label="HUD state"];
+    }
+
+    backend -> transport [label="Snapshots and events"];
+    transport -> watcher [label="Validated payloads"];
+    watcher -> session [label="Snapshot, frame,\nerror, retry"];
+    interactions -> session [label="Replied or retry"];
+    selection -> session;
+    display -> views;
+    { rank=same; watcher; interactions; selection; }
+}
