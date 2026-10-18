@@ -517,3 +517,9 @@ boundary between desktop mount preparation and hub-owned application storage.
 Desktop interaction scenarios also cover interruption followed by a reply,
 cancellation during interruption, background status reconciliation and failed
 controls retaining drafts.
+
+`desktop/tests/deletion.spec.ts` covers two-step deletion and dismissal, status
+gates, delayed acknowledgements, duplicate clicks, stale polls, HTTP 409 and
+uncertain deadlines, selection/session disposal and focus. The native backend
+suite cancels a real mock run and verifies files remain through the first
+activation and disappear only after cancellation and confirmed deletion.

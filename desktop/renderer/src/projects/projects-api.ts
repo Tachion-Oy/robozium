@@ -44,3 +44,10 @@ export async function cancelProject(client: DesktopApiClient, slug: string, sign
 	if (!value || typeof value !== "object" || !("ok" in value) || typeof value.ok !== "boolean") malformed()
 	return value.ok
 }
+
+export async function deleteProject(client: DesktopApiClient, slug: string, signal: AbortSignal): Promise<void> {
+	const value = await client.request(`/projects/${encodeURIComponent(slug)}`, { method: "DELETE", signal })
+	if (!value || typeof value !== "object" || !("ok" in value) || value.ok !== true) {
+		throw new ApiError("malformed", "The backend did not acknowledge deletion.")
+	}
+}

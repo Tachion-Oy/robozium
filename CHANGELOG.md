@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Delete dormant desktop projects with two-step confirmation after cancellation
+  and syncing finish; reconcile uncertain outcomes and retain the reply draft.
+
 - Interrupt desktop runs and cancel project work from Current Run or Runs Overview,
   with shared pending state and polling through background cancellation.
 

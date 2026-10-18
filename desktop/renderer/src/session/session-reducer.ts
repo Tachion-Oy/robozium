@@ -12,8 +12,10 @@ export interface RunSession {
 export type SessionAction = RunAction
 	| { type: "open"; runId: string; project: string }
 	| { type: "select"; index: number }
+	| { type: "close" }
 
 export function reduceRunSession(state: RunSession | null, action: SessionAction): RunSession | null {
+	if (action.type === "close") return null
 	if (action.type === "open") return { run: initialRun(action.runId, action.project), hud: initialHud() }
 	if (!state) return state
 	if (action.type === "select") {

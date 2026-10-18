@@ -389,3 +389,12 @@ Current Run and each overview row cancels project work, including background
 syncing. Pending actions reject duplicate submissions. Overview status refreshes
 every three seconds while connected and every 250 ms during cancellation.
 Cancel remains available while interruption is pending.
+
+**Delete** in Runs Overview is enabled only for a confirmed dormant project with
+no conflicting local operation. Activate it twice to confirm that project's
+removal. Blur, Escape, navigation or a status change dismisses confirmation.
+Cancellation and background syncing must finish first. Pending deletion blocks
+launch and other actions for that project and remains visible through refreshes.
+A conflict refreshes status; an uncertain result is checked by listing projects
+without repeating DELETE. Successful removal clears matching selection and run
+references, retains the reply draft and focuses the next project/name field.

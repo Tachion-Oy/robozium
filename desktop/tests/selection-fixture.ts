@@ -32,7 +32,7 @@ export const test = native.extend<{ backend: Backend }>({
 			response.setHeader("Access-Control-Allow-Origin", "robozium://app")
 			if (request.method === "OPTIONS") {
 				response.setHeader("Access-Control-Allow-Headers", "Content-Type")
-				response.setHeader("Access-Control-Allow-Methods", "GET, POST")
+				response.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE")
 				response.end()
 				return
 			}

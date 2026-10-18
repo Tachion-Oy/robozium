@@ -26,3 +26,16 @@ listings. Polling runs every three seconds while visible/connected, or every
 does not imply cancellation has finished. Cancel stays usable during interruption.
 Adapted from `web/app/components/hud/projects/useProjectOverview.ts` and
 `web/lib/robozium/client.ts` at the implementation base.
+
+## 9c — Project deletion
+
+Delete is available for confirmed dormant projects without a local conflict.
+The overview arms a project-specific second activation; blur, Escape, navigation,
+or changed status/run identity disarms it. Pending deletion overlays incoming
+listings. Deadlines and errors trigger reads, with confirmed absence reconciling
+success and no automatic DELETE retries. HTTP 409 explains the active-work gate.
+Removal clears only matching selection/session references, retains the draft and
+focuses the next row or project-name field. Adapted from
+`web/app/components/hud/projects/ProjectOverview.tsx` and `useProjectOverview.ts`
+at the implementation base. Native fixtures exercise uncertain responses and a
+real mock lifecycle scenario checks cancellation before confirmed file removal.

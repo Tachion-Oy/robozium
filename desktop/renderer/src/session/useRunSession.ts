@@ -117,7 +117,12 @@ export function useRunSession(client: DesktopApiClient | null) {
 			}
 		}
 	}
-	return { session, interrupt, interrupting, refresh: () => dispose.current?.refresh(), creating, createError, start, open, reply, replying, actionError,
+	const closeProject = useCallback((slug: string) => {
+		if (latest.current?.run.project !== slug) return
+		stop()
+		dispatch({ type: "close" })
+	}, [stop])
+	return { session, closeProject, interrupt, interrupting, refresh: () => dispose.current?.refresh(), creating, createError, start, open, reply, replying, actionError,
 		select: (index: number) => dispatch({ type: "select", index }),
 		retry: () => {
 			if (!session || creation.current) return
