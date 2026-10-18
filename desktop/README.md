@@ -155,7 +155,9 @@ to four seconds, preserving output, history selection and drafts. Stream opens
 queue a fresh snapshot to recover missed events. Completed, failed, and cancelled
 runs stop polling and return to Runs Overview, with focus on that project.
 **Return to run** explicitly reopens retained history and the draft without
-redirecting again. Unknown runs show **Run unavailable**.
+redirecting again. Confirmed missing runs also return Current Run to Overview,
+stop pending run requests and clear the saved run identity. Local history and
+the draft remain accessible through **Return to run**. Other chosen views stay open.
 Malformed responses and permanent HTTP errors stop automatic recovery.
 
 Selecting a running or waiting project offers **Open run**, which validates and
@@ -241,8 +243,11 @@ window-size, and zoom changes. Reloading/reopening restores the draft, selected
 project and last run identity from one versioned renderer storage record per
 Electron profile and live/mock mode. The backend supplies history and prompt
 state; transcripts are not stored in the renderer. Existing terminal runs reopen
-as readable history. If the backend restarted and the old run is gone, Current
-Run retains the draft and offers **Open Runs Overview** for an explicit launch.
+as readable history. Run IDs belong to the backend process and expire when it
+restarts. If the saved run is gone, recovery returns to Runs Overview, explains
+the unavailability and forgets that ID. The draft and existing project selection
+remain available for an explicit launch; later reopens do not retry the invalid ID.
+Temporary outages retain the saved identity and reconnect automatically.
 Recovery never creates a run automatically. Storage failures are reported while
 the current draft remains editable. Theme, divider and history selection reset
 on reopen. Preview remains local and resets on reload.

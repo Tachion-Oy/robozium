@@ -107,6 +107,7 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 							creating={run.creating}
 							error={run.createError}
 							project={work.selectedProject}
+							unavailableProject={run.session?.run.unavailable ? run.session.run.project : undefined}
 						/>
 					</div>
 				)

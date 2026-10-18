@@ -66,7 +66,10 @@ export function useRunLifecycle(client: DesktopApiClient | null): RunLifecycle {
 		lifetime.current = controller
 		setScope(controller.signal)
 		watcher.current = watchRun(client, runId, project, action => {
-			if (!controller.signal.aborted) dispatch(action)
+			if (controller.signal.aborted) return
+			dispatch(action)
+			// Confirmed absence ends interactions too; retain the reducer's local history.
+			if (action.type === "error" && action.unavailable) stopSession()
 		}, { verifyBeforeStream })
 	}, [client, stopSession])
 

@@ -61,7 +61,8 @@ last run/project identity and single current draft. Parsed records exclude
 transcripts and prompts. Storage errors are visible without disrupting editing.
 Project listings validate restored selection. A saved run is validated by a
 snapshot before opening SSE; terminal history needs no subscription. Missing
-runs stop reads and retain the draft in Current Run with navigation for explicit
+runs stop run requests, return Current Run to Overview and clear the saved run
+identity. Drafts, existing selection and local history survive for explicit
 relaunch. Successful deletion clears matching saved identities. Native tests
 cover reload, mode separation, malformed/unavailable storage, deleted projects,
 missing and terminal runs, and real close/reopen after backend shutdown.
@@ -126,7 +127,7 @@ not establish presentation or navigation parity.
 | Background cancellation | Overview polls until dormant/absent. | Same reconciliation; cancelling background work from reopened history also returns after confirmation. |
 | Deletion | Dormant-only, two-step confirmation with dismissal. | Matched; desktop also reconciles uncertain deletion by fresh listings without repeating DELETE. |
 | Reconnection | One session, serialized snapshots, capped retry delays and terminal stop. | Same ownership and backoff; desktop adds request deadlines and readiness recovery. |
-| Reopen/missing run | Browser routing controls entry and exits permanent failures. | Deliberate desktop recovery: saved terminal runs reopen as history; missing runs retain the draft and require explicit relaunch. |
+| Reopen/missing run | Browser routing controls entry and exits permanent failures. | Saved terminal runs reopen as history; confirmed missing runs return Current Run to Overview, forget the saved ID and retain the draft for explicit relaunch. |
 | Models | `ModelSelector.tsx` reads and changes the active run's model when a run ID is present. | The PR 7 desktop selector still changes the backend default for future runs. Per-run model switching remains unported. |
 | Presentation | Rich Markdown/links, activity animation, dictation, credential controls. | Partial port: literal text, a status glyph, disabled recording/unlocking, and placeholder environment/dependency views. These are not full visual or feature parity. |
 
@@ -277,3 +278,32 @@ then all 218 desktop tests and 13 native backend scenarios passed sequentially
 against the final build. Lint, all four TypeScript projects, production build,
 explicit module-boundary typing audit, 23 local documentation links and
 `git diff --check` passed. CI/Full E2E were not run; no PR was requested.
+
+## Restart recovery review
+
+The backend stores run controls in a process-local registry. Desktop shutdown
+stops its owned backend, so the saved run ID can be absent on reopen even while
+the project files survive. Recovery previously kept Current Run open and kept
+saving that invalid ID, repeating the failure on every reopen.
+
+Confirmed absence now ends the lifecycle request scope, returns Current Run to
+Overview and removes only the saved run reference. Drafts, existing project
+selection and local history survive. Later reloads no longer request the missing
+ID, and starting another run remains explicit. A delayed missing-run response
+preserves a newer choice of view. Temporary errors retain the saved identity and
+continue read recovery.
+
+Ending the request scope also aborts pending replies/interruption. A late reply
+failure can no longer dispatch a retry that makes the missing run look available
+again; a late acknowledgement cannot clear its retained draft.
+
+Validation first reproduced the missing-run navigation/storage failures and the
+pending-reply lifetime failure. The final build passed all 221 desktop tests and
+13 native backend scenarios sequentially. The real outage test now checks editor
+identity while disconnected, then the missing-run fallback and explicitly reopened
+history after restarting the backend. Native close/reopen also checks retained
+files, image reuse, cleared recovery identity and the draft in an explicit new run.
+Fallback captures were inspected in both themes at 900×600 and at 640×420 with
+125% zoom. Lint, all four TypeScript projects, production build, 56 local
+documentation links and `git diff --check` passed. CI/Full E2E were not run; no PR
+was requested.

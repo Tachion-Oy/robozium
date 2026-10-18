@@ -44,7 +44,7 @@ export function useRunNavigation(
 	function navigate(next: AppView): void {
 		navigationRevision.current++
 		clearAutomaticReturn()
-		if (next === "run" && session && !isTerminal(session.run.status)) {
+		if (next === "run" && session && !session.run.unavailable && !isTerminal(session.run.status)) {
 			setReturnOnCompletion(session.run.runId)
 		}
 		setOverviewFocus(null)
@@ -100,7 +100,14 @@ export function useRunNavigation(
 
 	const run = session?.run
 	useEffect(() => {
-		if (!run?.synchronized) return
+		if (!run?.unavailable) return
+		recoveringRun.current = null
+		returnToOverview(run.project)
+	}, [run?.runId, run?.project, run?.unavailable, returnToOverview])
+
+	useEffect(() => {
+		// Missing runs return once when detected; explicitly reopened history stays open.
+		if (!run?.synchronized || run.unavailable) return
 
 		if (recoveringRun.current === run.runId) {
 			recoveringRun.current = null
@@ -113,7 +120,7 @@ export function useRunNavigation(
 
 		const shouldReturn = run.runId === returnOnCompletion && isTerminal(run.status)
 		if (shouldReturn && !creating) returnToOverview(run.project)
-	}, [run?.runId, run?.status, run?.synchronized, returnOnCompletion, creating, returnToOverview])
+	}, [run?.runId, run?.project, run?.status, run?.synchronized, run?.unavailable, returnOnCompletion, creating, returnToOverview])
 
 	return {
 		view,

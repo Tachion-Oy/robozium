@@ -310,9 +310,13 @@ replacement-session cleanup. Readiness recovery preserves the mounted HUD.
 
 `desktop/tests/recovery.spec.ts` verifies validated reload recovery, terminal
 history, missing runs and deleted projects, mode separation, corrupt records,
-storage failure and deletion cleanup. The real native close/reopen scenario
-checks preserved drafts/projects after the backend loses its in-memory runs,
-with no automatic launch. Preview continues to reset local state on reload.
+storage failure and deletion cleanup. Confirmed missing runs return to Overview,
+clear their saved identity and dispose pending replies; a second reload must not
+request that ID again. Delayed failures preserve newer navigation and local
+history, while temporary outages retain the identity and reconnect. The real
+native close/reopen scenario checks preserved drafts/projects after the backend
+loses its in-memory runs, with no automatic launch. Preview continues to reset
+local state on reload.
 
 ## Desktop backend checks
 
@@ -530,8 +534,9 @@ ownership, and cancellation during a blocked build. A persistence scenario creat
 projects through the labelled form, exercises duplicate-name errors and keyboard
 selection/refresh, closes the native window, and verifies
 stopped containers and retained data. Reopening that same installation must reuse
-its image and projects, restore selection/draft, and explain that the previous run
-is unavailable after backend restart without launching another; named steps make
+its image and projects, restore selection/draft, return to Runs Overview and
+remove the unavailable run's saved identity. Only an explicit launch starts
+another run, with the retained draft; named steps make
 these dependent phases explicit. Logs and a startup-error capture are attached
 to the report.
 Native lifecycle captures wait for the renderer to observe a window resize before
@@ -553,8 +558,11 @@ readiness and recover through automatic reads or Retry without Docker commands,
 and verify the
 selected-address CSP with actual desktop HTTP/SSE requests against a seeded run.
 The outage scenario stops only its disposable container to verify recovery,
-retained editor identity, project-name draft and selection, reply draft,
-divider/theme, resumed polling, and reloading the backend model selection.
+retained editor identity while disconnected, project-name draft and selection,
+reply draft, divider/theme, resumed polling, and reloading the backend model
+selection. After backend restart confirms the old run is missing, it verifies
+the return to Overview, cleared recovery identity and explicit access to retained
+history and the reply draft.
 Outage captures and containment
 checks cover both themes at 1260×780 and 640×420, including 125% zoom. No production
 demonstration controls are added; the test loads the actual transport source into

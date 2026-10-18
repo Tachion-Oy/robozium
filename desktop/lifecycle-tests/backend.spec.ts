@@ -9,6 +9,7 @@ import { applicationPage, finishSplash, captureNative, documentUrl, setNativeVie
 import { expectFooterGeometry } from "../tests/footer-geometry"
 import { resolveBackendLayout } from "../src/backend-layout.cjs"
 import { installTestClient } from "../tests/transport"
+import { recoveryKey } from "../renderer/src/recovery/recovery-storage"
 
 const desktop = path.resolve(__dirname, "..")
 const docker = execFileSync("which", ["docker"], { encoding: "utf8" }).trim()
@@ -198,7 +199,7 @@ test("renderer HTTP and SSE use the selected backend allowed by CSP", async ({ r
 	expect(csp?.split("; ")).toContain(`connect-src http://127.0.0.1:${port}`)
 })
 
-test("automatic outage recovery preserves the HUD and resumes readiness polling", async ({ runtime }, testInfo) => {
+test("backend outage recovery returns missing runs to overview and preserves local state", async ({ runtime }, testInfo) => {
 	const { profile, port, commands } = runtime
 	const { app, page } = await launchConnected(runtime)
 	const { container } = await ownedBackend(profile)
@@ -239,6 +240,8 @@ test("automatic outage recovery preserves the HUD and resumes readiness polling"
 		await page.getByRole("button", { name: "Retry", exact: true }).click()
 		await expect(page.locator(".backend-notice").getByRole("alert")).toContainText("Backend connection unavailable")
 		expect(await readFile(commands, "utf8")).toBe(outageCommands)
+		await expect(reply).toHaveValue("retained across outage")
+		expect(await reply.evaluate(element => element === Reflect.get(window, "originalEditor"))).toBe(true)
 	})
 	await test.step("Check the outage notice in both themes, window sizes, and zoom levels", async () => {
 		for (const theme of ["dark", "light"]) {
@@ -261,7 +264,7 @@ test("automatic outage recovery preserves the HUD and resumes readiness polling"
 			}
 		}
 	})
-	await test.step("Recover and preserve the mounted HUD and its state", async () => {
+	await test.step("Recover readiness, return to overview and reopen retained history", async () => {
 		const previousModelReads = modelReads
 		execFileSync(docker, ["start", container], { stdio: "pipe" })
 		await expect.poll(async () => {
@@ -273,8 +276,13 @@ test("automatic outage recovery preserves the HUD and resumes readiness polling"
 		}, { timeout: 30_000 }).toBe(200)
 		await expect(page.locator(".backend-notice")).toHaveCount(0, { timeout: 10_000 })
 		await expect.poll(() => modelReads).toBeGreaterThan(previousModelReads)
+		await expect(page.getByRole("heading", { name: "Runs Overview", exact: true })).toBeVisible()
+		await expect(page.getByRole("status", { name: "Run recovery" })).toContainText("no longer available")
+		await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)!).run, recoveryKey("mock"))).toBeNull()
+		await expect(projectName).toHaveValue("Retained project draft")
+		await expect(page.getByRole("button", { name: "outage-project", exact: true })).toHaveAttribute("aria-pressed", "true")
+		await page.getByRole("button", { name: "Return to run", exact: true }).click()
 		await expect(reply).toHaveValue("retained across outage")
-		expect(await reply.evaluate(element => element === Reflect.get(window, "originalEditor"))).toBe(true)
 		await expect(page.locator(".hud-panel--agent pre")).toHaveText(selectedOutput!)
 		await expect(page.getByRole("group", { name: "Panel divider: equal" })).toBeVisible()
 		await expect(model).toHaveAttribute("title", chosenModel!)
@@ -332,16 +340,19 @@ test("closing and reopening preserves project data and reuses the backend image"
 	await test.step("Reopen the installation and reuse its project and image", async () => {
 		const reopened = await runtime.launch()
 		const reopenedPage = await applicationPage(reopened)
-		await expect(reopenedPage.getByRole("status", { name: "Run status" })).toContainText("Run unavailable", { timeout: 30_000 })
+		await expect(reopenedPage.getByRole("heading", { name: "Runs Overview", exact: true })).toBeVisible({ timeout: 30_000 })
 		await finishSplash(reopened)
-		await expect(reopenedPage.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Native reopen draft")
-		await expect(reopenedPage.getByRole("button", { name: "Cancel", exact: true })).toBeDisabled()
-		await reopenedPage.getByRole("button", { name: "Open Runs Overview" }).click()
+		await expect(reopenedPage.getByRole("status", { name: "Run recovery" })).toContainText("no longer available")
+		await expect.poll(() => reopenedPage.evaluate(key => JSON.parse(localStorage.getItem(key)!), recoveryKey("mock"))).toEqual({
+			version: 1, selectedProject: "native-lifecycle", run: null, draft: "Native reopen draft",
+		})
 		await installTestClient(reopenedPage, `http://127.0.0.1:${port}`)
 		const projects = await reopenedPage.evaluate(async () => await window.testApi.request("/projects") as { slug: string; run_id: string | null }[])
 		expect(projects.find(item => item.slug === "native-lifecycle")).toMatchObject({ run_id: null })
 		await expect(reopenedPage.getByRole("button", { name: "native-lifecycle", exact: true })).toHaveAttribute("aria-pressed", "true")
 		await expect(reopenedPage.getByText("Selected project: native-lifecycle", { exact: true })).toBeVisible()
+		await reopenedPage.getByRole("button", { name: "Start run", exact: true }).click()
+		await expect(reopenedPage.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Native reopen draft")
 		expect(execFileSync(docker, ["image", "inspect", "--format", "{{.Id}}", `${project}-api`], { encoding: "utf8" }).trim()).toBe(image)
 		expect((await readFile(commands, "utf8")).split("\n").filter(line => line.endsWith(" build api"))).toHaveLength(1)
 		await closeWindow(reopened)

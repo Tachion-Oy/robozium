@@ -178,7 +178,7 @@ export function useProjectWorkspace(
 	const refreshProjects = management.refresh
 	useEffect(() => {
 		if (session) refreshProjects()
-	}, [session?.run.runId, session?.run.status, refreshProjects])
+	}, [session?.run.runId, session?.run.status, session?.run.unavailable, refreshProjects])
 
 	useEffect(() => {
 		if (!restored) return
@@ -186,9 +186,9 @@ export function useProjectWorkspace(
 			version: 1,
 			selectedProject,
 			draft: draft.value,
-			run: session ? { id: session.run.runId, project: session.run.project } : null,
+			run: session && !session.run.unavailable ? { id: session.run.runId, project: session.run.project } : null,
 		})
-	}, [restored, recovery.save, selectedProject, draft.value, session?.run.runId, session?.run.project])
+	}, [restored, recovery.save, selectedProject, draft.value, session?.run.runId, session?.run.project, session?.run.unavailable])
 
 	return {
 		run,

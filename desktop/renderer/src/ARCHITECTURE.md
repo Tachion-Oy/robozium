@@ -53,6 +53,8 @@ History selection takes the HUD-only path.
 no I/O. [watchRun](run/run-updates.ts) owns read recovery; closing/replacing the
 subscription disposes its requests and timers. Replies and interruption inherit
 the session scope and cannot apply late results after that scope is aborted.
+Confirmed missing runs also end that scope, retaining reducer state for local
+history. Temporary outages retain the scope and retry reads.
 
 ## Transitions that cross owners
 
@@ -62,7 +64,7 @@ the session scope and cannot apply late results after that scope is aborted.
 | Launch | Workspace captures `beginLaunch()`, awaits lifecycle creation, then calls `finishLaunch(intent, runId)`. Navigation opens the run only if no subsequent navigation superseded the intent. |
 | Cancel | Workspace sends the project action through cancellation. Management supplies fresh listings; workspace passes them to cancellation reconciliation. Navigation returns from Current Run only for its matching pending cancellation or watched run completion. |
 | Delete | Management reports `ProjectRemoval`. Workspace clears matching selection and asks lifecycle to close that project's session. If a session was removed, navigation repairs Current Run and supplies the removal focus target to the overview. Other views and the draft survive. |
-| Reopen | After readiness, workspace restores saved identity through lifecycle. The watcher validates the run before subscribing. A missing run retains the draft and requires explicit launch; history and prompts come from the backend. |
+| Reopen | After readiness, workspace restores saved identity through lifecycle. The watcher validates the run before subscribing; history and prompts come from the backend. Confirmed absence ends the session's request scope, returns Current Run to Overview and removes its saved identity. The draft and any local history survive; relaunch is explicit. Other chosen views stay open. |
 
 ## External boundaries
 

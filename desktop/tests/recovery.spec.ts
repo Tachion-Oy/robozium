@@ -1,4 +1,5 @@
 import { expect } from "@playwright/test"
+import type { ServerResponse } from "node:http"
 import { test, json, prepareRun, snapshot, message, start, output, view, runStatus } from "./run-fixture"
 import { recoveryKey } from "../renderer/src/recovery/recovery-storage"
 
@@ -55,22 +56,25 @@ test("terminal recovery opens readable history without a stream or polling", asy
 })
 
 for (const projectDeleted of [false, true]) {
-	test(`missing run retains the draft and requires explicit launch; deleted project=${projectDeleted}`, async ({ desktop: { page }, backend }) => {
+	test(`missing run returns to overview, forgets its ID and retains the draft; deleted project=${projectDeleted}`, async ({ desktop: { page }, backend }) => {
 		prepareRun(backend)
 		await start(page, backend)
 		await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Recovery draft")
 		backend.handlers.set("GET /run/run-one", response => json(response, { detail: "unknown run_id" }, 404))
 		if (projectDeleted) backend.handlers.set("GET /projects", response => json(response, []))
 		await page.reload()
-		await expect(runStatus(page)).toContainText("Run unavailable")
-		await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Recovery draft")
-		await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled()
-		await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeDisabled()
+		await expect(page.getByRole("heading", { name: "Runs Overview", exact: true })).toBeVisible()
+		await expect(page.getByRole("status", { name: "Run recovery" })).toContainText("no longer available")
+		await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)!), key)).toEqual({
+			version: 1, selectedProject: projectDeleted ? "" : "existing-project", run: null, draft: "Recovery draft",
+		})
 		const reads = backend.requests.filter(request => request.path.startsWith("/run/")).length
 		await page.clock.install()
 		await page.clock.fastForward(30_000)
 		expect(backend.requests.filter(request => request.path.startsWith("/run/"))).toHaveLength(reads)
-		await page.getByRole("button", { name: "Open Runs Overview" }).click()
+		await page.reload()
+		await expect(page.getByRole("heading", { name: "Runs Overview", exact: true })).toBeVisible()
+		expect(backend.requests.filter(request => request.path.startsWith("/run/"))).toHaveLength(reads)
 		if (projectDeleted) {
 			await expect(page.getByText("Selected project: None", { exact: true })).toBeVisible()
 			await expect(page.getByRole("button", { name: "Start run", exact: true })).toHaveAttribute("aria-disabled", "true")
@@ -83,6 +87,97 @@ for (const projectDeleted of [false, true]) {
 		}
 	})
 }
+
+test("temporary recovery failure retains the run identity and reconnects without creation", async ({ desktop: { page }, backend }) => {
+	prepareRun(backend)
+	await backend.open()
+	await page.evaluate(key => localStorage.setItem(key, JSON.stringify({
+		version: 1, selectedProject: "existing-project", draft: "Outage draft",
+		run: { id: "run-one", project: "existing-project" },
+	})), key)
+	let attempts = 0
+	let retry: ServerResponse | undefined
+	let recovered = false
+	backend.handlers.set("GET /run/run-one", response => {
+		if (attempts++ === 0) json(response, { detail: "Temporarily unavailable" }, 503)
+		else if (!recovered) retry = response
+		else json(response, snapshot())
+	})
+	await page.reload()
+	await expect(page.getByRole("alert")).toContainText("Temporarily unavailable")
+	await expect(page.getByRole("combobox", { name: /^HUD view:/ })).toHaveAttribute("title", "Current Run")
+	await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)!).run, key)).toEqual({
+		id: "run-one", project: "existing-project",
+	})
+	await expect.poll(() => retry).toBeDefined()
+	recovered = true
+	json(retry!, snapshot())
+	await expect(runStatus(page)).toContainText("Running")
+	await expect(page.getByRole("alert")).toHaveCount(0)
+	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Outage draft")
+	expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(0)
+})
+
+test("a missing run disposes pending replies without restoring its recovery reference", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({
+		status: "awaiting_user_input", current_prompt_id: "p1", current_prompt: "Question",
+	})))
+	let pending: ServerResponse | undefined
+	let disposed = false
+	backend.handlers.set("POST /run/run-one/reply", response => {
+		pending = response
+		response.on("close", () => { disposed = true })
+	})
+	await start(page, backend)
+	await page.clock.install()
+	const editor = page.getByRole("textbox", { name: "Reply", exact: true })
+	await editor.fill("Keep this answer")
+	await editor.press("Enter")
+	await expect.poll(() => pending).toBeDefined()
+	backend.handlers.set("GET /run/run-one", response => json(response, { detail: "unknown run_id" }, 404))
+	await page.clock.fastForward(2001)
+	await expect(page.getByRole("status", { name: "Run recovery" })).toBeVisible()
+	await expect.poll(() => disposed).toBe(true)
+	await expect.poll(() => run.closed).toBe(run.streams.length)
+	json(pending!, { detail: "Run stopped" }, 409)
+	await page.getByRole("button", { name: "Return to run", exact: true }).click()
+	await expect(editor).toHaveValue("Keep this answer")
+	await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled()
+	await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)!), key)).toEqual({
+		version: 1, selectedProject: "existing-project", run: null, draft: "Keep this answer",
+	})
+	const reads = backend.requests.filter(request => request.path === "/run/run-one").length
+	await page.reload()
+	await expect(page.getByRole("heading", { name: "Runs Overview", exact: true })).toBeVisible()
+	expect(backend.requests.filter(request => request.path === "/run/run-one")).toHaveLength(reads)
+	expect(backend.requests.filter(request => request.path.endsWith("/reply"))).toHaveLength(1)
+})
+
+test("a delayed missing-run result preserves explicit navigation and local history", async ({ desktop: { page }, backend }) => {
+	prepareRun(backend)
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ message_trace: [message(1, "Retained history")] })))
+	await start(page, backend)
+	await expect(output(page)).toHaveText("Retained history")
+	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Retained draft")
+	await page.clock.install()
+	let pending: ServerResponse | undefined
+	backend.handlers.set("GET /run/run-one", response => { pending = response })
+	await page.clock.fastForward(2001)
+	await expect.poll(() => pending).toBeDefined()
+	await view(page, "Environment")
+	json(pending!, { detail: "unknown run_id" }, 404)
+	await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)!).run, key)).toBeNull()
+	await expect(page.getByRole("combobox", { name: /^HUD view:/ })).toHaveAttribute("title", "Environment")
+	await view(page, "Runs Overview")
+	await expect(page.getByRole("status", { name: "Run recovery" })).toContainText("existing-project")
+	await page.getByRole("button", { name: "Return to run", exact: true }).click()
+	await expect(output(page)).toHaveText("Retained history")
+	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Retained draft")
+	await page.clock.fastForward(30_000)
+	await expect(page.getByRole("region", { name: "Current Run", exact: true })).toBeVisible()
+	expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(1)
+})
 
 for (const data of ["{broken", '{"version":2}', '{"version":1,"selectedProject":"p","draft":42,"run":null}']) {
 	test(`invalid recovery is reported and ignored: ${data}`, async ({ desktop: { page }, backend }) => {

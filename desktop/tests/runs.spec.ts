@@ -246,6 +246,11 @@ for (const invalid of ["snapshot", "event", "unknown"] as const) {
 		await expect(output(page)).toHaveText("Keep output")
 		if (invalid === "event") emit(run.streams[0], { type: "message_delta", sequence: 2, payload: { delta: 42 } })
 		else backend.handlers.set("GET /run/run-one", response => json(response, invalid === "unknown" ? { detail: "unknown run_id" } : snapshot({ status: "nonsense" }), invalid === "unknown" ? 404 : 200))
+		if (invalid === "unknown") {
+			await expect(page.getByRole("heading", { name: "Runs Overview", exact: true })).toBeVisible()
+			await expect(page.getByRole("status", { name: "Run recovery" })).toContainText("no longer available")
+			await page.getByRole("button", { name: "Return to run", exact: true }).click()
+		}
 		await expect(page.getByRole("alert")).toContainText(invalid === "unknown" ? "unknown run_id" : "invalid run data")
 		await expect(output(page)).toHaveText("Keep output")
 		if (invalid === "unknown") await expect(runStatus(page)).toContainText("Run unavailable")

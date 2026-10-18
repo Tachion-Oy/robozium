@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Return desktop recovery to Runs Overview when the saved run no longer exists,
+  and clear its stale recovery reference. Retain the draft and project selection,
+  stop obsolete requests, and require an explicit launch after backend restart.
+
 - Clear acknowledged text from the desktop draft when polling has already consumed
   the prompt, while preserving newer drafts. Return to a valid view when deleting
   displayed history, and keep delayed launches from overriding subsequent navigation.

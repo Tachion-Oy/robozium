@@ -98,10 +98,14 @@ for (const failure of ["closure", "snapshot timeout", "stream timeout"] as const
 for (const failure of ["missing", "forbidden", "malformed"] as const) {
 	test(`${failure} stops automatic run recovery`, async ({ desktop: { page }, backend }) => {
 		const run = prepareRun(backend)
-		backend.handlers.set("GET /run/run-one", response => json(response, failure === "malformed" ? snapshot({ status: "invalid" }) : { detail: "Unavailable" }, failure === "missing" ? 404 : failure === "forbidden" ? 403 : 200))
 		await freezeTime(page)
 		await start(page, backend)
-		await expect(page.getByRole("alert")).toContainText(failure === "malformed" ? "invalid" : "Unavailable")
+		backend.handlers.set("GET /run/run-one", response => json(response, failure === "malformed" ? snapshot({ status: "invalid" }) : { detail: "Unavailable" }, failure === "missing" ? 404 : failure === "forbidden" ? 403 : 200))
+		await page.clock.fastForward(2001)
+		if (failure === "missing") {
+			await expect(page.getByRole("heading", { name: "Runs Overview", exact: true })).toBeVisible()
+			await expect(page.getByRole("status", { name: "Run recovery" })).toContainText("no longer available")
+		} else await expect(page.getByRole("alert")).toContainText(failure === "malformed" ? "invalid" : "Unavailable")
 		const requests = backend.requests.filter(request => request.path.startsWith("/run/run-one")).length
 		await page.clock.fastForward(30_000)
 		expect(backend.requests.filter(request => request.path.startsWith("/run/run-one"))).toHaveLength(requests)

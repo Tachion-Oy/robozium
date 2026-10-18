@@ -120,6 +120,8 @@ selection/execution, and run lifecycle management from reply/interruption handli
 Navigation, drafts and screen rendering retain distinct owners. Coordination
 checks distinguish reply acknowledgement from draft clearing, repair navigation
 when displayed history is deleted, and preserve newer navigation during launch.
+Restart recovery returns confirmed missing runs to Overview and clears their saved
+IDs, preserving drafts and project selection for an explicit launch.
 See the PR 9 notes for the resulting responsibilities and preserved behavior.
 Rich Markdown and artifact-link rendering remain tracked presentation parity work.
 
