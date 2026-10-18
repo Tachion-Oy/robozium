@@ -112,6 +112,9 @@ The browser comparison also aligns terminal-run navigation and opening existing
 runs; new launches wait for dormant status. Development startup builds application
 sources separately from the complete test/tooling typecheck, and `start:built`
 reuses unchanged staged and compiled inputs.
+The startup follow-up opens a native window before preparation, restoring the
+reference introduction, loading animation and painted-HUD handoff. Background
+project polling stays visually silent; the activity mark remains the Anurati A.
 Rich Markdown and artifact-link rendering remain tracked presentation parity work.
 
 | PR | Change | Acceptance |
@@ -132,7 +135,7 @@ Rich Markdown and artifact-link rendering remain tracked presentation parity wor
 | **11. Port environment editing** | Copy environment display, editing, and import controls into desktop. Reuse the backend API contract rather than the Next.js routes. | Cover edits, imports, validation failures, unsaved changes, and persistence using isolated mock data. |
 | **12. Port capabilities and dependency views** | Copy capability selection and dependency diagnostics into desktop. Keep native restart actions for PR 16. | Verify available/missing capabilities, selection, errors, and diagnostic rendering against the mock backend. |
 | **13. Port dictation** | Copy recording controls and transcription integration. Add narrowly scoped microphone permissions for the trusted desktop renderer. | Verify permission denial, recording lifecycle, transcription failure, and cleanup on navigation or close without losing drafts. |
-| **14. Restore the accepted startup sequence** | Copy the introduction and loading presentation into the existing Vite renderer. Add the offline introduction, translucent loading HUD, and painted-application handoff. | Test fast/slow startup, failure/retry, closing during startup, reduced motion, and both themes. |
+| **14. Restore the accepted startup sequence** | Brought forward at the maintainer's request: offline introduction, translucent loading frame, original lettering and A, and painted-application handoff now start before development compilation. Theme preference restoration remains with PR 17. | Test fast/slow startup, failure/retry, closing during startup, reduced motion and native handoff; preserve both HUD themes. |
 | **15. Add the docked message log** | Use the desktop's copied terminal rendering and existing desktop run session. Preserve shadows, stacked layout, temporary window expansion, and restoration. | Preserve drafts, focus, and recording. Avoid duplicate session subscriptions; unmount the transcript when closed. |
 | **16. Add desktop restart controls** | Connect Environment's app restart and Dependencies' restart/recreation actions through named preload methods. | Verify unsaved-edit confirmation, imported-tool activation, readiness before reveal, introduction replay, and operations restricted to owned backend services. |
 | **17. Add desktop instance and preference handling** | Extend the basic backend ownership lock introduced in PR 5 with duplicate-launch focus behavior and persistence of window size, theme, and zoom. | Verify duplicate launch, invalid/stale saved settings, reliable close/reopen, and independent test profiles. |
@@ -200,10 +203,3 @@ automated tests use isolated mock profiles and disposable data.
 Retain first-launch Docker builds from bundled locked source and subsequent
 image reuse. Concurrent-use features, data migration, automatic updates, other
 desktop platforms, and publishing remain outside this series.
-
-The PR 9 polling follow-up keeps background project reads visually silent and
-retains the Anurati A after run completion, failure and cancellation.
-
-The maintainer brought forward the accepted splash presentation from PR 14.
-Offline terminal, lettering, octagon and A assets are copied and adapted; native
-startup integration follows as a separate increment.

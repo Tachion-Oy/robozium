@@ -479,6 +479,17 @@ an existing user deployment; the workflow defines setup and cleanup.
 
 ## Desktop backend lifecycle checks
 
+Native startup tests hold the compiler pending in an isolated copy of the desktop
+assets. They require a visible window during preparation, the original A loading
+mark, normal/reduced-motion intro behavior, same-window handoff after painting,
+explicit Retry, duplicate-launch exclusion and termination on close. They never
+rebuild assets used by a concurrent suite. HUD fixtures wait for splash disposal;
+only that document uses reduced motion to avoid replaying the intro in every test.
+Preparation and backend failures must keep their error text and Retry readable
+at 640×420 with 125% zoom; native zoom shortcuts must also work after handoff.
+Runs Overview regressions hold background reads pending and assert stable input
+bounds/focus for populated and empty lists and rapid cancellation polling.
+
 After installing desktop dependencies:
 
 ```sh
@@ -547,11 +558,3 @@ empty and creates only the separately mounted read-only folder inside the hub.
 The Docker smoke test starts with those mount sources and verifies that the API
 creates a project which survives restart and shutdown. These checks cover the
 boundary between desktop mount preparation and hub-owned application storage.
-
-Desktop project-polling regressions hold normal and rapid cancellation reads
-pending and verify stable layout, empty-state text and keyboard focus. Terminal
-run navigation tests also retain the Anurati A for every terminal status.
-
-The desktop renderer typecheck also checks standalone splash JavaScript. Native
-startup tests cover normal and reduced-motion introduction, offline artwork and
-the original Anurati A before preparation completes.

@@ -13,5 +13,5 @@
     "outDir": "dist",
     "noEmitOnError": true
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.cjs"]
 }

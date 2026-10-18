@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-- Prepare the accepted terminal introduction and loading artwork as offline
-  desktop splash assets, with the original pulsing A and reduced-motion support.
-
-- Keep Runs Overview background refreshes visually steady and retain the Anurati A
+- Show the desktop window and animated splash before development preparation.
+  Retain the introduction and pulsing `A` through backend startup, then fade
+  into the painted HUD. Support preparation Retry and cancellation on close.
+- Keep Runs Overview background refreshes visually steady and retain the `A`
   status mark after completion, failure and cancellation.
 
 - Align desktop run navigation with the browser: return to Runs Overview on

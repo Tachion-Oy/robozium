@@ -93,8 +93,9 @@ acknowledgement while preserving the typed project name.
 Local validation passed:
 
 - Desktop lint, all TypeScript projects, production build and `git diff --check`.
-- All 201 desktop tests, including unchanged preview screenshot baselines, both
-  themes, narrow layouts, 125% zoom, keyboard focus and subscription cleanup.
+- All 210 desktop tests, including unchanged preview screenshot baselines, both
+  themes, narrow layouts, 125% zoom, keyboard focus, subscription cleanup,
+  visually steady project polling and immediate native splash startup.
 - All 13 native backend lifecycle scenarios on the final assets, including real
   Enter/Send replies, automatic overview return, existing-run opening and
   cancellation/deletion. Captured overview screens were inspected in both themes
@@ -152,19 +153,38 @@ projects; CI already runs it explicitly before building and remains unchanged.
 regular `start` remains the command after source changes. No automatic cache or
 mtime shortcut can silently hide changed source.
 
-## Steady project refreshes and status mark
+## Immediate startup and steady polling follow-up
 
-The loading label now appears only before the first successful project listing.
-Normal and rapid cancellation polling retain row/input bounds, keyboard focus
-and the empty-state message while still reflecting actual status changes. The
-center status mark remains the Anurati A; using the first letter of the status
-incorrectly changed it to C after cancellation. Native regressions cover populated
-and empty lists, fast cancellation reads and all terminal statuses.
+Runs Overview now shows its loading message only before the first successful
+listing. Normal three-second reads and 250 ms cancellation reads retain the
+existing layout, empty-state message and keyboard focus. Status changes and
+errors still reconcile normally. The run status mark always uses the Anurati A;
+using the first letter of a status incorrectly changed it to C on cancellation.
 
-## Offline splash presentation
+The maintainer requested the experiment's immediate animated startup and
+authorized copying its splash presentation. An uncompiled, type-checked Electron
+entry opens the window before staging or compilation. One sandboxed splash view
+covers the same window while the application builds and starts underneath it.
+The reference introduction's cascade, lettering, octagon and pulsing A are adapted
+to offline HTML/CSS/JavaScript; [attribution](../../desktop/splash/SOURCES.md)
+records the presentation-only copy. No reference backend or run logic is imported.
 
-The maintainer authorized copying the reference splash from experiment `076b2c9`.
-Its terminal introduction, lettering artwork, octagon and pulsing A now live in
-`desktop/splash/` as offline HTML/CSS/JavaScript. The cascade keeps complete text
-layout; reduced motion settles it immediately. The renderer typecheck covers the
-JavaScript. Native startup wiring is kept in the following increment.
+The application reports initial readiness and waits for fonts and two paint
+frames. The splash completes its introduction, fades to that painted application,
+then disposes its view. Reduced motion skips reveals/fades. Compiler failures
+offer explicit Retry; backend failures reuse prepared assets. A renderer readiness
+retry checks HTTP without restarting a ready backend. Closing cancels compilation
+and retains the existing owned-container shutdown. The profile lock is acquired
+before preparation, preventing duplicate managed launches from rebuilding files.
+
+The shared preparation runner is also the CLI build implementation, preserving
+the same checks without duplicating shell command sequences. Native tests use
+isolated compiler outputs to hold preparation pending, reject a build, retry,
+verify duplicate-launch exclusion and close a stubborn compiler. Normal HUD tests
+reduce motion only in the splash document and wait for its disposal before input.
+
+An isolated native `--prepare --preview` launch showed the window after 775 ms
+and the painted HUD after 10.263 s, including the real TypeScript/Vite build.
+These are local measurements, not a startup guarantee or Docker readiness timing.
+Compilation remains visible behind the animation. Review also covered native zoom
+after splash disposal and readable startup errors at 640×420 with 125% zoom.

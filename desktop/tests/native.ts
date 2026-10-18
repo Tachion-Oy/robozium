@@ -9,7 +9,20 @@ export const desktopRoot = path.resolve(__dirname, "..")
 // Use Xvfb even when the host has Wayland; keep screenshot density reproducible.
 export const launchArgs = [desktopRoot, "--preview", "--ozone-platform=x11", "--force-device-scale-factor=1"]
 export const documentUrl = "robozium://app/index.html"
-export const preload = path.join(desktopRoot, "dist/preload.js")
+export const preload = path.join(desktopRoot, "src/preload.cjs")
+
+export async function applicationPage(app: ElectronApplication) {
+	await expect.poll(() => app.context().pages().some(page => page.url() === documentUrl)).toBe(true)
+	return app.context().pages().find(page => page.url() === documentUrl)!
+}
+
+export async function finishSplash(app: ElectronApplication) {
+	const splash = app.context().pages().find(page => page.url().endsWith("/splash/index.html"))
+	if (splash) {
+		await splash.emulateMedia({ reducedMotion: "reduce" })
+		await expect.poll(() => splash.isClosed(), { timeout: 10_000 }).toBe(true)
+	}
+}
 
 export const test = base.extend<{ desktop: { app: ElectronApplication; page: Page } }>({
 	desktop: async ({ playwright }, use, testInfo) => {
@@ -28,11 +41,13 @@ export const test = base.extend<{ desktop: { app: ElectronApplication; page: Pag
 			child = app.process()
 			child.stdout?.on("data", chunk => logs.push(String(chunk)))
 			child.stderr?.on("data", chunk => logs.push(String(chunk)))
-			const page = await app.firstWindow()
+			await app.firstWindow()
+			const page = await applicationPage(app)
 			const errors: string[] = []
 			page.on("pageerror", error => errors.push(error.message))
 			await expect(page.getByRole("heading", { name: "Robozium", exact: true })).toBeVisible()
 			await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeVisible()
+			await finishSplash(app)
 			await use({ app, page })
 			expect(errors).toEqual([])
 		} finally {
@@ -62,12 +77,12 @@ export async function waitForPanelLayout(page: Page) {
 }
 
 export async function setNativeViewport(app: ElectronApplication, page: Page, width: number, height: number, zoom: number) {
-	const previousZoom = await app.evaluate(({ BrowserWindow }, { width, height }) => {
+	const previousZoom = await app.evaluate(({ BrowserWindow, webContents }, { width, height, url }) => {
 		const window = BrowserWindow.getAllWindows()[0]
-		const previousZoom = window.webContents.getZoomFactor()
+		const previousZoom = webContents.getAllWebContents().find(contents => contents.getURL() === url)!.getZoomFactor()
 		window.setContentSize(width, height)
 		return previousZoom
-	}, { width, height })
+	}, { width, height, url: page.url() })
 	// A pending native resize can overwrite a zoom set alongside it. Wait for
 	// the renderer to observe the new dimensions before changing its zoom.
 	await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight]))
@@ -75,11 +90,11 @@ export async function setNativeViewport(app: ElectronApplication, page: Page, wi
 	// A later native synchronization can still reset zoom after the size arrives.
 	// Converge setup on both the actual zoom and renderer dimensions before testing.
 	await expect.poll(async () => {
-		const factor = await app.evaluate(({ BrowserWindow }, zoom) => {
-			const contents = BrowserWindow.getAllWindows()[0].webContents
-			contents.setZoomFactor(zoom)
+		const factor = await app.evaluate(({ webContents }, { zoom, url }) => {
+			const contents = webContents.getAllWebContents().find(contents => contents.getURL() === url)!
+			for (const page of webContents.getAllWebContents()) page.setZoomFactor(zoom)
 			return contents.getZoomFactor()
-		}, zoom)
+		}, { zoom, url: page.url() })
 		return { factor, size: await page.evaluate(() => [innerWidth, innerHeight]) }
 	}).toEqual({ factor: zoom, size: [width / zoom, height / zoom] })
 }
@@ -92,10 +107,10 @@ export async function captureNative(app: ElectronApplication, page: Page, width:
 	// CDP screenshots crop at Electron zoom. Wait for the full native surface.
 	let screenshot: Buffer | undefined
 	await expect.poll(async () => {
-		const capture = await app.evaluate(async ({ BrowserWindow }) => {
-			const image = await BrowserWindow.getAllWindows()[0].webContents.capturePage()
+		const capture = await app.evaluate(async ({ webContents }, url) => {
+			const image = await webContents.getAllWebContents().find(contents => contents.getURL() === url)!.capturePage()
 			return { size: image.getSize(), png: image.toPNG().toString("base64") }
-		})
+		}, page.url())
 		screenshot = Buffer.from(capture.png, "base64")
 		return capture.size
 	}).toEqual({ width, height })

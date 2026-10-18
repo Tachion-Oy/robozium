@@ -2,7 +2,7 @@ import { _electron, expect, type Page } from "@playwright/test"
 import { once } from "node:events"
 import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { test, desktopRoot, launchArgs, documentUrl, preload, waitForPanelLayout, captureNative } from "./native"
+import { test, desktopRoot, launchArgs, documentUrl, preload, waitForPanelLayout, captureNative, applicationPage, finishSplash } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
 async function expectPanelGeometry(page: Page, layout: "top" | "equal" | "bottom") {
@@ -714,6 +714,7 @@ test("native close exits and the same profile can reopen", async ({ desktop: { a
 		timeout: 15_000,
 	})
 	try {
-		await expect((await reopened.firstWindow()).getByRole("status")).toHaveText(/^Version /)
+		await expect((await applicationPage(reopened)).getByRole("status")).toHaveText(/^Version /)
+		await finishSplash(reopened)
 	} finally { await reopened.close() }
 })

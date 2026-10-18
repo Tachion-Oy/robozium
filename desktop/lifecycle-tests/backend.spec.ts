@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import net from "node:net"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { captureNative, documentUrl, setNativeViewport } from "../tests/native"
+import { applicationPage, finishSplash, captureNative, documentUrl, setNativeViewport } from "../tests/native"
 import { expectFooterGeometry } from "../tests/footer-geometry"
 import { resolveBackendLayout } from "../src/backend-layout.cjs"
 import { installTestClient } from "../tests/transport"
@@ -104,8 +104,9 @@ async function closeWindow(app: ElectronApplication) {
 
 async function launchConnected(runtime: Runtime) {
 	const app = await runtime.launch()
-	const page = await app.firstWindow()
+	const page = await applicationPage(app)
 	await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeVisible({ timeout: 180_000 })
+	await finishSplash(app)
 	return { app, page }
 }
 
@@ -126,6 +127,7 @@ test("Docker startup failure presents an accessible retry that starts the backen
 	await expect(page.getByRole("button", { name: "Start run", exact: true })).toHaveCount(0)
 	await setNativeViewport(app, page, 640, 420, 1.25)
 	expect(await page.evaluate(() => document.documentElement.scrollHeight === innerHeight)).toBe(true)
+	expect(await page.getByRole("alert").evaluate(element => element.clientHeight >= element.scrollHeight)).toBe(true)
 	const retry = await page.getByRole("button", { name: "Retry", exact: true }).boundingBox()
 	expect(retry!.height).toBeGreaterThan(24)
 	expect(retry!.height).toBeLessThan(60)
@@ -134,13 +136,15 @@ test("Docker startup failure presents an accessible retry that starts the backen
 	await testInfo.attach("startup-error.png", { path: screenshot, contentType: "image/png" })
 	await writeFile(enabled, "retry")
 	await page.getByRole("button", { name: "Retry", exact: true }).click()
-	await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeVisible({ timeout: 180_000 })
+	await expect((await applicationPage(app)).getByRole("button", { name: "Start run", exact: true })).toBeVisible({ timeout: 180_000 })
+	await finishSplash(app)
 })
 
 test("initial renderer readiness times out, recovers automatically, and supports Retry without Docker", async ({ runtime }) => {
 	const { port, commands } = runtime
 	const app = await runtime.launch()
-	const page = await app.firstWindow()
+	const splash = await app.firstWindow()
+	const page = await applicationPage(app)
 	let blocked = true
 	let readinessRequests = 0
 	const abortedReady = page.waitForEvent("requestfailed", request => request.url() === `http://127.0.0.1:${port}/ready`)
@@ -150,7 +154,7 @@ test("initial renderer readiness times out, recovers automatically, and supports
 		if (!blocked) await route.continue()
 	})
 	await test.step("Abort the timed-out request and schedule another read", async () => {
-		await expect(page.getByRole("alert")).toContainText("Backend connection unavailable", { timeout: 180_000 })
+		await expect(splash.getByRole("alert")).toContainText("Backend connection unavailable", { timeout: 180_000 })
 		await expect(page.getByRole("button", { name: "Start run", exact: true })).toHaveCount(0)
 		await abortedReady
 		await page.clock.install()
@@ -160,8 +164,9 @@ test("initial renderer readiness times out, recovers automatically, and supports
 	await test.step("Retry the connection without issuing Docker commands", async () => {
 		const commandsBeforeRetry = await readFile(commands, "utf8")
 		blocked = false
-		await page.getByRole("button", { name: "Retry", exact: true }).click()
+		await splash.getByRole("button", { name: "Retry", exact: true }).click()
 		await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeVisible()
+		await finishSplash(app)
 		expect(await readFile(commands, "utf8")).toBe(commandsBeforeRetry)
 	})
 })
@@ -326,8 +331,9 @@ test("closing and reopening preserves project data and reuses the backend image"
 	})
 	await test.step("Reopen the installation and reuse its project and image", async () => {
 		const reopened = await runtime.launch()
-		const reopenedPage = await reopened.firstWindow()
+		const reopenedPage = await applicationPage(reopened)
 		await expect(reopenedPage.getByRole("status", { name: "Run status" })).toContainText("Run unavailable", { timeout: 30_000 })
+		await finishSplash(reopened)
 		await expect(reopenedPage.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Native reopen draft")
 		await expect(reopenedPage.getByRole("button", { name: "Cancel", exact: true })).toBeDisabled()
 		await reopenedPage.getByRole("button", { name: "Open Runs Overview" }).click()

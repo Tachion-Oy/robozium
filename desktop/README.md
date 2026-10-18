@@ -27,10 +27,14 @@ Normal startup uses live mode. For a credential-free mock backend:
 npm --prefix desktop start -- --mock
 ```
 
-`start` type-checks and builds the application before opening Electron. The
-separate `typecheck` command additionally checks tests and build tooling; CI runs
-both commands. To reopen unchanged sources after a successful start/build, reuse
-the staged backend and compiled application:
+`start` opens Electron immediately, then stages and builds behind its local
+animated splash. The terminal introduction continues into a translucent Loading
+frame with the pulsing Anurati **A** while the backend starts. Once readiness
+succeeds and the HUD has painted, the splash fades away in the same window.
+Reduced motion shows the settled introduction and uses immediate transitions.
+The separate `typecheck` command additionally checks tests and build tooling;
+CI runs both commands. To reopen unchanged sources after a successful start/build,
+reuse the staged backend and compiled application:
 
 ```sh
 npm --prefix desktop run start:built -- --mock
@@ -43,8 +47,10 @@ image on first launch and waits for readiness. React then checks `/ready` throug
 its HTTP client before showing the HUD. The first
 build requires internet.
 Later launches reuse the image when the staged inputs match its build identifier.
-Startup failures show an explanation and **Retry**. Closing the window cancels
-startup, waits for its Docker client to exit, and stops only the installation's
+Startup failures show an explanation and **Retry** inside the splash. Preparation
+errors keep compiler details in the launching terminal; Retry rebuilds explicitly.
+Backend Retry reuses prepared assets. Closing the window cancels preparation or
+startup, waits for its child processes to exit, and stops only the installation's
 verified API containers. Containers, images, credentials, and host data remain.
 A second managed launch using the same profile exits without changing its backend.
 Docker's target is selected once at startup and retained for Retry and shutdown,
@@ -120,9 +126,9 @@ Enter a **Project name** and press Enter or **Create project** to create it. Suc
 selects the returned slug and refreshes the list. A failed creation retains your
 name; if only the follow-up refresh fails, use **Refresh** without creating again.
 The list loads when entering Runs Overview and on Refresh, retaining existing
-rows and selection on failure. After the first successful listing, background
-reads retain the layout and focus without flashing a loading message. The Current
-Run status mark remains the Anurati A for every status. The selected project and typed name survive view
+rows and selection on failure. Background reads stay silent after the first
+successful load: they do not flash a loading label, shift rows or move focus.
+Actual status changes and failures remain visible. The selected project and typed name survive view
 changes and connection outages. Reopening restores a saved selection only when
 the project still exists; the project-name field resets. Projects remain stored
 in the Python backend.
@@ -194,7 +200,8 @@ agent-message completion keeps its last progress visible until new output or a
 prompt replaces it. Live text scrolls downward; selecting another entry resets
 its scroll. At either end, unavailable directions are disabled and keyboard focus
 moves to the nearest reverse arrow. Empty history disables all arrows. The center
-mark names the current run status, also shown above the output. Preview retains
+mark always displays the Anurati A; its accessible label names the current run
+status, also shown above the output. Preview retains
 three local messages and its static awaiting-input mark. Its run controls remain
 disabled. Record remains unavailable in both modes until dictation is added.
 
@@ -281,6 +288,17 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   remain denied; the bridge exposes no clipboard-read operation. Backend IPC is
   limited to `getBackendConnection()`, `getBackendStatus()`, and `retryBackend()` with the same trusted
   document checks; it exposes no shell or Docker command interface.
+- `src/bootstrap.cjs` opens and owns the native window before compilation,
+  including the sandboxed splash layer, preparation, handoff and shutdown.
+  The main HUD loads beneath it; readiness and two paint frames precede the fade.
+  `src/preload.cjs` runs without compilation and retains strict typed contracts.
+  TypeScript checks both files. Splash IPC validates its exact window/document
+  separately from the main renderer's readiness reports.
+- `src/prepare-desktop.cjs` runs bounded, cancellable tools directly without a
+  shell. `scripts/build-desktop.mjs` uses the same application build steps as
+  the launcher. A duplicate managed launch cannot start another preparation.
+- `splash/` contains offline presentation and artwork adapted from the accepted
+  experiment; [source attribution](splash/SOURCES.md) records the copied parts.
 - `src/backend-controller.ts` coordinates startup, readiness, retry, and shutdown.
 - `src/docker-command.ts` runs one Docker CLI command, handling its output,
   timeout, and cancellation.
@@ -441,8 +459,3 @@ only its own test containers/image and temporary data, including after failures.
 Lifecycle unit tests cover ownership, errors, cancellation, and process cleanup.
 The native backend suite verifies retry, first build/image reuse, close/reopen
 persistence, and cancellation against isolated mock Docker resources.
-
-The standalone startup presentation is under `splash/`; its
-[source attribution](splash/SOURCES.md) records the authorized experiment copy.
-The HTML, CSS and checked JavaScript can load before application compilation.
-Native startup integration follows separately.
