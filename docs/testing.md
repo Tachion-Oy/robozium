@@ -471,7 +471,8 @@ ownership, and cancellation during a blocked build. A persistence scenario creat
 projects through the labelled form, exercises duplicate-name errors and keyboard
 selection/refresh, closes the native window, and verifies
 stopped containers and retained data. Reopening that same installation must reuse
-its image and projects while resetting the local selection; named steps make
+its image and projects, restore selection/draft, and explain that the previous run
+is unavailable after backend restart without launching another; named steps make
 these dependent phases explicit. Logs and a startup-error capture are attached
 to the report.
 Native lifecycle captures wait for the renderer to observe a window resize before
@@ -528,3 +529,9 @@ activation and disappear only after cancellation and confirmed deletion.
 backoff and the four-second cap, queued snapshots after stream open, duplicate
 events, premature closure, snapshot/open deadlines, permanent failures and
 replacement-session cleanup. Readiness recovery preserves the mounted HUD.
+
+`desktop/tests/recovery.spec.ts` verifies validated reload recovery, terminal
+history, missing runs and deleted projects, mode separation, corrupt records,
+storage failure and deletion cleanup. The real native close/reopen scenario
+checks preserved drafts/projects after the backend loses its in-memory runs,
+with no automatic launch. Preview continues to reset local state on reload.

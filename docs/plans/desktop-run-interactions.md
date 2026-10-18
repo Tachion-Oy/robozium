@@ -52,3 +52,16 @@ The generic read retry policy matches the browser's retryable HTTP statuses.
 Readiness recovers through HTTP with the same backoff and retains manual Retry.
 No recovery path restarts Docker or replays writes. Native tests cover retries,
 missed events, deadlines, disposal and the earlier PR 8 output scenarios.
+
+## 9e — Reopen recovery
+
+The trusted connection bridge includes live/mock mode; preview returns null.
+One versioned localStorage record per profile/mode retains the selected project,
+last run/project identity and single current draft. Parsed records exclude
+transcripts and prompts. Storage errors are visible without disrupting editing.
+Project listings validate restored selection. A saved run is validated by a
+snapshot before opening SSE; terminal history needs no subscription. Missing
+runs stop reads and retain the draft in Current Run with navigation for explicit
+relaunch. Successful deletion clears matching saved identities. Native tests
+cover reload, mode separation, malformed/unavailable storage, deleted projects,
+missing and terminal runs, and real close/reopen after backend shutdown.

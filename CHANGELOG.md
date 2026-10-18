@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Restore desktop drafts, project selection and known runs after reload/reopen,
+  with separate live/mock records. Missing runs retain the draft and require an
+  explicit launch; storage failures leave the current draft usable.
+
 - Automatically reconnect desktop run output and readiness checks with capped
   backoff, retaining drafts/history and recovering missed events without new runs.
 
@@ -17,7 +21,7 @@
 - Start selected projects from the desktop HUD and display live output, prompts,
   history, and completion. Preserve drafts and output on errors, keep one session
   across views, and retry output without creating another run. Standalone preview
-  remains available; replies and cancellation controls are still deferred.
+  remains available.
   Separate run reconciliation from desktop HUD selection, clear abandoned model
   attempts, keep active prompts and settling progress visible, and process token
   updates without rebuilding completed history. Keep recovered script entries

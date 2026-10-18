@@ -5,4 +5,4 @@ import "./app/app.css"
 
 const root = document.getElementById("root")
 if (!root) throw new Error("The application root element is missing.")
-createRoot(root).render(<BackendStartup>{(notice, client, connected) => <App connectionNotice={notice} client={client} connected={connected} />}</BackendStartup>)
+createRoot(root).render(<BackendStartup>{(notice, client, connected, mode) => <App connectionNotice={notice} client={client} connected={connected} mode={mode} />}</BackendStartup>)

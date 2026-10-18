@@ -8,6 +8,8 @@ import { HudDividerControls, type LayoutMode } from "../hud/HudDividerControls"
 import { HudFooter } from "../hud/HudFooter"
 import { mockMessages, modelOptions } from "../../app/preview"
 import { viewOptions, runViewOptions, type AppView } from "../../app/navigation"
+import type { BackendMode } from "../../../../src/bridge"
+import { useRecovery } from "../../recovery/useRecovery"
 import type { DesktopApiClient } from "../../api/client"
 import { useModels } from "../../models/useModels"
 import { useProjects } from "../../projects/useProjects"
@@ -22,9 +24,12 @@ interface AppProps {
 	connectionNotice?: ReactNode
 	client?: DesktopApiClient | null
 	connected?: boolean
+	mode?: BackendMode | null
 }
 
-export function App({ connectionNotice, client = null, connected = true }: AppProps) {
+export function App({ connectionNotice, client = null, connected = true, mode = null }: AppProps) {
+	const recovery = useRecovery(mode)
+	const [restored, setRestored] = useState(recovery.initial.run === null)
 	const [theme, setTheme] = useState<"dark" | "light">("dark")
 	const [model, setModel] = useState<string>("mock")
 	const projectsSelection = useRef("")
@@ -32,13 +37,13 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	const run = useRunSession(client)
 	const busyProject = run.session && (!isTerminal(run.session.run.status) && !run.session.run.unavailable || run.replying || run.interrupting)
 		? run.session.run.project : run.creating ? projectsSelection.current : ""
-	const projects = useProjects(client, view === "projects", connected, { onDeleted: run.closeProject, busyProject })
+	const projects = useProjects(client, view === "projects", connected, { onDeleted: run.closeProject, busyProject, initialSelected: recovery.initial.selectedProject })
 	projectsSelection.current = projects.selected
 	const models = useModels(client, connected)
 	const [hasPreview, setHasPreview] = useState(false)
 	const session = run.session
 	const hasRun = client ? session !== null : hasPreview
-	const [draft, setDraft] = useState("")
+	const [draft, setDraft] = useState(recovery.initial.draft)
 	const draftRevision = useRef(0)
 	const changeDraft = (value: string) => { draftRevision.current++; setDraft(value) }
 	const cancelling = session ? projects.cancelling.has(session.run.project) : false
@@ -59,12 +64,25 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	const messageIndex = client ? display.index : selectedMessage
 	const message = client ? display.text : mockMessages[selectedMessage]
 	const status = session?.run.unavailable ? "Run unavailable" : session ? runLabels[session.run.status] : "Awaiting input"
-	const canStart = connected && Boolean(projects.selected && models.selection?.selected_model_id) && !models.pending && !models.error && !run.creating && !projects.cancelling.has(projects.selected) && !projects.deleting.has(projects.selected)
+	const canStart = connected && Boolean(projects.projects.some(project => project.slug === projects.selected) && models.selection?.selected_model_id) && !models.pending && !models.error && !run.creating && !projects.cancelling.has(projects.selected) && !projects.deleting.has(projects.selected)
 	const showRun = () => { setFocusRunEditor(true); setView("run") }
 	const startRun = async () => {
 		if (!client) { setHasPreview(true); showRun(); return }
 		if (canStart && await run.start(projects.selected)) { projects.refresh(); showRun() }
 	}
+
+	useEffect(() => {
+		if (!client || !connected || restored) return
+		const saved = recovery.initial.run
+		if (saved) { run.open(saved.id, saved.project, true); setView("run") }
+		setRestored(true)
+	}, [client, connected, restored, recovery.initial.run, run.open])
+
+	useEffect(() => {
+		if (!restored) return
+		recovery.save({ version: 1, selectedProject: projects.selected, draft,
+			run: session ? { id: session.run.runId, project: session.run.project } : null })
+	}, [restored, recovery.save, projects.selected, draft, session?.run.runId, session?.run.project])
 
 	useEffect(() => {
 		document.documentElement.dataset.theme = theme
@@ -121,6 +139,7 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 					<HudButton aria-label="Retry model change" aria-disabled={!models.canRetry || run.creating} onClick={() => { if (!run.creating) models.retry() }}>Retry change</HudButton>
 				</div>}
 				{connectionNotice}
+				{recovery.error && <p role="alert">{recovery.error}</p>}
 			</div>
 			<div className="hud-frame__content">
 				{view === "run" ? (
@@ -131,7 +150,9 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 							{session.run.error && <p role="alert">{session.run.error}</p>}
 							{projects.actionError && <p role="alert">{projects.actionError}</p>}
 							{run.actionError && <p role="alert">{run.actionError}</p>}
-							{session.run.error && <HudButton onClick={run.retry} disabled={!connected || run.creating}>Retry output</HudButton>}
+							{session.run.unavailable && <p>The previous run is unavailable. Your draft is retained. Open Runs Overview to launch explicitly.</p>}
+							{session.run.unavailable && <HudButton onClick={() => setView("projects")}>Open Runs Overview</HudButton>}
+							{session.run.error && !session.run.unavailable && <HudButton onClick={run.retry} disabled={!connected || run.creating}>Retry output</HudButton>}
 						</div>}
 						draft={draft} onDraftChange={changeDraft} onSend={client ? () => { void send() } : undefined}
 						layout={layout} focusOnOpen={focusRunEditor} editor={editor} />
@@ -151,7 +172,7 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 				onInterrupt={() => { void run.interrupt() }} interrupting={run.interrupting}
 				canInterrupt={connected && !deleting && !cancelling && !run.creating && !run.interrupting && Boolean(session?.run.synchronized && session.run.status === "running" && !session.run.prompt)}
 				onCancel={() => { if (session) { projects.cancelProject(session.run.project, true); run.refresh() } }} cancelling={cancelling}
-				canCancel={Boolean(client && connected && session && !deleting && !run.creating && !cancelling && (["queued", "running", "awaiting_user_input"].includes(session.run.status) || projects.projects.some(row => row.slug === session.run.project && row.status === "syncing")))}
+				canCancel={Boolean(client && connected && session && !session.run.unavailable && !deleting && !run.creating && !cancelling && (["queued", "running", "awaiting_user_input"].includes(session.run.status) || projects.projects.some(row => row.slug === session.run.project && row.status === "syncing")))}
 				onClear={() => { changeDraft(""); editor.current?.focus() }} />}
 			<HudDividerControls mode={layout} disabled={view !== "run"} onChange={setLayout} />
 		</main>

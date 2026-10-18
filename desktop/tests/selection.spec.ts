@@ -193,7 +193,7 @@ test("write deadlines retain confirmed state and drafts without automatic retrie
 	expect(backend.requests.filter(request => request.method === "POST")).toHaveLength(2)
 })
 
-test("reload cancels pending writes and resets only local project state", async ({ desktop: { page }, backend }) => {
+test("reload cancels pending writes and restores confirmed project selection", async ({ desktop: { page }, backend }) => {
 	let closed = 0
 	const stall = (response: ServerResponse) => response.on("close", () => closed++)
 	backend.handlers.set("POST /projects", stall)
@@ -209,7 +209,7 @@ test("reload cancels pending writes and resets only local project state", async 
 	await expect.poll(() => backend.requests.filter(request => request.method === "POST").length).toBe(2)
 	await page.reload()
 	await expect.poll(() => closed).toBe(2)
-	await expect(page.getByText("Selected project: None", { exact: true })).toBeVisible()
+	await expect(page.getByText("Selected project: existing-project", { exact: true })).toBeVisible()
 	await expect(input).toHaveValue("")
 	await expect(model).toHaveAttribute("title", "First model")
 })

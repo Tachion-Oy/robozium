@@ -15,6 +15,7 @@ export function watchRun(
 	runId: string,
 	project: string,
 	dispatch: (action: RunAction) => void,
+	verifyBeforeStream = false,
 ): (() => void) & { refresh: () => void } {
 	const controller = new AbortController()
 	let snapshotTimer: ReturnType<typeof setTimeout> | undefined
@@ -25,6 +26,7 @@ export function watchRun(
 	let snapshotDelay = RECONNECT_BASE_DELAY_MS
 	let streamDelay = RECONNECT_BASE_DELAY_MS
 	let streamError: unknown = null
+	let streamStarted = !verifyBeforeStream
 	const disposed = () => controller.signal.aborted
 	const dispose = () => {
 		controller.abort()
@@ -51,6 +53,7 @@ export function watchRun(
 					snapshotDelay = RECONNECT_BASE_DELAY_MS
 					if (isTerminal(view.status)) { dispose(); return }
 					if (streamError !== null) report(streamError)
+					if (!streamStarted) { streamStarted = true; void follow() }
 				} catch (error) {
 					if (disposed()) return
 					if (!isRetryableReadError(error)) { fail(error); return }
@@ -109,6 +112,6 @@ export function watchRun(
 	}
 
 	void refresh()
-	void follow()
+	if (streamStarted) void follow()
 	return Object.assign(dispose, { refresh: () => { void refresh() } })
 }

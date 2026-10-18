@@ -37,20 +37,20 @@ export function useRunSession(client: DesktopApiClient | null) {
 		creation.current = null
 	}, [])
 	useEffect(() => stop, [client, stop])
-	const subscribe = (runId: string, project: string) => {
+	const subscribe = useCallback((runId: string, project: string, recover = false) => {
 		if (!client) return
 		stop()
 		const current = generation.current
 		dispose.current = watchRun(client, runId, project, action => {
 			if (generation.current === current) dispatch(action)
-		})
-	}
-	const open = (runId: string, project: string) => {
+		}, recover)
+	}, [client, stop])
+	const open = useCallback((runId: string, project: string, recover = false) => {
 		if (!client) return
 		dispatch({ type: "open", runId, project })
 		setCreating(false)
-		subscribe(runId, project)
-	}
+		subscribe(runId, project, recover)
+	}, [client, subscribe])
 	const start = async (project: string): Promise<boolean> => {
 		if (!client || !project || creation.current) return false
 		const controller = new AbortController()

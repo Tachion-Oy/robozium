@@ -16,7 +16,7 @@ type Handler = (response: ServerResponse, body: unknown) => void
 export interface Backend {
 	handlers: Map<string, Handler>
 	requests: { method: string; path: string; body: unknown }[]
-	open: () => Promise<void>
+	open: (mode?: "live" | "mock") => Promise<void>
 }
 
 // Substitute only the selected connection and HTTP boundary, running the built app.
@@ -49,16 +49,16 @@ export const test = native.extend<{ backend: Backend }>({
 		const address = server.address()
 		if (!address || typeof address === "string") throw new Error("No test server port")
 		try {
-			await use({ handlers, requests, open: async () => {
-				await app.evaluate(async ({ ipcMain, protocol }, { baseUrl, modulePath }) => {
+			await use({ handlers, requests, open: async (mode = "mock") => {
+				await app.evaluate(async ({ ipcMain, protocol }, { baseUrl, modulePath, mode }) => {
 					ipcMain.removeHandler("desktop:backend-connection")
-					ipcMain.handle("desktop:backend-connection", () => ({ baseUrl }))
+					ipcMain.handle("desktop:backend-connection", () => ({ baseUrl, mode }))
 					protocol.unhandle("robozium")
 					const load = process.getBuiltinModule("module").createRequire(modulePath)
 					await load(modulePath).registerRendererProtocol(baseUrl)
-				}, { baseUrl: `http://127.0.0.1:${address.port}`, modulePath: path.join(desktopRoot, "dist/renderer-protocol.js") })
+				}, { baseUrl: `http://127.0.0.1:${address.port}`, modulePath: path.join(desktopRoot, "dist/renderer-protocol.js"), mode })
 				await page.reload()
-				await expect(page.getByRole("heading", { name: "Runs Overview" })).toBeVisible()
+				await expect(page.locator(".hud-frame__content")).toBeVisible()
 			} })
 		} finally {
 			await page.goto("about:blank") // Unmount/abort before closing the HTTP boundary.

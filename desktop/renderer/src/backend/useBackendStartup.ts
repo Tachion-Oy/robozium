@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react"
+import type { BackendMode } from "../../../src/bridge"
 import { DesktopApiClient } from "../api/client"
 
 type StartupState =
 	| { state: "starting" | "error"; message: string }
-	| { state: "ready"; client: DesktopApiClient | null }
+	| { state: "ready"; client: DesktopApiClient | null; mode: BackendMode | null }
 
 /** Own Docker startup polling and discover the renderer's connection once ready. */
 export function useBackendStartup() {
@@ -32,7 +33,7 @@ export function useBackendStartup() {
 				const connection = await window.robozium.getBackendConnection()
 				if (!active) return
 				const client = connection === null ? null : new DesktopApiClient(connection.baseUrl)
-				setStartup({ state: "ready", client })
+				setStartup({ state: "ready", client, mode: connection?.mode ?? null })
 			} catch {
 				if (active) setStartup({ state: "error", message: "Could not read backend connection information. Restart Robozium." })
 			}

@@ -27,9 +27,10 @@ export interface ProjectsState {
 	create: () => void
 }
 
-export function useProjects(client: DesktopApiClient | null, visible: boolean, connected = true, options: { onDeleted?: (slug: string) => void; busyProject?: string } = {}): ProjectsState {
+export function useProjects(client: DesktopApiClient | null, visible: boolean, connected = true, options: { onDeleted?: (slug: string) => void; busyProject?: string; initialSelected?: string } = {}): ProjectsState {
 	const [projects, setProjects] = useState<Project[]>([])
-	const [selected, setSelected] = useState("")
+	const [selected, setSelected] = useState(options.initialSelected ?? "")
+	const loaded = useRef(false)
 	const [name, setName] = useState("")
 	const [cancelling, setCancelling] = useState<ReadonlySet<string>>(new Set())
 	const pendingCancels = useRef(new Set<string>())
@@ -67,7 +68,10 @@ export function useProjects(client: DesktopApiClient | null, visible: boolean, c
 				else pendingDeletes.current.delete(slug)
 			}
 			setDeleting(new Set(pendingDeletes.current))
-			setProjects(rows.filter(row => !removedSlugs.current.has(row.slug)))
+			const confirmed = rows.filter(row => !removedSlugs.current.has(row.slug))
+			setProjects(confirmed)
+			setSelected(current => confirmed.some(row => row.slug === current) ? current : "")
+			loaded.current = true
 			for (const slug of pendingCancels.current) {
 				if (!operations.current.has(slug) && !rows.some(row => row.slug === slug && row.status !== "dormant")) pendingCancels.current.delete(slug)
 			}
@@ -76,12 +80,12 @@ export function useProjects(client: DesktopApiClient | null, visible: boolean, c
 	}, [client, connected, run, finishDeletion])
 	const refresh = useCallback(() => { cancel(); return load() }, [cancel, load])
 	useEffect(() => {
-		if (!client || !connected || !visible && cancelling.size === 0 && deleting.size === 0) return cancel
+		if (!client || !connected || !visible && loaded.current && cancelling.size === 0 && deleting.size === 0) return cancel
 		let active = true
 		let timer: ReturnType<typeof setTimeout> | undefined
 		const poll = async () => {
 			await load()
-			if (active) timer = setTimeout(() => { void poll() }, pendingCancels.current.size ? 250 : 3000)
+			if (active && (visible || pendingCancels.current.size || pendingDeletes.current.size)) timer = setTimeout(() => { void poll() }, pendingCancels.current.size ? 250 : 3000)
 		}
 		void poll()
 		return () => { active = false; clearTimeout(timer); cancel() }
@@ -90,6 +94,11 @@ export function useProjects(client: DesktopApiClient | null, visible: boolean, c
 		const requests = operations.current
 		return () => { for (const request of requests.values()) request.abort(); requests.clear() }
 	}, [client])
+	const wasConnected = useRef(connected)
+	useEffect(() => {
+		if (connected && !wasConnected.current && !visible) void refresh()
+		wasConnected.current = connected
+	}, [connected, visible, refresh])
 	const cancelWork = async (slug: string, active = false) => {
 		const project = projects.find(row => row.slug === slug)
 		if (!client || !connected || operations.current.has(slug) || pendingDeletes.current.has(slug) || pendingCancels.current.has(slug) || !(active || project && canCancelProject(project))) return

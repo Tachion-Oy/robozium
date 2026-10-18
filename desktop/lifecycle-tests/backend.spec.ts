@@ -170,7 +170,7 @@ test("initial renderer readiness times out, stops polling, and retries without D
 test("renderer HTTP and SSE use the selected backend allowed by CSP", async ({ runtime }) => {
 	const { port } = runtime
 	const { app, page } = await launchConnected(runtime)
-	expect(await page.evaluate(() => window.robozium.getBackendConnection())).toEqual({ baseUrl: `http://127.0.0.1:${port}` })
+	expect(await page.evaluate(() => window.robozium.getBackendConnection())).toEqual({ baseUrl: `http://127.0.0.1:${port}`, mode: "mock" })
 	await installTestClient(page, `http://127.0.0.1:${port}`)
 	const streamed = await page.evaluate(async () => {
 		await window.testApi.request("/projects", { method: "POST", json: { name: "Transport run" } })
@@ -319,6 +319,8 @@ test("closing and reopening preserves project data and reuses the backend image"
 	await expect(projectRow).toHaveAttribute("aria-pressed", "true")
 	const proof = path.join(profile, "mock/hub/projects/native-lifecycle/proof.txt")
 	await writeFile(proof, "native data survives shutdown\n")
+	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Native reopen draft")
 	await test.step("Close the window and retain the mounted project files", async () => {
 		await closeWindow(app)
 		expect(execFileSync(docker, ["inspect", "--format", "{{.State.Running}}", container], { encoding: "utf8" }).trim()).toBe("false")
@@ -327,12 +329,15 @@ test("closing and reopening preserves project data and reuses the backend image"
 	await test.step("Reopen the installation and reuse its project and image", async () => {
 		const reopened = await runtime.launch()
 		const reopenedPage = await reopened.firstWindow()
-		await expect(reopenedPage.getByRole("button", { name: "Start run", exact: true })).toBeVisible({ timeout: 30_000 })
+		await expect(reopenedPage.getByRole("status", { name: "Run status" })).toContainText("Run unavailable", { timeout: 30_000 })
+		await expect(reopenedPage.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Native reopen draft")
+		await expect(reopenedPage.getByRole("button", { name: "Cancel", exact: true })).toBeDisabled()
+		await reopenedPage.getByRole("button", { name: "Open Runs Overview" }).click()
 		await installTestClient(reopenedPage, `http://127.0.0.1:${port}`)
-		const projects = await reopenedPage.evaluate(async () => await window.testApi.request("/projects") as { slug: string }[])
-		expect(projects.some(item => item.slug === "native-lifecycle")).toBe(true)
-		await expect(reopenedPage.getByRole("button", { name: "native-lifecycle", exact: true })).toHaveAttribute("aria-pressed", "false")
-		await expect(reopenedPage.getByText("Selected project: None", { exact: true })).toBeVisible()
+		const projects = await reopenedPage.evaluate(async () => await window.testApi.request("/projects") as { slug: string; run_id: string | null }[])
+		expect(projects.find(item => item.slug === "native-lifecycle")).toMatchObject({ run_id: null })
+		await expect(reopenedPage.getByRole("button", { name: "native-lifecycle", exact: true })).toHaveAttribute("aria-pressed", "true")
+		await expect(reopenedPage.getByText("Selected project: native-lifecycle", { exact: true })).toBeVisible()
 		expect(execFileSync(docker, ["image", "inspect", "--format", "{{.Id}}", `${project}-api`], { encoding: "utf8" }).trim()).toBe(image)
 		expect((await readFile(commands, "utf8")).split("\n").filter(line => line.endsWith(" build api"))).toHaveLength(1)
 		await closeWindow(reopened)

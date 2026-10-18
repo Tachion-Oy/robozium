@@ -88,8 +88,8 @@ refactoring, or packaging. See the [detailed scaffold plan](electron-scaffold.md
 PR 1 remains the small, framework-free scaffold above. The following PRs build
 out `desktop/` while retaining the browser implementation and its regression
 checks. Each adds a runnable result and explains one new responsibility.
-PRs 1 through 7 are merged. The current increment implements the
-[PR 8 run output plan](desktop-run-output.md): React starts the selected project,
+PRs 1 through 8 are merged. The merged
+[PR 8 run output work](desktop-run-output.md) lets React start the selected project,
 streams its output, merges snapshot history, and keeps one app-level session
 through view changes. Explicit output retry reconnects the known ID; terminal
 runs remain readable. Run reconciliation and desktop HUD presentation have
@@ -105,8 +105,9 @@ Provider retry resets transient output; active prompts and
 settling text retain their place in the single-message panel, with explicit
 history pinning. Script identities and prompt boundaries survive history
 recovery. Token updates do not rebuild completed history. Standalone preview
-retains its local history. Replies,
-cancellation controls, automatic reconnection, and reopen recovery follow in PR 9.
+retains its local history. The current [PR 9 work](desktop-run-interactions.md)
+adds text replies, interruption, shared project cancellation, confirmed deletion,
+automatic reconnection and draft/project/run recovery after reopening.
 Rich Markdown and artifact-link rendering remain tracked presentation parity work.
 
 | PR | Change | Acceptance |
@@ -122,7 +123,7 @@ Rich Markdown and artifact-link rendering remain tracked presentation parity wor
 | **6. Connect the desktop API client** | Add direct HTTP/SSE transport, the selected-address bridge/CSP, backend Host/Origin checks, and readiness/error/Retry presentation; see the [PR 6 plan](desktop-api-client.md). Keep application controls on fixtures. | Native tests seed and stream a real mock run, exercise initial failure/outage/recovery, and preserve HUD state. Python checks protect access policy and existing Environment/credential boundaries. |
 | **7. Port project and model selection** | Adapt project listing, selection/creation, and acknowledged default model selection into desktop; see the [PR 7 plan](desktop-project-model-selection.md). Keep navigation and UI state local to desktop. | Create/select a project and choose a model using mock backend data. Preserve loading, empty, failure, keyboard, and focus behavior. |
 | **8. Port run creation and live output** | Adapt run contracts, session ownership, and text presentation to start the selected project and display live updates; see the [PR 8 notes](desktop-run-output.md). Keep the desktop session within `desktop/`. | A native test starts a mock run and observes streamed output and completion. Verify cancellation of obsolete subscriptions and a single active session. |
-| **9. Port replies, interruption, and recovery** | [Implementation notes](desktop-run-interactions.md). 9a: typed replies, acknowledgement guards and keyboard/IME submission complete. 9b: interruption, project cancellation and status polling complete. 9c: confirmed dormant-project deletion complete. 9d: automatic HTTP/SSE reconnection complete. Reopen recovery follows. | Verify draft preservation, reply submission, interruption, backend restart, and recovery without duplicate messages or subscriptions. |
+| **9. Port replies, interruption, and recovery** | [Implementation notes](desktop-run-interactions.md). 9a: typed replies, acknowledgement guards and keyboard/IME submission complete. 9b: interruption, project cancellation and status polling complete. 9c: confirmed dormant-project deletion complete. 9d: automatic HTTP/SSE reconnection complete. 9e: validated mode-scoped draft/project/run recovery complete. | Verify draft preservation, reply submission, interruption, backend restart, and recovery without duplicate messages or subscriptions. |
 | **10. Port credential unlocking** | Copy and adapt the encrypted-credential unlock state and controls. Keep keys and decryption in the backend. | Verify locked/unlocked/error states using disposable test credentials, with no secrets in frontend configuration, logs, or packaged assets. |
 | **11. Port environment editing** | Copy environment display, editing, and import controls into desktop. Reuse the backend API contract rather than the Next.js routes. | Cover edits, imports, validation failures, unsaved changes, and persistence using isolated mock data. |
 | **12. Port capabilities and dependency views** | Copy capability selection and dependency diagnostics into desktop. Keep native restart actions for PR 16. | Verify available/missing capabilities, selection, errors, and diagnostic rendering against the mock backend. |

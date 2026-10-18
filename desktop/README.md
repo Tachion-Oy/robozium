@@ -9,7 +9,7 @@ submits. Editing stays available during submission. Only acknowledged, unchanged
 drafts clear; failures preserve the draft and refresh the run without repeating
 the write.
 Light/Dark switches the theme, and Secrets unavailable is disabled.
-credentials, and capability selection follow in later roadmap increments.
+Credential unlocking and capability selection follow in later roadmap increments.
 
 ## Run on Linux
 
@@ -56,9 +56,8 @@ Keys and decryption remain in the Python backend. Startup opens the HUD
 after the renderer connects; credential-unlock controls follow in PR 10.
 
 Once connected, React checks readiness every five seconds with a three-second
-timeout. A connection failure retries with exponential delays from 500 ms to four seconds
-and shows an accessible notice with
-**Retry**. The HUD stays mounted, preserving your draft, model/view and history
+timeout. A connection failure retries with exponential delays from 500 ms to four
+seconds and shows an accessible notice with **Retry**. The HUD stays mounted, preserving your draft, model/view and history
 selection, divider position, and theme. Connection Retry checks the existing API
 and resumes polling when ready; it does not rebuild or restart Docker. Backend
 startup Retry still retries Docker setup. Preview makes no API requests.
@@ -87,7 +86,8 @@ Preview profiles stay in `.artifacts/desktop/scaffold/`. Close and restart eithe
 command to rebuild after source changes. `.artifacts/desktop/data/` is persistent
 user data; `desktop/.stage/` and `desktop/dist/` are regenerable build outputs.
 
-The app starts in dark mode with Runs Overview selected. Connected mode loads
+The app starts in dark mode and reopens a saved Current Run when available;
+otherwise it opens Runs Overview. Connected mode loads
 the backend's default model; preview uses the local Mock model fixture. Tab moves
 through the model selector, theme button, and view selector, skipping Secrets.
 Open a selector with a click, Enter, Space, or an arrow key. Use arrows, Home/End,
@@ -110,8 +110,9 @@ selects the returned slug and refreshes the list. A failed creation retains your
 name; if only the follow-up refresh fails, use **Refresh** without creating again.
 The list loads when entering Runs Overview and on Refresh, retaining existing
 rows and selection on failure. The selected project and typed name survive view
-changes and connection outages, and reset when the application reloads. Projects
-remain stored in the Python backend.
+changes and connection outages. Reopening restores a saved selection only when
+the project still exists; the project-name field resets. Projects remain stored
+in the Python backend.
 
 Selection requests have ten-second deadlines and are cancelled on unmount.
 Obsolete project reads are cancelled when refreshing or leaving Runs Overview.
@@ -136,8 +137,25 @@ queue a fresh snapshot to recover missed events. Completed, failed, and cancelle
 runs stay readable and stop polling; unknown runs show **Run unavailable**.
 Malformed responses and permanent HTTP errors stop automatic recovery.
 
+Desktop **Interrupt** requests a prompt while a run is running. **Cancel** in
+Current Run and each overview row cancels project work, including background
+syncing. Pending actions reject duplicate submissions. Overview status refreshes
+every three seconds while connected and every 250 ms during cancellation.
+Cancel remains available while interruption is pending.
+
+**Delete** in Runs Overview is enabled only for a confirmed dormant project with
+no conflicting local operation. Activate it twice to confirm that project's
+removal. Blur, Escape, navigation or a status change dismisses confirmation.
+Cancellation and background syncing must finish first. Pending deletion blocks
+launch and other actions for that project and remains visible through refreshes.
+A conflict refreshes status; an uncertain result is checked by listing projects
+without repeating DELETE. Successful removal clears matching selection and run
+references, retains the reply draft and focuses the next project/name field.
+
+
 In standalone preview, **Start run** opens the latest local mock message above
-an empty reply editor. Preview editing stays local; Enter inserts a newline. The arrow buttons in the left rail move the
+an empty reply editor. Preview editing stays local; Enter inserts a newline.
+The arrow buttons in the left rail move the
 divider between message-expanded, equal, and reply-expanded positions. At each
 limit, the unavailable direction is disabled. Messages and long drafts scroll
 inside their own panels. Divider changes animate over 220ms, or move immediately
@@ -153,8 +171,8 @@ prompt replaces it. Live text scrolls downward; selecting another entry resets
 its scroll. At either end, unavailable directions are disabled and keyboard focus
 moves to the nearest reverse arrow. Empty history disables all arrows. The center
 mark names the current run status, also shown above the output. Preview retains
-three local messages and its static awaiting-input mark. Cancel, Interrupt,
-and Record remain disabled in this increment; draft editing stays local.
+three local messages and its static awaiting-input mark. Its run controls remain
+disabled. Record remains unavailable in both modes until dictation is added.
 
 Output uses the existing text renderer. Rich Markdown and artifact-link rendering
 remain tracked desktop parity work.
@@ -181,9 +199,17 @@ Run and wrap beneath the centered history controls when space is tight.
 
 Switch views using the header, or use **Return to run** in Runs Overview. The
 draft, selected message, and divider position survive view, model, theme,
-window-size, and zoom changes. Reloading or restarting resets the desktop to
-Runs Overview with no local session; it does not recover an existing run yet.
-Dependencies and Environment still display “This view is coming soon.” Divider controls remain visible but disabled outside Current Run.
+window-size, and zoom changes. Reloading/reopening restores the draft, selected
+project and last run identity from one versioned renderer storage record per
+Electron profile and live/mock mode. The backend supplies history and prompt
+state; transcripts are not stored in the renderer. Existing terminal runs reopen
+as readable history. If the backend restarted and the old run is gone, Current
+Run retains the draft and offers **Open Runs Overview** for an explicit launch.
+Recovery never creates a run automatically. Storage failures are reported while
+the current draft remains editable. Theme, divider and history selection reset
+on reopen. Preview remains local and resets on reload.
+Dependencies and Environment still display “This view is coming soon.” Divider
+controls remain visible but disabled outside Current Run.
 
 Both selectors reserve stable widths for their labels, so changing the model or
 view keeps the other header controls in place. They shrink with the window;
@@ -251,6 +277,7 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   | `models/` | Model requests and validation, acknowledged backend selection and explicit retry. |
   | `run/` | Run contracts, requests, payload decoding, event reconciliation and live updates. |
   | `session/` | One run's request lifetime and atomic composition of run data with HUD state. |
+  | `recovery/` | Validated local draft/selection/run storage scoped to profile and backend mode. |
   | `hud/` | Message projection, history, display selection and layout logic. |
   | `api/` | Shared HTTP/SSE transport, request deadlines and React request state. |
   | `assets/` | Bundled Anurati status-mark font. |
@@ -278,7 +305,8 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   `hud/hud-reducer.ts` coordinates live text, history and selection;
   `hud-history.ts`, `hud-view.ts` and `hud-messages.ts` own grouping/recovery,
   prompt/display composition and typed text extraction respectively.
-  [PR 8 notes](../docs/plans/desktop-run-output.md) record browser sources and adaptations.
+  [PR 8 notes](../docs/plans/desktop-run-output.md) and
+  [PR 9 notes](../docs/plans/desktop-run-interactions.md) record browser sources and adaptations.
 - `tsconfig.json` supplies Node types and module settings for every file in
   `src/`. Its standard name lets editors discover the same project used by the
   build. The test and Vite configurations extend it.
@@ -386,18 +414,3 @@ only its own test containers/image and temporary data, including after failures.
 Lifecycle unit tests cover ownership, errors, cancellation, and process cleanup.
 The native backend suite verifies retry, first build/image reuse, close/reopen
 persistence, and cancellation against isolated mock Docker resources.
-
-Desktop **Interrupt** requests a prompt while a run is running. **Cancel** in
-Current Run and each overview row cancels project work, including background
-syncing. Pending actions reject duplicate submissions. Overview status refreshes
-every three seconds while connected and every 250 ms during cancellation.
-Cancel remains available while interruption is pending.
-
-**Delete** in Runs Overview is enabled only for a confirmed dormant project with
-no conflicting local operation. Activate it twice to confirm that project's
-removal. Blur, Escape, navigation or a status change dismisses confirmation.
-Cancellation and background syncing must finish first. Pending deletion blocks
-launch and other actions for that project and remains visible through refreshes.
-A conflict refreshes status; an uncertain result is checked by listing projects
-without repeating DELETE. Successful removal clears matching selection and run
-references, retains the reply draft and focuses the next project/name field.
