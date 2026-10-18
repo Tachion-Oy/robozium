@@ -3,6 +3,20 @@ import type { ProjectsState } from "../projects/useProjects"
 import { isTerminal } from "../run/run-contracts"
 import type { RunSessionController } from "../session/useRunSession"
 
+export interface RunActionAvailability {
+	cancelling: boolean
+	hasActiveRun: boolean
+	canReply: boolean
+	canInterrupt: boolean
+	canCancel: boolean
+}
+
+export interface LaunchAvailability {
+	existingRunId: string | null
+	canOpen: boolean
+	canStart: boolean
+}
+
 /** Projects with local work cannot be deleted, even after selection changes. */
 export function busyProjects(run: RunSessionController): string[] {
 	const projects: string[] = []
@@ -17,7 +31,11 @@ export function busyProjects(run: RunSessionController): string[] {
 	return projects
 }
 
-export function runActionAvailability(run: RunSessionController, projects: ProjectsState, connected: boolean) {
+export function runActionAvailability(
+	run: RunSessionController,
+	projects: ProjectsState,
+	connected: boolean,
+): RunActionAvailability {
 	const session = run.session
 	const project = session?.run.project
 	const cancelling = project !== undefined && projects.cancelling.has(project)
@@ -36,7 +54,12 @@ export function runActionAvailability(run: RunSessionController, projects: Proje
 	}
 }
 
-export function launchAvailability(projects: ProjectsState, models: ModelsState, creating: boolean, connected: boolean) {
+export function launchAvailability(
+	projects: ProjectsState,
+	models: ModelsState,
+	creating: boolean,
+	connected: boolean,
+): LaunchAvailability {
 	const selected = projects.projects.find(project => project.slug === projects.selected)
 	let existingRunId: string | null = null
 	if (selected?.status === "running" || selected?.status === "awaiting_user_input") {

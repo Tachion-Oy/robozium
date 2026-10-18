@@ -3,7 +3,8 @@
 ## Unreleased
 
 - Separate desktop project mutation lifetimes, run navigation, draft handling and
-  screen rendering into focused units with explicit ownership.
+  screen rendering into focused units with explicit ownership and named return
+  contracts.
 
 - Show the desktop window and animated splash before development preparation.
   Retain the introduction and pulsing `A` through backend startup, then fade

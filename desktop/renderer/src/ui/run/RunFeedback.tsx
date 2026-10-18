@@ -1,3 +1,4 @@
+import type { ReactElement } from "react"
 import type { RunState } from "../../run/run-reducer"
 import { HudButton } from "../HudButton"
 
@@ -11,7 +12,7 @@ interface RunFeedbackProps {
 	onOpenProjects: () => void
 }
 
-export function RunFeedback({ run, status, actionError, projectError, canRetry, onRetry, onOpenProjects }: RunFeedbackProps) {
+export function RunFeedback({ run, status, actionError, projectError, canRetry, onRetry, onOpenProjects }: RunFeedbackProps): ReactElement {
 	return (
 		<div className="run-feedback">
 			<p role="status" aria-label="Run status">{run.project} · {status}</p>

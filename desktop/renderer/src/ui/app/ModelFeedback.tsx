@@ -1,3 +1,4 @@
+import type { ReactElement } from "react"
 import type { ModelsState } from "../../models/useModels"
 import { HudButton } from "../HudButton"
 
@@ -7,17 +8,17 @@ interface ModelFeedbackProps {
 	creatingRun: boolean
 }
 
-export function ModelFeedback({ models, connected, creatingRun }: ModelFeedbackProps) {
+export function ModelFeedback({ models, connected, creatingRun }: ModelFeedbackProps): ReactElement {
 	let message = ""
 	if (models.error) message = models.error
 	else if (models.pending) message = "Updating models…"
 	else if (!models.selection?.models.length) message = "No models available."
 
-	function refresh() {
+	function refresh(): void {
 		if (!creatingRun) models.refresh()
 	}
 
-	function retry() {
+	function retry(): void {
 		if (!creatingRun) models.retry()
 	}
 

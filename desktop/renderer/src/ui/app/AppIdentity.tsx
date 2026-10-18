@@ -1,13 +1,13 @@
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactElement, type ReactNode } from "react"
 
 /** Read the native version once and present application-level notices. */
-export function AppIdentity({ children }: { children: ReactNode }) {
+export function AppIdentity({ children }: { children: ReactNode }): ReactElement {
 	const [version, setVersion] = useState<string>()
 	const [failed, setFailed] = useState(false)
 
 	useEffect(() => {
 		let active = true
-		async function loadVersion() {
+		async function loadVersion(): Promise<void> {
 			try {
 				const value = await window.robozium.getVersion()
 				if (active && value) setVersion(value)

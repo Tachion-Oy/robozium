@@ -1,16 +1,46 @@
 import { useEffect, useState } from "react"
 import type { BackendMode } from "../../../src/bridge"
 import type { DesktopApiClient } from "../api/client"
-import { useModels } from "../models/useModels"
-import { useProjects } from "../projects/useProjects"
+import { useModels, type ModelsState } from "../models/useModels"
+import { useProjects, type ProjectsState } from "../projects/useProjects"
 import { useRecovery } from "../recovery/useRecovery"
-import { useRunSession } from "../session/useRunSession"
+import { useRunSession, type RunSessionController } from "../session/useRunSession"
 import { busyProjects, launchAvailability, runActionAvailability } from "./run-availability"
-import { useReplyDraft } from "./useReplyDraft"
-import { useRunNavigation } from "./useRunNavigation"
+import { useReplyDraft, type ReplyDraft } from "./useReplyDraft"
+import { useRunNavigation, type RunNavigation } from "./useRunNavigation"
+
+export interface RunAction {
+	enabled: boolean
+	pending: boolean
+	onClick: () => void
+}
+
+export interface RunLaunch {
+	enabled: boolean
+	existing: boolean
+	start: () => void
+}
+
+export interface RunWorkspace {
+	run: RunSessionController
+	projects: ProjectsState
+	models: ModelsState
+	draft: ReplyDraft
+	navigation: RunNavigation
+	recoveryError: string
+	hasRun: boolean
+	launch: RunLaunch
+	reply: RunAction
+	interrupt: RunAction
+	cancel: RunAction
+}
 
 /** Coordinate feature owners; requests, navigation and draft revisions stay in their own hooks. */
-export function useRunWorkspace(client: DesktopApiClient | null, connected: boolean, mode: BackendMode | null) {
+export function useRunWorkspace(
+	client: DesktopApiClient | null,
+	connected: boolean,
+	mode: BackendMode | null,
+): RunWorkspace {
 	const recovery = useRecovery(mode)
 	const run = useRunSession(client)
 	const draft = useReplyDraft(recovery.initial.draft)
@@ -28,21 +58,21 @@ export function useRunWorkspace(client: DesktopApiClient | null, connected: bool
 	const launch = launchAvailability(projects, models, run.creating, connected)
 	const canSend = actions.canReply && Boolean(draft.value.trim())
 
-	function finishCancellation(project: string) {
+	function finishCancellation(project: string): void {
 		if (navigation.finishCancellation(project)) run.refresh()
 	}
 
-	function cancelCurrentProject() {
+	function cancelCurrentProject(): void {
 		if (!client || !run.session || !actions.canCancel) return
 		navigation.waitForCancellation()
 		projects.cancelProject(run.session.run.project, actions.hasActiveRun)
 	}
 
-	async function send() {
+	async function send(): Promise<void> {
 		if (canSend) await draft.submit(run.reply)
 	}
 
-	async function startSelectedProject() {
+	async function startSelectedProject(): Promise<void> {
 		if (!client) {
 			setHasPreview(true)
 			navigation.showRun()

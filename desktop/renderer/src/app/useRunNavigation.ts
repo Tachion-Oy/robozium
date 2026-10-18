@@ -3,8 +3,25 @@ import { isTerminal } from "../run/run-contracts"
 import type { RunSession } from "../session/session-reducer"
 import type { AppView } from "./navigation"
 
+export interface RunNavigation {
+	view: AppView
+	focusRunEditor: boolean
+	overviewFocus: string | null
+	navigate: (view: AppView) => void
+	showRun: () => void
+	showRecoveredRun: (runId: string) => void
+	clearAutomaticReturn: () => void
+	watchCompletion: (runId: string) => void
+	waitForCancellation: () => void
+	finishCancellation: (project: string) => boolean
+}
+
 /** Own automatic return to overview, explicit history viewing and navigation focus. */
-export function useRunNavigation(session: RunSession | null, creating: boolean, savedRunId: string | null) {
+export function useRunNavigation(
+	session: RunSession | null,
+	creating: boolean,
+	savedRunId: string | null,
+): RunNavigation {
 	const [view, setView] = useState<AppView>("projects")
 	const [focusRunEditor, setFocusRunEditor] = useState(false)
 	const [overviewFocus, setOverviewFocus] = useState<string | null>(null)
@@ -12,12 +29,12 @@ export function useRunNavigation(session: RunSession | null, creating: boolean, 
 	const returnAfterCancel = useRef<string | null>(null)
 	const recoveringRun = useRef(savedRunId)
 
-	const clearAutomaticReturn = useCallback(() => {
+	const clearAutomaticReturn = useCallback((): void => {
 		returnAfterCancel.current = null
 		setReturnOnCompletion(null)
 	}, [])
 
-	function navigate(next: AppView) {
+	function navigate(next: AppView): void {
 		clearAutomaticReturn()
 		if (next === "run" && session && !isTerminal(session.run.status)) {
 			setReturnOnCompletion(session.run.runId)
@@ -27,24 +44,24 @@ export function useRunNavigation(session: RunSession | null, creating: boolean, 
 		setView(next)
 	}
 
-	function showRun() {
+	function showRun(): void {
 		navigate("run")
 		setFocusRunEditor(true)
 	}
 
-	const showRecoveredRun = useCallback((runId: string) => {
+	const showRecoveredRun = useCallback((runId: string): void => {
 		setView("run")
 		setReturnOnCompletion(runId)
 	}, [])
 
-	const returnToOverview = useCallback((project: string) => {
+	const returnToOverview = useCallback((project: string): void => {
 		clearAutomaticReturn()
 		setFocusRunEditor(false)
 		setOverviewFocus(project)
 		setView(current => current === "run" ? "projects" : current)
 	}, [clearAutomaticReturn])
 
-	function waitForCancellation() {
+	function waitForCancellation(): void {
 		returnAfterCancel.current = session?.run.runId ?? null
 	}
 

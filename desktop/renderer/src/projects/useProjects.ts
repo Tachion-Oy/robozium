@@ -63,7 +63,7 @@ export function useProjects(
 	const latest = useRef({ projects, options })
 	latest.current = { projects, options }
 
-	const finishDeletion = useCallback((slug: string) => {
+	const finishDeletion = useCallback((slug: string): void => {
 		const rows = latest.current.projects
 		const index = rows.findIndex(row => row.slug === slug)
 		const nextProject = rows[index + 1] ?? rows[index - 1]
@@ -74,7 +74,7 @@ export function useProjects(
 		latest.current.options.onDeleted?.(slug)
 	}, [])
 
-	const load = useCallback(() => {
+	const load = useCallback((): Promise<void> | undefined => {
 		if (!client || !connected) return
 
 		return readProjects(signal => listProjects(client, signal), listed => {
@@ -88,7 +88,7 @@ export function useProjects(
 		})
 	}, [client, connected, readProjects, reconcile, finishDeletion])
 
-	const refresh = useCallback(() => {
+	const refresh = useCallback((): Promise<void> | undefined => {
 		cancelListing()
 		return load()
 	}, [cancelListing, load])
@@ -104,7 +104,7 @@ export function useProjects(
 		let timer: ReturnType<typeof setTimeout> | undefined
 		const interval = cancelling.size > 0 ? CANCELLATION_POLL_INTERVAL : PROJECT_POLL_INTERVAL
 
-		async function poll() {
+		async function poll(): Promise<void> {
 			await load()
 			if (active && needsPolling) {
 				timer = setTimeout(() => { void poll() }, interval)
@@ -125,7 +125,7 @@ export function useProjects(
 		wasConnected.current = connected
 	}, [connected, visible, refresh])
 
-	async function cancelWork(slug: string, hasActiveRun = false) {
+	async function cancelWork(slug: string, hasActiveRun = false): Promise<void> {
 		if (!client || !connected || mutations.hasOperation(slug)) return
 
 		const project = projects.find(row => row.slug === slug)
@@ -143,7 +143,7 @@ export function useProjects(
 		return project?.status === "dormant" && project.runId === null
 	}
 
-	async function remove(slug: string) {
+	async function remove(slug: string): Promise<void> {
 		if (!canDelete(slug)) return
 
 		// A read begun before DELETE cannot establish its outcome.
@@ -156,7 +156,7 @@ export function useProjects(
 		void refresh()
 	}
 
-	function create() {
+	function create(): void {
 		const projectName = name.trim()
 		if (!client || !connected || !projectName) return
 		// The backend chooses the slug; wait before potentially recreating a deleted project.

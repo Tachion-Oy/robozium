@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from "react"
 import type { BackendMode } from "../../../../src/bridge"
 import type { DesktopApiClient } from "../../api/client"
 import { viewOptions, runViewOptions } from "../../app/navigation"
@@ -25,7 +25,7 @@ interface AppProps {
 }
 
 /** Compose screens; only theme, panel layout and standalone-preview choices live here. */
-export function App({ connectionNotice, client = null, connected = true, mode = null }: AppProps) {
+export function App({ connectionNotice, client = null, connected = true, mode = null }: AppProps): ReactElement {
 	const workspace = useRunWorkspace(client, connected, mode)
 	const { run, projects, models, draft, navigation } = workspace
 	const [theme, setTheme] = useState<"dark" | "light">("dark")
@@ -38,16 +38,16 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 		document.documentElement.dataset.theme = theme
 	}, [theme])
 
-	function toggleTheme() {
+	function toggleTheme(): void {
 		setTheme(current => current === "dark" ? "light" : "dark")
 	}
 
-	function chooseModel(value: string) {
+	function chooseModel(value: string): void {
 		if (!client) setPreviewModel(value)
 		else if (!run.creating) models.choose(value)
 	}
 
-	function clearDraft() {
+	function clearDraft(): void {
 		draft.change("")
 		editor.current?.focus()
 	}
@@ -68,7 +68,7 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 	if (models.pending) modelPlaceholder = "Loading models…"
 	else if (models.error) modelPlaceholder = "Models unavailable"
 
-	function renderContent() {
+	function renderContent(): ReactElement {
 		switch (navigation.view) {
 			case "run":
 				return (

@@ -14,7 +14,23 @@ interface PendingProjects {
 	deleting: ReadonlySet<string>
 }
 
-type DeletionResult = "deleted" | "uncertain" | "ignored"
+export type DeletionResult = "deleted" | "uncertain" | "ignored"
+
+export interface ProjectReconciliation {
+	rows: Project[]
+	deleted: string[]
+	cancelled: string[]
+}
+
+export interface ProjectMutations extends PendingProjects {
+	error: string
+	cancel: (slug: string) => Promise<boolean>
+	remove: (slug: string) => Promise<DeletionResult>
+	reconcile: (listed: Project[], previous: Project[]) => ProjectReconciliation
+	hasOperation: (slug: string) => boolean
+	hasPendingDeletion: () => boolean
+	forgetDeletion: (slug: string) => void
+}
 
 function deletionError(error: unknown): string {
 	if (error instanceof ApiError && error.status === 409) {
@@ -24,7 +40,7 @@ function deletionError(error: unknown): string {
 }
 
 /** Own cancellation/deletion requests until HTTP and project listings settle them. */
-export function useProjectMutations(client: DesktopApiClient | null) {
+export function useProjectMutations(client: DesktopApiClient | null): ProjectMutations {
 	const operations = useRef(new Map<string, ProjectOperation>())
 	const confirmedDeletions = useRef(new Set<string>())
 	const [pending, setPending] = useState<PendingProjects>({
@@ -34,7 +50,7 @@ export function useProjectMutations(client: DesktopApiClient | null) {
 	const [error, setError] = useState("")
 
 	// The registry guards synchronous double clicks; React receives a render snapshot.
-	const publishPending = useCallback(() => {
+	const publishPending = useCallback((): void => {
 		const cancelling = new Set<string>()
 		const deleting = new Set<string>()
 		for (const [slug, operation] of operations.current) {
@@ -55,7 +71,7 @@ export function useProjectMutations(client: DesktopApiClient | null) {
 		}
 	}, [client, publishPending])
 
-	const reconcile = useCallback((listed: Project[], previous: Project[]) => {
+	const reconcile = useCallback((listed: Project[], previous: Project[]): ProjectReconciliation => {
 		const rows = [...listed]
 		const deleted: string[] = []
 		const cancelled: string[] = []
@@ -167,7 +183,7 @@ export function useProjectMutations(client: DesktopApiClient | null) {
 		return [...operations.current.values()].some(operation => operation.kind === "delete")
 	}
 
-	function forgetDeletion(slug: string) {
+	function forgetDeletion(slug: string): void {
 		confirmedDeletions.current.delete(slug)
 	}
 

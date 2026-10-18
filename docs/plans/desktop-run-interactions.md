@@ -213,6 +213,11 @@ status confirmation; uncertain deletion waits for presence/absence. The session
 still owns replies, interruption and subscriptions. Named methods, expanded JSX
 props and an explicit session controller contract replace compressed callbacks.
 
+The extracted hooks and eligibility helpers declare named return interfaces for
+workspace state, navigation, drafts, project mutations and action availability.
+Their callback signatures distinguish synchronous actions from awaited results.
+Components also declare their rendered output type.
+
 Validation uses the existing native interaction, navigation, deletion, recovery,
 layout and lifecycle scenarios. No test expectations or screenshot baselines are
 changed to accommodate the refactor.
@@ -221,3 +226,7 @@ After the refactor, all 210 desktop tests and all 13 native backend lifecycle
 scenarios passed sequentially against the same build. Desktop lint, all four
 TypeScript projects, production build, local documentation links and
 `git diff --check` also passed. CI/Full E2E were not run; no PR was requested.
+
+The return-contract follow-up passed lint, all four TypeScript projects, the
+production build and `git diff --check`. Its ten source files emit identical
+JavaScript before and after the annotations, so native suites were not rerun.

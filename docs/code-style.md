@@ -33,6 +33,11 @@ API worker per hub directory and loopback-only API and web listeners in Compose.
 
 ## JavaScript and TypeScript
 
+Annotate exported function and hook return types explicitly. Use named interfaces
+for structured results so callers can read the contract independently of the
+implementation. Declare callback return types in those interfaces; local inline
+callbacks may use contextual inference.
+
 Use `async`/`await` for asynchronous control flow. Promise `.then()`, `.catch()`,
 and `.finally()` chains are prohibited in source, scripts, and tests. Handle
 errors and cleanup with `try`/`catch`/`finally`. Callback and event APIs may be
