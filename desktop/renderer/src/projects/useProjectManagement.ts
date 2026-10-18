@@ -1,63 +1,58 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { useRequest } from "../api/useRequest"
-import { canCancelProject, createProject, listProjects, type Project } from "./projects-api"
-import { useProjectMutations } from "./useProjectMutations"
+import { createProject as requestProjectCreation, listProjects, type Project } from "./projects-api"
+import { useProjectDeletion } from "./useProjectDeletion"
 
 interface ProjectRemoval {
 	slug: string
 	focus: string
 }
 
-export interface ProjectsState {
+export interface ProjectManagement {
 	projects: Project[]
-	selected: string
 	name: string
 	loading: boolean
 	loadError: string
 	creating: boolean
 	canCreate: boolean
 	createError: string
-	cancelling: ReadonlySet<string>
 	deleting: ReadonlySet<string>
-	actionError: string
+	deleteError: string
 	removed: ProjectRemoval | null
-	select: (slug: string) => void
 	changeName: (name: string) => void
 	refresh: () => void
-	create: () => void
-	cancelProject: (slug: string, hasActiveRun?: boolean) => void
+	createProject: () => void
 	canDelete: (slug: string) => boolean
 	deleteProject: (slug: string) => void
+	isDeleting: (slug: string) => boolean
 }
 
-interface ProjectsOptions {
+interface ProjectManagementOptions {
+	onCreated: (slug: string) => void
 	onDeleted?: (slug: string) => void
-	onCancelled?: (slug: string) => void
-	busyProjects?: readonly string[]
-	initialSelected?: string
+	onListed: (projects: Project[]) => void
+	hasLocalWork: (slug: string) => boolean
+	pollInBackground: boolean
+	pollInterval: number
 }
 
-const PROJECT_POLL_INTERVAL = 3000
-const CANCELLATION_POLL_INTERVAL = 250
-
-/** Own project selection, listing and creation across view changes. */
-export function useProjects(
+/** Manage the project collection; workspace selection and execution live outside this owner. */
+export function useProjectManagement(
 	client: DesktopApiClient | null,
 	visible: boolean,
-	connected = true,
-	options: ProjectsOptions = {},
-): ProjectsState {
+	connected: boolean,
+	options: ProjectManagementOptions,
+): ProjectManagement {
 	const [projects, setProjects] = useState<Project[]>([])
-	const [selected, setSelected] = useState(options.initialSelected ?? "")
 	const [name, setName] = useState("")
 	const [removed, setRemoved] = useState<ProjectRemoval | null>(null)
 	const hasLoaded = useRef(false)
 	const listing = useRequest({ preserveErrorWhilePending: true })
 	const creation = useRequest()
-	const mutations = useProjectMutations(client)
+	const deletion = useProjectDeletion(client)
 	const { run: readProjects, cancel: cancelListing } = listing
-	const { reconcile, cancelling, deleting } = mutations
+	const { reconcile, pending: deleting } = deletion
 
 	// Accepted async results use the current rows/callbacks, not their request's render.
 	const latest = useRef({ projects, options })
@@ -69,7 +64,6 @@ export function useProjects(
 		const nextProject = rows[index + 1] ?? rows[index - 1]
 
 		setRemoved({ slug, focus: nextProject?.slug ?? "" })
-		setSelected(current => current === slug ? "" : current)
 		setProjects(current => current.filter(row => row.slug !== slug))
 		latest.current.options.onDeleted?.(slug)
 	}, [])
@@ -80,10 +74,8 @@ export function useProjects(
 		return readProjects(signal => listProjects(client, signal), listed => {
 			const result = reconcile(listed, latest.current.projects)
 			for (const slug of result.deleted) finishDeletion(slug)
-			for (const slug of result.cancelled) latest.current.options.onCancelled?.(slug)
-
-			setProjects(result.rows)
-			setSelected(current => result.rows.some(row => row.slug === current) ? current : "")
+			setProjects(result.projects)
+			latest.current.options.onListed(result.projects)
 			hasLoaded.current = true
 		})
 	}, [client, connected, readProjects, reconcile, finishDeletion])
@@ -93,8 +85,9 @@ export function useProjects(
 		return load()
 	}, [cancelListing, load])
 
+	const { pollInBackground, pollInterval } = options
 	useEffect(() => {
-		const needsPolling = visible || cancelling.size > 0 || deleting.size > 0
+		const needsPolling = visible || pollInBackground || deleting.size > 0
 		const needsFirstLoad = !hasLoaded.current
 		if (!client || !connected || (!needsFirstLoad && !needsPolling)) {
 			return cancelListing
@@ -102,12 +95,11 @@ export function useProjects(
 
 		let active = true
 		let timer: ReturnType<typeof setTimeout> | undefined
-		const interval = cancelling.size > 0 ? CANCELLATION_POLL_INTERVAL : PROJECT_POLL_INTERVAL
 
 		async function poll(): Promise<void> {
 			await load()
 			if (active && needsPolling) {
-				timer = setTimeout(() => { void poll() }, interval)
+				timer = setTimeout(() => { void poll() }, pollInterval)
 			}
 		}
 		void poll()
@@ -117,7 +109,7 @@ export function useProjects(
 			clearTimeout(timer)
 			cancelListing()
 		}
-	}, [visible, client, connected, cancelling.size, deleting.size, load, cancelListing])
+	}, [visible, client, connected, pollInBackground, pollInterval, deleting.size, load, cancelListing])
 
 	const wasConnected = useRef(connected)
 	useEffect(() => {
@@ -125,30 +117,20 @@ export function useProjects(
 		wasConnected.current = connected
 	}, [connected, visible, refresh])
 
-	async function cancelWork(slug: string, hasActiveRun = false): Promise<void> {
-		if (!client || !connected || mutations.hasOperation(slug)) return
-
-		const project = projects.find(row => row.slug === slug)
-		if (!hasActiveRun && (!project || !canCancelProject(project))) return
-
-		const shouldRefresh = await mutations.cancel(slug)
-		if (shouldRefresh) void refresh()
-	}
-
 	function canDelete(slug: string): boolean {
 		if (!client || !connected || listing.error || creation.pending) return false
-		if (options.busyProjects?.includes(slug) || mutations.hasOperation(slug)) return false
+		if (options.hasLocalWork(slug) || deletion.isDeleting(slug)) return false
 
 		const project = projects.find(row => row.slug === slug)
 		return project?.status === "dormant" && project.runId === null
 	}
 
-	async function remove(slug: string): Promise<void> {
+	async function deleteProject(slug: string): Promise<void> {
 		if (!canDelete(slug)) return
 
 		// A read begun before DELETE cannot establish its outcome.
 		cancelListing()
-		const result = await mutations.remove(slug)
+		const result = await deletion.deleteProject(slug)
 		if (result === "ignored") return
 		if (result === "deleted") finishDeletion(slug)
 
@@ -156,15 +138,15 @@ export function useProjects(
 		void refresh()
 	}
 
-	function create(): void {
+	function createProject(): void {
 		const projectName = name.trim()
 		if (!client || !connected || !projectName) return
 		// The backend chooses the slug; wait before potentially recreating a deleted project.
-		if (mutations.hasPendingDeletion()) return
+		if (deletion.hasPendingDeletion()) return
 
-		void creation.run(signal => createProject(client, projectName, signal), project => {
-			mutations.forgetDeletion(project.slug)
-			setSelected(project.slug)
+		void creation.run(signal => requestProjectCreation(client, projectName, signal), project => {
+			deletion.forgetDeletion(project.slug)
+			latest.current.options.onCreated(project.slug)
 			setName("")
 			void refresh()
 		})
@@ -172,23 +154,20 @@ export function useProjects(
 
 	return {
 		projects,
-		selected,
 		name,
 		loading: listing.pending && !hasLoaded.current,
 		loadError: listing.error,
 		creating: creation.pending,
 		canCreate: Boolean(client && connected && name.trim()) && !creation.pending && deleting.size === 0,
 		createError: creation.error,
-		cancelling,
 		deleting,
-		actionError: mutations.error,
+		deleteError: deletion.error,
 		removed,
-		select: setSelected,
 		changeName: setName,
 		refresh,
-		create,
-		cancelProject: (slug, hasActiveRun) => { void cancelWork(slug, hasActiveRun) },
+		createProject,
 		canDelete,
-		deleteProject: slug => { void remove(slug) },
+		deleteProject: slug => { void deleteProject(slug) },
+		isDeleting: deletion.isDeleting,
 	}
 }

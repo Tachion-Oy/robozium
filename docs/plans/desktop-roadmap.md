@@ -115,9 +115,10 @@ reuses unchanged staged and compiled inputs.
 The startup follow-up opens a native window before preparation, restoring the
 reference introduction, loading animation and painted-HUD handoff. Background
 project polling stays visually silent; the activity mark remains the Anurati A.
-The readability follow-up separates project mutation lifetimes from listing state,
-and run navigation/draft ownership from screen rendering. See the PR 9 notes for
-the resulting responsibilities and preserved behavior.
+The readability follow-up separates project collection management from workspace
+selection/execution, and run lifecycle management from reply/interruption handling.
+Navigation, drafts and screen rendering retain distinct owners. See the PR 9 notes
+for the resulting responsibilities and preserved behavior.
 Rich Markdown and artifact-link rendering remain tracked presentation parity work.
 
 | PR | Change | Acceptance |

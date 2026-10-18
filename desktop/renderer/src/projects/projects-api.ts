@@ -1,5 +1,5 @@
 // Project requests and validation of the slug returned by the backend.
-// Selection and creation drafts belong to useProjects; this module has no React state.
+// Collection management and workspace selection live in their feature owners; no React state here.
 import { ApiError, type DesktopApiClient } from "../api/client"
 
 // Minimal contract adapted from web/lib/robozium/{client,wire}.ts; see the PR 7 plan.

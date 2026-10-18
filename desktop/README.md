@@ -316,12 +316,12 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   | Folder under `renderer/src/` | Responsibility |
   | --- | --- |
   | `ui/` | All rendered components and CSS: app composition, backend startup, projects, run launch and HUD controls. |
-  | `app/` | Run workspace coordination, navigation, reply draft, action availability and standalone preview data. |
+  | `app/` | Project workspace coordination, navigation, reply draft, action availability and standalone preview data. |
   | `backend/` | IPC connection discovery and HTTP readiness hooks. |
-  | `projects/` | Project requests, listing/selection/creation state and cancellation/deletion reconciliation. |
+  | `projects/` | Project collection management and focused deletion/cancellation request handlers. |
   | `models/` | Model requests and validation, acknowledged backend selection and explicit retry. |
   | `run/` | Run contracts, requests, payload decoding, event reconciliation and live updates. |
-  | `session/` | One run's request lifetime and atomic composition of run data with HUD state. |
+  | `session/` | Run lifecycle management, interaction handling and atomic composition of run data with HUD state. |
   | `recovery/` | Validated local draft/selection/run storage scoped to profile and backend mode. |
   | `hud/` | Message projection, history, display selection and layout logic. |
   | `api/` | Shared HTTP/SSE transport, request deadlines and React request state. |
@@ -333,14 +333,18 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   data, while run reconciliation has no HUD dependency. Shared `api/` code imports
   no feature modules. App supplies header navigation choices separately from
   standalone preview data.
-- `projects/useProjects.ts` owns listings, selection, creation and polling.
-  `useProjectMutations.ts` owns cancellation/deletion requests and their outcomes.
-  Its per-project operation has an explicit `requesting` or `settling` phase;
-  pending UI sets are derived from that registry. A cancellation acknowledgement
-  still waits for dormant/absent status, and an uncertain DELETE waits for a fresh
-  listing. Confirmed deletions suppress stale rows until absence is observed.
-- `app/useRunWorkspace.ts` connects the project, model and session owners and
-  coordinates recovery. `useRunNavigation.ts` owns explicit navigation, automatic
+- `projects/useProjectManagement.ts` owns the project collection: listings,
+  polling, creation and deletion. It delegates DELETE settlement and stale-row
+  suppression to `useProjectDeletion.ts`. Creation/deletion callbacks inform the
+  workspace, which supplies a local-work guard before deletion is allowed.
+- `app/useProjectWorkspace.ts` owns project selection, launch/open actions,
+  cancellation and recovery coordination. It composes management, model and run
+  owners. `projects/useProjectCancellation.ts` handles foreground and background
+  cancellation for any project, shared by Overview and Current Run. Its pending
+  requests keep deletion blocked until HTTP settles and listings confirm dormant
+  or absent status. Pending UI sets are derived from each handler's request
+  registry, preserving synchronous duplicate guards across renders.
+  `useRunNavigation.ts` owns explicit navigation, automatic
   returns and focus intent. `useReplyDraft.ts` owns draft revisions and clearing
   after acknowledgement. `run-availability.ts` contains the launch/action rules.
   Version/model/run feedback is rendered by small components under `ui/`; it
@@ -357,7 +361,12 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   operations. `run-payloads.ts` decodes snapshots and SSE through the same event
   validator. `run-updates.ts` coordinates concurrent streaming, serialized
   snapshots and polling with shared cleanup; `run-reducer.ts` owns backend state.
-- `renderer/src/session/useRunSession.ts` owns creation and subscription lifetimes.
+- `renderer/src/session/useRunSession.ts` exposes the run controller by composing
+  `useRunLifecycle.ts` and `useRunInteractions.ts`. Lifecycle manages launching,
+  restoring, closing and subscriptions; interactions implement replies and
+  interruption. A session abort signal invalidates pending interactions immediately
+  when lifecycle replaces or closes the run. Replacement creation has a separate
+  lifetime so closing old history cannot abort a new launch.
   `session-reducer.ts` composes run reconciliation and HUD projection atomically.
   `hud/hud-reducer.ts` coordinates live text, history and selection;
   `hud-history.ts`, `hud-view.ts` and `hud-messages.ts` own grouping/recovery,

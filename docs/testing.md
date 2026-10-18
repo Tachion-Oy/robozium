@@ -489,10 +489,15 @@ Preparation and backend failures must keep their error text and Retry readable
 at 640×420 with 125% zoom; native zoom shortcuts must also work after handoff.
 Runs Overview regressions hold background reads pending and assert stable input
 bounds/focus for populated and empty lists and rapid cancellation polling.
-When refactoring project or application state ownership, run the existing desktop
+When refactoring project, workspace or run state ownership, run the existing desktop
 suite and native backend scenarios against one fixed build. They cover overlapping
 listings and writes, duplicate actions, uncertain deletion, explicit navigation
 winning over late cancellation, restored terminal history and draft revisions.
+Boundary regressions also cancel an unselected project while creating another,
+keep deletion blocked through cancellation settlement, and switch runs during
+pending replies/interruption to verify request disposal and draft preservation.
+Overview cancellation follows confirmed project status even when a run snapshot
+still reports activity after cancellation has finished.
 
 After installing desktop dependencies:
 

@@ -197,24 +197,36 @@ actual lifecycle and make each owner readable independently:
 
 | Owner | Responsibility |
 | --- | --- |
-| `projects/useProjects.ts` | Listing/polling, selected project, creation draft and removal focus. |
-| `projects/useProjectMutations.ts` | Cancellation/DELETE requests, duplicate exclusion, settlement from listings and suppression of stale deleted rows. |
-| `app/useRunWorkspace.ts` | Connect feature owners; launch/open runs and restore/save recovery intent. |
+| `projects/useProjectManagement.ts` | Project collection: listing/polling, creation, deletion and removal focus. |
+| `projects/useProjectDeletion.ts` | DELETE request lifetimes, uncertain outcomes and suppression of stale deleted rows. |
+| `app/useProjectWorkspace.ts` | Project selection, launch/open actions, cancellation and recovery coordination. |
+| `projects/useProjectCancellation.ts` | Cancellation request lifetimes and settlement from project status, shared across views. |
+| `session/useRunSession.ts` | Public run controller composing lifecycle and interactions. |
+| `session/useRunLifecycle.ts` | Launch, restore, close and subscription ownership; invalidate obsolete run lifetimes. |
+| `session/useRunInteractions.ts` | Reply/interruption requests bound to the current run lifetime. |
 | `app/useRunNavigation.ts` | Explicit navigation, guarded automatic return and editor/overview focus intent. |
 | `app/useReplyDraft.ts` | Draft revisions and acknowledgement-dependent clearing. |
 | `app/run-availability.ts` | Launch/action eligibility and projects protected from deletion. |
 | `ui/app/App.tsx` | Screen composition, theme, layout and preview choices. |
 | UI feedback components | Native version lookup and rendering model/run notices. |
 
-Project mutations use one operation registry with explicit `requesting` and
-`settling` phases. React pending sets are snapshots of that registry, rather than
-separately maintained sources of truth. Accepted cancellation waits for project
-status confirmation; uncertain deletion waits for presence/absence. The session
-still owns replies, interruption and subscriptions. Named methods, expanded JSX
-props and an explicit session controller contract replace compressed callbacks.
+This is layered architecture organized by domain responsibilities. Collection
+management owns creation/deletion, while the workspace owns selection and work
+within existing projects. Request helpers implement those operations without
+dictating the public ownership boundaries. Cancellation and deletion each keep
+an explicit `requesting`/`settling` registry and publish pending UI snapshots.
+The workspace supplies a local-work guard to management; accepted cancellation
+must settle before deletion becomes available. Creation/deletion notifications
+update selection and dispose only matching sessions.
+
+Run lifecycle management owns an abort signal for the displayed session.
+Reply/interruption requests inherit that signal, so replacements, closure and
+subscription disposal reject late results immediately. Replacement creation has
+its own request lifetime. Run/HUD reducers and the snapshot/SSE watcher retain
+their existing responsibilities and transport behavior.
 
 The extracted hooks and eligibility helpers declare named return interfaces for
-workspace state, navigation, drafts, project mutations and action availability.
+workspace state, navigation, drafts, project management and action availability.
 Their callback signatures distinguish synchronous actions from awaited results.
 Components also declare their rendered output type.
 
@@ -222,7 +234,7 @@ Validation uses the existing native interaction, navigation, deletion, recovery,
 layout and lifecycle scenarios. No test expectations or screenshot baselines are
 changed to accommodate the refactor.
 
-After the refactor, all 210 desktop tests and all 13 native backend lifecycle
+After the initial readability refactor, all 210 desktop tests and all 13 native backend lifecycle
 scenarios passed sequentially against the same build. Desktop lint, all four
 TypeScript projects, production build, local documentation links and
 `git diff --check` also passed. CI/Full E2E were not run; no PR was requested.
@@ -230,3 +242,12 @@ TypeScript projects, production build, local documentation links and
 The return-contract follow-up passed lint, all four TypeScript projects, the
 production build and `git diff --check`. Its ten source files emit identical
 JavaScript before and after the annotations, so native suites were not rerun.
+
+The domain-ownership refinement passed all 213 desktop tests and all 13 native
+backend lifecycle scenarios sequentially against the final build. New coverage
+checks cancellation of an unselected project during unrelated creation, disposal
+of pending replies/interruption when switching runs, and Overview cancellation
+eligibility while an old run snapshot lags behind confirmed project status.
+Lint, all four TypeScript projects, production build, explicit module-boundary
+typing audit, local documentation links and `git diff --check` passed. Existing
+screenshot baselines remain unchanged. CI/Full E2E were not run; no PR was requested.

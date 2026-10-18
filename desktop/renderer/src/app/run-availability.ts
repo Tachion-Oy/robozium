@@ -1,5 +1,6 @@
 import type { ModelsState } from "../models/useModels"
-import type { ProjectsState } from "../projects/useProjects"
+import type { ProjectManagement } from "../projects/useProjectManagement"
+import type { ProjectCancellation } from "../projects/useProjectCancellation"
 import { isTerminal } from "../run/run-contracts"
 import type { RunSessionController } from "../session/useRunSession"
 
@@ -14,7 +15,16 @@ export interface RunActionAvailability {
 export interface LaunchAvailability {
 	existingRunId: string | null
 	canOpen: boolean
-	canStart: boolean
+	canLaunch: boolean
+}
+
+export interface LaunchContext {
+	management: ProjectManagement
+	cancellation: ProjectCancellation
+	selectedProject: string
+	models: ModelsState
+	creating: boolean
+	connected: boolean
 }
 
 /** Projects with local work cannot be deleted, even after selection changes. */
@@ -33,17 +43,18 @@ export function busyProjects(run: RunSessionController): string[] {
 
 export function runActionAvailability(
 	run: RunSessionController,
-	projects: ProjectsState,
+	management: ProjectManagement,
+	cancellation: ProjectCancellation,
 	connected: boolean,
 ): RunActionAvailability {
 	const session = run.session
 	const project = session?.run.project
-	const cancelling = project !== undefined && projects.cancelling.has(project)
-	const deleting = project !== undefined && projects.deleting.has(project)
+	const cancelling = project !== undefined && cancellation.isCancelling(project)
+	const deleting = project !== undefined && management.isDeleting(project)
 	const available = connected && !deleting && !cancelling
 	const hasActiveRun = Boolean(session && !session.run.unavailable
 		&& !isTerminal(session.run.status) && session.run.status !== "cancelling")
-	const backgroundWork = projects.projects.some(row => row.slug === project && row.status === "syncing")
+	const backgroundWork = management.projects.some(row => row.slug === project && row.status === "syncing")
 
 	return {
 		cancelling,
@@ -54,26 +65,28 @@ export function runActionAvailability(
 	}
 }
 
-export function launchAvailability(
-	projects: ProjectsState,
-	models: ModelsState,
-	creating: boolean,
-	connected: boolean,
-): LaunchAvailability {
-	const selected = projects.projects.find(project => project.slug === projects.selected)
+export function launchAvailability({
+	management,
+	cancellation,
+	selectedProject,
+	models,
+	creating,
+	connected,
+}: LaunchContext): LaunchAvailability {
+	const selected = management.projects.find(project => project.slug === selectedProject)
 	let existingRunId: string | null = null
 	if (selected?.status === "running" || selected?.status === "awaiting_user_input") {
 		existingRunId = selected.runId
 	}
 
-	const projectBusy = projects.cancelling.has(projects.selected) || projects.deleting.has(projects.selected)
-	const available = connected && !creating && !projects.loadError && !projectBusy
+	const projectBusy = cancellation.isCancelling(selectedProject) || management.isDeleting(selectedProject)
+	const available = connected && !creating && !management.loadError && !projectBusy
 	const dormant = selected?.status === "dormant" && selected.runId === null
 	const modelConfirmed = Boolean(models.selection?.selected_model_id) && !models.pending && !models.error
 
 	return {
 		existingRunId,
 		canOpen: available && existingRunId !== null,
-		canStart: available && dormant && modelConfirmed,
+		canLaunch: available && dormant && modelConfirmed,
 	}
 }

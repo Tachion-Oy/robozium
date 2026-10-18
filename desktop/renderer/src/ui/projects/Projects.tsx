@@ -1,63 +1,132 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { canCancelProject } from "../../projects/projects-api"
-import type { ProjectsState } from "../../projects/useProjects"
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from "react"
+import type { ProjectManagement } from "../../projects/useProjectManagement"
+import type { Project } from "../../projects/projects-api"
+import type { ProjectWork } from "../../app/useProjectWorkspace"
 import { HudButton } from "../HudButton"
 import "./projects.css"
 
-export function Projects({ state, connected = true, initialFocus = null }: {
-	state: ProjectsState; connected?: boolean; initialFocus?: string | null
-}) {
-	const [armed, setArmed] = useState<{ slug: string; status: string; runId: string | null } | null>(null)
+interface ProjectsProps {
+	management: ProjectManagement
+	work: ProjectWork
+	initialFocus?: string | null
+}
+
+/** Present collection management and workspace actions together in the overview. */
+export function Projects({ management, work, initialFocus = null }: ProjectsProps): ReactElement {
+	const [armed, setArmed] = useState<Project | null>(null)
 	const buttons = useRef(new Map<string, HTMLButtonElement>())
 	const nameInput = useRef<HTMLInputElement>(null)
-	const lastRemoval = useRef(state.removed)
+	const lastRemoval = useRef(management.removed)
+
 	useLayoutEffect(() => {
-		if (initialFocus !== null) (buttons.current.get(initialFocus) ?? nameInput.current)?.focus()
+		if (initialFocus !== null) {
+			(buttons.current.get(initialFocus) ?? nameInput.current)?.focus()
+		}
 	}, [initialFocus])
+
 	useEffect(() => {
-		if (armed && !state.projects.some(row => row.slug === armed.slug && row.status === armed.status && row.runId === armed.runId && state.canDelete(row.slug))) setArmed(null)
-	}, [state, armed])
+		if (!armed) return
+		const project = management.projects.find(row => row.slug === armed.slug)
+		const unchanged = project?.status === armed.status && project.runId === armed.runId
+		if (!unchanged || !management.canDelete(armed.slug)) setArmed(null)
+	}, [management, armed])
+
 	useLayoutEffect(() => {
 		// Consume new removals while visible; revisiting the view must not steal focus.
-		if (state.removed && state.removed !== lastRemoval.current) {
-			(buttons.current.get(state.removed.focus) ?? nameInput.current)?.focus()
+		if (management.removed && management.removed !== lastRemoval.current) {
+			(buttons.current.get(management.removed.focus) ?? nameInput.current)?.focus()
 		}
-		lastRemoval.current = state.removed
-	}, [state.removed])
-	return <section className="projects" aria-labelledby="projects-heading">
-		<h2 id="projects-heading">Runs Overview</h2>
-		<div className="projects__toolbar">
-			<p role="status" title={state.selected || undefined}>Selected project: {state.selected || "None"}</p>
-			<HudButton onClick={state.refresh}>Refresh</HudButton>
-		</div>
-		<p role="status">{state.loading ? "Loading projects…" : !state.loadError && !state.projects.length ? "No projects yet." : ""}</p>
-		{state.loadError && <p role="alert">Could not refresh projects: {state.loadError}</p>}
-		{state.actionError && <p role="alert">{state.actionError}</p>}
-		<ul aria-label="Projects">
-			{state.projects.map(project => <li key={project.slug}>
-				<HudButton ref={button => { if (button) buttons.current.set(project.slug, button); else buttons.current.delete(project.slug) }} aria-pressed={state.selected === project.slug} onClick={() => state.select(project.slug)}>
-					{project.slug}{state.selected === project.slug && <span aria-hidden="true"> ●</span>}
+		lastRemoval.current = management.removed
+	}, [management.removed])
+
+	function confirmDeletion(project: Project): void {
+		if (!management.canDelete(project.slug)) return
+		if (armed?.slug === project.slug) {
+			setArmed(null)
+			management.deleteProject(project.slug)
+		} else {
+			setArmed(project)
+		}
+	}
+
+	function renderProject(project: Project): ReactElement {
+		const selected = work.selectedProject === project.slug
+		const deleting = management.deleting.has(project.slug)
+		const confirming = armed?.slug === project.slug
+		const deleteLabel = deleting ? "Deleting…" : confirming ? "Confirm delete" : "Delete"
+		let status = project.status.replaceAll("_", " ")
+		if (deleting) status = "Deleting…"
+		else if (work.cancelling.has(project.slug)) status = "Cancelling…"
+
+		return (
+			<li key={project.slug}>
+				<HudButton
+					ref={button => {
+						if (button) buttons.current.set(project.slug, button)
+						else buttons.current.delete(project.slug)
+					}}
+					aria-pressed={selected}
+					onClick={() => work.selectProject(project.slug)}
+				>
+					{project.slug}{selected && <span aria-hidden="true"> ●</span>}
 				</HudButton>
-				<span role="status">{state.deleting.has(project.slug) ? "Deleting…" : state.cancelling.has(project.slug) ? "Cancelling…" : project.status.replaceAll("_", " ")}</span>
-				<HudButton aria-label={`Cancel ${project.slug}`} variant="warning"
-					disabled={!connected || state.deleting.has(project.slug) || state.cancelling.has(project.slug) || !canCancelProject(project)} onClick={() => state.cancelProject(project.slug)}>Cancel</HudButton>
-				<HudButton variant="danger" disabled={!state.canDelete(project.slug)}
-					aria-label={`${state.deleting.has(project.slug) ? "Deleting" : armed?.slug === project.slug ? "Confirm delete" : "Delete"} ${project.slug}`}
-					onBlur={() => setArmed(null)} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); setArmed(null) } }}
-					onClick={() => {
-						if (!state.canDelete(project.slug)) return
-						if (armed?.slug === project.slug) { setArmed(null); state.deleteProject(project.slug) }
-						else setArmed({ slug: project.slug, status: project.status, runId: project.runId })
-					}}>{state.deleting.has(project.slug) ? "Deleting…" : armed?.slug === project.slug ? "Confirm delete" : "Delete"}</HudButton>
-			</li>)}
-		</ul>
-		<form onSubmit={event => { event.preventDefault(); state.create() }}>
-			<label htmlFor="project-name">Project name</label>
-			<input ref={nameInput} id="project-name" value={state.name} readOnly={state.creating}
-				onChange={event => state.changeName(event.target.value)} />
-			<HudButton type="submit" variant="success" aria-disabled={!state.canCreate}>Create project</HudButton>
-		</form>
-		<p role="status">{state.creating ? "Creating project…" : ""}</p>
-		{state.createError && <p role="alert">Could not create project: {state.createError}</p>}
-	</section>
+				<span role="status">{status}</span>
+				<HudButton
+					aria-label={`Cancel ${project.slug}`}
+					variant="warning"
+					disabled={!work.canCancelWork(project.slug)}
+					onClick={() => work.cancelWork(project.slug)}
+				>
+					Cancel
+				</HudButton>
+				<HudButton
+					variant="danger"
+					disabled={!management.canDelete(project.slug)}
+					aria-label={`${deleting ? "Deleting" : deleteLabel} ${project.slug}`}
+					onBlur={() => setArmed(null)}
+					onKeyDown={event => {
+						if (event.key === "Escape") {
+							event.preventDefault()
+							setArmed(null)
+						}
+					}}
+					onClick={() => confirmDeletion(project)}
+				>
+					{deleteLabel}
+				</HudButton>
+			</li>
+		)
+	}
+
+	let listNotice = ""
+	if (management.loading) listNotice = "Loading projects…"
+	else if (!management.loadError && !management.projects.length) listNotice = "No projects yet."
+
+	return (
+		<section className="projects" aria-labelledby="projects-heading">
+			<h2 id="projects-heading">Runs Overview</h2>
+			<div className="projects__toolbar">
+				<p role="status" title={work.selectedProject || undefined}>Selected project: {work.selectedProject || "None"}</p>
+				<HudButton onClick={management.refresh}>Refresh</HudButton>
+			</div>
+			<p role="status">{listNotice}</p>
+			{management.loadError && <p role="alert">Could not refresh projects: {management.loadError}</p>}
+			{management.deleteError && <p role="alert">{management.deleteError}</p>}
+			{work.error && <p role="alert">{work.error}</p>}
+			<ul aria-label="Projects">{management.projects.map(renderProject)}</ul>
+			<form onSubmit={event => { event.preventDefault(); management.createProject() }}>
+				<label htmlFor="project-name">Project name</label>
+				<input
+					ref={nameInput}
+					id="project-name"
+					value={management.name}
+					readOnly={management.creating}
+					onChange={event => management.changeName(event.target.value)}
+				/>
+				<HudButton type="submit" variant="success" aria-disabled={!management.canCreate}>Create project</HudButton>
+			</form>
+			<p role="status">{management.creating ? "Creating project…" : ""}</p>
+			{management.createError && <p role="alert">Could not create project: {management.createError}</p>}
+		</section>
+	)
 }

@@ -6,6 +6,42 @@ import { setNativeViewport } from "./native"
 
 const waiting = (prompt = "p1") => snapshot({ status: "awaiting_user_input", current_prompt_id: prompt, current_prompt: `Question ${prompt}` })
 
+for (const action of ["reply", "interrupt"] as const) {
+	test(`switching runs disposes a pending ${action} without changing the new run or draft`, async ({ desktop: { page }, backend }) => {
+		const previous = prepareRun(backend)
+		backend.handlers.set("GET /projects", response => json(response, [
+			{ slug: "existing-project", status: "dormant", run_id: null },
+			{ slug: "next-project", status: "dormant", run_id: null },
+		]))
+		backend.handlers.set("GET /run/run-one", response => json(response, action === "reply" ? waiting() : snapshot()))
+		let pending: ServerResponse | undefined
+		let disposed = false
+		backend.handlers.set(`POST /run/run-one/${action}`, response => {
+			pending = response
+			response.on("close", () => { disposed = true })
+		})
+		await start(page, backend)
+		const editor = page.getByRole("textbox", { name: "Reply", exact: true })
+		await editor.fill("Keep across runs")
+		await page.getByRole("button", { name: action === "reply" ? "Send" : "Interrupt", exact: true }).click()
+		await expect.poll(() => pending).toBeDefined()
+		await view(page, "Runs Overview")
+		prepareRun(backend, "next-run", "next-project")
+		backend.handlers.set("GET /run/next-run", response => json(response, { ...waiting("p2"), project: "next-project" }))
+		await page.getByRole("button", { name: "next-project", exact: true }).click()
+		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		await expect(output(page)).toHaveText("Question p2")
+		await expect.poll(() => disposed).toBe(true)
+		await expect.poll(() => previous.closed).toBe(previous.streams.length)
+		json(pending!, { ok: true })
+		await expect(editor).toHaveValue("Keep across runs")
+		await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled()
+		await expect(runStatus(page)).toContainText("next-project")
+		await expect(page.getByRole("alert")).toHaveCount(0)
+		expect(backend.requests.filter(request => request.path.endsWith(`/${action}`))).toHaveLength(1)
+	})
+}
+
 test("reply keyboard respects Shift and IME; duplicate Send preserves edits and suppresses acknowledged prompts", async ({ desktop: { page }, backend }) => {
 	prepareRun(backend)
 	backend.handlers.set("GET /run/run-one", response => json(response, waiting()))
@@ -133,6 +169,8 @@ test("Cancel remains available during interruption and reconciles background wor
 	status = "dormant"
 	await page.clock.fastForward(251)
 	await expect(page.getByRole("list", { name: "Projects", exact: true })).toContainText("dormant")
+	// Overview follows the confirmed project status even while the old run snapshot lags.
+	await expect(page.getByRole("button", { name: "Cancel existing-project" })).toBeDisabled()
 	await page.getByRole("button", { name: "Return to run" }).click()
 	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Retained")
 	json(interrupt!, { ok: true })

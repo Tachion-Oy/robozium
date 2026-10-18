@@ -3,7 +3,7 @@ import type { BackendMode } from "../../../../src/bridge"
 import type { DesktopApiClient } from "../../api/client"
 import { viewOptions, runViewOptions } from "../../app/navigation"
 import { mockMessages, modelOptions } from "../../app/preview"
-import { useRunWorkspace } from "../../app/useRunWorkspace"
+import { useProjectWorkspace } from "../../app/useProjectWorkspace"
 import { runLabels } from "../../hud/hud-view"
 import { selectRunDisplay } from "../../session/session-reducer"
 import { HudHeader } from "../hud/HudHeader"
@@ -26,8 +26,8 @@ interface AppProps {
 
 /** Compose screens; only theme, panel layout and standalone-preview choices live here. */
 export function App({ connectionNotice, client = null, connected = true, mode = null }: AppProps): ReactElement {
-	const workspace = useRunWorkspace(client, connected, mode)
-	const { run, projects, models, draft, navigation } = workspace
+	const workspace = useProjectWorkspace(client, connected, mode)
+	const { run, management, work, models, draft, navigation } = workspace
 	const [theme, setTheme] = useState<"dark" | "light">("dark")
 	const [layout, setLayout] = useState<LayoutMode>("top")
 	const [previewModel, setPreviewModel] = useState("mock")
@@ -80,7 +80,7 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 							run={run.session.run}
 							status={status}
 							actionError={run.actionError}
-							projectError={projects.actionError}
+							projectError={work.error}
 							canRetry={connected && !run.creating}
 							onRetry={run.retry}
 							onOpenProjects={() => navigation.navigate("projects")}
@@ -96,17 +96,17 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 			case "projects":
 				return (
 					<div className={client ? "selection-overview" : "preview-overview"}>
-						{client && <Projects state={projects} connected={connected} initialFocus={navigation.overviewFocus} />}
+						{client && <Projects management={management} work={work} initialFocus={navigation.overviewFocus} />}
 						<RunOverview
 							connected={Boolean(client)}
 							hasRun={workspace.hasRun}
 							onOpen={navigation.showRun}
-							onStart={workspace.launch.start}
-							disabled={!workspace.launch.enabled}
+							onStart={workspace.launch.canOpen ? workspace.launch.openRun : workspace.launch.launchRun}
+							disabled={!workspace.launch.canLaunch && !workspace.launch.canOpen}
 							existing={workspace.launch.existing}
 							creating={run.creating}
 							error={run.createError}
-							project={projects.selected}
+							project={work.selectedProject}
 						/>
 					</div>
 				)

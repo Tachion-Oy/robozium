@@ -4,6 +4,43 @@ import { test, json, prepareRun, snapshot, start, view, output, message, runStat
 
 const row = (slug: string, status = "dormant") => ({ slug, status, run_id: null })
 
+test("cancelling an unselected project blocks its deletion while unrelated creation remains available", async ({ desktop: { page }, backend }) => {
+	let rows = [row("existing-project", "syncing"), row("selected-project")]
+	let cancellation: ServerResponse | undefined
+	backend.handlers.set("GET /projects", response => json(response, rows))
+	backend.handlers.set("POST /projects/existing-project/cancel", response => { cancellation = response })
+	backend.handlers.set("POST /projects", response => {
+		rows.push(row("new-project"))
+		json(response, { slug: "new-project" })
+	})
+	backend.handlers.set("DELETE /projects/existing-project", response => {
+		rows = rows.filter(project => project.slug !== "existing-project")
+		json(response, { ok: true })
+	})
+	await backend.open()
+	await page.getByRole("button", { name: "selected-project", exact: true }).click()
+	await page.getByRole("button", { name: "Cancel existing-project", exact: true }).evaluate(button => {
+		const cancelButton = button as HTMLButtonElement
+		cancelButton.click()
+		cancelButton.click()
+	})
+	await expect.poll(() => cancellation).toBeDefined()
+	rows[0] = row("existing-project")
+	await page.getByRole("button", { name: "Refresh", exact: true }).click()
+	await expect(page.getByRole("button", { name: "Delete existing-project", exact: true })).toBeDisabled()
+	await page.getByRole("textbox", { name: "Project name" }).fill("New project")
+	await page.getByRole("button", { name: "Create project", exact: true }).click()
+	await expect(page.getByRole("button", { name: "new-project", exact: true })).toHaveAttribute("aria-pressed", "true")
+	await expect(page.getByRole("button", { name: "Delete existing-project", exact: true })).toBeDisabled()
+	json(cancellation!, { ok: true })
+	await page.getByRole("button", { name: "Delete existing-project", exact: true }).click()
+	await page.getByRole("button", { name: "Confirm delete existing-project", exact: true }).click()
+	await expect(page.getByRole("button", { name: "existing-project", exact: true })).toHaveCount(0)
+	await expect(page.getByRole("button", { name: "new-project", exact: true })).toHaveAttribute("aria-pressed", "true")
+	expect(backend.requests.filter(request => request.path.endsWith("/cancel"))).toHaveLength(1)
+	expect(backend.requests.filter(request => request.method === "DELETE")).toHaveLength(1)
+})
+
 test("deletion requires dormant status and a second activation; blur, Escape, navigation and status changes disarm it", async ({ desktop: { page }, backend }) => {
 	let status = "running"
 	backend.handlers.set("GET /projects", response => json(response, [row("existing-project", status)]))

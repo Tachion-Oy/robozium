@@ -2,9 +2,10 @@
 
 ## Unreleased
 
-- Separate desktop project mutation lifetimes, run navigation, draft handling and
-  screen rendering into focused units with explicit ownership and named return
-  contracts.
+- Separate desktop project management from workspace selection/execution, and run
+  lifecycle management from reply/interruption handling. Keep navigation, drafts
+  and screen rendering in focused units with named return contracts. Preserve
+  shared cancellation, deletion guards and disposal of obsolete requests.
 
 - Show the desktop window and animated splash before development preparation.
   Retain the introduction and pulsing `A` through backend startup, then fade
