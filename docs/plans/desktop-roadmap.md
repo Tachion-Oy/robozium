@@ -200,3 +200,6 @@ automated tests use isolated mock profiles and disposable data.
 Retain first-launch Docker builds from bundled locked source and subsequent
 image reuse. Concurrent-use features, data migration, automatic updates, other
 desktop platforms, and publishing remain outside this series.
+
+The PR 9 polling follow-up keeps background project reads visually silent and
+retains the Anurati A after run completion, failure and cancellation.

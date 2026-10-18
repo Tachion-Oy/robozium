@@ -9,6 +9,69 @@ async function view(page: Page, label: string) {
 	await page.getByRole("option", { name: label, exact: true }).click()
 }
 
+for (const empty of [false, true]) {
+	test(`background project refresh keeps layout and focus stable (${empty ? "empty" : "populated"})`, async ({ desktop: { page }, backend }) => {
+		if (empty) backend.handlers.set("GET /projects", response => json(response, []))
+		await backend.open()
+		await expect(page.getByText(empty ? "No projects yet." : "dormant", { exact: true })).toBeVisible()
+		await page.clock.install()
+		const input = page.getByRole("textbox", { name: "Project name" })
+		await input.fill("Keep my focus")
+		const bounds = await input.boundingBox()
+		const reads: ServerResponse[] = []
+		backend.handlers.set("GET /projects", response => { reads.push(response) })
+		await page.clock.fastForward(3001)
+		await expect.poll(() => reads.length).toBe(1)
+		await expect(page.getByText("Loading projects…", { exact: true })).toHaveCount(0)
+		expect(await input.boundingBox()).toEqual(bounds)
+		await expect(input).toBeFocused()
+		json(reads[0], empty ? [] : [{ slug: "existing-project", status: "dormant", run_id: null }])
+		await page.clock.runFor(100)
+		await page.clock.fastForward(3001)
+		await expect.poll(() => reads.length).toBe(2)
+		expect(await input.boundingBox()).toEqual(bounds)
+		await expect(input).toBeFocused()
+		await expect(page.getByText("Loading projects…", { exact: true })).toHaveCount(0)
+		if (empty) await expect(page.getByText("No projects yet.", { exact: true })).toBeVisible()
+		else {
+			// A real status change still arrives through the quiet background read.
+			json(reads[1], [{ slug: "existing-project", status: "syncing", run_id: null }])
+			await expect(page.getByText("syncing", { exact: true })).toBeVisible()
+		}
+	})
+}
+
+test("rapid cancellation polling keeps the list steady until work finishes", async ({ desktop: { page }, backend }) => {
+	let status = "syncing"
+	const rows = () => [{ slug: "existing-project", status, run_id: null }]
+	backend.handlers.set("GET /projects", response => json(response, rows()))
+	backend.handlers.set("POST /projects/existing-project/cancel", response => json(response, { ok: true }))
+	await backend.open()
+	await expect(page.getByText("syncing", { exact: true })).toBeVisible()
+	await page.clock.install()
+	const cancel = page.getByRole("button", { name: "Cancel existing-project", exact: true })
+	await cancel.click()
+	await expect(page.getByText("Cancelling…", { exact: true })).toBeVisible()
+	const input = page.getByRole("textbox", { name: "Project name" })
+	await input.fill("Keep this name")
+	const bounds = await input.boundingBox()
+	const reads: ServerResponse[] = []
+	backend.handlers.set("GET /projects", response => { reads.push(response) })
+	for (let count = 1; count <= 3; count++) {
+		await page.clock.fastForward(251)
+		await expect.poll(() => reads.length).toBe(count)
+		await expect(page.getByText("Loading projects…", { exact: true })).toHaveCount(0)
+		expect(await input.boundingBox()).toEqual(bounds)
+		await expect(input).toBeFocused()
+		if (count === 3) status = "dormant"
+		json(reads[count - 1], rows())
+		await page.clock.runFor(50)
+	}
+	await expect(page.getByText("Cancelling…", { exact: true })).toHaveCount(0)
+	await expect(page.getByRole("button", { name: "Delete existing-project", exact: true })).toBeEnabled()
+	await expect(input).toHaveValue("Keep this name")
+})
+
 test("project creation is single-submit and a failed follow-up refresh cannot recreate it", async ({ desktop: { page }, backend }) => {
 	let created: ServerResponse | undefined
 	backend.handlers.set("POST /projects", (response, body) => { expect(body).toEqual({ name: "New project" }); created = response })

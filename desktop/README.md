@@ -120,7 +120,9 @@ Enter a **Project name** and press Enter or **Create project** to create it. Suc
 selects the returned slug and refreshes the list. A failed creation retains your
 name; if only the follow-up refresh fails, use **Refresh** without creating again.
 The list loads when entering Runs Overview and on Refresh, retaining existing
-rows and selection on failure. The selected project and typed name survive view
+rows and selection on failure. After the first successful listing, background
+reads retain the layout and focus without flashing a loading message. The Current
+Run status mark remains the Anurati A for every status. The selected project and typed name survive view
 changes and connection outages. Reopening restores a saved selection only when
 the project still exists; the project-name field resets. Projects remain stored
 in the Python backend.

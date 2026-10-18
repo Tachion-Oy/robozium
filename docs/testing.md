@@ -547,3 +547,7 @@ empty and creates only the separately mounted read-only folder inside the hub.
 The Docker smoke test starts with those mount sources and verifies that the API
 creates a project which survives restart and shutdown. These checks cover the
 boundary between desktop mount preparation and hub-owned application storage.
+
+Desktop project-polling regressions hold normal and rapid cancellation reads
+pending and verify stable layout, empty-state text and keyboard focus. Terminal
+run navigation tests also retain the Anurati A for every terminal status.

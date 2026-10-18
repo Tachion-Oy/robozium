@@ -200,7 +200,7 @@ export function useProjects(
 	}
 	return {
 		projects, selected, name, select: setSelected, changeName: setName, refresh, create,
-		loading: read.pending, creating: write.pending, loadError: read.error, createError: write.error,
+		loading: read.pending && !loaded.current, creating: write.pending, loadError: read.error, createError: write.error,
 		canCreate: Boolean(client && connected && name.trim()) && !write.pending && deleting.size === 0,
 		deleting, removed, canDelete, deleteProject: slug => { void remove(slug) },
 		cancelling, actionError, cancelProject: (slug, active) => { void cancelWork(slug, active) },

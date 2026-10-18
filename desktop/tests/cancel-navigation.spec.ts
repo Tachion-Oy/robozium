@@ -21,6 +21,7 @@ for (const terminal of ["completed", "failed", "cancelled"]) {
 		await openHistory(page)
 		await expect(output(page)).toHaveText("First message")
 		await expect(runStatus(page)).toContainText(terminal[0].toUpperCase() + terminal.slice(1))
+		await expect(page.locator(".hud-history__status")).toHaveText("A")
 		await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Unsent draft")
 		const reads = backend.requests.filter(request => request.path === "/run/run-one").length
 		await page.clock.fastForward(30_000)

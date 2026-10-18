@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Keep Runs Overview background refreshes visually steady and retain the Anurati A
+  status mark after completion, failure and cancellation.
+
 - Align desktop run navigation with the browser: return to Runs Overview on
   completion, failure or cancellation, retain readable history/drafts, open
   existing runs, and block new launches during syncing or cancellation.

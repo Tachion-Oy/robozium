@@ -43,7 +43,7 @@ export function HudMessageNavigation({ selected, count, currentIndex = count - 1
 	return (
 		<div className="hud-history" role="group" aria-label="Agent message history">
 			<div className="hud-history__side">{arrow(0)}{arrow(1)}</div>
-			<span className="hud-history__status" role="img" aria-label={status} title={status}>{status[0]}</span>
+			<span className="hud-history__status" role="img" aria-label={status} title={status}>A</span>
 			<div className="hud-history__side">{arrow(2)}{arrow(3)}</div>
 		</div>
 	)

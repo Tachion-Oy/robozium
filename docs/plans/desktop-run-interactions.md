@@ -151,3 +151,12 @@ projects; CI already runs it explicitly before building and remains unchanged.
 `start:built` opens unchanged staged/compiled inputs without this preparation;
 regular `start` remains the command after source changes. No automatic cache or
 mtime shortcut can silently hide changed source.
+
+## Steady project refreshes and status mark
+
+The loading label now appears only before the first successful project listing.
+Normal and rapid cancellation polling retain row/input bounds, keyboard focus
+and the empty-state message while still reflecting actual status changes. The
+center status mark remains the Anurati A; using the first letter of the status
+incorrectly changed it to C after cancellation. Native regressions cover populated
+and empty lists, fast cancellation reads and all terminal statuses.
