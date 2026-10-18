@@ -1,5 +1,13 @@
 import { z } from "zod"
 
+export const RunAttachmentSchema = z.object({
+	id: z.string().min(1),
+	name: z.string(),
+	path: z.string().min(1),
+	upload_id: z.uuid().nullish(),
+})
+export type RunAttachment = z.infer<typeof RunAttachmentSchema>
+
 /**
  * API/SSE wire contracts: exact transport payloads as received over HTTP/SSE.
  */

@@ -52,7 +52,6 @@ export function AgentHUD({
 		(name, project) => dispatch({ type: "launch_created", name, project }),
 	)
 	const [replyDraft, setReplyDraft] = useState("")
-	const replyImages = useReplyImages(runId)
 	if (runId !== navigation.runId) {
 		dispatch({ type: "reset", runId })
 		setLayoutMode("top")
@@ -62,6 +61,7 @@ export function AgentHUD({
 		(state) => state.hud.phase,
 		RunHudPhase.Passive,
 	)
+	const replyImages = useReplyImages(runId, phase === RunHudPhase.Done)
 	const projectSlug = useRunSessionSelector(
 		(state) => state.projectSlug,
 		null,

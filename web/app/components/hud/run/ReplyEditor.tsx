@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEventHandler } from "react"
 import type { DropzoneState } from "react-dropzone"
 import type { ReplyImage, ReplyImagesModel } from "@/hooks/useReplyImages"
+import { HudButton } from "../HudButton"
 
 type ReplyEditorProps = {
 	value: string
@@ -28,7 +29,7 @@ export function ReplyEditor({
 	useLayoutEffect(() => {
 		const previous = previousImagesRef.current
 		previousImagesRef.current = attachments ?? []
-		if (!attachments?.some((image) => !previous.includes(image))) return
+		if (!attachments?.some((image) => !previous.some((old) => old.url === image.url))) return
 		if (textareaRef.current) textareaRef.current.scrollTop = 0
 		if (imageListRef.current) imageListRef.current.scrollTop = imageListRef.current.scrollHeight
 	}, [attachments])
@@ -72,12 +73,13 @@ export function ReplyEditor({
 					onKeyDown={handleKeyDown}
 					placeholder="Type your reply..."
 				/>
-				{images?.images.length ? (
+				{images?.isBusy ? (
 					<p id="reply-image-notice" className="agent-hud__reply-notice" role="status">
-						Images can be previewed but not sent yet.
+						Updating images…
 					</p>
 				) : null}
 				{images?.error ? <p className="agent-hud__reply-notice" role="alert">{images.error}</p> : null}
+				{images?.canRetry ? <HudButton onClick={images.onRetry}>Retry images</HudButton> : null}
 			</div>
 			{images?.images.length ? (
 				<ul className="agent-hud__reply-images" aria-label="Image previews" ref={imageListRef} tabIndex={0}>
@@ -96,8 +98,8 @@ export function ReplyEditor({
 function ReplyImagePreview({ image, onRemove }: { image: ReplyImage; onRemove: () => void }) {
 	const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading")
 	return (
-		<li className="agent-hud__reply-image" aria-busy={status === "loading"}>
-			{/* Object URLs are local previews; Next's image optimizer cannot serve them. */}
+		<li className="agent-hud__reply-image" aria-busy={status === "loading" || image.status === "queued" || image.status === "uploading"}>
+			{/* Local object URLs and temporary hub files bypass the image optimizer. */}
 			{/* eslint-disable-next-line @next/next/no-img-element */}
 			<img src={image.url} alt={image.name} onLoad={() => setStatus("loaded")} onError={() => setStatus("error")} />
 			{status !== "loaded" ? (
@@ -105,6 +107,9 @@ function ReplyImagePreview({ image, onRemove }: { image: ReplyImage; onRemove: (
 					{status === "loading" ? "Loading…" : "Preview unavailable"}
 				</span>
 			) : null}
+			{image.status !== "ready" ? <span className="agent-hud__reply-image-status" role="status">
+				{image.status === "failed" ? "Image update failed" : image.status === "removing" ? "Removing…" : "Uploading…"}
+			</span> : null}
 			<button type="button" className="agent-hud__remove-image" onClick={onRemove} aria-label={`Remove ${image.name}`} title={`Remove ${image.name}`}>×</button>
 		</li>
 	)

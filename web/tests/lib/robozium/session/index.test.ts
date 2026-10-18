@@ -199,6 +199,17 @@ describe("createRunSession HUD messages", () => {
 		vi.clearAllMocks()
 	})
 
+	it("accepts empty text only when the composer has staged images", async () => {
+		mockedSubmitReply.mockResolvedValueOnce({ ok: true })
+		const session = createRunSession("run-1", {
+			...seededRunView("awaiting_user_input"), current_prompt_id: "prompt-1", current_prompt: "Question",
+		})
+		await expect(session.submitReply("  ")).resolves.toBe(false)
+		expect(mockedSubmitReply).not.toHaveBeenCalled()
+		await expect(session.submitReply("", { hasImages: true })).resolves.toBe(true)
+		expect(mockedSubmitReply).toHaveBeenCalledWith("run-1", { prompt_id: "prompt-1", content: "" })
+	})
+
 	it("keeps the active prompt when a reply fails so the user can retry", async () => {
 		mockedSubmitReply.mockRejectedValueOnce(new Error("offline"))
 		const session = createRunSession("run-1", {

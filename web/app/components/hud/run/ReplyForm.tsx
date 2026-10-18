@@ -51,10 +51,11 @@ export function ReplyForm({
 		noClick: true,
 		noKeyboard: true,
 		onDrop: composer.images.onDrop,
+		disabled: !composer.images.canAdd || controls.cancel?.isPending,
 	})
 	const canSubmit = Boolean(
-		composer.value.trim() &&
-			!composer.images.images.length &&
+		(composer.value.trim() || composer.images.images.length) &&
+			composer.images.isReady &&
 			composer.isReplyAvailable &&
 			!composer.isSubmitting &&
 			!controls.cancel?.isPending &&
@@ -92,6 +93,7 @@ export function ReplyForm({
 				replyDraft={composer.value}
 				hasImages={composer.images.images.length > 0}
 				onAddImages={dropzone.open}
+				imagesDisabled={!composer.images.canAdd || controls.cancel?.isPending}
 				onClearReply={() => {
 					composer.onChange("")
 					composer.images.onClear()

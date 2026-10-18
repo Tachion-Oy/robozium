@@ -15,6 +15,9 @@ import {
 	selectModel,
 	saveProjectCapabilitySelection,
 	transcribeAudio,
+	listRunAttachments,
+	uploadRunAttachment,
+	deleteRunAttachments,
 } from "../../../lib/robozium/client"
 import type { CapabilitySelection, CreateResponse } from "../../../lib/robozium/wire"
 
@@ -49,6 +52,29 @@ function expectCreatePost(body: object) {
 }
 
 describe("createRun", () => {
+	it("uploads raw image bytes without a prompt and validates restored attachment metadata", async () => {
+		const attachment = { id: "server-id", name: "a & b.png", path: "projects/alpha/image.png", upload_id: crypto.randomUUID() }
+		const file = new File(["image"], attachment.name)
+		fetchMock.mockResolvedValueOnce(okJson(attachment))
+		expect(await uploadRunAttachment("run/one", file, attachment.upload_id)).toEqual(attachment)
+		expect(fetchMock).toHaveBeenLastCalledWith(`/api/runs/run%2Fone/files?filename=a+%26+b.png&upload_id=${attachment.upload_id}`, expect.objectContaining({ method: "POST", body: file }))
+		fetchMock.mockResolvedValueOnce(okJson([attachment]))
+		expect(await listRunAttachments("run/one")).toEqual([attachment])
+		fetchMock.mockResolvedValueOnce(okJson([{ name: "missing identity" }]))
+		await expect(listRunAttachments("run/one")).rejects.toThrow()
+	})
+
+	it("handles empty deletion responses and preserves server errors", async () => {
+		fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+		await deleteRunAttachments("one", "item/two")
+		expect(fetchMock).toHaveBeenLastCalledWith("/api/runs/one/files/item%2Ftwo", { method: "DELETE" })
+		fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+		await deleteRunAttachments("one")
+		expect(fetchMock).toHaveBeenLastCalledWith("/api/runs/one/files", { method: "DELETE" })
+		fetchMock.mockResolvedValueOnce(errJson({ detail: "unknown run_id" }, 404))
+		await expect(deleteRunAttachments("one")).rejects.toThrow("unknown run_id")
+	})
+
 	const choices: CapabilitySelection[] = [{}, { email: true }, { email: "on_demand" }]
 	it.each(choices)("preserves explicit capabilities %j in the launch request", async (capabilities) => {
 		fetchMock.mockResolvedValueOnce(okJson({ run_id: "selected" }))
