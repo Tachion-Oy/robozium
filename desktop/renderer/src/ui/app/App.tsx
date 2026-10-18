@@ -32,13 +32,15 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 	const [restored, setRestored] = useState(recovery.initial.run === null)
 	const [theme, setTheme] = useState<"dark" | "light">("dark")
 	const [model, setModel] = useState<string>("mock")
-	const projectsSelection = useRef("")
 	const [view, setView] = useState<AppView>("projects")
 	const run = useRunSession(client)
-	const busyProject = run.session && (!isTerminal(run.session.run.status) && !run.session.run.unavailable || run.replying || run.interrupting)
-		? run.session.run.project : run.creating ? projectsSelection.current : ""
-	const projects = useProjects(client, view === "projects", connected, { onDeleted: run.closeProject, busyProject, initialSelected: recovery.initial.selectedProject })
-	projectsSelection.current = projects.selected
+	const activeSessionProject = run.session && !isTerminal(run.session.run.status) && !run.session.run.unavailable
+		? run.session.run.project : ""
+	const busyProjects = [activeSessionProject, run.creatingProject]
+	if (run.session && (run.replying || run.interrupting)) busyProjects.push(run.session.run.project)
+	const projects = useProjects(client, view === "projects", connected, {
+		onDeleted: run.closeProject, busyProjects, initialSelected: recovery.initial.selectedProject,
+	})
 	const models = useModels(client, connected)
 	const [hasPreview, setHasPreview] = useState(false)
 	const session = run.session
@@ -48,7 +50,15 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 	const changeDraft = (value: string) => { draftRevision.current++; setDraft(value) }
 	const cancelling = session ? projects.cancelling.has(session.run.project) : false
 	const deleting = session ? projects.deleting.has(session.run.project) : false
-	const canSend = !deleting && !cancelling && connected && Boolean(session?.run.synchronized && session.run.prompt && !session.run.error) && Boolean(draft.trim()) && !run.replying && !run.creating
+	const runActionsAvailable = connected && !deleting && !cancelling
+	const canSend = runActionsAvailable && run.canReply && Boolean(draft.trim())
+	const canInterrupt = runActionsAvailable && run.canInterrupt
+	const hasActiveRun = session && !session.run.unavailable && !isTerminal(session.run.status) && session.run.status !== "cancelling"
+	const hasBackgroundWork = projects.projects.some(project => project.slug === session?.run.project && project.status === "syncing")
+	const canCancel = Boolean(client && runActionsAvailable && !run.creating && (hasActiveRun || hasBackgroundWork))
+	const cancelCurrentProject = () => {
+		if (session && canCancel) projects.cancelProject(session.run.project, Boolean(hasActiveRun))
+	}
 	const send = async () => {
 		if (!canSend) return
 		const revision = draftRevision.current
@@ -64,7 +74,10 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 	const messageIndex = client ? display.index : selectedMessage
 	const message = client ? display.text : mockMessages[selectedMessage]
 	const status = session?.run.unavailable ? "Run unavailable" : session ? runLabels[session.run.status] : "Awaiting input"
-	const canStart = connected && Boolean(projects.projects.some(project => project.slug === projects.selected) && models.selection?.selected_model_id) && !models.pending && !models.error && !run.creating && !projects.cancelling.has(projects.selected) && !projects.deleting.has(projects.selected)
+	const selectedProject = projects.projects.find(project => project.slug === projects.selected)
+	const canStart = connected && Boolean(selectedProject && models.selection?.selected_model_id)
+		&& !models.pending && !models.error && !run.creating
+		&& !projects.cancelling.has(projects.selected) && !projects.deleting.has(projects.selected)
 	const showRun = () => { setFocusRunEditor(true); setView("run") }
 	const startRun = async () => {
 		if (!client) { setHasPreview(true); showRun(); return }
@@ -74,9 +87,13 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 	useEffect(() => {
 		if (!client || !connected || restored) return
 		const saved = recovery.initial.run
-		if (saved) { run.open(saved.id, saved.project, true); setView("run") }
+		if (saved) { run.restore(saved.id, saved.project); setView("run") }
 		setRestored(true)
-	}, [client, connected, restored, recovery.initial.run, run.open])
+	}, [client, connected, restored, recovery.initial.run, run.restore])
+
+	useEffect(() => {
+		if (session) projects.refresh()
+	}, [session?.run.runId, session?.run.status, projects.refresh])
 
 	useEffect(() => {
 		if (!restored) return
@@ -168,11 +185,9 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 			{view === "run" && <HudFooter message={message} selected={messageIndex} status={status}
 				count={client ? display.count : mockMessages.length} currentIndex={client ? display.currentIndex : undefined}
 				onSelect={client ? run.select : setSelectedMessage} draft={draft}
-				onSend={() => { void send() }} canSend={canSend} replying={run.replying}
-				onInterrupt={() => { void run.interrupt() }} interrupting={run.interrupting}
-				canInterrupt={connected && !deleting && !cancelling && !run.creating && !run.interrupting && Boolean(session?.run.synchronized && session.run.status === "running" && !session.run.prompt)}
-				onCancel={() => { if (session) { projects.cancelProject(session.run.project, true); run.refresh() } }} cancelling={cancelling}
-				canCancel={Boolean(client && connected && session && !session.run.unavailable && !deleting && !run.creating && !cancelling && (["queued", "running", "awaiting_user_input"].includes(session.run.status) || projects.projects.some(row => row.slug === session.run.project && row.status === "syncing")))}
+				reply={{ enabled: canSend, pending: run.replying, onClick: () => { void send() } }}
+				interrupt={{ enabled: canInterrupt, pending: run.interrupting, onClick: () => { void run.interrupt() } }}
+				cancel={{ enabled: canCancel, pending: cancelling, onClick: cancelCurrentProject }}
 				onClear={() => { changeDraft(""); editor.current?.focus() }} />}
 			<HudDividerControls mode={layout} disabled={view !== "run"} onChange={setLayout} />
 		</main>

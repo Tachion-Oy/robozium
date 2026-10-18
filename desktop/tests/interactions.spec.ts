@@ -1,6 +1,8 @@
 import { expect } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { test, json, prepareRun, snapshot, start, output, view, runStatus } from "./run-fixture"
+import { expectFooterGeometry } from "./footer-geometry"
+import { setNativeViewport } from "./native"
 
 const waiting = (prompt = "p1") => snapshot({ status: "awaiting_user_input", current_prompt_id: prompt, current_prompt: `Question ${prompt}` })
 
@@ -147,5 +149,64 @@ for (const action of ["interrupt", "cancel"] as const) {
 		await expect(page.getByRole("alert")).toContainText("Try later")
 		await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Keep")
 		expect(backend.requests.filter(request => request.path.endsWith(`/${action}`))).toHaveLength(1)
+	})
+}
+
+
+test("a declined cancellation reports failure and releases the control for explicit retry", async ({ desktop: { page }, backend }) => {
+	prepareRun(backend)
+	backend.handlers.set("POST /projects/existing-project/cancel", response => json(response, { ok: false }))
+	await start(page, backend)
+	await page.getByRole("button", { name: "Cancel", exact: true }).click()
+	await expect(page.getByRole("alert")).toContainText("Cancellation was not accepted")
+	await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeEnabled()
+	expect(backend.requests.filter(request => request.path.endsWith("/cancel"))).toHaveLength(1)
+})
+
+test("a cancelling snapshot disables replies even when it still includes the old prompt", async ({ desktop: { page }, backend }) => {
+	prepareRun(backend)
+	backend.handlers.set("GET /run/run-one", response => json(response, waiting()))
+	await start(page, backend)
+	await page.clock.install()
+	const editor = page.getByRole("textbox", { name: "Reply", exact: true })
+	await editor.fill("Keep while cancelling")
+	await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled()
+	backend.handlers.set("GET /run/run-one", response => json(response, { ...waiting(), status: "cancelling" }))
+	await page.clock.fastForward(2001)
+	await expect(runStatus(page)).toContainText("Cancelling")
+	await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled()
+	await editor.press("Enter")
+	expect(backend.requests.filter(request => request.path.endsWith("/reply"))).toHaveLength(0)
+	await expect(editor).toHaveValue("Keep while cancelling")
+})
+
+for (const action of ["reply", "controls"] as const) {
+	test(`pending ${action} labels fit both themes at narrow window sizes and zoom`, async ({ desktop: { app, page }, backend }) => {
+		prepareRun(backend)
+		backend.handlers.set("GET /run/run-one", response => json(response, action === "reply" ? waiting() : snapshot()))
+		backend.handlers.set("POST /run/run-one/reply", () => {})
+		backend.handlers.set("POST /run/run-one/interrupt", response => json(response, { ok: true }))
+		backend.handlers.set("POST /projects/existing-project/cancel", () => {})
+		await start(page, backend)
+		const time = new Date("2026-01-01T00:00:00Z")
+		await page.clock.install({ time })
+		await page.clock.pauseAt(time)
+		if (action === "reply") {
+			await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Pending answer")
+			await page.getByRole("button", { name: "Send", exact: true }).click()
+			await expect(page.getByRole("button", { name: "Sending…", exact: true })).toBeVisible()
+		} else {
+			await page.getByRole("button", { name: "Interrupt", exact: true }).click()
+			await page.getByRole("button", { name: "Cancel", exact: true }).click()
+			await expect(page.getByRole("button", { name: "Interrupting…", exact: true })).toBeVisible()
+			await expect(page.getByRole("button", { name: "Cancelling…", exact: true })).toBeVisible()
+		}
+		for (const theme of ["dark", "light"]) {
+			if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+			for (const zoom of [1, 1.25]) {
+				await setNativeViewport(app, page, 640, 420, zoom)
+				await expectFooterGeometry(page, true)
+			}
+		}
 	})
 }

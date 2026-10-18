@@ -19,6 +19,7 @@ export interface ProjectsState {
 	name: string
 	loading: boolean
 	creating: boolean
+	canCreate: boolean
 	loadError: string
 	createError: string
 	select: (slug: string) => void
@@ -27,15 +28,28 @@ export interface ProjectsState {
 	create: () => void
 }
 
-export function useProjects(client: DesktopApiClient | null, visible: boolean, connected = true, options: { onDeleted?: (slug: string) => void; busyProject?: string; initialSelected?: string } = {}): ProjectsState {
+interface ProjectsOptions {
+	onDeleted?: (slug: string) => void
+	busyProjects?: readonly string[]
+	initialSelected?: string
+}
+
+export function useProjects(
+	client: DesktopApiClient | null,
+	visible: boolean,
+	connected = true,
+	options: ProjectsOptions = {},
+): ProjectsState {
 	const [projects, setProjects] = useState<Project[]>([])
 	const [selected, setSelected] = useState(options.initialSelected ?? "")
 	const loaded = useRef(false)
 	const [name, setName] = useState("")
 	const [cancelling, setCancelling] = useState<ReadonlySet<string>>(new Set())
+	// Requests and settling work are distinct: acknowledgement does not mean work stopped.
 	const pendingCancels = useRef(new Set<string>())
 	const operations = useRef(new Map<string, AbortController>())
 	const [deleting, setDeleting] = useState<ReadonlySet<string>>(new Set())
+	// Keep uncertain deletions pending until a fresh listing establishes presence or absence.
 	const pendingDeletes = useRef(new Set<string>())
 	const removedSlugs = useRef(new Set<string>())
 	const [removed, setRemoved] = useState<{ slug: string; focus: string } | null>(null)
@@ -54,7 +68,7 @@ export function useProjects(client: DesktopApiClient | null, visible: boolean, c
 		latest.current.options.onDeleted?.(slug)
 	}, [])
 	const [actionError, setActionError] = useState("")
-	const read = useRequest(true)
+	const read = useRequest({ preserveErrorWhilePending: true })
 	const write = useRequest()
 	const { run, cancel } = read
 	const load = useCallback(() => {
@@ -68,6 +82,10 @@ export function useProjects(client: DesktopApiClient | null, visible: boolean, c
 				else pendingDeletes.current.delete(slug)
 			}
 			setDeleting(new Set(pendingDeletes.current))
+			// Suppress stale rows only until a later listing confirms removal.
+			for (const slug of removedSlugs.current) {
+				if (!rows.some(row => row.slug === slug)) removedSlugs.current.delete(slug)
+			}
 			const confirmed = rows.filter(row => !removedSlugs.current.has(row.slug))
 			setProjects(confirmed)
 			setSelected(current => confirmed.some(row => row.slug === current) ? current : "")
@@ -80,19 +98,29 @@ export function useProjects(client: DesktopApiClient | null, visible: boolean, c
 	}, [client, connected, run, finishDeletion])
 	const refresh = useCallback(() => { cancel(); return load() }, [cancel, load])
 	useEffect(() => {
-		if (!client || !connected || !visible && loaded.current && cancelling.size === 0 && deleting.size === 0) return cancel
+		const needsPolling = visible || cancelling.size > 0 || deleting.size > 0
+		if (!client || !connected || loaded.current && !needsPolling) return cancel
 		let active = true
 		let timer: ReturnType<typeof setTimeout> | undefined
 		const poll = async () => {
 			await load()
-			if (active && (visible || pendingCancels.current.size || pendingDeletes.current.size)) timer = setTimeout(() => { void poll() }, pendingCancels.current.size ? 250 : 3000)
+			if (active && (visible || pendingCancels.current.size || pendingDeletes.current.size)) {
+				timer = setTimeout(() => { void poll() }, pendingCancels.current.size ? 250 : 3000)
+			}
 		}
 		void poll()
-		return () => { active = false; clearTimeout(timer); cancel() }
+		return () => {
+			active = false
+			clearTimeout(timer)
+			cancel()
+		}
 	}, [visible, client, connected, cancelling.size, deleting.size, load, cancel])
 	useEffect(() => {
 		const requests = operations.current
-		return () => { for (const request of requests.values()) request.abort(); requests.clear() }
+		return () => {
+			for (const request of requests.values()) request.abort()
+			requests.clear()
+		}
 	}, [client])
 	const wasConnected = useRef(connected)
 	useEffect(() => {
@@ -101,14 +129,20 @@ export function useProjects(client: DesktopApiClient | null, visible: boolean, c
 	}, [connected, visible, refresh])
 	const cancelWork = async (slug: string, active = false) => {
 		const project = projects.find(row => row.slug === slug)
-		if (!client || !connected || operations.current.has(slug) || pendingDeletes.current.has(slug) || pendingCancels.current.has(slug) || !(active || project && canCancelProject(project))) return
+		if (!client || !connected || operations.current.has(slug)) return
+		if (pendingDeletes.current.has(slug) || pendingCancels.current.has(slug)) return
+		if (!active && (!project || !canCancelProject(project))) return
 		const controller = new AbortController()
 		operations.current.set(slug, controller)
 		pendingCancels.current.add(slug)
 		setCancelling(new Set(pendingCancels.current))
 		setActionError("")
 		try {
-			await withDeadline(controller.signal, signal => cancelProject(client, slug, signal))
+			const accepted = await withDeadline(controller.signal, signal => cancelProject(client, slug, signal))
+			if (!controller.signal.aborted && !accepted) {
+				pendingCancels.current.delete(slug)
+				setActionError(`${slug}: Cancellation was not accepted. Refreshing project status.`)
+			}
 		} catch (error) {
 			if (!controller.signal.aborted) {
 				setActionError(`${slug}: ${error instanceof Error ? error.message : "Cancellation failed."}`)
@@ -122,8 +156,12 @@ export function useProjects(client: DesktopApiClient | null, visible: boolean, c
 			}
 		}
 	}
-	const canDelete = (slug: string) => connected && !read.error && !write.pending && options.busyProject !== slug && !pendingDeletes.current.has(slug)
-		&& !operations.current.has(slug) && !pendingCancels.current.has(slug) && projects.some(row => row.slug === slug && row.status === "dormant")
+	const canDelete = (slug: string): boolean => {
+		if (!client || !connected || read.error || write.pending) return false
+		if (options.busyProjects?.includes(slug) || operations.current.has(slug)) return false
+		if (pendingDeletes.current.has(slug) || pendingCancels.current.has(slug)) return false
+		return projects.some(row => row.slug === slug && row.status === "dormant" && row.runId === null)
+	}
 	const remove = async (slug: string) => {
 		if (!client || !canDelete(slug)) return
 		const controller = new AbortController()
@@ -147,7 +185,8 @@ export function useProjects(client: DesktopApiClient | null, visible: boolean, c
 		}
 	}
 	const create = () => {
-		if (!client || !connected || !name.trim()) return
+		// The backend owns name-to-slug conversion; wait before potentially recreating a deleted slug.
+		if (!client || !connected || !name.trim() || pendingDeletes.current.size) return
 		void write.run(signal => createProject(client, name.trim(), signal), project => {
 			removedSlugs.current.delete(project.slug)
 			setSelected(project.slug)
@@ -155,6 +194,11 @@ export function useProjects(client: DesktopApiClient | null, visible: boolean, c
 			refresh()
 		})
 	}
-	return { deleting, removed, canDelete, deleteProject: slug => { void remove(slug) }, cancelling, actionError, cancelProject: (slug, active) => { void cancelWork(slug, active) }, projects, selected, name, select: setSelected, changeName: setName, refresh, create,
-		loading: read.pending, creating: write.pending, loadError: read.error, createError: write.error }
+	return {
+		projects, selected, name, select: setSelected, changeName: setName, refresh, create,
+		loading: read.pending, creating: write.pending, loadError: read.error, createError: write.error,
+		canCreate: Boolean(client && connected && name.trim()) && !write.pending && deleting.size === 0,
+		deleting, removed, canDelete, deleteProject: slug => { void remove(slug) },
+		cancelling, actionError, cancelProject: (slug, active) => { void cancelWork(slug, active) },
+	}
 }

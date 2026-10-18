@@ -6,6 +6,8 @@ import { isTerminal } from "./run-contracts"
 import { getRunSnapshot, streamRunEvents } from "./run-api"
 import type { RunAction } from "./run-reducer"
 
+export interface RunWatcher { dispose: () => void; refresh: () => void }
+
 export function errorMessage(error: unknown) { return error instanceof Error ? error.message : "Run output unavailable." }
 
 // Adapted from web/lib/robozium/session/{connection,poller,snapshot}.ts at 072341b.
@@ -15,8 +17,8 @@ export function watchRun(
 	runId: string,
 	project: string,
 	dispatch: (action: RunAction) => void,
-	verifyBeforeStream = false,
-): (() => void) & { refresh: () => void } {
+	options: { verifyBeforeStream?: boolean } = {},
+): RunWatcher {
 	const controller = new AbortController()
 	let snapshotTimer: ReturnType<typeof setTimeout> | undefined
 	let streamTimer: ReturnType<typeof setTimeout> | undefined
@@ -26,7 +28,7 @@ export function watchRun(
 	let snapshotDelay = RECONNECT_BASE_DELAY_MS
 	let streamDelay = RECONNECT_BASE_DELAY_MS
 	let streamError: unknown = null
-	let streamStarted = !verifyBeforeStream
+	let streamStarted = !options.verifyBeforeStream
 	const disposed = () => controller.signal.aborted
 	const dispose = () => {
 		controller.abort()
@@ -113,5 +115,5 @@ export function watchRun(
 
 	void refresh()
 	if (streamStarted) void follow()
-	return Object.assign(dispose, { refresh: () => { void refresh() } })
+	return { dispose, refresh: () => { void refresh() } }
 }

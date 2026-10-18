@@ -1,19 +1,20 @@
-// Own run creation and subscription lifetimes for the app, surviving view changes.
-// Reducers own data and presentation; this hook owns requests, cancellation and stale callbacks.
+// Own run creation, writes and subscription lifetimes for the app, surviving view changes.
+// Reducers own data and presentation; this hook owns requests and obsolete-result guards.
 import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
-import { createRun, submitReply, interruptRun } from "../run/run-api"
 import { withDeadline } from "../api/request"
-import { watchRun, errorMessage } from "../run/run-updates"
+import { createRun, submitReply, interruptRun } from "../run/run-api"
+import { RunStatus } from "../run/run-contracts"
+import { watchRun, errorMessage, type RunWatcher } from "../run/run-updates"
 import { reduceRunSession } from "./session-reducer"
 
-/** App-owned session survives view changes; opening another run only disposes local work. */
+/** One displayed session; a replacement creation has its own lifetime until accepted. */
 export function useRunSession(client: DesktopApiClient | null) {
 	const [session, dispatch] = useReducer(reduceRunSession, null)
-	const [creating, setCreating] = useState(false)
+	const [creatingProject, setCreatingProject] = useState("")
 	const [createError, setCreateError] = useState("")
-	const creation = useRef<AbortController | null>(null)
-	const dispose = useRef<ReturnType<typeof watchRun> | null>(null)
+	const creation = useRef<{ project: string; controller: AbortController } | null>(null)
+	const watcher = useRef<RunWatcher | null>(null)
 	const generation = useRef(0)
 	const interruptRequest = useRef<AbortController | null>(null)
 	const [interrupting, setInterrupting] = useState(false)
@@ -22,56 +23,68 @@ export function useRunSession(client: DesktopApiClient | null) {
 	const [actionError, setActionError] = useState("")
 	const latest = useRef(session)
 	latest.current = session
-	const stop = useCallback(() => {
+
+	const stopSession = useCallback(() => {
 		generation.current++
 		interruptRequest.current?.abort()
 		interruptRequest.current = null
-		setInterrupting(false)
 		replyRequest.current?.abort()
 		replyRequest.current = null
+		watcher.current?.dispose()
+		watcher.current = null
+		setInterrupting(false)
 		setReplying(false)
 		setActionError("")
-		dispose.current?.()
-		dispose.current = null
-		creation.current?.abort()
-		creation.current = null
 	}, [])
-	useEffect(() => stop, [client, stop])
-	const subscribe = useCallback((runId: string, project: string, recover = false) => {
+	useEffect(() => () => {
+		stopSession()
+		creation.current?.controller.abort()
+		creation.current = null
+		setCreatingProject("")
+	}, [client, stopSession])
+
+	const subscribe = useCallback((runId: string, project: string, verifyBeforeStream = false) => {
 		if (!client) return
-		stop()
+		stopSession()
 		const current = generation.current
-		dispose.current = watchRun(client, runId, project, action => {
+		watcher.current = watchRun(client, runId, project, action => {
 			if (generation.current === current) dispatch(action)
-		}, recover)
-	}, [client, stop])
-	const open = useCallback((runId: string, project: string, recover = false) => {
-		if (!client) return
+		}, { verifyBeforeStream })
+	}, [client, stopSession])
+	const open = useCallback((runId: string, project: string, verifyBeforeStream = false) => {
 		dispatch({ type: "open", runId, project })
-		setCreating(false)
-		subscribe(runId, project, recover)
-	}, [client, subscribe])
+		subscribe(runId, project, verifyBeforeStream)
+	}, [subscribe])
+	const restore = useCallback((runId: string, project: string) => open(runId, project, true), [open])
+
 	const start = async (project: string): Promise<boolean> => {
 		if (!client || !project || creation.current) return false
-		const controller = new AbortController()
-		creation.current = controller
-		setCreating(true)
+		const request = { project, controller: new AbortController() }
+		creation.current = request
+		setCreatingProject(project)
 		setCreateError("")
 		try {
-			const runId = await withDeadline(controller.signal, signal => createRun(client, project, signal))
-			if (creation.current !== controller || controller.signal.aborted) return false
+			const runId = await withDeadline(request.controller.signal, signal => createRun(client, project, signal))
+			if (creation.current !== request || request.controller.signal.aborted) return false
 			open(runId, project)
 			return true
 		} catch (error) {
-			if (creation.current === controller) setCreateError(errorMessage(error))
+			if (creation.current === request) setCreateError(errorMessage(error))
 			return false
 		} finally {
-			if (creation.current === controller) { creation.current = null; setCreating(false) }
+			if (creation.current === request) {
+				creation.current = null
+				setCreatingProject("")
+			}
 		}
 	}
+
+	const canReply = Boolean(session?.run.synchronized && session.run.status === RunStatus.AwaitingUserInput
+		&& session.run.prompt && !session.run.error)
+		&& !creatingProject && !replying
 	const reply = async (content: string): Promise<boolean> => {
 		const promptId = session?.run.prompt?.id
-		if (!client || !session?.run.synchronized || !promptId || !content.trim() || replyRequest.current || creation.current) return false
+		if (!client || !session || !canReply || !promptId || !content.trim() || replyRequest.current || creation.current) return false
 		const controller = new AbortController()
 		const current = generation.current
 		replyRequest.current = controller
@@ -92,41 +105,61 @@ export function useRunSession(client: DesktopApiClient | null) {
 			if (generation.current === current) {
 				replyRequest.current = null
 				setReplying(false)
-				dispose.current?.refresh()
+				watcher.current?.refresh()
 			}
 		}
 	}
+
 	useEffect(() => {
-		if (session?.run.synchronized && (session.run.prompt || session.run.status !== "running")) setInterrupting(false)
-	}, [session])
+		if (session?.run.synchronized && (session.run.prompt || session.run.status !== RunStatus.Running)) setInterrupting(false)
+	}, [session?.run.synchronized, session?.run.prompt, session?.run.status])
+	const canInterrupt = Boolean(session?.run.synchronized && session.run.status === RunStatus.Running && !session.run.prompt)
+		&& !creatingProject && !interrupting
 	const interrupt = async () => {
-		if (!client || !session?.run.synchronized || session.run.status !== "running" || session.run.prompt || interruptRequest.current || interrupting || creation.current) return
+		if (!client || !session || !canInterrupt || interruptRequest.current || creation.current) return
 		const controller = new AbortController()
 		interruptRequest.current = controller
 		setInterrupting(true)
 		setActionError("")
 		try {
 			const accepted = await withDeadline(controller.signal, signal => interruptRun(client, session.run.runId, signal))
-			if (!controller.signal.aborted && !accepted) { setInterrupting(false); setActionError("Interruption was not accepted. Refreshing run status.") }
+			if (!controller.signal.aborted && !accepted) {
+				setInterrupting(false)
+				setActionError("Interruption was not accepted. Refreshing run status.")
+			}
 		} catch (error) {
-			if (!controller.signal.aborted) { setInterrupting(false); setActionError(errorMessage(error)) }
+			if (!controller.signal.aborted) {
+				setInterrupting(false)
+				setActionError(errorMessage(error))
+			}
 		} finally {
 			if (interruptRequest.current === controller) {
 				interruptRequest.current = null
-				dispose.current?.refresh()
+				watcher.current?.refresh()
 			}
 		}
 	}
+
 	const closeProject = useCallback((slug: string) => {
+		if (creation.current?.project === slug) {
+			creation.current.controller.abort()
+			creation.current = null
+			setCreatingProject("")
+		}
 		if (latest.current?.run.project !== slug) return
-		stop()
+		stopSession()
 		dispatch({ type: "close" })
-	}, [stop])
-	return { session, closeProject, interrupt, interrupting, refresh: () => dispose.current?.refresh(), creating, createError, start, open, reply, replying, actionError,
+	}, [stopSession])
+	const retry = () => {
+		if (!session || creation.current) return
+		// Keep run/HUD state, including acknowledged prompts and pinned history.
+		dispatch({ type: "retry" })
+		subscribe(session.run.runId, session.run.project)
+	}
+	return {
+		session, start, restore, closeProject, creating: Boolean(creatingProject), creatingProject, createError,
+		reply, replying, canReply, interrupt, interrupting, canInterrupt, actionError,
+		retry, refresh: () => watcher.current?.refresh(),
 		select: (index: number) => dispatch({ type: "select", index }),
-		retry: () => {
-			if (!session || creation.current) return
-			dispatch({ type: "retry" })
-			subscribe(session.run.runId, session.run.project)
-		} }
+	}
 }

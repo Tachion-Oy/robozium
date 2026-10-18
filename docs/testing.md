@@ -274,6 +274,31 @@ Ubuntu with Chromium sandboxing enabled and requires the Electron job to pass.
 Reply scenarios in `desktop/tests/interactions.spec.ts` verify acknowledged draft
 clearing, edits during submission, duplicate guards, obsolete prompts, keyboard/IME,
 rejection and timeout recovery without repeating writes.
+The native backend suite also submits both real mock prompts through Enter and
+Send, checks acknowledged draft clearing, and waits for completion.
+
+Desktop interaction scenarios also cover interruption followed by a reply,
+cancellation during interruption, background status reconciliation and failed
+controls retaining drafts. Pending labels must fit both themes at 640×420,
+including 125% native zoom.
+
+`desktop/tests/deletion.spec.ts` covers two-step deletion and dismissal, status
+gates, delayed acknowledgements, duplicate clicks, stale polls, HTTP 409 and
+uncertain deadlines, selection/session disposal and focus. Ownership regressions
+change selection during a pending launch and delete unrelated project history.
+The native backend suite cancels a real mock run and verifies files remain through the first
+activation and disappear only after cancellation and confirmed deletion.
+
+`desktop/tests/reconnection.spec.ts` controls renderer time to verify exponential
+backoff and the four-second cap, queued snapshots after stream open, duplicate
+events, premature closure, snapshot/open deadlines, permanent failures and
+replacement-session cleanup. Readiness recovery preserves the mounted HUD.
+
+`desktop/tests/recovery.spec.ts` verifies validated reload recovery, terminal
+history, missing runs and deleted projects, mode separation, corrupt records,
+storage failure and deletion cleanup. The real native close/reopen scenario
+checks preserved drafts/projects after the backend loses its in-memory runs,
+with no automatic launch. Preview continues to reset local state on reload.
 
 ## Desktop backend checks
 
@@ -490,7 +515,8 @@ Full E2E runs native lifecycle checks in the existing Docker job. The Electron
 preview job still uses a desktop-only checkout. All seven existing jobs remain
 required. Renderer tests also reject untrusted callers of the lifecycle and
 connection-address IPC methods. Separate native scenarios block initial renderer
-readiness and recover through Retry without Docker commands, and verify the
+readiness and recover through automatic reads or Retry without Docker commands,
+and verify the
 selected-address CSP with actual desktop HTTP/SSE requests against a seeded run.
 The outage scenario stops only its disposable container to verify recovery,
 retained editor identity, project-name draft and selection, reply draft,
@@ -514,24 +540,3 @@ empty and creates only the separately mounted read-only folder inside the hub.
 The Docker smoke test starts with those mount sources and verifies that the API
 creates a project which survives restart and shutdown. These checks cover the
 boundary between desktop mount preparation and hub-owned application storage.
-
-Desktop interaction scenarios also cover interruption followed by a reply,
-cancellation during interruption, background status reconciliation and failed
-controls retaining drafts.
-
-`desktop/tests/deletion.spec.ts` covers two-step deletion and dismissal, status
-gates, delayed acknowledgements, duplicate clicks, stale polls, HTTP 409 and
-uncertain deadlines, selection/session disposal and focus. The native backend
-suite cancels a real mock run and verifies files remain through the first
-activation and disappear only after cancellation and confirmed deletion.
-
-`desktop/tests/reconnection.spec.ts` controls renderer time to verify exponential
-backoff and the four-second cap, queued snapshots after stream open, duplicate
-events, premature closure, snapshot/open deadlines, permanent failures and
-replacement-session cleanup. Readiness recovery preserves the mounted HUD.
-
-`desktop/tests/recovery.spec.ts` verifies validated reload recovery, terminal
-history, missing runs and deleted projects, mode separation, corrupt records,
-storage failure and deletion cleanup. The real native close/reopen scenario
-checks preserved drafts/projects after the backend loses its in-memory runs,
-with no automatic launch. Preview continues to reset local state on reload.

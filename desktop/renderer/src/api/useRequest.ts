@@ -11,7 +11,7 @@ export interface RequestState {
 }
 
 /** One request at a time, with explicit cancellation and no automatic write retries. */
-export function useRequest(preserveErrorWhilePending = false): RequestState {
+export function useRequest({ preserveErrorWhilePending = false }: { preserveErrorWhilePending?: boolean } = {}): RequestState {
 	const activeRequest = useRef<AbortController | null>(null)
 	const [pending, setPending] = useState(false)
 	const [error, setError] = useState("")

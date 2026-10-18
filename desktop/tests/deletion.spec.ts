@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test"
 import type { ServerResponse } from "node:http"
-import { test, json, prepareRun, snapshot, start, view } from "./run-fixture"
+import { test, json, prepareRun, snapshot, start, view, output, message, runStatus } from "./run-fixture"
 
 const row = (slug: string, status = "dormant") => ({ slug, status, run_id: null })
 
@@ -42,10 +42,14 @@ test("pending deletion survives polls, rejects duplicate actions and preserves u
 	await backend.open()
 	await page.clock.install()
 	await page.getByRole("button", { name: "existing-project", exact: true }).click()
+	await page.getByRole("textbox", { name: "Project name" }).fill("Existing project")
 	await page.getByRole("button", { name: "Delete existing-project", exact: true }).click()
 	await page.getByRole("button", { name: "Confirm delete existing-project", exact: true }).evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click() })
 	await expect.poll(() => pending).toBeDefined()
 	await expect(page.getByRole("button", { name: "Start run", exact: true })).toHaveAttribute("aria-disabled", "true")
+	await expect(page.getByRole("button", { name: "Create project", exact: true })).toHaveAttribute("aria-disabled", "true")
+	await page.getByRole("textbox", { name: "Project name" }).press("Enter")
+	expect(backend.requests.filter(request => request.method === "POST" && request.path === "/projects")).toHaveLength(0)
 	await page.clock.fastForward(3001)
 	await expect(page.getByRole("button", { name: "Deleting existing-project", exact: true })).toBeDisabled()
 	await page.getByRole("button", { name: "next-project", exact: true }).click()
@@ -54,7 +58,12 @@ test("pending deletion survives polls, rejects duplicate actions and preserves u
 	await expect(page.getByRole("button", { name: "existing-project", exact: true })).toHaveCount(0)
 	await expect(page.getByRole("button", { name: "next-project", exact: true })).toHaveAttribute("aria-pressed", "true")
 	await expect(page.getByRole("button", { name: "next-project", exact: true })).toBeFocused()
+	await expect(page.getByRole("button", { name: "Create project", exact: true })).toHaveAttribute("aria-disabled", "false")
+	await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue("Existing project")
 	expect(backend.requests.filter(request => request.method === "DELETE")).toHaveLength(1)
+	await view(page, "Environment")
+	await view(page, "Runs Overview")
+	await expect(page.getByRole("combobox", { name: /^HUD view:/ })).toBeFocused()
 })
 
 test("deleting the selected current project's history disposes its session and keeps the draft", async ({ desktop: { page }, backend }) => {
@@ -109,3 +118,57 @@ for (const outcome of ["conflict", "timeout-present", "timeout-absent", "malform
 		expect(backend.requests.filter(request => request.method === "DELETE")).toHaveLength(1)
 	})
 }
+
+
+test("a pending launch protects its captured project after selection changes and survives deletion of the old session", async ({ desktop: { page }, backend }) => {
+	prepareRun(backend)
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ status: "completed" })))
+	let rows = [row("existing-project"), row("launch-target"), row("other-project")]
+	backend.handlers.set("GET /projects", response => json(response, rows))
+	backend.handlers.set("DELETE /projects/existing-project", response => {
+		rows = rows.filter(project => project.slug !== "existing-project")
+		json(response, { ok: true })
+	})
+	await start(page, backend)
+	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Keep for next run")
+	await view(page, "Runs Overview")
+	prepareRun(backend, "next-run", "launch-target")
+	let pending: ServerResponse | undefined
+	backend.handlers.set("POST /run/create", (response, body) => {
+		expect(body).toEqual({ project: "launch-target" })
+		pending = response
+	})
+	await page.getByRole("button", { name: "launch-target", exact: true }).click()
+	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await expect.poll(() => pending).toBeDefined()
+	await page.getByRole("button", { name: "other-project", exact: true }).click()
+	await expect(page.getByRole("button", { name: "Delete launch-target", exact: true })).toBeDisabled()
+	await page.getByRole("button", { name: "Delete existing-project", exact: true }).click()
+	await page.getByRole("button", { name: "Confirm delete existing-project", exact: true }).click()
+	await expect(page.getByRole("button", { name: "existing-project", exact: true })).toHaveCount(0)
+	await expect(page.getByRole("button", { name: "Starting run…", exact: true })).toBeVisible()
+	json(pending!, { run_id: "next-run" })
+	await expect(runStatus(page)).toContainText("launch-target")
+	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Keep for next run")
+	await view(page, "Runs Overview")
+	await expect(page.getByRole("button", { name: "other-project", exact: true })).toHaveAttribute("aria-pressed", "true")
+})
+
+test("deleting an unrelated project preserves the current session and draft", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	let rows = [row("existing-project", "running"), row("unrelated")]
+	backend.handlers.set("GET /projects", response => json(response, rows))
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ message_trace: [message(1, "Keep history")] })))
+	backend.handlers.set("DELETE /projects/unrelated", response => { rows = rows.slice(0, 1); json(response, { ok: true }) })
+	await start(page, backend)
+	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Keep draft")
+	await view(page, "Runs Overview")
+	await page.getByRole("button", { name: "Delete unrelated", exact: true }).click()
+	await page.getByRole("button", { name: "Confirm delete unrelated", exact: true }).click()
+	await expect(page.getByRole("button", { name: "unrelated", exact: true })).toHaveCount(0)
+	await page.getByRole("button", { name: "Return to run", exact: true }).click()
+	await expect(output(page)).toHaveText("Keep history")
+	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Keep draft")
+	expect(run.streams).toHaveLength(1)
+	expect(run.closed).toBe(0)
+})

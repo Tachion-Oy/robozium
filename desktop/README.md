@@ -57,8 +57,8 @@ after the renderer connects; credential-unlock controls follow in PR 10.
 
 Once connected, React checks readiness every five seconds with a three-second
 timeout. A connection failure retries with exponential delays from 500 ms to four
-seconds and shows an accessible notice with **Retry**. The HUD stays mounted, preserving your draft, model/view and history
-selection, divider position, and theme. Connection Retry checks the existing API
+seconds and shows an accessible notice with **Retry**. The HUD stays mounted,
+preserving your draft, model/view and history selection, divider position, and theme. Connection Retry checks the existing API
 and resumes polling when ready; it does not rebuild or restart Docker. Backend
 startup Retry still retries Docker setup. Preview makes no API requests.
 
@@ -148,10 +148,10 @@ no conflicting local operation. Activate it twice to confirm that project's
 removal. Blur, Escape, navigation or a status change dismisses confirmation.
 Cancellation and background syncing must finish first. Pending deletion blocks
 launch and other actions for that project and remains visible through refreshes.
+Project creation also waits for pending deletions; its name field stays editable.
 A conflict refreshes status; an uncertain result is checked by listing projects
 without repeating DELETE. Successful removal clears matching selection and run
 references, retains the reply draft and focuses the next project/name field.
-
 
 In standalone preview, **Start run** opens the latest local mock message above
 an empty reply editor. Preview editing stays local; Enter inserts a newline.

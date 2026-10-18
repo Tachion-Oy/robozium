@@ -5,23 +5,38 @@ import { CopyTextButton } from "./CopyTextButton"
 import { useDesktopActionLayout } from "../../hud/useDesktopActionLayout"
 import "./hud-footer.css"
 
-export function HudFooter({ message, selected, count, currentIndex, onSelect, draft, onClear, status, onSend, canSend = false, replying = false, onInterrupt, canInterrupt = false, interrupting = false, onCancel, canCancel = false, cancelling = false }: {
-	onInterrupt?: () => void; canInterrupt?: boolean; interrupting?: boolean
-	onCancel?: () => void; canCancel?: boolean; cancelling?: boolean
-	onSend?: () => void; canSend?: boolean; replying?: boolean
-	status?: string
+interface FooterAction {
+	enabled: boolean
+	pending: boolean
+	onClick: () => void
+}
+
+interface HudFooterProps {
+	message: string
+	selected: number
+	count: number
 	currentIndex?: number
-	message: string; selected: number; count: number; onSelect: (index: number) => void
-	draft: string; onClear: () => void
-}) {
+	onSelect: (index: number) => void
+	draft: string
+	onClear: () => void
+	status?: string
+	reply?: FooterAction
+	interrupt?: FooterAction
+	cancel?: FooterAction
+}
+
+export function HudFooter({
+	message, selected, count, currentIndex, onSelect, draft, onClear, status,
+	reply, interrupt, cancel,
+}: HudFooterProps) {
 	const actions = useDesktopActionLayout()
 	const [error, setError] = useState("")
 	useEffect(() => setError(""), [message, draft])
 	return (
 		<footer className="hud-footer" role="group" aria-label="Current Run controls">
 			<div className="hud-footer__actions" ref={actions}>
-				<HudButton className="hud-footer__cancel" variant="warning" disabled={!canCancel} onClick={onCancel}>{cancelling ? "Cancelling…" : "Cancel"}</HudButton>
-				<HudButton className="hud-footer__interrupt" variant="danger" disabled={!canInterrupt} onClick={onInterrupt}>{interrupting ? "Interrupting…" : "Interrupt"}</HudButton>
+				<HudButton className="hud-footer__cancel" variant="warning" disabled={!cancel?.enabled} onClick={cancel?.onClick}>{cancel?.pending ? "Cancelling…" : "Cancel"}</HudButton>
+				<HudButton className="hud-footer__interrupt" variant="danger" disabled={!interrupt?.enabled} onClick={interrupt?.onClick}>{interrupt?.pending ? "Interrupting…" : "Interrupt"}</HudButton>
 				<div className="hud-footer__navigation">
 					<HudMessageNavigation selected={selected} count={count} currentIndex={currentIndex} onSelect={onSelect} status={status} />
 				</div>
@@ -37,7 +52,7 @@ export function HudFooter({ message, selected, count, currentIndex, onSelect, dr
 					<CopyTextButton content={message} target="agent output" onError={setError} />
 				</div>
 				<HudButton className="hud-footer__record" variant="success" disabled><span>Record</span></HudButton>
-				<HudButton className="hud-footer__send" variant="success" disabled={!canSend} onClick={onSend}>{replying ? "Sending…" : "Send"}</HudButton>
+				<HudButton className="hud-footer__send" variant="success" disabled={!reply?.enabled} onClick={reply?.onClick}>{reply?.pending ? "Sending…" : "Send"}</HudButton>
 			</div>
 			{error && <p className="hud-footer__error" role="alert">{error}</p>}
 		</footer>

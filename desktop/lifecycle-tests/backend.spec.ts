@@ -137,7 +137,7 @@ test("Docker startup failure presents an accessible retry that starts the backen
 	await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeVisible({ timeout: 180_000 })
 })
 
-test("initial renderer readiness times out, stops polling, and retries without Docker", async ({ runtime }) => {
+test("initial renderer readiness times out, recovers automatically, and supports Retry without Docker", async ({ runtime }) => {
 	const { port, commands } = runtime
 	const app = await runtime.launch()
 	const page = await app.firstWindow()
@@ -149,14 +149,13 @@ test("initial renderer readiness times out, stops polling, and retries without D
 		// Leave the first request pending to exercise the renderer's timeout/abort.
 		if (!blocked) await route.continue()
 	})
-	await test.step("Abort the timed-out request and stop polling", async () => {
+	await test.step("Abort the timed-out request and schedule another read", async () => {
 		await expect(page.getByRole("alert")).toContainText("Backend connection unavailable", { timeout: 180_000 })
 		await expect(page.getByRole("button", { name: "Start run", exact: true })).toHaveCount(0)
 		await abortedReady
-		expect(readinessRequests).toBe(1)
 		await page.clock.install()
-		await page.clock.fastForward(20_000)
-		expect(readinessRequests).toBe(1)
+		await page.clock.fastForward(501)
+		await expect.poll(() => readinessRequests).toBeGreaterThan(1)
 	})
 	await test.step("Retry the connection without issuing Docker commands", async () => {
 		const commandsBeforeRetry = await readFile(commands, "utf8")
@@ -194,7 +193,7 @@ test("renderer HTTP and SSE use the selected backend allowed by CSP", async ({ r
 	expect(csp?.split("; ")).toContain(`connect-src http://127.0.0.1:${port}`)
 })
 
-test("outage retry preserves the HUD and resumes readiness polling after recovery", async ({ runtime }, testInfo) => {
+test("automatic outage recovery preserves the HUD and resumes readiness polling", async ({ runtime }, testInfo) => {
 	const { profile, port, commands } = runtime
 	const { app, page } = await launchConnected(runtime)
 	const { container } = await ownedBackend(profile)
@@ -214,7 +213,7 @@ test("outage retry preserves the HUD and resumes readiness polling after recover
 	await reply.fill("retained across outage")
 	await reply.evaluate(element => Reflect.set(window, "originalEditor", element))
 	await expect(page.locator(".hud-panel--agent pre")).toContainText("Hello! I generated a text artifact")
-	// Advance the isolated mock through HTTP; reply controls arrive in PR 9.
+	// Advance through HTTP without submitting the draft whose preservation this test checks.
 	const runId = (await (await fetch(`http://127.0.0.1:${port}/projects`, { headers: { Origin: "robozium://app" } })).json() as { slug: string; run_id: string }[])
 		.find(project => project.slug === "outage-project")!.run_id
 	await replyToMock(port, runId)
@@ -258,6 +257,7 @@ test("outage retry preserves the HUD and resumes readiness polling after recover
 		}
 	})
 	await test.step("Recover and preserve the mounted HUD and its state", async () => {
+		const previousModelReads = modelReads
 		execFileSync(docker, ["start", container], { stdio: "pipe" })
 		await expect.poll(async () => {
 			try {
@@ -266,9 +266,7 @@ test("outage retry preserves the HUD and resumes readiness polling after recover
 				return 0
 			}
 		}, { timeout: 30_000 }).toBe(200)
-		const previousModelReads = modelReads
-		await page.getByRole("button", { name: "Retry", exact: true }).click()
-		await expect(page.locator(".backend-notice")).toHaveCount(0)
+		await expect(page.locator(".backend-notice")).toHaveCount(0, { timeout: 10_000 })
 		await expect.poll(() => modelReads).toBeGreaterThan(previousModelReads)
 		await expect(reply).toHaveValue("retained across outage")
 		expect(await reply.evaluate(element => element === Reflect.get(window, "originalEditor"))).toBe(true)
@@ -429,4 +427,29 @@ test("real mock cancellation finishes before confirmed deletion removes project 
 	await expect(page.getByRole("button", { name: "delete-after-cancellation", exact: true })).toHaveCount(0)
 	await expect(page.getByRole("textbox", { name: "Project name" })).toBeFocused()
 	await expect(readFile(proof, "utf8")).rejects.toMatchObject({ code: "ENOENT" })
+})
+
+test("Enter and Send submit real mock replies and clear only acknowledged drafts", async ({ runtime }) => {
+	const { page } = await launchConnected(runtime)
+	let replies = 0
+	page.on("request", request => {
+		if (request.method() === "POST" && request.url().endsWith("/reply")) replies++
+	})
+	await page.getByRole("textbox", { name: "Project name" }).fill("Native replies")
+	await page.getByRole("button", { name: "Create project", exact: true }).click()
+	await expect(page.getByRole("button", { name: "native-replies", exact: true })).toHaveAttribute("aria-pressed", "true")
+	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	const editor = page.getByRole("textbox", { name: "Reply", exact: true })
+	const status = page.getByRole("status", { name: "Run status" })
+	await expect(status).toContainText("Awaiting input")
+	await editor.fill("Continue from Enter")
+	await editor.press("Enter")
+	await expect(editor).toHaveValue("")
+	await expect(page.locator(".hud-panel--agent pre")).toHaveText("Thanks. One more thing before I finish?")
+	await editor.fill("Finish from Send")
+	await page.getByRole("button", { name: "Send", exact: true }).click()
+	await expect(editor).toHaveValue("")
+	await expect(status).toContainText("Completed")
+	await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled()
+	expect(replies).toBe(2)
 })

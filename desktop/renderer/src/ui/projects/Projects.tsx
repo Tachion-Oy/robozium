@@ -8,11 +8,16 @@ export function Projects({ state, connected = true }: { state: ProjectsState; co
 	const [armed, setArmed] = useState<{ slug: string; status: string; runId: string | null } | null>(null)
 	const buttons = useRef(new Map<string, HTMLButtonElement>())
 	const nameInput = useRef<HTMLInputElement>(null)
+	const lastRemoval = useRef(state.removed)
 	useEffect(() => {
 		if (armed && !state.projects.some(row => row.slug === armed.slug && row.status === armed.status && row.runId === armed.runId && state.canDelete(row.slug))) setArmed(null)
 	}, [state, armed])
 	useLayoutEffect(() => {
-		if (state.removed) (buttons.current.get(state.removed.focus) ?? nameInput.current)?.focus()
+		// Consume new removals while visible; revisiting the view must not steal focus.
+		if (state.removed && state.removed !== lastRemoval.current) {
+			(buttons.current.get(state.removed.focus) ?? nameInput.current)?.focus()
+		}
+		lastRemoval.current = state.removed
 	}, [state.removed])
 	return <section className="projects" aria-labelledby="projects-heading">
 		<h2 id="projects-heading">Runs Overview</h2>
@@ -45,7 +50,7 @@ export function Projects({ state, connected = true }: { state: ProjectsState; co
 			<label htmlFor="project-name">Project name</label>
 			<input ref={nameInput} id="project-name" value={state.name} readOnly={state.creating}
 				onChange={event => state.changeName(event.target.value)} />
-			<HudButton type="submit" variant="success" aria-disabled={state.creating || !state.name.trim()}>Create project</HudButton>
+			<HudButton type="submit" variant="success" aria-disabled={!state.canCreate}>Create project</HudButton>
 		</form>
 		<p role="status">{state.creating ? "Creating project…" : ""}</p>
 		{state.createError && <p role="alert">Could not create project: {state.createError}</p>}

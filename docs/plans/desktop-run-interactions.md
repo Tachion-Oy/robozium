@@ -65,3 +65,46 @@ runs stop reads and retain the draft in Current Run with navigation for explicit
 relaunch. Successful deletion clears matching saved identities. Native tests
 cover reload, mode separation, malformed/unavailable storage, deleted projects,
 missing and terminal runs, and real close/reopen after backend shutdown.
+
+## Review against PR 8 and the browser
+
+The merged PR 8 (`072341b`, PR #98) run/HUD boundaries remain intact. Typed API
+operations validate wire data; the run reducer retains authoritative prompts and
+acknowledgements; HUD reducers retain presentation and history selection. The
+session owns run requests, while App composes project actions and the single draft.
+Browser retry statuses, cancellation reconciliation and deletion confirmation
+were compared with the desktop implementation at that base.
+
+Review tightened launch ownership: changing selection cannot transfer a pending
+launch's deletion guard, and deleting an old session cannot abort an unrelated
+launch. Session disposal and creation disposal have distinct lifetimes. A named
+watcher interface exposes refresh/disposal, and footer actions group availability,
+pending feedback and callbacks. Declined cancellations release the control for
+explicit retry. Cancelling snapshots cannot reactivate an old reply prompt.
+Native regressions exercise these races and pending labels in both themes at
+narrow sizes and 125% zoom. Deletion moves focus once; reopening the overview
+preserves navigation focus instead of replaying the previous removal.
+Project creation waits for pending deletion outcomes because only the backend
+knows the resulting slug; this prevents recreation from racing a delayed DELETE
+acknowledgement while preserving the typed project name.
+
+## Verification
+
+Local validation passed:
+
+- Desktop lint, all TypeScript projects, production build and `git diff --check`.
+- All 186 desktop tests, including unchanged preview screenshot baselines, both
+  themes, narrow layouts, 125% zoom, keyboard focus and subscription cleanup.
+  The final creation/deletion guard also passed all 33 project, selection and
+  recovery scenarios on the rebuilt renderer.
+- The 12 native backend lifecycle scenarios and the added real Enter/Send reply
+  scenario. Cancellation/deletion and replies were checked again on final assets.
+  Reported native results use fixed build assets and sequential suites.
+- All 34 controller lifecycle tests, 13 staging/Compose checks and the isolated
+  Docker startup/restart/persistence smoke test.
+- All 149 applicable Python desktop-access, API, project and run-manager tests.
+- Local documentation links resolve; no dependency lockfiles or preview baselines
+  changed. The original checkout and other worktrees remain intact.
+
+No PR was opened or pushed. CI and Full E2E remain required before any later PR
+handoff or merge; these local results do not replace them.
