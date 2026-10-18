@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useReplyImages } from "../../../../../hooks/useReplyImages"
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
@@ -53,10 +54,12 @@ import { showErrorToast } from "../../../../../app/components/feedback/ErrorToas
 
 function TestRunHud() {
 	const [draft, setDraft] = useState("")
+	const images = useReplyImages("run-1")
 
 	return (
 		<RunHud
 			draft={draft}
+			images={images}
 			onDraftChange={setDraft}
 			layoutMode="top"
 		/>

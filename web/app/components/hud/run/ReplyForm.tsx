@@ -1,6 +1,13 @@
 "use client"
 
 import type { SubmitEventHandler } from "react"
+import { useDropzone } from "react-dropzone"
+import {
+	REPLY_IMAGE_ACCEPT,
+	REPLY_IMAGE_LIMIT,
+	REPLY_IMAGE_MAX_BYTES,
+	type ReplyImagesModel,
+} from "@/hooks/useReplyImages"
 import {
 	AgentMessagePanel,
 	type AgentMessage,
@@ -15,6 +22,7 @@ import { ReplyEditor } from "./ReplyEditor"
 
 export type ReplyComposerModel = {
 	value: string
+	images: ReplyImagesModel
 	isReplyAvailable: boolean
 	isSubmitting: boolean
 	onChange: (value: string) => void
@@ -36,8 +44,17 @@ export function ReplyForm({
 	controls,
 	layoutMode,
 }: ReplyFormProps) {
+	const dropzone = useDropzone({
+		accept: REPLY_IMAGE_ACCEPT,
+		maxSize: REPLY_IMAGE_MAX_BYTES,
+		maxFiles: REPLY_IMAGE_LIMIT,
+		noClick: true,
+		noKeyboard: true,
+		onDrop: composer.images.onDrop,
+	})
 	const canSubmit = Boolean(
 		composer.value.trim() &&
+			!composer.images.images.length &&
 			composer.isReplyAvailable &&
 			!composer.isSubmitting &&
 			!controls.cancel?.isPending &&
@@ -62,6 +79,8 @@ export function ReplyForm({
 				<AgentMessagePanel message={message} />
 				<ReplyEditor
 					value={composer.value}
+					images={composer.images}
+					dropzone={dropzone}
 					canSubmit={canSubmit}
 					onChange={composer.onChange}
 				/>
@@ -71,7 +90,12 @@ export function ReplyForm({
 				agentMessage={message}
 				navigation={navigation}
 				replyDraft={composer.value}
-				onClearReply={() => composer.onChange("")}
+				hasImages={composer.images.images.length > 0}
+				onAddImages={dropzone.open}
+				onClearReply={() => {
+					composer.onChange("")
+					composer.images.onClear()
+				}}
 				submission={{
 					canSubmit,
 					isSubmitting: composer.isSubmitting,

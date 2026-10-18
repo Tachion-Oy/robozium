@@ -264,6 +264,7 @@
     fill: currentColor
 }
 :root[data-theme="light"] .agent-hud__model-trigger {
+    font-size: inherit;
     --btn-tone: var(--selector-accent);
     --btn-ring: 1px;
     --btn-edge: color-mix(

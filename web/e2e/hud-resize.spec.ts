@@ -377,6 +377,7 @@ test("keeps chosen size on run entry while content uses the available space", as
 			"Clear reply",
 			"Copy user reply",
 			"Copy agent output",
+			"image",
 			"Record",
 			"Send",
 		])
@@ -510,7 +511,9 @@ test("keeps chosen size on run entry while content uses the available space", as
 			)
 			const recordStyle = getComputedStyle(record)
 			return {
-				navigationClearance: submitBounds.left - navigationBounds.right,
+				navigationClearance: submitBounds.top >= navigationBounds.bottom
+					? submitBounds.top - navigationBounds.bottom
+					: submitBounds.left - navigationBounds.right,
 				largeButtonGap: sendBounds.left - recordBounds.right,
 				copyAspectRatios: copyBounds.map(
 					(bounds) => bounds.width / bounds.height,
@@ -522,8 +525,9 @@ test("keeps chosen size on run entry while content uses the available space", as
 		})
 		expect(compactActionGeometry).not.toBeNull()
 		if (!compactActionGeometry) continue
+		// Subtracting fractional DOM bounds can put equal gaps 1/65536px apart in Firefox.
 		expect(compactActionGeometry.navigationClearance).toBeGreaterThanOrEqual(
-			compactActionGeometry.largeButtonGap,
+			compactActionGeometry.largeButtonGap - 0.01,
 		)
 		if (theme === "light") {
 			for (const ratio of compactActionGeometry.copyAspectRatios) {

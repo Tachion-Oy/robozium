@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+
+- Preview pasted, dropped, or selected images in the web reply composer, with
+  run-scoped drafts and local removal/clearing. Image replies cannot be sent yet.
+
 - Start selected projects from the desktop HUD and display live output, prompts,
   history, and completion. Preserve drafts and output on errors, keep one session
   across views, and retry output without creating another run. Standalone preview
