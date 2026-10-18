@@ -1,5 +1,6 @@
 "use client"
 
+import { HudButton } from "./HudButton"
 import {
 	type KeyboardEvent as ReactKeyboardEvent,
 	type ReactNode,
@@ -124,9 +125,10 @@ export function SelectorDropdown<Value extends string>({
 		<div
 			ref={rootRef}
 			className={`agent-hud__model-selector agent-hud__model-selector--ready${isViewSelector ? " agent-hud__view-selector" : ""}`}>
-			<button
+			<HudButton
+				appearance="control"
+				variant={isViewSelector ? "warning" : "success"}
 				ref={triggerRef}
-				type="button"
 				className={`agent-hud__selector-trigger agent-hud__model-trigger${isViewSelector ? " agent-hud__view-trigger" : ""}`}
 				disabled={disabled}
 				aria-busy={busy || undefined}
@@ -142,7 +144,7 @@ export function SelectorDropdown<Value extends string>({
 					aria-hidden="true">
 					<path d="M8 12.75 1.25 1.25h13.5Z" />
 				</svg>
-			</button>
+			</HudButton>
 			{isOpen ? (
 				<div
 					ref={menuRef}

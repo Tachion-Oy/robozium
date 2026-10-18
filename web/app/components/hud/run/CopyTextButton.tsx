@@ -1,5 +1,6 @@
 "use client"
 
+import { HudButton } from "../HudButton"
 import { useEffect, useRef, useState } from "react"
 import { showErrorToast } from "@/app/components/feedback/ErrorToast"
 
@@ -52,8 +53,8 @@ export function CopyTextButton({
 	}
 
 	return (
-		<button
-			type="button"
+		<HudButton
+			appearance="control"
 			className="agent-hud__copy-text"
 			onClick={() => void handleCopy()}
 			disabled={!content}
@@ -84,6 +85,6 @@ export function CopyTextButton({
 					<path d="M16 8V6.5A1.5 1.5 0 0 0 14.5 5h-9A1.5 1.5 0 0 0 4 6.5v9A1.5 1.5 0 0 0 5.5 17H8" />
 				</svg>
 			)}
-		</button>
+		</HudButton>
 	)
 }

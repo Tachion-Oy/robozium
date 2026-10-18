@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Preview pasted, dropped, or selected images in the web reply composer, with
+  run-scoped drafts and local removal/clearing. Image replies cannot be sent yet.
+
 - Connect the desktop renderer directly to the Python API with HTTP/SSE transport,
   desktop Host/Origin checks, readiness polling, and connection Retry that preserves
   the mounted HUD and does not restart Docker. Selectors and run controls retain

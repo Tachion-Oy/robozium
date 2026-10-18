@@ -588,6 +588,8 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
 
 .agent-hud__resize-wedge.agent-hud__corner-control {
   position: absolute;
+  cursor: inherit;
+  color: color-mix(in oklab, var(--term-blue) 76%, white 24%);
 }
 
 /* Fresh-load HUD entrance used below. Run/status/project views use the

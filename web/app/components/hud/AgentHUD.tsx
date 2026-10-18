@@ -13,6 +13,7 @@ import { hudVisibilityStore } from "@/lib/robozium/hud-visibility"
 import { useHudEscapeDismiss } from "@/hooks/useHudEscapeDismiss"
 import { useRunSessionSelector } from "@/hooks/useRunSession"
 import { useProjectLaunch } from "@/hooks/useProjectLaunch"
+import { useReplyImages } from "@/hooks/useReplyImages"
 import { initialHudNavigation, reduceHudNavigation } from "@/lib/robozium/hud-navigation"
 import {
 	HudCornerControls,
@@ -51,6 +52,7 @@ export function AgentHUD({
 		(name, project) => dispatch({ type: "launch_created", name, project }),
 	)
 	const [replyDraft, setReplyDraft] = useState("")
+	const replyImages = useReplyImages(runId)
 	if (runId !== navigation.runId) {
 		dispatch({ type: "reset", runId })
 		setLayoutMode("top")
@@ -209,6 +211,7 @@ export function AgentHUD({
 							presentation={presentation}
 							runId={runId}
 							replyDraft={replyDraft}
+							replyImages={replyImages}
 							onReplyDraftChange={setReplyDraft}
 							initialProjects={initialProjects}
 							layoutMode={layoutMode}
