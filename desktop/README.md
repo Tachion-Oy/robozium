@@ -315,7 +315,10 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   standalone setup command can also run before installing desktop dependencies.
 - `renderer/src/ui/main.tsx` mounts backend startup and the application. Renderer
   `.tsx` components and their CSS live under `ui/`, grouped by feature. TypeScript
-  hooks, contracts and state remain in the corresponding folders outside `ui/`:
+  hooks, contracts and state remain in the corresponding folders outside `ui/`.
+
+  [Renderer ownership diagrams](renderer/src/ARCHITECTURE.md) show composition,
+  state owners, run/HUD data flow and the contracts for transitions between owners.
 
   | Folder under `renderer/src/` | Responsibility |
   | --- | --- |

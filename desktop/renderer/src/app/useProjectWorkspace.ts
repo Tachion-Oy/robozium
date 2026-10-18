@@ -52,7 +52,25 @@ export interface ProjectWorkspace {
 const PROJECT_POLL_INTERVAL = 3000
 const CANCELLATION_POLL_INTERVAL = 250
 
-/** Coordinate feature owners; requests, navigation and draft revisions stay in their own hooks. */
+/**
+ * Ownership map: arrows mean composition/delegation; each child owns its state.
+ *
+ * App (screens, theme, layout)
+ *   -> useProjectWorkspace (selection and cross-owner coordination)
+ *        |-> useProjectManagement (list/create/delete projects)
+ *        |     -> useProjectDeletion (DELETE lifetime and reconciliation)
+ *        |-> useProjectCancellation (foreground/background work)
+ *        |-> useRunSession (public controller)
+ *        |     |-> useRunLifecycle (identity, creation, subscriptions, disposal)
+ *        |     `-> useRunInteractions (reply/interrupt in lifecycle's abort scope)
+ *        |-> useRunNavigation (view, return intent, focus destination)
+ *        |-> useReplyDraft (text and edit revision)
+ *        |-> useRecovery (validated storage)
+ *        `-> useModels (confirmed selection and requests)
+ *
+ * Owners report results; this workspace coordinates transitions between them.
+ * See ../ARCHITECTURE.md for data flow, lifetime rules and external boundaries.
+ */
 export function useProjectWorkspace(
 	client: DesktopApiClient | null,
 	connected: boolean,
