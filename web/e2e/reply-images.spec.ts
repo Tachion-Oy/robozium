@@ -1,22 +1,41 @@
 import type { APIRequestContext, Locator, Page } from "@playwright/test"
+import { writeFile, rm } from "node:fs/promises"
+import { join } from "node:path"
+import type { RunAttachment } from "../lib/robozium/wire"
 import { PNG } from "pngjs"
 import { expect, test } from "./fixtures"
-import { createProject, selectHudView } from "./helpers"
+import { createProject, selectHudView, e2eProjectPaths } from "./helpers"
 import { waitForHudLayout } from "./hud-layout"
 
 const preview = PNG.sync.write(new PNG({ width: 80, height: 40, fill: true }))
 const imageFile = (name: string) => ({ name, mimeType: "image/png", buffer: preview })
 
-async function openRun(page: Page, request: APIRequestContext) {
+async function openRun(page: Page, request: APIRequestContext, processing = false) {
 	const slug = await createProject(request, `Image previews ${Date.now()}`)
+	const hold = join(e2eProjectPaths(slug).root, ".mock-first-message-hold")
+	if (processing) {
+		await writeFile(join(e2eProjectPaths(slug).root, ".mock-scenario"), "held-first-message")
+		await writeFile(hold, "")
+	}
 	const response = await request.post("/api/runs/create", { data: { project: slug } })
 	expect(response.ok()).toBe(true)
 	const { run_id: runId } = await response.json() as { run_id: string }
 	await page.goto(`/?runId=${encodeURIComponent(runId)}`)
+	if (processing) {
+		await expect(page.getByRole("textbox", { name: "Reply text" })).toBeVisible()
+		return { runId, slug, hold }
+	}
 	await expect(page.locator(".agent-hud__logo--actions")).toHaveAttribute("data-agent-state", "awaiting-input", { timeout: 20_000 })
 	await waitForHudLayout(page)
 	await page.getByRole("textbox", { name: "Reply text" }).fill("Keep this draft")
 	await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled({ timeout: 20_000 })
+	return { runId, slug, hold }
+}
+
+async function pending(request: APIRequestContext, runId: string): Promise<RunAttachment[]> {
+	const response = await request.get(`/api/runs/${runId}/files`)
+	expect(response.ok()).toBe(true)
+	return await response.json() as RunAttachment[]
 }
 
 async function transferImage(target: Locator, name: string, event: "paste" | "drop" = "paste") {
@@ -35,16 +54,12 @@ async function transferImage(target: Locator, name: string, event: "paste" | "dr
 	await expect(target.page().getByRole("img", { name, exact: true })).toBeAttached()
 }
 
-test("image drafts survive HUD navigation and block every submission path without uploads", async ({ page, request }) => {
+test("picker, paste, and drop upload ordered images that survive navigation and refresh and submit without text", async ({ page, request }) => {
 	test.setTimeout(90_000)
-	await openRun(page, request)
-	const mutations: string[] = []
-	page.on("request", (outgoing) => {
-		if (outgoing.method() !== "GET") mutations.push(outgoing.url())
-	})
+	const { runId } = await openRun(page, request)
 	const editor = page.getByRole("textbox", { name: "Reply text" })
 	const panel = page.getByRole("group", { name: "Reply composer" })
-	const input = panel.locator("input[type=file]")
+	const send = page.getByRole("button", { name: "Send", exact: true })
 	const chooserPromise = page.waitForEvent("filechooser")
 	await page.getByRole("button", { name: "image", exact: true }).click()
 	await (await chooserPromise).setFiles(imageFile("picked.png"))
@@ -52,9 +67,10 @@ test("image drafts survive HUD navigation and block every submission path withou
 	await transferImage(panel, "pasted.png")
 	await transferImage(editor, "dropped.png", "drop")
 	await transferImage(page.getByRole("button", { name: "Remove dropped.png" }), "fourth.png")
-	await input.setInputFiles(imageFile("excess.png"))
+	await panel.locator("input[type=file]").setInputFiles(imageFile("excess.png"))
 	await expect(panel.getByRole("alert")).toContainText("up to four images")
-	await expect(panel.getByRole("img")).toHaveCount(4)
+	await expect.poll(async () => (await pending(request, runId)).map(({ name }) => name)).toEqual(["picked.png", "pasted.png", "dropped.png", "fourth.png"])
+	await expect(send).toBeEnabled()
 	const urls = await panel.getByRole("img").evaluateAll((images) => images.map((image) => image.getAttribute("src")))
 	await selectHudView(page, "Dependencies")
 	await expect(editor).toHaveCount(0)
@@ -63,30 +79,137 @@ test("image drafts survive HUD navigation and block every submission path withou
 	expect(await panel.getByRole("img").evaluateAll((images) => images.map((image) => image.getAttribute("src")))).toEqual(urls)
 	await page.getByRole("button", { name: "Minimize", exact: true }).click()
 	await page.locator(".agent-hud__mini-expand").click()
-	await expect(editor).toHaveValue("Keep this draft")
 	await expect(panel.getByRole("img")).toHaveCount(4)
-	await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled()
-	await expect(panel).toContainText("Images can be previewed but not sent yet.")
-	await editor.press("Enter")
-	await panel.evaluate((element) => element.closest("form")!.requestSubmit())
-	await expect(editor).toHaveValue("Keep this draft")
-	expect(mutations).toEqual([])
-	await page.getByRole("button", { name: "Clear reply" }).click()
+	await page.reload()
+	await expect(panel.getByRole("img")).toHaveCount(4)
 	await expect(editor).toHaveValue("")
-	await expect(panel.getByRole("img")).toHaveCount(0)
-	await transferImage(editor, "image-only.png")
-	await page.getByRole("button", { name: "Clear reply" }).click()
-	await expect(panel.getByRole("img")).toHaveCount(0)
-	await editor.fill("A text reply")
-	await transferImage(editor, "last.png")
-	await page.getByRole("button", { name: "Remove last.png" }).click()
-	await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled()
-	expect(mutations).toEqual([])
+	await expect(send).toBeEnabled()
+	await page.getByRole("button", { name: "Remove dropped.png" }).click()
+	await expect.poll(async () => (await pending(request, runId)).map(({ name }) => name)).toEqual(["picked.png", "pasted.png", "fourth.png"])
+	const submitted = await pending(request, runId)
+	await page.route(`**/api/runs/${runId}/reply`, (route) => route.fulfill({ status: 400, json: { detail: "Rejected reply" } }), { times: 1 })
+	await send.click()
+	await expect(page.getByText("Reply failed", { exact: true })).toBeVisible()
+	expect(await pending(request, runId)).toEqual(submitted)
+	await expect(panel.getByRole("img")).toHaveCount(3)
 	const replyPromise = page.waitForRequest((outgoing) => outgoing.method() === "POST" && outgoing.url().endsWith("/reply"))
 	await editor.press("Enter")
-	const reply = await replyPromise
-	expect(reply.postDataJSON()).toEqual({ prompt_id: expect.any(String), content: "A text reply" })
+	expect((await replyPromise).postDataJSON()).toEqual({ prompt_id: expect.any(String), content: "" })
+	await expect(panel.getByRole("img")).toHaveCount(0)
+	await expect.poll(() => pending(request, runId)).toEqual([])
+	await expect(page.locator(".agent-hud__agent", { hasText: "Thanks. One more thing before I finish?" })).toBeVisible({ timeout: 30_000 })
+	for (const item of submitted) expect((await request.get(`/api/files/${item.path}`)).status()).toBe(200)
+	await transferImage(editor, "unsent.png")
+	await expect(send).toBeEnabled()
+	await editor.fill("Clear this text too")
+	await page.getByRole("button", { name: "Clear reply" }).click()
 	await expect(editor).toHaveValue("")
+	await expect(panel.getByRole("img")).toHaveCount(0)
+	await expect.poll(() => pending(request, runId)).toEqual([])
+	for (const item of submitted) expect((await request.get(`/api/files/${item.path}`)).status()).toBe(200)
+	await editor.fill("A text reply")
+	await expect(send).toBeEnabled()
+	const accepted = page.waitForResponse((response) => response.request().method() === "POST" && response.url().endsWith("/reply"))
+	await send.click()
+	expect((await accepted).ok()).toBe(true)
+	await expect.poll(async () => (await (await request.get(`/api/runs/${runId}/view`)).json()).status).toBe("completed")
+	for (const item of submitted) {
+		await expect.poll(async () => (await request.get(`/api/files/${item.path}`)).status(), { timeout: 20_000 }).toBe(404)
+	}
+})
+
+test("reopening a run during upload waits and restores its pending image", async ({ page, request }) => {
+	const { runId, slug } = await openRun(page, request)
+	const other = await createProject(request, `Other image run ${Date.now()}`)
+	const created = await request.post("/api/runs/create", { data: { project: other } })
+	expect(created.ok()).toBe(true)
+	const { run_id: otherRunId } = await created.json() as { run_id: string }
+	let release!: () => void
+	const gate = new Promise<void>((resolve) => { release = resolve })
+	let uploading = false
+	await page.route(`**/api/runs/${runId}/files**`, async (route) => {
+		if (route.request().method() === "POST") { uploading = true; await gate }
+		await route.continue()
+	})
+	try {
+		await page.getByLabel("Choose images").setInputFiles(imageFile("in-flight.png"))
+		await expect.poll(() => uploading).toBe(true)
+		await selectHudView(page, "Runs Overview")
+		await page.getByRole("button", { name: `Open ${other}`, exact: true }).click()
+		await expect(page).toHaveURL(`/?runId=${otherRunId}`)
+		await expect(page.getByRole("textbox", { name: "Reply text" })).toBeVisible()
+		await selectHudView(page, "Runs Overview")
+		await page.getByRole("button", { name: `Open ${slug}`, exact: true }).click()
+		await expect(page).toHaveURL(`/?runId=${runId}`)
+		await page.getByRole("textbox", { name: "Reply text" }).fill("Wait for the image")
+		await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled()
+		expect(await pending(request, runId)).toEqual([])
+		release()
+		await expect(page.getByRole("img", { name: "in-flight.png", exact: true })).toBeVisible()
+		await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled()
+		expect(await pending(request, runId)).toHaveLength(1)
+	} finally { release() }
+})
+
+for (const action of ["Clear", "Remove"] as const) {
+	test(`${action} during upload waits, discards queued images, and leaves no server files`, async ({ page, request }) => {
+		const { runId } = await openRun(page, request)
+		let release!: () => void
+		const gate = new Promise<void>((resolve) => { release = resolve })
+		let uploads = 0
+		let deletions = 0
+		await page.route(`**/api/runs/${runId}/files**`, async (route) => {
+			if (route.request().method() === "POST") { uploads += 1; await gate }
+			if (route.request().method() === "DELETE") deletions += 1
+			await route.continue()
+		})
+		try {
+			const panel = page.getByRole("group", { name: "Reply composer" })
+			const editor = page.getByRole("textbox", { name: "Reply text" })
+			await panel.locator("input[type=file]").setInputFiles([imageFile("active.png"), imageFile("queued.png")])
+			await expect.poll(() => uploads).toBe(1)
+			await expect(panel.getByRole("img")).toHaveCount(2)
+			await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled()
+			await editor.press("Enter")
+			await panel.evaluate((element) => element.closest("form")!.requestSubmit())
+			await expect(editor).toHaveValue("Keep this draft")
+			if (action === "Clear") await page.getByRole("button", { name: "Clear reply" }).click()
+			else {
+				await page.getByRole("button", { name: "Remove active.png" }).click()
+				await page.getByRole("button", { name: "Remove queued.png" }).click()
+			}
+			await expect(panel.getByRole("img")).toHaveCount(0)
+			expect(deletions).toBe(0)
+			release()
+			await expect.poll(() => deletions).toBeGreaterThan(0)
+			await editor.fill("Ready after deletion")
+			await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled()
+			expect(await pending(request, runId)).toEqual([])
+			expect(uploads).toBe(1)
+			await page.reload()
+			await expect(editor).toBeVisible()
+			await expect(panel.getByRole("img")).toHaveCount(0)
+		} finally { release() }
+	})
+}
+
+test("uploads while processing survive the next prompt and cancellation cleans pending files", async ({ page, request }) => {
+	const { runId, slug, hold } = await openRun(page, request, true)
+	try {
+		const editor = page.getByRole("textbox", { name: "Reply text" })
+		await transferImage(editor, "processing.png")
+		await expect.poll(async () => (await pending(request, runId)).length).toBe(1)
+		const [attachment] = await pending(request, runId)
+		await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled()
+		await rm(hold, { force: true })
+		await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled({ timeout: 20_000 })
+		expect(await pending(request, runId)).toEqual([attachment])
+		await page.getByRole("button", { name: "Cancel", exact: true }).click()
+		await expect.poll(() => pending(request, runId)).toEqual([])
+		await expect.poll(async () => (await request.get(`/api/files/${attachment.path}`)).status()).toBe(404)
+		expect((await request.post(`/api/runs/${runId}/files?filename=late.png`, { data: preview })).status()).toBe(400)
+		expect((await request.post(`/api/projects/${slug}/cancel`)).ok()).toBe(true)
+	} finally { await rm(hold, { force: true }) }
 })
 
 test("previews keep panel bounds, compact size, selection, and independent scrolling in every layout", async ({ page, request }, testInfo) => {
@@ -111,6 +234,7 @@ test("previews keep panel bounds, compact size, selection, and independent scrol
 				for (const layout of ["top", "equal", "bottom"]) {
 					if (layout !== "top") await up.click()
 					await waitForHudLayout(page, [".agent-hud__replyBox--user"])
+					await expect(panel.locator("input[type=file]")).toBeEnabled()
 					await page.getByRole("button", { name: "image", exact: true }).click({ trial: true })
 					const controls = await page.locator(".agent-hud__actions").evaluate((element) => {
 						const image = element.querySelector<HTMLElement>(".agent-hud__image")!
