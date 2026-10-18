@@ -1,3 +1,4 @@
+import { mockImageTransport } from "../../../../reply-image-transport"
 import { useState } from "react"
 import { useReplyImages } from "../../../../../hooks/useReplyImages"
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
@@ -119,6 +120,7 @@ function renderHud() {
 
 beforeEach(() => {
 	vi.clearAllMocks()
+	mockImageTransport()
 	mocks.submitReply.mockResolvedValue(true)
 	mocks.cancelRun.mockResolvedValue(true)
 	mocks.interruptRun.mockResolvedValue(true)
@@ -297,7 +299,7 @@ describe("RunHud prompt history", () => {
 		expect(screen.getByText("Second notification")).not.toBeNull()
 	})
 
-	it("submits the active prompt while an older prompt is displayed", () => {
+	it("submits the active prompt while an older prompt is displayed", async () => {
 		mocks.state = promptingState(["First prompt", "Second prompt"])
 		renderHud()
 
@@ -314,12 +316,9 @@ describe("RunHud prompt history", () => {
 		expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe(
 			"saved draft",
 		)
-		expect(
-			(screen.getByRole("button", { name: "Send" }) as HTMLButtonElement)
-				.disabled,
-		).toBe(false)
+		await waitFor(() => expect((screen.getByRole("button", { name: "Send" }) as HTMLButtonElement).disabled).toBe(false))
 		fireEvent.click(screen.getByRole("button", { name: "Send" }))
-		expect(mocks.submitReply).toHaveBeenCalledWith("saved draft")
+		expect(mocks.submitReply).toHaveBeenCalledWith("saved draft", { hasImages: false })
 
 		fireEvent.click(
 			screen.getByRole("button", { name: "Jump to latest agent message" }),
@@ -454,6 +453,7 @@ describe("RunHud prompt history", () => {
 		const textbox = screen.getByRole("textbox") as HTMLTextAreaElement
 		const send = screen.getByRole("button", { name: "Send" }) as HTMLButtonElement
 		fireEvent.change(textbox, { target: { value: "first reply" } })
+		await waitFor(() => expect(send.disabled).toBe(false))
 		fireEvent.click(send)
 		expect(send.disabled).toBe(true)
 		fireEvent.change(textbox, { target: { value: "edited reply" } })
@@ -468,7 +468,7 @@ describe("RunHud prompt history", () => {
 		expect(send.disabled).toBe(false)
 		fireEvent.click(send)
 		await waitFor(() => expect(textbox.value).toBe(""))
-		expect(mocks.submitReply).toHaveBeenLastCalledWith("edited reply")
+		expect(mocks.submitReply).toHaveBeenLastCalledWith("edited reply", { hasImages: false })
 	})
 
 	it("does not clear draft changes made while submission completes", async () => {
@@ -484,6 +484,7 @@ describe("RunHud prompt history", () => {
 		fireEvent.change(screen.getByRole("textbox"), {
 			target: { value: "first reply" },
 		})
+		await waitFor(() => expect((screen.getByRole("button", { name: "Send" }) as HTMLButtonElement).disabled).toBe(false))
 		fireEvent.click(screen.getByRole("button", { name: "Send" }))
 		fireEvent.change(screen.getByRole("textbox"), {
 			target: { value: "draft for later" },

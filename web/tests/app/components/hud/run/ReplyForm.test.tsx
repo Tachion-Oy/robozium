@@ -1,3 +1,5 @@
+import { mockImageTransport, deferred } from "../../../../reply-image-transport"
+import { act } from "@testing-library/react"
 import { createElement, useState } from "react"
 import { createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -32,7 +34,7 @@ function createProps(overrides: Overrides = {}): Props {
 		},
 		composer: {
 			value: "",
-			images: { images: [], error: null, onDrop: () => {}, onRemove: () => {}, onClear: () => {} },
+			images: { images: [], error: null, isBusy: false, isReady: true, canAdd: true, canRetry: false, onRetry: () => {}, submit: async (send) => send(false), onDrop: () => {}, onRemove: () => {}, onClear: () => {} },
 			isReplyAvailable: false,
 			isSubmitting: false,
 			onChange: () => {},
@@ -209,10 +211,12 @@ function DraftForm({ onSubmit = () => {} }: { onSubmit?: () => void }) {
 	return <ReplyForm {...createProps({ composer: { value, onChange, images, isReplyAvailable: true, onSubmit } })} />
 }
 
-describe("local image replies", () => {
+describe("image replies", () => {
+	let transport: ReturnType<typeof mockImageTransport>
 	let nextUrl = 0
 	beforeEach(() => {
 		nextUrl = 0
+		transport = mockImageTransport()
 		vi.stubGlobal("URL", class extends URL {
 			static createObjectURL = vi.fn(() => `blob:preview-${++nextUrl}`)
 			static revokeObjectURL = vi.fn()
@@ -282,25 +286,30 @@ describe("local image replies", () => {
 		expect(screen.queryByText("Loading…")).toBeNull()
 		expect(screen.getByText("Preview unavailable")).not.toBeNull()
 		fireEvent.click(screen.getByRole("button", { name: "Remove one.png" }))
-		expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:preview-1")
+		await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:preview-1"))
 		expect(screen.getAllByRole("img")).toHaveLength(1)
 		expect(document.activeElement).toBe(screen.getByRole("textbox"))
 		fireEvent.click(screen.getByRole("button", { name: "Remove two.png" }))
 		expect(screen.queryByRole("list", { name: "Image previews" })).toBeNull()
-		expect((screen.getByRole("button", { name: "Send" }) as HTMLButtonElement).disabled).toBe(false)
+		await waitFor(() => expect((screen.getByRole("button", { name: "Send" }) as HTMLButtonElement).disabled).toBe(false))
 	})
 
-	it("blocks button, Enter, and direct form submission until all images are removed", async () => {
+	it("blocks all submission paths during upload and enables image-only submission after staging", async () => {
 		const onSubmit = vi.fn()
 		const { container } = render(<DraftForm onSubmit={onSubmit} />)
+		await waitFor(() => expect((screen.getByRole("button", { name: "Send" }) as HTMLButtonElement).disabled).toBe(false))
+		const gate = deferred<void>()
+		transport.fetchMock.mockImplementationOnce(async (input, init) => { await gate.promise; return transport.handle(input, init) })
 		await addFile(screen.getByRole("textbox"), "one.png")
+		fireEvent.change(screen.getByRole("textbox"), { target: { value: "" } })
 		expect((screen.getByRole("button", { name: "Send" }) as HTMLButtonElement).disabled).toBe(true)
-		expect(screen.getByText("Images can be previewed but not sent yet.")).not.toBeNull()
+		expect(screen.getByText("Updating images…")).not.toBeNull()
 		fireEvent.click(screen.getByRole("button", { name: "Send" }))
 		fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" })
 		fireEvent.submit(container.querySelector("form")!)
 		expect(onSubmit).not.toHaveBeenCalled()
-		fireEvent.click(screen.getByRole("button", { name: "Remove one.png" }))
+		await act(async () => { gate.resolve(); await gate.promise })
+		await waitFor(() => expect((screen.getByRole("button", { name: "Send" }) as HTMLButtonElement).disabled).toBe(false))
 		fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" })
 		expect(onSubmit).toHaveBeenCalledTimes(1)
 	})
@@ -341,7 +350,7 @@ describe("local image replies", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Clear reply" }))
 		expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("")
 		expect(screen.queryByRole("img")).toBeNull()
-		expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:preview-1")
+		await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:preview-1"))
 		await addFile(screen.getByRole("textbox"), "only.png")
 		expect((screen.getByRole("button", { name: "Clear reply" }) as HTMLButtonElement).disabled).toBe(false)
 		fireEvent.click(screen.getByRole("button", { name: "Clear reply" }))

@@ -75,11 +75,11 @@ export function RunHud({
 	const handleSubmit = async () => {
 		const submittedDraft = draft
 		const content = draft.trim()
-		if (images.images.length || !content || !promptId || isSubmitting || !session) return
+		if ((!content && !images.images.length) || !images.isReady || !promptId || isSubmitting || isCancelling || isInterrupting || !session) return
 
 		setIsSubmitting(true)
 		try {
-			const submitted = await session.submitReply(content)
+			const submitted = await images.submit((hasImages) => session.submitReply(content, { hasImages }))
 			if (submitted) {
 				onDraftChange((current) =>
 					current === submittedDraft ? "" : current,

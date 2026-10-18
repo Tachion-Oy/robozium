@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable
 from contextvars import copy_context
 from types import MappingProxyType
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from roboz.agent import Agent
 from roboz.llm import LLMEndpoint
@@ -17,7 +17,7 @@ from roboz.models import Str, StrImage
 from roboz.runtime.events import EventSink, PipeEvent, RunLifecycleEvent
 from roboz.runtime.pipe import EventPipe
 
-from robozium.api.attachments import RunAttachments, UploadedImage
+from robozium.api.attachments import AttachmentInfo, RunAttachments, UploadedImage
 from robozium.api.projects import Project
 from robozium.api.run_events import RunEvents
 from robozium.api.state import CapabilitySelection, ProjectRunItem, RunState, RunStatus
@@ -67,6 +67,7 @@ class RunControl:
             project.root, project.sandbox.resolved_root, run_id or str(uuid4()),
             attachment_settings,
         )
+        self._upload_results: dict[UUID, AttachmentInfo] = {}
         self._cleanup_thread: threading.Thread | None = None
 
     @property
@@ -254,6 +255,10 @@ class RunControl:
         self._error = error if self._status == RunStatus.FAILED else None
         self._pipe = None
         self._can_interrupt = False
+        self._upload_results.clear()
+        self._attachments.clear_pending(delete_files=True)
+        if self._thread is None:
+            self._attachments.cleanup()
         return True
 
     def request_input(
@@ -274,7 +279,6 @@ class RunControl:
         finally:
             with self._lock:
                 self._registry.discard(prompt_id)
-                self._attachments.clear_pending(delete_files=True)
                 self._prompt_id = self._prompt = None
                 self._prompt_accepts_images = False
                 if self._status == RunStatus.AWAITING_USER_INPUT:
@@ -291,10 +295,40 @@ class RunControl:
             if images and not self._prompt_accepts_images:
                 raise ValueError("The active prompt does not accept images")
 
-    def stage_image(self, prompt_id: str, image: UploadedImage) -> str:
+    def check_upload(self, prompt_id: str | None) -> None:
         with self._lock:
-            self.check_reply(prompt_id, images=True)
-            return self._attachments.add(image)
+            if self._cancel_requested or self._status.is_terminal:
+                raise ValueError("run is cancelling or has finished")
+            if prompt_id is not None:
+                self.check_reply(prompt_id, images=True)
+
+    def stage_image(
+        self, prompt_id: str | None, image: UploadedImage, upload_id: UUID | None = None
+    ) -> AttachmentInfo:
+        with self._lock:
+            self.check_upload(prompt_id)
+            if upload_id is not None and upload_id in self._upload_results:
+                previous = self._upload_results[upload_id]
+                if previous in self._attachments.pending():
+                    return previous
+                raise ValueError("Upload has already been submitted or removed")
+
+            result = self._attachments.add(image, upload_id)
+            if upload_id is not None:
+                # Remember results after send/delete until this run terminates.
+                self._upload_results[upload_id] = result
+            return result
+
+    def pending_images(self) -> list[AttachmentInfo]:
+        with self._lock:
+            return self._attachments.pending()
+
+    def delete_images(self, attachment_id: str | None = None) -> None:
+        with self._lock:
+            if attachment_id is None:
+                self._attachments.clear_pending(delete_files=True)
+            else:
+                self._attachments.remove_pending(attachment_id)
 
     def submit_reply(self, prompt_id: str | None, content: Str | StrImage) -> None:
         with self._lock:

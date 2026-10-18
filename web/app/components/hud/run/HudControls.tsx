@@ -31,6 +31,7 @@ type HudControlsProps = HudControlModel & {
 	replyDraft: string
 	hasImages?: boolean
 	onAddImages?: () => void
+	imagesDisabled?: boolean
 	onClearReply: () => void
 	submission: {
 		canSubmit: boolean
@@ -45,6 +46,7 @@ export function HudControls({
 	replyDraft,
 	hasImages = false,
 	onAddImages,
+	imagesDisabled,
 	onClearReply,
 	submission,
 	cancel,
@@ -103,6 +105,7 @@ export function HudControls({
 							variant="success"
 							className="agent-hud__image"
 							onClick={onAddImages}
+							disabled={imagesDisabled}
 							title="Add images (PNG, JPEG, WebP, GIF; up to four, 10 MiB each)">
 							image
 						</HudButton>
@@ -128,7 +131,6 @@ export function HudControls({
 						variant="success"
 						primary
 						className="agent-hud__send"
-						aria-describedby={hasImages ? "reply-image-notice" : undefined}
 						disabled={
 							submission.isSubmitting ||
 							!submission.canSubmit ||
