@@ -188,3 +188,12 @@ and the painted HUD after 10.263 s, including the real TypeScript/Vite build.
 These are local measurements, not a startup guarantee or Docker readiness timing.
 Compilation remains visible behind the animation. Review also covered native zoom
 after splash disposal and readable startup errors at 640×420 with 125% zoom.
+
+## Project ownership readability follow-up
+
+`useProjects` owns listing/polling, selection, creation and removal focus.
+`useProjectMutations` owns cancellation/DELETE requests, duplicate exclusion,
+settlement from authoritative listings and suppression of stale deleted rows.
+One operation registry records requesting/settling phases; React pending sets
+are derived snapshots. Existing deletion, cancellation, selection and recovery
+scenarios verify the same public behavior without changing expectations.

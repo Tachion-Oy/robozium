@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Separate desktop project listing/selection from cancellation and deletion,
+  with one explicit operation registry and named reconciliation steps.
+
 - Show the desktop window and animated splash before development preparation.
   Retain the introduction and pulsing `A` through backend startup, then fade
   into the painted HUD. Support preparation Retry and cancellation on close.

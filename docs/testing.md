@@ -558,3 +558,7 @@ empty and creates only the separately mounted read-only folder inside the hub.
 The Docker smoke test starts with those mount sources and verifies that the API
 creates a project which survives restart and shutdown. These checks cover the
 boundary between desktop mount preparation and hub-owned application storage.
+
+Project ownership refactors must retain the native deletion/cancellation tests,
+including delayed replies, overlapping polls, uncertain outcomes and duplicate
+actions. Keep existing assertions and screenshot baselines unchanged.

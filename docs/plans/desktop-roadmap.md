@@ -203,3 +203,6 @@ automated tests use isolated mock profiles and disposable data.
 Retain first-launch Docker builds from bundled locked source and subsequent
 image reuse. Concurrent-use features, data migration, automatic updates, other
 desktop platforms, and publishing remain outside this series.
+
+The PR 9 readability follow-up separates project mutations from listing/selection
+state and makes the request/settlement phases explicit.
