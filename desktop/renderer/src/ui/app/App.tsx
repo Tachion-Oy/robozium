@@ -34,12 +34,37 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 	const [model, setModel] = useState<string>("mock")
 	const [view, setView] = useState<AppView>("projects")
 	const run = useRunSession(client)
+	const [focusRunEditor, setFocusRunEditor] = useState(false)
+	const [overviewFocus, setOverviewFocus] = useState<string | null>(null)
+	const returnAfterCancel = useRef<string | null>(null)
+	const [returnOnCompletion, setReturnOnCompletion] = useState<string | null>(null)
+	const recoveringRun = useRef(recovery.initial.run?.id ?? null)
+	const navigate = (next: AppView) => {
+		returnAfterCancel.current = null
+		const activeRunId = run.session && !isTerminal(run.session.run.status) ? run.session.run.runId : null
+		setReturnOnCompletion(next === "run" ? activeRunId : null)
+		setOverviewFocus(null)
+		setFocusRunEditor(false)
+		setView(next)
+	}
+	const returnToOverview = (project: string) => {
+		returnAfterCancel.current = null
+		setReturnOnCompletion(null)
+		setFocusRunEditor(false)
+		setOverviewFocus(project)
+		setView(current => current === "run" ? "projects" : current)
+	}
 	const activeSessionProject = run.session && !isTerminal(run.session.run.status) && !run.session.run.unavailable
 		? run.session.run.project : ""
 	const busyProjects = [activeSessionProject, run.creatingProject]
 	if (run.session && (run.replying || run.interrupting)) busyProjects.push(run.session.run.project)
 	const projects = useProjects(client, view === "projects", connected, {
 		onDeleted: run.closeProject, busyProjects, initialSelected: recovery.initial.selectedProject,
+		onCancelled: slug => {
+			if (run.session?.run.project !== slug || run.session.run.runId !== returnAfterCancel.current) return
+			run.refresh()
+			returnToOverview(slug)
+		},
 	})
 	const models = useModels(client, connected)
 	const [hasPreview, setHasPreview] = useState(false)
@@ -57,7 +82,9 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 	const hasBackgroundWork = projects.projects.some(project => project.slug === session?.run.project && project.status === "syncing")
 	const canCancel = Boolean(client && runActionsAvailable && !run.creating && (hasActiveRun || hasBackgroundWork))
 	const cancelCurrentProject = () => {
-		if (session && canCancel) projects.cancelProject(session.run.project, Boolean(hasActiveRun))
+		if (!session || !canCancel) return
+		returnAfterCancel.current = session.run.runId
+		projects.cancelProject(session.run.project, Boolean(hasActiveRun))
 	}
 	const send = async () => {
 		if (!canSend) return
@@ -67,7 +94,6 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 	const [selectedMessage, setSelectedMessage] = useState(mockMessages.length - 1)
 	const editor = useRef<HTMLTextAreaElement>(null)
 	const [layout, setLayout] = useState<LayoutMode>("top")
-	const [focusRunEditor, setFocusRunEditor] = useState(false)
 	const [version, setVersion] = useState<string>()
 	const [failed, setFailed] = useState(false)
 	const display = selectRunDisplay(session)
@@ -75,21 +101,52 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 	const message = client ? display.text : mockMessages[selectedMessage]
 	const status = session?.run.unavailable ? "Run unavailable" : session ? runLabels[session.run.status] : "Awaiting input"
 	const selectedProject = projects.projects.find(project => project.slug === projects.selected)
-	const canStart = connected && Boolean(selectedProject && models.selection?.selected_model_id)
-		&& !models.pending && !models.error && !run.creating
+	const existingRunId = selectedProject && (selectedProject.status === "running" || selectedProject.status === "awaiting_user_input")
+		? selectedProject.runId : null
+	const projectAvailable = connected && !run.creating && !projects.loadError
 		&& !projects.cancelling.has(projects.selected) && !projects.deleting.has(projects.selected)
-	const showRun = () => { setFocusRunEditor(true); setView("run") }
+	const canOpen = projectAvailable && Boolean(existingRunId)
+	const canStart = projectAvailable && selectedProject?.status === "dormant" && selectedProject.runId === null
+		&& Boolean(models.selection?.selected_model_id)
+		&& !models.pending && !models.error
+	const showRun = () => {
+		navigate("run")
+		setFocusRunEditor(true)
+	}
 	const startRun = async () => {
 		if (!client) { setHasPreview(true); showRun(); return }
-		if (canStart && await run.start(projects.selected)) { projects.refresh(); showRun() }
+		if (canOpen && existingRunId) {
+			showRun()
+			if (session?.run.runId !== existingRunId) {
+				run.restore(existingRunId, projects.selected)
+				setReturnOnCompletion(existingRunId)
+			}
+			return
+		}
+		if (!canStart) return
+		returnAfterCancel.current = null
+		setReturnOnCompletion(null)
+		const runId = await run.start(projects.selected)
+		if (runId) { projects.refresh(); showRun(); setReturnOnCompletion(runId) }
 	}
 
 	useEffect(() => {
 		if (!client || !connected || restored) return
 		const saved = recovery.initial.run
-		if (saved) { run.restore(saved.id, saved.project); setView("run") }
+		if (saved) { run.restore(saved.id, saved.project); setView("run"); setReturnOnCompletion(saved.id) }
 		setRestored(true)
 	}, [client, connected, restored, recovery.initial.run, run.restore])
+
+	useEffect(() => {
+		if (!session?.run.synchronized) return
+		const { runId, status, project } = session.run
+		if (recoveringRun.current === runId) {
+			recoveringRun.current = null
+			// Reopening an already finished run is an explicit history view.
+			if (isTerminal(status)) { setReturnOnCompletion(null); return }
+		}
+		if (runId === returnOnCompletion && isTerminal(status) && !run.creating) returnToOverview(project)
+	}, [session?.run.runId, session?.run.status, session?.run.synchronized, returnOnCompletion, run.creating])
 
 	useEffect(() => {
 		if (session) projects.refresh()
@@ -132,7 +189,7 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 				modelDisabled={Boolean(client && (!connected || models.pending || run.creating))}
 				modelPlaceholder={models.pending ? "Loading models…" : models.error ? "Models unavailable" : "No models available"}
 				onSelectModel={client ? value => { if (!run.creating) models.choose(value) } : setModel} view={view} views={hasRun ? runViewOptions : viewOptions}
-				onSelectView={next => { setFocusRunEditor(false); setView(next) }}
+				onSelectView={navigate}
 				theme={theme}
 				onToggleTheme={() =>
 					setTheme((current) =>
@@ -168,16 +225,17 @@ export function App({ connectionNotice, client = null, connected = true, mode = 
 							{projects.actionError && <p role="alert">{projects.actionError}</p>}
 							{run.actionError && <p role="alert">{run.actionError}</p>}
 							{session.run.unavailable && <p>The previous run is unavailable. Your draft is retained. Open Runs Overview to launch explicitly.</p>}
-							{session.run.unavailable && <HudButton onClick={() => setView("projects")}>Open Runs Overview</HudButton>}
+							{session.run.unavailable && <HudButton onClick={() => navigate("projects")}>Open Runs Overview</HudButton>}
 							{session.run.error && !session.run.unavailable && <HudButton onClick={run.retry} disabled={!connected || run.creating}>Retry output</HudButton>}
 						</div>}
 						draft={draft} onDraftChange={changeDraft} onSend={client ? () => { void send() } : undefined}
 						layout={layout} focusOnOpen={focusRunEditor} editor={editor} />
 				) : view === "projects" ? (
 					<div className={client ? "selection-overview" : "preview-overview"}>
-					{client && <Projects state={projects} connected={connected} />}
+					{client && <Projects state={projects} connected={connected} initialFocus={overviewFocus} />}
 					<RunOverview connected={Boolean(client)} hasRun={hasRun} onOpen={showRun}
-						onStart={() => { void startRun() }} disabled={Boolean(client) && !canStart}
+						onStart={() => { void startRun() }} disabled={Boolean(client) && !(canStart || canOpen)}
+						existing={Boolean(existingRunId)}
 						creating={run.creating} error={run.createError} project={projects.selected} />
 					</div>
 				) : <ViewPlaceholder view={view} />}

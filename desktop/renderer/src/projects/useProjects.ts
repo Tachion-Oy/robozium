@@ -30,6 +30,7 @@ export interface ProjectsState {
 
 interface ProjectsOptions {
 	onDeleted?: (slug: string) => void
+	onCancelled?: (slug: string) => void
 	busyProjects?: readonly string[]
 	initialSelected?: string
 }
@@ -91,7 +92,10 @@ export function useProjects(
 			setSelected(current => confirmed.some(row => row.slug === current) ? current : "")
 			loaded.current = true
 			for (const slug of pendingCancels.current) {
-				if (!operations.current.has(slug) && !rows.some(row => row.slug === slug && row.status !== "dormant")) pendingCancels.current.delete(slug)
+				if (!operations.current.has(slug) && !rows.some(row => row.slug === slug && row.status !== "dormant")) {
+					pendingCancels.current.delete(slug)
+					latest.current.options.onCancelled?.(slug)
+				}
 			}
 			setCancelling(new Set(pendingCancels.current))
 		})

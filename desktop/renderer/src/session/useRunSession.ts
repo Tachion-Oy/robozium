@@ -57,20 +57,20 @@ export function useRunSession(client: DesktopApiClient | null) {
 	}, [subscribe])
 	const restore = useCallback((runId: string, project: string) => open(runId, project, true), [open])
 
-	const start = async (project: string): Promise<boolean> => {
-		if (!client || !project || creation.current) return false
+	const start = async (project: string): Promise<string | null> => {
+		if (!client || !project || creation.current) return null
 		const request = { project, controller: new AbortController() }
 		creation.current = request
 		setCreatingProject(project)
 		setCreateError("")
 		try {
 			const runId = await withDeadline(request.controller.signal, signal => createRun(client, project, signal))
-			if (creation.current !== request || request.controller.signal.aborted) return false
+			if (creation.current !== request || request.controller.signal.aborted) return null
 			open(runId, project)
-			return true
+			return runId
 		} catch (error) {
 			if (creation.current === request) setCreateError(errorMessage(error))
-			return false
+			return null
 		} finally {
 			if (creation.current === request) {
 				creation.current = null
@@ -91,7 +91,7 @@ export function useRunSession(client: DesktopApiClient | null) {
 		setReplying(true)
 		setActionError("")
 		try {
-			await withDeadline(controller.signal, signal => submitReply(client, session.run.runId, promptId, content, signal))
+			await withDeadline(controller.signal, signal => submitReply(client, session.run.runId, promptId, content.trim(), signal))
 			if (generation.current !== current || controller.signal.aborted) return false
 			dispatch({ type: "replied", promptId })
 			return latest.current?.run.prompt?.id === promptId

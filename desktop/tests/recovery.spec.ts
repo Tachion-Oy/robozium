@@ -23,6 +23,20 @@ test("reload restores a draft and existing run after validation without repeatin
 	await expect(page.getByRole("button", { name: "existing-project", exact: true })).toHaveAttribute("aria-pressed", "true")
 })
 
+test("an active recovered run returns to overview when it later completes", async ({ desktop: { page }, backend }) => {
+	prepareRun(backend)
+	await start(page, backend)
+	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Recovered draft")
+	await page.reload()
+	await expect(runStatus(page)).toContainText("Running")
+	await page.clock.install()
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ status: "completed" })))
+	await page.clock.fastForward(2001)
+	await expect(page.getByRole("heading", { name: "Runs Overview", exact: true })).toBeVisible()
+	await page.getByRole("button", { name: "Return to run", exact: true }).click()
+	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Recovered draft")
+})
+
 test("terminal recovery opens readable history without a stream or polling", async ({ desktop: { page }, backend }) => {
 	const run = prepareRun(backend)
 	await start(page, backend)
@@ -116,7 +130,7 @@ test("confirmed deletion removes saved project/run references but retains the dr
 		backend.handlers.set("GET /projects", response => json(response, []))
 		json(response, { ok: true })
 	})
-	await start(page, backend)
+	await start(page, backend, { history: true })
 	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Retained without project")
 	await view(page, "Runs Overview")
 	await page.getByRole("button", { name: "Delete existing-project", exact: true }).click()

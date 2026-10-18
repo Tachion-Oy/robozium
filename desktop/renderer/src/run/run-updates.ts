@@ -86,6 +86,7 @@ export function watchRun(
 		openingTimer = setTimeout(() => { timedOut = true; stream.abort() }, REQUEST_TIMEOUT_MS)
 		try {
 			for await (const frame of streamRunEvents(client, runId, AbortSignal.any([controller.signal, stream.signal]), () => {
+				if (disposed()) return
 				clearTimeout(openingTimer)
 				streamError = null
 				dispatch({ type: "retry" })

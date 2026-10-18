@@ -28,11 +28,16 @@ export function prepareRun(backend: Backend, id = "run-one", project = "existing
 	})
 	return { streams, get closed() { return closed } }
 }
-export async function start(page: Page, backend: Backend) {
+export async function start(page: Page, backend: Backend, options: { history?: boolean } = {}) {
 	await backend.open()
 	await page.getByRole("button", { name: "existing-project", exact: true }).click()
-	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await page.getByRole("button", { name: /^(Start|Open) run$/ }).click()
+	if (options.history) await openHistory(page)
 	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toBeFocused()
+}
+export async function openHistory(page: Page) {
+	await expect(page.getByRole("heading", { name: "Runs Overview", exact: true })).toBeVisible()
+	await page.getByRole("button", { name: "Return to run", exact: true }).click()
 }
 export async function view(page: Page, label: string) {
 	await page.getByRole("combobox", { name: /^HUD view:/ }).click()

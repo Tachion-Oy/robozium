@@ -93,13 +93,12 @@ acknowledgement while preserving the typed project name.
 Local validation passed:
 
 - Desktop lint, all TypeScript projects, production build and `git diff --check`.
-- All 186 desktop tests, including unchanged preview screenshot baselines, both
+- All 201 desktop tests, including unchanged preview screenshot baselines, both
   themes, narrow layouts, 125% zoom, keyboard focus and subscription cleanup.
-  The final creation/deletion guard also passed all 33 project, selection and
-  recovery scenarios on the rebuilt renderer.
-- The 12 native backend lifecycle scenarios and the added real Enter/Send reply
-  scenario. Cancellation/deletion and replies were checked again on final assets.
-  Reported native results use fixed build assets and sequential suites.
+- All 13 native backend lifecycle scenarios on the final assets, including real
+  Enter/Send replies, automatic overview return, existing-run opening and
+  cancellation/deletion. Captured overview screens were inspected in both themes
+  at 640×420 with 125% zoom. Native suites ran sequentially on fixed build assets.
 - All 34 controller lifecycle tests, 13 staging/Compose checks and the isolated
   Docker startup/restart/persistence smoke test.
 - All 149 applicable Python desktop-access, API, project and run-manager tests.
@@ -108,3 +107,47 @@ Local validation passed:
 
 No PR was opened or pushed. CI and Full E2E remain required before any later PR
 handoff or merge; these local results do not replace them.
+
+## Behavioral comparison at 072341b
+
+Source comparison covers `AppView.tsx`, `hud/run/{RunHud,ReplyForm,ReplyEditor,
+AgentMessagePanel,HudMessageNavigation}.tsx`, `hud/projects/ProjectOverview.tsx`,
+`useProjectOverview.ts` and `lib/robozium/session/{index,connection}.ts` under
+`web/app/components` and `web/lib`, respectively. Matching endpoints alone does
+not establish presentation or navigation parity.
+
+| Flow | Browser behavior | Desktop outcome |
+| --- | --- | --- |
+| Start/open | Launch only dormant projects; open known active runs. | Corrected: syncing/cancelling rows cannot launch; Open run validates the existing ID and reuses the current session when possible. |
+| Reply | Trim content, Enter submits, Shift+Enter edits, IME does not submit; keep edits during requests. | Matched; desktop additionally guards draft revisions and obsolete prompt/session acknowledgements. |
+| Interrupt/cancel | Run interruption, project-wide cancellation, pending controls and authoritative reconciliation. | Matched for supported text flows; cancellation remains available during interruption. |
+| Run stops | Return to overview on completed/failed/cancelled; background project status can still be syncing. | Corrected: terminal snapshots return once, preserving draft/history. Explicit navigation and newer launches win. |
+| Background cancellation | Overview polls until dormant/absent. | Same reconciliation; cancelling background work from reopened history also returns after confirmation. |
+| Deletion | Dormant-only, two-step confirmation with dismissal. | Matched; desktop also reconciles uncertain deletion by fresh listings without repeating DELETE. |
+| Reconnection | One session, serialized snapshots, capped retry delays and terminal stop. | Same ownership and backoff; desktop adds request deadlines and readiness recovery. |
+| Reopen/missing run | Browser routing controls entry and exits permanent failures. | Deliberate desktop recovery: saved terminal runs reopen as history; missing runs retain the draft and require explicit relaunch. |
+| Models | `ModelSelector.tsx` reads and changes the active run's model when a run ID is present. | The PR 7 desktop selector still changes the backend default for future runs. Per-run model switching remains unported. |
+| Presentation | Rich Markdown/links, activity animation, dictation, credential controls. | Partial port: literal text, a status glyph, disabled recording/unlocking, and placeholder environment/dependency views. These are not full visual or feature parity. |
+
+The navigation follow-up adds App-owned run identity guards. Project cancellation
+reports confirmed completion once; it cannot redirect a different session.
+History remains explicitly accessible and a restored terminal run never starts
+polling again. Native tests cover all terminal statuses, active/background
+cancellation, recovery, pending writes, newer navigation and existing-run opens.
+Real mock lifecycle checks require automatic overview return before deletion and
+after the final reply. The prior PR 8 decision to omit browser route exit is
+superseded by this follow-up; its run/HUD reducer separation remains unchanged.
+
+## Startup measurement and correction
+
+A local sequential measurement before the change took approximately 21 seconds:
+backend staging 0.08 s; main, renderer, test and tooling checks 3.33, 3.34, 5.57 and
+3.54 s; repeated main compilation 3.45 s; renderer bundling 1.70 s. These are
+development preparation timings, not Docker build/readiness timings.
+
+`build` now compiles/checks the main application, checks the renderer and bundles
+it, taking 8.69 s in the follow-up measurement. `typecheck` retains all four
+projects; CI already runs it explicitly before building and remains unchanged.
+`start:built` opens unchanged staged/compiled inputs without this preparation;
+regular `start` remains the command after source changes. No automatic cache or
+mtime shortcut can silently hide changed source.

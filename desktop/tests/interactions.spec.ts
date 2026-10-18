@@ -17,7 +17,7 @@ test("reply keyboard respects Shift and IME; duplicate Send preserves edits and 
 	await start(page, backend)
 	await expect(output(page)).toHaveText("Question p1")
 	const editor = page.getByRole("textbox", { name: "Reply", exact: true })
-	await editor.fill("First")
+	await editor.fill("  First")
 	await editor.press("Shift+Enter")
 	await editor.press("S"); await editor.press("e"); await editor.press("c"); await editor.press("o"); await editor.press("n"); await editor.press("d")
 	await editor.dispatchEvent("keydown", { key: "Enter", isComposing: true })

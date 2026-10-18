@@ -388,11 +388,17 @@ test("UI starts a project run, streams its prompts and retains completed history
 	await expect(output).toContainText("Hello! I generated a text artifact")
 	await expect(status).toContainText("Awaiting input")
 	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Local unsent draft")
+	await page.getByRole("combobox", { name: /^HUD view:/ }).click()
+	await page.getByRole("option", { name: "Runs Overview", exact: true }).click()
+	await page.getByRole("button", { name: "Open run", exact: true }).click()
+	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Local unsent draft")
 	const projects = await (await fetch(`http://127.0.0.1:${runtime.port}/projects`, { headers: { Origin: "robozium://app" } })).json() as { slug: string; run_id: string }[]
 	const runId = projects.find(project => project.slug === "desktop-output")!.run_id
 	await replyToMock(runtime.port, runId)
 	await expect(output).toHaveText("Thanks. One more thing before I finish?")
 	await replyToMock(runtime.port, runId)
+	await expect(page.getByRole("heading", { name: "Runs Overview", exact: true })).toBeVisible()
+	await page.getByRole("button", { name: "Return to run", exact: true }).click()
 	await expect(status).toContainText("Completed")
 	await expect(output).not.toBeEmpty()
 	await page.getByRole("button", { name: "Jump to first agent message" }).click()
@@ -404,8 +410,8 @@ test("UI starts a project run, streams its prompts and retains completed history
 })
 
 
-test("real mock cancellation finishes before confirmed deletion removes project files", async ({ runtime }) => {
-	const { page } = await launchConnected(runtime)
+test("real mock cancellation finishes before confirmed deletion removes project files", async ({ runtime }, testInfo) => {
+	const { app, page } = await launchConnected(runtime)
 	const input = page.getByRole("textbox", { name: "Project name" })
 	await input.fill("Delete after cancellation")
 	await input.press("Enter")
@@ -416,10 +422,18 @@ test("real mock cancellation finishes before confirmed deletion removes project 
 	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toBeVisible()
 	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Retain my draft")
 	await page.getByRole("button", { name: "Cancel", exact: true }).click()
-	await page.getByRole("combobox", { name: /^HUD view:/ }).click()
-	await page.getByRole("option", { name: "Runs Overview", exact: true }).click()
+	await expect(page.getByRole("heading", { name: "Runs Overview", exact: true })).toBeVisible({ timeout: 30_000 })
+	await expect(page.getByRole("button", { name: "delete-after-cancellation", exact: true })).toBeFocused()
 	const remove = page.getByRole("button", { name: "Delete delete-after-cancellation", exact: true })
 	await expect(remove).toBeEnabled({ timeout: 30_000 })
+	await setNativeViewport(app, page, 640, 420, 1.25)
+	for (const theme of ["dark", "light"]) {
+		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+		expect(await page.locator(".selection-overview").evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+		const screenshot = testInfo.outputPath(`cancelled-overview-${theme}.png`)
+		await writeFile(screenshot, (await captureNative(app, page, 640, 420))!)
+		await testInfo.attach(path.basename(screenshot), { path: screenshot, contentType: "image/png" })
+	}
 	expect(await readFile(proof, "utf8")).toBe("remove only after confirmation")
 	await remove.click()
 	expect(await readFile(proof, "utf8")).toBe("remove only after confirmation")
@@ -448,6 +462,8 @@ test("Enter and Send submit real mock replies and clear only acknowledged drafts
 	await expect(page.locator(".hud-panel--agent pre")).toHaveText("Thanks. One more thing before I finish?")
 	await editor.fill("Finish from Send")
 	await page.getByRole("button", { name: "Send", exact: true }).click()
+	await expect(page.getByRole("heading", { name: "Runs Overview", exact: true })).toBeVisible()
+	await page.getByRole("button", { name: "Return to run", exact: true }).click()
 	await expect(editor).toHaveValue("")
 	await expect(status).toContainText("Completed")
 	await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled()

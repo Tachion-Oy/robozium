@@ -275,12 +275,19 @@ Reply scenarios in `desktop/tests/interactions.spec.ts` verify acknowledged draf
 clearing, edits during submission, duplicate guards, obsolete prompts, keyboard/IME,
 rejection and timeout recovery without repeating writes.
 The native backend suite also submits both real mock prompts through Enter and
-Send, checks acknowledged draft clearing, and waits for completion.
+Send, checks acknowledged draft clearing, waits for automatic return to the
+overview on completion, and explicitly reopens readable history.
 
 Desktop interaction scenarios also cover interruption followed by a reply,
 cancellation during interruption, background status reconciliation and failed
 controls retaining drafts. Pending labels must fit both themes at 640×420,
 including 125% native zoom.
+`desktop/tests/cancel-navigation.spec.ts` checks return to Runs Overview on
+completion, failure and cancellation, retained drafts/history, and navigation
+or replacement runs taking precedence over delayed completion. Background
+cancellation waits for the project listing to confirm completion.
+`desktop/tests/open-run.spec.ts` verifies dormant-only launches and opening a
+known active run without creation, model changes, or duplicate subscriptions.
 
 `desktop/tests/deletion.spec.ts` covers two-step deletion and dismissal, status
 gates, delayed acknowledgements, duplicate clicks, stale polls, HTTP 409 and

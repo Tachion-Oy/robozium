@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Align desktop run navigation with the browser: return to Runs Overview on
+  completion, failure or cancellation, retain readable history/drafts, open
+  existing runs, and block new launches during syncing or cancellation.
+- Trim submitted desktop replies like the browser while retaining edits made
+  during submission.
+- Reduce desktop development startup work by building application sources without
+  rechecking test/tooling sources; retain the complete typecheck command and CI
+  checks. Add `start:built` for reopening unchanged, previously built sources.
+
 - Restore desktop drafts, project selection and known runs after reload/reopen,
   with separate live/mock records. Missing runs retain the draft and require an
   explicit launch; storage failures leave the current draft usable.

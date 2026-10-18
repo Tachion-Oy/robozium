@@ -72,7 +72,7 @@ test("deleting the selected current project's history disposes its session and k
 	let rows = [row("existing-project")]
 	backend.handlers.set("GET /projects", response => json(response, rows))
 	backend.handlers.set("DELETE /projects/existing-project", response => { rows = []; json(response, { ok: true }) })
-	await start(page, backend)
+	await start(page, backend, { history: true })
 	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Retain across deletion")
 	await view(page, "Runs Overview")
 	await page.getByRole("button", { name: "Delete existing-project", exact: true }).click()
@@ -86,6 +86,7 @@ test("deleting the selected current project's history disposes its session and k
 	await page.getByRole("textbox", { name: "Project name" }).fill("Existing project")
 	await page.getByRole("button", { name: "Create project", exact: true }).click()
 	await expect(page.getByRole("button", { name: "existing-project", exact: true })).toHaveAttribute("aria-pressed", "true")
+	prepareRun(backend, "new-run")
 	await page.getByRole("button", { name: "Start run", exact: true }).click()
 	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Retain across deletion")
 })
@@ -129,7 +130,7 @@ test("a pending launch protects its captured project after selection changes and
 		rows = rows.filter(project => project.slug !== "existing-project")
 		json(response, { ok: true })
 	})
-	await start(page, backend)
+	await start(page, backend, { history: true })
 	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Keep for next run")
 	await view(page, "Runs Overview")
 	prepareRun(backend, "next-run", "launch-target")
@@ -156,7 +157,7 @@ test("a pending launch protects its captured project after selection changes and
 
 test("deleting an unrelated project preserves the current session and draft", async ({ desktop: { page }, backend }) => {
 	const run = prepareRun(backend)
-	let rows = [row("existing-project", "running"), row("unrelated")]
+	let rows = [{ ...row("existing-project", "running"), run_id: "run-one" }, row("unrelated")]
 	backend.handlers.set("GET /projects", response => json(response, rows))
 	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ message_trace: [message(1, "Keep history")] })))
 	backend.handlers.set("DELETE /projects/unrelated", response => { rows = rows.slice(0, 1); json(response, { ok: true }) })

@@ -1,7 +1,7 @@
 import { expect } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { writeFile } from "node:fs/promises"
-import { test, json, catalogue, prepareRun, snapshot, message, delta, emit, start, view, output, runStatus } from "./run-fixture"
+import { test, json, catalogue, prepareRun, snapshot, message, delta, emit, start, openHistory, view, output, runStatus } from "./run-fixture"
 import { captureNative, setNativeViewport } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
@@ -120,6 +120,7 @@ test("snapshots alone update prompts and terminal status, with serialized two-se
 	await page.clock.fastForward(2001)
 	await expect.poll(() => reads.length).toBe(3)
 	json(reads[2], snapshot({ status: "completed", message_trace: [message(1, "Completed output")] }))
+	await openHistory(page)
 	await expect(runStatus(page)).toContainText("Completed")
 	await expect(output(page)).toHaveText("Completed output")
 	await page.clock.fastForward(30_000)
@@ -177,6 +178,7 @@ for (const end of ["closure", "409"] as const) {
 		json(reads[0], snapshot({ message_trace: [message(1, "Before closure")] }))
 		await expect.poll(() => reads.length).toBe(2)
 		json(reads[1], snapshot({ status: "completed", message_trace: [message(1, "Before closure"), message(2, "Final output")] }))
+		await openHistory(page)
 		await expect(runStatus(page)).toContainText("Completed")
 		await expect(output(page)).toHaveText("Final output")
 		await expect(page.getByRole("alert")).toHaveCount(0)
@@ -208,7 +210,7 @@ for (const status of ["failed", "cancelled", "queued", "cancelling"] as const) {
 	test(`snapshot status ${status} is presented`, async ({ desktop: { page }, backend }) => {
 		const run = prepareRun(backend)
 		backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ status, message_trace: [message(1, "Kept output")], error: status === "failed" ? "Execution failed" : null })))
-		await start(page, backend)
+		await start(page, backend, { history: status === "failed" || status === "cancelled" })
 		await expect(runStatus(page)).toContainText(status[0].toUpperCase() + status.slice(1))
 		await expect(output(page)).toHaveText("Kept output")
 		if (status === "failed" || status === "cancelled") await expect.poll(() => run.closed).toBe(run.streams.length)

@@ -27,6 +27,17 @@ Normal startup uses live mode. For a credential-free mock backend:
 npm --prefix desktop start -- --mock
 ```
 
+`start` type-checks and builds the application before opening Electron. The
+separate `typecheck` command additionally checks tests and build tooling; CI runs
+both commands. To reopen unchanged sources after a successful start/build, reuse
+the staged backend and compiled application:
+
+```sh
+npm --prefix desktop run start:built -- --mock
+```
+
+Omit `--mock` for live mode. Use regular `start` again after source changes.
+
 The start command stages the allowlisted Python source. Main builds the API
 image on first launch and waits for readiness. React then checks `/ready` through
 its HTTP client before showing the HUD. The first
@@ -119,7 +130,7 @@ Obsolete project reads are cancelled when refreshing or leaving Runs Overview.
 Writes cannot overlap for the same operation and are never retried automatically.
 A timed-out write may have reached the backend; refresh to check before retrying.
 
-**Start run** requires a connected backend, a selected project, and a confirmed
+**Start run** requires a connected backend, a selected dormant project, and a confirmed
 model. It uses backend capability defaults and the acknowledged default model;
 later model changes affect future runs. Creation has a ten-second deadline,
 blocks duplicate submissions and model changes, and never retries automatically.
@@ -134,14 +145,25 @@ old requests and reconnects the known run ID without creating another run.
 Transient failures reconnect automatically with exponential delays from 500 ms
 to four seconds, preserving output, history selection and drafts. Stream opens
 queue a fresh snapshot to recover missed events. Completed, failed, and cancelled
-runs stay readable and stop polling; unknown runs show **Run unavailable**.
+runs stop polling and return to Runs Overview, with focus on that project.
+**Return to run** explicitly reopens retained history and the draft without
+redirecting again. Unknown runs show **Run unavailable**.
 Malformed responses and permanent HTTP errors stop automatic recovery.
+
+Selecting a running or waiting project offers **Open run**, which validates and
+subscribes to its existing run without creating another one. Opening the current
+session retains its history selection. A new launch requires a dormant project
+with no run ID; syncing and cancelling projects cannot be launched.
 
 Desktop **Interrupt** requests a prompt while a run is running. **Cancel** in
 Current Run and each overview row cancels project work, including background
 syncing. Pending actions reject duplicate submissions. Overview status refreshes
 every three seconds while connected and every 250 ms during cancellation.
 Cancel remains available while interruption is pending.
+Cancelling from Current Run returns when the run stops; background cancellation
+returns when the project listing confirms that work has stopped. Background
+syncing can remain visible in the overview after a run finishes. Choosing
+another view or starting another run takes precedence over late completion.
 
 **Delete** in Runs Overview is enabled only for a confirmed dormant project with
 no conflicting local operation. Activate it twice to confirm that project's
@@ -176,6 +198,9 @@ disabled. Record remains unavailable in both modes until dictation is added.
 
 Output uses the existing text renderer. Rich Markdown and artifact-link rendering
 remain tracked desktop parity work.
+Desktop is an incremental port, with separate presentation and session code.
+The [browser comparison](../docs/plans/desktop-run-interactions.md#behavioral-comparison-at-072341b)
+records matching behavior and the remaining differences.
 
 The run reducer owns run identity, durable event reconciliation, and backend
 status. Run protocol values and derived types live in `run/run-contracts.ts`;

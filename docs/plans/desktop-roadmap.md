@@ -108,6 +108,10 @@ recovery. Token updates do not rebuild completed history. Standalone preview
 retains its local history. The current [PR 9 work](desktop-run-interactions.md)
 adds text replies, interruption, shared project cancellation, confirmed deletion,
 automatic reconnection and draft/project/run recovery after reopening.
+The browser comparison also aligns terminal-run navigation and opening existing
+runs; new launches wait for dormant status. Development startup builds application
+sources separately from the complete test/tooling typecheck, and `start:built`
+reuses unchanged staged and compiled inputs.
 Rich Markdown and artifact-link rendering remain tracked presentation parity work.
 
 | PR | Change | Acceptance |

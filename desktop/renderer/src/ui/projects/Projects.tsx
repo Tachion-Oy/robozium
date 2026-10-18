@@ -4,11 +4,16 @@ import type { ProjectsState } from "../../projects/useProjects"
 import { HudButton } from "../HudButton"
 import "./projects.css"
 
-export function Projects({ state, connected = true }: { state: ProjectsState; connected?: boolean }) {
+export function Projects({ state, connected = true, initialFocus = null }: {
+	state: ProjectsState; connected?: boolean; initialFocus?: string | null
+}) {
 	const [armed, setArmed] = useState<{ slug: string; status: string; runId: string | null } | null>(null)
 	const buttons = useRef(new Map<string, HTMLButtonElement>())
 	const nameInput = useRef<HTMLInputElement>(null)
 	const lastRemoval = useRef(state.removed)
+	useLayoutEffect(() => {
+		if (initialFocus !== null) (buttons.current.get(initialFocus) ?? nameInput.current)?.focus()
+	}, [initialFocus])
 	useEffect(() => {
 		if (armed && !state.projects.some(row => row.slug === armed.slug && row.status === armed.status && row.runId === armed.runId && state.canDelete(row.slug))) setArmed(null)
 	}, [state, armed])
