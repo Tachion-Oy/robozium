@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { test, json, prepareRun, snapshot, start, view, output, message, runStatus } from "./run-fixture"
+import { recoveryKey } from "../renderer/src/recovery/recovery-storage"
 
 const row = (slug: string, status = "dormant") => ({ slug, status, run_id: null })
 
@@ -103,30 +104,42 @@ test("pending deletion survives polls, rejects duplicate actions and preserves u
 	await expect(page.getByRole("combobox", { name: /^HUD view:/ })).toBeFocused()
 })
 
-test("deleting the selected current project's history disposes its session and keeps the draft", async ({ desktop: { page }, backend }) => {
-	const run = prepareRun(backend)
-	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ status: "completed" })))
-	let rows = [row("existing-project")]
-	backend.handlers.set("GET /projects", response => json(response, rows))
-	backend.handlers.set("DELETE /projects/existing-project", response => { rows = []; json(response, { ok: true }) })
-	await start(page, backend, { history: true })
-	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Retain across deletion")
-	await view(page, "Runs Overview")
-	await page.getByRole("button", { name: "Delete existing-project", exact: true }).click()
-	await page.getByRole("button", { name: "Confirm delete existing-project", exact: true }).click()
-	await expect(page.getByText("Selected project: None", { exact: true })).toBeVisible()
-	await expect(page.getByRole("textbox", { name: "Project name" })).toBeFocused()
-	await expect(page.getByRole("button", { name: "Return to run", exact: true })).toHaveCount(0)
-	await expect.poll(() => run.closed).toBe(run.streams.length)
-	// A fresh project/run reuses the single app-owned draft.
-	backend.handlers.set("POST /projects", response => { rows = [row("existing-project")]; json(response, { slug: "existing-project" }) })
-	await page.getByRole("textbox", { name: "Project name" }).fill("Existing project")
-	await page.getByRole("button", { name: "Create project", exact: true }).click()
-	await expect(page.getByRole("button", { name: "existing-project", exact: true })).toHaveAttribute("aria-pressed", "true")
-	prepareRun(backend, "new-run")
-	await page.getByRole("button", { name: "Start run", exact: true }).click()
-	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Retain across deletion")
-})
+for (const pendingView of ["Current Run", "Environment"]) {
+	test(`deletion completion leaves a valid view and keeps the draft; pending view=${pendingView}`, async ({ desktop: { page }, backend }) => {
+		const run = prepareRun(backend)
+		backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ status: "completed" })))
+		let rows = [row("existing-project")]
+		backend.handlers.set("GET /projects", response => json(response, rows))
+		let pending: ServerResponse | undefined
+		backend.handlers.set("DELETE /projects/existing-project", response => { pending = response })
+		await start(page, backend, { history: true })
+		await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Retain across deletion")
+		await view(page, "Runs Overview")
+		await page.getByRole("button", { name: "Delete existing-project", exact: true }).click()
+		await page.getByRole("button", { name: "Confirm delete existing-project", exact: true }).click()
+		await expect.poll(() => pending).toBeDefined()
+		await page.getByRole("button", { name: "Return to run", exact: true }).click()
+		await expect(runStatus(page)).toContainText("Completed")
+		if (pendingView === "Environment") await view(page, "Environment")
+		rows = []
+		json(pending!, { ok: true })
+		await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)!).run, recoveryKey("mock"))).toBeNull()
+		await expect(page.getByRole("combobox", { name: /^HUD view:/ })).toHaveAttribute("title", pendingView === "Current Run" ? "Runs Overview" : "Environment")
+		if (pendingView === "Environment") await view(page, "Runs Overview")
+		await expect(page.getByText("Selected project: None", { exact: true })).toBeVisible()
+		if (pendingView === "Current Run") await expect(page.getByRole("textbox", { name: "Project name" })).toBeFocused()
+		await expect(page.getByRole("button", { name: "Return to run", exact: true })).toHaveCount(0)
+		await expect.poll(() => run.closed).toBe(run.streams.length)
+		// A fresh project/run reuses the single app-owned draft.
+		backend.handlers.set("POST /projects", response => { rows = [row("existing-project")]; json(response, { slug: "existing-project" }) })
+		await page.getByRole("textbox", { name: "Project name" }).fill("Existing project")
+		await page.getByRole("button", { name: "Create project", exact: true }).click()
+		await expect(page.getByRole("button", { name: "existing-project", exact: true })).toHaveAttribute("aria-pressed", "true")
+		prepareRun(backend, "new-run")
+		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Retain across deletion")
+	})
+}
 
 for (const outcome of ["conflict", "timeout-present", "timeout-absent", "malformed"] as const) {
 	test(`deletion ${outcome} reconciles without repeating DELETE`, async ({ desktop: { page }, backend }) => {

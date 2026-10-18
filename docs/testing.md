@@ -274,6 +274,8 @@ Ubuntu with Chromium sandboxing enabled and requires the Electron job to pass.
 Reply scenarios in `desktop/tests/interactions.spec.ts` verify acknowledged draft
 clearing, edits during submission, duplicate guards, obsolete prompts, keyboard/IME,
 rejection and timeout recovery without repeating writes.
+Hold a reply acknowledgement until polling clears its prompt: only the unchanged
+submitted draft should clear. A replacement prompt or an edit must retain the draft.
 The native backend suite also submits both real mock prompts through Enter and
 Send, checks acknowledged draft clearing, waits for automatic return to the
 overview on completion, and explicitly reopens readable history.
@@ -293,6 +295,11 @@ known active run without creation, model changes, or duplicate subscriptions.
 gates, delayed acknowledgements, duplicate clicks, stale polls, HTTP 409 and
 uncertain deadlines, selection/session disposal and focus. Ownership regressions
 change selection during a pending launch and delete unrelated project history.
+They also reopen history during DELETE, then check valid navigation, recovery
+cleanup and draft retention when deletion completes. Deleting from Environment
+must preserve that view. Launch regressions in `desktop/tests/runs.spec.ts` leave
+Overview during creation, optionally return before completion, and verify that
+the delayed result never overrides that navigation.
 The native backend suite cancels a real mock run and verifies files remain through the first
 activation and disappear only after cancellation and confirmed deletion.
 

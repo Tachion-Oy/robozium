@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Clear acknowledged text from the desktop draft when polling has already consumed
+  the prompt, while preserving newer drafts. Return to a valid view when deleting
+  displayed history, and keep delayed launches from overriding subsequent navigation.
+
 - Separate desktop project management from workspace selection/execution, and run
   lifecycle management from reply/interruption handling. Keep navigation, drafts
   and screen rendering in focused units with named return contracts. Preserve

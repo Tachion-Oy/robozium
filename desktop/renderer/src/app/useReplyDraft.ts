@@ -1,9 +1,10 @@
 import { useRef, useState } from "react"
+import type { ReplyResult } from "../session/useRunInteractions"
 
 export interface ReplyDraft {
 	value: string
 	change: (value: string) => void
-	submit: (reply: (content: string) => Promise<boolean>) => Promise<void>
+	submit: (reply: (content: string) => Promise<ReplyResult>) => Promise<void>
 }
 
 /** Keep the shared draft; an acknowledgement can clear only the submitted revision. */
@@ -16,10 +17,11 @@ export function useReplyDraft(initialValue: string): ReplyDraft {
 		setValue(next)
 	}
 
-	async function submit(reply: (content: string) => Promise<boolean>): Promise<void> {
+	async function submit(reply: (content: string) => Promise<ReplyResult>): Promise<void> {
 		const submittedRevision = revision.current
-		const accepted = await reply(value)
-		if (accepted && revision.current === submittedRevision) {
+		const result = await reply(value)
+		if (result.status !== "acknowledged" || result.promptState === "replaced") return
+		if (revision.current === submittedRevision) {
 			change("")
 		}
 	}

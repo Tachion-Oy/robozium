@@ -35,6 +35,26 @@ test("launch requires a project and confirmed model, blocks overlapping writes a
 	await expect.poll(() => run.streams.length).toBe(1)
 })
 
+for (const returnToOverview of [false, true]) {
+	test(`late launch preserves newer navigation; return to overview=${returnToOverview}`, async ({ desktop: { page }, backend }) => {
+		const run = prepareRun(backend)
+		let pending: ServerResponse | undefined
+		backend.handlers.set("POST /run/create", response => { pending = response })
+		await backend.open()
+		await page.getByRole("button", { name: "existing-project", exact: true }).click()
+		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		await expect.poll(() => pending).toBeDefined()
+		await view(page, "Environment")
+		if (returnToOverview) await view(page, "Runs Overview")
+		json(pending!, { run_id: "run-one" })
+		await expect.poll(() => run.streams.length).toBe(1)
+		await expect(page.getByRole("combobox", { name: /^HUD view:/ })).toHaveAttribute("title", returnToOverview ? "Runs Overview" : "Environment")
+		await view(page, "Current Run")
+		await expect(runStatus(page)).toContainText("existing-project")
+		expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(1)
+	})
+}
+
 for (const [label, body, status] of [
 	["rejection", { detail: "Already running" }, 409],
 	["malformed identifier", { run_id: 42 }, 200],

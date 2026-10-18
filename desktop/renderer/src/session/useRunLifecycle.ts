@@ -17,7 +17,8 @@ export interface RunLifecycleState {
 	createError: string
 	launchRun: (project: string) => Promise<string | null>
 	restoreRun: (runId: string, project: string) => void
-	closeProject: (project: string) => void
+	/** Return whether this removed the displayed session. */
+	closeProject: (project: string) => boolean
 	retry: () => void
 	refresh: () => void
 	select: (index: number) => void
@@ -100,15 +101,16 @@ export function useRunLifecycle(client: DesktopApiClient | null): RunLifecycle {
 		}
 	}
 
-	const closeProject = useCallback((slug: string): void => {
+	const closeProject = useCallback((slug: string): boolean => {
 		if (creation.current?.project === slug) {
 			creation.current.controller.abort()
 			creation.current = null
 			setCreatingProject("")
 		}
-		if (latest.current?.run.project !== slug) return
+		if (latest.current?.run.project !== slug) return false
 		stopSession()
 		dispatch({ type: "close" })
+		return true
 	}, [stopSession])
 
 	function retry(): void {

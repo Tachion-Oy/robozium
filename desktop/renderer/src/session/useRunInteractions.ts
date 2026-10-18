@@ -6,13 +6,21 @@ import { RunStatus } from "../run/run-contracts"
 import { errorMessage } from "../run/run-updates"
 import type { RunLifecycle } from "./useRunLifecycle"
 
+/** Prompt context at acknowledgement; the draft owner decides whether to clear. */
+export interface ReplyAcknowledgement {
+	status: "acknowledged"
+	promptState: "current" | "consumed" | "replaced"
+}
+
+export type ReplyResult = ReplyAcknowledgement | { status: "failed" | "ignored" }
+
 export interface RunInteractions {
 	replying: boolean
 	canReply: boolean
 	interrupting: boolean
 	canInterrupt: boolean
 	actionError: string
-	reply: (content: string) => Promise<boolean>
+	reply: (content: string) => Promise<ReplyResult>
 	interrupt: () => Promise<void>
 }
 
@@ -40,10 +48,11 @@ export function useRunInteractions(client: DesktopApiClient | null, lifecycle: R
 	const canReply = Boolean(session?.run.synchronized && session.run.status === RunStatus.AwaitingUserInput
 		&& session.run.prompt && !session.run.error) && !creating && !replying
 
-	async function reply(content: string): Promise<boolean> {
+	async function reply(content: string): Promise<ReplyResult> {
 		const promptId = session?.run.prompt?.id
-		if (!client || !session || !scope || scope.aborted || !canReply || !promptId || !content.trim()) return false
-		if (replyRequest.current || lifecycle.isCreating()) return false
+		if (!client || !session || !scope || scope.aborted) return { status: "ignored" }
+		if (!canReply || !promptId || !content.trim()) return { status: "ignored" }
+		if (replyRequest.current || lifecycle.isCreating()) return { status: "ignored" }
 
 		const controller = new AbortController()
 		const signal = AbortSignal.any([scope, controller.signal])
@@ -52,15 +61,22 @@ export function useRunInteractions(client: DesktopApiClient | null, lifecycle: R
 		setActionError("")
 		try {
 			await withDeadline(signal, deadline => submitReply(client, session.run.runId, promptId, content.trim(), deadline))
-			if (signal.aborted) return false
-			lifecycle.dispatch({ type: "replied", promptId })
-			return lifecycle.getSession()?.run.prompt?.id === promptId
-		} catch (error) {
-			if (!signal.aborted) {
-				setActionError(errorMessage(error))
-				lifecycle.dispatch({ type: "retry" })
+			if (signal.aborted) return { status: "ignored" }
+			const currentSession = lifecycle.getSession()
+			if (!currentSession || currentSession.run.runId !== session.run.runId) return { status: "ignored" }
+
+			// A snapshot may consume the submitted prompt before HTTP acknowledges it.
+			let promptState: ReplyAcknowledgement["promptState"] = "consumed"
+			if (currentSession.run.prompt) {
+				promptState = currentSession.run.prompt.id === promptId ? "current" : "replaced"
 			}
-			return false
+			lifecycle.dispatch({ type: "replied", promptId })
+			return { status: "acknowledged", promptState }
+		} catch (error) {
+			if (signal.aborted) return { status: "ignored" }
+			setActionError(errorMessage(error))
+			lifecycle.dispatch({ type: "retry" })
+			return { status: "failed" }
 		} finally {
 			if (!signal.aborted && replyRequest.current === controller) {
 				replyRequest.current = null

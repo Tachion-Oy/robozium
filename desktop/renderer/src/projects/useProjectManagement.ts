@@ -4,7 +4,7 @@ import { useRequest } from "../api/useRequest"
 import { createProject as requestProjectCreation, listProjects, type Project } from "./projects-api"
 import { useProjectDeletion } from "./useProjectDeletion"
 
-interface ProjectRemoval {
+export interface ProjectRemoval {
 	slug: string
 	focus: string
 }
@@ -30,7 +30,7 @@ export interface ProjectManagement {
 
 interface ProjectManagementOptions {
 	onCreated: (slug: string) => void
-	onDeleted?: (slug: string) => void
+	onDeleted?: (removal: ProjectRemoval) => void
 	onListed: (projects: Project[]) => void
 	hasLocalWork: (slug: string) => boolean
 	pollInBackground: boolean
@@ -62,10 +62,11 @@ export function useProjectManagement(
 		const rows = latest.current.projects
 		const index = rows.findIndex(row => row.slug === slug)
 		const nextProject = rows[index + 1] ?? rows[index - 1]
+		const removal = { slug, focus: nextProject?.slug ?? "" }
 
-		setRemoved({ slug, focus: nextProject?.slug ?? "" })
+		setRemoved(removal)
 		setProjects(current => current.filter(row => row.slug !== slug))
-		latest.current.options.onDeleted?.(slug)
+		latest.current.options.onDeleted?.(removal)
 	}, [])
 
 	const load = useCallback((): Promise<void> | undefined => {

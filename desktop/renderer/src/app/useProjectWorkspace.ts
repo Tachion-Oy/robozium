@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import type { BackendMode } from "../../../src/bridge"
 import type { DesktopApiClient } from "../api/client"
 import { useModels, type ModelsState } from "../models/useModels"
-import { useProjectManagement, type ProjectManagement } from "../projects/useProjectManagement"
+import { useProjectManagement, type ProjectManagement, type ProjectRemoval } from "../projects/useProjectManagement"
 import { useProjectCancellation } from "../projects/useProjectCancellation"
 import { canCancelProject, type Project } from "../projects/projects-api"
 import { useRecovery } from "../recovery/useRecovery"
@@ -80,9 +80,10 @@ export function useProjectWorkspace(
 	const launch = launchAvailability(launchContext)
 	const canSend = actions.canReply && Boolean(draft.value.trim())
 
-	function projectDeleted(slug: string): void {
-		selectProject(current => current === slug ? "" : current)
-		run.closeProject(slug)
+	function projectDeleted(removal: ProjectRemoval): void {
+		selectProject(current => current === removal.slug ? "" : current)
+		const sessionClosed = run.closeProject(removal.slug)
+		if (sessionClosed) navigation.sessionRemoved(removal.focus)
 	}
 
 	function projectsListed(projects: Project[]): void {
@@ -133,12 +134,11 @@ export function useProjectWorkspace(
 		}
 
 		if (!launchAvailability(launchContext).canLaunch) return
-		navigation.clearAutomaticReturn()
+		const intent = navigation.beginLaunch()
 		const runId = await run.launchRun(selectedProject)
 		if (runId) {
 			management.refresh()
-			navigation.showRun()
-			navigation.watchCompletion(runId)
+			navigation.finishLaunch(intent, runId)
 		}
 	}
 

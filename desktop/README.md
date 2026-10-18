@@ -162,6 +162,8 @@ Selecting a running or waiting project offers **Open run**, which validates and
 subscribes to its existing run without creating another one. Opening the current
 session retains its history selection. A new launch requires a dormant project
 with no run ID; syncing and cancelling projects cannot be launched.
+If you change views while a launch is pending, its completion preserves your
+chosen view. The created run remains accessible through Current Run.
 
 Desktop **Interrupt** requests a prompt while a run is running. **Cancel** in
 Current Run and each overview row cancels project work, including background
@@ -182,6 +184,8 @@ Project creation also waits for pending deletions; its name field stays editable
 A conflict refreshes status; an uncertain result is checked by listing projects
 without repeating DELETE. Successful removal clears matching selection and run
 references, retains the reply draft and focuses the next project/name field.
+If that history is being displayed when deletion completes, the app returns to
+Runs Overview. Other selected views remain in place.
 
 In standalone preview, **Start run** opens the latest local mock message above
 an empty reply editor. Preview editing stays local; Enter inserts a newline.
@@ -344,9 +348,13 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   requests keep deletion blocked until HTTP settles and listings confirm dormant
   or absent status. Pending UI sets are derived from each handler's request
   registry, preserving synchronous duplicate guards across renders.
-  `useRunNavigation.ts` owns explicit navigation, automatic
-  returns and focus intent. `useReplyDraft.ts` owns draft revisions and clearing
-  after acknowledgement. `run-availability.ts` contains the launch/action rules.
+  `useRunNavigation.ts` owns explicit navigation, automatic returns and focus
+  intent. Launch completion checks the captured navigation revision; deletion
+  coordinates session closure with a valid destination and removal focus.
+  `useReplyDraft.ts` owns draft revisions and clearing after acknowledgement.
+  Reply results distinguish a consumed prompt from a replacement prompt, so
+  snapshots arriving before the acknowledgement do not retain already-sent text.
+  `run-availability.ts` contains the launch/action rules.
   Version/model/run feedback is rendered by small components under `ui/`; it
   does not participate in request reconciliation.
 - `renderer/src/api/client.ts` owns direct JSON HTTP requests and SSE framing.

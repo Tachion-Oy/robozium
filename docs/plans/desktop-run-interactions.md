@@ -251,3 +251,29 @@ eligibility while an old run snapshot lags behind confirmed project status.
 Lint, all four TypeScript projects, production build, explicit module-boundary
 typing audit, local documentation links and `git diff --check` passed. Existing
 screenshot baselines remain unchanged. CI/Full E2E were not run; no PR was requested.
+
+## Coordination review
+
+Controlled response ordering reproduced three defects: a consumed-prompt snapshot
+before reply acknowledgement retained already-sent text; reopening history during
+DELETE left Current Run without a session; and delayed creation overrode newer
+navigation. The launch behavior also exists at the implementation base `072341b`.
+Control cases confirmed that edits during submission and deletion while viewing
+Environment already behaved correctly.
+
+Reply results now report acknowledgement separately from whether the submitted
+prompt is current, consumed or replaced. Draft ownership retains the revision
+check and ignores replacement/obsolete results. Project removal carries its focus
+destination to the workspace, which coordinates confirmed session closure with
+navigation. Launch navigation uses a captured revision, so leaving and returning
+to the same view also supersedes an earlier launch. Recovery exposes a named
+return contract. Request retries, transport parsing and run/HUD reconciliation
+remain with their existing owners.
+
+Validation: the six controlled cases first reproduced four failures (consumed
+prompt, displayed deletion, and both late-launch navigation cases) while the two
+preservation controls passed. After the fixes, all 12 focused regressions passed,
+then all 218 desktop tests and 13 native backend scenarios passed sequentially
+against the final build. Lint, all four TypeScript projects, production build,
+explicit module-boundary typing audit, 23 local documentation links and
+`git diff --check` passed. CI/Full E2E were not run; no PR was requested.

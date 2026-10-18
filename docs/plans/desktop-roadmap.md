@@ -117,8 +117,10 @@ reference introduction, loading animation and painted-HUD handoff. Background
 project polling stays visually silent; the activity mark remains the Anurati A.
 The readability follow-up separates project collection management from workspace
 selection/execution, and run lifecycle management from reply/interruption handling.
-Navigation, drafts and screen rendering retain distinct owners. See the PR 9 notes
-for the resulting responsibilities and preserved behavior.
+Navigation, drafts and screen rendering retain distinct owners. Coordination
+checks distinguish reply acknowledgement from draft clearing, repair navigation
+when displayed history is deleted, and preserve newer navigation during launch.
+See the PR 9 notes for the resulting responsibilities and preserved behavior.
 Rich Markdown and artifact-link rendering remain tracked presentation parity work.
 
 | PR | Change | Acceptance |

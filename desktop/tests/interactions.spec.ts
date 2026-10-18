@@ -86,6 +86,34 @@ test("acknowledgement clears only the unchanged draft and new prompts can be ans
 	await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled()
 })
 
+for (const edited of [false, true]) {
+	test(`acknowledgement after a consumed-prompt snapshot clears only the submitted revision; edited=${edited}`, async ({ desktop: { page }, backend }) => {
+		prepareRun(backend)
+		let current = waiting()
+		backend.handlers.set("GET /run/run-one", response => json(response, current))
+		let pending: ServerResponse | undefined
+		backend.handlers.set("POST /run/run-one/reply", response => { pending = response })
+		await start(page, backend)
+		await page.clock.install()
+		const editor = page.getByRole("textbox", { name: "Reply", exact: true })
+		await editor.fill("Submitted answer")
+		await editor.press("Enter")
+		await expect.poll(() => pending).toBeDefined()
+		current = snapshot()
+		await page.clock.fastForward(2001)
+		await expect(runStatus(page)).toContainText("Running")
+		if (edited) await editor.fill("Next draft")
+		json(pending!, { ok: true })
+		await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled()
+		await expect(editor).toHaveValue(edited ? "Next draft" : "")
+		current = waiting("p2")
+		await page.clock.fastForward(2001)
+		await expect(output(page)).toHaveText("Question p2")
+		await expect(editor).toHaveValue(edited ? "Next draft" : "")
+		expect(backend.requests.filter(request => request.path.endsWith("/reply"))).toHaveLength(1)
+	})
+}
+
 for (const failure of ["rejection", "timeout", "malformed"] as const) {
 	test(`reply ${failure} retains the draft, refreshes state and never repeats the write`, async ({ desktop: { page }, backend }) => {
 		prepareRun(backend)
