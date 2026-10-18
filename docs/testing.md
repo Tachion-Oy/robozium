@@ -271,6 +271,10 @@ use `DEBUG=pw:browser xvfb-run -a npm --prefix desktop run test:electron`.
 CI checks desktop lint, types, and compilation. Full E2E runs the native suite on
 Ubuntu with Chromium sandboxing enabled and requires the Electron job to pass.
 
+Reply scenarios in `desktop/tests/interactions.spec.ts` verify acknowledged draft
+clearing, edits during submission, duplicate guards, obsolete prompts, keyboard/IME,
+rejection and timeout recovery without repeating writes.
+
 ## Desktop backend checks
 
 With Linux Docker Engine/Compose and Node.js 22.12 or newer:

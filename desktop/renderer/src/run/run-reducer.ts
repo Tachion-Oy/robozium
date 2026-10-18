@@ -13,6 +13,8 @@ export interface RunState {
 	runId: string
 	project: string
 	status: RunStatus
+	synchronized: boolean
+	acknowledgedPrompts: ReadonlySet<string>
 	prompt: RunPrompt | null
 	events: readonly RunRecord[]
 	completedMessageIds: ReadonlySet<string>
@@ -28,6 +30,7 @@ export type RunAction =
 	| { type: "snapshot"; view: RunView }
 	| { type: "error"; message: string; unavailable: boolean }
 	| { type: "retry" }
+	| { type: "replied"; promptId: string }
 
 // Replayed records remain part of the update even when storage is unchanged.
 // Consumers may need to dismiss transient output superseded by those records.
@@ -39,6 +42,7 @@ export type RunUpdate = { run: RunState } & (
 
 export function initialRun(runId: string, project: string): RunState {
 	return {
+		synchronized: false, acknowledgedPrompts: new Set(),
 		runId, project, status: RunStatus.Queued, prompt: null, events: [],
 		completedMessageIds: new Set(), retrySequences: new Map(),
 		streamSequence: -1, streamMessage: null, error: "", unavailable: false,
@@ -118,16 +122,20 @@ function applySnapshot(state: RunState, view: RunView): RunUpdate {
 	return {
 		type: "snapshot", receivedEvents,
 		run: {
-			...next, status: view.status, error: view.error ?? state.error,
-			prompt: snapshotPrompt(state.prompt, view, afterSequence),
+			...next, synchronized: true, status: view.status, error: view.error ?? "",
+			prompt: view.promptId && state.acknowledgedPrompts.has(view.promptId) ? null : snapshotPrompt(state.prompt, view, afterSequence),
 		},
 	}
 }
 
 export function reduceRun(state: RunState, action: RunAction): RunUpdate {
 	switch (action.type) {
-		case "error": return { type: "state", run: { ...state, error: action.message, unavailable: action.unavailable } }
-		case "retry": return { type: "state", run: { ...state, error: "", unavailable: false } }
+		case "error": return { type: "state", run: { ...state, synchronized: false, error: action.message, unavailable: action.unavailable } }
+		case "retry": return { type: "state", run: { ...state, synchronized: false, error: "", unavailable: false } }
+		case "replied": return { type: "state", run: {
+			...state, acknowledgedPrompts: new Set([...state.acknowledgedPrompts, action.promptId]),
+			prompt: state.prompt?.id === action.promptId ? null : state.prompt,
+		} }
 		case "snapshot": return applySnapshot(state, action.view)
 		case "frame": {
 			if (action.frame.type === RunEventType.MessageDelta) return applyDelta(state, action.frame)

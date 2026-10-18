@@ -5,7 +5,8 @@ import { CopyTextButton } from "./CopyTextButton"
 import { useDesktopActionLayout } from "../../hud/useDesktopActionLayout"
 import "./hud-footer.css"
 
-export function HudFooter({ message, selected, count, currentIndex, onSelect, draft, onClear, status }: {
+export function HudFooter({ message, selected, count, currentIndex, onSelect, draft, onClear, status, onSend, canSend = false, replying = false }: {
+	onSend?: () => void; canSend?: boolean; replying?: boolean
 	status?: string
 	currentIndex?: number
 	message: string; selected: number; count: number; onSelect: (index: number) => void
@@ -34,7 +35,7 @@ export function HudFooter({ message, selected, count, currentIndex, onSelect, dr
 					<CopyTextButton content={message} target="agent output" onError={setError} />
 				</div>
 				<HudButton className="hud-footer__record" variant="success" disabled><span>Record</span></HudButton>
-				<HudButton className="hud-footer__send" variant="success" disabled>Send</HudButton>
+				<HudButton className="hud-footer__send" variant="success" disabled={!canSend} onClick={onSend}>{replying ? "Sending…" : "Send"}</HudButton>
 			</div>
 			{error && <p className="hud-footer__error" role="alert">{error}</p>}
 		</footer>

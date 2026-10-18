@@ -34,6 +34,14 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	const session = run.session
 	const hasRun = client ? session !== null : hasPreview
 	const [draft, setDraft] = useState("")
+	const draftRevision = useRef(0)
+	const changeDraft = (value: string) => { draftRevision.current++; setDraft(value) }
+	const canSend = connected && Boolean(session?.run.synchronized && session.run.prompt && !session.run.error) && Boolean(draft.trim()) && !run.replying && !run.creating
+	const send = async () => {
+		if (!canSend) return
+		const revision = draftRevision.current
+		if (await run.reply(draft) && revision === draftRevision.current) changeDraft("")
+	}
 	const [selectedMessage, setSelectedMessage] = useState(mockMessages.length - 1)
 	const editor = useRef<HTMLTextAreaElement>(null)
 	const [layout, setLayout] = useState<LayoutMode>("top")
@@ -114,9 +122,10 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 						notice={session && <div className="run-feedback">
 							<p role="status" aria-label="Run status">{session.run.project} · {status}</p>
 							{session.run.error && <p role="alert">{session.run.error}</p>}
+							{run.actionError && <p role="alert">{run.actionError}</p>}
 							{session.run.error && <HudButton onClick={run.retry} disabled={!connected || run.creating}>Retry output</HudButton>}
 						</div>}
-						draft={draft} onDraftChange={setDraft}
+						draft={draft} onDraftChange={changeDraft} onSend={client ? () => { void send() } : undefined}
 						layout={layout} focusOnOpen={focusRunEditor} editor={editor} />
 				) : view === "projects" ? (
 					<div className={client ? "selection-overview" : "preview-overview"}>
@@ -130,7 +139,8 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 			{view === "run" && <HudFooter message={message} selected={messageIndex} status={status}
 				count={client ? display.count : mockMessages.length} currentIndex={client ? display.currentIndex : undefined}
 				onSelect={client ? run.select : setSelectedMessage} draft={draft}
-				onClear={() => { setDraft(""); editor.current?.focus() }} />}
+				onSend={() => { void send() }} canSend={canSend} replying={run.replying}
+				onClear={() => { changeDraft(""); editor.current?.focus() }} />}
 			<HudDividerControls mode={layout} disabled={view !== "run"} onChange={setLayout} />
 		</main>
 	)

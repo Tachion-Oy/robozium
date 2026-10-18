@@ -4,7 +4,11 @@ The Electron app is under development. React connects directly to the Python
 API for projects, default model selection, and live runs. Select a project and
 use **Start run** to watch incremental output, messages, script output, prompts,
 and completion in Current Run. **Return to run** reopens the current session.
-Light/Dark switches the theme, and Secrets unavailable is disabled. Replies,
+Text replies use Send or Enter; Shift+Enter inserts a newline and IME input never
+submits. Editing stays available during submission. Only acknowledged, unchanged
+drafts clear; failures preserve the draft and refresh the run without repeating
+the write.
+Light/Dark switches the theme, and Secrets unavailable is disabled.
 credentials, and capability selection follow in later roadmap increments.
 
 ## Run on Linux
@@ -130,8 +134,7 @@ readable and stop polling; unknown runs show **Run unavailable**. Automatic
 reconnection and recovery after reopening are planned for PR 9.
 
 In standalone preview, **Start run** opens the latest local mock message above
-an empty reply editor. In either mode, draft freely: Enter and Shift+Enter insert
-newlines; replies are not sent yet. The arrow buttons in the left rail move the
+an empty reply editor. Preview editing stays local; Enter inserts a newline. The arrow buttons in the left rail move the
 divider between message-expanded, equal, and reply-expanded positions. At each
 limit, the unavailable direction is disabled. Messages and long drafts scroll
 inside their own panels. Divider changes animate over 220ms, or move immediately
@@ -148,7 +151,7 @@ its scroll. At either end, unavailable directions are disabled and keyboard focu
 moves to the nearest reverse arrow. Empty history disables all arrows. The center
 mark names the current run status, also shown above the output. Preview retains
 three local messages and its static awaiting-input mark. Cancel, Interrupt,
-Record, and Send remain disabled; draft editing stays local.
+and Record remain disabled in this increment; draft editing stays local.
 
 Output uses the existing text renderer. Rich Markdown and artifact-link rendering
 remain tracked desktop parity work.

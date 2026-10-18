@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Send desktop text replies with Enter/Shift+Enter and IME protection. Keep edits
+  during requests, suppress acknowledged prompts and retain drafts on failure.
+
 - Start selected projects from the desktop HUD and display live output, prompts,
   history, and completion. Preserve drafts and output on errors, keep one session
   across views, and retry output without creating another run. Standalone preview

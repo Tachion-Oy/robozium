@@ -18,7 +18,7 @@ export function watchRun(
 	runId: string,
 	project: string,
 	dispatch: (action: RunAction) => void,
-): () => void {
+): (() => void) & { refresh: () => void } {
 	const controller = new AbortController()
 	const polling = createRunPoller()
 
@@ -63,7 +63,11 @@ export function watchRun(
 	// Both tasks run concurrently; the stream promise is intentionally not awaited here.
 	void followStream()
 	polling.start(loadSnapshot, fail)
-	return dispose
+	return Object.assign(dispose, { refresh: () => { void refresh() } })
+
+	async function refresh() {
+		try { await loadSnapshot() } catch (error) { fail(error) }
+	}
 }
 
 /** Serialize reads; each caller gets a fresh snapshot after any earlier read settles. */

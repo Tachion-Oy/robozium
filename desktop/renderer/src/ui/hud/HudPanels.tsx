@@ -22,8 +22,9 @@ function AgentMessagePanel({ message, messageId, streaming, notice }: { message:
 	)
 }
 
-function ReplyEditor({ draft, onChange, focusOnOpen, editor }: {
+function ReplyEditor({ draft, onChange, focusOnOpen, editor, onSend }: {
 	draft: string; onChange: (draft: string) => void; focusOnOpen: boolean
+	onSend?: () => void
 	editor: RefObject<HTMLTextAreaElement | null>
 }) {
 	useEffect(() => {
@@ -32,12 +33,18 @@ function ReplyEditor({ draft, onChange, focusOnOpen, editor }: {
 	return (
 		<div className="hud-panel hud-panel--user">
 			<textarea ref={editor} aria-label="Reply" placeholder="Type your reply..."
+				onKeyDown={event => {
+					if (onSend && event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
+						event.preventDefault()
+						onSend()
+					}
+				}}
 				value={draft} onChange={event => onChange(event.target.value)} />
 		</div>
 	)
 }
 
-export function HudPanels({ message, messageId, streaming = false, notice, draft, onDraftChange, layout, focusOnOpen, editor }: {
+export function HudPanels({ message, messageId, streaming = false, notice, draft, onDraftChange, layout, focusOnOpen, editor, onSend }: {
 	messageId: string
 	streaming?: boolean
 	notice?: ReactNode
@@ -46,12 +53,13 @@ export function HudPanels({ message, messageId, streaming = false, notice, draft
 	onDraftChange: (draft: string) => void
 	layout: LayoutMode
 	focusOnOpen: boolean
+	onSend?: () => void
 	editor: RefObject<HTMLTextAreaElement | null>
 }) {
 	return (
 		<section className="hud-panels" data-layout={layout} aria-label="Current Run">
 			<AgentMessagePanel message={message} messageId={messageId} streaming={streaming} notice={notice} />
-			<ReplyEditor draft={draft} onChange={onDraftChange} focusOnOpen={focusOnOpen} editor={editor} />
+			<ReplyEditor draft={draft} onChange={onDraftChange} focusOnOpen={focusOnOpen} editor={editor} onSend={onSend} />
 		</section>
 	)
 }

@@ -2,7 +2,7 @@
 // Reducers own data and presentation; this hook owns requests, cancellation and stale callbacks.
 import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
-import { createRun } from "../run/run-api"
+import { createRun, submitReply } from "../run/run-api"
 import { withDeadline } from "../api/request"
 import { watchRun, errorMessage } from "../run/run-updates"
 import { reduceRunSession } from "./session-reducer"
@@ -13,10 +13,19 @@ export function useRunSession(client: DesktopApiClient | null) {
 	const [creating, setCreating] = useState(false)
 	const [createError, setCreateError] = useState("")
 	const creation = useRef<AbortController | null>(null)
-	const dispose = useRef<(() => void) | null>(null)
+	const dispose = useRef<ReturnType<typeof watchRun> | null>(null)
 	const generation = useRef(0)
+	const replyRequest = useRef<AbortController | null>(null)
+	const [replying, setReplying] = useState(false)
+	const [actionError, setActionError] = useState("")
+	const latest = useRef(session)
+	latest.current = session
 	const stop = useCallback(() => {
 		generation.current++
+		replyRequest.current?.abort()
+		replyRequest.current = null
+		setReplying(false)
+		setActionError("")
 		dispose.current?.()
 		dispose.current = null
 		creation.current?.abort()
@@ -55,7 +64,34 @@ export function useRunSession(client: DesktopApiClient | null) {
 			if (creation.current === controller) { creation.current = null; setCreating(false) }
 		}
 	}
-	return { session, creating, createError, start, open,
+	const reply = async (content: string): Promise<boolean> => {
+		const promptId = session?.run.prompt?.id
+		if (!client || !session?.run.synchronized || !promptId || !content.trim() || replyRequest.current || creation.current) return false
+		const controller = new AbortController()
+		const current = generation.current
+		replyRequest.current = controller
+		setReplying(true)
+		setActionError("")
+		try {
+			await withDeadline(controller.signal, signal => submitReply(client, session.run.runId, promptId, content, signal))
+			if (generation.current !== current || controller.signal.aborted) return false
+			dispatch({ type: "replied", promptId })
+			return latest.current?.run.prompt?.id === promptId
+		} catch (error) {
+			if (generation.current === current) {
+				setActionError(errorMessage(error))
+				dispatch({ type: "retry" })
+			}
+			return false
+		} finally {
+			if (generation.current === current) {
+				replyRequest.current = null
+				setReplying(false)
+				dispose.current?.refresh()
+			}
+		}
+	}
+	return { session, creating, createError, start, open, reply, replying, actionError,
 		select: (index: number) => dispatch({ type: "select", index }),
 		retry: () => {
 			if (!session || creation.current) return
