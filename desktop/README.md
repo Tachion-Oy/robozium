@@ -441,3 +441,8 @@ only its own test containers/image and temporary data, including after failures.
 Lifecycle unit tests cover ownership, errors, cancellation, and process cleanup.
 The native backend suite verifies retry, first build/image reuse, close/reopen
 persistence, and cancellation against isolated mock Docker resources.
+
+The standalone startup presentation is under `splash/`; its
+[source attribution](splash/SOURCES.md) records the authorized experiment copy.
+The HTML, CSS and checked JavaScript can load before application compilation.
+Native startup integration follows separately.

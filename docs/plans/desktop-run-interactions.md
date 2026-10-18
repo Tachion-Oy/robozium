@@ -160,3 +160,11 @@ and the empty-state message while still reflecting actual status changes. The
 center status mark remains the Anurati A; using the first letter of the status
 incorrectly changed it to C after cancellation. Native regressions cover populated
 and empty lists, fast cancellation reads and all terminal statuses.
+
+## Offline splash presentation
+
+The maintainer authorized copying the reference splash from experiment `076b2c9`.
+Its terminal introduction, lettering artwork, octagon and pulsing A now live in
+`desktop/splash/` as offline HTML/CSS/JavaScript. The cascade keeps complete text
+layout; reduced motion settles it immediately. The renderer typecheck covers the
+JavaScript. Native startup wiring is kept in the following increment.

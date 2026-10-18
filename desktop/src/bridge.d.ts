@@ -14,8 +14,17 @@ export interface DesktopBridge {
 	writeClipboardText(text: string): Promise<void>
 }
 
+export interface PreparationBridge {
+	status(): Promise<{ message: string; failed: boolean; retry: boolean; ready: boolean }>
+	retry(): Promise<void>
+	painted(): Promise<void>
+	report(status: BackendStatus): Promise<void>
+	finished(): Promise<void>
+}
+
 declare global {
 	interface Window {
 		robozium: DesktopBridge
+		roboziumStartup: PreparationBridge
 	}
 }

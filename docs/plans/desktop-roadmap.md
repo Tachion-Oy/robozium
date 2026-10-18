@@ -203,3 +203,7 @@ desktop platforms, and publishing remain outside this series.
 
 The PR 9 polling follow-up keeps background project reads visually silent and
 retains the Anurati A after run completion, failure and cancellation.
+
+The maintainer brought forward the accepted splash presentation from PR 14.
+Offline terminal, lettering, octagon and A assets are copied and adapted; native
+startup integration follows as a separate increment.

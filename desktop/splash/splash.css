@@ -1,0 +1,33 @@
+/* Presentation adapted from the accepted experiment splash; see SOURCES.md. */
+@font-face { font-family: "Anurati Pro"; src: url("assets/Anurati-Pro-Regular.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "VT323"; src: url("assets/vt323.woff2") format("woff2"); font-weight: 400; }
+:root { color-scheme: dark; font-size: 75%; --term-bg: #07080a; --term-green: #33ff7a; --term-amber: #ffb000; --term-red: #ff3b30; --term-blue: #40c8ff; --term-lime: #c2ff3a; }
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; background: transparent; overflow: hidden; }
+.startup { position: fixed; inset: 0; background: #180e20; color: #9fe4ff; opacity: 1; transition: opacity 500ms ease; }
+.startup[data-stage="handoff"] { opacity: 0; }
+.startup__terminal { height: 100%; display: flex; flex-direction: column; background: radial-gradient(ellipse at center, transparent 35%, #07080a66 100%); }
+.startup__terminal::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, #0003 0 1px, transparent 1px 3px); opacity: 0.4; }
+.startup__title { flex: 0 0 13%; min-height: 65px; display: grid; place-items: center; animation: title-in 4s ease-out both; }
+.startup__title span { display: block; width: min(45vw, 670px); height: 5rem; font-size: 0; background: white; mask: url("assets/robozium.svg") center / contain no-repeat; }
+.startup__title { filter: drop-shadow(0 0 3px #c2ff3a) drop-shadow(0 0 12px #c2ff3acc) drop-shadow(0 0 23px #c2ff3a80); }
+.startup__hud { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 500ms ease; background: linear-gradient(#40c8ff0a 0 2px, transparent 2px), linear-gradient(90deg, #40c8ff0a 0 2px, transparent 2px), #091426b8; background-size: 3.5rem 3.5rem; }
+.startup[data-stage="loading"] .startup__hud, .startup[data-stage="handoff"] .startup__hud { opacity: 1; }
+.startup__loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; width: 178px; height: 178px; }
+.startup__loader::before { content: ""; position: absolute; inset: 2px; z-index: -1; background: #00080fb3; clip-path: polygon(29.289322% 0, 70.710678% 0, 100% 29.289322%, 100% 70.710678%, 70.710678% 100%, 29.289322% 100%, 0 70.710678%, 0 29.289322%); }
+.startup__outline { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: #40c8ff99; stroke-width: 0.55; pointer-events: none; filter: drop-shadow(0 0 6px #40c8ff61) drop-shadow(0 0 16px #40c8ff29); }
+.startup__loading-art { display: block; width: 142px; height: 16px; background: #c2ff3a; mask: url("assets/loading.svg") center / contain no-repeat; }
+.startup__logo { display: grid; place-items: center; width: 36px; height: 36px; font: 31px/1 "Anurati Pro", sans-serif; color: #ffb000; border-radius: 50%; background: color-mix(in oklab, #40c8ff 35%, black); box-shadow: 0 0 9px #ffb00085; text-shadow: 0 0 2px #ffb000d1, 0 0 7px #ffb0009e, 0 0 18px #ffb0006b, 0 0 38px #ffb0003d; }
+.startup__feedback { position: absolute; top: calc(50% + 105px); bottom: 12px; left: 10%; right: 10%; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; font: 14px/1.5 ui-monospace, monospace; }
+.startup__feedback p { margin: 0; min-height: 0; overflow: auto; overflow-wrap: anywhere; }
+.startup[data-failed="true"] .startup__loader { top: calc(50% - 72px); }
+.startup[data-failed="true"] .startup__feedback { top: calc(50% + 30px); }
+.startup__feedback p[role="status"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.startup__feedback [role="alert"] { color: #ff6b62; }
+button { padding: 0.5rem 1rem; border: 1px solid #40c8ff; background: #091426; color: inherit; font: inherit; cursor: pointer; flex-shrink: 0; }
+button:focus-visible { outline: 2px solid #9fe4ff; outline-offset: 3px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@keyframes title-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes working-pulse { from { color: color-mix(in oklab, #ffb000 58%, black); text-shadow: 0 0 1px #ffb0006b, 0 0 5px #ffb0003d, 0 0 14px #ffb0001f; } to { color: color-mix(in oklab, white 22%, #ffb000); text-shadow: 0 0 2px #ffffff7a, 0 0 8px #ffb000eb, 0 0 22px #ffb000b3, 0 0 48px #ffb00075; } }
+@media (prefers-reduced-motion: no-preference) { .startup__logo { animation: working-pulse 1.15s ease-in-out infinite alternate; } }
+@media (prefers-reduced-motion: reduce) { .startup, .startup__hud { transition: none; } .startup__title { animation: none; } }

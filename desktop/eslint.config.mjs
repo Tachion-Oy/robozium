@@ -7,9 +7,10 @@ export default ts.config(
 	ts.configs.recommended,
 	{
 		files: ["src/*.cjs"],
-		languageOptions: { globals: { require: "readonly", module: "readonly" } },
+		languageOptions: { globals: { require: "readonly", module: "readonly", __dirname: "readonly", AbortController: "readonly" } },
 		rules: { "@typescript-eslint/no-require-imports": "off" },
 	},
+	{ files: ["splash/*.js"], languageOptions: { globals: { document: "readonly", window: "readonly", NodeFilter: "readonly", performance: "readonly" } } },
 	{
 		rules: {
 			"no-restricted-properties": [

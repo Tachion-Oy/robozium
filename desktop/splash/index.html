@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+	<title>Robozium</title>
+	<link rel="stylesheet" href="splash.css">
+	<link rel="stylesheet" href="terminal.css">
+	<script src="splash.js" type="module"></script>
+</head>
+<body>
+<main class="startup" data-stage="intro">
+	<div class="startup__terminal" aria-hidden="true">
+		<div class="startup__title"><span>Robozium</span></div>
+		<div class="intro-log"><div class="intro-log__content">
+<!-- Static introduction artwork adapted from the reference splash; never a live transcript. -->
+			<div class="term-msg" data-role="error" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">ERROR</span></span>
+				<div class="term-msg-content"><span><span><span class="term-emph">subspace_link</span> failed — <span class="term-tag"><span class="term-tag-label">./warp/core.flux:Δ42</span></span>
+ζ-variance over ℵ-tolerance · phase ψ collapsed · rerouting through the Σ-lattice.</span></span></div>
+			</div>
+			<div class="term-msg" data-role="system" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">SYSTEM</span></span>
+				<div class="term-msg-content"><span><span>cold boot reactor=online flux=0.94c lattice=Λ-stable entropy=↓ shields=nominal sync=⊹ band=∞ horizon=⟨ψ|ψ⟩ id=ax-9∮</span></span></div>
+			</div>
+			<div class="term-msg" data-role="tool" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">TOOL</span></span>
+				<div class="term-msg-content"><span><span><span class="term-emph">scan_subspace</span>
+path = <span class="term-tag"><span class="term-tag-label">./hyperlane/Σ-grid sector=7∮ depth=∞</span></span>
+=&gt; 12 nodes coherent · 3 dark · drift ε&lt;10⁻⁹ · torsion ∇×F→0</span></span></div>
+			</div>
+			<div class="term-msg" data-role="script" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">SCRIPT</span></span>
+				<div class="term-msg-content"><span><span>ignition.seq ⊹⊹⊹  ⎔ phase-lock ⟨ψ|ψ⟩=1  ▮▮▮▯▯ 63%  λ=632nm  ∮=∞  Ω→0  ⌁ handshake ⌁  ⊹ armed ⊹</span></span></div>
+			</div>
+			<div class="term-msg" data-role="agent" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">AGENT</span></span>
+				<div class="term-msg-content"><span><span>Lattice handshake holds. The Σ-grid is coherent and the dark nodes are dormant, not lost — I will warm them in order and keep every jump reversible and easy to back out.</span></span></div>
+			</div>
+			<div class="term-msg" data-role="tool" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">TOOL</span></span>
+				<div class="term-msg-content"><span><span><span class="term-emph">align_manifold</span>
+path = <span class="term-tag"><span class="term-tag-label">./fields/∂M curvature=R sector=∮</span></span>
+=&gt; torsion ∇×F→0 · ∮_∂M dω balanced · settled in 0.8s · Λ nominal</span></span></div>
+			</div>
+			<div class="term-msg" data-role="agent" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">AGENT</span></span>
+				<div class="term-msg-content"><span><span>Session live — I can see the tree and your invariants. Ask for refactors, a tight plan, or a read-only pass; I will keep steps small, reversible, and easy to review.</span></span></div>
+			</div>
+			<div class="term-msg" data-role="system" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">SYSTEM</span></span>
+				<div class="term-msg-content"><span><span>runtime bound arch=linux/amd64 policy=deny-by-default caps=fs+proc id=ph-sess-7xb2 index=warm vectors=1536 ctx_window=128k audit=structured</span></span></div>
+			</div>
+			<div class="term-msg" data-role="agent" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">AGENT</span></span>
+				<div class="term-msg-content"><span><span>Booting up. Scanning the workspace to build context for the refactor you asked about. I will follow file references and invariants in order so we do not paint ourselves into a corner.</span></span></div>
+			</div>
+			<div class="term-msg" data-role="tool" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">TOOL</span></span>
+				<div class="term-msg-content"><span><span><span class="term-emph">read_file</span>
+path = <span class="term-tag"><span class="term-tag-label">./src/pipe.ts lines=1..160</span></span>
+=&gt; 158 lines, 4 classes, 11 exported symbols</span></span></div>
+			</div>
+			<div class="term-msg" data-role="agent" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">AGENT</span></span>
+				<div class="term-msg-content"><span><span>Found 3 candidates for the refactor. The happy path and fallback path share most logic, so a parameterized emit target should collapse duplication. I will start with the smallest change...</span></span></div>
+			</div>
+			<div class="term-msg" data-role="tool" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">TOOL</span></span>
+				<div class="term-msg-content"><span><span><span class="term-emph">list_files</span>
+path = <span class="term-tag"><span class="term-tag-label">./src depth=2</span></span>
+=&gt; 14 entries: pipe.ts, pipes/*, runner.ts, runtime.ts, persistence/*, types.ts, index.ts, tests/*</span></span></div>
+			</div>
+			<div class="term-msg" data-role="tool" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">TOOL</span></span>
+				<div class="term-msg-content"><span><span><span class="term-emph">apply_patch</span>
+./src/pipe.ts  ∶  2 hunks  ∶  unified, emit() path only, no test churn
+=&gt; landed  ·  +47 / -19  ·  queue type_check</span></span></div>
+			</div>
+			<div class="term-msg" data-role="agent" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">AGENT</span></span>
+				<div class="term-msg-content"><span><span>Patch applied on the hot path — structure stayed familiar, so the review surface is narrow. I will re-validate the generic at the failing line and add a local shim only if the type solver still balks.</span></span></div>
+			</div>
+			<div class="term-msg" data-role="error" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">ERROR</span></span>
+				<div class="term-msg-content"><span><span><span class="term-emph">type_check</span> failed — <span class="term-tag"><span class="term-tag-label">src/pipe.ts:87:12</span></span>
+Property 'emit' does not exist on type Pipe&lt;never&gt;.</span></span></div>
+			</div>
+			<div class="term-msg" data-role="script" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">SCRIPT</span></span>
+				<div class="term-msg-content"><span><span>apply_euclidean_path_integral
+∫_γ ω = ∮_∂M dω  |  (F,∇) ∼  H²(M)  |  δS/δφ=0, ℏ∂_tψ=Ĥψ  |  ζ(2)=π²/6, e^{iπ}+1=0
+|  R_{μν}−½Rg_{μν}+Λg_{μν}=8πG T_{μν}  |  F_{μν}=∂_μA_ν−∂_νA_μ, ∇·E=ρ/ε₀ </span></span></div>
+			</div>
+			<div class="term-msg" data-role="agent" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">AGENT</span></span>
+				<div class="term-msg-content"><span><span>Narrowing the generic and threading the event type through overloads. Re-running type check. If anything still resists, I will add a local adapter rather than spreading generic soup across the file.</span></span></div>
+			</div>
+			<div class="term-msg" data-role="tool" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">TOOL</span></span>
+				<div class="term-msg-content"><span><span><span class="term-emph">type_check</span>
+=&gt; passed in 1.4s (0 errors, 0 warnings)</span></span></div>
+			</div>
+			<div class="term-msg" data-role="system" data-intro-row="">
+				<span class="term-msg-badge"><span class="term-msg-badge-label">SYSTEM</span></span>
+				<div class="term-msg-content"><span><span>run stopped status=completed duration=00:00:41 tokens=12 314</span></span></div>
+			</div>
+			<div class="term-banner" aria-label="NEW PROCESS — agent NOVA-Ω∞ ∮ Prime Intelligence" data-intro-row="">
+				<div class="term-banner-card">
+					<div class="term-banner-card-title">
+						<span class="term-msg-badge"><span class="term-msg-badge-label">NEW PROCESS</span></span>
+					</div>
+					<dl class="term-banner-card-body">
+						<div class="term-banner-row">
+							<dt class="term-banner-label">agent</dt>
+							<span class="term-banner-arrow" aria-hidden="true">▸</span>
+							<dd class="term-banner-val">NOVA-Ω∞ ∮ Prime Intelligence</dd>
+						</div>
+						<div class="term-banner-row">
+							<dt class="term-banner-label">model_name</dt>
+							<span class="term-banner-arrow" aria-hidden="true">▸</span>
+							<dd class="term-banner-val">Scalaron-Ω・Δ9 (ℏ-tuned)</dd>
+						</div>
+						<div class="term-banner-row">
+							<dt class="term-banner-label">temperature</dt>
+							<span class="term-banner-arrow" aria-hidden="true">▸</span>
+							<dd class="term-banner-val">δS/δφ = 0.2, ℏ∂_tψ = Ĥψ</dd>
+						</div>
+						<div class="term-banner-row">
+							<dt class="term-banner-label">entropy_gradient</dt>
+							<span class="term-banner-arrow" aria-hidden="true">▸</span>
+							<dd class="term-banner-val">∇·S = −ζ(2)/π² ↓</dd>
+						</div>
+						<div class="term-banner-row">
+							<dt class="term-banner-label">containment_field</dt>
+							<span class="term-banner-arrow" aria-hidden="true">▸</span>
+							<dd class="term-banner-val">∮_∂M dω = 0, Λ-stable</dd>
+						</div>
+						<div class="term-banner-row">
+							<dt class="term-banner-label">context_horizon</dt>
+							<span class="term-banner-arrow" aria-hidden="true">▸</span>
+							<dd class="term-banner-val">⟨ψ|ψ⟩ = 1, ctx = 10²⁴ tok</dd>
+						</div>
+						<div class="term-banner-row">
+							<dt class="term-banner-label">power_draw</dt>
+							<span class="term-banner-arrow" aria-hidden="true">▸</span>
+							<dd class="term-banner-val">e^{iπ}+1=0 ⇒ 1.21 GW ⚡</dd>
+						</div>
+					</dl>
+				</div>
+			</div>
+			<div>
+				<div class="term-prompt">
+					<span class="term-prompt-host">robozium@local</span>
+					<span class="term-prompt-sep">:</span>
+					<span class="term-prompt-path">~</span>
+					<span class="term-prompt-sigil">$</span>
+					<span></span>
+					<span class="term-caret" data-term-role="agent" aria-hidden="true"></span>
+				</div>
+			</div>
+		</div></div>
+	</div>
+	<div class="startup__hud">
+		<div class="startup__loader" aria-label="Loading Robozium">
+			<span class="startup__loading-art" aria-hidden="true"></span>
+			<span class="startup__logo" aria-hidden="true">A</span>
+			<svg class="startup__outline" viewBox="0 0 100 100" aria-hidden="true">
+				<polygon points="29.289322,0 70.710678,0 100,29.289322 100,70.710678 70.710678,100 29.289322,100 0,70.710678 0,29.289322" />
+				<polygon points="29.289322,0 70.710678,0 100,29.289322 100,70.710678 70.710678,100 29.289322,100 0,70.710678 0,29.289322" transform="translate(1.5 1.5) scale(0.97)" />
+			</svg>
+		</div>
+	</div>
+	<div class="startup__feedback">
+		<h1 class="sr-only">Robozium</h1>
+		<p id="status" role="status">Starting Robozium…</p>
+		<button id="retry" hidden>Retry</button>
+	</div>
+</main>
+</body>
+</html>

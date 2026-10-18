@@ -551,3 +551,7 @@ boundary between desktop mount preparation and hub-owned application storage.
 Desktop project-polling regressions hold normal and rapid cancellation reads
 pending and verify stable layout, empty-state text and keyboard focus. Terminal
 run navigation tests also retain the Anurati A for every terminal status.
+
+The desktop renderer typecheck also checks standalone splash JavaScript. Native
+startup tests cover normal and reduced-motion introduction, offline artwork and
+the original Anurati A before preparation completes.

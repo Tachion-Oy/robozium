@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Prepare the accepted terminal introduction and loading artwork as offline
+  desktop splash assets, with the original pulsing A and reduced-motion support.
+
 - Keep Runs Overview background refreshes visually steady and retain the Anurati A
   status mark after completion, failure and cancellation.
 
