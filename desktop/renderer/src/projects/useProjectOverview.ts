@@ -1,27 +1,19 @@
-// Copied from web/app/components/hud/projects/useProjectOverview.ts at 5b06d82.
-// Adapted: reads use the desktop client with deadlines and poll only while the
-// overview is visible, so rows survive leaving it. The reference container's
-// cancel and delete requests move here, so the overview makes no requests.
-import { useEffect, useMemo, useRef, useState } from "react"
+// Adapted from web/app/components/hud/projects/useProjectOverview.ts at 5b06d82:
+// the same polling intervals, optimistic marks and the rules that settle them,
+// split into the listing, slug sets and one write helper. The reference
+// container's cancel and delete requests move here, so the overview makes none.
+import { useMemo, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
+import { useClientLifetime } from "../api/useClientLifetime"
 import { showErrorToast } from "../feedback/notices"
-import { cancelProject, deleteProject, listProjects } from "./projects-api"
-import {
-	markProjectsCancelling,
-	markProjectsDeleting,
-	markProjectOpening,
-	mergeProjects,
-	ProjectStatus,
-	type ProjectRow,
-} from "./landing"
+import { cancelProject, deleteProject } from "./projects-api"
+import { markProjectsCancelling, markProjectsDeleting, markProjectOpening, ProjectStatus, type ProjectRow } from "./landing"
+import { useProjectListing } from "./useProjectListing"
+import { useSlugSet, type SlugSet } from "./useSlugSet"
 
 const DEFAULT_POLL_INTERVAL_MS = 3000
 const CANCELLATION_POLL_INTERVAL_MS = 250
-
-function withoutSlug(slugs: ReadonlySet<string>, slug: string) {
-	return new Set([...slugs].filter((current) => current !== slug))
-}
 
 export interface ProjectOverviewState {
 	isInitialLoading: boolean
@@ -33,157 +25,85 @@ export interface ProjectOverviewState {
 	remove: (slug: string) => Promise<void>
 }
 
+interface WriteNotice {
+	title: string
+	message: string
+	/** Shown when the backend answers but refuses. */
+	refused?: string
+	/** Shown when the request itself fails. */
+	failed: string
+}
+
 export function useProjectOverview(client: DesktopApiClient | null, visible: boolean): ProjectOverviewState {
-	const [isInitialLoading, setIsInitialLoading] = useState(true)
-	const [pendingOpenSlug, setPendingOpenSlug] = useState<string | null>(null)
-	const [pendingCancels, setPendingCancels] = useState<ReadonlySet<string>>(
-		new Set(),
+	const [opening, setOpening] = useState<string | null>(null)
+	const cancelling = useSlugSet()
+	const deleting = useSlugSet()
+	const lifetime = useClientLifetime(client)
+	const listing = useProjectListing(
+		client,
+		visible,
+		cancelling.slugs.size > 0 ? CANCELLATION_POLL_INTERVAL_MS : DEFAULT_POLL_INTERVAL_MS,
+		listed => {
+			// A cancel settles once its project is dormant or gone; a delete once it is gone.
+			const status = new Map(listed.map(row => [row.slug, row.status] as const))
+			cancelling.retain(slug => status.has(slug) && status.get(slug) !== ProjectStatus.Dormant)
+			deleting.retain(slug => status.has(slug))
+		},
 	)
-	const [pendingDeletes, setPendingDeletes] = useState<ReadonlySet<string>>(
-		new Set(),
-	)
-	const [polledRows, setPolledRows] = useState<ProjectRow[]>([])
-	const [refreshNonce, setRefreshNonce] = useState(0)
-	// Writes belong to the client's lifetime; a new client discards their outcomes.
-	const writes = useRef(new AbortController())
-	useEffect(() => {
-		writes.current = new AbortController()
-		return () => writes.current.abort()
-	}, [client])
 
 	const rows = useMemo(
-		() =>
-			markProjectsDeleting(
-				markProjectsCancelling(
-					markProjectOpening(polledRows, pendingOpenSlug),
-					pendingCancels,
-				),
-				pendingDeletes,
-			),
-		[polledRows, pendingOpenSlug, pendingCancels, pendingDeletes],
+		() => markProjectsDeleting(markProjectsCancelling(markProjectOpening(listing.rows, opening), cancelling.slugs), deleting.slugs),
+		[listing.rows, opening, cancelling.slugs, deleting.slugs],
 	)
 
-	useEffect(() => {
-		if (!client || !visible) return
-		const controller = new AbortController()
-		let timeoutId: number | null = null
-		const intervalMs =
-			pendingCancels.size > 0
-				? CANCELLATION_POLL_INTERVAL_MS
-				: DEFAULT_POLL_INTERVAL_MS
-
-		const poll = async () => {
-			try {
-				const nextRows = mergeProjects(await withDeadline(controller.signal, signal => listProjects(client, signal)))
-				if (controller.signal.aborted) return
-				const statusBySlug = new Map(
-					nextRows.map((row) => [row.slug, row.status] as const),
-				)
-				setPendingCancels((current) => {
-					const retained = new Set(
-						[...current].filter((slug) => {
-							const status = statusBySlug.get(slug)
-							return (
-								status !== undefined &&
-								status !== ProjectStatus.Dormant
-							)
-						}),
-					)
-					return retained.size === current.size ? current : retained
-				})
-				setPendingDeletes(
-					(current) =>
-						new Set(
-							[...current].filter((slug) =>
-								statusBySlug.has(slug),
-							),
-						),
-				)
-				setPolledRows(nextRows)
-			} catch {
-				if (controller.signal.aborted) return
-				// Keep the last successful table through a transient refresh failure.
-			} finally {
-				if (!controller.signal.aborted) {
-					setIsInitialLoading(false)
-					timeoutId = window.setTimeout(() => void poll(), intervalMs)
-				}
-			}
-		}
-
-		void poll()
-		return () => {
-			controller.abort()
-			if (timeoutId !== null) window.clearTimeout(timeoutId)
-		}
-	}, [client, visible, refreshNonce, pendingCancels])
-
-	const refresh = () => setRefreshNonce((nonce) => nonce + 1)
-	// Each write runs once, under the client's lifetime and a deadline.
-	const write = <T,>(operation: (client: DesktopApiClient, signal: AbortSignal) => Promise<T>) => {
-		const lifetime = writes.current
-		const result = client
-			? withDeadline(lifetime.signal, signal => operation(client, signal))
-			: Promise.reject(new Error("The backend is not connected."))
-		return { lifetime, result }
-	}
-
-	const cancel = async (slug: string) => {
-		setPendingCancels((current) => new Set(current).add(slug))
-		const { lifetime, result } = write((client, signal) => cancelProject(client, slug, signal))
+	/** Send one write under the client's lifetime; never repeat it, and read again afterwards. */
+	const write = async (
+		slug: string,
+		marks: SlugSet,
+		operation: (client: DesktopApiClient, signal: AbortSignal) => Promise<boolean>,
+		notice: WriteNotice,
+	): Promise<boolean> => {
+		marks.add(slug)
+		const signal = lifetime()
 		try {
-			if (!await result) {
-				setPendingCancels((current) => withoutSlug(current, slug))
-				showErrorToast({
-					title: "Cancellation failed",
-					message: `Could not cancel "${slug}".`,
-					detail: "The project is still active. Try again.",
-				})
-			}
+			if (!client) throw new Error("The backend is not connected.")
+			if (await withDeadline(signal, requestSignal => operation(client, requestSignal))) return true
+			marks.remove(slug)
+			showErrorToast({ title: notice.title, message: notice.message, detail: notice.refused })
 		} catch {
-			if (lifetime.signal.aborted) return
-			setPendingCancels((current) => withoutSlug(current, slug))
-			showErrorToast({
-				title: "Cancellation failed",
-				message: `Could not cancel "${slug}".`,
-				detail: "The cancellation request failed. Try again.",
-			})
+			if (signal.aborted) return false
+			marks.remove(slug)
+			showErrorToast({ title: notice.title, message: notice.message, detail: notice.failed })
 		} finally {
-			if (!lifetime.signal.aborted) refresh()
+			if (!signal.aborted) listing.refresh()
 		}
-	}
-
-	const remove = async (slug: string) => {
-		setPendingDeletes((current) => new Set(current).add(slug))
-		const { lifetime, result } = write((client, signal) => deleteProject(client, slug, signal))
-		try {
-			await result
-			setPolledRows((current) =>
-				current.filter((row) => row.slug !== slug),
-			)
-		} catch {
-			if (lifetime.signal.aborted) return
-			setPendingDeletes((current) => withoutSlug(current, slug))
-			showErrorToast({
-				title: "Deletion failed",
-				message: `Could not delete "${slug}".`,
-				detail: "The project was not deleted. Try again.",
-			})
-		} finally {
-			if (!lifetime.signal.aborted) refresh()
-		}
+		return false
 	}
 
 	return {
-		isInitialLoading,
+		isInitialLoading: listing.isInitialLoading,
 		rows,
-		refresh,
-		markOpening: (slug: string) => setPendingOpenSlug(slug),
-		clearOpening: (slug: string) =>
-			setPendingOpenSlug((current) =>
-				current === slug ? null : current,
-			),
-		cancel,
-		remove,
+		refresh: listing.refresh,
+		markOpening: setOpening,
+		clearOpening: slug => setOpening(current => current === slug ? null : current),
+		cancel: async slug => {
+			await write(slug, cancelling, (client, signal) => cancelProject(client, slug, signal), {
+				title: "Cancellation failed",
+				message: `Could not cancel "${slug}".`,
+				refused: "The project is still active. Try again.",
+				failed: "The cancellation request failed. Try again.",
+			})
+		},
+		remove: async slug => {
+			const deleted = await write(slug, deleting, async (client, signal) => {
+				await deleteProject(client, slug, signal)
+				return true
+			}, {
+				title: "Deletion failed",
+				message: `Could not delete "${slug}".`,
+				failed: "The project was not deleted. Try again.",
+			})
+			if (deleted) listing.drop(slug)
+		},
 	}
 }

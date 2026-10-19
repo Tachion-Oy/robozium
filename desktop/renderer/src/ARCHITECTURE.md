@@ -22,7 +22,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `session/` | The displayed run's subscription lifetime and the atomic composition of run data with HUD state. |
 | `hud/` | Message projection, history, display selection and layout logic. |
 | `feedback/` | Error notices any owner can raise. |
-| `api/` | Shared HTTP/SSE transport, request deadlines and React request state. |
+| `api/` | Shared HTTP/SSE transport, request deadlines, client lifetimes and React request state. |
 | `assets/` | Bundled Anurati status-mark font. |
 
 ## Owners
@@ -30,7 +30,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | Owner | Holds | Requests |
 | --- | --- | --- |
 | `models/useModels` | Confirmed model selection | Catalogue read, selection write |
-| `projects/useProjectOverview` | Project rows and their opening, cancelling and deleting marks | Listing poll while visible, cancel, delete |
+| `projects/useProjectOverview` | Opening, cancelling and deleting marks and how listings settle them, composed from `useProjectListing` (polling) and `useSlugSet` | Listing poll while visible, cancel, delete |
 | `capabilities/useCapabilities` | The open selector's catalogue and saved choices | Catalogue and selection reads |
 | `projects/useProjectLaunch` | One pending launch | Create project, read and save capabilities, create run |
 | `session/useRunSession` | The displayed run (`RunSession`) | Stream and snapshot polling (`run/run-updates`) |

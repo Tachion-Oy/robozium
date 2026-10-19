@@ -109,8 +109,7 @@ test("a failed capability read aborts its unfinished sibling", async ({ desktop:
 		response.on("close", () => { savedClosed = true })
 	})
 	await backend.open()
-	await page.getByRole("button", { name: "existing-project", exact: true }).click()
-	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await launchButton(page, "existing-project").click()
 	await expect.poll(() => Boolean(catalog && saved)).toBe(true)
 	json(catalog!, { detail: "Catalogue unavailable" }, 500)
 	await expect(page.getByRole("alert")).toContainText("Launch failed")
@@ -119,14 +118,14 @@ test("a failed capability read aborts its unfinished sibling", async ({ desktop:
 	expect(backend.requests.filter(request => request.method === "POST")).toHaveLength(0)
 })
 
-test("starting a project with an active run opens that run without launching", async ({ desktop: { page }, backend }) => {
+test("a project with an active run opens that run without launching", async ({ desktop: { page }, backend }) => {
 	const run = prepareRun(backend)
 	backend.handlers.set("GET /projects", response => json(response, [
 		project("existing-project", { status: "running", run_id: "run-one", created_at: 1 }),
 	]))
 	await backend.open()
-	await page.getByRole("button", { name: "existing-project", exact: true }).click()
-	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await expect(launchButton(page, "existing-project")).toBeDisabled()
+	await page.getByRole("button", { name: "Open existing-project", exact: true }).click()
 	await expect(runStatus(page)).toContainText("existing-project")
 	await expect.poll(() => run.streams.length).toBe(1)
 	expect(backend.requests.filter(request => request.method === "POST")).toHaveLength(0)
