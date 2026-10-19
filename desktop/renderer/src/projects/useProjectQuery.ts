@@ -21,9 +21,11 @@ export interface ProjectQueryState {
 	/** Set only while no listing has ever succeeded. */
 	loadError: string | null
 	rows: ProjectRow[]
+	/** This app's cancel and delete requests per project, shared by every entry point. */
+	pending: ReadonlyMap<string, PendingMutation>
 	refresh: () => void
-	markOpening: (slug: string) => void
-	clearOpening: (slug: string) => void
+	/** Mark the row opening while `start` launches it; a failed launch reads the listing again. */
+	launch: (slug: string, start: () => Promise<boolean>) => Promise<void>
 	cancel: (slug: string) => Promise<void>
 	remove: (slug: string) => Promise<void>
 }
@@ -85,9 +87,14 @@ export function useProjectQuery(client: DesktopApiClient | null, visible: boolea
 		isInitialLoading,
 		loadError: loaded ? null : error,
 		rows,
+		pending,
 		refresh,
-		markOpening: setOpening,
-		clearOpening: slug => setOpening(current => current === slug ? null : current),
+		launch: async (slug, start) => {
+			setOpening(slug)
+			const launched = await start()
+			setOpening(current => current === slug ? null : current)
+			if (!launched) refresh()
+		},
 		cancel: mutations.cancel,
 		remove: async slug => {
 			if (await mutations.remove(slug)) setListed(current => current.filter(row => row.slug !== slug))

@@ -24,6 +24,7 @@ import { useRunSession } from "../../session/useRunSession"
 import { useRunMutations } from "../../session/useRunMutations"
 import { runLabels } from "../../hud/hud-view"
 import { selectRunDisplay } from "../../session/session-reducer"
+import { isTerminal, RunStatus } from "../../run/run-contracts"
 import type { HudDisplay } from "../../hud/hud-view"
 import "./interim-content.css"
 
@@ -82,12 +83,11 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	const display = client ? selectRunDisplay(session) : previewDisplay(selectedMessage)
 	const errorNotices = useErrorNotices()
 	const status = session?.run.unavailable ? "Run unavailable" : session ? runLabels[session.run.status] : "Awaiting input"
-	// Finished and missing runs stay readable in Current Run until the reference's
-	// recovery navigation arrives with cancellation and reconnection (roadmap 15 and 17).
+	// As in the reference, a run that ends or goes missing leaves Current Run for the overview.
 	const presentation = resolveHudPresentation({
 		hasRun,
-		runEnded: false,
-		runUnavailable: false,
+		runEnded: Boolean(session?.run.synchronized && isTerminal(session.run.status)),
+		runUnavailable: Boolean(session?.run.unavailable),
 		selectedScreen: navigation.screen,
 		launch: navigation.launch,
 	})
@@ -98,6 +98,8 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	const navigationPending = launch.pending || !connected || models.pending
 	const selectScreen = (next: HudScreen) => { setFocusRunEditor(false); navigate({ type: "screen_selected", screen: next }) }
 	const openRun = (runId: string, project: string) => { run.open(runId, project); showRun() }
+	// The HUD and the overview rows share one cancellation per project.
+	const cancelling = session !== null && (projects.pending.has(session.run.project) || session.run.status === RunStatus.Cancelling)
 	const modelError = client ? models.error : ""
 	const runError = screen === "run" ? session?.run.error : ""
 	const notices = (connectionNotice || modelError || runError || errorNotices.length > 0) &&
@@ -118,7 +120,11 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 					<RunHud key={session?.run.runId ?? "preview"} draft={draft} onDraftChange={setDraft}
 						layoutMode={layout} display={display} awaitingInput={client ? Boolean(session?.run.prompt) : true}
 						focusOnOpen={focusRunEditor} onSelect={client ? run.select : setSelectedMessage}
-						reply={{ available: runMutations.canReply, submitting: runMutations.replying, submit: runMutations.reply }} />
+						reply={{ available: runMutations.canReply, submitting: runMutations.replying, submit: runMutations.reply }}
+						cancel={{ isPending: cancelling, available: Boolean(session && !isTerminal(session.run.status)),
+							onTrigger: () => { if (session && !cancelling) void projects.cancel(session.run.project) } }}
+						interrupt={{ isPending: runMutations.interrupting, available: runMutations.canInterrupt,
+							onTrigger: () => void runMutations.interrupt() }} />
 				</div>
 			case "projects":
 				return client

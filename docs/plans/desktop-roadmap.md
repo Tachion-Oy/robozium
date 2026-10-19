@@ -120,7 +120,9 @@ the capability selector from step 20 pulled in, then a working HUD.
    guarantees.
 4. **Step 14:** replies (done: `session/useRunMutations`, bound to the session scope).
 5. **Step 15, HUD side:** interrupt, HUD cancel, and returning to the overview
-   when a run ends or goes missing.
+   when a run ends or goes missing (done: interruption in
+   `session/useRunMutations`, cancellation shared through
+   `projects/useProjectMutations`).
 6. **Step 17:** reconnection and recovery.
 7. **Step 13:** the message log, as a selector over the run's retained events
    (see `desktop/renderer/src/ARCHITECTURE.md`), plus theme persistence.

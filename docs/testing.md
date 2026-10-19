@@ -220,7 +220,15 @@ clearing only when unchanged, a late snapshot unable to revive an answered promp
 rejection, refusal and timeout keeping the draft without repeating the write, an
 in-flight reply abandoned when another run opens, and Send staying unavailable
 while the agent works. The native lifecycle run test answers both mock prompts
-through the HUD.
+through the HUD and returns to the overview at completion.
+
+`desktop/tests/run-controls.spec.ts` covers Interrupt being offered only while
+the agent works and staying pending until a prompt appears, interrupt refusal,
+rejection and timeout without repeating the write, HUD Cancel and the overview
+row sharing one cancellation before the cancelled run returns to the overview, a
+failed HUD cancellation, and a completed run returning while keeping the draft.
+`runs.spec.ts` checks that failed, cancelled and missing runs return to the
+overview. The lifecycle suite cancels a mock run from the HUD.
 
 Connected run tests in `desktop/tests/runs.spec.ts` use the same native HTTP
 boundary. They cover launch guards, the launch sequence (saved capabilities are

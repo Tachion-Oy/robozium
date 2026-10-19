@@ -359,7 +359,7 @@ async function replyToMock(port: number, runId: string) {
 	expect(response.status).toBe(200)
 }
 
-test("UI starts a project run, answers its prompts and retains completed history", async ({ runtime }) => {
+test("UI starts a project run, answers its prompts and returns to the overview at completion", async ({ runtime }) => {
 	const { app, page } = await launchConnected(runtime)
 	let creates = 0
 	let streams = 0
@@ -380,13 +380,22 @@ test("UI starts a project run, answers its prompts and retains completed history
 	await expect(reply).toHaveValue("")
 	await reply.fill("Finish the mock")
 	await page.locator(".agent-hud__send").click()
-	await expect(status).toContainText("Completed")
-	await expect(output).not.toBeEmpty()
-	await reply.fill("Local unsent draft")
-	await page.getByRole("button", { name: "Jump to first agent message" }).click()
-	await expect(output).toContainText("Hello! I generated a text artifact")
-	await expect(reply).toHaveValue("Local unsent draft")
+	await expect(page.locator(".agent-hud__project-row", { hasText: "desktop-output" })).toContainText("DORMANT")
+	await expect(reply).toHaveCount(0)
 	expect(creates).toBe(1)
 	expect(streams).toBe(1)
+	await closeWindow(app)
+})
+
+test("Cancel in the HUD cancels the run and returns to the overview", async ({ runtime }) => {
+	const { app, page } = await launchConnected(runtime)
+	let cancels = 0
+	page.on("request", request => { if (request.url().endsWith("/cancel")) cancels++ })
+	await createAndLaunch(page, "Desktop cancel")
+	await expect(page.getByRole("status", { name: "Run status" })).toContainText("Awaiting input")
+	await page.locator(".agent-hud__cancel").click()
+	await expect(page.locator(".agent-hud__project-row", { hasText: "desktop-cancel" })).toContainText("DORMANT")
+	await expect(page.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveCount(0)
+	expect(cancels).toBe(1)
 	await closeWindow(app)
 })

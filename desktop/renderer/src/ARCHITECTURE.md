@@ -30,18 +30,20 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | Owner | Holds | Requests |
 | --- | --- | --- |
 | `models/useModels` | Confirmed model selection | Catalogue read, selection write |
-| `projects/useProjectQuery` | Project rows, the first-load error and the opening mark; shows the rows with pending mutations applied | Listing poll while visible |
-| `projects/useProjectMutations` | This app's cancel and delete requests per project: requesting, then settling until a listing confirms them | Cancel, delete |
+| `projects/useProjectQuery` | Project rows, the first-load error and the opening mark set by its `launch`; shows the rows with pending mutations applied | Listing poll while visible |
+| `projects/useProjectMutations` | This app's cancel and delete requests per project, shared by the rows and the HUD: requesting, then settling until a listing confirms them | Cancel, delete |
 | `capabilities/useCapabilities` | The open selector's catalogue and saved choices | Catalogue and selection reads |
 | `projects/useProjectLaunch` | One pending launch | Create project, read and save capabilities, create run |
 | `session/useRunSession` | The displayed run (`RunSession`) and its scope, which ends on open, retry, a new client or unmount | Stream and snapshot polling (`run/run-updates`) |
-| `session/useRunMutations` | One in-flight reply to the displayed run, bound to the session scope | Reply |
+| `session/useRunMutations` | One in-flight reply and one interruption of the displayed run, bound to the session scope; an accepted interruption stays pending until a snapshot shows a prompt or a stopped run | Reply, interrupt |
 | `feedback/notices` | Visible error notices | None |
 
 `ui/app/App.tsx` composes the owners and keeps navigation (`app/hud-navigation`:
 the screen and the selector's launch draft), the reply draft, divider layout and
 focus. Owners do not import each other; App passes results between them, as when
-a launch hands its new run to `useRunSession.open`.
+a launch hands its new run to `useRunSession.open` or the HUD's Cancel uses
+`useProjectQuery.cancel`. As in the reference, a run that ends or goes missing
+leaves Current Run for the overview (`resolveHudPresentation`).
 
 ```mermaid
 flowchart LR

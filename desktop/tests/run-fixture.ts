@@ -43,3 +43,8 @@ export async function view(page: Page, label: string) {
 export const output = (page: Page) => page.locator(".agent-hud__replyBox--agent .agent-hud__replyBox-scroll")
 export const replyBox = (page: Page) => page.getByRole("textbox", { name: "Type your reply...", exact: true })
 export const runStatus = (page: Page) => page.getByRole("status", { name: "Run status" })
+/** A finished or missing run leaves Current Run for the overview, as in the reference. */
+export async function expectOverview(page: Page) {
+	await expect(page.locator(".agent-hud__project-row").first()).toBeVisible()
+	await expect(replyBox(page)).toHaveCount(0)
+}

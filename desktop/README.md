@@ -4,10 +4,12 @@ The Electron app is under development. React connects directly to the Python
 API for projects, capabilities, default model selection, and live runs. In Runs
 Overview, **Launch** a project or create one with **New Project** to watch
 incremental output, messages, script output, prompts, and completion in Current
-Run, and answer its prompts. Light/Dark switches the theme. The window frame,
-header, overview, capability selector and run view use the accepted experiment's
-stylesheets and markup; interruption, cancellation from the HUD and credentials
-follow in later [roadmap](../docs/plans/desktop-roadmap.md) steps.
+Run, answer its prompts, **Interrupt** the working agent or **Cancel** the run.
+A run that completes, fails, is cancelled or goes missing returns to Runs
+Overview. Light/Dark switches the theme. The window frame, header, overview,
+capability selector and run view use the accepted experiment's stylesheets and
+markup; credentials follow in a later
+[roadmap](../docs/plans/desktop-roadmap.md) step.
 
 ## Run on Linux
 
@@ -181,7 +183,13 @@ its scroll. At either end, unavailable directions are disabled. Empty history
 disables all arrows. The center mark shows whether the agent is working or
 awaiting input; assistive technology also reads the run status. Preview retains
 three local messages and its static awaiting-input mark; its replies are not
-sent. Cancel, Interrupt and Record remain disabled.
+sent and its Cancel and Interrupt stay disabled. Record remains disabled.
+
+Connected, **Interrupt** is available while the agent works without a prompt.
+It is sent once and shows *Interrupting...* until the agent asks or stops; a
+refusal or failure shows **Interrupt failed** and offers it again. **Cancel**
+uses the same per-project cancellation as the overview row, so the two never
+send a second request; a refusal or failure shows **Cancellation failed**.
 
 The run screen uses the experiment's markup and stylesheets. Agent messages and
 prompts render as sanitized Markdown; live text and script output stay literal.
