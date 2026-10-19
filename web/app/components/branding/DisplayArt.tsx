@@ -1,6 +1,7 @@
 type DisplayArtName =
 	| "robozium"
 	| "start"
+	| "start-here"
 	| "launch"
 	| "new-project"
 	| "create-project"
@@ -11,6 +12,7 @@ type DisplayArtName =
 const labels: Record<DisplayArtName, string> = {
 	robozium: "ROBOZIUM",
 	start: "START",
+	"start-here": "Start Here",
 	launch: "Launch",
 	"new-project": "New Project",
 	"create-project": "Create Project",
