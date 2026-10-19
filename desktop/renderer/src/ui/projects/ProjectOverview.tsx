@@ -9,13 +9,13 @@ import {
 	ProjectStatus,
 	type ProjectRow,
 } from "../../projects/landing"
-import type { ProjectOverviewState } from "../../projects/useProjectOverview"
+import type { ProjectQueryState } from "../../projects/useProjectQuery"
 import type { LaunchDraft } from "../../app/hud-navigation"
 import { HudButton } from "../hud/HudButton"
 import { ProjectOverviewPanel } from "./ProjectOverviewPanel"
 
 type ProjectOverviewProps = {
-	projects: ProjectOverviewState
+	projects: ProjectQueryState
 	navigationPending: boolean
 	isLaunching: () => boolean
 	currentRunId?: string | null

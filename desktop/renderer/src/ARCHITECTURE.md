@@ -15,7 +15,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `ui/` | All rendered components and CSS: app composition, backend startup, the HUD frame, the overview and capability selector, and the run view. |
 | `app/` | The navigation reducer (screen and launch draft) and standalone preview data. |
 | `backend/` | IPC connection discovery and HTTP readiness hooks. |
-| `projects/` | Project requests and validation, the overview rows and their writes, and the launch command. |
+| `projects/` | Project requests and validation, the overview rows (query) and this app's cancel and delete requests (mutations), and the launch command. |
 | `capabilities/` | Capability catalogue and saved-selection requests, the selector's reads, and selection resolution. |
 | `models/` | Model requests and validation, and the acknowledged backend selection. |
 | `run/` | Run contracts, requests, payload decoding, event reconciliation and live updates. |
@@ -30,8 +30,8 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | Owner | Holds | Requests |
 | --- | --- | --- |
 | `models/useModels` | Confirmed model selection | Catalogue read, selection write |
-| `projects/useProjectOverview` | Project rows, the first-load error and the opening mark; shows the rows with pending writes applied | Listing poll while visible |
-| `projects/useProjectWrites` | This app's cancel and delete requests per project: requesting, then settling until a listing confirms them | Cancel, delete |
+| `projects/useProjectQuery` | Project rows, the first-load error and the opening mark; shows the rows with pending mutations applied | Listing poll while visible |
+| `projects/useProjectMutations` | This app's cancel and delete requests per project: requesting, then settling until a listing confirms them | Cancel, delete |
 | `capabilities/useCapabilities` | The open selector's catalogue and saved choices | Catalogue and selection reads |
 | `projects/useProjectLaunch` | One pending launch | Create project, read and save capabilities, create run |
 | `session/useRunSession` | The displayed run (`RunSession`) | Stream and snapshot polling (`run/run-updates`) |
@@ -45,7 +45,7 @@ a launch hands its new run to `useRunSession.open`.
 ```mermaid
 flowchart LR
   App["ui/app/App"] --> Models["useModels"]
-  App --> Overview["useProjectOverview"]
+  App --> Query["useProjectQuery"]
   App --> Capabilities["useCapabilities"]
   App --> Launch["useProjectLaunch"]
   App --> Session["useRunSession"]
@@ -57,10 +57,10 @@ flowchart LR
   Session --> Updates["run-updates"] --> RunApi
   Session --> Reducer["session-reducer"] --> RunReducer["run-reducer"]
   Reducer --> HudReducer["hud-reducer"]
-  Overview --> ProjectsApi
-  Overview --> Writes["useProjectWrites"]
-  Writes --> ProjectsApi
-  Writes --> Notices
+  Query --> ProjectsApi
+  Query --> Mutations["useProjectMutations"]
+  Mutations --> ProjectsApi
+  Mutations --> Notices
   Capabilities --> CapabilitiesApi
   Models --> ModelsApi["models-api"]
 ```

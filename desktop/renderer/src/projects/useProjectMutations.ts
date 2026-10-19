@@ -8,24 +8,24 @@ import { showErrorToast } from "../feedback/notices"
 import { cancelProject, deleteProject } from "./projects-api"
 import { ProjectStatus, type ProjectRow } from "./landing"
 
-export type ProjectWriteKind = "cancel" | "delete"
+export type ProjectMutationKind = "cancel" | "delete"
 
 /**
- * A write is "requesting" until its request settles, then "settling" until a
- * listing confirms it. A listing never ends a write that is still requesting,
+ * A mutation is "requesting" until its request settles, then "settling" until a
+ * listing confirms it. A listing never ends a mutation that is still requesting,
  * so a late cancellation cannot reach a run launched in the meantime.
  */
-export interface PendingWrite {
-	kind: ProjectWriteKind
+export interface PendingMutation {
+	kind: ProjectMutationKind
 	phase: "requesting" | "settling"
 }
 
-export interface ProjectWrites {
-	pending: ReadonlyMap<string, PendingWrite>
+export interface ProjectMutations {
+	pending: ReadonlyMap<string, PendingMutation>
 	cancel: (slug: string) => Promise<void>
 	/** Resolves true once the backend acknowledged the deletion. */
 	remove: (slug: string) => Promise<boolean>
-	/** End settling writes whose outcome this listing shows. */
+	/** End settling mutations whose outcome this listing shows. */
 	settle: (rows: readonly ProjectRow[]) => void
 }
 
@@ -38,27 +38,27 @@ interface WriteNotice {
 	failed: string
 }
 
-function confirmed({ kind }: PendingWrite, status: ProjectStatus | undefined): boolean {
+function confirmed({ kind }: PendingMutation, status: ProjectStatus | undefined): boolean {
 	return kind === "delete" ? status === undefined : status === undefined || status === ProjectStatus.Dormant
 }
 
-export function useProjectWrites(client: DesktopApiClient | null, refresh: () => void): ProjectWrites {
-	const [pending, setPending] = useState<ReadonlyMap<string, PendingWrite>>(() => new Map())
+export function useProjectMutations(client: DesktopApiClient | null, refresh: () => void): ProjectMutations {
+	const [pending, setPending] = useState<ReadonlyMap<string, PendingMutation>>(() => new Map())
 	const lifetime = useClientLifetime(client)
-	// A new client discards the previous client's writes with their lifetime.
+	// A new client discards the previous client's mutations with their lifetime.
 	useEffect(() => () => setPending(new Map()), [client])
 
-	const update = (slug: string, write: PendingWrite | null) => setPending(current => {
+	const update = (slug: string, mutation: PendingMutation | null) => setPending(current => {
 		const next = new Map(current)
-		if (write) next.set(slug, write)
+		if (mutation) next.set(slug, mutation)
 		else next.delete(slug)
 		return next
 	})
 
-	/** Send one write; never repeat it, and read again once it settles. */
+	/** Send one mutation; never repeat it, and read again once it settles. */
 	const send = async (
 		slug: string,
-		kind: ProjectWriteKind,
+		kind: ProjectMutationKind,
 		operation: (client: DesktopApiClient, signal: AbortSignal) => Promise<boolean>,
 		notice: WriteNotice,
 	): Promise<boolean> => {
@@ -101,8 +101,8 @@ export function useProjectWrites(client: DesktopApiClient | null, refresh: () =>
 		settle: rows => {
 			const status = new Map(rows.map(row => [row.slug, row.status] as const))
 			setPending(current => {
-				const next = new Map([...current].filter(([slug, write]) =>
-					write.phase === "requesting" || !confirmed(write, status.get(slug))))
+				const next = new Map([...current].filter(([slug, mutation]) =>
+					mutation.phase === "requesting" || !confirmed(mutation, status.get(slug))))
 				return next.size === current.size ? current : next
 			})
 		},

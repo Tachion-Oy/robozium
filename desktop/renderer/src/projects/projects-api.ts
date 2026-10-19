@@ -1,5 +1,5 @@
 // Project requests and validation of the summaries returned by the backend.
-// Rows and their writes belong to useProjectOverview; this module has no React state.
+// Rows and their writes belong to useProjectQuery; this module has no React state.
 import { ApiError, type DesktopApiClient } from "../api/client"
 
 // Contract adapted from web/lib/robozium/wire.ts (ProjectSummary). The backend owns

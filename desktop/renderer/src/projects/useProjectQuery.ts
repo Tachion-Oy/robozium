@@ -1,22 +1,22 @@
 // Adapted from web/app/components/hud/projects/useProjectOverview.ts at 5b06d82:
 // the same polling intervals and optimistic marks. Rows and polling live here;
 // cancel and delete requests, which the reference container sent, belong to
-// useProjectWrites, so the overview component makes no requests.
+// useProjectMutations, so the overview component makes no requests.
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { listProjects } from "./projects-api"
 import { markProjectsCancelling, markProjectsDeleting, markProjectOpening, mergeProjects, type ProjectRow } from "./landing"
-import { useProjectWrites, type PendingWrite, type ProjectWriteKind } from "./useProjectWrites"
+import { useProjectMutations, type PendingMutation, type ProjectMutationKind } from "./useProjectMutations"
 
 const DEFAULT_POLL_INTERVAL_MS = 3000
 const CANCELLATION_POLL_INTERVAL_MS = 250
 
-function slugsOf(pending: ReadonlyMap<string, PendingWrite>, kind: ProjectWriteKind): string[] {
-	return [...pending].filter(([, write]) => write.kind === kind).map(([slug]) => slug)
+function slugsOf(pending: ReadonlyMap<string, PendingMutation>, kind: ProjectMutationKind): string[] {
+	return [...pending].filter(([, mutation]) => mutation.kind === kind).map(([slug]) => slug)
 }
 
-export interface ProjectOverviewState {
+export interface ProjectQueryState {
 	isInitialLoading: boolean
 	/** Set only while no listing has ever succeeded. */
 	loadError: string | null
@@ -32,7 +32,7 @@ export interface ProjectOverviewState {
  * Poll the listing while the overview is visible: at once, then after each read
  * settles. A failed read keeps the last rows; rows survive the overview being hidden.
  */
-export function useProjectOverview(client: DesktopApiClient | null, visible: boolean): ProjectOverviewState {
+export function useProjectQuery(client: DesktopApiClient | null, visible: boolean): ProjectQueryState {
 	const [listed, setListed] = useState<ProjectRow[]>([])
 	const [isInitialLoading, setIsInitialLoading] = useState(true)
 	const [loaded, setLoaded] = useState(false)
@@ -40,11 +40,11 @@ export function useProjectOverview(client: DesktopApiClient | null, visible: boo
 	const [refreshes, setRefreshes] = useState(0)
 	const [opening, setOpening] = useState<string | null>(null)
 	const refresh = () => setRefreshes(count => count + 1)
-	const writes = useProjectWrites(client, refresh)
-	const settle = useRef(writes.settle)
-	settle.current = writes.settle
+	const mutations = useProjectMutations(client, refresh)
+	const settle = useRef(mutations.settle)
+	settle.current = mutations.settle
 
-	const pending = writes.pending
+	const pending = mutations.pending
 	const intervalMs = slugsOf(pending, "cancel").length > 0 ? CANCELLATION_POLL_INTERVAL_MS : DEFAULT_POLL_INTERVAL_MS
 
 	useEffect(() => {
@@ -88,9 +88,9 @@ export function useProjectOverview(client: DesktopApiClient | null, visible: boo
 		refresh,
 		markOpening: setOpening,
 		clearOpening: slug => setOpening(current => current === slug ? null : current),
-		cancel: writes.cancel,
+		cancel: mutations.cancel,
 		remove: async slug => {
-			if (await writes.remove(slug)) setListed(current => current.filter(row => row.slug !== slug))
+			if (await mutations.remove(slug)) setListed(current => current.filter(row => row.slug !== slug))
 		},
 	}
 }

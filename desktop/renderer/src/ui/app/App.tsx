@@ -15,7 +15,7 @@ import { mockMessages, modelOptions } from "../../app/preview"
 import { initialHudNavigation, reduceHudNavigation } from "../../app/hud-navigation"
 import type { DesktopApiClient } from "../../api/client"
 import { useModels, type ModelsState } from "../../models/useModels"
-import { useProjectOverview } from "../../projects/useProjectOverview"
+import { useProjectQuery } from "../../projects/useProjectQuery"
 import { useProjectLaunch } from "../../projects/useProjectLaunch"
 import { ProjectStatus, type ProjectRow } from "../../projects/landing"
 import { useCapabilities } from "../../capabilities/useCapabilities"
@@ -90,7 +90,7 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 		launch: navigation.launch,
 	})
 	const screen = presentation.screen
-	const projects = useProjectOverview(client, screen === "projects")
+	const projects = useProjectQuery(client, screen === "projects")
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
 	// A launch, a disconnection or an unconfirmed model change locks navigation.
 	const navigationPending = launch.pending || !connected || models.pending
