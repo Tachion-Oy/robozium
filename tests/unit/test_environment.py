@@ -362,6 +362,7 @@ def test_reset_forgets_cached_secrets_and_accepts_a_new_password(
         "available": False,
         "locked": False,
         "removable": False,
+        "setup_required": False,
     }
     assert (
         save(

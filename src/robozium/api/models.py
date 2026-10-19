@@ -53,6 +53,7 @@ class CredentialStatus(BaseModel):
     available: bool
     locked: bool
     removable: bool
+    setup_required: bool
 
 
 class EnvironmentEntry(BaseModel):
