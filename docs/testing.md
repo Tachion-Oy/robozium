@@ -408,6 +408,12 @@ infrastructure, Docker onboarding with restart recovery, and the Electron
 scaffold. Failed, cancelled, missing, or skipped jobs fail the gate. Fork PRs use
 read-only permissions and credential-free mocks.
 
+The one exception is a pull request that changes only `desktop/`, `docs/` and
+`CHANGELOG.md`. The desktop app renders with Electron's own Chromium and does not
+use the web application, so the change-scope job skips the five browser and
+package jobs, and the gate requires them to be skipped. Docker and Electron
+still run. Pushes to `main` and manual dispatches always run every job.
+
 The [shared workflow](../.github/workflows/e2e-browser.yml) pins the Linux browser
 environment and installs locked dependencies. Browser jobs use the production
 frontend, installed candidate backend, and a temporary hub with one worker each.
