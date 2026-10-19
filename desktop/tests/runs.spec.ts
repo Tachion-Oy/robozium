@@ -80,7 +80,7 @@ test("launch resolves saved capabilities, saves them, then creates the run with 
 })
 
 for (const [label, handler, alert] of [
-	["locked secrets", "POST /capabilities/existing-project", "Secrets locked: Unlock secrets before starting a run. Open the Secrets locked menu and enter your password."],
+	["locked secrets", "POST /capabilities/existing-project", "Secrets locked: Unlock secrets before starting a run. This desktop version cannot unlock secrets yet."],
 	["an invalid selection", "POST /capabilities/existing-project", "Launch failed: API request failed (422): Invalid capability selection"],
 	["a malformed catalogue", "GET /capabilities", "Launch failed: The backend returned an invalid capability response."],
 ] as const) {
@@ -101,6 +101,40 @@ for (const [label, handler, alert] of [
 		expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(0)
 	})
 }
+
+test("a failed capability read aborts its unfinished sibling", async ({ desktop: { page }, backend }) => {
+	let catalog: ServerResponse | undefined
+	let saved: ServerResponse | undefined
+	let savedClosed = false
+	backend.handlers.set("GET /capabilities", response => { catalog = response })
+	backend.handlers.set("GET /capabilities/existing-project", response => {
+		saved = response
+		response.on("close", () => { savedClosed = true })
+	})
+	await backend.open()
+	await page.getByRole("button", { name: "existing-project", exact: true }).click()
+	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await expect.poll(() => Boolean(catalog && saved)).toBe(true)
+	json(catalog!, { detail: "Catalogue unavailable" }, 500)
+	await expect(page.getByRole("alert")).toContainText("Launch failed")
+	// The saved-selection read is aborted at once, not left to its deadline.
+	await expect.poll(() => savedClosed, { timeout: 2000 }).toBe(true)
+	expect(backend.requests.filter(request => request.method === "POST")).toHaveLength(0)
+})
+
+test("starting a project with an active run opens that run without launching", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	backend.handlers.set("GET /projects", response => json(response, [
+		project("existing-project", { status: "running", run_id: "run-one", created_at: 1 }),
+	]))
+	await backend.open()
+	await page.getByRole("button", { name: "existing-project", exact: true }).click()
+	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await expect(runStatus(page)).toContainText("existing-project")
+	await expect.poll(() => run.streams.length).toBe(1)
+	expect(backend.requests.filter(request => request.method === "POST")).toHaveLength(0)
+	expect(backend.requests.filter(request => request.path.startsWith("/capabilities"))).toHaveLength(0)
+})
 
 test("creation deadlines abort the request and ignore late success", async ({ desktop: { page }, backend }) => {
 	let pending: ServerResponse | undefined

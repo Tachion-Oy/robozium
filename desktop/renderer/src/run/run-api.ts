@@ -5,7 +5,7 @@ import type { CapabilitySelection } from "../capabilities/capabilities-api"
 import type { RunFrame, RunView } from "./run-contracts"
 import { parseCreatedRunId, parseRunEvent, parseRunSnapshot } from "./run-payloads"
 
-/** A null selection lets the backend apply the project's saved or default capabilities. */
+/** A null selection lets the backend use its default capabilities and reuse any active run. */
 export async function createRun(
 	client: DesktopApiClient, project: string, capabilities: CapabilitySelection | null, signal: AbortSignal,
 ): Promise<string> {

@@ -80,7 +80,16 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	const screen = presentation.screen
 	const startRun = () => {
 		if (!client) { setHasPreview(true); showRun(); return }
-		if (canStart) void launch.launch({ project: projects.selected, name: projects.selected, selection: null })
+		if (!canStart) return
+		// An active run is opened as it is; launching would send a selection the
+		// backend compares with that run's capabilities.
+		const active = projects.projects.find(project => project.slug === projects.selected)
+		if (active?.runId && (active.status === "running" || active.status === "awaiting_user_input")) {
+			run.open(active.runId, active.slug)
+			showRun()
+			return
+		}
+		void launch.launch({ project: projects.selected, name: projects.selected, selection: null })
 	}
 	const selectScreen = (next: HudScreen) => { setFocusRunEditor(false); setView(next) }
 	const modelError = client ? models.error : ""

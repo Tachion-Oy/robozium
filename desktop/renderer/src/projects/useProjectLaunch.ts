@@ -68,7 +68,7 @@ export function useProjectLaunch(
 					: error instanceof Error
 						? error.message
 						: "Unable to launch project. Try again.",
-				...(locked ? { detail: "Open the Secrets locked menu and enter your password." } : {}),
+				...(locked ? { detail: "This desktop version cannot unlock secrets yet." } : {}),
 			})
 			return false
 		} finally {

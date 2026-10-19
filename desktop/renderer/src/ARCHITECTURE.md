@@ -68,7 +68,8 @@ flowchart LR
   Reducers do no I/O.
 - **Request lifetimes.** Every request runs under an `AbortSignal` owned by the
   hook that started it and a deadline from `api/request.ts`. A client change or
-  unmount aborts it, and late results are ignored.
+  unmount aborts it, and late results are ignored. `withDeadline` also ends the
+  operation's signal when it settles, so parallel reads cannot outlive a failure.
 - **Writes.** A write is sent once per user action and never repeated
   automatically. After a failure, the owner reads again instead. Multi-step
   commands report each completed write (such as a created project) so that
