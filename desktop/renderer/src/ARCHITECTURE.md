@@ -30,7 +30,8 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | Owner | Holds | Requests |
 | --- | --- | --- |
 | `models/useModels` | Confirmed model selection | Catalogue read, selection write |
-| `projects/useProjectOverview` | Opening, cancelling and deleting marks and how listings settle them, composed from `useProjectListing` (polling) and `useSlugSet` | Listing poll while visible, cancel, delete |
+| `projects/useProjectOverview` | Project rows, the first-load error and the opening mark; shows the rows with pending writes applied | Listing poll while visible |
+| `projects/useProjectWrites` | This app's cancel and delete requests per project: requesting, then settling until a listing confirms them | Cancel, delete |
 | `capabilities/useCapabilities` | The open selector's catalogue and saved choices | Catalogue and selection reads |
 | `projects/useProjectLaunch` | One pending launch | Create project, read and save capabilities, create run |
 | `session/useRunSession` | The displayed run (`RunSession`) | Stream and snapshot polling (`run/run-updates`) |
@@ -57,7 +58,9 @@ flowchart LR
   Session --> Reducer["session-reducer"] --> RunReducer["run-reducer"]
   Reducer --> HudReducer["hud-reducer"]
   Overview --> ProjectsApi
-  Overview --> Notices
+  Overview --> Writes["useProjectWrites"]
+  Writes --> ProjectsApi
+  Writes --> Notices
   Capabilities --> CapabilitiesApi
   Models --> ModelsApi["models-api"]
 ```

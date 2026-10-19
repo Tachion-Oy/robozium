@@ -1,19 +1,20 @@
 // Adapted from web/app/components/hud/projects/useProjectOverview.ts at 5b06d82:
-// the same polling intervals, optimistic marks and the rules that settle them,
-// split into the listing, slug sets and one write helper. The reference
-// container's cancel and delete requests move here, so the overview makes none.
-import { useMemo, useRef, useState } from "react"
+// the same polling intervals and optimistic marks. Rows and polling live here;
+// cancel and delete requests, which the reference container sent, belong to
+// useProjectWrites, so the overview component makes no requests.
+import { useEffect, useMemo, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
-import { useClientLifetime } from "../api/useClientLifetime"
-import { showErrorToast } from "../feedback/notices"
-import { cancelProject, deleteProject } from "./projects-api"
-import { markProjectsCancelling, markProjectsDeleting, markProjectOpening, ProjectStatus, type ProjectRow } from "./landing"
-import { useProjectListing } from "./useProjectListing"
-import { useSlugSet, type SlugSet } from "./useSlugSet"
+import { listProjects } from "./projects-api"
+import { markProjectsCancelling, markProjectsDeleting, markProjectOpening, mergeProjects, type ProjectRow } from "./landing"
+import { useProjectWrites, type PendingWrite, type ProjectWriteKind } from "./useProjectWrites"
 
 const DEFAULT_POLL_INTERVAL_MS = 3000
 const CANCELLATION_POLL_INTERVAL_MS = 250
+
+function slugsOf(pending: ReadonlyMap<string, PendingWrite>, kind: ProjectWriteKind): string[] {
+	return [...pending].filter(([, write]) => write.kind === kind).map(([slug]) => slug)
+}
 
 export interface ProjectOverviewState {
 	isInitialLoading: boolean
@@ -27,92 +28,69 @@ export interface ProjectOverviewState {
 	remove: (slug: string) => Promise<void>
 }
 
-interface WriteNotice {
-	title: string
-	message: string
-	/** Shown when the backend answers but refuses. */
-	refused?: string
-	/** Shown when the request itself fails. */
-	failed: string
-}
-
+/**
+ * Poll the listing while the overview is visible: at once, then after each read
+ * settles. A failed read keeps the last rows; rows survive the overview being hidden.
+ */
 export function useProjectOverview(client: DesktopApiClient | null, visible: boolean): ProjectOverviewState {
+	const [listed, setListed] = useState<ProjectRow[]>([])
+	const [isInitialLoading, setIsInitialLoading] = useState(true)
+	const [loaded, setLoaded] = useState(false)
+	const [error, setError] = useState<string | null>(null)
+	const [refreshes, setRefreshes] = useState(0)
 	const [opening, setOpening] = useState<string | null>(null)
-	const cancelling = useSlugSet()
-	const deleting = useSlugSet()
-	const lifetime = useClientLifetime(client)
-	// Slugs with a write still outstanding; a listing cannot settle those marks.
-	const writing = useRef(new Set<string>())
-	const listing = useProjectListing(
-		client,
-		visible,
-		cancelling.slugs.size > 0 ? CANCELLATION_POLL_INTERVAL_MS : DEFAULT_POLL_INTERVAL_MS,
-		listed => {
-			// After its request settles, a cancel ends once its project is dormant or
-			// gone and a delete once it is gone. Until then the row stays locked, so a
-			// late cancellation cannot reach a run launched in the meantime.
-			const status = new Map(listed.map(row => [row.slug, row.status] as const))
-			cancelling.retain(slug => writing.current.has(slug) || (status.has(slug) && status.get(slug) !== ProjectStatus.Dormant))
-			deleting.retain(slug => writing.current.has(slug) || status.has(slug))
-		},
-	)
+	const refresh = () => setRefreshes(count => count + 1)
+	const writes = useProjectWrites(client, refresh)
+	const settle = useRef(writes.settle)
+	settle.current = writes.settle
+
+	const pending = writes.pending
+	const intervalMs = slugsOf(pending, "cancel").length > 0 ? CANCELLATION_POLL_INTERVAL_MS : DEFAULT_POLL_INTERVAL_MS
+
+	useEffect(() => {
+		if (!client || !visible) return
+		const controller = new AbortController()
+		let timeout: number | null = null
+		const poll = async () => {
+			try {
+				const next = mergeProjects(await withDeadline(controller.signal, signal => listProjects(client, signal)))
+				if (controller.signal.aborted) return
+				settle.current(next)
+				setListed(next)
+				setLoaded(true)
+				setError(null)
+			} catch (failure) {
+				// Keep the last successful table through a transient read failure.
+				if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Could not load projects.")
+			} finally {
+				if (!controller.signal.aborted) {
+					setIsInitialLoading(false)
+					timeout = window.setTimeout(() => void poll(), intervalMs)
+				}
+			}
+		}
+		void poll()
+		return () => {
+			controller.abort()
+			if (timeout !== null) window.clearTimeout(timeout)
+		}
+	}, [client, visible, intervalMs, refreshes])
 
 	const rows = useMemo(
-		() => markProjectsDeleting(markProjectsCancelling(markProjectOpening(listing.rows, opening), cancelling.slugs), deleting.slugs),
-		[listing.rows, opening, cancelling.slugs, deleting.slugs],
+		() => markProjectsDeleting(markProjectsCancelling(markProjectOpening(listed, opening), slugsOf(pending, "cancel")), slugsOf(pending, "delete")),
+		[listed, opening, pending],
 	)
 
-	/** Send one write under the client's lifetime; never repeat it, and read again afterwards. */
-	const write = async (
-		slug: string,
-		marks: SlugSet,
-		operation: (client: DesktopApiClient, signal: AbortSignal) => Promise<boolean>,
-		notice: WriteNotice,
-	): Promise<boolean> => {
-		marks.add(slug)
-		writing.current.add(slug)
-		const signal = lifetime()
-		try {
-			if (!client) throw new Error("The backend is not connected.")
-			if (await withDeadline(signal, requestSignal => operation(client, requestSignal))) return true
-			marks.remove(slug)
-			showErrorToast({ title: notice.title, message: notice.message, detail: notice.refused })
-		} catch {
-			if (signal.aborted) return false
-			marks.remove(slug)
-			showErrorToast({ title: notice.title, message: notice.message, detail: notice.failed })
-		} finally {
-			writing.current.delete(slug)
-			if (!signal.aborted) listing.refresh()
-		}
-		return false
-	}
-
 	return {
-		isInitialLoading: listing.isInitialLoading,
-		loadError: listing.loadError,
+		isInitialLoading,
+		loadError: loaded ? null : error,
 		rows,
-		refresh: listing.refresh,
+		refresh,
 		markOpening: setOpening,
 		clearOpening: slug => setOpening(current => current === slug ? null : current),
-		cancel: async slug => {
-			await write(slug, cancelling, (client, signal) => cancelProject(client, slug, signal), {
-				title: "Cancellation failed",
-				message: `Could not cancel "${slug}".`,
-				refused: "The project is still active. Try again.",
-				failed: "The cancellation request failed. Try again.",
-			})
-		},
+		cancel: writes.cancel,
 		remove: async slug => {
-			const deleted = await write(slug, deleting, async (client, signal) => {
-				await deleteProject(client, slug, signal)
-				return true
-			}, {
-				title: "Deletion failed",
-				message: `Could not delete "${slug}".`,
-				failed: "The project was not deleted. Try again.",
-			})
-			if (deleted) listing.drop(slug)
+			if (await writes.remove(slug)) setListed(current => current.filter(row => row.slug !== slug))
 		},
 	}
 }
