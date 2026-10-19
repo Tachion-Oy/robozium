@@ -17,7 +17,9 @@ cd robozium
 
 On Windows, use `start.cmd --mock`. Open <http://127.0.0.1:6969>. Mock mode needs
 no keys. For live mode, copy [.env.example](.env.example) to `.env`, add provider
-keys, and run `./start` or `start.cmd` without `--mock`.
+keys, and run `./start` or `start.cmd` without `--mock`. A live start without
+`.env` or `.env.encrypt` locks the HUD and walks through these steps under
+**Start Here**.
 
 Set `ROBOZIUM_WEB_PORT` in `.env` to change the web port. The API listens on
 `127.0.0.1:8000`; the web app also binds to loopback. Ctrl+C stops the app

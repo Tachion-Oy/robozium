@@ -10,12 +10,14 @@ type HudScreenSelectorProps = {
 	screen: HudScreen
 	options: readonly HudScreenOption[]
 	onSelectScreen: (screen: HudScreen) => void
+	disabled?: boolean
 }
 
 export function HudScreenSelector({
 	screen,
 	options,
 	onSelectScreen,
+	disabled = false,
 }: HudScreenSelectorProps) {
 	const selected = options.find((option) => option.value === screen) ?? options[0]
 
@@ -32,6 +34,7 @@ export function HudScreenSelector({
 			listboxLabel="HUD view"
 			onSelect={choose}
 			variant="view"
+			disabled={disabled}
 		/>
 	)
 }

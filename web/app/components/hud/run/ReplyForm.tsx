@@ -35,6 +35,8 @@ type ReplyFormProps = {
 	navigation: HudMessageNavigationModel
 	controls: HudControlModel
 	layoutMode: LayoutMode
+	/** Disable every control except message navigation. */
+	locked?: boolean
 }
 
 export function ReplyForm({
@@ -43,6 +45,7 @@ export function ReplyForm({
 	navigation,
 	controls,
 	layoutMode,
+	locked = false,
 }: ReplyFormProps) {
 	const dropzone = useDropzone({
 		accept: REPLY_IMAGE_ACCEPT,
@@ -51,10 +54,11 @@ export function ReplyForm({
 		noClick: true,
 		noKeyboard: true,
 		onDrop: composer.images.onDrop,
-		disabled: !composer.images.canAdd || controls.cancel?.isPending,
+		disabled: locked || !composer.images.canAdd || controls.cancel?.isPending,
 	})
 	const canSubmit = Boolean(
-		(composer.value.trim() || composer.images.images.length) &&
+		!locked &&
+			(composer.value.trim() || composer.images.images.length) &&
 			composer.images.isReady &&
 			composer.isReplyAvailable &&
 			!composer.isSubmitting &&
@@ -83,6 +87,7 @@ export function ReplyForm({
 					images={composer.images}
 					dropzone={dropzone}
 					canSubmit={canSubmit}
+					disabled={locked}
 					onChange={composer.onChange}
 				/>
 			</div>
@@ -90,10 +95,11 @@ export function ReplyForm({
 				{...controls}
 				agentMessage={message}
 				navigation={navigation}
+				locked={locked}
 				replyDraft={composer.value}
 				hasImages={composer.images.images.length > 0}
 				onAddImages={dropzone.open}
-				imagesDisabled={!composer.images.canAdd || controls.cancel?.isPending}
+				imagesDisabled={locked || !composer.images.canAdd || controls.cancel?.isPending}
 				onClearReply={() => {
 					composer.onChange("")
 					composer.images.onClear()

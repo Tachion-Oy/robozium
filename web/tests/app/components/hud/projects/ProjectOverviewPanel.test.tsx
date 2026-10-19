@@ -285,4 +285,32 @@ describe("ProjectOverviewPanel row actions", () => {
 			"text-term-amber",
 		)
 	})
+
+	it("disables every project and offers only Start Here while setup is required", () => {
+		const onStartHere = vi.fn()
+		const onNewProject = vi.fn()
+		render(
+			<ProjectOverviewPanel
+				projects={[row({}), row({ slug: "beta", status: ProjectStatus.Running, runId: "run-1" })]}
+				navigationPending={false}
+				locked
+				onStartHere={onStartHere}
+				onProjectClick={() => {}}
+				onSelectCapabilities={() => {}}
+				onLaunchProject={() => {}}
+				onNewProject={onNewProject}
+				onCancelRun={() => {}}
+				onDeleteProject={() => {}}
+			/>,
+		)
+
+		expect(screen.getAllByText("DISABLED")).toHaveLength(2)
+		const enabled = screen
+			.getAllByRole<HTMLButtonElement>("button")
+			.filter((button) => !button.matches(":disabled"))
+		expect(enabled.map((button) => button.textContent)).toEqual(["Start Here"])
+		fireEvent.click(enabled[0])
+		expect(onStartHere).toHaveBeenCalledOnce()
+		expect(onNewProject).not.toHaveBeenCalled()
+	})
 })

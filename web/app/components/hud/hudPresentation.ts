@@ -17,6 +17,8 @@ export type HudPresentation = {
 	headerVariant: "landing" | "row"
 	showProjectBadge: boolean
 	enableCornerControls: boolean
+	/** No API keys were configured at startup; only onboarding stays interactive. */
+	locked: boolean
 }
 
 const SCREEN_OPTIONS: Record<HudContext, readonly HudScreenOption[]> = {
@@ -38,27 +40,36 @@ const SCREEN_OPTIONS: Record<HudContext, readonly HudScreenOption[]> = {
 	],
 }
 
+const SETUP_SCREEN_OPTIONS: readonly HudScreenOption[] = [
+	{ value: "projects", label: "Runs Overview" },
+	{ value: "onboarding", label: "Start Here" },
+]
+
 export function resolveHudPresentation({
 	hasRun,
 	phase,
 	runUnavailable,
 	selectedScreen,
 	launch = null,
+	setupRequired = false,
 }: {
 	hasRun: boolean
 	phase: RunHudPhase
 	runUnavailable: boolean
 	selectedScreen: HudScreen
 	launch?: HudNavigation["launch"]
+	setupRequired?: boolean
 }): HudPresentation {
 	const context: HudContext = !hasRun
 		? "landing"
 		: phase === RunHudPhase.Done || runUnavailable
 			? "recovery"
 			: "active-run"
-	const screenOptions: readonly HudScreenOption[] = launch
-		? [...SCREEN_OPTIONS[context], { value: "launch", label: "Launch" }]
-		: SCREEN_OPTIONS[context]
+	const screenOptions: readonly HudScreenOption[] = setupRequired
+		? SETUP_SCREEN_OPTIONS
+		: launch
+			? [...SCREEN_OPTIONS[context], { value: "launch", label: "Launch" }]
+			: SCREEN_OPTIONS[context]
 	const screen = screenOptions.some(({ value }) => value === selectedScreen)
 		? selectedScreen
 		: "projects"
@@ -69,8 +80,9 @@ export function resolveHudPresentation({
 		screenOptions,
 		modelScope: context === "active-run" && screen !== "launch" ? "run" : "default",
 		headerVariant:
-			context === "landing" && screen !== "dependencies" && screen !== "environment" ? "landing" : "row",
-		showProjectBadge: context === "active-run" && screen !== "launch",
-		enableCornerControls: context === "active-run" && screen === "run",
+			context === "landing" && screen !== "dependencies" && screen !== "environment" && screen !== "onboarding" ? "landing" : "row",
+		showProjectBadge: context === "active-run" && screen !== "launch" && !setupRequired,
+		enableCornerControls: context === "active-run" && screen === "run" && !setupRequired,
+		locked: setupRequired,
 	}
 }
