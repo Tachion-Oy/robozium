@@ -70,7 +70,7 @@ test("creation deadlines abort the request and ignore late success", async ({ de
 	json(pending!, { run_id: "late" })
 	await page.clock.fastForward(30_000)
 	expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(1)
-	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveCount(0)
+	await expect(page.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveCount(0)
 })
 
 test("late snapshots merge older history with newer SSE, deduplicate chunks and replace partial messages", async ({ desktop: { page }, backend }) => {
@@ -134,13 +134,13 @@ test("view changes retain one session, project, history selection and draft; new
 	emit(first.streams[0], message(1, "First")); emit(first.streams[0], message(2, "Second"))
 	await expect(output(page)).toHaveText("Second")
 	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
-	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Keep my draft")
+	await page.getByRole("textbox", { name: "Type your reply...", exact: true }).fill("Keep my draft")
 	await view(page, "Environment"); await view(page, "Runs Overview")
 	await page.getByRole("button", { name: "second-project", exact: true }).click()
 	await page.getByRole("button", { name: "Return to run" }).click()
 	await expect(output(page)).toHaveText("First")
 	await expect(runStatus(page)).toContainText("existing-project")
-	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Keep my draft")
+	await expect(page.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveValue("Keep my draft")
 	expect(first.streams).toHaveLength(1)
 	let oldRead: ServerResponse | undefined
 	let oldClosed = false
@@ -156,7 +156,7 @@ test("view changes retain one session, project, history selection and draft; new
 	emit(second.streams[0], message(1, "New run"))
 	await expect(output(page)).toHaveText("New run")
 	await expect(runStatus(page)).toContainText("second-project")
-	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Keep my draft")
+	await expect(page.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveValue("Keep my draft")
 	expect(backend.requests.filter(request => request.path.includes("cancel"))).toHaveLength(0)
 	await page.goto("about:blank")
 	await expect.poll(() => second.closed).toBe(1)
@@ -191,7 +191,7 @@ test("output retry reconnects only the known ID and retains output and draft", a
 	await start(page, backend)
 	await expect.poll(() => run.streams.length).toBe(1)
 	emit(run.streams[0], message(1, "Retained"))
-	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Draft")
+	await page.getByRole("textbox", { name: "Type your reply...", exact: true }).fill("Draft")
 	run.streams[0].end()
 	await expect(page.getByRole("alert")).toContainText("disconnected")
 	await expect(output(page)).toHaveText("Retained")
@@ -202,7 +202,7 @@ test("output retry reconnects only the known ID and retains output and draft", a
 	await expect.poll(() => run.streams.length).toBe(2)
 	emit(run.streams[1], message(1, "Retained")); emit(run.streams[1], message(2, "Recovered"))
 	await expect(output(page)).toHaveText("Recovered")
-	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Draft")
+	await expect(page.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveValue("Draft")
 	expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(1)
 })
 
@@ -264,7 +264,7 @@ for (const theme of ["dark", "light"]) {
 		await expect(output(page)).toContainText("Line")
 		emit(stream, delta(3, "Last line", 1))
 		await expect(output(page)).toContainText("Last line")
-		const scroller = page.getByRole("region", { name: "Agent message text", exact: true })
+		const scroller = page.locator(".agent-hud__replyBox-scroll")
 		await expect.poll(() => scroller.evaluate(element => Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop) < 2)).toBe(true)
 		await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
 		await expect(output(page)).toContainText("Older")
@@ -351,7 +351,7 @@ test("provider retries discard abandoned text while keeping completed history an
 	emit(stream, message(1, "Earlier"))
 	emit(stream, delta(2, "Abandoned attempt", 0, "attempt-1"))
 	await expect(output(page)).toHaveText("Abandoned attempt")
-	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Keep this draft")
+	await page.getByRole("textbox", { name: "Type your reply...", exact: true }).fill("Keep this draft")
 	emit(stream, retry)
 	await expect(output(page)).toHaveText("Earlier")
 	emit(stream, delta(4, "Successful", 0, "attempt-2"))
@@ -364,7 +364,7 @@ test("provider retries discard abandoned text while keeping completed history an
 	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
 	await expect(output(page)).toHaveText("Earlier")
 	await expect(page.getByRole("button", { name: "Previous agent message", exact: true })).toBeDisabled()
-	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Keep this draft")
+	await expect(page.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveValue("Keep this draft")
 })
 
 test("active prompts stay visible before later notifications and latest navigation returns to the prompt", async ({ desktop: { page }, backend }) => {
@@ -478,7 +478,7 @@ test("a prompt separates pinned script output through dismissal and later histor
 	json(reads[0], snapshot({ status: "awaiting_user_input", current_prompt_id: "p1", current_prompt: "Continue?", message_trace: [script(2, "Before")] }))
 	await expect(output(page)).toHaveText("Continue?")
 	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
-	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Retained draft")
+	await page.getByRole("textbox", { name: "Type your reply...", exact: true }).fill("Retained draft")
 	await page.clock.fastForward(2001)
 	await expect.poll(() => reads.length).toBe(2)
 	json(reads[1], snapshot({ message_trace: [script(2, "Before")] }))
@@ -496,5 +496,29 @@ test("a prompt separates pinned script output through dismissal and later histor
 	await expect(output(page)).toHaveText("After")
 	emit(run.streams[0], script(5, " continued"))
 	await expect(output(page)).toHaveText("After continued")
-	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Retained draft")
+	await expect(page.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveValue("Retained draft")
+})
+
+test("agent Markdown renders sanitized and its links stay inside the app", async ({ desktop: { app, page }, backend }) => {
+	const run = prepareRun(backend)
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	emit(run.streams[0], message(1, [
+		"# Report",
+		"**Bold** and `code`.",
+		"[External](https://example.invalid/page) and <file src=\"notes/report.txt\">the report</file>.",
+		"<img src=x onerror=\"document.title='injected'\">",
+	].join("\n\n")))
+	const agent = page.locator(".agent-hud__replyBox--agent")
+	await expect(agent.getByRole("heading", { name: "Report" })).toBeVisible()
+	await expect(agent.locator("strong")).toHaveText("Bold")
+	await expect(agent.locator("img")).toHaveCount(0)
+	const url = page.url()
+	// Opening files and external pages needs native privileges that arrive separately.
+	for (const name of ["External", "the report"]) {
+		await agent.getByRole("link", { name, exact: true }).click()
+		expect(page.url()).toBe(url)
+		expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1)
+	}
+	expect(await page.title()).not.toBe("injected")
 })

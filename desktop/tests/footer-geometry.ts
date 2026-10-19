@@ -5,9 +5,9 @@ export async function expectFooterGeometry(page: Page, advanceClock = false) {
 		// ResizeObserver schedules placement on an animation frame. Keep those
 		// frames moving when a test freezes the two-second clipboard timer.
 		if (advanceClock) await page.clock.runFor(50)
-		return page.locator(".hud-footer").evaluate(footer => {
+		return page.locator(".agent-hud__actions").evaluate(footer => {
 			const bounds = footer.getBoundingClientRect()
-			const navigation = footer.querySelector(".hud-history")!.getBoundingClientRect()
+			const navigation = footer.querySelector(".agent-hud__message-nav")!.getBoundingClientRect()
 			const buttons = [...footer.querySelectorAll("button")]
 			const rectangles = buttons.map(button => button.getBoundingClientRect())
 			const icons = buttons.flatMap(button => {
@@ -26,7 +26,7 @@ export async function expectFooterGeometry(page: Page, advanceClock = false) {
 					a.right <= b.left + 1 || b.right <= a.left + 1 || a.bottom <= b.top + 1 || b.bottom <= a.top + 1)),
 				iconsCentered: icons.every(Boolean),
 				labelsFit: buttons.every(button => button.scrollWidth <= button.clientWidth),
-				belowPanels: bounds.top >= document.querySelector(".hud-panels")!.getBoundingClientRect().bottom,
+				belowPanels: bounds.top >= document.querySelector(".agent-hud__panels")!.getBoundingClientRect().bottom,
 				noOverflow: document.documentElement.scrollWidth === innerWidth && document.documentElement.scrollHeight === innerHeight,
 			}
 		})

@@ -1,3 +1,4 @@
+// Copied from web/app/components/hud/run/HudMarkdown.tsx at 86ef5c1.
 import type { ReactNode } from "react"
 import ReactMarkdown from "react-markdown"
 import rehypeRaw from "rehype-raw"

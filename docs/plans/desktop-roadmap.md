@@ -99,9 +99,22 @@ Each step is one PR and is runnable: launch the app to see its result.
 | --- | --- | --- |
 | **9. Parity harness** | One command launches the experiment and the desktop app on isolated mock profiles, drives the states above, and writes side-by-side captures and a diff report. A baseline report documents today's gaps. No app changes. | Two runs on the same build produce identical captures. |
 | **10. Stylesheet foundation, frame and header** | Copy the reference global, theme, frame, selector and button CSS, the fonts, and `desktop.css`. Set `data-desktop`. Port the frame, project badge, header, model/view selectors and theme toggle with reference markup. Delete the replaced `ui/` CSS and components. The octagon follows as its own visual PR. | Header and frame match in both themes at all widths and zooms, including label truncation. |
-| **11. Running HUD** | Port the message panel, Markdown (including file links), composer, divider controls, message navigation and footer actions. Copy `hud-panels.css` (`hud-controls.css` arrived with the corner controls in step 10). Port `useDesktopActionLayout` with mount handling. Remove preview branches from `App`. Actions not yet wired (send, interrupt, cancel) render in their reference disabled state. | Running, script and Markdown states match. Button stacking and wrapping match at every width, at both zooms. |
+| **11. Running HUD** | Port the message panel, Markdown, composer, message navigation and footer actions. Copy `hud-panels.css` (`hud-controls.css` arrived with the corner controls in step 10). Port `useDesktopActionLayout` with mount handling. Actions not yet wired (send, interrupt, cancel, record) render disabled. Links render but stay inert (see follow-ups). | Running, script and Markdown states match. Button stacking and wrapping match at every width, at both zooms. |
 | **12. Projects overview** | Port `ProjectOverviewPanel` and its CSS: status, start/open/return, empty state, New Project entry. Cancel/delete render as in the reference and are wired in steps 15–16. The capability selector slot waits for step 20. | Empty and populated overview match. |
 | **13. Docked message log and theme persistence** | Port `MessageLog`, the toggle, `TerminalStream`/`renderContent` and the terminal CSS. Add a `useMessageLog` owner and native window grow/shrink in main, with shared size constants. Persist theme and log state through named preload methods; set the native background per theme. | Log open/closed matches side-by-side (≥1120px) and stacked (<1120px). Theme survives a restart. |
+
+**Order:** step 14 (replies) follows step 11, before 12 and 13, so Send works
+as soon as the run view lands.
+
+**Follow-ups found in step 11** (each its own small PR):
+
+- **CSP-compatible toaster.** The reference uses `react-hot-toast`, whose
+  injected inline styles the renderer's CSP blocks. Until then,
+  `ui/feedback/ErrorToast.tsx` keeps the reference's `showErrorToast` call shape
+  and shows failures as alerts in the notices row.
+- **Opening links.** Markdown file and external links render but do nothing:
+  `main.ts` denies new windows and navigation. Opening a hub file or an
+  external page needs a named preload operation with validated targets.
 
 ## Milestone B — Running work (steps 14–17)
 

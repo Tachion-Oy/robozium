@@ -129,8 +129,8 @@ readable and stop polling; unknown runs show **Run unavailable**. Automatic
 reconnection and recovery after reopening are planned for PR 9.
 
 In standalone preview, **Start run** opens the latest local mock message above
-an empty reply editor. In either mode, draft freely: Enter and Shift+Enter insert
-newlines; replies are not sent yet. The arrow buttons in the left rail move the
+an empty reply editor. In either mode, draft freely: Shift+Enter inserts a
+newline and Enter is reserved for sending, which arrives with replies. The arrow buttons in the left rail move the
 divider between message-expanded, equal, and reply-expanded positions. At each
 limit, the unavailable direction is disabled. Messages and long drafts scroll
 inside their own panels. Divider changes animate over 220ms, or move immediately
@@ -143,14 +143,16 @@ notification arrives afterward; the latest arrow returns to that prompt from a
 pinned history entry. Provider retries discard abandoned partial text. Ordinary
 agent-message completion keeps its last progress visible until new output or a
 prompt replaces it. Live text scrolls downward; selecting another entry resets
-its scroll. At either end, unavailable directions are disabled and keyboard focus
-moves to the nearest reverse arrow. Empty history disables all arrows. The center
-mark names the current run status, also shown above the output. Preview retains
+its scroll. At either end, unavailable directions are disabled. Empty history
+disables all arrows. The center mark shows whether the agent is working or
+awaiting input; assistive technology also reads the run status. Preview retains
 three local messages and its static awaiting-input mark. Cancel, Interrupt,
 Record, and Send remain disabled; draft editing stays local.
 
-Output uses the existing text renderer. Rich Markdown and artifact-link rendering
-remain tracked desktop parity work.
+The run screen uses the experiment's markup and stylesheets. Agent messages and
+prompts render as sanitized Markdown; live text and script output stay literal.
+Links render but do not open yet: opening files and external pages needs a
+native privilege that arrives as its own roadmap item.
 
 The run reducer owns run identity, durable event reconciliation, and backend
 status. Run protocol values and derived types live in `run/run-contracts.ts`;
@@ -164,13 +166,14 @@ Script identities remain anchored when recovered prefixes or boundaries change
 their groups. Replayed events still dismiss older live text. A new prompt closes
 the preceding script group, and that boundary survives later history recovery.
 
-**Clear reply** empties the draft and returns focus to the editor. **Copy reply**
-and **Copy agent output** copy the exact displayed text, including whitespace
-and newlines. Clear and Copy reply are disabled only for an empty draft. Copy
-success shows a green checkmark for two seconds and is announced to assistive
-technology; changing the copied content clears that feedback. Copy failure
-shows a footer alert and allows retry. These controls appear only in Current
-Run and wrap beneath the centered history controls when space is tight.
+**Clear reply** empties the draft. **Copy user reply** and **Copy agent
+output** copy the exact text, including whitespace and newlines; agent output is
+copied as its Markdown source. Clear and Copy user reply are disabled only for
+an empty draft. Copy success shows a checkmark for two seconds and renames the
+button for assistive technology; selecting another message clears it. Copy
+failure shows an alert above the run and allows retry. Cancel stays leftmost and
+Send rightmost; when space is tight, the other actions wrap beneath the
+centered history controls.
 
 Switch views using the header, or use **Return to run** in Runs Overview. The
 draft, selected message, and divider position survive view, model, theme,

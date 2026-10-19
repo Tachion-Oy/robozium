@@ -1,4 +1,6 @@
-import { useDesktopActionLayout } from "@/hooks/useDesktopActionLayout"
+// Copied from robozium-electron/desktop/web/app/components/hud/run/HudControls.tsx at 076b2c9.
+// Adapted: `available: false` shows an action disabled until its owner arrives.
+import { useDesktopActionLayout } from "./useDesktopActionLayout"
 import { AudioLevelMeter } from "./AudioLevelMeter"
 import type { AgentMessage } from "./AgentMessagePanel"
 import { HudCopyControls } from "./HudCopyControls"
@@ -11,11 +13,13 @@ export type HudDictationControls = {
 	isRecording: boolean
 	audioLevel?: number
 	isTranscribing: boolean
+	available?: boolean
 	onToggle: () => void
 }
 
 export type HudPendingAction = {
 	isPending: boolean
+	available?: boolean
 	onTrigger: () => void
 }
 
@@ -71,7 +75,7 @@ export function HudControls({
 						type="button"
 						className="agent-hud__cancel"
 						onClick={cancel.onTrigger}
-						disabled={cancel.isPending}>
+						disabled={cancel.isPending || cancel.available === false}>
 						{cancel.isPending ? "Cancelling..." : "Cancel"}
 					</button>
 				) : null}
@@ -80,7 +84,7 @@ export function HudControls({
 						type="button"
 						className="agent-hud__interrupt"
 						onClick={interrupt.onTrigger}
-						disabled={interrupt.isPending || cancel?.isPending}>
+						disabled={interrupt.isPending || interrupt.available === false || cancel?.isPending}>
 						{interrupt.isPending ? "Interrupting..." : "Interrupt"}
 					</button>
 				) : null}
@@ -98,7 +102,7 @@ export function HudControls({
 					type="button"
 					className="agent-hud__dictate"
 					onClick={dictation.onToggle}
-					disabled={dictation.isTranscribing}
+					disabled={dictation.isTranscribing || dictation.available === false}
 					data-dictation-state={dictationState}
 					aria-label={dictationAccessibleLabel}
 					title={dictation.isTranscribing ? dictationAccessibleLabel : undefined}

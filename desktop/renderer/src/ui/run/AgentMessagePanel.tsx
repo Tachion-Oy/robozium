@@ -1,7 +1,7 @@
-"use client"
-
+// Copied from web/app/components/hud/run/AgentMessagePanel.tsx at 86ef5c1.
+// Adapted: content types come from the desktop HUD view.
 import { useEffect, useRef } from "react"
-import type { ContentType } from "@/lib/robozium/view-model"
+import type { ContentType } from "../../hud/hud-view"
 import { HudMarkdown } from "./HudMarkdown"
 
 export type AgentMessage = {

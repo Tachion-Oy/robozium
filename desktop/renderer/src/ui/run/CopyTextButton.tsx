@@ -1,7 +1,7 @@
-"use client"
-
+// Copied from robozium-electron/desktop/web/app/components/hud/run/CopyTextButton.tsx at 076b2c9.
+// Adapted: writes through the native clipboard bridge.
 import { useEffect, useRef, useState } from "react"
-import { showErrorToast } from "@/app/components/feedback/ErrorToast"
+import { showErrorToast } from "../feedback/ErrorToast"
 
 export type CopyTextButtonProps = {
 	copyKey: string
@@ -31,10 +31,7 @@ export function CopyTextButton({
 		if (!content) return
 
 		try {
-			if (!navigator.clipboard?.writeText) {
-				throw new Error("Clipboard API unavailable")
-			}
-			await navigator.clipboard.writeText(content)
+			await window.robozium.writeClipboardText(content)
 			if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
 			setCopiedKey(copyKey)
 			copiedTimerRef.current = setTimeout(() => {
@@ -46,7 +43,7 @@ export function CopyTextButton({
 			showErrorToast({
 				title: "Copy failed",
 				message: `Could not copy the ${target}.`,
-				detail: "Check your browser clipboard permissions and try again.",
+				detail: "Try again.",
 			})
 		}
 	}

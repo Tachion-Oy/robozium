@@ -1,102 +1,48 @@
-"use client"
-
-import { useState, type Dispatch, type SetStateAction } from "react"
-import {
-	agentActivityStateForPhase,
-	getActiveStreamingMessage,
-	RunHudPhase,
-} from "@/lib/robozium/session/reducer"
-import { useRunSession, useRunSessionSelector } from "@/hooks/useRunSession"
-import { useDictation } from "@/hooks/useDictation"
-import { getHudMessages } from "@/lib/robozium/hud-messages"
-import { showErrorToast } from "@/app/components/feedback/ErrorToast"
-import type { LayoutMode } from "../HudCornerControls"
+// Copied from robozium-electron/desktop/web/app/components/hud/run/RunHud.tsx at 076b2c9.
+// Adapted: the displayed run comes from the desktop session owner as props.
+// Replies, cancellation, interruption and dictation render unavailable until
+// their owners arrive (roadmap steps 14, 15 and 21).
+import type { Dispatch, SetStateAction } from "react"
+import type { HudDisplay } from "../../hud/hud-view"
+import type { LayoutMode } from "../hud/HudCornerControls"
+import type { AgentMessage } from "./AgentMessagePanel"
 import { ReplyForm } from "./ReplyForm"
+import { AgentActivityState, type HudMessageNavigationDirection } from "./run-view"
 
 type RunHudProps = {
 	draft: string
 	onDraftChange: Dispatch<SetStateAction<string>>
 	layoutMode: LayoutMode
+	display: HudDisplay
+	awaitingInput: boolean
+	focusOnOpen: boolean
+	onSelect: (index: number) => void
 }
+
+const unavailable = { isPending: false, available: false, onTrigger: () => {} }
 
 export function RunHud({
 	draft,
 	onDraftChange,
 	layoutMode,
+	display,
+	awaitingInput,
+	focusOnOpen,
+	onSelect,
 }: RunHudProps) {
-	const session = useRunSession()
-	const phase = useRunSessionSelector(
-		(state) => state.hud.phase,
-		RunHudPhase.Passive,
-	)
-	const prompt = useRunSessionSelector((state) => state.hud.prompt, null)
-	const promptId = useRunSessionSelector((state) => state.hud.promptId, null)
-	const messages = useRunSessionSelector((state) => state.hud.messages, [])
-	const selectedMessageId = useRunSessionSelector(
-		(state) => state.hud.selectedMessageId,
-		null,
-	)
-	const isCancelling = useRunSessionSelector(
-		(state) => state.hud.isCancelling,
-		false,
-	)
-	const isInterrupting = useRunSessionSelector(
-		(state) => state.hud.isInterrupting,
-		false,
-	)
-	const activeStream = useRunSessionSelector(getActiveStreamingMessage, null)
-	const hudMessages = getHudMessages(messages, selectedMessageId, { phase, stream: activeStream, prompt, promptId })
-	const [isSubmitting, setIsSubmitting] = useState(false)
-
-	const {
-		audioLevel,
-		isRecording,
-		isTranscribing,
-		toggle: toggleDictation,
-	} = useDictation({
-		onTranscript: (text) =>
-			onDraftChange((current) =>
-				current.trim() ? `${current.trimEnd()} ${text}` : text,
-			),
-	})
-
-	const handleCancel = async () => {
-		if (await session?.cancelRun()) return
-		showErrorToast({
-			title: "Cancellation failed",
-			message: "Could not cancel this project.",
-			detail: "The project is still active. Try again.",
-		})
+	const { index, currentIndex, count } = display
+	const message: AgentMessage = {
+		id: display.id,
+		content: display.text,
+		contentType: display.contentType,
+		mode: display.streaming ? "streaming" : index === currentIndex ? "current" : "history",
 	}
-
-	const handleSubmit = async () => {
-		const submittedDraft = draft
-		const content = draft.trim()
-		if (!content || !promptId || isSubmitting || !session) return
-
-		setIsSubmitting(true)
-		try {
-			const submitted = await session.submitReply(content)
-			if (submitted) {
-				onDraftChange((current) =>
-					current === submittedDraft ? "" : current,
-				)
-			}
-		} catch {
-			showErrorToast({
-				title: "Reply failed",
-				message: "Could not send your reply. Your draft has been kept.",
-			})
-		} finally {
-			setIsSubmitting(false)
-		}
+	const targets: Record<HudMessageNavigationDirection, number> = {
+		first: 0,
+		previous: index - 1,
+		next: index + 1,
+		latest: currentIndex,
 	}
-
-	if (phase === RunHudPhase.Done) return null
-
-	// Run phases only choose what the agent panel shows. The composer stays
-	// available for drafting and dictation until the run reaches a terminal state.
-	const message = hudMessages.message
 
 	return (
 		<ReplyForm
@@ -104,31 +50,33 @@ export function RunHud({
 			layoutMode={layoutMode}
 			composer={{
 				value: draft,
-				isReplyAvailable: promptId !== null,
-				isSubmitting,
+				isReplyAvailable: false,
+				isSubmitting: false,
+				focusOnOpen,
 				onChange: onDraftChange,
-				onSubmit: handleSubmit,
+				onSubmit: () => {},
 			}}
 			navigation={{
-				agentActivityState: agentActivityStateForPhase(phase),
-				enabled: hudMessages.navigation.enabled,
-				onNavigate: (direction) => session?.navigateHudMessage(direction),
+				agentActivityState: awaitingInput
+					? AgentActivityState.AwaitingInput
+					: AgentActivityState.Working,
+				enabled: {
+					first: index > 0,
+					previous: index > 0,
+					next: index < count - 1,
+					latest: index !== currentIndex,
+				},
+				onNavigate: (direction) => onSelect(targets[direction]),
 			}}
 			controls={{
 				dictation: {
-					isRecording,
-					audioLevel,
-					isTranscribing,
-					onToggle: toggleDictation,
+					isRecording: false,
+					isTranscribing: false,
+					available: false,
+					onToggle: () => {},
 				},
-				cancel: {
-					isPending: isCancelling,
-					onTrigger: () => void handleCancel(),
-				},
-				interrupt: {
-					isPending: isInterrupting,
-					onTrigger: () => void session?.interruptRun(),
-				},
+				cancel: unavailable,
+				interrupt: unavailable,
 			}}
 		/>
 	)

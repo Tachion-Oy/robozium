@@ -3,8 +3,8 @@
 /* ---------------------------------------------------------------------------
  * Copied from robozium-electron/desktop/web/app/globals.css at 076b2c9; the
  * stylesheets below are verbatim copies (see each file's source in the PR).
- * The rest arrive with the roadmap step that uses them: hud-panels (11),
- * project-overview and display-art (12), environment (18), error-toast.
+ * The rest arrive with the roadmap step that uses them: project-overview and
+ * display-art (12), environment (18), error-toast.
  *
  *   CSS owns LOOK   -- color, background, border colour, text/box-shadow glow,
  *                      @keyframes/animation/transition, clip-path shapes,
@@ -22,6 +22,7 @@
 @import "./base.css";
 @import "./crt.css";
 @import "./hud-frame.css";
+@import "./hud-panels.css";
 @import "./hud-controls.css";
 @import "./hud-button.css";
 @import "./terminal.css";

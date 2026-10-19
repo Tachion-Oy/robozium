@@ -1,16 +1,18 @@
-"use client"
-
+// Copied from robozium-electron/desktop/web/app/components/hud/run/ReplyEditor.tsx at 076b2c9.
+// Adapted: autoFocus focuses the reply when Current Run opens.
 import { useEffect, useRef, type KeyboardEventHandler } from "react"
 
 type ReplyEditorProps = {
 	value: string
 	canSubmit: boolean
+	autoFocus?: boolean
 	onChange: (value: string) => void
 }
 
 export function ReplyEditor({
 	value,
 	canSubmit,
+	autoFocus = false,
 	onChange,
 }: ReplyEditorProps) {
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -47,6 +49,7 @@ export function ReplyEditor({
 					onChange(event.target.value)
 				}}
 				onKeyDown={handleKeyDown}
+				autoFocus={autoFocus}
 				placeholder="Type your reply..."
 			/>
 		</div>

@@ -1,7 +1,9 @@
+// Copied from web/app/components/hud/run/HudMessageNavigation.tsx at 86ef5c1.
+// Adapted: types come from ./run-view.
 import type {
 	AgentActivityState,
 	HudMessageNavigationDirection,
-} from "@/lib/robozium/session/reducer"
+} from "./run-view"
 import { MessageWedge } from "./MessageWedge"
 
 export type HudMessageNavigationModel = {

@@ -569,6 +569,11 @@
     animation: none;
     transition: none;
   }
+
+  /* Desktop: the divider moves without animation too. */
+  .agent-hud__panels > .agent-hud__replyBox {
+    transition: none;
+  }
 }
 
 

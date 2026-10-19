@@ -1,5 +1,4 @@
-"use client"
-
+// Copied from robozium-electron/desktop/web/app/components/hud/run/HudCopyControls.tsx at 076b2c9.
 import type { AgentMessage } from "./AgentMessagePanel"
 import {
 	CopyTextButton,

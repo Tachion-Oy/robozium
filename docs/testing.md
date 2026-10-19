@@ -159,11 +159,11 @@ Native key-input checks cover Ctrl-plus/equal/minus/zero and keypad zoom in/out,
 including focus retention and a single zoom step per key press while a selector
 is open.
 
-Footer checks exercise all four history directions, disabled boundaries, focus
-transfer, retained selection/draft/divider state, and Clear returning focus to
-the existing textarea. Clipboard tests run on the isolated Xvfb display and
+Footer checks exercise all four history directions, disabled boundaries,
+retained selection/draft/divider state, and Clear keeping the same textarea.
+Clipboard tests run on the isolated Xvfb display and
 assert exact native clipboard text, including whitespace and newlines. They
-cover success announcements, two-second feedback expiry, content invalidation,
+cover renamed success labels, two-second feedback expiry, content invalidation,
 native write failure and retry, invalid payloads, untrusted windows/documents,
 and continued browser permission denial. Only Electron main writes the native
 clipboard; the renderer's typed bridge provides no read operation.
@@ -171,8 +171,11 @@ clipboard; the renderer's typed bridge provides no read operation.
 Footer geometry joins the full size/theme/zoom and three-divider-position
 matrix. Checks assert centered navigation, contained controls, centered icons,
 readable labels, and no document overflow. Resizing across wrap boundaries
-preserves helper focus, DOM identity, and visible copy feedback. Two additional
-footer screenshots show populated drafts and enabled helpers in both themes.
+preserves helper focus, DOM identity, and visible copy feedback, and keeps
+Cancel and Send on the primary row whenever the copy controls are. Two
+additional footer screenshots show populated drafts and enabled helpers in both
+themes. A Markdown check confirms sanitized rendering and that links neither
+navigate nor open windows.
 The native test fixture and capture helpers are shared by the scaffold and
 footer scenarios.
 

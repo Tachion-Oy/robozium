@@ -1,5 +1,5 @@
-"use client"
-
+// Copied from robozium-electron/desktop/web/app/components/hud/run/ReplyForm.tsx at 076b2c9.
+// Adapted: the composer can focus the reply on open.
 import type { SubmitEventHandler } from "react"
 import {
 	AgentMessagePanel,
@@ -9,7 +9,7 @@ import {
 	HudControls,
 	type HudControlModel,
 } from "./HudControls"
-import type { LayoutMode } from "../HudCornerControls"
+import type { LayoutMode } from "../hud/HudCornerControls"
 import type { HudMessageNavigationModel } from "./HudMessageNavigation"
 import { ReplyEditor } from "./ReplyEditor"
 
@@ -17,6 +17,7 @@ export type ReplyComposerModel = {
 	value: string
 	isReplyAvailable: boolean
 	isSubmitting: boolean
+	focusOnOpen?: boolean
 	onChange: (value: string) => void
 	onSubmit: () => void | Promise<void>
 }
@@ -63,6 +64,7 @@ export function ReplyForm({
 				<ReplyEditor
 					value={composer.value}
 					canSubmit={canSubmit}
+					autoFocus={composer.focusOnOpen}
 					onChange={composer.onChange}
 				/>
 			</div>

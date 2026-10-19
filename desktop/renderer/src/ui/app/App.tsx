@@ -1,9 +1,9 @@
 // Compose feature state into the reference HUD frame; keep navigation and draft ownership here.
-import { useRef, useState, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { ViewPlaceholder } from "./ViewPlaceholder"
 import { RunOverview } from "../run/RunOverview"
-import { HudPanels } from "../hud/HudPanels"
-import { HudFooter } from "../hud/HudFooter"
+import { RunHud } from "../run/RunHud"
+import { ErrorNotices, useErrorNotices } from "../feedback/ErrorToast"
 import { AgentHud } from "../hud/AgentHud"
 import { HudHeader } from "../hud/HudHeader"
 import { ModelSelector } from "../hud/ModelSelector"
@@ -18,12 +18,22 @@ import { HudButton } from "../HudButton"
 import { useRunSession } from "../../session/useRunSession"
 import { runLabels } from "../../hud/hud-view"
 import { selectRunDisplay } from "../../session/session-reducer"
+import type { HudDisplay } from "../../hud/hud-view"
 import "./interim-content.css"
 
 interface AppProps {
 	connectionNotice?: ReactNode
 	client?: DesktopApiClient | null
 	connected?: boolean
+}
+
+/** Standalone preview shows its local messages as plain text. */
+function previewDisplay(index: number): HudDisplay {
+	const last = mockMessages.length - 1
+	return {
+		id: String(index), text: mockMessages[index], contentType: "plain-text", streaming: false,
+		index, currentIndex: last, count: mockMessages.length,
+	}
 }
 
 /** Standalone preview keeps a local model choice until previews use the mock backend. */
@@ -50,12 +60,10 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	const hasRun = client ? session !== null : hasPreview
 	const [draft, setDraft] = useState("")
 	const [selectedMessage, setSelectedMessage] = useState(mockMessages.length - 1)
-	const editor = useRef<HTMLTextAreaElement>(null)
 	const [layout, setLayout] = useState<LayoutMode>("top")
 	const [focusRunEditor, setFocusRunEditor] = useState(false)
-	const display = selectRunDisplay(session)
-	const messageIndex = client ? display.index : selectedMessage
-	const message = client ? display.text : mockMessages[selectedMessage]
+	const display = client ? selectRunDisplay(session) : previewDisplay(selectedMessage)
+	const errorNotices = useErrorNotices()
 	const status = session?.run.unavailable ? "Run unavailable" : session ? runLabels[session.run.status] : "Awaiting input"
 	const canStart = connected && Boolean(projects.selected && models.selection?.selected_model_id) && !models.pending && !models.error && !run.creating
 	// Finished and missing runs stay readable in Current Run until the reference's
@@ -74,19 +82,18 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	}
 	const selectScreen = (next: HudScreen) => { setFocusRunEditor(false); setView(next) }
 	const modelError = client ? models.error : ""
+	const runError = screen === "run" ? session?.run.error : ""
+	const notices = (connectionNotice || modelError || runError || errorNotices.length > 0) &&
+		<div className="desktop-interim-content__notices">
+			{modelError && <p role="alert">{modelError}</p>}
+			{runError && <p role="alert">{runError}</p>}
+			{runError && <HudButton onClick={run.retry} disabled={!connected || run.creating}>Retry output</HudButton>}
+			<ErrorNotices items={errorNotices} />
+			{connectionNotice}
+		</div>
 
 	function renderContent() {
 		switch (screen) {
-			case "run":
-				return <HudPanels message={message} messageId={client ? display.id : String(selectedMessage)}
-					streaming={Boolean(client && display.streaming)}
-					notice={session && <div className="run-feedback">
-						<p role="status" aria-label="Run status">{session.run.project} · {status}</p>
-						{session.run.error && <p role="alert">{session.run.error}</p>}
-						{session.run.error && <HudButton onClick={run.retry} disabled={!connected || run.creating}>Retry output</HudButton>}
-					</div>}
-					draft={draft} onDraftChange={setDraft}
-					layout={layout} focusOnOpen={focusRunEditor} editor={editor} />
 			case "projects":
 				return <div className={client ? "selection-overview" : "preview-overview"}>
 					{client && <Projects state={projects} />}
@@ -104,17 +111,18 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 			layoutMode={layout} onLayoutModeChange={setLayout}
 			header={<HudHeader presentation={presentation} onSelectScreen={selectScreen}
 				modelSelector={<ModelSelector models={models} disabled={Boolean(client && (!connected || run.creating))} />} />}>
-			<div className="desktop-interim-content">
-				{(connectionNotice || modelError) && <div className="desktop-interim-content__notices">
-					{modelError && <p role="alert">{modelError}</p>}
-					{connectionNotice}
-				</div>}
+			{screen === "run" ? <>
+				{notices && <div className="desktop-interim-content desktop-interim-content--notices">{notices}</div>}
+				<div className="agent-hud__run-view">
+					{session && <p className="sr-only" role="status" aria-label="Run status">{session.run.project} · {status}</p>}
+					<RunHud key={session?.run.runId ?? "preview"} draft={draft} onDraftChange={setDraft}
+						layoutMode={layout} display={display} awaitingInput={client ? Boolean(session?.run.prompt) : true}
+						focusOnOpen={focusRunEditor} onSelect={client ? run.select : setSelectedMessage} />
+				</div>
+			</> : <div className="desktop-interim-content">
+				{notices}
 				<div className="desktop-interim-content__content">{renderContent()}</div>
-				{screen === "run" && <HudFooter message={message} selected={messageIndex} status={status}
-					count={client ? display.count : mockMessages.length} currentIndex={client ? display.currentIndex : undefined}
-					onSelect={client ? run.select : setSelectedMessage} draft={draft}
-					onClear={() => { setDraft(""); editor.current?.focus() }} />}
-			</div>
+			</div>}
 		</AgentHud>
 	)
 }

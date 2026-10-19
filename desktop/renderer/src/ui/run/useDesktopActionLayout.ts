@@ -1,5 +1,4 @@
-"use client"
-
+// Copied from robozium-electron/desktop/web/hooks/useDesktopActionLayout.ts at 076b2c9.
 import { useLayoutEffect, useRef } from "react"
 
 const ACTION_SELECTOR = ".agent-hud__cancel, .agent-hud__interrupt, .agent-hud__copy-controls, .agent-hud__dictate, .agent-hud__send"

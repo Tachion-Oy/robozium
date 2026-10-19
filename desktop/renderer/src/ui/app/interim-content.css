@@ -1,5 +1,6 @@
 /* Interim styles for components that still precede the reference port: the
- * content area (roadmap steps 11-12) and the startup screen (step 21). Tokens
+ * overview content and notices (roadmap step 12) and the startup screen
+ * (step 21). Tokens
  * are scoped so they cannot leak into the reference frame and header. Delete
  * this file once those components use the reference stylesheets. */
 
@@ -45,6 +46,8 @@
 	overflow-wrap: anywhere;
 }
 
+.desktop-interim-content--notices { flex: none; }
+
 .desktop-interim-content__content {
 	display: grid;
 	flex: 1;
@@ -53,10 +56,17 @@
 }
 
 .desktop-interim-content p { margin: 0.75rem 0 0; }
-.desktop-interim-content__notices { font-size: 0.85rem; }
+.desktop-interim-content__notices {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.25rem 0.75rem;
+	font-size: 0.85rem;
+}
 .desktop-interim-content__notices p { margin: 0; color: var(--term-red); }
 .desktop-interim-content__notices .backend-notice { gap: 0.25rem 0.75rem; margin-left: 0; }
-.desktop-interim-content__notices .backend-notice .hud-button { min-height: 0; padding-block: 0.15rem; }
+.desktop-interim-content__notices .hud-button,
+:root[data-theme="light"] .desktop-interim-content__notices .hud-button { min-height: 0; padding-block: 0.15rem; }
 
 .selection-overview { overflow: auto; min-height: 0; padding: 0.4rem; }
 .selection-overview .run-overview { margin-top: 1rem; }

@@ -316,3 +316,15 @@ test("a delayed prompt snapshot splits scripts at its capture point without movi
 	state = receive(state, script(5, " continued"))
 	expect(state.hud.view.messages.map(item => item.text)).toEqual(["Before", "After continued"])
 })
+
+test("agent messages and prompts render as Markdown while live text and scripts stay literal", () => {
+	let state = receive(session(), message(1, "note", "**Done**"))
+	expect(selectRunDisplay(state)).toMatchObject({ text: "**Done**", contentType: "markdown" })
+	state = receive(state, delta(2, "live", "**partial"))
+	expect(selectRunDisplay(state)).toMatchObject({ text: "**partial", contentType: "plain-text", streaming: true })
+	state = receive(state, script(3, "$ ls *.md"))
+	expect(selectRunDisplay(state)).toMatchObject({ text: "$ ls *.md", contentType: "plain-text" })
+	state = snapshot(state, { status: "awaiting_user_input", promptId: "p1", prompt: "Pick **one**" })
+	expect(selectRunDisplay(state)).toMatchObject({ text: "Pick **one**", contentType: "markdown" })
+	expect(selectRunDisplay(null).contentType).toBe("plain-text")
+})
