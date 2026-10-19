@@ -1,9 +1,10 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/run/RunHud.tsx at 076b2c9.
-// Adapted: the displayed run comes from the desktop session owner as props.
-// Replies, cancellation, interruption and dictation render unavailable until
-// their owners arrive (roadmap steps 14, 15 and 21).
+// Adapted: the displayed run and its reply write come from the desktop session
+// owners as props. Cancellation, interruption and dictation render unavailable
+// until their owners arrive (roadmap steps 15 and 21).
 import type { Dispatch, SetStateAction } from "react"
 import type { HudDisplay } from "../../hud/hud-view"
+import type { ReplyResult } from "../../session/useRunMutations"
 import type { LayoutMode } from "../hud/HudCornerControls"
 import type { AgentMessage } from "./AgentMessagePanel"
 import { ReplyForm } from "./ReplyForm"
@@ -17,6 +18,11 @@ type RunHudProps = {
 	awaitingInput: boolean
 	focusOnOpen: boolean
 	onSelect: (index: number) => void
+	reply: {
+		available: boolean
+		submitting: boolean
+		submit: (content: string) => Promise<ReplyResult>
+	}
 }
 
 const unavailable = { isPending: false, available: false, onTrigger: () => {} }
@@ -29,6 +35,7 @@ export function RunHud({
 	awaitingInput,
 	focusOnOpen,
 	onSelect,
+	reply,
 }: RunHudProps) {
 	const { index, currentIndex, count } = display
 	const message: AgentMessage = {
@@ -37,6 +44,16 @@ export function RunHud({
 		contentType: display.contentType,
 		mode: display.streaming ? "streaming" : index === currentIndex ? "current" : "history",
 	}
+	const handleSubmit = async () => {
+		const submittedDraft = draft
+		// The owner reports failures; an acknowledged reply clears only an unchanged draft.
+		if (await reply.submit(draft) === "acknowledged") {
+			onDraftChange((current) =>
+				current === submittedDraft ? "" : current,
+			)
+		}
+	}
+
 	const targets: Record<HudMessageNavigationDirection, number> = {
 		first: 0,
 		previous: index - 1,
@@ -50,11 +67,11 @@ export function RunHud({
 			layoutMode={layoutMode}
 			composer={{
 				value: draft,
-				isReplyAvailable: false,
-				isSubmitting: false,
+				isReplyAvailable: reply.available,
+				isSubmitting: reply.submitting,
 				focusOnOpen,
 				onChange: onDraftChange,
-				onSubmit: () => {},
+				onSubmit: handleSubmit,
 			}}
 			navigation={{
 				agentActivityState: awaitingInput

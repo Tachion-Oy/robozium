@@ -34,7 +34,8 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `projects/useProjectMutations` | This app's cancel and delete requests per project: requesting, then settling until a listing confirms them | Cancel, delete |
 | `capabilities/useCapabilities` | The open selector's catalogue and saved choices | Catalogue and selection reads |
 | `projects/useProjectLaunch` | One pending launch | Create project, read and save capabilities, create run |
-| `session/useRunSession` | The displayed run (`RunSession`) | Stream and snapshot polling (`run/run-updates`) |
+| `session/useRunSession` | The displayed run (`RunSession`) and its scope, which ends on open, retry, a new client or unmount | Stream and snapshot polling (`run/run-updates`) |
+| `session/useRunMutations` | One in-flight reply to the displayed run, bound to the session scope | Reply |
 | `feedback/notices` | Visible error notices | None |
 
 `ui/app/App.tsx` composes the owners and keeps navigation (`app/hud-navigation`:
@@ -49,6 +50,9 @@ flowchart LR
   App --> Capabilities["useCapabilities"]
   App --> Launch["useProjectLaunch"]
   App --> Session["useRunSession"]
+  App --> RunMutations["useRunMutations"]
+  RunMutations -- "scope, acknowledge" --> Session
+  RunMutations --> RunApi
   Launch -- "run id" --> App
   Launch --> ProjectsApi["projects-api"]
   Launch --> CapabilitiesApi["capabilities-api"]

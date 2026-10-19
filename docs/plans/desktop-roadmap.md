@@ -118,7 +118,7 @@ the capability selector from step 20 pulled in, then a working HUD.
    writes. The launch marking and refresh sequence moves from the overview
    component into its owner, so every launch entry point gets the same
    guarantees.
-4. **Step 14:** replies.
+4. **Step 14:** replies (done: `session/useRunMutations`, bound to the session scope).
 5. **Step 15, HUD side:** interrupt, HUD cancel, and returning to the overview
    when a run ends or goes missing.
 6. **Step 17:** reconnection and recovery.
