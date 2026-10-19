@@ -1,4 +1,6 @@
-import type { Project } from "./wire"
+// Copied from web/lib/robozium/landing.ts at 5b06d82.
+// Adapted: summaries come from the desktop projects API, already in camel case.
+import type { Project } from "./projects-api"
 
 /**
  * The landing is project-centric: every project is one row. "Running"/"waiting"
@@ -50,8 +52,8 @@ export function mergeProjects(projects: Project[]): ProjectRow[] {
 	return projects.map((project) => ({
 		slug: project.slug,
 		status: project.status as ProjectStatus,
-		runId: project.run_id,
-		createdAt: project.created_at,
+		runId: project.runId,
+		createdAt: project.createdAt,
 	}))
 }
 

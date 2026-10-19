@@ -32,7 +32,7 @@ export const test = base.extend<{ desktop: { app: ElectronApplication; page: Pag
 			const errors: string[] = []
 			page.on("pageerror", error => errors.push(error.message))
 			await expect(page.locator(".agent-hud__box")).toBeVisible()
-			await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeVisible()
+			await expect(page.getByRole("button", { name: "Launch", exact: true })).toBeVisible()
 			await use({ app, page })
 			expect(errors).toEqual([])
 		} finally {

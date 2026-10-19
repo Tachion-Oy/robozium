@@ -1,12 +1,13 @@
 # Robozium
 
 The Electron app is under development. React connects directly to the Python
-API for projects, default model selection, and live runs. Select a project and
-use **Start run** to watch incremental output, messages, script output, prompts,
-and completion in Current Run. **Return to run** reopens the current session.
-Light/Dark switches the theme. The window frame and header use the accepted
-experiment's stylesheets and markup; replies, credentials, and capability
-selection follow in later [roadmap](../docs/plans/desktop-roadmap.md) steps.
+API for projects, capabilities, default model selection, and live runs. In Runs
+Overview, **Launch** a project or create one with **New Project** to watch
+incremental output, messages, script output, prompts, and completion in Current
+Run. Light/Dark switches the theme. The window frame, header, overview,
+capability selector and run view use the accepted experiment's stylesheets and
+markup; replies and credentials follow in later
+[roadmap](../docs/plans/desktop-roadmap.md) steps.
 
 ## Run on Linux
 
@@ -98,29 +99,38 @@ catalogue and selection without replaying writes or resetting drafts and local
 project selection.
 Preview model choices stay local and reset on reload.
 
-In connected Runs Overview, select a project row with a click, Enter, or Space.
-Enter a **Project name** and press Enter or **Create project** to create it. Success
-selects the returned slug and refreshes the list. A failed creation retains your
-name; if only the follow-up refresh fails, use **Refresh** without creating again.
-The list loads when entering Runs Overview and on Refresh, retaining existing
-rows and selection on failure. The selected project and typed name survive view
-changes and connection outages, and reset when the application reloads. Projects
-remain stored in the Python backend.
+Connected Runs Overview lists every project with its backend status (running,
+waiting, cancelling, syncing or dormant) and start time. The list polls every
+three seconds while the overview is visible, and every 250ms while a
+cancellation is settling; a failed read keeps the last rows. Rows survive
+leaving the overview.
 
-Selection requests have ten-second deadlines and are cancelled on unmount.
-Obsolete project reads are cancelled when refreshing or leaving Runs Overview.
-Writes cannot overlap for the same operation and are never retried automatically.
-A timed-out write may have reached the backend; refresh to check before retrying.
+- Clicking a project with an active run opens that run; the current run's row
+  reads **Return to** its project. Clicking a dormant project, or **Tools**,
+  opens the capability selector for it.
+- **Launch** starts a dormant project with its saved capabilities.
+- **Cancel** stops a running project's work and shows **Cancelling** until a
+  listing reports it dormant. **Delete** asks **Confirm?** before removing a
+  dormant project. Refused or failed requests show an alert and keep the row.
+- **New Project** opens the capability selector with a **Project name** field.
 
-**Start run** requires a connected backend, a selected project, and a confirmed
-model. It reads the capability catalogue and the project's saved choices, saves
-the resolved selection, then creates the run with it and the acknowledged default
-model; later model changes affect future runs. Each step has a ten-second
-deadline. The launch blocks duplicate submissions and model changes, and never
-retries automatically. A failure shows a **Launch failed** alert (or **Secrets
-locked** when the backend reports locked credentials). A timeout may still have
-prepared a backend run; check the backend before trying again. Starting another run replaces the local subscription without cancelling
-the previous backend run. The project label always identifies the captured run.
+The capability selector lists fixed **Defaults** and **Selectable** tools and
+skills, restoring the project's saved choices. **Launch** saves the choices and
+starts the run; **Cancel** or Escape returns to the overview. A load failure
+shows an inline alert with **Retry**. Launch and the selector controls stay
+disabled while a launch, a model change or a reconnection is pending.
+
+A launch creates the project if needed, reads the capability catalogue and the
+project's saved choices when none are given, saves the resolved selection, then
+creates the run with it and the acknowledged default model; later model changes
+affect future runs. Each step has a ten-second deadline. A created project is
+remembered, so launching again from the selector does not create it twice, and
+no write is retried automatically. A failure shows a **Launch failed** alert (or
+**Secrets locked** when the backend reports locked credentials) and keeps the
+selector draft. A timeout may still have prepared a backend run; check the
+backend before trying again. Launching another project replaces the local
+subscription without cancelling the previous backend run. The project label
+always identifies the captured run.
 
 Opening the event stream starts the prepared run. A snapshot is read immediately,
 then every two seconds after the previous read settles, with ten-second deadlines.
@@ -130,7 +140,8 @@ Errors preserve output and drafts. Completed, failed, and cancelled runs stay
 readable and stop polling; unknown runs show **Run unavailable**. Automatic
 reconnection and recovery after reopening are planned for PR 9.
 
-In standalone preview, **Start run** opens the latest local mock message above
+In standalone preview, the overview lists one local `preview` project whose
+**Launch** opens the latest local mock message above
 an empty reply editor. In either mode, draft freely: Shift+Enter inserts a
 newline and Enter is reserved for sending, which arrives with replies. The arrow buttons in the left rail move the
 divider between message-expanded, equal, and reply-expanded positions. At each
@@ -177,7 +188,7 @@ failure shows an alert above the run and allows retry. Cancel stays leftmost and
 Send rightmost; when space is tight, the other actions wrap beneath the
 centered history controls.
 
-Switch views using the header, or use **Return to run** in Runs Overview. The
+Switch views using the header, or use the current run's row in Runs Overview. The
 draft, selected message, and divider position survive view, model, theme,
 window-size, and zoom changes. Reloading or restarting resets the desktop to
 Runs Overview with no local session; it does not recover an existing run yet.

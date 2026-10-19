@@ -1,4 +1,6 @@
-import type { CapabilityView } from "@/lib/robozium/wire"
+// Copied from web/app/components/hud/CapabilityItem.tsx at 5b06d82.
+// Adapted: import paths.
+import type { CapabilityView } from "../../capabilities/capabilities-api"
 import { HudButton } from "./HudButton"
 
 type CapabilityItemProps = {

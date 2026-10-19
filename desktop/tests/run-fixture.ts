@@ -31,10 +31,12 @@ export function prepareRun(backend: Backend, id = "run-one", project = "existing
 }
 export async function start(page: Page, backend: Backend) {
 	await backend.open()
-	await page.getByRole("button", { name: "existing-project", exact: true }).click()
-	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await launchButton(page, "existing-project").click()
 	await expect(replyBox(page)).toBeFocused()
 }
+/** The row's Launch button starts a run with the project's saved capabilities. */
+export const launchButton = (page: Page, project: string) =>
+	page.locator(".agent-hud__project-row", { hasText: project }).getByRole("button", { name: "Launch", exact: true })
 export async function view(page: Page, label: string) {
 	await chooseView(page, label)
 }

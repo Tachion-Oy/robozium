@@ -1,14 +1,14 @@
-"use client"
-
+// Copied from web/app/components/hud/projects/ProjectOverviewPanel.tsx at 5b06d82.
+// Adapted: import paths.
 import { useState } from "react"
 import {
 	isActiveRunStatus,
 	isCurrentRunRow,
 	ProjectStatus,
 	type ProjectRow,
-} from "@/lib/robozium/landing"
-import { DisplayArt } from "@/app/components/branding/DisplayArt"
-import { HudButton } from "../HudButton"
+} from "../../projects/landing"
+import { DisplayArt } from "../branding/DisplayArt"
+import { HudButton } from "../hud/HudButton"
 
 type ProjectOverviewPanelProps = {
 	projects: ProjectRow[]

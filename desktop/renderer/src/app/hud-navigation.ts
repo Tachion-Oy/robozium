@@ -1,4 +1,6 @@
-import type { CapabilitySelection } from "./wire"
+// Copied from web/lib/robozium/hud-navigation.ts at 5b06d82.
+// Adapted: selections come from the desktop capability API.
+import type { CapabilitySelection } from "../capabilities/capabilities-api"
 
 export type HudScreen = "projects" | "run" | "dependencies" | "launch" | "environment"
 

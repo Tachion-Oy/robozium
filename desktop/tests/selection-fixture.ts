@@ -44,7 +44,7 @@ export const test = native.extend<{ backend: Backend }>({
 			response.setHeader("Access-Control-Allow-Origin", "robozium://app")
 			if (request.method === "OPTIONS") {
 				response.setHeader("Access-Control-Allow-Headers", "Content-Type")
-				response.setHeader("Access-Control-Allow-Methods", "GET, POST")
+				response.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE")
 				response.end()
 				return
 			}
@@ -70,7 +70,7 @@ export const test = native.extend<{ backend: Backend }>({
 					await load(modulePath).registerRendererProtocol(baseUrl)
 				}, { baseUrl: `http://127.0.0.1:${address.port}`, modulePath: path.join(desktopRoot, "dist/renderer-protocol.js") })
 				await page.reload()
-				await expect(page.getByRole("heading", { name: "Runs Overview" })).toBeVisible()
+				await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible()
 			} })
 		} finally {
 			await page.goto("about:blank") // Unmount/abort before closing the HTTP boundary.

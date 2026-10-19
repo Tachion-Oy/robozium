@@ -64,7 +64,7 @@ async function headerRow(page: Page) {
 for (const theme of ["dark", "light"]) {
 	test(`header keeps model, theme and view in one row and truncates labels in ${theme}`, async ({ desktop: { app, page } }) => {
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
-		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		await page.getByRole("button", { name: "Launch", exact: true }).click()
 		await page.evaluate(async () => { await document.fonts.ready })
 		for (const [width, height, zoom] of [[1260, 780, 1], [640, 420, 1.25]]) {
 			await setNativeViewport(app, page, width, height, zoom)
@@ -83,7 +83,7 @@ for (const theme of ["dark", "light"]) {
 			await page.reload()
 			if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 			for (const state of ["idle", "top", "equal", "bottom"]) {
-				if (state === "top") await page.getByRole("button", { name: "Start run", exact: true }).click()
+				if (state === "top") await page.getByRole("button", { name: "Launch", exact: true }).click()
 				else if (state !== "idle") await page.getByRole("button", { name: "Move panel divider up" }).click()
 				const geometry = await page.getByRole("group", { name: /^Panel divider:/ }).getByRole("button")
 					.evaluateAll(buttons => buttons.map(button => {
@@ -109,7 +109,7 @@ for (const theme of ["dark", "light"]) {
 	test(`panel divider interpolates and respects reduced motion in ${theme}`, async ({ desktop: { page } }) => {
 		await page.emulateMedia({ reducedMotion: "no-preference" })
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
-		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		await page.getByRole("button", { name: "Launch", exact: true }).click()
 		const motion = await page.evaluate(async () => {
 			const panels = document.querySelector(".agent-hud__panels")!
 			const agent = panels.firstElementChild!
@@ -155,7 +155,7 @@ for (const theme of ["dark", "light"]) {
 		await view.click()
 		await expect(page.getByRole("option", { name: "Current Run", exact: true })).toHaveCount(0)
 		await page.keyboard.press("Escape")
-		await page.getByRole("button", { name: "Start run", exact: true }).press("Enter")
+		await page.getByRole("button", { name: "Launch", exact: true }).press("Enter")
 		await expect(reply).toBeFocused()
 		await expect(view).toHaveAccessibleName("Current Run")
 		await expect(page.locator(".agent-hud__replyBox--agent")).toContainText("Mock run ready.")
@@ -196,7 +196,7 @@ for (const theme of ["dark", "light"]) {
 			await expect(down).toBeDisabled()
 			await expect(reply).toHaveCount(0)
 		}
-		await page.getByRole("button", { name: "Return to run", exact: true }).click()
+		await page.getByRole("button", { name: "Return to preview", exact: true }).click()
 		await expect(reply).toBeFocused()
 		await expect(reply).toHaveValue(draft)
 		await expect(page.getByRole("group", { name: "Panel divider: bottom" })).toBeVisible()
@@ -207,8 +207,8 @@ for (const theme of ["dark", "light"]) {
 		await chooseView(page, "Current Run")
 		await expect(reply).toHaveValue(draft)
 		await page.reload()
-		await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeVisible()
-		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		await expect(page.getByRole("button", { name: "Launch", exact: true })).toBeVisible()
+		await page.getByRole("button", { name: "Launch", exact: true }).click()
 		await expect(reply).toHaveValue("")
 		await expect(page.getByRole("group", { name: "Panel divider: top" })).toBeVisible()
 		expect(requests).toEqual([])
@@ -222,7 +222,7 @@ for (const theme of ["dark", "light"]) {
 		})
 		await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([512, 336])
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
-		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		await page.getByRole("button", { name: "Launch", exact: true }).click()
 		const reply = page.getByRole("textbox", { name: "Type your reply...", exact: true })
 		await reply.fill(("A long draft " + "x".repeat(180) + "\n").repeat(30))
 		await expectPanelGeometry(page, "top")
@@ -303,7 +303,7 @@ for (const theme of ["dark", "light"]) {
 		page.on("request", request => { if (/^https?:/.test(request.url())) requests.push(request.url()) })
 		const toggle = page.getByRole("button", { name: "Toggle color theme" })
 		if (theme === "light") await toggle.click()
-		await expect(page.getByRole("region", { name: "Runs Overview" })).toContainText("Start run")
+		await expect(page.locator(".agent-hud__project-view")).toContainText("New Project")
 		await chooseModel(page, "Mock fast model")
 		await expect(modelTrigger(page)).toHaveAccessibleName("Mock fast model")
 		await expect(modelTrigger(page)).toHaveAttribute("aria-expanded", "false")
@@ -311,7 +311,8 @@ for (const theme of ["dark", "light"]) {
 			await chooseView(page, name)
 			await expect(viewTrigger(page)).toHaveAccessibleName(name)
 			await expect(page.getByRole("listbox")).toHaveCount(0)
-			await expect(page.getByRole("region", { name, exact: true })).toContainText(name === "Runs Overview" ? "Start run" : "This view is coming soon.")
+			if (name === "Runs Overview") await expect(page.locator(".agent-hud__project-view")).toContainText("New Project")
+			else await expect(page.getByRole("region", { name, exact: true })).toContainText("This view is coming soon.")
 		}
 		await page.reload()
 		await expect(modelTrigger(page)).toHaveAccessibleName("Mock model")
@@ -396,7 +397,7 @@ test("native Ctrl shortcuts zoom both ways and reset with an open selector", asy
 for (const [width, height] of [[1260, 780], [640, 420]]) {
 	for (const zoom of [1, 1.25]) {
 		test(`frame fits ${width}x${height} at ${zoom} zoom in both themes`, async ({ desktop: { app, page } }) => {
-			await page.getByRole("button", { name: "Start run", exact: true }).click()
+			await page.getByRole("button", { name: "Launch", exact: true }).click()
 			await page.getByRole("textbox", { name: "Type your reply...", exact: true }).blur()
 			await setNativeViewport(app, page, width, height, zoom)
 			await page.evaluate(async () => { await document.fonts.ready })
@@ -456,9 +457,12 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 				await chooseModel(page, "Mock model")
 				for (const name of ["Runs Overview", "Dependencies", "Environment"]) {
 					await chooseView(page, name)
-					await expect(page.getByRole("region", { name, exact: true })).toBeVisible()
-					expect(await page.locator(".desktop-interim-content__content").evaluate(content => {
-						const bounds = content.firstElementChild!.getBoundingClientRect()
+					const view = name === "Runs Overview"
+						? page.locator(".agent-hud__project-view")
+						: page.getByRole("region", { name, exact: true })
+					await expect(view).toBeVisible()
+					expect(await view.evaluate(element => {
+						const bounds = element.getBoundingClientRect()
 						return bounds.x >= 0 && bounds.y >= 0 && bounds.right <= innerWidth && bounds.bottom <= innerHeight
 							&& document.documentElement.scrollWidth === innerWidth && document.documentElement.scrollHeight === innerHeight
 					})).toBe(true)

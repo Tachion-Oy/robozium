@@ -191,20 +191,28 @@ The shared client streams any supplied SSE path; the typed run-stream wrapper
 encodes its run ID, ignores unknown events and closes the HTTP response on early
 exit, abort or invalid consumed payloads.
 
-Connected selection tests in `desktop/tests/selection.spec.ts` run the built renderer
-against a disposable HTTP server. The fixture replaces only the connection bridge
-and protocol registration to select that server; there are no production test
-controls or browser dependencies. Scenarios cover delayed acknowledgement, rejected
-and malformed writes, empty/malformed catalogues, explicit Retry, single submission,
-creation followed by failed refresh, retained names/selections, cancelled obsolete
-reads, ten-second read/write deadlines, and reload cancellation. Lost-acknowledgement
+Connected model-selection tests in `desktop/tests/selection.spec.ts` run the built
+renderer against a disposable HTTP server. The fixture replaces only the connection
+bridge and protocol registration to select that server; there are no production
+test controls or browser dependencies. Scenarios cover delayed acknowledgement,
+rejected and malformed writes, empty/malformed catalogues, explicit Retry,
+ten-second read/write deadlines, and reload cancellation. Lost-acknowledgement
 regressions commit a model change before its response times out, then recover by
 reading the backend or explicitly selecting the old displayed choice. Reconnect
 regressions change the backend default, cancel stale reads/pending writes, preserve
-local drafts/selections, and verify recovery reads without automatic write retries
-or reloading models on each healthy readiness poll. Native captures
-and overflow checks cover long names in both themes at normal/narrow sizes and
-125% zoom. Keyboard assertions retain input, row, selector, and Retry focus.
+local drafts and the overview, and verify recovery reads without automatic write
+retries or reloading models on each healthy readiness poll.
+
+Connected overview tests in `desktop/tests/overview.spec.ts` use the same server.
+They cover status rows and per-status actions, three-second polling only while
+the overview is visible and through failed reads, New Project's single creation
+followed by the capability save and run creation, a failed launch keeping the
+selector draft and reusing the created project, Tools restoring saved choices,
+Escape and Cancel, inline capability load errors with Retry, opening active runs
+and returning to the current one, cancel and delete settling through listings
+with their refusal and failure alerts, and long names in both themes at
+normal/narrow sizes and 125% zoom. `backend-ipc.spec.ts` checks that the CSP adds
+only `img-src 'self'` and that the overview's display art loads.
 
 Connected run tests in `desktop/tests/runs.spec.ts` use the same native HTTP
 boundary. They cover launch guards, the launch sequence (saved capabilities are
@@ -473,10 +481,10 @@ The native backend suite stages real shared Python inputs and launches sandboxed
 Electron on an isolated display with a temporary profile and unused loopback port.
 Focused scenarios exercise a Docker-unavailable alert and Retry, duplicate-launch
 ownership, and cancellation during a blocked build. A persistence scenario creates
-projects through the labelled form, exercises duplicate-name errors and keyboard
-selection/refresh, closes the native window, and verifies
-stopped containers and retained data. Reopening that same installation must reuse
-its image and projects while resetting the local selection; named steps make
+and launches a project through the capability selector, exercises the
+duplicate-name error, closes the native window, and verifies stopped containers
+and retained data. Reopening that same installation must reuse its image and
+list the project; named steps make
 these dependent phases explicit. Logs and a startup-error capture are attached
 to the report.
 Native lifecycle captures wait for the renderer to observe a window resize before

@@ -110,9 +110,11 @@ the capability selector from step 20 pulled in, then a working HUD.
    and the launch command (create project, resolve and save capabilities, create
    run). No visible change; the interim **Start run** uses it.
 2. **Step 12 with the step 20 selector:** the reference overview and capability
-   selector UI, replacing the interim overview. `UnlockApiKeys` stays in step 20.
-3. **Overview cancel and delete** (steps 15 and 16, overview side), on one keyed
-   request registry shared by both.
+   selector UI, replacing the interim overview, with the reference's cancel and
+   delete. `UnlockApiKeys` stays in step 20.
+3. **Overview cancel and delete hardening** (steps 15 and 16, overview side):
+   #101's uncertain-outcome reconciliation, on one keyed request registry
+   shared by both.
 4. **Step 14:** replies.
 5. **Step 15, HUD side:** interrupt, HUD cancel, and returning to the overview
    when a run ends or goes missing.

@@ -1,39 +1,49 @@
-"use client"
-
+// Copied from web/hooks/useCapabilities.ts at 5b06d82.
+// Adapted: reads use the desktop client with one deadline and run only while
+// the selector is open; App owns this state and passes it to the selector.
 import { useEffect, useState } from "react"
-import { AgentApiError, getProjectCapabilitySelection, listCapabilities } from "@/lib/robozium/client"
-import { resolveCapabilitySelection } from "@/lib/robozium/capabilities"
-import type { CapabilitySelection, CapabilityView } from "@/lib/robozium/wire"
+import type { DesktopApiClient } from "../api/client"
+import { withDeadline } from "../api/request"
+import { getProjectSelection, listCapabilities, type CapabilitySelection, type CapabilityView } from "./capabilities-api"
+import { resolveCapabilitySelection } from "./capabilities"
 
-export function useCapabilities(project: string | null) {
+export interface CapabilitiesState {
+	catalog: CapabilityView[] | null
+	/** Saved choices reconciled with the catalogue, before the user edits them. */
+	initialSelection: CapabilitySelection | null
+	error: string | null
+	retry: () => void
+}
+
+export function useCapabilities(client: DesktopApiClient | null, project: string | null, active: boolean): CapabilitiesState {
 	const [loaded, setLoaded] = useState<{
 		project: string | null
 		catalog: CapabilityView[]
-		/** Saved choices reconciled with the catalogue, before the user edits them. */
 		initialSelection: CapabilitySelection
 	} | null>(null)
 	const [error, setError] = useState<{ project: string | null; message: string } | null>(null)
 	const [attempt, setAttempt] = useState(0)
 	useEffect(() => {
+		if (!client || !active) return
 		const controller = new AbortController()
-		void Promise.all([
-			listCapabilities({ signal: controller.signal }),
-			project === null ? null : getProjectCapabilitySelection(project, { signal: controller.signal }),
-		]).then(
-			([catalog, savedSelection]) => {
+		const load = async () => {
+			try {
+				const [catalog, savedSelection] = await withDeadline(controller.signal, signal => Promise.all([
+					listCapabilities(client, signal),
+					project === null ? null : getProjectSelection(client, project, signal),
+				]))
+				if (controller.signal.aborted) return
+				setError(null)
+				setLoaded({ project, catalog, initialSelection: resolveCapabilitySelection(catalog, savedSelection) })
+			} catch (error) {
 				if (!controller.signal.aborted) {
-					setError(null)
-					setLoaded({ project, catalog, initialSelection: resolveCapabilitySelection(catalog, savedSelection) })
+					setError({ project, message: error instanceof Error ? error.message : "Could not load capabilities." })
 				}
-			},
-			(error: unknown) => {
-				if (!controller.signal.aborted) {
-					setError({ project, message: error instanceof AgentApiError ? error.message : "Could not load capabilities." })
-				}
-			},
-		)
+			}
+		}
+		void load()
 		return () => controller.abort()
-	}, [attempt, project])
+	}, [client, active, attempt, project])
 	return {
 		catalog: loaded?.project === project ? loaded.catalog : null,
 		initialSelection: loaded?.project === project ? loaded.initialSelection : null,

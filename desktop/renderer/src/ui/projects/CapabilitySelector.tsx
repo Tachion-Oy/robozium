@@ -1,16 +1,17 @@
-"use client"
-
+// Copied from web/app/components/hud/projects/CapabilitySelector.tsx at 5b06d82.
+// Adapted: App owns the capability reads and passes their state in.
 import { useEffect, useRef, type ComponentProps } from "react"
-import { DisplayArt } from "@/app/components/branding/DisplayArt"
-import { useCapabilities } from "@/hooks/useCapabilities"
-import { resolveCapabilitySelection } from "@/lib/robozium/capabilities"
-import type { LaunchDraft } from "@/lib/robozium/hud-navigation"
-import type { CapabilitySelection, CapabilityView } from "@/lib/robozium/wire"
-import { CapabilityItem } from "../CapabilityItem"
-import { HudButton } from "../HudButton"
+import { DisplayArt } from "../branding/DisplayArt"
+import type { CapabilitiesState } from "../../capabilities/useCapabilities"
+import { resolveCapabilitySelection } from "../../capabilities/capabilities"
+import type { LaunchDraft } from "../../app/hud-navigation"
+import type { CapabilitySelection, CapabilityView } from "../../capabilities/capabilities-api"
+import { CapabilityItem } from "../hud/CapabilityItem"
+import { HudButton } from "../hud/HudButton"
 
 type CapabilitySelectorProps = {
 	draft: LaunchDraft
+	capabilities: CapabilitiesState
 	disabled: boolean
 	onChange: (change: Partial<Pick<LaunchDraft, "name" | "selection">>) => void
 	onCancel: () => void
@@ -24,12 +25,13 @@ const CAPABILITY_GROUPS = [
 
 export function CapabilitySelector({
 	draft: { project, name, selection: draftSelection },
+	capabilities,
 	disabled,
 	onChange,
 	onCancel,
 	onSubmit,
 }: CapabilitySelectorProps) {
-	const { catalog, initialSelection, error: loadError, retry } = useCapabilities(project)
+	const { catalog, initialSelection, error: loadError, retry } = capabilities
 	const currentSelection = draftSelection ?? initialSelection
 	const title = useRef<HTMLHeadingElement>(null)
 
