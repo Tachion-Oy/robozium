@@ -14,6 +14,7 @@ import { useHudEscapeDismiss } from "@/hooks/useHudEscapeDismiss"
 import { useRunSessionSelector } from "@/hooks/useRunSession"
 import { useProjectLaunch } from "@/hooks/useProjectLaunch"
 import { useReplyImages } from "@/hooks/useReplyImages"
+import { useSetupRequired } from "@/hooks/useSetupRequired"
 import { initialHudNavigation, reduceHudNavigation } from "@/lib/robozium/hud-navigation"
 import {
 	HudCornerControls,
@@ -34,6 +35,7 @@ type AgentHUDProps = {
 	runId: string | null
 	introDone?: boolean
 	initialProjects?: Project[] | null
+	initialSetupRequired?: boolean
 	modelSelectionPromise?: Promise<ModelSelection | null> | null
 	defaultModelSelectionPromise?: Promise<ModelSelection | null> | null
 }
@@ -42,9 +44,11 @@ export function AgentHUD({
 	runId,
 	introDone = false,
 	initialProjects = null,
+	initialSetupRequired = false,
 	modelSelectionPromise = null,
 	defaultModelSelectionPromise = null,
 }: AgentHUDProps) {
+	const setupRequired = useSetupRequired(initialSetupRequired)
 	const [layoutMode, setLayoutMode] = useState<LayoutMode>("top")
 	const [navigation, dispatch] = useReducer(reduceHudNavigation, runId, initialHudNavigation)
 	const launchProject = useProjectLaunch(
@@ -89,6 +93,7 @@ export function AgentHUD({
 		runUnavailable,
 		selectedScreen: navigation.screen,
 		launch: navigation.launch,
+		setupRequired,
 	})
 	const { context } = presentation
 	const isLanding = context === "landing"

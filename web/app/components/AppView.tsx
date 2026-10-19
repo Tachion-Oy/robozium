@@ -22,6 +22,8 @@ type AppViewProps = {
 	initialRunView?: RunView | null
 	/** Server-fetched project list, same idea for the landing table. */
 	initialProjects?: Project[] | null
+	/** Live mode started without API key files; the HUD shows onboarding. */
+	setupRequired?: boolean
 	/** Started by the server before route data is resolved and streamed here. */
 	modelSelectionPromise: Promise<ModelSelection | null>
 	/** Global default used when a completed or unavailable run returns to the matrix. */
@@ -37,6 +39,7 @@ export function AppView({
 	from,
 	initialRunView = null,
 	initialProjects = null,
+	setupRequired = false,
 	modelSelectionPromise,
 	defaultModelSelectionPromise = null,
 }: AppViewProps) {
@@ -70,6 +73,7 @@ export function AppView({
 				playIntro={playIntro}
 				onIntroDone={() => setIntroDone(true)}
 				initialProjects={initialProjects}
+				setupRequired={setupRequired}
 				fadeInPlaceholder={hasEverHadRun}
 				modelSelectionPromise={modelSelectionPromise}
 				defaultModelSelectionPromise={defaultModelSelectionPromise}
@@ -85,6 +89,7 @@ type AppViewContentProps = {
 	playIntro: boolean
 	onIntroDone: () => void
 	initialProjects: Project[] | null
+	setupRequired: boolean
 	fadeInPlaceholder: boolean
 	modelSelectionPromise: Promise<ModelSelection | null> | null
 	defaultModelSelectionPromise: Promise<ModelSelection | null> | null
@@ -97,6 +102,7 @@ function AppViewContent({
 	playIntro,
 	onIntroDone,
 	initialProjects,
+	setupRequired,
 	fadeInPlaceholder,
 	modelSelectionPromise,
 	defaultModelSelectionPromise,
@@ -132,6 +138,7 @@ function AppViewContent({
 				runId={runId}
 				introDone={introDone}
 				initialProjects={initialProjects}
+				initialSetupRequired={setupRequired}
 				modelSelectionPromise={modelSelectionPromise}
 				defaultModelSelectionPromise={defaultModelSelectionPromise}
 			/>

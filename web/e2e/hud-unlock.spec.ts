@@ -71,7 +71,7 @@ test("unlock request reaches the API through the web proxy", async ({ page }) =>
 	expect(result.body).toEqual({ detail: "Encrypted secrets are unavailable" })
 	const cleared = await page.request.post("/api/credentials/clear")
 	expect(cleared.status()).toBe(200)
-	expect(await cleared.json()).toEqual({ available: false, locked: false, removable: false })
+	expect(await cleared.json()).toEqual({ available: false, locked: false, removable: false, setup_required: false })
 })
 
 test("credential menu uses the red selector treatment in both themes", async ({ page }) => {
@@ -145,7 +145,7 @@ test("unlocks a synthetic encrypted file through the real API", async ({ page })
 	await page.getByRole("button", { name: "Unlock", exact: true }).click()
 	await expect(page.getByRole("button", { name: "Secrets unlocked" })).toBeVisible({ timeout: 40_000 })
 	const status = await page.request.get("/api/credentials")
-	expect(await status.json()).toEqual({ available: true, locked: false, removable: true })
+	expect(await status.json()).toEqual({ available: true, locked: false, removable: true, setup_required: false })
 	await page.getByRole("button", { name: "Secrets unlocked" }).click()
 	await page.getByRole("button", { name: "Remove secrets" }).click()
 	await expect(page.getByRole("button", { name: "Secrets locked" })).toBeVisible()

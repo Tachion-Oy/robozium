@@ -11,6 +11,7 @@ type HudCopyControlsProps = {
 	agentMessage: AgentMessage
 	replyDraft: string
 	hasImages?: boolean
+	disabled?: boolean
 	onClearReply: () => void
 }
 
@@ -19,6 +20,7 @@ export function HudCopyControls({
 	agentMessage,
 	replyDraft,
 	hasImages = false,
+	disabled = false,
 	onClearReply,
 }: HudCopyControlsProps) {
 	const targets: CopyTextButtonProps[] = [
@@ -44,7 +46,7 @@ export function HudCopyControls({
 				appearance="control"
 				className="agent-hud__copy-text agent-hud__clear-reply"
 				onClick={onClearReply}
-				disabled={!replyDraft && !hasImages}
+				disabled={disabled || (!replyDraft && !hasImages)}
 				aria-label="Clear reply"
 				title="Clear reply">
 				<svg
@@ -59,6 +61,7 @@ export function HudCopyControls({
 				<CopyTextButton
 					key={target.target}
 					{...target}
+					disabled={disabled}
 				/>
 			))}
 		</div>

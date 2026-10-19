@@ -10,6 +10,7 @@ type ReplyEditorProps = {
 	images?: ReplyImagesModel
 	dropzone?: DropzoneState
 	canSubmit: boolean
+	disabled?: boolean
 	onChange: (value: string) => void
 }
 
@@ -18,6 +19,7 @@ export function ReplyEditor({
 	images,
 	dropzone,
 	canSubmit,
+	disabled = false,
 	onChange,
 }: ReplyEditorProps) {
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -71,6 +73,7 @@ export function ReplyEditor({
 						onChange(event.target.value)
 					}}
 					onKeyDown={handleKeyDown}
+					disabled={disabled}
 					placeholder="Type your reply..."
 				/>
 				{images?.isBusy ? (

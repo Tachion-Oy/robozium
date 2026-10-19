@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, type CSSProperties } from "react"
 import type { ContentType } from "@/lib/robozium/view-model"
 import { HudMarkdown } from "./HudMarkdown"
 
@@ -9,6 +9,8 @@ export type AgentMessage = {
 	content: string
 	contentType: ContentType
 	mode: "current" | "history" | "streaming"
+	/** Static app artwork shown below the text; agent content never sets it. */
+	illustration?: { src: string; alt: string }
 }
 
 type AgentMessagePanelProps = {
@@ -30,6 +32,14 @@ export function AgentMessagePanel({ message }: AgentMessagePanelProps) {
 			<div
 				className="agent-hud__replyBox-scroll"
 				ref={scrollRef}>
+				{message.illustration ? (
+					<span
+						className="agent-hud__message-illustration"
+						role="img"
+						aria-label={message.illustration.alt}
+						style={{ "--illustration-source": `url("${message.illustration.src}")` } as CSSProperties}
+					/>
+				) : null}
 				{message.contentType === "plain-text" ? (
 					<pre
 						className="agent-hud__stream-text"

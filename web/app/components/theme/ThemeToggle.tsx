@@ -24,7 +24,7 @@ function persistTheme(theme: AppTheme) {
 	document.cookie = `${APP_THEME_COOKIE_NAME}=${theme}; Path=/; Max-Age=${THEME_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${secure}`
 }
 
-export function ThemeToggle() {
+export function ThemeToggle({ disabled = false }: { disabled?: boolean }) {
 	const themeChannelRef = useRef<BroadcastChannel | null>(null)
 
 	useEffect(() => {
@@ -50,6 +50,7 @@ export function ThemeToggle() {
 			className="theme-toggle agent-hud__selector-trigger"
 			data-hud-ignore-dismiss
 			aria-label="Toggle color theme"
+			disabled={disabled}
 			onClick={() => {
 				const nextTheme: AppTheme =
 					readDocumentTheme() === "dark" ? "light" : "dark"

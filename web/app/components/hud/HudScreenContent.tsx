@@ -10,6 +10,7 @@ import { ProjectOverview } from "./projects/ProjectOverview"
 import { CapabilitySelector } from "./projects/CapabilitySelector"
 import { EnvironmentPanel } from "./environment/EnvironmentPanel"
 import { DependencyPanel } from "./dependencies/DependencyPanel"
+import { OnboardingHud } from "./onboarding/OnboardingHud"
 import type { HudPresentation } from "./hudPresentation"
 
 type HudScreenContentProps = {
@@ -51,6 +52,8 @@ export function HudScreenContent({
 					onCurrentProjectClick={presentation.context === "active-run" ? onReturnToRun : undefined}
 					onSelectCapabilities={(project) => dispatch({ type: "launch_opened", project })}
 					onLaunch={onLaunch}
+					locked={presentation.locked}
+					onStartHere={() => dispatch({ type: "screen_selected", screen: "onboarding" })}
 				/>
 			) : null
 		case "launch":
@@ -69,6 +72,15 @@ export function HudScreenContent({
 			return <EnvironmentPanel />
 		case "dependencies":
 			return <DependencyPanel />
+		case "onboarding":
+			return (
+				<div className="agent-hud__run-view">
+					<OnboardingHud
+						layoutMode={layoutMode}
+						onExit={() => dispatch({ type: "screen_selected", screen: "projects" })}
+					/>
+				</div>
+			)
 		case "run":
 			return runId ? (
 				<div className="agent-hud__run-view">

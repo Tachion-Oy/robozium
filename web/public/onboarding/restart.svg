@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" fill="none" stroke="#000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="20" y="20" width="360" height="160" rx="10"/>
+  <path d="M20 48h360"/>
+  <circle cx="38" cy="34" r="4"/>
+  <circle cx="54" cy="34" r="4"/>
+  <circle cx="70" cy="34" r="4"/>
+  <g fill="#000" stroke="none" font-family="monospace" font-size="20">
+    <text x="36" y="80" opacity=".55">^C</text>
+    <text x="36" y="110">$ ./start</text>
+    <text x="36" y="140" opacity=".55">Open http://127.0.0.1:6969</text>
+  </g>
+  <rect x="36" y="152" width="12" height="18" fill="#000" stroke="none"/>
+</svg>
