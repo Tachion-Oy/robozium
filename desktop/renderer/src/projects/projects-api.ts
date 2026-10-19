@@ -1,5 +1,5 @@
 // Project requests and validation of the summaries returned by the backend.
-// Selection and creation drafts belong to useProjects; this module has no React state.
+// Rows and their writes belong to useProjectQuery; this module has no React state.
 import { ApiError, type DesktopApiClient } from "../api/client"
 
 // Contract adapted from web/lib/robozium/wire.ts (ProjectSummary). The backend owns
@@ -48,4 +48,20 @@ export async function listProjects(client: DesktopApiClient, signal: AbortSignal
 /** Creation answers with the backend-chosen slug only. */
 export async function createProject(client: DesktopApiClient, name: string, signal: AbortSignal): Promise<string> {
 	return readSlug(await client.request("/projects", { method: "POST", json: { name }, signal }))
+}
+
+function readAcknowledgement(value: unknown): boolean {
+	if (!value || typeof value !== "object" || !("ok" in value) || typeof value.ok !== "boolean") malformed()
+	return value.ok
+}
+
+const projectPath = (slug: string) => `/projects/${encodeURIComponent(slug)}`
+
+/** False means the backend refused because the project has nothing to cancel. */
+export async function cancelProject(client: DesktopApiClient, slug: string, signal: AbortSignal): Promise<boolean> {
+	return readAcknowledgement(await client.request(`${projectPath(slug)}/cancel`, { method: "POST", signal }))
+}
+
+export async function deleteProject(client: DesktopApiClient, slug: string, signal: AbortSignal): Promise<void> {
+	if (!readAcknowledgement(await client.request(projectPath(slug), { method: "DELETE", signal }))) malformed()
 }

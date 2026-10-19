@@ -1,4 +1,4 @@
-import { expect, test as base, type ElectronApplication } from "@playwright/test"
+import { expect, test as base, type ElectronApplication, type Page } from "@playwright/test"
 import { execFileSync, spawnSync, type ChildProcess } from "node:child_process"
 import { once } from "node:events"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
@@ -105,8 +105,15 @@ async function closeWindow(app: ElectronApplication) {
 async function launchConnected(runtime: Runtime) {
 	const app = await runtime.launch()
 	const page = await app.firstWindow()
-	await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeVisible({ timeout: 180_000 })
+	await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible({ timeout: 180_000 })
 	return { app, page }
+}
+
+/** Create a project through the capability selector and launch it with the defaults. */
+async function createAndLaunch(page: Page, name: string) {
+	await page.getByRole("button", { name: "New Project", exact: true }).click()
+	await page.getByRole("textbox", { name: "Project name" }).fill(name)
+	await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true }).click()
 }
 
 async function ownedBackend(profile: string) {
@@ -123,7 +130,7 @@ test("Docker startup failure presents an accessible retry that starts the backen
 	const app = await runtime.launch()
 	const page = await app.firstWindow()
 	await expect(page.getByRole("alert")).toContainText("Docker is unavailable")
-	await expect(page.getByRole("button", { name: "Start run", exact: true })).toHaveCount(0)
+	await expect(page.getByRole("button", { name: "New Project", exact: true })).toHaveCount(0)
 	await setNativeViewport(app, page, 640, 420, 1.25)
 	expect(await page.evaluate(() => document.documentElement.scrollHeight === innerHeight)).toBe(true)
 	const retry = await page.getByRole("button", { name: "Retry", exact: true }).boundingBox()
@@ -134,7 +141,7 @@ test("Docker startup failure presents an accessible retry that starts the backen
 	await testInfo.attach("startup-error.png", { path: screenshot, contentType: "image/png" })
 	await writeFile(enabled, "retry")
 	await page.getByRole("button", { name: "Retry", exact: true }).click()
-	await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeVisible({ timeout: 180_000 })
+	await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible({ timeout: 180_000 })
 })
 
 test("initial renderer readiness times out, stops polling, and retries without Docker", async ({ runtime }) => {
@@ -151,7 +158,7 @@ test("initial renderer readiness times out, stops polling, and retries without D
 	})
 	await test.step("Abort the timed-out request and stop polling", async () => {
 		await expect(page.getByRole("alert")).toContainText("Backend connection unavailable", { timeout: 180_000 })
-		await expect(page.getByRole("button", { name: "Start run", exact: true })).toHaveCount(0)
+		await expect(page.getByRole("button", { name: "New Project", exact: true })).toHaveCount(0)
 		await abortedReady
 		expect(readinessRequests).toBe(1)
 		await page.clock.install()
@@ -162,7 +169,7 @@ test("initial renderer readiness times out, stops polling, and retries without D
 		const commandsBeforeRetry = await readFile(commands, "utf8")
 		blocked = false
 		await page.getByRole("button", { name: "Retry", exact: true }).click()
-		await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeVisible()
+		await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible()
 		expect(await readFile(commands, "utf8")).toBe(commandsBeforeRetry)
 	})
 })
@@ -204,12 +211,7 @@ test("outage retry preserves the HUD and resumes readiness polling after recover
 		if (request.url() === `http://127.0.0.1:${port}/ready`) readinessRequests++
 		if (request.method() === "GET" && request.url() === `http://127.0.0.1:${port}/models`) modelReads++
 	})
-	const projectName = page.getByRole("textbox", { name: "Project name" })
-	await projectName.fill("Outage project")
-	await projectName.press("Enter")
-	await expect(page.getByRole("button", { name: "outage-project", exact: true })).toHaveAttribute("aria-pressed", "true")
-	await projectName.fill("Retained project draft")
-	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await createAndLaunch(page, "Outage project")
 	const reply = page.getByRole("textbox", { name: "Type your reply...", exact: true })
 	await reply.fill("retained across outage")
 	await reply.evaluate(element => Reflect.set(window, "originalEditor", element))
@@ -279,8 +281,7 @@ test("outage retry preserves the HUD and resumes readiness polling after recover
 		const recoveredRequests = readinessRequests
 		await expect.poll(() => readinessRequests, { timeout: 7000 }).toBeGreaterThan(recoveredRequests)
 		await chooseView(page, "Runs Overview")
-		await expect(projectName).toHaveValue("Retained project draft")
-		await expect(page.getByRole("button", { name: "outage-project", exact: true })).toHaveAttribute("aria-pressed", "true")
+		await expect(page.getByRole("button", { name: /^(Open|Return to) outage-project$/ })).toBeVisible()
 	})
 })
 
@@ -299,23 +300,15 @@ test("closing and reopening preserves project data and reuses the backend image"
 	const { app, page } = await launchConnected(runtime)
 	const { project, container } = await ownedBackend(profile)
 	const image = execFileSync(docker, ["image", "inspect", "--format", "{{.Id}}", `${project}-api`], { encoding: "utf8" }).trim()
-	const input = page.getByRole("textbox", { name: "Project name" })
-	await input.fill("Native lifecycle")
-	await input.press("Enter")
-	const projectRow = page.getByRole("button", { name: "native-lifecycle", exact: true })
-	await expect(projectRow).toHaveAttribute("aria-pressed", "true")
-	await expect(input).toBeFocused()
-	await input.fill("Native lifecycle")
-	await input.press("Enter")
+	await createAndLaunch(page, "Native lifecycle")
+	await expect(page.getByRole("status", { name: "Run status" })).toContainText("native-lifecycle")
+	await chooseView(page, "Runs Overview")
+	// A second project with the same name is refused, and the selector keeps the draft.
+	await createAndLaunch(page, "Native lifecycle")
 	await expect(page.getByRole("alert")).toContainText("Project already exists")
-	await expect(input).toHaveValue("Native lifecycle")
-	await input.fill("Another project")
-	await input.press("Enter")
-	await expect(page.getByRole("button", { name: "another-project", exact: true })).toHaveAttribute("aria-pressed", "true")
-	await projectRow.focus()
-	await projectRow.press("Enter")
-	await page.getByRole("button", { name: "Refresh", exact: true }).click()
-	await expect(projectRow).toHaveAttribute("aria-pressed", "true")
+	await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue("Native lifecycle")
+	await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Cancel", exact: true }).click()
+	await expect(page.getByRole("button", { name: /^(Open|Return to) native-lifecycle$/ })).toBeVisible()
 	const proof = path.join(profile, "mock/hub/projects/native-lifecycle/proof.txt")
 	await writeFile(proof, "native data survives shutdown\n")
 	await test.step("Close the window and retain the mounted project files", async () => {
@@ -326,12 +319,11 @@ test("closing and reopening preserves project data and reuses the backend image"
 	await test.step("Reopen the installation and reuse its project and image", async () => {
 		const reopened = await runtime.launch()
 		const reopenedPage = await reopened.firstWindow()
-		await expect(reopenedPage.getByRole("button", { name: "Start run", exact: true })).toBeVisible({ timeout: 30_000 })
+		await expect(reopenedPage.getByRole("button", { name: "New Project", exact: true })).toBeVisible({ timeout: 30_000 })
 		await installTestClient(reopenedPage, `http://127.0.0.1:${port}`)
 		const projects = await reopenedPage.evaluate(async () => await window.testApi.request("/projects") as { slug: string }[])
 		expect(projects.some(item => item.slug === "native-lifecycle")).toBe(true)
-		await expect(reopenedPage.getByRole("button", { name: "native-lifecycle", exact: true })).toHaveAttribute("aria-pressed", "false")
-		await expect(reopenedPage.getByText("Selected project: None", { exact: true })).toBeVisible()
+		await expect(reopenedPage.getByRole("button", { name: "Open native-lifecycle", exact: true })).toBeVisible()
 		expect(execFileSync(docker, ["image", "inspect", "--format", "{{.Id}}", `${project}-api`], { encoding: "utf8" }).trim()).toBe(image)
 		expect((await readFile(commands, "utf8")).split("\n").filter(line => line.endsWith(" build api"))).toHaveLength(1)
 		await closeWindow(reopened)
@@ -375,10 +367,7 @@ test("UI starts a project run, streams its prompts and retains completed history
 		if (request.url().endsWith("/run/create")) creates++
 		if (request.url().endsWith("/stream")) streams++
 	})
-	await page.getByRole("textbox", { name: "Project name" }).fill("Desktop output")
-	await page.getByRole("button", { name: "Create project", exact: true }).click()
-	await expect(page.getByRole("button", { name: "desktop-output", exact: true })).toHaveAttribute("aria-pressed", "true")
-	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await createAndLaunch(page, "Desktop output")
 	const output = page.locator(".agent-hud__replyBox--agent .agent-hud__replyBox-scroll")
 	const status = page.getByRole("status", { name: "Run status" })
 	await expect(output).toContainText("Hello! I generated a text artifact")

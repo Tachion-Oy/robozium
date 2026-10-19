@@ -13,7 +13,7 @@ const agentText = (page: Page) => page.locator(".agent-hud__replyBox--agent pre"
 test("fixture history navigates without wrapping and retains selection with draft and divider", async ({ desktop: { page } }) => {
 	const footer = page.locator(".agent-hud__actions")
 	await expect(footer).toHaveCount(0)
-	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await page.getByRole("button", { name: "Launch", exact: true }).click()
 	const message = page.locator(".agent-hud__replyBox--agent")
 	const first = page.getByRole("button", { name: "Jump to first agent message", exact: true })
 	const previous = page.getByRole("button", { name: "Previous agent message", exact: true })
@@ -50,18 +50,18 @@ test("fixture history navigates without wrapping and retains selection with draf
 		await chooseView(page, name)
 		await expect(footer).toHaveCount(0)
 	}
-	await page.getByRole("button", { name: "Return to run", exact: true }).click()
+	await page.getByRole("button", { name: "Return to preview", exact: true }).click()
 	await expect(message).toContainText("Planning the next steps.")
 	await expect(reply).toHaveValue(" retained\n draft ")
 	await expect(page.getByRole("group", { name: "Panel divider: equal" })).toBeVisible()
 	await page.reload()
-	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await page.getByRole("button", { name: "Launch", exact: true }).click()
 	await expect(message).toContainText("Mock run ready.")
 	await expect(reply).toHaveValue("")
 })
 
 test("copy preserves exact text, expires feedback, clears stale feedback, and Clear keeps the same editor", async ({ desktop: { app, page } }) => {
-	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await page.getByRole("button", { name: "Launch", exact: true }).click()
 	const reply = page.getByRole("textbox", { name: "Type your reply...", exact: true })
 	const copyReply = copyReplyButton(page)
 	const copyAgent = copyAgentButton(page)
@@ -107,7 +107,7 @@ test("copy preserves exact text, expires feedback, clears stale feedback, and Cl
 })
 
 test("copy failure reports an alert and retry preserves draft and selection", async ({ desktop: { app, page } }) => {
-	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await page.getByRole("button", { name: "Launch", exact: true }).click()
 	const reply = page.getByRole("textbox", { name: "Type your reply...", exact: true })
 	await reply.fill(" retry\nthis ")
 	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
@@ -140,7 +140,7 @@ for (const theme of ["dark", "light"]) {
 		})
 		await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([512, 336])
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
-		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		await page.getByRole("button", { name: "Launch", exact: true }).click()
 		await page.evaluate(async () => { await document.fonts.ready })
 		await waitForPanelLayout(page)
 		const message = page.locator(".agent-hud__replyBox-scroll")
@@ -175,7 +175,7 @@ for (const theme of ["dark", "light"]) {
 
 	test(`footer keeps mounted controls, focus, and feedback while wrapping in ${theme}`, async ({ desktop: { app, page } }) => {
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
-		await page.getByRole("button", { name: "Start run", exact: true }).click()
+		await page.getByRole("button", { name: "Launch", exact: true }).click()
 		await page.getByRole("textbox", { name: "Type your reply...", exact: true }).fill("A local reply\nwith another line.")
 		await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
 		await page.evaluate(async () => { await document.fonts.ready })
@@ -184,7 +184,8 @@ for (const theme of ["dark", "light"]) {
 		const copy = copyReplyButton(page)
 		await copy.click()
 		await expect(copy).toHaveAttribute("data-copied", "true")
-		await page.clock.pauseAt(new Date())
+		// Pause just ahead of the page's own clock; the host time may already be behind it.
+		await page.clock.pauseAt(await page.evaluate(() => Date.now()) + 50)
 		await copy.evaluate(element => Reflect.set(window, "originalCopy", element))
 		const placements = new Set<string>()
 		for (const width of [1260, 900, 760, 640, 760, 900, 1260]) {

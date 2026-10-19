@@ -1,58 +1,9 @@
 import { expect, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
-import { writeFile } from "node:fs/promises"
-import { test, catalogue, json, project } from "./selection-fixture"
-import { captureNative, chooseModel, chooseView as view, modelTrigger, setNativeViewport } from "./native"
+import { test, catalogue, json } from "./selection-fixture"
+import { chooseModel, chooseView as view, modelTrigger } from "./native"
 
 const notices = (page: Page) => page.locator(".desktop-interim-content__notices")
-
-test("project creation is single-submit and a failed follow-up refresh cannot recreate it", async ({ desktop: { page }, backend }) => {
-	let created: ServerResponse | undefined
-	backend.handlers.set("POST /projects", (response, body) => { expect(body).toEqual({ name: "New project" }); created = response })
-	await backend.open()
-	const existing = page.getByRole("button", { name: "existing-project", exact: true })
-	await existing.focus()
-	await existing.press("Space")
-	await expect(existing).toHaveAttribute("aria-pressed", "true")
-	const input = page.getByRole("textbox", { name: "Project name" })
-	await input.fill("New project")
-	await input.press("Enter")
-	await expect(page.getByText("Creating project…", { exact: true })).toBeVisible()
-	await input.press("Enter")
-	await page.getByRole("button", { name: "Create project" }).evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click() })
-	await expect(input).toBeFocused()
-	expect(backend.requests.filter(request => request.method === "POST")).toHaveLength(1)
-	backend.handlers.set("GET /projects", response => json(response, { detail: "Refresh unavailable" }, 503))
-	json(created!, { slug: "new-project" })
-	await expect(page.getByRole("alert")).toContainText("Could not refresh projects")
-	await expect(page.getByText("Selected project: new-project", { exact: true })).toBeVisible()
-	await expect(input).toHaveValue("")
-	await expect(input).toBeFocused()
-	await expect(existing).toBeVisible()
-	await page.getByRole("button", { name: "Refresh", exact: true }).click()
-	await expect(page.getByRole("alert")).toContainText("Refresh unavailable")
-	expect(backend.requests.filter(request => request.method === "POST")).toHaveLength(1)
-	await input.fill("Keep this draft")
-	await view(page, "Environment")
-	await view(page, "Runs Overview")
-	await expect(input).toHaveValue("Keep this draft")
-	await expect(page.getByText("Selected project: new-project", { exact: true })).toBeVisible()
-})
-
-test("rejected and malformed creation retain the name, selection, and keyboard focus", async ({ desktop: { page }, backend }) => {
-	await backend.open()
-	await page.getByRole("button", { name: "existing-project", exact: true }).click()
-	const input = page.getByRole("textbox", { name: "Project name" })
-	await input.fill("Keep me")
-	for (const [body, status] of [[{ detail: "Already exists" }, 409], [{ slug: 42 }, 200]] as const) {
-		backend.handlers.set("POST /projects", response => json(response, body, status))
-		await input.press("Enter")
-		await expect(page.getByRole("alert")).toContainText("Could not create project")
-		await expect(input).toHaveValue("Keep me")
-		await expect(input).toBeFocused()
-		await expect(page.getByRole("button", { name: "existing-project", exact: true })).toHaveAttribute("aria-pressed", "true")
-	}
-})
 
 test("model changes await acknowledgement, reject duplicate writes, and retry by choosing again", async ({ desktop: { page }, backend }) => {
 	let pending: ServerResponse | undefined
@@ -78,11 +29,9 @@ test("model changes await acknowledgement, reject duplicate writes, and retry by
 	await expect(model).toHaveAttribute("title", "Second model")
 })
 
-test("empty catalogues and malformed lists stay accessible and recover through reads", async ({ desktop: { page }, backend }) => {
-	backend.handlers.set("GET /projects", response => json(response, []))
+test("empty and malformed model catalogues stay accessible and recover through reads", async ({ desktop: { page }, backend }) => {
 	backend.handlers.set("GET /models", response => json(response, { models: [], selected_model_id: "" }))
 	await backend.open()
-	await expect(page.getByText("No projects yet.", { exact: true })).toBeVisible()
 	const model = modelTrigger(page)
 	await expect(model).toHaveAttribute("title", "Model")
 	backend.handlers.set("GET /models", response => json(response, { models: [{ model_id: "one", label: 42 }], selected_model_id: "one" }))
@@ -95,120 +44,34 @@ test("empty catalogues and malformed lists stay accessible and recover through r
 	await model.click()
 	await expect(model).toHaveAttribute("title", "First model")
 	await page.keyboard.press("Escape")
-	for (const listing of [
-		[project("one"), project("one")],
-		[project("one", { status: "opening" })],
-		[project("one", { run_id: 7 })],
-		[project("one", { created_at: "yesterday" })],
-	]) {
-		backend.handlers.set("GET /projects", response => json(response, listing))
-		await page.getByRole("button", { name: "Refresh", exact: true }).click()
-		await expect(page.getByRole("alert")).toContainText("Could not refresh projects")
-		backend.handlers.set("GET /projects", response => json(response, []))
-		await page.getByRole("button", { name: "Refresh", exact: true }).click()
-		await expect(page.getByRole("alert")).toHaveCount(0)
-	}
 })
 
-test("obsolete project reads are cancelled on refresh and navigation, with ten-second deadlines", async ({ desktop: { page }, backend }) => {
-	await backend.open()
-	await expect(page.getByRole("button", { name: "existing-project", exact: true })).toBeVisible()
-	const reads: ServerResponse[] = []
-	let closed = 0
-	backend.handlers.set("GET /projects", response => { reads.push(response); response.on("close", () => closed++) })
-	const refresh = page.getByRole("button", { name: "Refresh", exact: true })
-	await refresh.click()
-	await expect.poll(() => reads.length).toBe(1)
-	await refresh.click()
-	await expect.poll(() => closed).toBe(1)
-	await expect.poll(() => reads.length).toBe(2)
-	await view(page, "Environment")
-	await expect.poll(() => closed).toBe(2)
-	await view(page, "Runs Overview")
-	await expect.poll(() => reads.length).toBe(3)
-	await page.clock.install()
-	// Start a new read with its deadline under the test clock.
-	await refresh.click()
-	await expect.poll(() => reads.length).toBe(4)
-	await page.clock.fastForward(10_001)
-	await expect(page.getByRole("alert")).toContainText("Request timed out")
-	await expect(page.getByRole("button", { name: "existing-project", exact: true })).toBeVisible()
-	await expect(refresh).toBeFocused()
-	await expect.poll(() => closed).toBe(4)
-	backend.handlers.set("GET /projects", response => json(response, [project("fresh-project")]))
-	await refresh.click()
-	await expect(page.getByRole("button", { name: "fresh-project" })).toBeVisible()
-	json(reads[0], [project("obsolete-project")])
-	await expect(page.getByRole("button", { name: "obsolete-project" })).toHaveCount(0)
-})
-
-for (const theme of ["dark", "light"]) {
-	test(`connected selections fit long names and narrow zoomed windows in ${theme}`, async ({ desktop: { app, page }, backend }, testInfo) => {
-		const longName = "project-" + "long-name-".repeat(20)
-		backend.handlers.set("GET /projects", response => json(response, [project(longName), project("short")]))
-		backend.handlers.set("GET /models", response => json(response, { models: [{ model_id: "one", label: longName }], selected_model_id: "one" }))
-		await backend.open()
-		await page.getByRole("list", { name: "Projects" }).getByRole("button", { name: longName, exact: true }).click()
-		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
-		for (const [width, height, zoom] of [[1260, 780, 1], [640, 420, 1], [640, 420, 1.25]]) {
-			await setNativeViewport(app, page, width, height, zoom)
-			await page.getByRole("textbox", { name: "Project name" }).fill("Keyboard draft")
-			expect(await page.evaluate(() => document.documentElement.scrollHeight === innerHeight
-				&& document.documentElement.scrollWidth === innerWidth)).toBe(true)
-			const region = page.locator(".selection-overview")
-			expect(await region.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
-			await region.evaluate(element => element.scrollTop = 0)
-			const screenshot = testInfo.outputPath(`selections-${theme}-${width}-${zoom}.png`)
-			await writeFile(screenshot, (await captureNative(app, page, width, height))!)
-			await testInfo.attach(`selections-${theme}-${width}-${zoom}.png`, { path: screenshot, contentType: "image/png" })
-		}
-	})
-}
-
-test("write deadlines retain confirmed state and drafts without automatic retries", async ({ desktop: { page }, backend }) => {
+test("write deadlines retain the confirmed model without automatic retries", async ({ desktop: { page }, backend }) => {
 	let closed = 0
 	const stall = (response: ServerResponse) => response.on("close", () => closed++)
-	backend.handlers.set("POST /projects", stall)
 	backend.handlers.set("POST /models", stall)
 	await backend.open()
 	await page.clock.install()
-	const input = page.getByRole("textbox", { name: "Project name" })
-	await input.fill("Uncertain creation")
-	await input.press("Enter")
-	await expect.poll(() => backend.requests.filter(request => request.method === "POST").length).toBe(1)
-	await page.clock.fastForward(10_001)
-	await expect(page.getByRole("alert")).toContainText("Request timed out")
-	await expect(input).toHaveValue("Uncertain creation")
-	await expect(input).toBeFocused()
-	await expect.poll(() => closed).toBe(1)
 	const model = modelTrigger(page)
 	await chooseModel(page, "Second model")
-	await expect.poll(() => backend.requests.filter(request => request.method === "POST").length).toBe(2)
+	await expect.poll(() => backend.requests.filter(request => request.method === "POST").length).toBe(1)
 	await page.clock.fastForward(10_001)
 	await expect(notices(page).getByRole("alert")).toContainText("Request timed out")
 	await expect(model).toHaveAttribute("title", "First model")
-	await expect.poll(() => closed).toBe(2)
+	await expect.poll(() => closed).toBe(1)
 	await page.clock.fastForward(30_000)
-	expect(backend.requests.filter(request => request.method === "POST")).toHaveLength(2)
+	expect(backend.requests.filter(request => request.method === "POST")).toHaveLength(1)
 })
 
-test("reload cancels pending writes and resets only local project state", async ({ desktop: { page }, backend }) => {
+test("reload cancels a pending model write and keeps the confirmed model", async ({ desktop: { page }, backend }) => {
 	let closed = 0
-	const stall = (response: ServerResponse) => response.on("close", () => closed++)
-	backend.handlers.set("POST /projects", stall)
-	backend.handlers.set("POST /models", stall)
+	backend.handlers.set("POST /models", response => response.on("close", () => closed++))
 	await backend.open()
-	await page.getByRole("button", { name: "existing-project", exact: true }).click()
-	const input = page.getByRole("textbox", { name: "Project name" })
-	await input.fill("Pending")
-	await input.press("Enter")
 	const model = modelTrigger(page)
 	await chooseModel(page, "Second model")
-	await expect.poll(() => backend.requests.filter(request => request.method === "POST").length).toBe(2)
+	await expect.poll(() => backend.requests.filter(request => request.method === "POST").length).toBe(1)
 	await page.reload()
-	await expect.poll(() => closed).toBe(2)
-	await expect(page.getByText("Selected project: None", { exact: true })).toBeVisible()
-	await expect(input).toHaveValue("")
+	await expect.poll(() => closed).toBe(1)
 	await expect(model).toHaveAttribute("title", "First model")
 })
 
@@ -271,7 +134,7 @@ for (const recovery of ["refresh", "reselect"] as const) {
 	})
 }
 
-test("reconnect refreshes backend models while preserving local project state and cancelling obsolete reads", async ({ desktop: { page }, backend }) => {
+test("reconnect refreshes backend models while preserving the overview and cancelling obsolete reads", async ({ desktop: { page }, backend }) => {
 	let selected = "one"
 	backend.handlers.set("GET /models", response => json(response, { ...catalogue, selected_model_id: selected }))
 	backend.handlers.set("POST /models", (response, body) => {
@@ -282,9 +145,6 @@ test("reconnect refreshes backend models while preserving local project state an
 	await backend.open()
 	const model = modelTrigger(page)
 	await expect(model).toHaveAttribute("title", "First model")
-	await page.getByRole("button", { name: "existing-project", exact: true }).click()
-	const draft = page.getByRole("textbox", { name: "Project name" })
-	await draft.fill("Retained project draft")
 	await chooseModel(page, "Second model")
 	await expect(model).toHaveAttribute("title", "Second model")
 	await view(page, "Environment")
@@ -317,8 +177,7 @@ test("reconnect refreshes backend models while preserving local project state an
 	expect(backend.requests.filter(request => request.method === "POST")).toHaveLength(1)
 	await expect(model).toHaveAttribute("title", "First model")
 	await view(page, "Runs Overview")
-	await expect(draft).toHaveValue("Retained project draft")
-	await expect(page.getByRole("button", { name: "existing-project", exact: true })).toHaveAttribute("aria-pressed", "true")
+	await expect(page.getByRole("button", { name: "Open existing-project", exact: true })).toBeVisible()
 })
 
 test("recovery reconciles a pending model write without replaying it", async ({ desktop: { page }, backend }) => {

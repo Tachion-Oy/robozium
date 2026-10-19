@@ -32,7 +32,7 @@ export const test = base.extend<{ desktop: { app: ElectronApplication; page: Pag
 			const errors: string[] = []
 			page.on("pageerror", error => errors.push(error.message))
 			await expect(page.locator(".agent-hud__box")).toBeVisible()
-			await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeVisible()
+			await expect(page.getByRole("button", { name: "Launch", exact: true })).toBeVisible()
 			await use({ app, page })
 			expect(errors).toEqual([])
 		} finally {
@@ -90,13 +90,19 @@ export async function setNativeViewport(app: ElectronApplication, page: Page, wi
 		.toEqual([width / previousZoom, height / previousZoom])
 	// A later native synchronization can still reset zoom after the size arrives.
 	// Converge setup on both the actual zoom and renderer dimensions before testing.
+	let stale = false
 	await expect.poll(async () => {
-		const factor = await app.evaluate(({ BrowserWindow }, zoom) => {
+		const factor = await app.evaluate(({ BrowserWindow }, { zoom, stale }) => {
 			const contents = BrowserWindow.getAllWindows()[0].webContents
+			// The host can record a zoom its renderer never applied; setting the same
+			// factor again is then a no-op, so change it first to force a reapply.
+			if (stale) contents.setZoomFactor(zoom === 1 ? 1.1 : 1)
 			contents.setZoomFactor(zoom)
 			return contents.getZoomFactor()
-		}, zoom)
-		return { factor, size: await page.evaluate(() => [innerWidth, innerHeight]) }
+		}, { zoom, stale })
+		const size = await page.evaluate(() => [innerWidth, innerHeight])
+		stale = factor === zoom && (size[0] !== width / zoom || size[1] !== height / zoom)
+		return { factor, size }
 	}).toEqual({ factor: zoom, size: [width / zoom, height / zoom] })
 }
 

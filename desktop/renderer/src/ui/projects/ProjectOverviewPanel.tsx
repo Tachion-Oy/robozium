@@ -1,0 +1,303 @@
+// Copied from web/app/components/hud/projects/ProjectOverviewPanel.tsx at 5b06d82.
+// Adapted: import paths.
+import { useState } from "react"
+import {
+	isActiveRunStatus,
+	isCurrentRunRow,
+	ProjectStatus,
+	type ProjectRow,
+} from "../../projects/landing"
+import { DisplayArt } from "../branding/DisplayArt"
+import { HudButton } from "../hud/HudButton"
+
+type ProjectOverviewPanelProps = {
+	projects: ProjectRow[]
+	currentRunId?: string | null
+	navigationPending: boolean
+	onProjectClick: (project: ProjectRow) => void
+	onSelectCapabilities: (project: ProjectRow) => void
+	onLaunchProject: (project: ProjectRow) => void
+	onNewProject: () => void
+	onCancelRun: (project: ProjectRow) => void
+	onDeleteProject: (project: ProjectRow) => void
+}
+
+const COLS = "grid-cols-[8rem_minmax(8rem,16rem)_5rem]"
+const HUD_TEXT =
+	"font-[family-name:var(--font-agent-input)] text-[color:var(--hud-input-text)]"
+
+function formatRelative(createdAt: number): string {
+	const delta = Math.max(0, Math.floor(Date.now() / 1000 - createdAt))
+	if (delta < 60) return `${delta}s ago`
+	const minutes = Math.floor(delta / 60)
+	if (minutes < 60) return `${minutes}m ago`
+	const hours = Math.floor(minutes / 60)
+	return `${hours}h ago`
+}
+
+function statusDisplay(status: ProjectStatus): {
+	label: string
+	className: string
+} {
+	switch (status) {
+		case ProjectStatus.Running:
+			return {
+				label: "RUNNING",
+				className:
+					"agent-hud__row-status--running text-term-green [text-shadow:var(--term-glow-green)]",
+			}
+		case ProjectStatus.AwaitingUserInput:
+			return {
+				label: "WAITING",
+				className:
+					"agent-hud__row-status--waiting text-term-amber [text-shadow:var(--term-glow-amber)]",
+			}
+		case ProjectStatus.Opening:
+			return {
+				label: "OPENING",
+				className: "agent-hud__row-status--opening",
+			}
+		case ProjectStatus.Cancelling:
+			return {
+				label: "CANCELLING",
+				className:
+					"text-term-red [text-shadow:var(--term-glow-red)] opacity-80",
+			}
+		case ProjectStatus.Syncing:
+			return {
+				label: "SYNCING",
+				className:
+					"agent-hud__row-status--syncing text-[color:var(--term-lime)] [text-shadow:var(--term-glow-lime)]",
+			}
+		case ProjectStatus.Deleting:
+			return {
+				label: "DELETING",
+				className:
+					"text-term-red [text-shadow:var(--term-glow-red)] animate-pulse",
+			}
+		case ProjectStatus.Dormant:
+			return { label: "DORMANT", className: `${HUD_TEXT} opacity-60` }
+	}
+}
+
+function RowActions({
+	project,
+	onSelectCapabilities,
+	onLaunchProject,
+	onCancelRun,
+	onDeleteProject,
+}: {
+	project: ProjectRow
+	onSelectCapabilities: (project: ProjectRow) => void
+	onLaunchProject: (project: ProjectRow) => void
+	onCancelRun: (project: ProjectRow) => void
+	onDeleteProject: (project: ProjectRow) => void
+}) {
+	const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+	const canCancel =
+		isActiveRunStatus(project.status) ||
+		project.status === ProjectStatus.Syncing
+	const canDelete = project.status === ProjectStatus.Dormant
+	const canLaunch = canDelete && project.runId === null
+
+	return (
+		<span
+			className="agent-hud__row-actions shrink-0 flex justify-end gap-2">
+			<HudButton
+				disabled={!canLaunch}
+				onClick={() => onSelectCapabilities(project)}
+				variant="info">
+				Tools
+			</HudButton>
+			<HudButton
+				disabled={!canLaunch}
+				onClick={() => onLaunchProject(project)}
+				variant="success">
+				Launch
+			</HudButton>
+			<HudButton
+				disabled={!canCancel}
+				onClick={() => onCancelRun(project)}
+				variant="warning">
+				Cancel
+			</HudButton>
+			{confirmingDelete && canDelete ? (
+				<HudButton
+					onBlur={() => setConfirmingDelete(false)}
+					onClick={() => {
+						setConfirmingDelete(false)
+						onDeleteProject(project)
+					}}
+					variant="danger-confirm">
+					Confirm?
+				</HudButton>
+			) : (
+				<HudButton
+					disabled={!canDelete}
+					onClick={() => setConfirmingDelete(true)}
+					variant="danger">
+					Delete
+				</HudButton>
+			)}
+		</span>
+	)
+}
+
+function ProjectRowItem({
+	project,
+	isCurrent,
+	onProjectClick,
+	onSelectCapabilities,
+	onLaunchProject,
+	onCancelRun,
+	onDeleteProject,
+}: {
+	project: ProjectRow
+	isCurrent: boolean
+	onProjectClick: (project: ProjectRow) => void
+	onSelectCapabilities: (project: ProjectRow) => void
+	onLaunchProject: (project: ProjectRow) => void
+	onCancelRun: (project: ProjectRow) => void
+	onDeleteProject: (project: ProjectRow) => void
+}) {
+	const display = statusDisplay(project.status)
+	const canOpen =
+		isActiveRunStatus(project.status) ||
+		project.status === ProjectStatus.Dormant
+
+	return (
+		<li className="agent-hud__project-row flex items-center gap-2">
+			<button
+				type="button"
+				aria-label={`${isCurrent ? "Return to" : "Open"} ${project.slug}`}
+				aria-current={isCurrent ? "true" : undefined}
+				disabled={!canOpen}
+				onClick={() => onProjectClick(project)}
+				className={`flex-1 min-w-0 text-left ${HUD_TEXT} text-[1.3rem] leading-tight tracking-[0.03em] rounded py-1 pl-1 transition-colors ${
+					canOpen
+						? "cursor-pointer hover:bg-[rgba(64,200,255,0.10)] hover:brightness-125 focus-visible:bg-[rgba(64,200,255,0.10)] focus-visible:brightness-125"
+						: "cursor-not-allowed"
+				}`}>
+				<span className={`grid ${COLS} gap-3 items-baseline`}>
+					<span className={display.className}>{display.label}</span>
+					<span
+						className={`${HUD_TEXT} truncate${
+							isCurrent ? " agent-hud__project-name--current" : ""
+						}`}>
+						{project.slug}
+					</span>
+					<span className={`${HUD_TEXT} opacity-80 text-[1rem]`}>
+						{project.createdAt !== null
+							? formatRelative(project.createdAt)
+							: ""}
+					</span>
+				</span>
+			</button>
+			<RowActions
+				project={project}
+				onSelectCapabilities={onSelectCapabilities}
+				onLaunchProject={onLaunchProject}
+				onCancelRun={onCancelRun}
+				onDeleteProject={onDeleteProject}
+			/>
+		</li>
+	)
+}
+
+function ProjectsTable({
+	projects,
+	currentRunId,
+	onProjectClick,
+	onSelectCapabilities,
+	onLaunchProject,
+	onCancelRun,
+	onDeleteProject,
+}: {
+	projects: ProjectRow[]
+	currentRunId: string | null
+	onProjectClick: (project: ProjectRow) => void
+	onSelectCapabilities: (project: ProjectRow) => void
+	onLaunchProject: (project: ProjectRow) => void
+	onCancelRun: (project: ProjectRow) => void
+	onDeleteProject: (project: ProjectRow) => void
+}) {
+	return (
+		<div className="agent-hud__projects-table space-y-2">
+			<div className="agent-hud__table-header flex items-center gap-2 pb-2 mb-2">
+				<span
+					className={`grid ${COLS} gap-3 flex-1 min-w-0 pl-1 ${HUD_TEXT} text-[1.1rem] uppercase tracking-[0.12em] opacity-85`}>
+					<span>Status</span>
+					<span>Project</span>
+					<span>Started</span>
+				</span>
+				<span
+					className="agent-hud__row-actions shrink-0"
+					aria-hidden="true"
+				/>
+			</div>
+			<ul className="space-y-2">
+				{projects.map((project) => (
+					<ProjectRowItem
+						key={project.slug}
+						project={project}
+						isCurrent={isCurrentRunRow(project, currentRunId)}
+						onProjectClick={onProjectClick}
+						onSelectCapabilities={onSelectCapabilities}
+						onLaunchProject={onLaunchProject}
+						onCancelRun={onCancelRun}
+						onDeleteProject={onDeleteProject}
+					/>
+				))}
+			</ul>
+		</div>
+	)
+}
+
+export function ProjectOverviewPanel({
+	projects,
+	currentRunId = null,
+	navigationPending,
+	onProjectClick,
+	onSelectCapabilities,
+	onLaunchProject,
+	onNewProject,
+	onCancelRun,
+	onDeleteProject,
+}: ProjectOverviewPanelProps) {
+	return (
+		<div className="agent-hud__project-view flex min-h-0 w-full flex-1 flex-col gap-8">
+			<fieldset
+				disabled={navigationPending}
+				aria-busy={navigationPending}
+				className="agent-hud__table-scroll m-0 min-h-0 min-w-0 flex-1 overflow-y-auto border-0 px-2 py-0">
+				{projects.length > 0 ? (
+					<ProjectsTable
+						projects={projects}
+						currentRunId={currentRunId}
+						onProjectClick={onProjectClick}
+						onSelectCapabilities={onSelectCapabilities}
+						onLaunchProject={onLaunchProject}
+						onCancelRun={onCancelRun}
+						onDeleteProject={onDeleteProject}
+					/>
+				) : (
+					<p
+						className={`text-center uppercase tracking-[0.14em] ${HUD_TEXT} text-[1.3rem]`}>
+						No projects
+					</p>
+				)}
+			</fieldset>
+
+			<div className="flex justify-center">
+				<button
+					type="button"
+					onClick={onNewProject}
+					disabled={navigationPending}
+					className="app-nav__cta agent-hud__start">
+					<DisplayArt name="new-project" />
+				</button>
+			</div>
+		</div>
+	)
+}

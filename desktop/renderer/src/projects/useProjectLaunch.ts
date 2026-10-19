@@ -5,23 +5,18 @@
 import { useEffect, useRef, useState } from "react"
 import { ApiError, type DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
-import { getProjectSelection, listCapabilities, saveProjectSelection, type CapabilitySelection } from "../capabilities/capabilities-api"
+import { getProjectSelection, listCapabilities, saveProjectSelection } from "../capabilities/capabilities-api"
 import { resolveCapabilitySelection } from "../capabilities/capabilities"
 import { createRun } from "../run/run-api"
 import { showErrorToast } from "../feedback/notices"
+import type { LaunchDraft } from "../app/hud-navigation"
 import { createProject } from "./projects-api"
-
-/** Adapted from web/lib/robozium/hud-navigation.ts; the overview's selector edits it. */
-export interface LaunchDraft {
-	project: string | null
-	name: string
-	/** Null restores saved choices; an object is the user's current draft. */
-	selection: CapabilitySelection | null
-}
 
 export interface ProjectLaunch {
 	launch: (draft: LaunchDraft) => Promise<boolean>
 	pending: boolean
+	/** Read synchronously, so a second click before the next render is refused. */
+	isLaunching: () => boolean
 }
 
 /** Launch commands outlive the selector; failures remain visible after dismissal. */
@@ -78,5 +73,5 @@ export function useProjectLaunch(
 			}
 		}
 	}
-	return { launch, pending }
+	return { launch, pending, isLaunching: () => active.current !== null }
 }

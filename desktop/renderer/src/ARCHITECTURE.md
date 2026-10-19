@@ -12,17 +12,17 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 
 | Folder | Responsibility |
 | --- | --- |
-| `ui/` | All rendered components and CSS: app composition, backend startup, the HUD frame, projects and the run view. |
-| `app/` | Standalone preview data. |
+| `ui/` | All rendered components and CSS: app composition, backend startup, the HUD frame, the overview and capability selector, and the run view. |
+| `app/` | The navigation reducer (screen and launch draft) and standalone preview data. |
 | `backend/` | IPC connection discovery and HTTP readiness hooks. |
-| `projects/` | Project requests and validation, interim selection and creation state, and the launch command. |
-| `capabilities/` | Capability catalogue and saved-selection requests, and selection resolution. |
+| `projects/` | Project requests and validation, the overview rows (query) and this app's cancel and delete requests (mutations), and the launch command. |
+| `capabilities/` | Capability catalogue and saved-selection requests, the selector's reads, and selection resolution. |
 | `models/` | Model requests and validation, and the acknowledged backend selection. |
 | `run/` | Run contracts, requests, payload decoding, event reconciliation and live updates. |
 | `session/` | The displayed run's subscription lifetime and the atomic composition of run data with HUD state. |
 | `hud/` | Message projection, history, display selection and layout logic. |
 | `feedback/` | Error notices any owner can raise. |
-| `api/` | Shared HTTP/SSE transport, request deadlines and React request state. |
+| `api/` | Shared HTTP/SSE transport, request deadlines, client lifetimes and React request state. |
 | `assets/` | Bundled Anurati status-mark font. |
 
 ## Owners
@@ -30,19 +30,23 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | Owner | Holds | Requests |
 | --- | --- | --- |
 | `models/useModels` | Confirmed model selection | Catalogue read, selection write |
-| `projects/useProjects` | Project rows, interim selection, name draft | List, create |
+| `projects/useProjectQuery` | Project rows, the first-load error and the opening mark; shows the rows with pending mutations applied | Listing poll while visible |
+| `projects/useProjectMutations` | This app's cancel and delete requests per project: requesting, then settling until a listing confirms them | Cancel, delete |
+| `capabilities/useCapabilities` | The open selector's catalogue and saved choices | Catalogue and selection reads |
 | `projects/useProjectLaunch` | One pending launch | Create project, read and save capabilities, create run |
 | `session/useRunSession` | The displayed run (`RunSession`) | Stream and snapshot polling (`run/run-updates`) |
 | `feedback/notices` | Visible error notices | None |
 
-`ui/app/App.tsx` composes the owners and keeps view, draft, divider layout and
+`ui/app/App.tsx` composes the owners and keeps navigation (`app/hud-navigation`:
+the screen and the selector's launch draft), the reply draft, divider layout and
 focus. Owners do not import each other; App passes results between them, as when
 a launch hands its new run to `useRunSession.open`.
 
 ```mermaid
 flowchart LR
   App["ui/app/App"] --> Models["useModels"]
-  App --> Projects["useProjects"]
+  App --> Query["useProjectQuery"]
+  App --> Capabilities["useCapabilities"]
   App --> Launch["useProjectLaunch"]
   App --> Session["useRunSession"]
   Launch -- "run id" --> App
@@ -53,7 +57,11 @@ flowchart LR
   Session --> Updates["run-updates"] --> RunApi
   Session --> Reducer["session-reducer"] --> RunReducer["run-reducer"]
   Reducer --> HudReducer["hud-reducer"]
-  Projects --> ProjectsApi
+  Query --> ProjectsApi
+  Query --> Mutations["useProjectMutations"]
+  Mutations --> ProjectsApi
+  Mutations --> Notices
+  Capabilities --> CapabilitiesApi
   Models --> ModelsApi["models-api"]
 ```
 

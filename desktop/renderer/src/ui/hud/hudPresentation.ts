@@ -1,7 +1,8 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/hudPresentation.ts at 076b2c9.
 // Adapted: a run that has ended is passed as runEnded instead of its RunHudPhase.
-// Copied from robozium-electron/desktop/web/lib/robozium/hud-navigation.ts at 076b2c9.
-export type HudScreen = "projects" | "run" | "dependencies" | "launch" | "environment"
+import type { HudScreen } from "../../app/hud-navigation"
+
+export type { HudScreen }
 
 export type HudContext = "landing" | "active-run" | "recovery"
 
