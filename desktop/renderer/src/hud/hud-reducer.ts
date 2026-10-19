@@ -59,7 +59,8 @@ function applyRunUpdate(state: HudState, previousRun: RunState, update: RunUpdat
 	const run = update.run
 	switch (update.type) {
 		case "state":
-			return state
+			// An acknowledged reply clears the prompt, so live text can show again.
+			return run.prompt === previousRun.prompt ? state : updateHistoryAndView(state, previousRun, run, null)
 		case "delta":
 			return applyDelta(state, previousRun, run, update.frame)
 		case "events":

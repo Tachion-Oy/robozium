@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
-import { test, json, project, prepareRun, snapshot, start, output, view, replyBox, launchButton, runStatus } from "./run-fixture"
+import { test, json, project, prepareRun, snapshot, start, output, view, replyBox, launchButton, runStatus, delta, emit, message } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
 
 const waiting = (prompt = "p1", overrides: Record<string, unknown> = {}) =>
@@ -34,6 +34,26 @@ test("Enter and Send post one trimmed reply; Shift+Enter and IME composition do 
 	json(pending!, { ok: true })
 	await expect(editor).toHaveValue("")
 	expect(replies(backend)).toHaveLength(1)
+})
+
+test("live output after an acknowledged reply streams instead of waiting for the completed message", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	let current = waiting()
+	backend.handlers.set("GET /run/run-one", response => json(response, current))
+	backend.handlers.set("POST /run/run-one/reply", response => {
+		current = snapshot()
+		json(response, { ok: true })
+	})
+	await start(page, backend)
+	await expect(output(page)).toHaveText("Question p1")
+	await replyBox(page).fill("Go on")
+	await send(page).click()
+	await expect(replyBox(page)).toHaveValue("")
+	emit(run.streams[0], delta(1, "Streaming", 0))
+	emit(run.streams[0], delta(2, " after reply", 1))
+	await expect(output(page)).toHaveText("Streaming after reply")
+	emit(run.streams[0], message(3, "Streaming after reply, done", "live"))
+	await expect(output(page)).toHaveText("Streaming after reply, done")
 })
 
 for (const edited of [false, true]) {
