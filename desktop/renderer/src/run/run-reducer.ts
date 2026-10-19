@@ -39,6 +39,7 @@ export type RunAction =
 export type RunUpdate = { run: RunState } & (
 	| { type: "delta"; frame: RunDelta }
 	| { type: "events" | "snapshot"; receivedEvents: readonly RunRecord[] }
+	| { type: "replied" }
 	| { type: "state" }
 )
 
@@ -114,6 +115,18 @@ function snapshotPrompt(previous: RunPrompt | null, view: RunView, afterSequence
 	return { id: view.promptId, text: view.prompt, afterSequence }
 }
 
+/** The backend acknowledged a reply: the prompt is answered and later snapshots cannot revive it. */
+function applyReply(state: RunState, promptId: string): RunUpdate {
+	return {
+		type: "replied",
+		run: {
+			...state,
+			acknowledgedPrompts: new Set([...state.acknowledgedPrompts, promptId]),
+			prompt: state.prompt?.id === promptId ? null : state.prompt,
+		},
+	}
+}
+
 function applySnapshot(state: RunState, view: RunView): RunUpdate {
 	// Token fragments are transient and cannot be recovered from history.
 	const receivedEvents = view.frames.filter(frame => frame.type !== RunEventType.MessageDelta)
@@ -135,11 +148,7 @@ export function reduceRun(state: RunState, action: RunAction): RunUpdate {
 	switch (action.type) {
 		case "error": return { type: "state", run: { ...state, synchronized: false, error: action.message, unavailable: action.unavailable } }
 		case "retry": return { type: "state", run: { ...state, synchronized: false, error: "", unavailable: false } }
-		case "replied": return { type: "state", run: {
-			...state,
-			acknowledgedPrompts: new Set([...state.acknowledgedPrompts, action.promptId]),
-			prompt: state.prompt?.id === action.promptId ? null : state.prompt,
-		} }
+		case "replied": return applyReply(state, action.promptId)
 		case "snapshot": return applySnapshot(state, action.view)
 		case "frame": {
 			if (action.frame.type === RunEventType.MessageDelta) return applyDelta(state, action.frame)

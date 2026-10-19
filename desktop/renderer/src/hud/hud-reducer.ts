@@ -55,12 +55,18 @@ function settleLiveText(live: HudLiveText | null, events: readonly RunRecord[]):
 	return live
 }
 
+/** An answered prompt leaves the view, so the agent's live text can show again. */
+function dismissAnsweredPrompt(state: HudState, previousRun: RunState, run: RunState): HudState {
+	return updateHistoryAndView(state, previousRun, run, null)
+}
+
 function applyRunUpdate(state: HudState, previousRun: RunState, update: RunUpdate): HudState {
 	const run = update.run
 	switch (update.type) {
 		case "state":
-			// An acknowledged reply clears the prompt, so live text can show again.
-			return run.prompt === previousRun.prompt ? state : updateHistoryAndView(state, previousRun, run, null)
+			return state
+		case "replied":
+			return dismissAnsweredPrompt(state, previousRun, run)
 		case "delta":
 			return applyDelta(state, previousRun, run, update.frame)
 		case "events":
