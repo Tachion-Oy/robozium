@@ -13,8 +13,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  scope:
+    name: Change scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      web: ${{ steps.scope.outputs.web }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Decide whether the web application is affected
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          # A pull request touching only the desktop app and documentation skips
+          # the browser and package jobs. Pushes and manual runs keep them all.
+          # HEAD is the pull request's merge commit; its first parent is the base.
+          web=true
+          if [ "$EVENT" = pull_request ] &&
+            ! git diff --name-only HEAD^1 HEAD | grep -qvE '^(desktop/|docs/|CHANGELOG\.md$)'; then
+            web=false
+          fi
+          echo "web=$web" >> "$GITHUB_OUTPUT"
+
   chromium:
     name: Chromium
+    needs: scope
+    if: ${{ needs.scope.outputs.web == 'true' }}
     uses: ./.github/workflows/e2e-browser.yml
     with:
       task: suite
@@ -22,6 +50,8 @@ jobs:
 
   firefox:
     name: Firefox
+    needs: scope
+    if: ${{ needs.scope.outputs.web == 'true' }}
     uses: ./.github/workflows/e2e-browser.yml
     with:
       task: suite
@@ -29,6 +59,8 @@ jobs:
 
   webkit:
     name: WebKit
+    needs: scope
+    if: ${{ needs.scope.outputs.web == 'true' }}
     uses: ./.github/workflows/e2e-browser.yml
     with:
       task: suite
@@ -38,12 +70,16 @@ jobs:
 
   installation:
     name: Installation
+    needs: scope
+    if: ${{ needs.scope.outputs.web == 'true' }}
     uses: ./.github/workflows/e2e-browser.yml
     with:
       task: installation
 
   runner:
     name: Runner infrastructure
+    needs: scope
+    if: ${{ needs.scope.outputs.web == 'true' }}
     uses: ./.github/workflows/e2e-browser.yml
     with:
       task: runner
@@ -163,20 +199,26 @@ jobs:
   full-e2e:
     name: Full E2E
     if: ${{ always() }}
-    needs: [chromium, firefox, webkit, installation, runner, docker, electron]
+    needs: [scope, chromium, firefox, webkit, installation, runner, docker, electron]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Require every Full E2E job to succeed
         env:
           REQUIRED_RESULTS: ${{ toJSON(needs) }}
+          WEB_AFFECTED: ${{ needs.scope.outputs.web }}
         run: |
           python3 - <<'PY'
           import json
           import os
 
           results = json.loads(os.environ["REQUIRED_RESULTS"])
-          required = {"chromium", "firefox", "webkit", "installation", "runner", "docker", "electron"}
-          if results.keys() != required or any(job.get("result") != "success" for job in results.values()):
-              raise SystemExit(f"Required E2E jobs did not all succeed: {results}")
+          web_jobs = {"chromium", "firefox", "webkit", "installation", "runner"}
+          required = web_jobs | {"scope", "docker", "electron"}
+          # Web jobs may be skipped only when the scope job said so.
+          web_result = "success" if os.environ["WEB_AFFECTED"] == "true" else "skipped"
+          expected = {name: web_result if name in web_jobs else "success" for name in required}
+          actual = {name: job.get("result") for name, job in results.items()}
+          if actual != expected:
+              raise SystemExit(f"Required E2E jobs did not finish as expected: {actual}, expected {expected}")
           PY
