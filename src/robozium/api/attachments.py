@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from html import escape
 from io import BytesIO
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from PIL import Image as PillowImage
 from roboz.models import Image, Str, StrImage
@@ -14,6 +14,14 @@ from robozium.hub.application import AttachmentSettings
 
 DIRECTORY = ".robozium-attachments"
 FORMATS = {"PNG": "png", "JPEG": "jpeg", "WEBP": "webp", "GIF": "gif"}
+
+
+@dataclass(frozen=True)
+class AttachmentInfo:
+    id: str
+    name: str
+    path: str
+    upload_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -65,42 +73,59 @@ class RunAttachments:
         self._hub_root = hub_root
         self._retained_bytes = 0
         self._settings = settings
-        self._pending: list[tuple[Path, str, int]] = []
+        self._pending: dict[str, tuple[Path, AttachmentInfo, int]] = {}
 
     @property
     def has_pending(self) -> bool:
         return bool(self._pending)
 
-    def add(self, image: UploadedImage) -> str:
-        """Stage one validated image while the caller holds its run lock."""
+    def pending(self) -> list[AttachmentInfo]:
+        return [info for _, info, _ in self._pending.values()]
+
+    def add(self, image: UploadedImage, upload_id: UUID | None = None) -> AttachmentInfo:
+        """Save one new pending attachment while the caller holds the run lock."""
+        size = len(image.data)
+        self._check_capacity(size)
+        path = self._save_image(image)
+        info = AttachmentInfo(
+            id=path.stem,
+            name=image.name,
+            path=path.relative_to(self._hub_root).as_posix(),
+            upload_id=upload_id,
+        )
+        self._pending[info.id] = (path, info, size)
+        self._retained_bytes += size
+        return info
+
+    def _check_capacity(self, size: int) -> None:
         if len(self._pending) >= self._settings.max_images:
             raise ValueError("Reply exceeds the configured image count limit")
-        size = len(image.data)
         if self._retained_bytes + size > self._settings.max_run_bytes:
             raise ValueError("Temporary images exceed the configured run byte limit")
+
+    def _save_image(self, image: UploadedImage) -> Path:
         if self.path.resolve() != self.path or self.path.is_symlink():
             raise ValueError("Attachment directories must not use symbolic links")
         self.path.mkdir(parents=True, exist_ok=True)
-        path = self.path / f"{uuid4().hex}.{image.format}"
-        file = path.open("xb")
+        image_path = self.path / f"{uuid4().hex}.{image.format}"
+        # Failed exclusive creation must not unlink an existing file.
+        file = image_path.open("xb")
         try:
             with file:
                 file.write(image.data)
         except BaseException:
-            path.unlink(missing_ok=True)
+            image_path.unlink(missing_ok=True)
             raise
-        self._pending.append((path, image.name, size))
-        self._retained_bytes += size
-        return path.relative_to(self._hub_root).as_posix()
+        return image_path
 
     def build_reply(self, content: Str | StrImage) -> Str | StrImage:
         if not self._pending:
             return content
         links = []
         images = list(content.images) if isinstance(content, StrImage) else []
-        for path, name, _ in self._pending:
+        for path, info, _ in self._pending.values():
             src = path.relative_to(self._hub_root).as_posix()
-            links.append(f'<file src="{escape(src, quote=True)}">{escape(name)}</file>')
+            links.append(f'<file src="{escape(src, quote=True)}">{escape(info.name)}</file>')
             images.append(Image.from_bytes(
                 path.read_bytes(), media_type=f"image/{path.suffix[1:]}"
             ))
@@ -109,13 +134,26 @@ class RunAttachments:
             images=images,
         )
 
+    def remove_pending(self, attachment_id: str) -> None:
+        """Delete only a registered, unsent file while holding the run lock."""
+        entry = self._pending.get(attachment_id)
+        if entry is None:
+            return
+        path, _, size = entry
+        if path.parent.resolve() != path.parent:
+            raise ValueError("Attachment directories must not use symbolic links")
+        path.unlink(missing_ok=True)
+        del self._pending[attachment_id]
+        self._retained_bytes -= size
+
     def clear_pending(self, *, delete_files: bool = False) -> None:
-        """Keep accepted files readable; delete unsent files when a prompt ends."""
+        """Consume accepted entries, or explicitly discard unsent files."""
         if delete_files:
-            for path, _, size in self._pending:
-                path.unlink(missing_ok=True)
-                self._retained_bytes -= size
+            for attachment_id in list(self._pending):
+                self.remove_pending(attachment_id)
         self._pending.clear()
 
     def cleanup(self) -> None:
         remove_attachments(self.path)
+        self._pending.clear()
+        self._retained_bytes = 0

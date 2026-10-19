@@ -1,0 +1,218 @@
+/* The copied desktop frontend uses the HUD as its entire client area. */
+html[data-desktop], html[data-desktop] body { margin: 0; height: 100%; min-height: 0; padding: 0; overflow: hidden; }
+html[data-desktop] { --app-ui-scale: 0.75; --app-ui-root-font-size: 75%; --hud-stream-agent-opacity: 1; --hud-stream-agent-fill: 100%; }
+html[data-desktop] .agent-hud, html[data-desktop] .agent-hud--landing {
+  position: absolute; inset: 0; margin: 0; padding: 0; width: 100%; height: 100%; display: flex;
+}
+html[data-desktop] .agent-hud::before { display: none; }
+html[data-desktop] .agent-hud__box {
+  box-sizing: border-box; width: 100%; height: 100%; min-height: 0; max-width: none; max-height: none;
+}
+/* Exterior only: the inset rails and panel borders keep their existing shape. */
+html[data-desktop][data-theme="dark"] .agent-hud__box { border: 0; background-color: rgb(var(--hud-shell-rgb)); }
+html[data-desktop][data-theme="light"] .agent-hud__box { border: 0; border-radius: 0; }
+html[data-desktop] .agent-hud__mini { display: none; }
+
+.desktop-terminal { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
+.desktop-terminal .app-nav__brand { cursor: default; }
+
+/* Native client edges must not clip the project badge that straddles the web
+   HUD's outer border. Reserve a top band and keep the entire badge inside it. */
+html[data-desktop] .agent-hud__box:has(.agent-hud__event-edge) { --hud-pad-top: 3.25rem; }
+html[data-desktop][data-theme] .agent-hud__event-edge {
+  top: 0.75rem; left: var(--hud-pad-x); transform: none;
+  max-width: calc(100% - 2 * var(--hud-pad-x));
+}
+html[data-desktop][data-theme="light"] .agent-hud__event-edge {
+  top: var(--hud-corner-control-left); display: flex;
+}
+html[data-desktop][data-theme="light"] .agent-hud__event-label { display: flex; }
+
+/* Each top control shares the available row. Its full label remains available
+   through its accessible name and tooltip when the visible text is shortened. */
+html[data-desktop] .agent-hud__header {
+  flex-wrap: nowrap; align-items: center; gap: clamp(0.35rem, 1.5vw, 1.4rem);
+}
+html[data-desktop] .agent-hud__header-actions { display: contents; }
+html[data-desktop][data-theme] .agent-hud__header .agent-hud__model-selector,
+html[data-desktop][data-theme] .agent-hud__header .theme-toggle {
+  flex: 0 1 auto; width: max-content; min-width: 0; max-width: 100%; margin: 0;
+}
+html[data-desktop][data-theme] .agent-hud__header > .agent-hud__model-selector { max-width: 40%; }
+html[data-desktop] .agent-hud__header .agent-hud__model-trigger {
+  min-width: 0; width: 100%; height: 100%;
+}
+html[data-desktop] .agent-hud__header .agent-hud__model-trigger > span,
+html[data-desktop] .agent-hud__header .theme-toggle__label {
+  min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+html[data-desktop] .agent-hud__header .theme-toggle { justify-content: flex-start; }
+
+/* The first row reserves the geometric centre for all four arrows and the
+   logo. Measured primary actions stay in its side lanes; the remaining actions
+   participate in ordinary left-aligned flex wrapping below it. Their DOM nodes
+   stay mounted so resize preserves focus, clipboard feedback and recording. */
+html[data-desktop] .agent-hud__actions {
+  position: relative; display: flex; flex-wrap: wrap; align-items: flex-start;
+  justify-content: flex-start; gap: 0.75rem 1rem;
+}
+html[data-desktop] .agent-hud__run-actions,
+html[data-desktop] .agent-hud__actions-submit { display: contents; }
+html[data-desktop] .agent-hud__navigation-row {
+  order: -1; flex: 0 0 100%; display: grid; place-items: center;
+  min-height: var(--hud-primary-action-height, 36px);
+}
+html[data-desktop] .agent-hud__actions [data-hud-action-placement] {
+  flex: 0 0 auto; width: max-content; max-width: 100%; margin: 0;
+}
+html[data-desktop] .agent-hud__actions [data-hud-action-placement="primary"] {
+  position: absolute; left: var(--hud-action-left);
+  top: var(--hud-action-top, 0px);
+}
+html[data-desktop] .agent-hud__copy-controls { height: var(--hud-copy-action-height, 2.8rem); align-self: flex-start; }
+html[data-desktop] .agent-hud__message-direction { margin-inline: 0; }
+/* Keep hover/focus feedback in colour and glow, without moving the hit target. */
+html[data-desktop][data-theme] .agent-hud__actions button,
+html[data-desktop][data-theme] .agent-hud__actions button:not(:disabled):is(:hover, :focus-visible, :active) {
+  transform: none;
+}
+
+/* Extra footer rows reduce the panel space. Cap the compact panel's share so
+   both message and composer retain usable space at the native minimum height. */
+html[data-desktop] .agent-hud__panels[data-layout="top"] > .agent-hud__replyBox--user,
+html[data-desktop] .agent-hud__panels[data-layout="bottom"] > .agent-hud__replyBox--agent {
+  flex-basis: min(var(--hud-compact-panel-height), 45%);
+}
+
+/* Pane dimensions, rather than the native viewport, govern compact spacing. */
+@container hud-pane (height < 360px) {
+  html[data-desktop][data-theme] .agent-hud__box {
+    --hud-reply-pad-block-start: 0.4rem; --hud-reply-pad-block-end: 0.4rem;
+    --hud-pad-bottom: 0.75rem; --hud-panel-gap: 0.6rem; --hud-section-gap: 0.65rem;
+  }
+  html[data-desktop] .agent-hud__replySection { gap: var(--hud-section-gap); }
+}
+
+.desktop-workspace {
+  --desktop-panel-inset: 3.6rem;
+  --desktop-divider-color: var(--desktop-divider-default-color);
+  --desktop-divider-opacity: 1; --desktop-divider-thickness: 12px;
+  --desktop-divider-glow: 3; --desktop-divider-spread: 40px;
+  --desktop-divider-shadow: 100%;
+  --desktop-divider-shadow-color: var(--desktop-divider-color);
+  --desktop-divider-shadow-blur: 24px;
+  --desktop-divider-shadow-offset: 12px; --desktop-divider-shadow-cross-offset: 12px;
+  position: absolute; inset: 0; container: desktop-workspace / size;
+  overflow: auto; background: rgb(var(--hud-shell-rgb));
+}
+html[data-theme="light"] .desktop-workspace {
+  --desktop-panel-inset: 3.2rem;
+  --desktop-divider-opacity: 0.15; --desktop-divider-thickness: 1px;
+  --desktop-divider-glow: 0; --desktop-divider-spread: 3px;
+  --desktop-divider-shadow-cross-offset: 0px;
+  --desktop-divider-shadow-blur: 3px; --desktop-divider-shadow-offset: 1px;
+}
+.desktop-workspace__panes { display: grid; width: 100%; height: 100%; }
+html[data-desktop] .desktop-workspace .agent-hud {
+  position: relative; inset: auto; min-width: 0; min-height: 0;
+  container: hud-pane / size;
+}
+html[data-desktop] .desktop-workspace .agent-hud__box {
+  --hud-pad-x: var(--desktop-panel-inset); transition: none;
+}
+.desktop-workspace__panes[data-log-open] {
+  grid-template-columns: minmax(640px, 3fr) minmax(480px, 2fr);
+}
+/* Contain the existing HUD halo so it cannot become a divider over the log. */
+.desktop-workspace__panes[data-log-open] > .agent-hud {
+  grid-column: 1; grid-row: 1; overflow: clip;
+}
+.desktop-workspace__panes[data-log-open] > .desktop-message-log { grid-column: 2; grid-row: 1; }
+/* Keep the accepted dark shadow depth and soften its core's two edges.
+   The light preset casts a faint shadow from the HUD without a solid strip. */
+.desktop-workspace__panes[data-log-open]::after {
+  --desktop-divider-direction: 90deg;
+  --desktop-divider-shadow-reach: calc(var(--desktop-divider-shadow-offset) + 2 * var(--desktop-divider-shadow-blur));
+  --desktop-divider-shadow-x: var(--desktop-divider-shadow-offset);
+  --desktop-divider-shadow-y: var(--desktop-divider-shadow-cross-offset);
+  content: ""; grid-column: 2; grid-row: 1; justify-self: start;
+  width: var(--desktop-divider-thickness); opacity: var(--desktop-divider-opacity);
+  z-index: 30; pointer-events: none;
+  background: linear-gradient(
+      var(--desktop-divider-direction),
+      color-mix(in oklab, var(--desktop-divider-color) 70%, transparent),
+      var(--desktop-divider-color) 35% 65%,
+      color-mix(in oklab, var(--desktop-divider-color) 70%, transparent)
+    );
+  box-shadow:
+    0 0 calc(var(--desktop-divider-spread) / 8)
+      color-mix(in oklab, var(--desktop-divider-color) clamp(0%, calc(75% * var(--desktop-divider-glow)), 100%), transparent),
+    0 0 calc(var(--desktop-divider-spread) / 3)
+      color-mix(in oklab, var(--desktop-divider-color) clamp(0%, calc(50% * var(--desktop-divider-glow)), 100%), transparent),
+    0 0 var(--desktop-divider-spread)
+      color-mix(in oklab, var(--desktop-divider-color) clamp(0%, calc(16% * var(--desktop-divider-glow)), 100%), transparent),
+    var(--desktop-divider-shadow-x) var(--desktop-divider-shadow-y) var(--desktop-divider-shadow-blur)
+      color-mix(in oklab, var(--desktop-divider-shadow-color) var(--desktop-divider-shadow), transparent);
+}
+/* Draw above the HUD shell (z-index 70) so it cannot cover the left fade.
+   Feather the dark core into both panes without changing their geometry. */
+html[data-theme="dark"] .desktop-workspace__panes[data-log-open]::after {
+  z-index: 71; filter: blur(3px);
+}
+/* Shadow-only uses the full HUD surface as its source, with no colored line.
+   Clip the cast shadow to the adjoining pane's side of that surface. */
+html[data-theme="light"] .desktop-workspace .desktop-workspace__panes[data-log-open]::after {
+  grid-column: 1; grid-row: 1; justify-self: stretch; align-self: stretch;
+  width: auto; height: auto; background: none; clip-path: inset(0 calc(-1 * var(--desktop-divider-shadow-reach)) 0 0);
+}
+@container desktop-workspace (width < 1120px) {
+  .desktop-workspace__panes[data-log-open] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(336px, 3fr) minmax(224px, 2fr);
+    min-height: 560px;
+  }
+  .desktop-workspace__panes[data-log-open] > .desktop-message-log { grid-column: 1; grid-row: 2; }
+  .desktop-workspace__panes[data-log-open]::after {
+    --desktop-divider-direction: 180deg;
+    --desktop-divider-shadow-x: var(--desktop-divider-shadow-cross-offset);
+    --desktop-divider-shadow-y: var(--desktop-divider-shadow-offset);
+    grid-column: 1; grid-row: 2; justify-self: stretch; align-self: start;
+    width: auto; height: var(--desktop-divider-thickness);
+  }
+  html[data-theme="light"] .desktop-workspace .desktop-workspace__panes[data-log-open]::after {
+    clip-path: inset(0 0 calc(-1 * var(--desktop-divider-shadow-reach)) 0);
+  }
+}
+html[data-desktop] .desktop-message-log-toggle {
+  position: absolute; right: var(--hud-corner-control-left);
+  top: calc(50% - 1.5 * var(--hud-corner-control-size) - var(--hud-corner-control-gap));
+  z-index: 21;
+}
+.desktop-message-log {
+  position: relative; min-width: 0; min-height: 0; overflow: hidden;
+  isolation: isolate; background: var(--term-bg); container: message-log / inline-size;
+  animation: desktop-log-appear 180ms ease-out;
+}
+@keyframes desktop-log-appear { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .desktop-message-log { animation: none; } }
+
+/* Keep the web terminal's fonts and CRT treatment, with local pane geometry. */
+html[data-desktop] .desktop-message-log .term-frame { position: relative; top: auto; bottom: auto; }
+.desktop-message-log .term-log {
+  max-width: none;
+  /* Mirror the distance from the split to the HUD panel border. */
+  padding-inline: var(--desktop-panel-inset);
+  mask-image: linear-gradient(to bottom, transparent, black 3rem, black);
+}
+.desktop-message-log .term-log > div { max-width: none; }
+.desktop-message-log .term-msg { overflow-wrap: anywhere; }
+.desktop-message-log .term-msg pre { max-width: 100%; overflow-x: auto; }
+.desktop-message-log .app-nav__row {
+  width: 100%; margin-left: 0; height: 6rem; padding-top: 0;
+}
+.desktop-message-log .app-nav__brand--bar {
+  width: min(100%, 32rem); font-size: 2rem; transform: none;
+}
+.desktop-message-log .app-nav__row > div { padding-inline: 1.5rem; }
+/* Dropdowns remain within the HUD pane while the terminal occupies its side. */
+html[data-desktop] .agent-hud__model-dropdown { max-width: 100cqw; }

@@ -1,5 +1,6 @@
 "use client"
 
+import { HudButton } from "./HudButton"
 import {
 	useCallback,
 	useEffect,
@@ -128,9 +129,10 @@ export function UnlockApiKeys() {
 		<div
 			ref={rootRef}
 			className="agent-hud__model-selector agent-hud__model-selector--ready agent-hud__credential-selector">
-			<button
+			<HudButton
+				appearance="control"
+				variant="danger"
 				ref={triggerRef}
-				type="button"
 				className="agent-hud__selector-trigger agent-hud__model-trigger"
 				aria-haspopup="dialog"
 				aria-expanded={open}
@@ -152,7 +154,7 @@ export function UnlockApiKeys() {
 					aria-hidden="true">
 					<path d="M8 12.75 1.25 1.25h13.5Z" />
 				</svg>
-			</button>
+			</HudButton>
 			{open ? (
 				<div
 					className="agent-hud__model-menu agent-hud__credential-menu"

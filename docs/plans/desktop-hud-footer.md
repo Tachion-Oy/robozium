@@ -1,5 +1,7 @@
 # PR 3d — Desktop footer controls and local helpers
 
+> **Superseded:** see [desktop-roadmap.md](desktop-roadmap.md) (reference CSS transplant).
+
 ## Summary
 
 Port the experiment's footer into Current Run, with working fixture-message

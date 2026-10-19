@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" data-desktop class="h-full antialiased">
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<title>Robozium</title>
-		<script type="module" src="./src/main.tsx"></script>
+		<script type="module" src="./src/ui/main.tsx"></script>
 	</head>
-	<body>
-		<div id="root"></div>
+	<body class="h-dvh flex flex-col bg-term-bg text-term-green font-terminal overflow-hidden">
+		<div id="root" class="relative flex flex-1 flex-col min-h-0"></div>
 	</body>
 </html>

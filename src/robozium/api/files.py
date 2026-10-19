@@ -2,12 +2,14 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from roboz.shed.sandbox import Sandbox
 from starlette.concurrency import run_in_threadpool
 
+from robozium.api.attachments import AttachmentInfo
 from robozium.api.run_manager import RunManager
 from robozium.hub.application import Hub
 
@@ -22,10 +24,12 @@ def files_get(path: str, request: Request) -> Response:
 
 @router.post("/run/{run_id}/files")
 async def files_upload(
-    run_id: str, prompt_id: str, request: Request, filename: str = "image"
-) -> dict[str, str]:
+    run_id: str, request: Request, prompt_id: str | None = None, filename: str = "image",
+    upload_id: UUID | None = None,
+) -> AttachmentInfo:
     """Upload one image as raw request bytes, before submitting the JSON reply.
 
+    Reuse upload_id when retrying one selection; attachment IDs are server-generated.
     The returned path is readable through /files until the run's workers stop.
     """
     hub: Hub = request.app.state.hub
@@ -36,14 +40,41 @@ async def files_upload(
             raise HTTPException(413, "Image exceeds the configured byte limit")
         data.extend(chunk)
     try:
-        path = await run_in_threadpool(
-            manager.stage_image, run_id, prompt_id, filename, bytes(data)
+        return await run_in_threadpool(
+            manager.stage_image, run_id, prompt_id, filename, bytes(data), upload_id
         )
     except KeyError:
         raise HTTPException(404, "unknown run_id") from None
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    return {"path": path}
+
+
+@router.get("/run/{run_id}/files")
+def files_pending(run_id: str, request: Request) -> list[AttachmentInfo]:
+    manager: RunManager = request.app.state.run_manager
+    try:
+        return manager.pending_images(run_id)
+    except KeyError:
+        raise HTTPException(404, "unknown run_id") from None
+
+
+@router.delete("/run/{run_id}/files", status_code=204)
+def files_clear(run_id: str, request: Request) -> Response:
+    return files_delete(run_id, request)
+
+
+@router.delete("/run/{run_id}/files/{attachment_id}", status_code=204)
+def files_delete(
+    run_id: str, request: Request, attachment_id: str | None = None
+) -> Response:
+    manager: RunManager = request.app.state.run_manager
+    try:
+        manager.delete_images(run_id, attachment_id)
+    except KeyError:
+        raise HTTPException(404, "unknown run_id") from None
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return Response(status_code=204)
 
 
 def _build_expected_file_tag(requested_path: str) -> str:

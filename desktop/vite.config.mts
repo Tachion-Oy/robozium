@@ -8,5 +8,7 @@ export default defineConfig({
 	build: {
 		outDir: "../dist/renderer",
 		emptyOutDir: true,
+		// The renderer CSP allows only bundled files, not inlined data: fonts.
+		assetsInlineLimit: 0,
 	},
 })

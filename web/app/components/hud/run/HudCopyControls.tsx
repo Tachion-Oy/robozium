@@ -1,5 +1,6 @@
 "use client"
 
+import { HudButton } from "../HudButton"
 import type { AgentMessage } from "./AgentMessagePanel"
 import {
 	CopyTextButton,
@@ -9,6 +10,7 @@ import {
 type HudCopyControlsProps = {
 	agentMessage: AgentMessage
 	replyDraft: string
+	hasImages?: boolean
 	onClearReply: () => void
 }
 
@@ -16,6 +18,7 @@ type HudCopyControlsProps = {
 export function HudCopyControls({
 	agentMessage,
 	replyDraft,
+	hasImages = false,
 	onClearReply,
 }: HudCopyControlsProps) {
 	const targets: CopyTextButtonProps[] = [
@@ -37,11 +40,11 @@ export function HudCopyControls({
 			className="agent-hud__copy-controls"
 			role="group"
 			aria-label="Reply text actions">
-			<button
-				type="button"
+			<HudButton
+				appearance="control"
 				className="agent-hud__copy-text agent-hud__clear-reply"
 				onClick={onClearReply}
-				disabled={!replyDraft}
+				disabled={!replyDraft && !hasImages}
 				aria-label="Clear reply"
 				title="Clear reply">
 				<svg
@@ -51,7 +54,7 @@ export function HudCopyControls({
 					<path d="m4.75 14.75 8.9-8.9a2.1 2.1 0 0 1 2.97 0l1.53 1.53a2.1 2.1 0 0 1 0 2.97l-8.9 8.9H7.72l-2.97-2.97a1.08 1.08 0 0 1 0-1.53Z" />
 					<path d="m10.25 9.25 4.5 4.5M9.25 19.25H20" />
 				</svg>
-			</button>
+			</HudButton>
 			{targets.map((target) => (
 				<CopyTextButton
 					key={target.target}

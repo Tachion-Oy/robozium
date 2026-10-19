@@ -1,5 +1,6 @@
 "use client"
 
+import { HudButton } from "./HudButton"
 import { use, useState } from "react"
 import { getModelSelection, selectModel } from "@/lib/robozium/client"
 import type { ModelSelection } from "@/lib/robozium/wire"
@@ -14,13 +15,14 @@ type ModelSelectorProps = {
 export function ModelSelectorLoading() {
 	return (
 		<div className="agent-hud__model-selector agent-hud__model-selector--loading">
-			<button
-				type="button"
+			<HudButton
+				appearance="control"
+				variant="success"
 				className="agent-hud__selector-trigger agent-hud__model-trigger"
 				disabled
 				aria-busy="true">
 				<span>Loading models</span>
-			</button>
+			</HudButton>
 		</div>
 	)
 }

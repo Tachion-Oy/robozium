@@ -1,0 +1,500 @@
+import { expect } from "@playwright/test"
+import type { ServerResponse } from "node:http"
+import { writeFile } from "node:fs/promises"
+import { test, json, catalogue, prepareRun, snapshot, message, delta, emit, start, view, output, runStatus } from "./run-fixture"
+import { captureNative, chooseModel, modelTrigger, setNativeViewport } from "./native"
+import { expectFooterGeometry } from "./footer-geometry"
+
+test("launch requires a project and confirmed model, blocks overlapping writes and duplicate submissions", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	let models: ServerResponse | undefined
+	let created: ServerResponse | undefined
+	backend.handlers.set("GET /models", response => { models = response })
+	backend.handlers.set("POST /run/create", (response, body) => { expect(body).toEqual({ project: "existing-project" }); created = response })
+	await backend.open()
+	const launch = page.getByRole("button", { name: "Start run", exact: true })
+	await expect(launch).toHaveAttribute("aria-disabled", "true")
+	await page.getByRole("button", { name: "existing-project", exact: true }).click()
+	await expect(launch).toHaveAttribute("aria-disabled", "true")
+	json(models!, catalogue)
+	await expect(launch).toHaveAttribute("aria-disabled", "false")
+	let write: ServerResponse | undefined
+	backend.handlers.set("POST /models", response => { write = response })
+	const model = modelTrigger(page)
+	await chooseModel(page, "Second model")
+	await expect(launch).toHaveAttribute("aria-disabled", "true")
+	json(write!, { ...catalogue, selected_model_id: "two" })
+	await expect(launch).toHaveAttribute("aria-disabled", "false")
+	await launch.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click() })
+	await expect(page.getByRole("button", { name: "Starting run…" })).toHaveAttribute("aria-disabled", "true")
+	await expect(model).toBeDisabled()
+	await expect.poll(() => created).toBeDefined()
+	expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(1)
+	json(created!, { run_id: "run-one" })
+	await expect(runStatus(page)).toContainText("existing-project")
+	await expect.poll(() => run.streams.length).toBe(1)
+})
+
+for (const [label, body, status] of [
+	["rejection", { detail: "Already running" }, 409],
+	["malformed identifier", { run_id: 42 }, 200],
+	["empty identifier", { run_id: " " }, 200],
+] as const) {
+	test(`creation ${label} stays in overview without retrying`, async ({ desktop: { page }, backend }) => {
+		backend.handlers.set("POST /run/create", response => json(response, body, status))
+		await backend.open()
+		await page.clock.install()
+		await page.getByRole("button", { name: "existing-project", exact: true }).click()
+		const launch = page.getByRole("button", { name: "Start run", exact: true })
+		await launch.click()
+		await expect(page.getByRole("alert")).toContainText("Could not start run")
+		await expect(launch).toBeFocused()
+		await page.clock.fastForward(30_000)
+		expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(1)
+		expect(backend.requests.filter(request => request.path.endsWith("/stream"))).toHaveLength(0)
+	})
+}
+
+test("creation deadlines abort the request and ignore late success", async ({ desktop: { page }, backend }) => {
+	let pending: ServerResponse | undefined
+	let closed = false
+	backend.handlers.set("POST /run/create", response => { pending = response; response.on("close", () => { closed = true }) })
+	await backend.open()
+	await page.clock.install()
+	await page.getByRole("button", { name: "existing-project", exact: true }).click()
+	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await expect.poll(() => pending).toBeDefined()
+	await page.clock.fastForward(10_001)
+	await expect(page.getByRole("alert")).toContainText("Request timed out")
+	await expect.poll(() => closed).toBe(true)
+	json(pending!, { run_id: "late" })
+	await page.clock.fastForward(30_000)
+	expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(1)
+	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveCount(0)
+})
+
+test("late snapshots merge older history with newer SSE, deduplicate chunks and replace partial messages", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	let pending: ServerResponse | undefined
+	backend.handlers.set("GET /run/run-one", response => { pending = response })
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	const stream = run.streams[0]
+	emit(stream, delta(3, '{"value":"Live'))
+	emit(stream, delta(3, '{"value":"Live'))
+	emit(stream, delta(4, " output", 1))
+	emit(stream, delta(5, " output", 1)) // Same message/chunk under another sequence.
+	await expect(output(page)).toHaveText("value:Live output")
+	json(pending!, snapshot({ message_trace: [message(1, "First"), message(2, "Second")] }))
+	await expect(output(page)).toHaveText("value:Live output")
+	await page.getByRole("button", { name: "Jump to first agent message" }).click()
+	await expect(output(page)).toHaveText("First")
+	emit(stream, message(6, "Finished content", "live"))
+	emit(stream, message(7, "Finished content", "live"))
+	await expect(output(page)).toHaveText("First")
+	await page.getByRole("button", { name: "Next agent message", exact: true }).click()
+	await expect(output(page)).toHaveText("Second")
+	await page.getByRole("button", { name: "Next agent message", exact: true }).click()
+	await expect(output(page)).toHaveText("Finished content")
+	await expect(page.getByRole("button", { name: "Next agent message", exact: true })).toBeDisabled()
+	emit(stream, message(8, "Next notification"))
+	await expect(output(page)).toHaveText("Next notification")
+})
+
+test("snapshots alone update prompts and terminal status, with serialized two-second polling", async ({ desktop: { page }, backend }) => {
+	prepareRun(backend)
+	const reads: ServerResponse[] = []
+	backend.handlers.set("GET /run/run-one", response => reads.push(response))
+	await page.clock.install()
+	await start(page, backend)
+	await expect.poll(() => reads.length).toBe(1)
+	await page.clock.fastForward(6000)
+	expect(reads).toHaveLength(1)
+	json(reads[0], snapshot({ status: "awaiting_user_input", current_prompt_id: "p1", current_prompt: "First prompt" }))
+	await expect(output(page)).toHaveText("First prompt")
+	await expect(runStatus(page)).toContainText("Awaiting input")
+	await page.clock.fastForward(2001)
+	await expect.poll(() => reads.length).toBe(2)
+	json(reads[1], snapshot({ status: "awaiting_user_input", current_prompt_id: "p2", current_prompt: "Second prompt" }))
+	await expect(output(page)).toHaveText("Second prompt")
+	await page.clock.fastForward(2001)
+	await expect.poll(() => reads.length).toBe(3)
+	json(reads[2], snapshot({ status: "completed", message_trace: [message(1, "Completed output")] }))
+	await expect(runStatus(page)).toContainText("Completed")
+	await expect(output(page)).toHaveText("Completed output")
+	await page.clock.fastForward(30_000)
+	expect(reads).toHaveLength(3)
+})
+
+test("view changes retain one session, project, history selection and draft; new runs dispose obsolete reads", async ({ desktop: { page }, backend }) => {
+	const first = prepareRun(backend)
+	backend.handlers.set("GET /projects", response => json(response, [{ slug: "existing-project" }, { slug: "second-project" }]))
+	await start(page, backend)
+	await expect.poll(() => first.streams.length).toBe(1)
+	emit(first.streams[0], message(1, "First")); emit(first.streams[0], message(2, "Second"))
+	await expect(output(page)).toHaveText("Second")
+	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
+	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Keep my draft")
+	await view(page, "Environment"); await view(page, "Runs Overview")
+	await page.getByRole("button", { name: "second-project", exact: true }).click()
+	await page.getByRole("button", { name: "Return to run" }).click()
+	await expect(output(page)).toHaveText("First")
+	await expect(runStatus(page)).toContainText("existing-project")
+	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Keep my draft")
+	expect(first.streams).toHaveLength(1)
+	let oldRead: ServerResponse | undefined
+	let oldClosed = false
+	backend.handlers.set("GET /run/run-one", response => { oldRead = response; response.on("close", () => { oldClosed = true }) })
+	await expect.poll(() => oldRead).toBeDefined()
+	const second = prepareRun(backend, "run-two", "second-project")
+	await view(page, "Runs Overview")
+	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await expect.poll(() => first.closed).toBe(1)
+	await expect.poll(() => oldClosed).toBe(true)
+	await expect.poll(() => second.streams.length).toBe(1)
+	json(oldRead!, snapshot({ message_trace: [message(10, "OBSOLETE")] }))
+	emit(second.streams[0], message(1, "New run"))
+	await expect(output(page)).toHaveText("New run")
+	await expect(runStatus(page)).toContainText("second-project")
+	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Keep my draft")
+	expect(backend.requests.filter(request => request.path.includes("cancel"))).toHaveLength(0)
+	await page.goto("about:blank")
+	await expect.poll(() => second.closed).toBe(1)
+})
+
+for (const end of ["closure", "409"] as const) {
+	test(`stream ${end} waits for an in-flight read, takes a fresh snapshot and stops polling at completion`, async ({ desktop: { page }, backend }) => {
+		const run = prepareRun(backend)
+		const reads: ServerResponse[] = []
+		backend.handlers.set("GET /run/run-one", response => reads.push(response))
+		if (end === "409") backend.handlers.set("GET /run/run-one/stream", response => json(response, { detail: "Finished" }, 409))
+		await page.clock.install()
+		await start(page, backend)
+		await expect.poll(() => reads.length).toBe(1)
+		if (end === "closure") { await expect.poll(() => run.streams.length).toBe(1); run.streams[0].end() }
+		await page.clock.fastForward(6000)
+		expect(reads).toHaveLength(1)
+		json(reads[0], snapshot({ message_trace: [message(1, "Before closure")] }))
+		await expect.poll(() => reads.length).toBe(2)
+		json(reads[1], snapshot({ status: "completed", message_trace: [message(1, "Before closure"), message(2, "Final output")] }))
+		await expect(runStatus(page)).toContainText("Completed")
+		await expect(output(page)).toHaveText("Final output")
+		await expect(page.getByRole("alert")).toHaveCount(0)
+		await page.clock.fastForward(30_000)
+		expect(reads).toHaveLength(2)
+		expect(backend.requests.filter(request => request.path.endsWith("/stream"))).toHaveLength(1)
+	})
+}
+
+test("output retry reconnects only the known ID and retains output and draft", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	emit(run.streams[0], message(1, "Retained"))
+	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Draft")
+	run.streams[0].end()
+	await expect(page.getByRole("alert")).toContainText("disconnected")
+	await expect(output(page)).toHaveText("Retained")
+	await page.clock.install()
+	await page.clock.fastForward(30_000)
+	expect(run.streams).toHaveLength(1)
+	await page.getByRole("button", { name: "Retry output" }).click()
+	await expect.poll(() => run.streams.length).toBe(2)
+	emit(run.streams[1], message(1, "Retained")); emit(run.streams[1], message(2, "Recovered"))
+	await expect(output(page)).toHaveText("Recovered")
+	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Draft")
+	expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(1)
+})
+
+for (const status of ["failed", "cancelled", "queued", "cancelling"] as const) {
+	test(`snapshot status ${status} is presented`, async ({ desktop: { page }, backend }) => {
+		const run = prepareRun(backend)
+		backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ status, message_trace: [message(1, "Kept output")], error: status === "failed" ? "Execution failed" : null })))
+		await start(page, backend)
+		await expect(runStatus(page)).toContainText(status[0].toUpperCase() + status.slice(1))
+		await expect(output(page)).toHaveText("Kept output")
+		if (status === "failed" || status === "cancelled") await expect.poll(() => run.closed).toBe(run.streams.length)
+	})
+}
+
+for (const invalid of ["snapshot", "event", "unknown"] as const) {
+	test(`${invalid} run data preserves output and reports unavailable`, async ({ desktop: { page }, backend }) => {
+		const run = prepareRun(backend)
+		await start(page, backend)
+		await expect.poll(() => run.streams.length).toBe(1)
+		emit(run.streams[0], message(1, "Keep output"))
+		await expect(output(page)).toHaveText("Keep output")
+		if (invalid === "event") emit(run.streams[0], { type: "message_delta", sequence: 2, payload: { delta: 42 } })
+		else backend.handlers.set("GET /run/run-one", response => json(response, invalid === "unknown" ? { detail: "unknown run_id" } : snapshot({ status: "nonsense" }), invalid === "unknown" ? 404 : 200))
+		await expect(page.getByRole("alert")).toContainText(invalid === "unknown" ? "unknown run_id" : "invalid run data")
+		await expect(output(page)).toHaveText("Keep output")
+		if (invalid === "unknown") await expect(runStatus(page)).toContainText("Run unavailable")
+		await expect.poll(() => run.closed).toBe(1)
+	})
+}
+
+test("snapshot deadline stops polling and aborts owned stream on timeout", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	let pending: ServerResponse | undefined
+	let closed = false
+	backend.handlers.set("GET /run/run-one", response => { pending = response; response.on("close", () => { closed = true }) })
+	await page.clock.install()
+	await start(page, backend)
+	await expect.poll(() => pending).toBeDefined()
+	await page.clock.fastForward(10_001)
+	await expect(page.getByRole("alert")).toContainText("Request timed out")
+	await expect.poll(() => closed).toBe(true)
+	await expect.poll(() => run.closed).toBe(1)
+	await page.clock.fastForward(30_000)
+	expect(backend.requests.filter(request => request.path === "/run/run-one")).toHaveLength(1)
+})
+
+for (const theme of ["dark", "light"]) {
+	test(`streaming scroll, empty history, clipboard and pinned selection fit ${theme} at narrow zoom`, async ({ desktop: { app, page }, backend }, testInfo) => {
+		const run = prepareRun(backend)
+		await start(page, backend)
+		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+		await setNativeViewport(app, page, 640, 420, 1.25)
+		for (const button of await page.getByRole("group", { name: "Agent message history" }).getByRole("button").all()) await expect(button).toBeDisabled()
+		await expect(page.getByRole("button", { name: "Copy agent output" })).toBeDisabled()
+		await expect.poll(() => run.streams.length).toBe(1)
+		const stream = run.streams[0]
+		emit(stream, message(1, "Older\n".repeat(80)))
+		emit(stream, delta(2, "Line\n".repeat(80)))
+		await expect(output(page)).toContainText("Line")
+		emit(stream, delta(3, "Last line", 1))
+		await expect(output(page)).toContainText("Last line")
+		const scroller = page.getByRole("region", { name: "Agent message text", exact: true })
+		await expect.poll(() => scroller.evaluate(element => Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop) < 2)).toBe(true)
+		await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
+		await expect(output(page)).toContainText("Older")
+		await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBe(0)
+		emit(stream, delta(4, " More", 2))
+		await expect(output(page)).toHaveText("Older\n".repeat(80))
+		await page.getByRole("button", { name: "Copy agent output" }).click()
+		expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe("Older\n".repeat(80))
+		await expectFooterGeometry(page)
+		const screenshot = testInfo.outputPath(`run-${theme}.png`)
+		await writeFile(screenshot, (await captureNative(app, page, 640, 420))!)
+		await testInfo.attach(`run-${theme}.png`, { path: screenshot, contentType: "image/png" })
+	})
+}
+
+test("script output stays literal, groups chunks, and keeps a pinned identity across older snapshot recovery", async ({ desktop: { page, app }, backend }) => {
+	const run = prepareRun(backend)
+	let pending: ServerResponse | undefined
+	backend.handlers.set("GET /run/run-one", response => { pending = response })
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	const script = (sequence: number, content: string) => ({ type: "script_output", sequence, payload: { content } })
+	emit(run.streams[0], script(2, '  {"literal": "value"}\n'))
+	emit(run.streams[0], script(3, "second\n"))
+	await expect(output(page)).toHaveText('  {"literal": "value"}\nsecond\n')
+	emit(run.streams[0], message(4, "After script"))
+	await expect(output(page)).toHaveText("After script")
+	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
+	json(pending!, snapshot({ message_trace: [message(0, "Earlier recovered history"), script(1, "Recovered prefix\n"), script(2, '  {"literal": "value"}\n'), script(3, "second\n"), message(4, "After script")] }))
+	const expected = 'Recovered prefix\n  {"literal": "value"}\nsecond\n'
+	await expect(output(page)).toHaveText(expected)
+	emit(run.streams[0], message(5, "More output"))
+	await expect(output(page)).toHaveText(expected)
+	await page.getByRole("button", { name: "Copy agent output" }).click()
+	expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe(expected)
+})
+
+test("completed prompt messages extract user-facing text and late token deltas cannot replace them", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ message_trace: [{
+		...message(5, JSON.stringify({ action: "prompt_user", rationale: "Ask", value: "Question?" }), "prompt-message"),
+		payload: { role: "assistant", content: JSON.stringify({ action: "prompt_user", rationale: "Ask", value: "Question?" }) },
+	}] })))
+	await start(page, backend)
+	await expect(output(page)).toHaveText("Question?")
+	emit(run.streams[0], delta(4, "obsolete partial", 0, "prompt-message"))
+	emit(run.streams[0], { type: "future_event", payload: {} })
+	emit(run.streams[0], { ...message(6, "internal tool output"), payload: { role: "user", content: "internal tool output" } })
+	await expect(output(page)).toHaveText("Question?")
+	await expect(page.getByRole("button", { name: "Previous agent message", exact: true })).toBeDisabled()
+})
+
+test("retrying old output cannot cancel a pending replacement creation", async ({ desktop: { page, app }, backend }, testInfo) => {
+	const run = prepareRun(backend)
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	run.streams[0].end()
+	await expect(page.getByRole("button", { name: "Retry output" })).toBeEnabled()
+	let pending: ServerResponse | undefined
+	prepareRun(backend, "replacement")
+	backend.handlers.set("POST /run/create", response => { pending = response })
+	await view(page, "Runs Overview")
+	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await expect.poll(() => pending).toBeDefined()
+	await page.getByRole("button", { name: "Return to run", exact: true }).click()
+	await expect(page.getByRole("button", { name: "Retry output" })).toBeDisabled()
+	json(pending!, { run_id: "replacement" })
+	await expect(page.getByRole("alert")).toHaveCount(0)
+	await view(page, "Runs Overview")
+	await expect(page.getByRole("button", { name: "Start run", exact: true })).toHaveAttribute("aria-disabled", "false")
+	expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(2)
+	await setNativeViewport(app, page, 640, 420, 1.25)
+	await page.getByRole("button", { name: "Return to run", exact: true }).scrollIntoViewIfNeeded()
+	await testInfo.attach("overview-actions.png", { body: (await captureNative(app, page, 640, 420))!, contentType: "image/png" })
+})
+
+test("provider retries discard abandoned text while keeping completed history and drafts", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	await page.clock.install()
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	const stream = run.streams[0]
+	const retry = { type: "runtime_event", sequence: 3, payload: { category: "llm", kind: "retrying", agent_name: "orchestrator" } }
+	emit(stream, message(1, "Earlier"))
+	emit(stream, delta(2, "Abandoned attempt", 0, "attempt-1"))
+	await expect(output(page)).toHaveText("Abandoned attempt")
+	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Keep this draft")
+	emit(stream, retry)
+	await expect(output(page)).toHaveText("Earlier")
+	emit(stream, delta(4, "Successful", 0, "attempt-2"))
+	emit(stream, message(5, "Successful response", "attempt-2"))
+	await expect(output(page)).toHaveText("Successful response")
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({
+		message_trace: [message(1, "Earlier"), retry, message(5, "Successful response", "attempt-2")],
+	})))
+	await page.clock.fastForward(2001)
+	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
+	await expect(output(page)).toHaveText("Earlier")
+	await expect(page.getByRole("button", { name: "Previous agent message", exact: true })).toBeDisabled()
+	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Keep this draft")
+})
+
+test("active prompts stay visible before later notifications and latest navigation returns to the prompt", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	const history = [message(1, "Earlier"), message(2, "Continue?"), message(3, "Background")]
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({
+		status: "awaiting_user_input", current_prompt_id: "p1", current_prompt: "Continue?", message_trace: history,
+	})))
+	await page.clock.install()
+	await start(page, backend)
+	await expect(output(page)).toHaveText("Continue?")
+	await expect.poll(() => run.streams.length).toBe(1)
+	await expect(page.getByRole("button", { name: "Jump to latest agent message" })).toBeDisabled()
+	await page.getByRole("button", { name: "Next agent message", exact: true }).click()
+	await expect(output(page)).toHaveText("Background")
+	emit(run.streams[0], message(4, "More background output"))
+	await expect(output(page)).toHaveText("Background")
+	await page.getByRole("button", { name: "Jump to latest agent message" }).click()
+	await expect(output(page)).toHaveText("Continue?")
+	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
+	await expect(output(page)).toHaveText("Earlier")
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({
+		status: "awaiting_user_input", current_prompt_id: "p2", current_prompt: "Next question?", message_trace: history,
+	})))
+	await page.clock.fastForward(2001)
+	await expect(output(page)).toHaveText("Earlier")
+	await page.getByRole("button", { name: "Jump to latest agent message" }).click()
+	await expect(output(page)).toHaveText("Next question?")
+})
+
+test("ordinary completion keeps progress visible through polling until a prompt replaces it", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	await page.clock.install()
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	emit(run.streams[0], delta(1, '{"action":"working"', 0, "tool"))
+	await expect(output(page)).toHaveText("action:working")
+	const completed = { type: "message", sequence: 2, message_id: "tool",
+		payload: { role: "assistant", content: '{"action":"tool","value":"work"}' } }
+	emit(run.streams[0], completed)
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ message_trace: [completed] })))
+	await page.clock.fastForward(2001)
+	await expect(output(page)).toHaveText("action:working")
+	await expect(page.getByRole("button", { name: "Copy agent output" })).toBeEnabled()
+	await expect(page.getByRole("button", { name: "Previous agent message", exact: true })).toBeDisabled()
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({
+		status: "awaiting_user_input", current_prompt_id: "p1", current_prompt: "Continue?", message_trace: [completed],
+	})))
+	await page.clock.fastForward(2001)
+	await expect(output(page)).toHaveText("Continue?")
+})
+
+test("prefix recovery followed by a split keeps both script entries navigable and copyable", async ({ desktop: { page, app }, backend }) => {
+	const run = prepareRun(backend)
+	const reads: ServerResponse[] = []
+	backend.handlers.set("GET /run/run-one", response => reads.push(response))
+	const script = (sequence: number, content: string) => ({ type: "script_output", sequence, payload: { content } })
+	await page.clock.install()
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	await expect.poll(() => reads.length).toBe(1)
+	emit(run.streams[0], script(4, "Later"))
+	emit(run.streams[0], message(8, "Latest"))
+	await expect(output(page)).toHaveText("Latest")
+	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
+	json(reads[0], snapshot({ message_trace: [script(2, "Prefix")] }))
+	await expect(output(page)).toHaveText("PrefixLater")
+	await page.clock.fastForward(2001)
+	await expect.poll(() => reads.length).toBe(2)
+	json(reads[1], snapshot({ message_trace: [{ type: "run_lifecycle", payload: { sequence: 3 } }] }))
+	await expect(output(page)).toHaveText("Later")
+	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
+	await expect(output(page)).toHaveText("Prefix")
+	await page.getByRole("button", { name: "Copy agent output" }).click()
+	expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe("Prefix")
+	await page.getByRole("button", { name: "Next agent message", exact: true }).click()
+	await expect(output(page)).toHaveText("Later")
+	await page.getByRole("button", { name: "Copy agent output" }).click()
+	expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe("Later")
+})
+
+test("a duplicate script event dismisses delayed tokens and continues the recovered script", async ({ desktop: { page, app }, backend }) => {
+	const run = prepareRun(backend)
+	const script = (sequence: number, content: string) => ({ type: "script_output", sequence, payload: { content } })
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ message_trace: [script(6, "Newer script output")] })))
+	await start(page, backend)
+	await expect(output(page)).toHaveText("Newer script output")
+	await expect.poll(() => run.streams.length).toBe(1)
+	emit(run.streams[0], delta(5, "Older LLM text"))
+	await expect(output(page)).toHaveText("Older LLM text")
+	emit(run.streams[0], script(6, "Newer script output"))
+	await expect(output(page)).toHaveText("Newer script output")
+	emit(run.streams[0], script(7, " continued"))
+	await expect(output(page)).toHaveText("Newer script output continued")
+	await expect(page.getByRole("button", { name: "Previous agent message", exact: true })).toBeDisabled()
+	await page.getByRole("button", { name: "Copy agent output" }).click()
+	expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe("Newer script output continued")
+})
+
+test("a prompt separates pinned script output through dismissal and later history recovery", async ({ desktop: { page, app }, backend }) => {
+	const run = prepareRun(backend)
+	const reads: ServerResponse[] = []
+	backend.handlers.set("GET /run/run-one", response => reads.push(response))
+	const script = (sequence: number, content: string) => ({ type: "script_output", sequence, payload: { content } })
+	await page.clock.install()
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	await expect.poll(() => reads.length).toBe(1)
+	emit(run.streams[0], script(2, "Before"))
+	await expect(output(page)).toHaveText("Before")
+	json(reads[0], snapshot({ status: "awaiting_user_input", current_prompt_id: "p1", current_prompt: "Continue?", message_trace: [script(2, "Before")] }))
+	await expect(output(page)).toHaveText("Continue?")
+	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
+	await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Retained draft")
+	await page.clock.fastForward(2001)
+	await expect.poll(() => reads.length).toBe(2)
+	json(reads[1], snapshot({ message_trace: [script(2, "Before")] }))
+	await expect(runStatus(page)).toContainText("Running")
+	emit(run.streams[0], script(4, "After"))
+	await expect(page.getByRole("button", { name: "Next agent message", exact: true })).toBeEnabled()
+	await expect(output(page)).toHaveText("Before")
+	await page.getByRole("button", { name: "Copy agent output" }).click()
+	expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe("Before")
+	await page.clock.fastForward(2001)
+	await expect.poll(() => reads.length).toBe(3)
+	json(reads[2], snapshot({ message_trace: [script(1, "Prefix"), script(2, "Before"), script(4, "After")] }))
+	await expect(output(page)).toHaveText("PrefixBefore")
+	await page.getByRole("button", { name: "Next agent message", exact: true }).click()
+	await expect(output(page)).toHaveText("After")
+	emit(run.streams[0], script(5, " continued"))
+	await expect(output(page)).toHaveText("After continued")
+	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toHaveValue("Retained draft")
+})

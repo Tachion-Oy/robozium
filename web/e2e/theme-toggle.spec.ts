@@ -169,7 +169,7 @@ test("switches and persists the integrated light theme", async ({
 	} finally {
 		await rm(firstMessageHold, { force: true })
 	}
-	await expect(page.getByRole("textbox", { name: "Type your reply..." })).toBeVisible()
+	await expect(page.getByRole("textbox", { name: "Reply text" })).toBeVisible()
 	const centeredHistoryControls = await page.evaluate(() => {
 		const actions = document.querySelector(".agent-hud__actions")
 		const navigation = document.querySelector(".agent-hud__message-nav")

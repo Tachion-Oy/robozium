@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- Send pasted, dropped, or selected images in web replies, including image-only
+  replies. Upload while a run is processing, restore pending previews after
+  refresh, and remove or clear pending images through standard DELETE endpoints.
+  Keep drafts on failure, avoid duplicate uploads on retry, and retain accepted
+  files until the run's workers stop.
+
+- Preview pasted, dropped, or selected images in the web reply composer, with
+  run-scoped drafts and removal/clearing controls.
+
+- Start selected projects from the desktop HUD and display live output, prompts,
+  history, and completion. Preserve drafts and output on errors, keep one session
+  across views, and retry output without creating another run. Standalone preview
+  remains available; replies and cancellation controls are still deferred.
+  Separate run reconciliation from desktop HUD selection, clear abandoned model
+  attempts, keep active prompts and settling progress visible, and process token
+  updates without rebuilding completed history. Keep recovered script entries
+  uniquely selectable, apply repeated events to stale live text, and preserve
+  script boundaries across prompts and history recovery.
+
 - Connect desktop Runs Overview to backend project listing, creation, and selection,
   and the model dropdown to the backend default. Preserve drafts and confirmed
   selections on failure, keep model refresh separate from write retry, and reload

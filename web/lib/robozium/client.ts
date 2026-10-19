@@ -1,3 +1,4 @@
+import { RunAttachmentSchema } from "./wire"
 import type {
 	CancelResponse,
 	CapabilitySelection,
@@ -20,6 +21,7 @@ import type {
 	ReplyBody,
 	ReplyResponse,
 	RunView,
+	RunAttachment,
 	TranscribeResponse,
 } from "./wire"
 
@@ -31,6 +33,32 @@ export class AgentApiError extends Error {
 		this.name = "AgentApiError"
 		this.status = status
 	}
+}
+
+export async function listRunAttachments(runId: string): Promise<RunAttachment[]> {
+	return RunAttachmentSchema.array().parse(await fetchJson<unknown>(
+		`/api/runs/${encodeURIComponent(runId)}/files`, { cache: "no-store" },
+	))
+}
+
+export async function uploadRunAttachment(runId: string, file: File, uploadId: string): Promise<RunAttachment> {
+	const query = new URLSearchParams({ filename: file.name, upload_id: uploadId })
+	return RunAttachmentSchema.parse(await fetchJson<unknown>(
+		`/api/runs/${encodeURIComponent(runId)}/files?${query}`,
+		{ method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file },
+	))
+}
+
+export async function deleteRunAttachments(runId: string, attachmentId?: string): Promise<void> {
+	const suffix = attachmentId === undefined ? "" : `/${encodeURIComponent(attachmentId)}`
+	const response = await fetch(`/api/runs/${encodeURIComponent(runId)}/files${suffix}`, { method: "DELETE" })
+	if (response.status === 204) return
+	let detail = `Could not remove images (${response.status})`
+	try {
+		const body: unknown = await response.json()
+		if (body && typeof body === "object" && "detail" in body && typeof body.detail === "string") detail = body.detail
+	} catch { /* Keep the HTTP error when an upstream response is not JSON. */ }
+	throw new AgentApiError(response.status, detail)
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {

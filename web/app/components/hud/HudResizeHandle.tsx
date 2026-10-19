@@ -239,7 +239,7 @@ export function HudResizeHandle({
 			onPointerCancel={(event) => finishDrag(event.pointerId)}
 			onLostPointerCapture={(event) => finishDrag(event.pointerId)}>
 			<span
-				className="agent-hud__resize-wedge agent-hud__corner-control"
+				className="agent-hud__button agent-hud__resize-wedge agent-hud__corner-control"
 				aria-hidden="true">
 				<svg
 					className="agent-hud__resize-icon"

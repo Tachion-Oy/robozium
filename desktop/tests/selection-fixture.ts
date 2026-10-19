@@ -13,7 +13,7 @@ export function json(response: ServerResponse, body: unknown, status = 200) {
 	response.end(JSON.stringify(body))
 }
 type Handler = (response: ServerResponse, body: unknown) => void
-interface Backend {
+export interface Backend {
 	handlers: Map<string, Handler>
 	requests: { method: string; path: string; body: unknown }[]
 	open: () => Promise<void>

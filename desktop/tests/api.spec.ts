@@ -2,6 +2,8 @@ import { expect, test as base } from "@playwright/test"
 import { createServer, type Server, type ServerResponse } from "node:http"
 import { once } from "node:events"
 import { DesktopApiClient, parseEventStream, SseFramer } from "../renderer/src/api/client"
+import { getRunSnapshot, streamRunEvents } from "../renderer/src/run/run-api"
+import { parseRunEvent } from "../renderer/src/run/run-payloads"
 
 const test = base.extend<{ backend: { client: DesktopApiClient; server: Server } }>({
 	backend: async ({ baseURL }, use) => {
@@ -209,14 +211,14 @@ test("HTTP event subscription cancels the response on early exit and abort", asy
 	for (const abort of [false, true]) {
 		let response: ServerResponse | undefined
 		server.once("request", (request, res) => {
-			expect(request.url).toBe("/run/run%2Fone/stream")
+			expect(request.url).toBe("/events?cursor=one")
 			expect(request.headers.accept).toBe("text/event-stream")
 			response = res
 			res.writeHead(200, { "Content-Type": "text/event-stream" })
 			res.write("data: {\"type\":\"test\"}\n\n")
 		})
 		const controller = new AbortController()
-		const events = client.streamRunEvents("run/one", controller.signal)
+		const events = client.streamEvents("/events?cursor=one", controller.signal)
 		expect((await events.next()).value).toEqual({ type: "test" })
 		const closed = once(response!, "close")
 		if (abort) {
@@ -235,5 +237,76 @@ test("event subscription rejects a non-stream response", async ({ backend: { cli
 		response.setHeader("Content-Type", "application/json")
 		response.end("{}")
 	})
-	await expect(client.streamRunEvents("one").next()).rejects.toMatchObject({ kind: "malformed" })
+	await expect(client.streamEvents("/events").next()).rejects.toMatchObject({ kind: "malformed" })
+})
+
+test("typed run streams ignore unknown events and release the response on exit, abort or invalid data", async ({ backend: { client, server } }) => {
+	for (const end of ["return", "abort", "invalid"] as const) {
+		let response: ServerResponse | undefined
+		server.once("request", (request, res) => {
+			expect(request.url).toBe("/run/run%2Fone/stream")
+			response = res
+			res.writeHead(200, { "Content-Type": "text/event-stream" })
+			res.write('data: {"type":"future_event"}\n\n')
+			res.write('data: {"type":"script_output","sequence":1,"payload":{"content":"Hello"}}\n\n')
+		})
+		const controller = new AbortController()
+		const events = streamRunEvents(client, "run/one", controller.signal)
+		expect((await events.next()).value).toEqual({ type: "script_output", sequence: 1, content: "Hello" })
+		const closed = once(response!, "close")
+		if (end === "return") {
+			await events.return(undefined)
+		} else if (end === "abort") {
+			const pending = events.next()
+			controller.abort()
+			await expect(pending).rejects.toMatchObject({ name: "AbortError" })
+		} else {
+			response!.write('data: {"type":"script_output","sequence":2,"payload":{"content":42}}\n\n')
+			await expect(events.next()).rejects.toMatchObject({ kind: "malformed" })
+		}
+		await closed
+	}
+})
+
+test("run parsing preserves the wire contract while normalizing retry controls", () => {
+	expect(parseRunEvent({ type: "message", sequence: 1, message_id: "m1", payload: {
+		role: "assistant", content: "Hello", message_kind: "user_notification",
+	} })).toEqual({ type: "message", sequence: 1, id: "m1", role: "assistant", content: "Hello", kind: "user_notification" })
+	expect(parseRunEvent({ type: "message_delta", sequence: 2, payload: {
+		message_id: "m2", delta: "Progress", chunk_index: 0, agent_name: "root",
+	} })).toEqual({ type: "message_delta", sequence: 2, id: "m2", delta: "Progress", chunk: 0, agent: "root" })
+	expect(parseRunEvent({ type: "script_output", sequence: 3, payload: { content: "stdout" } }))
+		.toEqual({ type: "script_output", sequence: 3, content: "stdout" })
+	expect(parseRunEvent({ type: "run_lifecycle", payload: { sequence: 4 } }))
+		.toEqual({ type: "run_lifecycle", sequence: 4 })
+	expect(parseRunEvent({ type: "runtime_event", sequence: 5, payload: { category: "llm", kind: "retrying", agent_name: "root" } }))
+		.toEqual({ type: "llm_retry", sequence: 5, agent: "root" })
+})
+
+test("run parsing rejects malformed consumed fields and ignores unconsumed events", () => {
+	for (const role of ["assistant", "user", "system", "error"]) {
+		expect(parseRunEvent({ type: "message", sequence: 1, payload: { role, content: "text" } }))
+			.toMatchObject({ role, id: null, kind: null })
+	}
+	for (const value of [
+		{ type: "message", sequence: 1, payload: { role: "unknown", content: "text" } },
+		{ type: "script_output", sequence: -1, payload: { content: "text" } },
+		{ type: "script_output", sequence: 1, payload: { content: 42 } },
+		{ type: "run_lifecycle", sequence: 1, payload: {} },
+	]) expect(() => parseRunEvent(value)).toThrow("invalid run data")
+	expect(parseRunEvent({ type: "future_event" })).toBeNull()
+	expect(parseRunEvent({ type: "llm_retry" })).toBeNull() // Only the parser creates this local control event.
+	expect(parseRunEvent({ type: "runtime_event", payload: { category: "tool", kind: "retrying" } })).toBeNull()
+})
+
+test("run reads validate status against the contract and encode the known run ID", async ({ backend: { client, server } }) => {
+	for (const status of ["queued", "running", "awaiting_user_input", "cancelling", "completed", "failed", "cancelled", "unknown", "toString"]) {
+		server.once("request", (request, response) => {
+			expect(request.url).toBe("/run/run%2Fone")
+			response.end(JSON.stringify({ project: "project", status, message_trace: [], current_prompt_id: null, current_prompt: null, error: null }))
+		})
+		const pending = getRunSnapshot(client, "run/one", new AbortController().signal)
+		if (status === "unknown" || status === "toString") await expect(pending).rejects.toMatchObject({ kind: "malformed" })
+		else await expect(pending).resolves.toMatchObject({ status })
+	}
 })

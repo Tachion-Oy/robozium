@@ -1,6 +1,6 @@
 import type { ComponentPropsWithRef } from "react"
 
-const variants = {
+const compactVariants = {
 	info: "agent-hud__row-tools",
 	success: "agent-hud__row-launch",
 	warning: "agent-hud__row-cancel",
@@ -9,16 +9,29 @@ const variants = {
 	option: "agent-hud__option",
 } as const
 
-type HudButtonProps = ComponentPropsWithRef<"button"> & {
-	variant?: keyof typeof variants
-}
+type HudButtonProps = ComponentPropsWithRef<"button"> & (
+	| { appearance?: "compact"; variant?: keyof typeof compactVariants; primary?: never }
+	| { appearance: "control"; variant?: "info" | "success" | "warning" | "danger"; primary?: boolean }
+)
 
-export function HudButton({ variant = "info", type = "button", className = "", ...props }: HudButtonProps) {
+/** Shared native button; callers supply only intent, sizing, and behavior. */
+export function HudButton({
+	variant = "info",
+	appearance = "compact",
+	primary = false,
+	type = "button",
+	className = "",
+	...props
+}: HudButtonProps) {
+	const presentation = appearance === "control"
+		? `agent-hud__button agent-hud__button--${variant}${primary ? " agent-hud__button--primary" : ""}`
+		: `agent-hud__row-action ${compactVariants[variant]}`
+
 	return (
 		<button
 			{...props}
 			type={type}
-			className={`agent-hud__row-action ${variants[variant]} ${className}`.trim()}
+			className={`${presentation} ${className}`.trim()}
 		/>
 	)
 }

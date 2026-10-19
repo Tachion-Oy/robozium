@@ -1,5 +1,7 @@
 # PR 3b.1 — Shared button component and HUD header layout
 
+> **Superseded:** see [desktop-roadmap.md](desktop-roadmap.md) (reference CSS transplant).
+
 ## Result
 
 Add a desktop-local shared button and complete header row after the

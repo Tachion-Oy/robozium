@@ -19,6 +19,7 @@ from roboz.runtime.pipe import EventPipe
 from roboz.tools import stop
 
 from robozium.api.app import create_app
+from robozium.api.attachments import UploadedImage
 from robozium.api.errors import ProjectBusyError
 from robozium.api.project_service import ProjectService
 from robozium.api.run_control import RunControl
@@ -469,15 +470,19 @@ def test_worker_inherits_context_at_start(config):
     assert observed == ["original-request"]
 
 
+@pytest.mark.parametrize("failing_thread", ["failing-worker", "failing-worker-attachments"])
 def test_thread_start_failure_finishes_once_without_holding_control_lock(
-    config, monkeypatch
+    config, monkeypatch, failing_thread
 ):
     control = RunControl(config.project("demo"), _TEST_ENDPOINT, history_limit=10)
+    staged = control.stage_image(None, UploadedImage("image.png", b"image bytes", "png"))
+    path = config.settings.sandbox.resolved_root / staged.path
+    assert path.exists()
     original_start = threading.Thread.start
     observed, invoked = [], []
 
     def start(thread):
-        if thread.name == "failing-worker":
+        if thread.name == failing_thread:
             raise RuntimeError("cannot start thread")
         return original_start(thread)
 
@@ -496,6 +501,8 @@ def test_thread_start_failure_finishes_once_without_holding_control_lock(
         )
     assert observed == [RunStatus.FAILED]
     assert not invoked
+    assert control.pending_images() == []
+    assert not path.parent.exists()
     state = control.snapshot()
     assert state["status"] == RunStatus.FAILED
     assert state["error"] == "cannot start thread"
