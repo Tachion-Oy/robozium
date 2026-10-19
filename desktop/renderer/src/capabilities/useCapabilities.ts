@@ -1,6 +1,8 @@
 // Copied from web/hooks/useCapabilities.ts at 5b06d82.
 // Adapted: reads use the desktop client with one deadline and run only while
 // the selector is open; App owns this state and passes it to the selector.
+// Closing the selector forgets the reads, so reopening it never offers choices
+// older than the last save.
 import { useEffect, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
@@ -42,7 +44,11 @@ export function useCapabilities(client: DesktopApiClient | null, project: string
 			}
 		}
 		void load()
-		return () => controller.abort()
+		return () => {
+			controller.abort()
+			setLoaded(null)
+			setError(null)
+		}
 	}, [client, active, attempt, project])
 	return {
 		catalog: loaded?.project === project ? loaded.catalog : null,

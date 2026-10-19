@@ -2,7 +2,7 @@
 // the same polling intervals, optimistic marks and the rules that settle them,
 // split into the listing, slug sets and one write helper. The reference
 // container's cancel and delete requests move here, so the overview makes none.
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { useClientLifetime } from "../api/useClientLifetime"
@@ -17,6 +17,8 @@ const CANCELLATION_POLL_INTERVAL_MS = 250
 
 export interface ProjectOverviewState {
 	isInitialLoading: boolean
+	/** Set only while no listing has ever succeeded. */
+	loadError: string | null
 	rows: ProjectRow[]
 	refresh: () => void
 	markOpening: (slug: string) => void
@@ -39,15 +41,19 @@ export function useProjectOverview(client: DesktopApiClient | null, visible: boo
 	const cancelling = useSlugSet()
 	const deleting = useSlugSet()
 	const lifetime = useClientLifetime(client)
+	// Slugs with a write still outstanding; a listing cannot settle those marks.
+	const writing = useRef(new Set<string>())
 	const listing = useProjectListing(
 		client,
 		visible,
 		cancelling.slugs.size > 0 ? CANCELLATION_POLL_INTERVAL_MS : DEFAULT_POLL_INTERVAL_MS,
 		listed => {
-			// A cancel settles once its project is dormant or gone; a delete once it is gone.
+			// After its request settles, a cancel ends once its project is dormant or
+			// gone and a delete once it is gone. Until then the row stays locked, so a
+			// late cancellation cannot reach a run launched in the meantime.
 			const status = new Map(listed.map(row => [row.slug, row.status] as const))
-			cancelling.retain(slug => status.has(slug) && status.get(slug) !== ProjectStatus.Dormant)
-			deleting.retain(slug => status.has(slug))
+			cancelling.retain(slug => writing.current.has(slug) || (status.has(slug) && status.get(slug) !== ProjectStatus.Dormant))
+			deleting.retain(slug => writing.current.has(slug) || status.has(slug))
 		},
 	)
 
@@ -64,6 +70,7 @@ export function useProjectOverview(client: DesktopApiClient | null, visible: boo
 		notice: WriteNotice,
 	): Promise<boolean> => {
 		marks.add(slug)
+		writing.current.add(slug)
 		const signal = lifetime()
 		try {
 			if (!client) throw new Error("The backend is not connected.")
@@ -75,6 +82,7 @@ export function useProjectOverview(client: DesktopApiClient | null, visible: boo
 			marks.remove(slug)
 			showErrorToast({ title: notice.title, message: notice.message, detail: notice.failed })
 		} finally {
+			writing.current.delete(slug)
 			if (!signal.aborted) listing.refresh()
 		}
 		return false
@@ -82,6 +90,7 @@ export function useProjectOverview(client: DesktopApiClient | null, visible: boo
 
 	return {
 		isInitialLoading: listing.isInitialLoading,
+		loadError: listing.loadError,
 		rows,
 		refresh: listing.refresh,
 		markOpening: setOpening,

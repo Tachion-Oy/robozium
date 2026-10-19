@@ -114,7 +114,10 @@ the capability selector from step 20 pulled in, then a working HUD.
    delete. `UnlockApiKeys` stays in step 20.
 3. **Overview cancel and delete hardening** (steps 15 and 16, overview side):
    #101's uncertain-outcome reconciliation, on one keyed request registry
-   shared by both.
+   shared by both, distinguishing outstanding, acknowledged and reconciling
+   writes. The launch marking and refresh sequence moves from the overview
+   component into its owner, so every launch entry point gets the same
+   guarantees.
 4. **Step 14:** replies.
 5. **Step 15, HUD side:** interrupt, HUD cancel, and returning to the overview
    when a run ends or goes missing.
@@ -128,6 +131,9 @@ the capability selector from step 20 pulled in, then a working HUD.
   injected inline styles the renderer's CSP blocks. Until then,
   `ui/feedback/ErrorToast.tsx` keeps the reference's `showErrorToast` call shape
   and shows failures as alerts in the notices row.
+- **Preview against the mock backend.** Standalone preview duplicates the
+  overview with local rows and inert controls; running it against the mock
+  backend removes that separate path.
 - **Opening links.** Markdown file and external links render but do nothing:
   `main.ts` denies new windows and navigation. Opening a hub file or an
   external page needs a named preload operation with validated targets.

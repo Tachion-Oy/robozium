@@ -8,6 +8,8 @@ import { mergeProjects, type ProjectRow } from "./landing"
 export interface ProjectListing {
 	rows: ProjectRow[]
 	isInitialLoading: boolean
+	/** The last failure, reported only until a listing first succeeds. */
+	loadError: string | null
 	refresh: () => void
 	/** Remove a row locally, as after a confirmed deletion. */
 	drop: (slug: string) => void
@@ -25,6 +27,8 @@ export function useProjectListing(
 ): ProjectListing {
 	const [rows, setRows] = useState<ProjectRow[]>([])
 	const [isInitialLoading, setIsInitialLoading] = useState(true)
+	const [loaded, setLoaded] = useState(false)
+	const [error, setError] = useState<string | null>(null)
 	const [refreshes, setRefreshes] = useState(0)
 	const listed = useRef(onListed)
 	listed.current = onListed
@@ -39,8 +43,11 @@ export function useProjectListing(
 				if (controller.signal.aborted) return
 				listed.current(next)
 				setRows(next)
-			} catch {
+				setLoaded(true)
+				setError(null)
+			} catch (failure) {
 				// Keep the last successful table through a transient read failure.
+				if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Could not load projects.")
 			} finally {
 				if (!controller.signal.aborted) {
 					setIsInitialLoading(false)
@@ -58,6 +65,7 @@ export function useProjectListing(
 	return {
 		rows,
 		isInitialLoading,
+		loadError: loaded ? null : error,
 		refresh: () => setRefreshes(count => count + 1),
 		drop: slug => setRows(current => current.filter(row => row.slug !== slug)),
 	}

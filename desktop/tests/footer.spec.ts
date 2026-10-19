@@ -184,7 +184,8 @@ for (const theme of ["dark", "light"]) {
 		const copy = copyReplyButton(page)
 		await copy.click()
 		await expect(copy).toHaveAttribute("data-copied", "true")
-		await page.clock.pauseAt(new Date())
+		// Pause just ahead of the page's own clock; the host time may already be behind it.
+		await page.clock.pauseAt(await page.evaluate(() => Date.now()) + 50)
 		await copy.evaluate(element => Reflect.set(window, "originalCopy", element))
 		const placements = new Set<string>()
 		for (const width of [1260, 900, 760, 640, 760, 900, 1260]) {

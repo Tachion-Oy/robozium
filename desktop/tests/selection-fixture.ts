@@ -20,7 +20,8 @@ type Handler = (response: ServerResponse, body: unknown) => void
 export interface Backend {
 	handlers: Map<string, Handler>
 	requests: { method: string; path: string; body: unknown }[]
-	open: () => Promise<void>
+	/** Connect the app; by default wait until the overview has listed projects. */
+	open: (options?: { awaitOverview?: boolean }) => Promise<void>
 }
 
 // Substitute only the selected connection and HTTP boundary, running the built app.
@@ -61,7 +62,7 @@ export const test = native.extend<{ backend: Backend }>({
 		const address = server.address()
 		if (!address || typeof address === "string") throw new Error("No test server port")
 		try {
-			await use({ handlers, requests, open: async () => {
+			await use({ handlers, requests, open: async ({ awaitOverview = true } = {}) => {
 				await app.evaluate(async ({ ipcMain, protocol }, { baseUrl, modulePath }) => {
 					ipcMain.removeHandler("desktop:backend-connection")
 					ipcMain.handle("desktop:backend-connection", () => ({ baseUrl }))
@@ -70,7 +71,7 @@ export const test = native.extend<{ backend: Backend }>({
 					await load(modulePath).registerRendererProtocol(baseUrl)
 				}, { baseUrl: `http://127.0.0.1:${address.port}`, modulePath: path.join(desktopRoot, "dist/renderer-protocol.js") })
 				await page.reload()
-				await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible()
+				if (awaitOverview) await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible()
 			} })
 		} finally {
 			await page.goto("about:blank") // Unmount/abort before closing the HTTP boundary.

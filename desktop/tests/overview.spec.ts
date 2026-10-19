@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { writeFile } from "node:fs/promises"
-import { test, json, project, prepareRun, launchButton, runStatus, view } from "./run-fixture"
+import { test, json, project, prepareRun, launchButton, runStatus, view, snapshot } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
 import { captureNative, setNativeViewport } from "./native"
 
@@ -185,6 +185,62 @@ test("cancel and delete settle through listings and report refused or failed wri
 	expect(writes(backend).map(write => `${write.method} ${write.path}`)).toEqual([
 		"POST /projects/busy/cancel", "POST /projects/busy/cancel", "DELETE /projects/old", "DELETE /projects/old",
 	])
+})
+
+test("a cancellation keeps its row locked until the request settles, even if a listing reports dormant", async ({ desktop: { page }, backend }) => {
+	let rows = [project("existing-project", { status: "running", run_id: "old-run" })]
+	let cancellation: ServerResponse | undefined
+	backend.handlers.set("GET /projects", response => json(response, rows))
+	backend.handlers.set("POST /projects/existing-project/cancel", response => { cancellation = response })
+	await backend.open()
+	await page.clock.install()
+	await row(page, "existing-project").getByRole("button", { name: "Cancel", exact: true }).click()
+	await expect.poll(() => cancellation).toBeDefined()
+	rows = [project("existing-project")]
+	const before = listings(backend)
+	await page.clock.fastForward(1000)
+	await expect.poll(() => listings(backend)).toBeGreaterThan(before)
+	await expect(row(page, "existing-project")).toContainText("CANCELLING")
+	await expect(launchButton(page, "existing-project")).toBeDisabled()
+	json(cancellation!, { ok: true })
+	await expect(row(page, "existing-project")).toContainText("DORMANT")
+	await expect(launchButton(page, "existing-project")).toBeEnabled()
+})
+
+test("reopening Tools waits for fresh choices instead of offering the previous ones", async ({ desktop: { page }, backend }) => {
+	let saved: unknown = null
+	backend.handlers.set("GET /capabilities", response => json(response, catalog))
+	backend.handlers.set("GET /capabilities/existing-project", response => json(response, saved))
+	backend.handlers.set("POST /capabilities/existing-project", (response, body) => { saved = body; json(response, body) })
+	prepareRun(backend)
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ status: "completed" })))
+	await backend.open()
+	await row(page, "existing-project").getByRole("button", { name: "Tools", exact: true }).click()
+	await capability(page, "web search").click()
+	await selector(page).getByRole("button", { name: "Launch", exact: true }).click()
+	await expect(runStatus(page)).toContainText("Completed")
+	expect(saved).toEqual({ web_search: true })
+	await view(page, "Runs Overview")
+	let refreshing: ServerResponse | undefined
+	backend.handlers.set("GET /capabilities/existing-project", response => { refreshing = response })
+	await row(page, "existing-project").getByRole("button", { name: "Tools", exact: true }).click()
+	await expect.poll(() => refreshing).toBeDefined()
+	await expect(selector(page).getByRole("status")).toHaveText("Loading capabilities…")
+	await expect(selector(page).locator('button[type="submit"]')).toBeDisabled()
+	json(refreshing!, saved)
+	await expect(capability(page, "web search")).toHaveAttribute("aria-checked", "true")
+	expect(writes(backend).filter(write => write.path === "/capabilities/existing-project")).toHaveLength(1)
+})
+
+test("a failed first listing reports the error with Retry instead of an empty hub", async ({ desktop: { page }, backend }) => {
+	backend.handlers.set("GET /projects", response => json(response, { detail: "Storage unreadable" }, 500))
+	await backend.open({ awaitOverview: false })
+	await expect(page.getByRole("alert")).toContainText("Could not load projects: API request failed (500): Storage unreadable")
+	await expect(page.getByText("No projects", { exact: true })).toHaveCount(0)
+	backend.handlers.set("GET /projects", response => json(response, [project("existing-project")]))
+	await page.getByRole("alert").getByRole("button", { name: "Retry", exact: true }).click()
+	await expect(page.getByRole("button", { name: "Open existing-project", exact: true })).toBeVisible()
+	await expect(page.getByRole("alert")).toHaveCount(0)
 })
 
 for (const theme of ["dark", "light"]) {
