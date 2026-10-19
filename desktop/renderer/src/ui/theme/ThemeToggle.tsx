@@ -1,11 +1,11 @@
-"use client"
-
+// Copied from robozium-electron/desktop/web/app/components/theme/ThemeToggle.tsx at 076b2c9.
+// Adapted: native theme persistence follows in roadmap step 13.
 import { useEffect, useRef } from "react"
 import {
 	APP_THEME_CHANNEL_NAME,
 	APP_THEME_COOKIE_NAME,
 	type AppTheme,
-} from "@/lib/theme"
+} from "./theme"
 
 const THEME_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365
 
@@ -53,7 +53,6 @@ export function ThemeToggle() {
 				const nextTheme: AppTheme =
 					readDocumentTheme() === "dark" ? "light" : "dark"
 				applyTheme(nextTheme)
-				void window.robozium?.setTheme(nextTheme)
 				try {
 					persistTheme(nextTheme)
 				} catch {

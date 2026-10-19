@@ -2,7 +2,7 @@ import { expect } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { writeFile } from "node:fs/promises"
 import { test, json, catalogue, prepareRun, snapshot, message, delta, emit, start, view, output, runStatus } from "./run-fixture"
-import { captureNative, setNativeViewport } from "./native"
+import { captureNative, chooseModel, modelTrigger, setNativeViewport } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
 test("launch requires a project and confirmed model, blocks overlapping writes and duplicate submissions", async ({ desktop: { page }, backend }) => {
@@ -20,14 +20,14 @@ test("launch requires a project and confirmed model, blocks overlapping writes a
 	await expect(launch).toHaveAttribute("aria-disabled", "false")
 	let write: ServerResponse | undefined
 	backend.handlers.set("POST /models", response => { write = response })
-	const model = page.getByRole("combobox", { name: /^Base model:/ })
-	await model.press("End"); await model.press("Enter")
+	const model = modelTrigger(page)
+	await chooseModel(page, "Second model")
 	await expect(launch).toHaveAttribute("aria-disabled", "true")
 	json(write!, { ...catalogue, selected_model_id: "two" })
 	await expect(launch).toHaveAttribute("aria-disabled", "false")
 	await launch.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click() })
 	await expect(page.getByRole("button", { name: "Starting run…" })).toHaveAttribute("aria-disabled", "true")
-	await expect(model).toHaveAttribute("aria-disabled", "true")
+	await expect(model).toBeDisabled()
 	await expect.poll(() => created).toBeDefined()
 	expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(1)
 	json(created!, { run_id: "run-one" })

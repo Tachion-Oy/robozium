@@ -1,15 +1,7 @@
-"use client"
-
-import { use, useState } from "react"
-import { getModelSelection, selectModel } from "@/lib/robozium/client"
-import type { ModelSelection } from "@/lib/robozium/wire"
-import { showErrorToast } from "@/app/components/feedback/ErrorToast"
+// Markup copied from robozium-electron/desktop/web/app/components/hud/ModelSelector.tsx
+// at 076b2c9. Adapted: useModels owns the selection, requests and acknowledgements.
+import type { ModelsState } from "../../models/useModels"
 import { SelectorDropdown } from "./SelectorDropdown"
-
-type ModelSelectorProps = {
-	initialSelection: Promise<ModelSelection | null>
-	runId?: string | null
-}
 
 export function ModelSelectorLoading() {
 	return (
@@ -25,59 +17,15 @@ export function ModelSelectorLoading() {
 	)
 }
 
-export function ModelSelector({
-	initialSelection,
-	runId = null,
-}: ModelSelectorProps) {
-	const loadedSelection = use(initialSelection)
-	const scope = runId ?? "default"
-	const [selections, setSelections] = useState<Record<string, ModelSelection>>({})
-	const selection = selections[scope] ?? loadedSelection
-	const [isLoading, setIsLoading] = useState(false)
-	const [isSaving, setIsSaving] = useState(false)
-	// Responses belong to the scope that issued them, even after changing views.
-	const setSelection = (next: ModelSelection) => {
-		setSelections((current) => ({ ...current, [scope]: next }))
-	}
-
-	const refresh = async (signal?: AbortSignal) => {
-		setIsLoading(true)
-		try {
-			setSelection(await getModelSelection({ signal, runId }))
-		} catch {
-			// A failed read leaves the selector visible and retryable on next open.
-		} finally {
-			if (!signal?.aborted) setIsLoading(false)
-		}
-	}
-
+export function ModelSelector({ models, disabled = false }: {
+	models: ModelsState
+	disabled?: boolean
+}) {
+	const { selection, pending } = models
+	if (!selection && pending) return <ModelSelectorLoading />
 	const selected = selection?.models.find(
 		(model) => model.model_id === selection.selected_model_id,
 	)
-
-	const choose = async (modelId: string) => {
-		if (isSaving) return false
-		if (modelId === selection?.selected_model_id) return true
-		setIsSaving(true)
-		try {
-			setSelection(
-				await selectModel({
-					model_id: modelId,
-					...(runId ? { run_id: runId } : {}),
-				}),
-			)
-			return true
-		} catch {
-			showErrorToast({
-				title: "Model change failed",
-				message: "The base model was not changed.",
-				detail: "Try selecting the model again.",
-			})
-			return false
-		} finally {
-			setIsSaving(false)
-		}
-	}
 
 	return (
 		<SelectorDropdown
@@ -85,17 +33,24 @@ export function ModelSelector({
 			options={(selection?.models ?? []).map((model) => ({
 				value: model.model_id,
 				label: model.label,
-				disabled: isSaving,
+				disabled: pending,
 			}))}
 			triggerLabel={selected?.label ?? "Model"}
 			listboxLabel="Base model"
+			disabled={disabled}
 			onOpen={() => {
-				if (!selection) void refresh()
+				// As in the reference, plus after a failed request or an empty catalogue,
+				// so opening the selector replaces the removed manual refresh.
+				if (!selection?.models.length || models.error) models.refresh()
 			}}
-			onSelect={choose}
+			onSelect={(modelId) => {
+				// The owner acknowledges the change; a failure keeps the confirmed model.
+				models.choose(modelId)
+				return true
+			}}
 			emptyContent={
 				<span className="agent-hud__model-empty">
-					{isLoading ? "Loading models" : "Models unavailable"}
+					{pending ? "Loading models" : "Models unavailable"}
 				</span>
 			}
 		/>

@@ -1,25 +1,20 @@
-import { Suspense } from "react"
-import type { ModelSelection } from "@/lib/robozium/wire"
+// Copied from web/app/components/hud/HudHeader.tsx at a664db2.
+// Adapted: the model selector is supplied by the caller, and UnlockApiKeys follows
+// with desktop credentials.
+import type { ReactNode } from "react"
 import { ThemeToggle } from "../theme/ThemeToggle"
 import { HudScreenSelector } from "./HudScreenSelector"
-import {
-	ModelSelector,
-	ModelSelectorLoading,
-} from "./ModelSelector"
 import type { HudPresentation, HudScreen } from "./hudPresentation"
-import { UnlockApiKeys } from "./UnlockApiKeys"
 
 type HudHeaderProps = {
 	presentation: HudPresentation
-	runId: string | null
-	modelSelectionPromise: Promise<ModelSelection | null> | null
+	modelSelector: ReactNode
 	onSelectScreen: (screen: HudScreen) => void
 }
 
 export function HudHeader({
 	presentation,
-	runId,
-	modelSelectionPromise,
+	modelSelector,
 	onSelectScreen,
 }: HudHeaderProps) {
 	return (
@@ -36,19 +31,9 @@ export function HudHeader({
 			]
 					.filter(Boolean)
 					.join(" ")}>
-			<Suspense fallback={<ModelSelectorLoading />}>
-				{modelSelectionPromise ? (
-					<ModelSelector
-						runId={presentation.modelScope === "run" ? runId : null}
-						initialSelection={modelSelectionPromise}
-					/>
-				) : (
-					<ModelSelectorLoading />
-				)}
-			</Suspense>
+			{modelSelector}
 			<div className="agent-hud__header-actions flex shrink-0 items-start gap-(--hud-actions-gap)">
 				<ThemeToggle />
-				<UnlockApiKeys />
 				<HudScreenSelector
 					screen={presentation.screen}
 					options={presentation.screenOptions}

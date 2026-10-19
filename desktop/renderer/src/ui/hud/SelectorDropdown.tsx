@@ -1,5 +1,5 @@
-"use client"
-
+// Copied from robozium-electron/desktop/web/app/components/hud/SelectorDropdown.tsx at 076b2c9.
+// Adapted: the empty catch carries a comment for the desktop lint rules.
 import {
 	type KeyboardEvent as ReactKeyboardEvent,
 	type ReactNode,
@@ -113,7 +113,9 @@ export function SelectorDropdown<Value extends string>({
 		const settleSelection = async () => {
 			try {
 				if (await shouldClose) setIsOpen(false)
-			} catch {}
+			} catch {
+				// A rejected selection keeps the menu open.
+			}
 		}
 		void settleSelection()
 	}

@@ -1,5 +1,4 @@
-"use client"
-
+// Copied from web/app/components/hud/HudScreenSelector.tsx at d65aa5a.
 import { SelectorDropdown } from "./SelectorDropdown"
 import type {
 	HudScreen,

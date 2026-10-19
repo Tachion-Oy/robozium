@@ -1,3 +1,4 @@
+// Copied from robozium-electron/desktop/web/app/components/hud/HudCornerControls.tsx at 076b2c9.
 export type LayoutMode = "equal" | "top" | "bottom"
 export type LayoutDirection = "up" | "down"
 

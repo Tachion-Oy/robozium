@@ -1,6 +1,7 @@
-import { RunHudPhase } from "@/lib/robozium/session/reducer"
-import type { HudNavigation, HudScreen } from "@/lib/robozium/hud-navigation"
-export type { HudScreen } from "@/lib/robozium/hud-navigation"
+// Copied from robozium-electron/desktop/web/app/components/hud/hudPresentation.ts at 076b2c9.
+// Adapted: a run that has ended is passed as runEnded instead of its RunHudPhase.
+// Copied from robozium-electron/desktop/web/lib/robozium/hud-navigation.ts at 076b2c9.
+export type HudScreen = "projects" | "run" | "dependencies" | "launch" | "environment"
 
 export type HudContext = "landing" | "active-run" | "recovery"
 
@@ -40,20 +41,20 @@ const SCREEN_OPTIONS: Record<HudContext, readonly HudScreenOption[]> = {
 
 export function resolveHudPresentation({
 	hasRun,
-	phase,
+	runEnded,
 	runUnavailable,
 	selectedScreen,
 	launch = null,
 }: {
 	hasRun: boolean
-	phase: RunHudPhase
+	runEnded: boolean
 	runUnavailable: boolean
 	selectedScreen: HudScreen
-	launch?: HudNavigation["launch"]
+	launch?: object | null
 }): HudPresentation {
 	const context: HudContext = !hasRun
 		? "landing"
-		: phase === RunHudPhase.Done || runUnavailable
+		: runEnded || runUnavailable
 			? "recovery"
 			: "active-run"
 	const availableScreens = SCREEN_OPTIONS[context]

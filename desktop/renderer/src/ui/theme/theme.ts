@@ -1,3 +1,4 @@
+// Copied from web/lib/theme.ts at 7f956cb.
 export type AppTheme = "dark" | "light"
 
 export const APP_THEME_COOKIE_NAME = "app.theme.v1"

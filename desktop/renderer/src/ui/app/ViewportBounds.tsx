@@ -1,5 +1,4 @@
-"use client"
-
+// Copied from web/app/components/ViewportBounds.tsx at b551fa5.
 import { useEffect } from "react"
 
 /** Own viewport listeners for the lifetime of the persistent root layout. */
