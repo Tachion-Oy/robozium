@@ -33,6 +33,8 @@ class LoadedCredentials:
 
     def __init__(self, path: Path = DEFAULT_ENCRYPTED_ENV_PATH) -> None:
         self.path = _encrypted_path(path)
+        # Set at startup only: Compose reads environment files when containers start.
+        self.setup_required = False
         self.lock = threading.RLock()
         self.keys: dict[str, bytes] = {}
         self.encrypted = {
@@ -76,8 +78,14 @@ def _credential_names(path: Path) -> set[str]:
     }
 
 
+def missing_environment_files(path: Path) -> bool:
+    """Whether neither saved settings nor a manual .env exists beside them."""
+    return not (path.is_file() or (path.parent / ".env").is_file())
+
+
 def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStatus:
     """Report only whether encrypted keys exist and are loaded."""
+    setup_required = bool(loaded and loaded.setup_required)
     path = loaded.path if loaded else _encrypted_path()
     values = dict(dotenv_values(path, interpolate=False)) if path.is_file() else {}
     values.update(loaded.encrypted if loaded else os.environ)
@@ -89,7 +97,9 @@ def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStat
         and value.startswith(ENCRYPTED_NAMESPACE)
     ]
     if not encrypted_names:
-        return CredentialStatus(available=False, locked=False, removable=False)
+        return CredentialStatus(
+            available=False, locked=False, removable=False, setup_required=setup_required
+        )
     locked = any(
         name not in os.environ
         for name in encrypted_names
@@ -100,6 +110,7 @@ def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStat
         available=available,
         locked=locked,
         removable=bool(tracked and not locked),
+        setup_required=setup_required,
     )
 
 
@@ -114,20 +125,22 @@ def _uses_provider(method: str, path: str) -> bool:
 
 
 class CredentialGateMiddleware:
-    """Hold provider actions while encrypted API keys are locked."""
+    """Hold provider actions while encrypted API keys are locked or never configured."""
 
     def __init__(self, app: ASGIApp, loaded: LoadedCredentials) -> None:
         self.app = app
         self.loaded = loaded
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if (
-            scope["type"] == "http"
-            and _uses_provider(scope["method"], scope["path"])
-            and credential_status(self.loaded).locked
-        ):
+        detail = None
+        if scope["type"] == "http" and _uses_provider(scope["method"], scope["path"]):
+            if self.loaded.setup_required:
+                detail = "Add API keys before using providers"
+            elif credential_status(self.loaded).locked:
+                detail = "Unlock secrets before using providers"
+        if detail is not None:
             response = JSONResponse(
-                {"detail": "Unlock secrets before using providers"},
+                {"detail": detail},
                 status_code=423,
                 headers={"Cache-Control": "no-store"},
             )
