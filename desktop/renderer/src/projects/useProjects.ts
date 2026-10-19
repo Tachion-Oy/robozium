@@ -37,8 +37,8 @@ export function useProjects(client: DesktopApiClient | null, visible: boolean): 
 	}, [visible, refresh, cancel])
 	const create = () => {
 		if (!client || !name.trim()) return
-		void write.run(signal => createProject(client, name.trim(), signal), project => {
-			setSelected(project.slug)
+		void write.run(signal => createProject(client, name.trim(), signal), slug => {
+			setSelected(slug)
 			setName("")
 			refresh()
 		})

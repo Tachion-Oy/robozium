@@ -1,11 +1,15 @@
 // Typed operations for creating a run, reading its snapshot and following its event stream.
 // Payload validation lives in run-payloads; session code owns request lifetimes and reconciliation.
 import type { DesktopApiClient } from "../api/client"
+import type { CapabilitySelection } from "../capabilities/capabilities-api"
 import type { RunFrame, RunView } from "./run-contracts"
 import { parseCreatedRunId, parseRunEvent, parseRunSnapshot } from "./run-payloads"
 
-export async function createRun(client: DesktopApiClient, project: string, signal: AbortSignal): Promise<string> {
-	const response = await client.request("/run/create", { method: "POST", json: { project }, signal })
+/** A null selection lets the backend use its default capabilities and reuse any active run. */
+export async function createRun(
+	client: DesktopApiClient, project: string, capabilities: CapabilitySelection | null, signal: AbortSignal,
+): Promise<string> {
+	const response = await client.request("/run/create", { method: "POST", json: { project, capabilities }, signal })
 	return parseCreatedRunId(response)
 }
 

@@ -113,11 +113,13 @@ Writes cannot overlap for the same operation and are never retried automatically
 A timed-out write may have reached the backend; refresh to check before retrying.
 
 **Start run** requires a connected backend, a selected project, and a confirmed
-model. It uses backend capability defaults and the acknowledged default model;
-later model changes affect future runs. Creation has a ten-second deadline,
-blocks duplicate submissions and model changes, and never retries automatically.
-A timeout may still have prepared a backend run; check the backend before trying
-again. Starting another run replaces the local subscription without cancelling
+model. It reads the capability catalogue and the project's saved choices, saves
+the resolved selection, then creates the run with it and the acknowledged default
+model; later model changes affect future runs. Each step has a ten-second
+deadline. The launch blocks duplicate submissions and model changes, and never
+retries automatically. A failure shows a **Launch failed** alert (or **Secrets
+locked** when the backend reports locked credentials). A timeout may still have
+prepared a backend run; check the backend before trying again. Starting another run replaces the local subscription without cancelling
 the previous backend run. The project label always identifies the captured run.
 
 Opening the event stream starts the prepared run. A snapshot is read immediately,
@@ -235,28 +237,8 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   `scripts/prepare-runtime.mjs`. TypeScript checks this shared Node module; the
   standalone setup command can also run before installing desktop dependencies.
 - `renderer/src/ui/main.tsx` mounts backend startup and the application. Renderer
-  `.tsx` components and their CSS live under `ui/`, grouped by feature. TypeScript
-  hooks, contracts and state remain in the corresponding folders outside `ui/`:
-
-  | Folder under `renderer/src/` | Responsibility |
-  | --- | --- |
-  | `ui/` | All rendered components and CSS: app composition, backend startup, projects, run launch and HUD controls. |
-  | `app/` | Navigation definitions and standalone preview data. |
-  | `backend/` | IPC connection discovery and HTTP readiness hooks. |
-  | `projects/` | Project requests, validation and selection/creation state. |
-  | `models/` | Model requests and validation, acknowledged backend selection and explicit retry. |
-  | `run/` | Run contracts, requests, payload decoding, event reconciliation and live updates. |
-  | `session/` | One run's request lifetime and atomic composition of run data with HUD state. |
-  | `hud/` | Message projection, history, display selection and layout logic. |
-  | `api/` | Shared HTTP/SSE transport, request deadlines and React request state. |
-  | `assets/` | Bundled Anurati status-mark font. |
-
-  UI components consume feature hooks/state; TypeScript feature modules do not
-  import UI components. `ui/app/App.tsx` owns composition, theme and draft state;
-  session coordinates run and HUD state. HUD projection consumes validated run
-  data, while run reconciliation has no HUD dependency. Shared `api/` code imports
-  no feature modules. App supplies header navigation choices separately from
-  standalone preview data.
+  Folders, owners and dependency rules are described in
+  [`renderer/src/ARCHITECTURE.md`](renderer/src/ARCHITECTURE.md).
 - `renderer/src/api/client.ts` owns direct JSON HTTP requests and SSE framing.
   It omits cookies, disables caching, rejects origin changes/redirects, preserves
   cancellation, and reports HTTP, malformed-response, and connection errors.
@@ -269,7 +251,9 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   operations. `run-payloads.ts` decodes snapshots and SSE through the same event
   validator. `run-updates.ts` coordinates concurrent streaming, serialized
   snapshots and polling with shared cleanup; `run-reducer.ts` owns backend state.
-- `renderer/src/session/useRunSession.ts` owns creation and subscription lifetimes.
+- `renderer/src/projects/useProjectLaunch.ts` owns the launch command: project
+  creation, capability resolution and saving, and run creation.
+  `renderer/src/session/useRunSession.ts` owns the displayed run's subscription.
   `session-reducer.ts` composes run reconciliation and HUD projection atomically.
   `hud/hud-reducer.ts` coordinates live text, history and selection;
   `hud-history.ts`, `hud-view.ts` and `hud-messages.ts` own grouping/recovery,

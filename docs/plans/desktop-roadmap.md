@@ -103,8 +103,22 @@ Each step is one PR and is runnable: launch the app to see its result.
 | **12. Projects overview** | Port `ProjectOverviewPanel` and its CSS: status, start/open/return, empty state, New Project entry. Cancel/delete render as in the reference and are wired in steps 15–16. The capability selector slot waits for step 20. | Empty and populated overview match. |
 | **13. Docked message log and theme persistence** | Port `MessageLog`, the toggle, `TerminalStream`/`renderContent` and the terminal CSS. Add a `useMessageLog` owner and native window grow/shrink in main, with shared size constants. Persist theme and log state through named preload methods; set the native background per theme. | Log open/closed matches side-by-side (≥1120px) and stacked (<1120px). Theme survives a restart. |
 
-**Order:** step 14 (replies) follows step 11, before 12 and 13, so Send works
-as soon as the run view lands.
+**Order from here** (chosen after step 11): a working Runs overview first, with
+the capability selector from step 20 pulled in, then a working HUD.
+
+1. **Projects and launch owners:** full project summaries, capability requests,
+   and the launch command (create project, resolve and save capabilities, create
+   run). No visible change; the interim **Start run** uses it.
+2. **Step 12 with the step 20 selector:** the reference overview and capability
+   selector UI, replacing the interim overview. `UnlockApiKeys` stays in step 20.
+3. **Overview cancel and delete** (steps 15 and 16, overview side), on one keyed
+   request registry shared by both.
+4. **Step 14:** replies.
+5. **Step 15, HUD side:** interrupt, HUD cancel, and returning to the overview
+   when a run ends or goes missing.
+6. **Step 17:** reconnection and recovery.
+7. **Step 13:** the message log, as a selector over the run's retained events
+   (see `desktop/renderer/src/ARCHITECTURE.md`), plus theme persistence.
 
 **Follow-ups found in step 11** (each its own small PR):
 

@@ -13,6 +13,7 @@ import { mockMessages, modelOptions } from "../../app/preview"
 import type { DesktopApiClient } from "../../api/client"
 import { useModels, type ModelsState } from "../../models/useModels"
 import { useProjects } from "../../projects/useProjects"
+import { useProjectLaunch } from "../../projects/useProjectLaunch"
 import { Projects } from "../projects/Projects"
 import { HudButton } from "../HudButton"
 import { useRunSession } from "../../session/useRunSession"
@@ -50,22 +51,24 @@ function usePreviewModels(): ModelsState {
 
 export function App({ connectionNotice, client = null, connected = true }: AppProps) {
 	const [view, setView] = useState<HudScreen>("projects")
+	const [focusRunEditor, setFocusRunEditor] = useState(false)
 	const projects = useProjects(client, view === "projects")
 	const backendModels = useModels(client, connected)
 	const previewModels = usePreviewModels()
 	const models = client ? backendModels : previewModels
 	const [hasPreview, setHasPreview] = useState(false)
 	const run = useRunSession(client)
+	const showRun = () => { setFocusRunEditor(true); setView("run") }
+	const launch = useProjectLaunch(client, (runId, project) => { run.open(runId, project); showRun() }, () => {})
 	const session = run.session
 	const hasRun = client ? session !== null : hasPreview
 	const [draft, setDraft] = useState("")
 	const [selectedMessage, setSelectedMessage] = useState(mockMessages.length - 1)
 	const [layout, setLayout] = useState<LayoutMode>("top")
-	const [focusRunEditor, setFocusRunEditor] = useState(false)
 	const display = client ? selectRunDisplay(session) : previewDisplay(selectedMessage)
 	const errorNotices = useErrorNotices()
 	const status = session?.run.unavailable ? "Run unavailable" : session ? runLabels[session.run.status] : "Awaiting input"
-	const canStart = connected && Boolean(projects.selected && models.selection?.selected_model_id) && !models.pending && !models.error && !run.creating
+	const canStart = connected && Boolean(projects.selected && models.selection?.selected_model_id) && !models.pending && !models.error && !launch.pending
 	// Finished and missing runs stay readable in Current Run until the reference's
 	// recovery navigation arrives with cancellation and reconnection (roadmap 15 and 17).
 	const presentation = resolveHudPresentation({
@@ -75,10 +78,18 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 		selectedScreen: view,
 	})
 	const screen = presentation.screen
-	const showRun = () => { setFocusRunEditor(true); setView("run") }
-	const startRun = async () => {
+	const startRun = () => {
 		if (!client) { setHasPreview(true); showRun(); return }
-		if (canStart && await run.start(projects.selected)) showRun()
+		if (!canStart) return
+		// An active run is opened as it is; launching would send a selection the
+		// backend compares with that run's capabilities.
+		const active = projects.projects.find(project => project.slug === projects.selected)
+		if (active?.runId && (active.status === "running" || active.status === "awaiting_user_input")) {
+			run.open(active.runId, active.slug)
+			showRun()
+			return
+		}
+		void launch.launch({ project: projects.selected, name: projects.selected, selection: null })
 	}
 	const selectScreen = (next: HudScreen) => { setFocusRunEditor(false); setView(next) }
 	const modelError = client ? models.error : ""
@@ -87,7 +98,7 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 		<div className="desktop-interim-content__notices">
 			{modelError && <p role="alert">{modelError}</p>}
 			{runError && <p role="alert">{runError}</p>}
-			{runError && <HudButton onClick={run.retry} disabled={!connected || run.creating}>Retry output</HudButton>}
+			{runError && <HudButton onClick={run.retry} disabled={!connected || launch.pending}>Retry output</HudButton>}
 			<ErrorNotices items={errorNotices} />
 			{connectionNotice}
 		</div>
@@ -98,8 +109,8 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 				return <div className={client ? "selection-overview" : "preview-overview"}>
 					{client && <Projects state={projects} />}
 					<RunOverview connected={Boolean(client)} hasRun={hasRun} onOpen={showRun}
-						onStart={() => { void startRun() }} disabled={Boolean(client) && !canStart}
-						creating={run.creating} error={run.createError} project={projects.selected} />
+						onStart={startRun} disabled={Boolean(client) && !canStart}
+						creating={launch.pending} project={projects.selected} />
 				</div>
 			default:
 				return <ViewPlaceholder title={presentation.screenOptions.find(option => option.value === screen)?.label ?? ""} />
@@ -110,7 +121,7 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 		<AgentHud presentation={presentation} projectSlug={session?.run.project ?? null}
 			layoutMode={layout} onLayoutModeChange={setLayout}
 			header={<HudHeader presentation={presentation} onSelectScreen={selectScreen}
-				modelSelector={<ModelSelector models={models} disabled={Boolean(client && (!connected || run.creating))} />} />}>
+				modelSelector={<ModelSelector models={models} disabled={Boolean(client && (!connected || launch.pending))} />} />}>
 			{screen === "run" ? <>
 				{notices && <div className="desktop-interim-content desktop-interim-content--notices">{notices}</div>}
 				<div className="agent-hud__run-view">

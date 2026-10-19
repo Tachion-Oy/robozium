@@ -207,7 +207,9 @@ and overflow checks cover long names in both themes at normal/narrow sizes and
 125% zoom. Keyboard assertions retain input, row, selector, and Retry focus.
 
 Connected run tests in `desktop/tests/runs.spec.ts` use the same native HTTP
-boundary. They cover launch guards, creation rejection/malformed responses/timeouts,
+boundary. They cover launch guards, the launch sequence (saved capabilities are
+resolved and saved before the run is created with them), locked and invalid
+selections, malformed catalogues, creation rejection/malformed responses/timeouts,
 late snapshot/SSE overlap, duplicate chunks/messages, partial completion, polling
 without events, terminal states, unknown runs, explicit retry without creation,
 view retention, changed-run disposal, and unmount cancellation. Controlled clocks

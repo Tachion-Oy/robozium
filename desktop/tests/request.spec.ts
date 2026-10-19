@@ -13,7 +13,7 @@ function untilAborted(signal: AbortSignal): Promise<never> {
 }
 
 for (const outcome of ["success", "failure"] as const) {
-	test(`request ${outcome} releases its deadline and preserves the result`, async () => {
+	test(`request ${outcome} releases its deadline, ends its signal and preserves the result`, async () => {
 		const owner = new AbortController()
 		const failure = new Error("Backend rejected the request")
 		let received!: AbortSignal
@@ -24,8 +24,10 @@ for (const outcome of ["success", "failure"] as const) {
 		})
 		if (outcome === "success") await expect(pending).resolves.toBe("result")
 		else await expect(pending).rejects.toBe(failure)
+		// Work the operation left running ends with it; the deadline never fires.
+		expect(received.aborted).toBe(true)
 		mock.timers.tick(10_000)
-		expect(received.aborted).toBe(false)
+		expect((received.reason as DOMException).message).toBe("The request settled.")
 		expect(owner.signal.aborted).toBe(false)
 	})
 }

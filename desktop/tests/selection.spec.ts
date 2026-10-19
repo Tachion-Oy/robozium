@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { writeFile } from "node:fs/promises"
-import { test, catalogue, json } from "./selection-fixture"
+import { test, catalogue, json, project } from "./selection-fixture"
 import { captureNative, chooseModel, chooseView as view, modelTrigger, setNativeViewport } from "./native"
 
 const notices = (page: Page) => page.locator(".desktop-interim-content__notices")
@@ -95,9 +95,19 @@ test("empty catalogues and malformed lists stay accessible and recover through r
 	await model.click()
 	await expect(model).toHaveAttribute("title", "First model")
 	await page.keyboard.press("Escape")
-	backend.handlers.set("GET /projects", response => json(response, [{ slug: "one" }, { slug: "one" }]))
-	await page.getByRole("button", { name: "Refresh", exact: true }).click()
-	await expect(page.getByRole("alert")).toContainText("Could not refresh projects")
+	for (const listing of [
+		[project("one"), project("one")],
+		[project("one", { status: "opening" })],
+		[project("one", { run_id: 7 })],
+		[project("one", { created_at: "yesterday" })],
+	]) {
+		backend.handlers.set("GET /projects", response => json(response, listing))
+		await page.getByRole("button", { name: "Refresh", exact: true }).click()
+		await expect(page.getByRole("alert")).toContainText("Could not refresh projects")
+		backend.handlers.set("GET /projects", response => json(response, []))
+		await page.getByRole("button", { name: "Refresh", exact: true }).click()
+		await expect(page.getByRole("alert")).toHaveCount(0)
+	}
 })
 
 test("obsolete project reads are cancelled on refresh and navigation, with ten-second deadlines", async ({ desktop: { page }, backend }) => {
@@ -125,17 +135,17 @@ test("obsolete project reads are cancelled on refresh and navigation, with ten-s
 	await expect(page.getByRole("button", { name: "existing-project", exact: true })).toBeVisible()
 	await expect(refresh).toBeFocused()
 	await expect.poll(() => closed).toBe(4)
-	backend.handlers.set("GET /projects", response => json(response, [{ slug: "fresh-project" }]))
+	backend.handlers.set("GET /projects", response => json(response, [project("fresh-project")]))
 	await refresh.click()
 	await expect(page.getByRole("button", { name: "fresh-project" })).toBeVisible()
-	json(reads[0], [{ slug: "obsolete-project" }])
+	json(reads[0], [project("obsolete-project")])
 	await expect(page.getByRole("button", { name: "obsolete-project" })).toHaveCount(0)
 })
 
 for (const theme of ["dark", "light"]) {
 	test(`connected selections fit long names and narrow zoomed windows in ${theme}`, async ({ desktop: { app, page }, backend }, testInfo) => {
 		const longName = "project-" + "long-name-".repeat(20)
-		backend.handlers.set("GET /projects", response => json(response, [{ slug: longName }, { slug: "short" }]))
+		backend.handlers.set("GET /projects", response => json(response, [project(longName), project("short")]))
 		backend.handlers.set("GET /models", response => json(response, { models: [{ model_id: "one", label: longName }], selected_model_id: "one" }))
 		await backend.open()
 		await page.getByRole("list", { name: "Projects" }).getByRole("button", { name: longName, exact: true }).click()

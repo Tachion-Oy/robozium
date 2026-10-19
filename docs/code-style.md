@@ -38,6 +38,11 @@ and `.finally()` chains are prohibited in source, scripts, and tests. Handle
 errors and cleanup with `try`/`catch`/`finally`. Callback and event APIs may be
 wrapped in a Promise and then awaited. Desktop ESLint enforces this rule.
 
+In `desktop/`, annotate exported function and hook return types explicitly. Use named interfaces
+for structured results so callers can read the contract independently of the
+implementation. Declare callback return types in those interfaces; local inline
+callbacks may use contextual inference.
+
 ## Frontend
 
 Use TypeScript's strict checks and the existing Next.js ESLint configuration.

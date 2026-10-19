@@ -8,6 +8,10 @@ export const catalogue = {
 	models: [{ model_id: "one", label: "First model" }, { model_id: "two", label: "Second model" }],
 	selected_model_id: "one",
 }
+/** A backend project summary; tests override the status or run identity they exercise. */
+export const project = (slug: string, overrides: Record<string, unknown> = {}) => ({
+	slug, status: "dormant", run_id: null, created_at: null, ...overrides,
+})
 export function json(response: ServerResponse, body: unknown, status = 200) {
 	response.writeHead(status, { "Content-Type": "application/json" })
 	response.end(JSON.stringify(body))
@@ -24,9 +28,17 @@ export const test = native.extend<{ backend: Backend }>({
 	backend: async ({ desktop: { app, page } }, use) => {
 		const handlers = new Map<string, Handler>([
 			["GET /ready", response => json(response, { status: "ready" })],
-			["GET /projects", response => json(response, [{ slug: "existing-project" }])],
+			["GET /projects", response => json(response, [project("existing-project")])],
 			["GET /models", response => json(response, catalogue)],
+			["GET /capabilities", response => json(response, [])],
 		])
+		// Unsaved projects answer null and saves echo, unless a test sets an exact handler.
+		const capabilityDefault = (method: string, url: string): Handler | undefined => {
+			if (!/^\/capabilities\/[^/]+$/.test(url)) return undefined
+			if (method === "GET") return response => json(response, null)
+			if (method === "POST") return (response, body) => json(response, body)
+			return undefined
+		}
 		const requests: Backend["requests"] = []
 		const server = createServer(async (request, response) => {
 			response.setHeader("Access-Control-Allow-Origin", "robozium://app")
@@ -40,7 +52,7 @@ export const test = native.extend<{ backend: Backend }>({
 			for await (const chunk of request) text += chunk
 			const body: unknown = text ? JSON.parse(text) : undefined
 			requests.push({ method: request.method!, path: request.url!, body })
-			const handler = handlers.get(`${request.method} ${request.url}`)
+			const handler = handlers.get(`${request.method} ${request.url}`) ?? capabilityDefault(request.method!, request.url!)
 			if (handler) handler(response, body)
 			else json(response, { detail: "Unexpected test request" }, 404)
 		})
