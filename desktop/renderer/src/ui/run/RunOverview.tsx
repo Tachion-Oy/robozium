@@ -1,9 +1,9 @@
 import { HudButton } from "../HudButton"
 import "./run-overview.css"
 
-export function RunOverview({ hasRun, onOpen, onStart, connected = false, disabled, creating, error, project }: {
+export function RunOverview({ hasRun, onOpen, onStart, connected = false, disabled, creating, project }: {
 	hasRun: boolean; onOpen: () => void; onStart: () => void; connected?: boolean
-	disabled?: boolean; creating?: boolean; error?: string; project?: string
+	disabled?: boolean; creating?: boolean; project?: string
 }) {
 	return (
 		<section className="run-overview" aria-labelledby="overview-heading">
@@ -12,7 +12,6 @@ export function RunOverview({ hasRun, onOpen, onStart, connected = false, disabl
 			{(!hasRun || connected) && <HudButton variant="success" aria-disabled={disabled}
 				onClick={() => { if (!disabled) onStart() }}>{creating ? "Starting run…" : "Start run"}</HudButton>}
 			{hasRun && <HudButton variant="success" onClick={onOpen}>Return to run</HudButton>}
-			{error && <p role="alert">Could not start run: {error} Creation is never retried automatically.</p>}
 		</section>
 	)
 }

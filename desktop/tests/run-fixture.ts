@@ -2,7 +2,7 @@ import type { ServerResponse } from "node:http"
 import { expect, type Page } from "@playwright/test"
 import { json, type Backend } from "./selection-fixture"
 import { chooseView } from "./native"
-export { test, json, catalogue } from "./selection-fixture"
+export { test, json, catalogue, project } from "./selection-fixture"
 
 export const snapshot = (overrides: Record<string, unknown> = {}) => ({
 	project: "existing-project", status: "running", message_trace: [],

@@ -1,7 +1,7 @@
 import { expect } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { writeFile } from "node:fs/promises"
-import { test, json, catalogue, prepareRun, snapshot, message, delta, emit, start, view, output, runStatus } from "./run-fixture"
+import { test, json, catalogue, project, prepareRun, snapshot, message, delta, emit, start, view, output, runStatus } from "./run-fixture"
 import { captureNative, chooseModel, modelTrigger, setNativeViewport } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
@@ -10,7 +10,7 @@ test("launch requires a project and confirmed model, blocks overlapping writes a
 	let models: ServerResponse | undefined
 	let created: ServerResponse | undefined
 	backend.handlers.set("GET /models", response => { models = response })
-	backend.handlers.set("POST /run/create", (response, body) => { expect(body).toEqual({ project: "existing-project" }); created = response })
+	backend.handlers.set("POST /run/create", (response, body) => { expect(body).toEqual({ project: "existing-project", capabilities: {} }); created = response })
 	await backend.open()
 	const launch = page.getByRole("button", { name: "Start run", exact: true })
 	await expect(launch).toHaveAttribute("aria-disabled", "true")
@@ -47,11 +47,58 @@ for (const [label, body, status] of [
 		await page.getByRole("button", { name: "existing-project", exact: true }).click()
 		const launch = page.getByRole("button", { name: "Start run", exact: true })
 		await launch.click()
-		await expect(page.getByRole("alert")).toContainText("Could not start run")
+		await expect(page.getByRole("alert")).toContainText("Launch failed")
 		await expect(launch).toBeFocused()
 		await page.clock.fastForward(30_000)
 		expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(1)
 		expect(backend.requests.filter(request => request.path.endsWith("/stream"))).toHaveLength(0)
+	})
+}
+
+test("launch resolves saved capabilities, saves them, then creates the run with them", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	backend.handlers.set("GET /capabilities", response => json(response, [
+		{ name: "base", kind: "tool", selectable: false, loading: null },
+		{ name: "web", kind: "tool", selectable: true, loading: null },
+		{ name: "notes", kind: "skill", selectable: true, loading: "automatic" },
+	]))
+	// Saved choices for capabilities that no longer exist are dropped.
+	backend.handlers.set("GET /capabilities/existing-project", response => json(response, { web: true, notes: "on_demand", gone: true }))
+	await backend.open()
+	await page.getByRole("button", { name: "existing-project", exact: true }).click()
+	await page.getByRole("button", { name: "Start run", exact: true }).click()
+	await expect(runStatus(page)).toContainText("existing-project")
+	await expect.poll(() => run.streams.length).toBe(1)
+	const selection = { web: true, notes: "on_demand" }
+	const writes = backend.requests.filter(request => request.method === "POST")
+	expect(writes.map(({ path, body }) => ({ path, body }))).toEqual([
+		{ path: "/capabilities/existing-project", body: selection },
+		{ path: "/run/create", body: { project: "existing-project", capabilities: selection } },
+	])
+	const order = backend.requests.map(request => `${request.method} ${request.path}`)
+	expect(order.indexOf("POST /capabilities/existing-project")).toBeGreaterThan(order.indexOf("GET /capabilities/existing-project"))
+})
+
+for (const [label, handler, alert] of [
+	["locked secrets", "POST /capabilities/existing-project", "Secrets locked: Unlock secrets before starting a run. Open the Secrets locked menu and enter your password."],
+	["an invalid selection", "POST /capabilities/existing-project", "Launch failed: API request failed (422): Invalid capability selection"],
+	["a malformed catalogue", "GET /capabilities", "Launch failed: The backend returned an invalid capability response."],
+] as const) {
+	test(`launch reports ${label} and never repeats a write`, async ({ desktop: { page }, backend }) => {
+		const status = label === "locked secrets" ? 423 : label === "an invalid selection" ? 422 : 200
+		const body = status === 200 ? [{ name: "", kind: "tool", selectable: true, loading: null }] : { detail: "Invalid capability selection" }
+		backend.handlers.set(handler, response => json(response, body, status))
+		await backend.open()
+		await page.clock.install()
+		await page.getByRole("button", { name: "existing-project", exact: true }).click()
+		const launch = page.getByRole("button", { name: "Start run", exact: true })
+		await launch.click()
+		await expect(page.getByRole("alert")).toHaveText(alert)
+		await expect(launch).toHaveAttribute("aria-disabled", "false")
+		await page.clock.fastForward(30_000)
+		expect(backend.requests.filter(request => request.method === "POST" && request.path.startsWith("/capabilities/")))
+			.toHaveLength(handler.startsWith("POST") ? 1 : 0)
+		expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(0)
 	})
 }
 
@@ -128,7 +175,7 @@ test("snapshots alone update prompts and terminal status, with serialized two-se
 
 test("view changes retain one session, project, history selection and draft; new runs dispose obsolete reads", async ({ desktop: { page }, backend }) => {
 	const first = prepareRun(backend)
-	backend.handlers.set("GET /projects", response => json(response, [{ slug: "existing-project" }, { slug: "second-project" }]))
+	backend.handlers.set("GET /projects", response => json(response, [project("existing-project"), project("second-project")]))
 	await start(page, backend)
 	await expect.poll(() => first.streams.length).toBe(1)
 	emit(first.streams[0], message(1, "First")); emit(first.streams[0], message(2, "Second"))
