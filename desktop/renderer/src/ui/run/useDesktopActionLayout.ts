@@ -1,6 +1,7 @@
+// Copied from robozium-electron/desktop/web/hooks/useDesktopActionLayout.ts at 076b2c9.
 import { useLayoutEffect, useRef } from "react"
 
-const ACTION_SELECTOR = ".hud-footer__cancel, .hud-footer__interrupt, .hud-footer__helpers, .hud-footer__record, .hud-footer__send"
+const ACTION_SELECTOR = ".agent-hud__cancel, .agent-hud__interrupt, .agent-hud__copy-controls, .agent-hud__dictate, .agent-hud__send"
 
 function laneWidth(actions: HTMLElement[], gap: number, scale: number) {
 	return actions.reduce((width, action) => width + action.getBoundingClientRect().width / scale, 0) +
@@ -13,8 +14,8 @@ export function useDesktopActionLayout() {
 
 	useLayoutEffect(() => {
 		const root = ref.current
-		if (!root) return
-		const navigation = root.querySelector<HTMLElement>(".hud-history")
+		if (!root || !document.documentElement.hasAttribute("data-desktop")) return
+		const navigation = root.querySelector<HTMLElement>(".agent-hud__message-nav")
 		if (!navigation) return
 		let frame = 0
 
@@ -23,17 +24,18 @@ export function useDesktopActionLayout() {
 			const style = getComputedStyle(root)
 			const gap = parseFloat(style.columnGap) || 0
 			const width = parseFloat(style.width)
-			// Measure in layout pixels, including at fractional native zoom.
+			// The reply form scales during its entrance. Position in layout pixels,
+			// so a finished transform cannot leave stale offsets between controls.
 			const scale = root.getBoundingClientRect().width / width || 1
 			const available = Math.max(0, (width - navigation.getBoundingClientRect().width / scale) / 2 - gap)
-			const left = actions.filter(action => action.matches(".hud-footer__cancel, .hud-footer__interrupt"))
-			const right = actions.filter(action => action.matches(".hud-footer__helpers, .hud-footer__record, .hud-footer__send"))
+			const left = actions.filter(action => action.matches(".agent-hud__cancel, .agent-hud__interrupt"))
+			const right = actions.filter(action => action.matches(".agent-hud__copy-controls, .agent-hud__dictate, .agent-hud__send"))
 
 			// Cancel and Send are closest to their outside edges and remain longest.
 			while (left.length && laneWidth(left, gap, scale) > available) left.pop()
 			while (right.length && laneWidth(right, gap, scale) > available) right.shift()
 			const primary = new Set([...left, ...right])
-			const buttonHeight = Math.max(0, ...actions.filter(action => !action.matches(".hud-footer__helpers"))
+			const buttonHeight = Math.max(0, ...actions.filter(action => !action.matches(".agent-hud__copy-controls"))
 				.map(action => action.getBoundingClientRect().height / scale))
 			const height = Math.max(navigation.getBoundingClientRect().height / scale, buttonHeight)
 			root.style.setProperty("--hud-copy-action-height", `${buttonHeight}px`)
@@ -57,11 +59,17 @@ export function useDesktopActionLayout() {
 		const observer = new ResizeObserver(schedule)
 		observer.observe(root)
 		observer.observe(navigation)
-		for (const action of Array.from(root.querySelectorAll<HTMLElement>(ACTION_SELECTOR))) observer.observe(action)
+		for (const action of root.querySelectorAll<HTMLElement>(ACTION_SELECTOR)) observer.observe(action)
+		const children = new MutationObserver(() => {
+			for (const action of root.querySelectorAll<HTMLElement>(ACTION_SELECTOR)) observer.observe(action)
+			schedule()
+		})
+		children.observe(root, { childList: true, subtree: true })
 		update()
 		return () => {
 			cancelAnimationFrame(frame)
 			observer.disconnect()
+			children.disconnect()
 		}
 	}, [])
 

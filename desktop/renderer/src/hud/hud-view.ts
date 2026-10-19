@@ -26,9 +26,13 @@ export interface HudPresentation {
 	liveText: HudLiveText | null
 }
 
+/** Agent messages and prompts are Markdown; script and live output stay literal. */
+export type ContentType = "plain-text" | "markdown"
+
 export interface HudDisplay {
 	id: string
 	text: string
+	contentType: ContentType
 	streaming: boolean
 	index: number
 	currentIndex: number
@@ -66,7 +70,7 @@ export function buildMessageList(
 
 /** Priority: explicitly pinned message, active prompt, live/settling text, latest completed output. */
 export function selectHudDisplay(state: HudPresentation | null, run: RunState | null, openScriptId: string | null): HudDisplay {
-	const empty: HudDisplay = { id: "empty", text: "", streaming: false, index: 0, currentIndex: 0, count: 0 }
+	const empty: HudDisplay = { id: "empty", text: "", contentType: "plain-text", streaming: false, index: 0, currentIndex: 0, count: 0 }
 	if (!state || !run) return empty
 	const { view, selectedMessageId, liveText } = state
 	const promptIndex = view.activePromptId === null ? undefined : view.indices.get(view.activePromptId)
@@ -77,7 +81,7 @@ export function selectHudDisplay(state: HudPresentation | null, run: RunState | 
 	const index = selectedIndex ?? currentIndex
 	if (live && index === view.messages.length) {
 		return {
-			id: live.id, text: streamingText(live.raw),
+			id: live.id, text: streamingText(live.raw), contentType: "plain-text",
 			streaming: !live.settling && !isTerminal(run.status), index, currentIndex, count,
 		}
 	}
@@ -85,6 +89,7 @@ export function selectHudDisplay(state: HudPresentation | null, run: RunState | 
 	if (!message) return empty
 	return {
 		id: message.id, text: message.text, index, currentIndex, count,
+		contentType: message.source === "script" ? "plain-text" : "markdown",
 		streaming: message.id === openScriptId && !run.prompt && !isTerminal(run.status),
 	}
 }

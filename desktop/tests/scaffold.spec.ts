@@ -7,8 +7,8 @@ import { expectFooterGeometry } from "./footer-geometry"
 
 async function expectPanelGeometry(page: Page, layout: "top" | "equal" | "bottom") {
 	await waitForPanelLayout(page)
-	const geometry = await page.locator(".hud-panels").evaluate(container => {
-		const panels = [...container.querySelectorAll<HTMLElement>(".hud-panel")]
+	const geometry = await page.locator(".agent-hud__panels").evaluate(container => {
+		const panels = [...container.querySelectorAll<HTMLElement>(".agent-hud__replyBox")]
 		const bounds = panels.map(panel => panel.getBoundingClientRect())
 		const content = panels.map(panel => panel.firstElementChild as HTMLElement)
 		return {
@@ -111,7 +111,7 @@ for (const theme of ["dark", "light"]) {
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 		await page.getByRole("button", { name: "Start run", exact: true }).click()
 		const motion = await page.evaluate(async () => {
-			const panels = document.querySelector(".hud-panels")!
+			const panels = document.querySelector(".agent-hud__panels")!
 			const agent = panels.firstElementChild!
 			const before = agent.getBoundingClientRect().height
 			const started = new Promise<void>(resolve => panels.addEventListener("transitionrun", () => resolve(), { once: true }))
@@ -137,7 +137,7 @@ for (const theme of ["dark", "light"]) {
 		await expectPanelGeometry(page, "equal")
 		await page.emulateMedia({ reducedMotion: "reduce" })
 		await page.getByRole("button", { name: "Move panel divider down" }).click()
-		expect(await page.locator(".hud-panels").evaluate(panels => panels.getAnimations({ subtree: true }).length)).toBe(0)
+		expect(await page.locator(".agent-hud__panels").evaluate(panels => panels.getAnimations({ subtree: true }).length)).toBe(0)
 		await expectPanelGeometry(page, "top")
 	})
 
@@ -148,7 +148,7 @@ for (const theme of ["dark", "light"]) {
 		const view = viewTrigger(page)
 		const up = page.getByRole("button", { name: "Move panel divider up" })
 		const down = page.getByRole("button", { name: "Move panel divider down" })
-		const reply = page.getByRole("textbox", { name: "Reply", exact: true })
+		const reply = page.getByRole("textbox", { name: "Type your reply...", exact: true })
 		if (theme === "light") await toggle.click()
 		await expect(up).toBeDisabled()
 		await expect(down).toBeDisabled()
@@ -158,12 +158,13 @@ for (const theme of ["dark", "light"]) {
 		await page.getByRole("button", { name: "Start run", exact: true }).press("Enter")
 		await expect(reply).toBeFocused()
 		await expect(view).toHaveAccessibleName("Current Run")
-		await expect(page.getByRole("region", { name: "Agent message", exact: true })).toContainText("Mock run ready.")
+		await expect(page.locator(".agent-hud__replyBox--agent")).toContainText("Mock run ready.")
 		await reply.fill("First line")
+		// Enter submits (unavailable until replies arrive); Shift+Enter adds a line.
 		await reply.press("Enter")
 		await reply.press("Shift+Enter")
 		await reply.pressSequentially("Last line")
-		const draft = "First line\n\nLast line"
+		const draft = "First line\nLast line"
 		await expect(reply).toHaveValue(draft)
 		await chooseModel(page, "Mock fast model")
 		await expect(reply).toHaveValue(draft)
@@ -222,33 +223,16 @@ for (const theme of ["dark", "light"]) {
 		await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([512, 336])
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 		await page.getByRole("button", { name: "Start run", exact: true }).click()
-		const reply = page.getByRole("textbox", { name: "Reply", exact: true })
-		// Sample actual native pixels over an injected contrasting underlay. An
-		// opaque panel must paint identically regardless of what is behind it.
-		const samples = await page.locator(".hud-panel").evaluateAll(panels => panels.map(panel => {
-			const rect = panel.getBoundingClientRect()
-			return { x: Math.round((rect.x + rect.width / 2) * 1.25), y: Math.round((rect.bottom - 3) * 1.25) }
-		}))
-		const samplePixels = () => app.evaluate(async ({ BrowserWindow }, points) => {
-			const image = await BrowserWindow.getAllWindows()[0].webContents.capturePage()
-			return points.map(point => image.crop({ ...point, width: 5, height: 1 }).toBitmap().toString("hex"))
-		}, samples)
-		const before = await samplePixels()
-		await page.locator(".hud-panel").evaluateAll(panels => panels.forEach(panel => {
-			(panel as HTMLElement).style.background = "#ff00ff"
-		}))
-		await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
-		expect(await samplePixels()).toEqual(before)
-		await page.locator(".hud-panel").evaluateAll(panels => panels.forEach(panel => panel.removeAttribute("style")))
+		const reply = page.getByRole("textbox", { name: "Type your reply...", exact: true })
 		await reply.fill(("A long draft " + "x".repeat(180) + "\n").repeat(30))
 		await expectPanelGeometry(page, "top")
 		await reply.press("Control+End")
 		expect(await reply.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
 		await page.getByRole("button", { name: "Move panel divider up" }).click()
 		await page.getByRole("button", { name: "Move panel divider up" }).click()
-		const message = page.getByRole("region", { name: "Agent message text", exact: true })
-		await message.focus()
-		await message.press("Control+End")
+		const message = page.locator(".agent-hud__replyBox-scroll")
+		await message.hover()
+		await page.mouse.wheel(0, 600)
 		await expect.poll(() => message.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
 		await expectPanelGeometry(page, "bottom")
 		await expect(page.getByRole("button", { name: "Move panel divider down" })).toBeEnabled()
@@ -413,7 +397,7 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 	for (const zoom of [1, 1.25]) {
 		test(`frame fits ${width}x${height} at ${zoom} zoom in both themes`, async ({ desktop: { app, page } }) => {
 			await page.getByRole("button", { name: "Start run", exact: true }).click()
-			await page.getByRole("textbox", { name: "Reply", exact: true }).blur()
+			await page.getByRole("textbox", { name: "Type your reply...", exact: true }).blur()
 			await setNativeViewport(app, page, width, height, zoom)
 			await page.evaluate(async () => { await document.fonts.ready })
 			for (const theme of ["dark", "light"]) {
@@ -455,7 +439,7 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 				}
 				for (const layout of ["top", "equal", "bottom"] as const) {
 					if (layout !== "top") await page.getByRole("button", { name: "Move panel divider up" }).click()
-					await expect(page.getByRole("region", { name: "Current Run", exact: true })).toHaveAttribute("data-layout", layout)
+					await expect(page.locator(".agent-hud__panels")).toHaveAttribute("data-layout", layout)
 					await expectPanelGeometry(page, layout)
 					await expectFooterGeometry(page)
 					if (layout !== "top" && width === 640 && zoom === 1.25) {

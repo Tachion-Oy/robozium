@@ -33,10 +33,11 @@ export async function start(page: Page, backend: Backend) {
 	await backend.open()
 	await page.getByRole("button", { name: "existing-project", exact: true }).click()
 	await page.getByRole("button", { name: "Start run", exact: true }).click()
-	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toBeFocused()
+	await expect(replyBox(page)).toBeFocused()
 }
 export async function view(page: Page, label: string) {
 	await chooseView(page, label)
 }
-export const output = (page: Page) => page.locator(".hud-panel--agent pre")
+export const output = (page: Page) => page.locator(".agent-hud__replyBox--agent .agent-hud__replyBox-scroll")
+export const replyBox = (page: Page) => page.getByRole("textbox", { name: "Type your reply...", exact: true })
 export const runStatus = (page: Page) => page.getByRole("status", { name: "Run status" })

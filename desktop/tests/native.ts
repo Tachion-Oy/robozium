@@ -70,7 +70,9 @@ export async function chooseModel(page: Page, name: string) {
 export async function waitForPanelLayout(page: Page) {
 	await page.evaluate(async () => {
 		await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
-		const animations = document.querySelector(".hud-panels")?.getAnimations({ subtree: true }) ?? []
+		// The activity logo pulses indefinitely; wait only for finite layout transitions.
+		const animations = (document.querySelector(".agent-hud__replySection")?.getAnimations({ subtree: true }) ?? [])
+			.filter(animation => animation.effect?.getTiming().iterations !== Infinity)
 		await Promise.allSettled(animations.map(animation => animation.finished))
 	})
 }
