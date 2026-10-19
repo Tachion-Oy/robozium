@@ -1,5 +1,5 @@
 // Read the model catalogue and validate acknowledgements of backend-default changes.
-// useModels owns confirmed selection and explicit retry; requests here have no local state.
+// useModels owns confirmed selection; requests here have no local state.
 import { ApiError, type DesktopApiClient } from "../api/client"
 
 // Minimal contracts adapted from web/lib/robozium/{client,wire}.ts; see the PR 7 plan.

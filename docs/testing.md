@@ -126,28 +126,26 @@ npm --prefix desktop run test:electron
 ```
 
 On headless Linux, prefix the test command with `xvfb-run -a`. The suite uses one
-worker and no retries, checks the React version display and renderer isolation,
+worker and no retries, checks the version bridge and renderer isolation,
 rejects untrusted IPC senders and navigation, and verifies native close and
 reopening. Resource checks cover built JavaScript/CSS, unknown resources,
 unsupported methods, malformed paths, traversal, and symlink escapes.
 It cleans up its profiles and processes. Failure diagnostics are retained in
 `desktop/test-results/` and `desktop/playwright-report/`.
 
-Frame checks cover the bundled font, mouse/keyboard theme switching, retained
-focus, the model/theme/view Tab order with Secrets skipped, and both themes at
-1260×780 and 640×420 client sizes with native zoom 1 and 1.25. Header geometry checks verify the single
-row, stable widths across model/view selections, narrow-window contraction,
-the model width cap, contained controls, and ellipsized labels with full names
-and tooltips. Divider checks verify square buttons and centered, contained arrows
-in both themes and zoom levels, including disabled states.
-Selector scenarios cover pointer selection, keyboard exploration,
-prefix search, acceptance/cancellation, outside dismissal, one open popup, and
-view placeholders. Choices survive theme/view changes and reset on reload;
+Frame checks cover the bundled fonts, mouse/keyboard theme switching, retained
+focus, the model/theme/view Tab order, and both themes at 1260×780 and 640×420
+client sizes with native zoom 1 and 1.25. The reference HUD box must fill the
+window; header checks verify one ordered, centred row inside the window with
+ellipsized labels and full-name tooltips. Divider checks verify square buttons
+and centered, contained arrows in both themes and zoom levels, including
+disabled states. Selector scenarios cover pointer selection, keyboard option
+focus, Escape and outside dismissal, one open menu, and view placeholders. Choices survive theme/view changes and reset on reload;
 preview selector interactions make no HTTP requests. Mock-run checks start from Runs
 Overview, verify Current Run becomes available, and exercise returning to the
 same draft through the overview and view selector. They cover multiline editing,
 caret retention during resizing/theme/zoom changes, bounded divider movement,
-focus transfer at disabled limits, reset on reload, and independent scrolling
+disabled limits, reset on reload, and independent scrolling
 with a long draft. All three panel layouts run through the size/theme/zoom matrix
 with wrapping, containment, and document-overflow assertions. Native pixel samples
 in both themes verify opacity against an injected contrasting underlay.

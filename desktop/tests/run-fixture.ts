@@ -1,6 +1,7 @@
 import type { ServerResponse } from "node:http"
 import { expect, type Page } from "@playwright/test"
 import { json, type Backend } from "./selection-fixture"
+import { chooseView } from "./native"
 export { test, json, catalogue } from "./selection-fixture"
 
 export const snapshot = (overrides: Record<string, unknown> = {}) => ({
@@ -35,8 +36,7 @@ export async function start(page: Page, backend: Backend) {
 	await expect(page.getByRole("textbox", { name: "Reply", exact: true })).toBeFocused()
 }
 export async function view(page: Page, label: string) {
-	await page.getByRole("combobox", { name: /^HUD view:/ }).click()
-	await page.getByRole("option", { name: label, exact: true }).click()
+	await chooseView(page, label)
 }
 export const output = (page: Page) => page.locator(".hud-panel--agent pre")
 export const runStatus = (page: Page) => page.getByRole("status", { name: "Run status" })

@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test"
-import { test, captureNative, documentUrl, preload, waitForPanelLayout } from "./native"
+import { test, captureNative, chooseModel, chooseView, documentUrl, preload, waitForPanelLayout } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
 test("fixture history navigates without wrapping and retains selection with draft and divider", async ({ desktop: { page } }) => {
@@ -40,14 +40,10 @@ test("fixture history navigates without wrapping and retains selection with draf
 	const reply = page.getByRole("textbox", { name: "Reply", exact: true })
 	await reply.fill(" retained\n draft ")
 	await page.getByRole("button", { name: "Move panel divider up" }).click()
-	const model = page.getByRole("combobox", { name: /^Base model:/ })
-	await model.press("End")
-	await model.press("Enter")
+	await chooseModel(page, "Mock extended context model")
 	await page.getByRole("button", { name: "Toggle color theme" }).click()
-	const view = page.getByRole("combobox", { name: /^HUD view:/ })
 	for (const name of ["Dependencies", "Environment", "Runs Overview"]) {
-		await view.click()
-		await page.getByRole("option", { name, exact: true }).click()
+		await chooseView(page, name)
 		await expect(footer).toHaveCount(0)
 	}
 	await page.getByRole("button", { name: "Return to run", exact: true }).click()
@@ -103,8 +99,7 @@ test("copy preserves exact text, expires feedback, clears stale feedback, and Cl
 	await expect(copyReply).toHaveAttribute("data-copied", "true")
 	expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe(" \n\t ")
 	// Unmount while success feedback still owns a timer.
-	await page.getByRole("combobox", { name: /^HUD view:/ }).press("Home")
-	await page.getByRole("combobox", { name: /^HUD view:/ }).press("Enter")
+	await chooseView(page, "Runs Overview")
 })
 
 test("copy failure reports a compact alert and retry preserves draft and selection", async ({ desktop: { app, page } }) => {

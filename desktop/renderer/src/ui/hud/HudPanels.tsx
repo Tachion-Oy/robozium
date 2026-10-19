@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react"
-import type { LayoutMode } from "./HudDividerControls"
+import type { LayoutMode } from "./HudCornerControls"
 import "./hud-panels.css"
 
 function AgentMessagePanel({ message, messageId, streaming, notice }: { message: string; messageId: string; streaming: boolean; notice?: ReactNode }) {

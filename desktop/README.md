@@ -4,8 +4,9 @@ The Electron app is under development. React connects directly to the Python
 API for projects, default model selection, and live runs. Select a project and
 use **Start run** to watch incremental output, messages, script output, prompts,
 and completion in Current Run. **Return to run** reopens the current session.
-Light/Dark switches the theme, and Secrets unavailable is disabled. Replies,
-credentials, and capability selection follow in later roadmap increments.
+Light/Dark switches the theme. The window frame and header use the accepted
+experiment's stylesheets and markup; replies, credentials, and capability
+selection follow in later [roadmap](../docs/plans/desktop-roadmap.md) steps.
 
 ## Run on Linux
 
@@ -84,19 +85,17 @@ user data; `desktop/.stage/` and `desktop/dist/` are regenerable build outputs.
 
 The app starts in dark mode with Runs Overview selected. Connected mode loads
 the backend's default model; preview uses the local Mock model fixture. Tab moves
-through the model selector, theme button, and view selector, skipping Secrets.
-Open a selector with a click, Enter, Space, or an arrow key. Use arrows, Home/End,
-or type a name prefix to explore choices. Enter, Space, or Tab accepts the
-highlighted choice; Escape or clicking the open trigger cancels. Clicking outside
-accepts the highlighted choice and dismisses the popup. Only one popup opens at
-a time. View choices survive theme changes and reset on reload. Connected model
-choices change the displayed default only after backend acknowledgement. Failures
-retain the last confirmed choice; **Refresh models** reads the current backend
-state, while **Retry change** explicitly resubmits the failed choice. After an
-uncertain write, selecting the displayed model also sends that choice again.
-Successful refresh clears the pending retry. Both controls retain keyboard focus.
-Connection recovery reloads the model catalogue and selection without replaying
-writes or resetting drafts and local project selection.
+through the model selector, theme button, and view selector. Open a selector with
+a click, Enter, or Space; the selected option receives focus, arrows move between
+options, and Enter or a click chooses. Escape returns focus to the trigger, and
+clicking outside dismisses the menu without changing the choice. Only one menu
+opens at a time. View choices survive theme changes and reset on reload. Connected
+model choices change the displayed default only after backend acknowledgement.
+Failures retain the last confirmed choice and show an alert; choosing the model
+again resubmits it. Opening the selector after a failure, or with an empty
+catalogue, reads the current backend state. Connection recovery reloads the model
+catalogue and selection without replaying writes or resetting drafts and local
+project selection.
 Preview model choices stay local and reset on reload.
 
 In connected Runs Overview, select a project row with a click, Enter, or Space.

@@ -1,5 +1,7 @@
 # PR 3c — HUD message/composer panels and divider controls
 
+> **Superseded:** see [desktop-roadmap.md](desktop-roadmap.md) (reference CSS transplant).
+
 ## Summary
 
 Port the experiment's content panels into the independent desktop renderer,

@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+ * Copied from robozium-electron/desktop/web/app/globals.css at 076b2c9; the
+ * stylesheets below are verbatim copies (see each file's source in the PR).
+ * The rest arrive with the roadmap step that uses them: hud-panels (11),
+ * project-overview and display-art (12), environment (18), error-toast.
+ *
+ *   CSS owns LOOK   -- color, background, border colour, text/box-shadow glow,
+ *                      @keyframes/animation/transition, clip-path shapes,
+ *                      decorative ::before/::after, masks, fonts.
+ *   Tailwind owns LAYOUT (in the JSX) -- display, flex/grid, gap, padding,
+ *                      margin, width/height, position/inset, z, overflow.
+ *
+ * Raw values live ONLY as tokens in theme.css; components reference var()/the
+ * term-* utilities. Layout that is welded to a shape (e.g. padding that must
+ * match a clip-path) stays in CSS and is tagged with a "shape-locked" note.
+ * ------------------------------------------------------------------------- */
+
+@import "./fonts.css";
+@import "./theme.css";
+@import "./base.css";
+@import "./crt.css";
+@import "./hud-frame.css";
+@import "./hud-controls.css";
+@import "./hud-button.css";
+@import "./terminal.css";
+@import "./nav.css";
+@import "./light-theme.css";
+@import "./model-selector.css";
+@import "./theme-toggle.css";
+@import "./desktop.css";

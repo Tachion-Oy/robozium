@@ -1,47 +1,45 @@
-// Render the app-supplied model and view choices; selection state belongs to their owners.
-import { useState } from "react"
-import { HudButton } from "../HudButton"
-import { HudSelector } from "./HudSelector"
-import { SelectorCaret } from "./SelectorCaret"
-import "./hud-header.css"
-import "./theme-toggle.css"
+// Copied from web/app/components/hud/HudHeader.tsx at a664db2.
+// Adapted: the model selector is supplied by the caller, and UnlockApiKeys follows
+// with desktop credentials.
+import type { ReactNode } from "react"
+import { ThemeToggle } from "../theme/ThemeToggle"
+import { HudScreenSelector } from "./HudScreenSelector"
+import type { HudPresentation, HudScreen } from "./hudPresentation"
 
-type HudHeaderProps<View extends string> = {
-	theme: "dark" | "light"
-	onToggleTheme: () => void
-	model: string
-	models: readonly { value: string; label: string }[]
-	modelDisabled?: boolean
-	modelPlaceholder?: string
-	onSelectModel: (model: string) => void
-	view: View
-	views: readonly { value: View; label: string }[]
-	onSelectView: (view: View) => void
+type HudHeaderProps = {
+	presentation: HudPresentation
+	modelSelector: ReactNode
+	onSelectScreen: (screen: HudScreen) => void
 }
 
-export function HudHeader<View extends string>({ theme, onToggleTheme, model, models, modelDisabled, modelPlaceholder, onSelectModel, view, views, onSelectView }: HudHeaderProps<View>) {
-	const [openSelector, setOpenSelector] = useState<"model" | "view" | null>(null)
-	const toggleSelector = (selector: "model" | "view", open: boolean) =>
-		setOpenSelector(current => open ? selector : current === selector ? null : current)
-	const nextTheme = theme === "dark" ? "Light" : "Dark"
+export function HudHeader({
+	presentation,
+	modelSelector,
+	onSelectScreen,
+}: HudHeaderProps) {
 	return (
-		<header className="hud-header">
-			<HudSelector value={model} options={models} disabled={modelDisabled} placeholder={modelPlaceholder} label="Base model" variant="model"
-				onSelect={onSelectModel} open={openSelector === "model"}
-				onOpenChange={open => toggleSelector("model", open)} />
-			<HudButton variant="info" className="theme-toggle" aria-label="Toggle color theme"
-				title={`Switch to ${nextTheme.toLowerCase()} theme`} onClick={onToggleTheme}>
-				<span className="theme-toggle__indicator" aria-hidden="true" />
-				<span className="hud-header__label">{nextTheme}</span>
-			</HudButton>
-			<HudButton variant="danger" className="hud-header__selector"
-				title="Secrets unavailable" disabled>
-				<span className="hud-header__label">Secrets unavailable</span>
-				<SelectorCaret />
-			</HudButton>
-			<HudSelector value={view} options={views} label="HUD view" variant="view"
-				onSelect={onSelectView} open={openSelector === "view"}
-				onOpenChange={open => toggleSelector("view", open)} />
-		</header>
+		<div
+			className={[
+				"agent-hud__header",
+				presentation.headerVariant === "landing"
+					? "agent-hud__header--landing"
+					: "agent-hud__header--row",
+				presentation.showProjectBadge ? "agent-hud__header--project" : "",
+				presentation.context === "active-run" && presentation.screen === "projects"
+					? "agent-hud__header--runs-overview"
+					: "",
+			]
+					.filter(Boolean)
+					.join(" ")}>
+			{modelSelector}
+			<div className="agent-hud__header-actions flex shrink-0 items-start gap-(--hud-actions-gap)">
+				<ThemeToggle />
+				<HudScreenSelector
+					screen={presentation.screen}
+					options={presentation.screenOptions}
+					onSelectScreen={onSelectScreen}
+				/>
+			</div>
+		</div>
 	)
 }

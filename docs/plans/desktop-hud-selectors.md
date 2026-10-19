@@ -1,5 +1,7 @@
 # PR 3b.2 — Interactive header selectors and view placeholders
 
+> **Superseded:** see [desktop-roadmap.md](desktop-roadmap.md) (reference CSS transplant).
+
 ## Summary
 
 Enable model and view selection using desktop-local fixture state. Selecting a
