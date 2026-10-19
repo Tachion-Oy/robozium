@@ -21,6 +21,7 @@ import { ProjectStatus, type ProjectRow } from "../../projects/landing"
 import { useCapabilities } from "../../capabilities/useCapabilities"
 import { HudButton } from "../HudButton"
 import { useRunSession } from "../../session/useRunSession"
+import { useRunMutations } from "../../session/useRunMutations"
 import { runLabels } from "../../hud/hud-view"
 import { selectRunDisplay } from "../../session/session-reducer"
 import type { HudDisplay } from "../../hud/hud-view"
@@ -72,6 +73,7 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	const launch = useProjectLaunch(client,
 		(runId, project) => { run.open(runId, project); navigate({ type: "launch_closed" }); showRun() },
 		(name, project) => navigate({ type: "launch_created", name, project }))
+	const runMutations = useRunMutations(client, run)
 	const session = run.session
 	const hasRun = client ? session !== null : hasPreview
 	const [draft, setDraft] = useState("")
@@ -115,7 +117,8 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 					{session && <p className="sr-only" role="status" aria-label="Run status">{session.run.project} · {status}</p>}
 					<RunHud key={session?.run.runId ?? "preview"} draft={draft} onDraftChange={setDraft}
 						layoutMode={layout} display={display} awaitingInput={client ? Boolean(session?.run.prompt) : true}
-						focusOnOpen={focusRunEditor} onSelect={client ? run.select : setSelectedMessage} />
+						focusOnOpen={focusRunEditor} onSelect={client ? run.select : setSelectedMessage}
+						reply={{ available: runMutations.canReply, submitting: runMutations.replying, submit: runMutations.reply }} />
 				</div>
 			case "projects":
 				return client

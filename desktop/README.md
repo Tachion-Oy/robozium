@@ -4,10 +4,10 @@ The Electron app is under development. React connects directly to the Python
 API for projects, capabilities, default model selection, and live runs. In Runs
 Overview, **Launch** a project or create one with **New Project** to watch
 incremental output, messages, script output, prompts, and completion in Current
-Run. Light/Dark switches the theme. The window frame, header, overview,
-capability selector and run view use the accepted experiment's stylesheets and
-markup; replies and credentials follow in later
-[roadmap](../docs/plans/desktop-roadmap.md) steps.
+Run, and answer its prompts. Light/Dark switches the theme. The window frame,
+header, overview, capability selector and run view use the accepted experiment's
+stylesheets and markup; interruption, cancellation from the HUD and credentials
+follow in later [roadmap](../docs/plans/desktop-roadmap.md) steps.
 
 ## Run on Linux
 
@@ -24,6 +24,23 @@ Normal startup uses live mode. For a credential-free mock backend:
 ```sh
 npm --prefix desktop start -- --mock
 ```
+
+### Live testing from a worktree
+
+Live mode reads provider keys from `<profile>/live/.env`. To try real model
+output from any worktree with one key, keep a development profile outside every
+checkout, so coding agents working in the checkout cannot read the key:
+
+```sh
+mkdir -p ~/.local/share/robozium-desktop-dev/live
+printf 'OPENROUTER_API_KEY=...\n' > ~/.local/share/robozium-desktop-dev/live/.env
+chmod 600 ~/.local/share/robozium-desktop-dev/live/.env
+ROBOZIUM_DESKTOP_TEST_DATA=~/.local/share/robozium-desktop-dev npm --prefix desktop start
+```
+
+The profile, its projects and its API image (port 18001) are shared by every
+worktree started this way. The desktop cannot unlock an encrypted `.env.encrypt`
+yet, so this needs a plaintext key.
 
 The start command stages the allowlisted Python source. Main builds the API
 image on first launch and waits for readiness. React then checks `/ready` through
@@ -142,8 +159,12 @@ reconnection and recovery after reopening are planned for PR 9.
 
 In standalone preview, the overview lists one local `preview` project whose
 **Launch** opens the latest local mock message above
-an empty reply editor. In either mode, draft freely: Shift+Enter inserts a
-newline and Enter is reserved for sending, which arrives with replies. The arrow buttons in the left rail move the
+an empty reply editor. Shift+Enter inserts a newline. When the run awaits input,
+Enter or **Send** sends the reply once; Send stays disabled while the agent
+works. An acknowledged reply clears the draft only if it was not edited while
+sending; a rejection, refusal or timeout shows **Reply failed**, keeps the draft
+and is never repeated automatically. An answered prompt cannot reappear from a
+late snapshot, and opening another run abandons a reply still in flight. The arrow buttons in the left rail move the
 divider between message-expanded, equal, and reply-expanded positions. At each
 limit, the unavailable direction is disabled. Messages and long drafts scroll
 inside their own panels. Divider changes animate over 220ms, or move immediately
@@ -159,8 +180,8 @@ prompt replaces it. Live text scrolls downward; selecting another entry resets
 its scroll. At either end, unavailable directions are disabled. Empty history
 disables all arrows. The center mark shows whether the agent is working or
 awaiting input; assistive technology also reads the run status. Preview retains
-three local messages and its static awaiting-input mark. Cancel, Interrupt,
-Record, and Send remain disabled; draft editing stays local.
+three local messages and its static awaiting-input mark; its replies are not
+sent. Cancel, Interrupt and Record remain disabled.
 
 The run screen uses the experiment's markup and stylesheets. Agent messages and
 prompts render as sanitized Markdown; live text and script output stay literal.

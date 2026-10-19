@@ -359,7 +359,7 @@ async function replyToMock(port: number, runId: string) {
 	expect(response.status).toBe(200)
 }
 
-test("UI starts a project run, streams its prompts and retains completed history", async ({ runtime }) => {
+test("UI starts a project run, answers its prompts and retains completed history", async ({ runtime }) => {
 	const { app, page } = await launchConnected(runtime)
 	let creates = 0
 	let streams = 0
@@ -372,17 +372,20 @@ test("UI starts a project run, streams its prompts and retains completed history
 	const status = page.getByRole("status", { name: "Run status" })
 	await expect(output).toContainText("Hello! I generated a text artifact")
 	await expect(status).toContainText("Awaiting input")
-	await page.getByRole("textbox", { name: "Type your reply...", exact: true }).fill("Local unsent draft")
-	const projects = await (await fetch(`http://127.0.0.1:${runtime.port}/projects`, { headers: { Origin: "robozium://app" } })).json() as { slug: string; run_id: string }[]
-	const runId = projects.find(project => project.slug === "desktop-output")!.run_id
-	await replyToMock(runtime.port, runId)
+	// Both prompts are answered through the HUD: Enter first, then Send.
+	const reply = page.getByRole("textbox", { name: "Type your reply...", exact: true })
+	await reply.fill("Continue the mock")
+	await reply.press("Enter")
 	await expect(output).toHaveText("Thanks. One more thing before I finish?")
-	await replyToMock(runtime.port, runId)
+	await expect(reply).toHaveValue("")
+	await reply.fill("Finish the mock")
+	await page.locator(".agent-hud__send").click()
 	await expect(status).toContainText("Completed")
 	await expect(output).not.toBeEmpty()
+	await reply.fill("Local unsent draft")
 	await page.getByRole("button", { name: "Jump to first agent message" }).click()
 	await expect(output).toContainText("Hello! I generated a text artifact")
-	await expect(page.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveValue("Local unsent draft")
+	await expect(reply).toHaveValue("Local unsent draft")
 	expect(creates).toBe(1)
 	expect(streams).toBe(1)
 	await closeWindow(app)

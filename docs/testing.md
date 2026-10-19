@@ -214,6 +214,14 @@ with their refusal and failure alerts, and long names in both themes at
 normal/narrow sizes and 125% zoom. `backend-ipc.spec.ts` checks that the CSP adds
 only `img-src 'self'` and that the overview's display art loads.
 
+Connected reply tests in `desktop/tests/replies.spec.ts` cover Enter and Send
+posting one trimmed reply, Shift+Enter and IME composition not sending, the draft
+clearing only when unchanged, a late snapshot unable to revive an answered prompt,
+rejection, refusal and timeout keeping the draft without repeating the write, an
+in-flight reply abandoned when another run opens, and Send staying unavailable
+while the agent works. The native lifecycle run test answers both mock prompts
+through the HUD.
+
 Connected run tests in `desktop/tests/runs.spec.ts` use the same native HTTP
 boundary. They cover launch guards, the launch sequence (saved capabilities are
 resolved and saved before the run is created with them), locked and invalid
