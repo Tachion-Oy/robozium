@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import net from "node:net"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { captureNative, documentUrl, setNativeViewport } from "../tests/native"
+import { captureNative, chooseView, documentUrl, modelTrigger, setNativeViewport } from "../tests/native"
 import { expectFooterGeometry } from "../tests/footer-geometry"
 import { resolveBackendLayout } from "../src/backend-layout.cjs"
 import { installTestClient } from "../tests/transport"
@@ -222,10 +222,10 @@ test("outage retry preserves the HUD and resumes readiness polling after recover
 	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
 	const selectedOutput = await page.locator(".hud-panel--agent pre").textContent()
 	await page.getByRole("button", { name: "Move panel divider up" }).click()
-	const model = page.getByRole("combobox", { name: /^Base model:/ })
+	const model = modelTrigger(page)
 	await expect(model).toHaveAttribute("title", "Mock")
-	await model.press("End")
-	await model.press("Enter")
+	await model.click()
+	await page.getByRole("listbox", { name: "Base model" }).getByRole("option").last().click()
 	const chosenModel = await model.getAttribute("title")
 	await test.step("Detect the outage and retry without restarting Docker", async () => {
 		// Stop this disposable backend externally; connection Retry must not restart it.
@@ -278,8 +278,7 @@ test("outage retry preserves the HUD and resumes readiness polling after recover
 		await expect(page.locator("html")).toHaveAttribute("data-theme", "light")
 		const recoveredRequests = readinessRequests
 		await expect.poll(() => readinessRequests, { timeout: 7000 }).toBeGreaterThan(recoveredRequests)
-		await page.getByRole("combobox", { name: /^HUD view:/ }).click()
-		await page.getByRole("option", { name: "Runs Overview", exact: true }).click()
+		await chooseView(page, "Runs Overview")
 		await expect(projectName).toHaveValue("Retained project draft")
 		await expect(page.getByRole("button", { name: "outage-project", exact: true })).toHaveAttribute("aria-pressed", "true")
 	})

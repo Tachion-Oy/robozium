@@ -31,7 +31,7 @@ export const test = base.extend<{ desktop: { app: ElectronApplication; page: Pag
 			const page = await app.firstWindow()
 			const errors: string[] = []
 			page.on("pageerror", error => errors.push(error.message))
-			await expect(page.getByRole("heading", { name: "Robozium", exact: true })).toBeVisible()
+			await expect(page.locator(".agent-hud__box")).toBeVisible()
 			await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeVisible()
 			await use({ app, page })
 			expect(errors).toEqual([])
@@ -52,6 +52,20 @@ export const test = base.extend<{ desktop: { app: ElectronApplication; page: Pag
 		}
 	},
 })
+
+/** Header selectors are buttons named after their current value, with listbox menus. */
+export const modelTrigger = (page: Page) => page.locator(".agent-hud__model-trigger:not(.agent-hud__view-trigger)")
+export const viewTrigger = (page: Page) => page.locator(".agent-hud__view-trigger")
+
+export async function chooseView(page: Page, name: string) {
+	await viewTrigger(page).click()
+	await page.getByRole("listbox", { name: "HUD view" }).getByRole("option", { name, exact: true }).click()
+}
+
+export async function chooseModel(page: Page, name: string) {
+	await modelTrigger(page).click()
+	await page.getByRole("listbox", { name: "Base model" }).getByRole("option", { name, exact: true }).click()
+}
 
 export async function waitForPanelLayout(page: Page) {
 	await page.evaluate(async () => {

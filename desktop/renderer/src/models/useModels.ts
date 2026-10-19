@@ -1,4 +1,4 @@
-// Keep the acknowledged backend model selection and an explicit failed-write retry target.
+// Keep the acknowledged backend model selection; choosing a model again retries a failed write.
 // Reconnects refresh server state; reads and writes share one request owner.
 import { useCallback, useEffect, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
@@ -11,8 +11,6 @@ export interface ModelsState {
 	error: string
 	choose: (model: string) => void
 	refresh: () => void
-	canRetry: boolean
-	retry: () => void
 }
 
 export function useModels(client: DesktopApiClient | null, connected: boolean): ModelsState {
@@ -41,7 +39,5 @@ export function useModels(client: DesktopApiClient | null, connected: boolean): 
 			return selectModel(client, model, signal)
 		}, confirm)
 	}
-	return { selection, pending: request.pending, error: request.error, choose, refresh,
-		canRetry: connected && !request.pending && retryModel !== null,
-		retry: () => { if (retryModel !== null) choose(retryModel) } }
+	return { selection, pending: request.pending, error: request.error, choose, refresh }
 }

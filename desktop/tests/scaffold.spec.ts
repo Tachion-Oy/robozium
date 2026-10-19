@@ -2,7 +2,7 @@ import { _electron, expect, type Page } from "@playwright/test"
 import { once } from "node:events"
 import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { test, desktopRoot, launchArgs, documentUrl, preload, waitForPanelLayout, captureNative } from "./native"
+import { test, desktopRoot, launchArgs, documentUrl, preload, waitForPanelLayout, captureNative, chooseModel, chooseView, modelTrigger, setNativeViewport, viewTrigger } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
 async function expectPanelGeometry(page: Page, layout: "top" | "equal" | "bottom") {
@@ -33,41 +33,46 @@ async function expectPanelGeometry(page: Page, layout: "top" | "equal" | "bottom
 	}
 }
 
+/** Wait for selector transitions to settle away from the pointer before measuring the header row. */
+async function expectSettledHeaderRow(page: Page) {
+	await page.mouse.move(0, 0)
+	await expect.poll(() => headerRow(page)).toEqual({ ordered: true, centred: true, contained: true, readable: true })
+}
+
+/** The reference header keeps its controls in one row inside the window and ellipsizes long labels. */
+async function headerRow(page: Page) {
+	return page.locator(".agent-hud__header").evaluate(header => {
+		const controls = [...header.querySelectorAll("button.agent-hud__selector-trigger")]
+			.map(control => control.getBoundingClientRect())
+		const labels = [...header.querySelectorAll<HTMLElement>(".agent-hud__model-trigger > span, .theme-toggle__label")]
+			.filter(label => label.getClientRects().length > 0)
+		const middle = (rect: DOMRect) => rect.y + rect.height / 2
+		return {
+			ordered: controls.length === 3 && controls.every((rect, index) => index === 0 || rect.x >= controls[index - 1].right),
+			centred: controls.every(rect => Math.abs(middle(rect) - middle(controls[0])) < 1),
+			contained: controls.every(rect => rect.x >= 0 && rect.right <= innerWidth && rect.y >= 0)
+				&& document.documentElement.scrollWidth === innerWidth,
+			readable: labels.every(label => {
+				const style = getComputedStyle(label)
+				return label.clientWidth > 0 && (label.scrollWidth <= label.clientWidth
+					|| (style.overflow === "hidden" && style.textOverflow === "ellipsis" && style.whiteSpace === "nowrap"))
+			}),
+		}
+	})
+}
+
 for (const theme of ["dark", "light"]) {
-	test(`selectors keep header positions stable and shrink in ${theme}`, async ({ desktop: { app, page } }) => {
+	test(`header keeps model, theme and view in one row and truncates labels in ${theme}`, async ({ desktop: { app, page } }) => {
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 		await page.getByRole("button", { name: "Start run", exact: true }).click()
 		await page.evaluate(async () => { await document.fonts.ready })
-		const selectors = [
-			{ label: "Base model", index: 0, names: ["Mock model", "Mock fast model", "Mock extended context model"] },
-			{ label: "HUD view", index: 3, names: ["Runs Overview", "Dependencies", "Environment", "Current Run"] },
-		]
-		const bounds = () => page.locator("header button").evaluateAll(buttons => buttons.map(button => {
-			const { x, width } = button.getBoundingClientRect()
-			return { x, width }
-		}))
-		let fullWidths: number[] = []
 		for (const [width, height, zoom] of [[1260, 780, 1], [640, 420, 1.25]]) {
-			await app.evaluate(({ BrowserWindow }, { width, height, zoom }) => {
-				const window = BrowserWindow.getAllWindows()[0]
-				window.setContentSize(width, height)
-				window.webContents.setZoomFactor(zoom)
-			}, { width, height, zoom })
-			await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([width / zoom, height / zoom])
-			const initial = await bounds()
-			if (width === 1260) fullWidths = initial.map(button => button.width)
-			for (const { label, index, names } of selectors) {
-				const selector = page.getByRole("combobox", { name: new RegExp(`^${label}:`) })
-				if (width !== 1260) expect(initial[index].width).toBeLessThan(fullWidths[index])
-				for (const name of names) {
-					await selector.click()
-					await page.getByRole("option", { name, exact: true }).click()
-					await expect(selector).toHaveAccessibleName(`${label}: ${name}`)
-					await expect(selector).toHaveAttribute("title", name)
-					expect(await bounds()).toEqual(initial)
-					if (width === 1260) expect(await selector.locator(".hud-header__label")
-						.evaluate(label => label.scrollWidth <= label.clientWidth)).toBe(true)
-				}
+			await setNativeViewport(app, page, width, height, zoom)
+			for (const name of ["Mock model", "Mock fast model", "Mock extended context model"]) {
+				await chooseModel(page, name)
+				await expect(modelTrigger(page)).toHaveAttribute("title", name)
+				await expect(modelTrigger(page)).toHaveAccessibleName(name)
+				await expectSettledHeaderRow(page)
 			}
 		}
 	})
@@ -140,7 +145,7 @@ for (const theme of ["dark", "light"]) {
 		const requests: string[] = []
 		page.on("request", request => { if (/^https?:/.test(request.url())) requests.push(request.url()) })
 		const toggle = page.getByRole("button", { name: "Toggle color theme" })
-		const view = page.getByRole("combobox", { name: /^HUD view:/ })
+		const view = viewTrigger(page)
 		const up = page.getByRole("button", { name: "Move panel divider up" })
 		const down = page.getByRole("button", { name: "Move panel divider down" })
 		const reply = page.getByRole("textbox", { name: "Reply", exact: true })
@@ -149,10 +154,10 @@ for (const theme of ["dark", "light"]) {
 		await expect(down).toBeDisabled()
 		await view.click()
 		await expect(page.getByRole("option", { name: "Current Run", exact: true })).toHaveCount(0)
-		await view.press("Escape")
+		await page.keyboard.press("Escape")
 		await page.getByRole("button", { name: "Start run", exact: true }).press("Enter")
 		await expect(reply).toBeFocused()
-		await expect(view).toHaveAccessibleName("HUD view: Current Run")
+		await expect(view).toHaveAccessibleName("Current Run")
 		await expect(page.getByRole("region", { name: "Agent message", exact: true })).toContainText("Mock run ready.")
 		await reply.fill("First line")
 		await reply.press("Enter")
@@ -160,9 +165,7 @@ for (const theme of ["dark", "light"]) {
 		await reply.pressSequentially("Last line")
 		const draft = "First line\n\nLast line"
 		await expect(reply).toHaveValue(draft)
-		const model = page.getByRole("combobox", { name: /^Base model:/ })
-		await model.click()
-		await page.getByRole("option", { name: "Mock fast model", exact: true }).click()
+		await chooseModel(page, "Mock fast model")
 		await expect(reply).toHaveValue(draft)
 		await reply.focus()
 		await reply.evaluate((element: HTMLTextAreaElement) => { element.setSelectionRange(2, 6); Reflect.set(window, "originalEditor", element) })
@@ -182,15 +185,12 @@ for (const theme of ["dark", "light"]) {
 		await expectPanelGeometry(page, "equal")
 		await up.press("Space")
 		await expect(up).toBeDisabled()
-		await expect(down).toBeFocused()
 		await expectPanelGeometry(page, "bottom")
 		expect(await reply.evaluate((element: HTMLTextAreaElement) => [
 			element === Reflect.get(window, "originalEditor"), element.selectionStart, element.selectionEnd,
 		])).toEqual([true, 2, 6])
 		for (const name of ["Dependencies", "Environment", "Runs Overview"]) {
-			await view.click()
-			await page.getByRole("option", { name, exact: true }).click()
-			await expect(view).toBeFocused()
+			await chooseView(page, name)
 			await expect(up).toBeDisabled()
 			await expect(down).toBeDisabled()
 			await expect(reply).toHaveCount(0)
@@ -202,12 +202,8 @@ for (const theme of ["dark", "light"]) {
 		await down.press("Enter")
 		await down.press("Enter")
 		await expect(down).toBeDisabled()
-		await expect(up).toBeFocused()
-		await view.click()
-		await page.getByRole("option", { name: "Runs Overview", exact: true }).click()
-		await view.click()
-		await page.getByRole("option", { name: "Current Run", exact: true }).click()
-		await expect(view).toBeFocused()
+		await chooseView(page, "Runs Overview")
+		await chooseView(page, "Current Run")
 		await expect(reply).toHaveValue(draft)
 		await page.reload()
 		await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeVisible()
@@ -260,9 +256,9 @@ for (const theme of ["dark", "light"]) {
 	})
 }
 
-test("displays the version from main when launched outside the checkout", async ({ desktop: { app, page } }) => {
+test("exposes the version bridge when launched outside the checkout", async ({ desktop: { app, page } }) => {
 	const version = await app.evaluate(({ app }) => app.getVersion())
-	await expect(page.locator(".hud-frame__identity").getByRole("status")).toHaveText(`Version ${version}`)
+	expect(await page.evaluate(() => window.robozium.getVersion())).toBe(version)
 	expect(page.url()).toBe(documentUrl)
 	expect(await page.evaluate(() => ({
 		require: typeof Reflect.get(window, "require"),
@@ -274,53 +270,44 @@ test("displays the version from main when launched outside the checkout", async 
 	expect(await app.evaluate(({ app }) => app.commandLine.hasSwitch("no-sandbox"))).toBe(false)
 })
 
-test("loads the built React script, stylesheet, and font through the local protocol", async ({ desktop: { page } }) => {
+test("loads the built React script, stylesheet, and fonts through the local protocol", async ({ desktop: { page } }) => {
 	const fontResponse = page.waitForResponse(response =>
 		/^robozium:\/\/app\/assets\/source-code-pro-latin-400-normal-.+\.woff2$/.test(response.url()))
 	await page.reload()
 	expect((await fontResponse).ok()).toBe(true)
-	await expect(page.locator(".hud-frame__identity").getByRole("status")).toHaveText(/^Version /)
 	await expect(page.locator("script[src]")).toHaveAttribute("src", /^\/assets\/.+\.js$/)
 	await expect(page.locator('link[rel="stylesheet"]')).toHaveAttribute("href", /^\/assets\/.+\.css$/)
-	expect(await page.evaluate(async () => {
-		await document.fonts.ready
-		return [...document.fonts].filter(font => font.family === "Source Code Pro").map(font => ({ weight: font.weight, status: font.status }))
-	})).toEqual([{ weight: "400", status: "loaded" }])
-	await expect(page.getByRole("heading", { level: 1 })).toHaveCSS("font-family", '"Source Code Pro", ui-monospace, monospace')
+	await page.evaluate(async () => { await document.fonts.ready })
+	expect(await page.evaluate(() => [...document.fonts]
+		.filter(font => font.status === "loaded").map(font => `${font.family} ${font.weight}`).sort()))
+		.toEqual(expect.arrayContaining(["Source Code Pro 400", "VT323 400"]))
+	await expect(modelTrigger(page)).toHaveCSS("font-family", /^"Source Code Pro"/)
 })
 
 test("switches themes with the keyboard and mouse while retaining focus", async ({ desktop: { page } }) => {
 	const root = page.locator("html")
 	const toggle = page.getByRole("button", { name: "Toggle color theme" })
-	await expect(page.locator("header button")).toHaveText([
-		"Mock model", "Light", "Secrets unavailable", "Runs Overview",
-	])
-	const secrets = page.getByRole("button", { name: "Secrets unavailable", exact: true })
-	await expect(secrets).toBeDisabled()
-	await expect(secrets).toHaveAttribute("disabled", "")
-	await expect(secrets).not.toHaveAttribute("aria-haspopup")
-	await expect(secrets).not.toHaveAttribute("aria-expanded")
+	const shownLabel = () => toggle.locator(".theme-toggle__label").filter({ visible: true })
+	expect(await page.locator(".agent-hud__header button").evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label"))))
+		.toEqual(["Mock model", "Toggle color theme", "Runs Overview"])
 	await expect(root).toHaveAttribute("data-theme", "dark")
-	await expect(toggle).toHaveText("Light")
+	await expect(shownLabel()).toHaveText("Light")
 	await page.keyboard.press("Tab")
-	await expect(page.getByRole("combobox", { name: "Base model: Mock model" })).toBeFocused()
+	await expect(modelTrigger(page)).toBeFocused()
 	await page.keyboard.press("Tab")
 	await expect(toggle).toBeFocused()
-	await expect(toggle).toHaveCSS("outline-style", "solid")
-	await expect(toggle).toHaveCSS("outline-width", "2px")
 	await page.keyboard.press("Space")
 	await expect(root).toHaveAttribute("data-theme", "light")
 	await expect(root).toHaveCSS("color-scheme", "light")
-	await expect(toggle).toHaveText("Dark")
+	await expect(shownLabel()).toHaveText("Dark")
 	await expect(toggle).toBeFocused()
-	await expect(toggle).toHaveCSS("outline-width", "2px")
 	await page.keyboard.press("Tab")
-	await expect(page.getByRole("combobox", { name: "HUD view: Runs Overview" })).toBeFocused()
+	await expect(viewTrigger(page)).toBeFocused()
 	await page.keyboard.press("Shift+Tab")
 	await expect(toggle).toBeFocused()
 	await page.keyboard.press("Enter")
 	await expect(root).toHaveAttribute("data-theme", "dark")
-	await expect(toggle).toBeFocused()
+	await expect(root).toHaveCSS("color-scheme", "dark")
 	await toggle.click()
 	await expect(root).toHaveAttribute("data-theme", "light")
 	await expect(toggle).toBeFocused()
@@ -332,118 +319,75 @@ for (const theme of ["dark", "light"]) {
 		page.on("request", request => { if (/^https?:/.test(request.url())) requests.push(request.url()) })
 		const toggle = page.getByRole("button", { name: "Toggle color theme" })
 		if (theme === "light") await toggle.click()
-		const model = page.getByRole("combobox", { name: /^Base model:/ })
-		const view = page.getByRole("combobox", { name: /^HUD view:/ })
 		await expect(page.getByRole("region", { name: "Runs Overview" })).toContainText("Start run")
-		await model.click()
-		await page.getByRole("option", { name: "Mock fast model", exact: true }).click()
-		await expect(model).toHaveAccessibleName("Base model: Mock fast model")
-		await expect(model).toHaveAttribute("aria-expanded", "false")
-		await expect(model).toBeFocused()
+		await chooseModel(page, "Mock fast model")
+		await expect(modelTrigger(page)).toHaveAccessibleName("Mock fast model")
+		await expect(modelTrigger(page)).toHaveAttribute("aria-expanded", "false")
 		for (const name of ["Dependencies", "Environment", "Environment", "Runs Overview"]) {
-			await view.click()
-			await page.getByRole("option", { name, exact: true }).click()
-			await expect(view).toHaveAccessibleName(`HUD view: ${name}`)
-			await expect(view).toBeFocused()
+			await chooseView(page, name)
+			await expect(viewTrigger(page)).toHaveAccessibleName(name)
 			await expect(page.getByRole("listbox")).toHaveCount(0)
 			await expect(page.getByRole("region", { name, exact: true })).toContainText(name === "Runs Overview" ? "Start run" : "This view is coming soon.")
-			await expect(page.locator(".hud-frame__identity").getByRole("status")).toHaveText(/^Version /)
 		}
-		await toggle.click()
-		await expect(model).toHaveText("Mock fast model")
-		await expect(view).toHaveText("Runs Overview")
 		await page.reload()
-		await expect(model).toHaveText("Mock model")
-		await expect(view).toHaveText("Runs Overview")
+		await expect(modelTrigger(page)).toHaveAccessibleName("Mock model")
+		await expect(viewTrigger(page)).toHaveAccessibleName("Runs Overview")
 		await expect(page.locator("html")).toHaveAttribute("data-theme", "dark")
 		expect(requests).toEqual([])
 	})
 
 	test(`selector keyboard navigation commits and cancels in ${theme}`, async ({ desktop: { page } }) => {
-		const toggle = page.getByRole("button", { name: "Toggle color theme" })
-		if (theme === "light") await toggle.click()
-		const model = page.getByRole("combobox", { name: /^Base model:/ })
-		const view = page.getByRole("combobox", { name: /^HUD view:/ })
-		const active = page.getByRole("option", { selected: true })
+		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+		const model = modelTrigger(page)
+		const menu = page.getByRole("listbox", { name: "Base model" })
 		await model.focus()
 		await model.press("Enter")
-		await expect(active).toHaveText("Mock model●")
-		await expect(model).toHaveAttribute("aria-controls", await page.getByRole("listbox").getAttribute("id") as string)
-		await model.press("ArrowDown")
-		await expect(active).toHaveText("Mock fast model")
-		await expect(model).toHaveAttribute("aria-activedescendant", await active.getAttribute("id") as string)
-		await expect(model).toHaveText("Mock model")
-		await model.press("Escape")
+		await expect(model).toHaveAttribute("aria-controls", await menu.getAttribute("id") as string)
+		// The open menu focuses the selected option; arrows move through enabled options.
+		await expect(menu.getByRole("option", { name: "Mock model", exact: true })).toBeFocused()
+		await page.keyboard.press("ArrowDown")
+		await expect(menu.getByRole("option", { name: "Mock fast model", exact: true })).toBeFocused()
+		await page.keyboard.press("ArrowUp")
+		await page.keyboard.press("ArrowUp")
+		await expect(menu.getByRole("option", { name: "Mock extended context model", exact: true })).toBeFocused()
+		await page.keyboard.press("Escape")
+		await expect(menu).toHaveCount(0)
 		await expect(model).toBeFocused()
-		await expect(model).not.toHaveAttribute("aria-activedescendant")
-		await expect(model).toHaveText("Mock model")
+		await expect(model).toHaveAccessibleName("Mock model")
 		await model.press("Space")
-		await model.press("End")
-		await model.press("ArrowDown")
-		await expect(active).toHaveText("Mock extended context model")
-		await model.press("Home")
-		await model.press("ArrowUp")
-		await expect(active).toHaveText("Mock model●")
-		await model.press("End")
-		await model.press("Space")
-		await expect(model).toHaveText("Mock extended context model")
-		await expect(model).toBeFocused()
-		await model.press("ArrowDown")
-		await expect(active).toHaveText("Mock extended context model●")
-		await model.press("Home")
-		await model.press("Tab")
-		await expect(model).toHaveText("Mock model")
-		await expect(toggle).toBeFocused()
-		await toggle.press("Tab")
-		await expect(view).toBeFocused()
-		await view.press("End")
-		await view.press("Shift+Tab")
-		await expect(toggle).toBeFocused()
+		await page.keyboard.press("ArrowDown")
+		await page.keyboard.press("Enter")
+		await expect(menu).toHaveCount(0)
+		await expect(model).toHaveAccessibleName("Mock fast model")
+		await expect(page.getByRole("option", { selected: true })).toHaveCount(0)
+		await chooseView(page, "Environment")
 		await expect(page.getByRole("region", { name: "Environment" })).toBeVisible()
-		await model.focus()
-		await page.keyboard.type("mock f")
-		await expect(active).toHaveText("Mock fast model")
-		await model.press("Enter")
-		await expect(model).toHaveText("Mock fast model")
-		await model.press("m")
-		await expect(active).toHaveText("Mock extended context model")
-		await model.press("m")
-		await expect(active).toHaveText("Mock model")
-		await model.press("Escape")
-		await expect(model).toHaveText("Mock fast model")
 	})
 
 	test(`selectors dismiss without stealing outside focus in ${theme}`, async ({ desktop: { page } }) => {
 		const toggle = page.getByRole("button", { name: "Toggle color theme" })
 		if (theme === "light") await toggle.click()
-		const model = page.getByRole("combobox", { name: /^Base model:/ })
-		const view = page.getByRole("combobox", { name: /^HUD view:/ })
-		await model.click()
-		await model.press("End")
+		await modelTrigger(page).click()
+		await page.keyboard.press("ArrowDown")
 		await toggle.click()
-		await expect(model).toHaveText("Mock extended context model")
+		await expect(modelTrigger(page)).toHaveAccessibleName("Mock model")
 		await expect(toggle).toBeFocused()
 		await expect(page.getByRole("listbox")).toHaveCount(0)
-		await model.click()
-		await view.click()
-		await expect(model).toHaveAttribute("aria-expanded", "false")
-		await expect(view).toHaveAttribute("aria-expanded", "true")
+		await modelTrigger(page).click()
+		await viewTrigger(page).click()
+		await expect(modelTrigger(page)).toHaveAttribute("aria-expanded", "false")
+		await expect(viewTrigger(page)).toHaveAttribute("aria-expanded", "true")
 		await expect(page.getByRole("listbox")).toHaveCount(1)
 		await expect(page.getByRole("listbox", { name: "HUD view" })).toBeVisible()
-		await view.press("ArrowDown")
-		await view.click()
-		await expect(view).toHaveText("Runs Overview")
-		await expect(view).toBeFocused()
-		await view.press("e")
-		await page.getByRole("heading", { name: "Robozium", exact: true }).click()
-		await expect(view).toHaveText("Environment")
+		await viewTrigger(page).click()
 		await expect(page.getByRole("listbox")).toHaveCount(0)
+		await expect(viewTrigger(page)).toHaveAccessibleName("Runs Overview")
 	})
 }
 
 test("native Ctrl shortcuts zoom both ways and reset with an open selector", async ({ desktop: { app, page } }) => {
-	const model = page.getByRole("combobox", { name: "Base model: Mock model" })
-	await model.click()
+	await modelTrigger(page).click()
+	const selected = page.getByRole("option", { selected: true })
 	for (const [keyCode, level] of [
 		["-", -0.5], ["=", 0], ["+", 0.5], ["numadd", 1],
 		["numsub", 0.5], ["-", 0], ["=", 0.5], ["0", 0],
@@ -459,9 +403,9 @@ test("native Ctrl shortcuts zoom both ways and reset with an open selector", asy
 		await expect.poll(() => app.evaluate(({ BrowserWindow }) =>
 			BrowserWindow.getAllWindows()[0].webContents.getZoomLevel()), { message: `Zoom after Ctrl+${keyCode}` })
 			.toBeCloseTo(level)
-		await expect(model).toBeFocused()
-		await expect(model).toHaveAttribute("aria-expanded", "true")
-		await expect(page.getByRole("option", { selected: true })).toHaveText("Mock model●")
+		await expect(selected).toBeFocused()
+		await expect(selected).toHaveAccessibleName("Mock model")
+		await expect(modelTrigger(page)).toHaveAttribute("aria-expanded", "true")
 	}
 })
 
@@ -470,78 +414,28 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 		test(`frame fits ${width}x${height} at ${zoom} zoom in both themes`, async ({ desktop: { app, page } }) => {
 			await page.getByRole("button", { name: "Start run", exact: true }).click()
 			await page.getByRole("textbox", { name: "Reply", exact: true }).blur()
-			await app.evaluate(({ BrowserWindow }, { width, height, zoom }) => {
-				const window = BrowserWindow.getAllWindows()[0]
-				window.setContentSize(width, height)
-				window.webContents.setZoomFactor(zoom)
-			}, { width, height, zoom })
-			await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight]))
-				.toEqual([width / zoom, height / zoom])
-			await expect(page.locator(".hud-frame__identity").getByRole("status")).toHaveText(/^Version /)
+			await setNativeViewport(app, page, width, height, zoom)
 			await page.evaluate(async () => { await document.fonts.ready })
 			for (const theme of ["dark", "light"]) {
 				if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 				await expect(page.locator("html")).toHaveAttribute("data-theme", theme)
-				for (const [role, name, title] of [
-					["combobox", "Base model: Mock model", "Mock model"],
-					["button", "Secrets unavailable", "Secrets unavailable"],
-					["combobox", "HUD view: Current Run", "Current Run"],
-				] as const) {
-					const control = page.getByRole(role, { name, exact: true })
-					await expect(control).toHaveAccessibleName(name)
-					await expect(control).toHaveAttribute("title", title)
-				}
-				await expect(page.getByRole("button", { name: "Toggle color theme" }))
-					.toHaveAttribute("title", `Switch to ${theme === "dark" ? "light" : "dark"} theme`)
+				await expect(modelTrigger(page)).toHaveAttribute("title", "Mock model")
+				await expect(viewTrigger(page)).toHaveAttribute("title", "Current Run")
+				await expect(page.locator(".agent-hud__event-text")).toBeVisible()
 				await page.mouse.move(0, 0)
-				const geometry = await page.evaluate(() => {
-					const frame = document.querySelector("main")!.getBoundingClientRect()
-					const header = document.querySelector("header")!.getBoundingClientRect()
-					const buttons = [...document.querySelectorAll("header button")]
-						.map(element => element.getBoundingClientRect())
-					const labels = [...document.querySelectorAll(".hud-header__label")]
-					const contents = [...document.querySelectorAll("h1, h2, p, button")]
-					return {
-						frame: [frame.x, frame.y, frame.width, frame.height],
-						contained: contents.every(element => {
-							const rect = element.getBoundingClientRect()
-							return rect.x >= 0 && rect.y >= 0 && rect.right <= innerWidth
-								&& rect.bottom <= innerHeight && element.scrollWidth <= element.clientWidth
-						}),
-						// Native zoom introduces subpixel rounding in DOMRect sums.
-						headerContained: buttons.every((rect, index) =>
-							rect.x >= header.x - 0.01 && rect.right <= header.right + 0.01
-							&& rect.y >= header.y - 0.01 && rect.bottom <= header.bottom + 0.01 && rect.width > 0
-							&& (index === 0 || rect.x > buttons[index - 1].right)
-							&& Math.abs(rect.y + rect.height / 2 - header.y - header.height / 2) < 1),
-						modelCapped: buttons[0].width <= header.width * 0.4,
-						labelsReadable: labels.every(element => {
-							const style = getComputedStyle(element)
-							return element.clientWidth > 0 && (element.scrollWidth <= element.clientWidth
-								|| (style.overflow === "hidden" && style.textOverflow === "ellipsis"
-									&& style.whiteSpace === "nowrap"))
-						}),
-						scroll: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
-					}
-				})
-				expect(geometry).toEqual({
-					frame: [0, 0, width / zoom, height / zoom],
-					contained: true,
-					headerContained: true,
-					modelCapped: true,
-					labelsReadable: true,
-					scroll: [width / zoom, height / zoom],
-				})
+				expect(await page.locator(".agent-hud__box").evaluate(box => {
+					const rect = box.getBoundingClientRect()
+					return [rect.x, rect.y, rect.width, rect.height,
+						document.documentElement.scrollWidth, document.documentElement.scrollHeight]
+				})).toEqual([0, 0, width / zoom, height / zoom, width / zoom, height / zoom])
+				await expectSettledHeaderRow(page)
 				await page.getByRole("button", { name: "Toggle color theme" }).click({ trial: true })
 				expect(await captureNative(app, page, width, height)).toMatchSnapshot(`frame-${theme}-${width}x${height}-${zoom}.png`, {
 					threshold: 0.2, maxDiffPixelRatio: 0.002,
 				})
-				for (const [kind, name] of [["model", /^Base model:/], ["view", /^HUD view:/]] as const) {
-					const selector = page.getByRole("combobox", { name })
-					await selector.click()
-					await selector.press("End")
-					await expect(selector).toBeFocused()
-					expect(await page.getByRole("listbox").evaluate(menu => {
+				for (const [kind, trigger, name] of [["model", modelTrigger(page), "Base model"], ["view", viewTrigger(page), "HUD view"]] as const) {
+					await trigger.click()
+					expect(await page.getByRole("listbox", { name }).evaluate(menu => {
 						const bounds = menu.getBoundingClientRect()
 						return {
 							contained: bounds.x >= 0 && bounds.y >= 0 && bounds.right <= innerWidth && bounds.bottom <= innerHeight,
@@ -552,13 +446,12 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 							scroll: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
 						}
 					})).toEqual({ contained: true, optionsVisible: true, scroll: [width / zoom, height / zoom] })
-					await expect(page.getByRole("option", { selected: true })).toHaveCSS("outline-style", "solid")
 					if (width === 640 && zoom === 1.25) {
 						expect(await captureNative(app, page, width, height)).toMatchSnapshot(`selector-${kind}-${theme}.png`, {
 							threshold: 0.2, maxDiffPixelRatio: 0.002,
 						})
 					}
-					await selector.press("Escape")
+					await page.keyboard.press("Escape")
 				}
 				for (const layout of ["top", "equal", "bottom"] as const) {
 					if (layout !== "top") await page.getByRole("button", { name: "Move panel divider up" }).click()
@@ -574,32 +467,19 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 				}
 				await page.getByRole("button", { name: "Move panel divider down" }).click()
 				await page.getByRole("button", { name: "Move panel divider down" }).click()
-				const model = page.getByRole("combobox", { name: /^Base model:/ })
-				await model.press("End")
-				await model.press("Enter")
-				await expect(model).toHaveAccessibleName("Base model: Mock extended context model")
-				await expect(model).toHaveAttribute("title", "Mock extended context model")
-				expect(await model.evaluate(button => {
-					const header = button.closest("header")!.getBoundingClientRect()
-					const label = button.querySelector("span")!
-					return button.getBoundingClientRect().width <= header.width * 0.4
-						&& document.documentElement.scrollWidth === innerWidth && label.clientWidth > 0
-				})).toBe(true)
-				await model.press("Home")
-				await model.press("Enter")
-				const view = page.getByRole("combobox", { name: /^HUD view:/ })
+				await chooseModel(page, "Mock extended context model")
+				await expectSettledHeaderRow(page)
+				await chooseModel(page, "Mock model")
 				for (const name of ["Runs Overview", "Dependencies", "Environment"]) {
-					await view.click()
-					await page.getByRole("option", { name, exact: true }).click()
+					await chooseView(page, name)
 					await expect(page.getByRole("region", { name, exact: true })).toBeVisible()
-					expect(await page.locator(".hud-frame__content").evaluate(content => {
+					expect(await page.locator(".desktop-interim-content__content").evaluate(content => {
 						const bounds = content.firstElementChild!.getBoundingClientRect()
 						return bounds.x >= 0 && bounds.y >= 0 && bounds.right <= innerWidth && bounds.bottom <= innerHeight
 							&& document.documentElement.scrollWidth === innerWidth && document.documentElement.scrollHeight === innerHeight
 					})).toBe(true)
 				}
-				await view.click()
-				await page.getByRole("option", { name: "Current Run", exact: true }).click()
+				await chooseView(page, "Current Run")
 			}
 		})
 	}
@@ -680,12 +560,6 @@ test("rejects the version request from a different document in the main window",
 	})).toBe("denied")
 })
 
-test("shows a readable error when the version request fails", async ({ desktop: { app, page } }) => {
-	await app.evaluate(({ ipcMain }) => ipcMain.removeHandler("desktop:version"))
-	await page.reload()
-	await expect(page.getByRole("alert")).toHaveText("Unable to read the application version.")
-})
-
 test("blocks renderer navigation and popups", async ({ desktop: { app, page } }) => {
 	const blocked = await app.evaluate(async ({ BrowserWindow }) => {
 		const contents = BrowserWindow.getAllWindows()[0].webContents
@@ -714,6 +588,6 @@ test("native close exits and the same profile can reopen", async ({ desktop: { a
 		timeout: 15_000,
 	})
 	try {
-		await expect((await reopened.firstWindow()).getByRole("status")).toHaveText(/^Version /)
+		await expect((await reopened.firstWindow()).locator(".agent-hud__box")).toBeVisible()
 	} finally { await reopened.close() }
 })

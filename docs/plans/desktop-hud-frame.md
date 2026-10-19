@@ -1,5 +1,7 @@
 # PR 3a — Port the Robozium frame and themes
 
+> **Superseded:** see [desktop-roadmap.md](desktop-roadmap.md) (reference CSS transplant).
+
 ## Result
 
 The Electron application displays its existing name and version inside the

@@ -1,0 +1,71 @@
+/* Interim styles for components that still precede the reference port: the
+ * content area (roadmap steps 11-12) and the startup screen (step 21). Tokens
+ * are scoped so they cannot leak into the reference frame and header. Delete
+ * this file once those components use the reference stylesheets. */
+
+.desktop-interim-content,
+.backend-startup {
+	--term-blue: #40c8ff;
+	--term-green: #33ff7a;
+	--term-amber: #ffb000;
+	--term-red: #ff3b30;
+	--hud-shell-bg: #091426;
+	--hud-input-bg: color-mix(in oklab, #0d0f12 85%, #00080f 15%);
+	--hud-input-text: color-mix(in oklab, var(--term-blue) 50%, white 50%);
+	font-family: "Source Code Pro", ui-monospace, monospace;
+	font-size: 1.15rem;
+	line-height: 1.35;
+	letter-spacing: 0.02em;
+	color: var(--hud-input-text);
+}
+
+:root[data-theme="light"] :is(.desktop-interim-content, .backend-startup) {
+	--term-blue: #788bb5;
+	--term-green: #26787a;
+	--term-amber: #b9872f;
+	--term-red: #a8443e;
+	--hud-box-bg: #dcd8cf;
+	--hud-input-bg: #f1ede5;
+	--hud-input-text: #505762;
+	--hud-input-border: #858b8b;
+	--hud-control-ink: #333a46;
+	--hud-shell-bg: color-mix(in oklab, var(--hud-control-ink) 13%, var(--hud-box-bg));
+}
+
+.desktop-interim-content {
+	/* Paint above the reference box's positioned decoration layers. */
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+	overflow-wrap: anywhere;
+}
+
+.desktop-interim-content__content {
+	display: grid;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+}
+
+.desktop-interim-content p { margin: 0.75rem 0 0; }
+.desktop-interim-content__notices { font-size: 0.85rem; }
+.desktop-interim-content__notices p { margin: 0; color: var(--term-red); }
+.desktop-interim-content__notices .backend-notice { gap: 0.25rem 0.75rem; margin-left: 0; }
+.desktop-interim-content__notices .backend-notice .hud-button { min-height: 0; padding-block: 0.15rem; }
+
+.selection-overview { overflow: auto; min-height: 0; padding: 0.4rem; }
+.selection-overview .run-overview { margin-top: 1rem; }
+.preview-overview { display: contents; }
+
+.backend-startup {
+	display: grid;
+	height: 100dvh;
+	background: var(--hud-shell-bg);
+}
+
+.backend-startup h1 { font-weight: 400; }
