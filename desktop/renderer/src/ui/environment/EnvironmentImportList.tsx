@@ -1,5 +1,7 @@
-import type { EnvironmentImport } from "@/lib/robozium/wire"
-import { CapabilityItem } from "../CapabilityItem"
+// Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentImportList.tsx at 076b2c9.
+// Adapted: desktop import paths.
+import type { EnvironmentImport } from "../../environment/environment-api"
+import { CapabilityItem } from "../hud/CapabilityItem"
 
 export function EnvironmentImportList({ imported }: { imported: EnvironmentImport[] }) {
 	return (

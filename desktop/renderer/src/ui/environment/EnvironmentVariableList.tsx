@@ -1,7 +1,9 @@
 import { useEffect, useRef, type ReactNode } from "react"
-import type { EnvironmentVariable } from "@/hooks/useEnvironmentEditor"
-import type { EnvironmentEntry } from "@/lib/robozium/wire"
-import { HudButton } from "../HudButton"
+// Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentVariableList.tsx at 076b2c9.
+// Adapted: desktop import paths.
+import type { EnvironmentVariable } from "../../environment/useEnvironmentEditor"
+import type { EnvironmentEntry } from "../../environment/environment-api"
+import { HudButton } from "../hud/HudButton"
 
 type EnvironmentVariableListProps = {
 	variables: EnvironmentVariable[]

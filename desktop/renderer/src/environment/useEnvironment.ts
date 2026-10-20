@@ -1,9 +1,13 @@
-"use client"
-
+// Copied from robozium-electron/desktop/web/hooks/useEnvironment.ts at 076b2c9.
+// Adapted: requests use the desktop client under its lifetime and deadlines, a
+// new client starts over, polling runs only while the screen is visible, and
+// folder import follows in a later PR.
 import { useEffect, useRef, useState } from "react"
-import { showErrorToast } from "@/app/components/feedback/ErrorToast"
-import { getEnvironment, importEnvironmentPackage, resetEnvironment, saveEnvironment } from "@/lib/robozium/client"
-import type { EnvironmentEntry, EnvironmentImportResult, EnvironmentView } from "@/lib/robozium/wire"
+import type { DesktopApiClient } from "../api/client"
+import { withDeadline } from "../api/request"
+import { useClientLifetime } from "../api/useClientLifetime"
+import { showErrorToast } from "../feedback/notices"
+import { getEnvironment, resetEnvironment, saveEnvironment, type EnvironmentEntry, type EnvironmentView } from "./environment-api"
 
 export function sameEnvironmentEntries(left: EnvironmentEntry[], right: EnvironmentEntry[]): boolean {
 	if (left.length !== right.length) return false
@@ -15,7 +19,23 @@ export function sameEnvironmentEntries(left: EnvironmentEntry[], right: Environm
 	})
 }
 
-export function useEnvironment(editing: boolean) {
+export interface EnvironmentState {
+	view: EnvironmentView | null
+	/** The saved entries, with this app's unsaved changes applied. */
+	entries: EnvironmentEntry[]
+	editable: boolean
+	pending: boolean
+	loadFailed: boolean
+	canReset: boolean
+	saving: boolean
+	change: (next: EnvironmentEntry[]) => void
+	save: (password: string, nextEntries?: EnvironmentEntry[]) => Promise<boolean>
+	reset: () => Promise<boolean>
+	retry: () => void
+}
+
+/** Polls every two seconds while `visible`; edits and results outlive the screen. */
+export function useEnvironment(client: DesktopApiClient | null, visible: boolean, editing: boolean): EnvironmentState {
 	const [view, setView] = useState<EnvironmentView | null>(null)
 	const [entries, setEntries] = useState<EnvironmentEntry[]>([])
 	const [operation, setOperation] = useState<"save" | "import" | "reset" | null>(null)
@@ -23,7 +43,7 @@ export function useEnvironment(editing: boolean) {
 	const [loadFailed, setLoadFailed] = useState(false)
 	const lastLoadError = useRef("")
 	const [refreshVersion, setRefreshVersion] = useState(0)
-	const mounted = useRef(true)
+	const lifetime = useClientLifetime(client)
 	const dirtyRef = useRef(false)
 	const pendingRef = useRef(false)
 	const editingRef = useRef(editing)
@@ -31,13 +51,13 @@ export function useEnvironment(editing: boolean) {
 
 	useEffect(() => { editingRef.current = editing }, [editing])
 	useEffect(() => {
-		mounted.current = true
+		if (!client || !visible) return
 		const controller = new AbortController()
 		const refresh = async () => {
 			if (pendingRef.current) return
 			const version = saveVersion.current
 			try {
-				const next = await getEnvironment({ signal: controller.signal })
+				const next = await withDeadline(controller.signal, signal => getEnvironment(client, signal))
 				if (controller.signal.aborted || pendingRef.current || version !== saveVersion.current) return
 				const preserve = dirtyRef.current || editingRef.current
 				setView(previous => preserve && previous ? { ...next, entries: previous.entries, revision: previous.revision } : next)
@@ -60,11 +80,20 @@ export function useEnvironment(editing: boolean) {
 		void refresh()
 		const timer = window.setInterval(() => void refresh(), 2000)
 		return () => {
-			mounted.current = false
 			controller.abort()
 			window.clearInterval(timer)
 		}
-	}, [refreshVersion])
+	}, [client, visible, refreshVersion])
+	// A new client starts from its own settings, discarding the previous client's edits.
+	useEffect(() => () => {
+		setView(null)
+		setEntries([])
+		setLoadFailed(false)
+		setOperation(null)
+		dirtyRef.current = false
+		pendingRef.current = false
+		lastLoadError.current = ""
+	}, [client])
 
 	const editable = Boolean(view?.editable && !pending && !loadFailed)
 	const canReset = !pending && (view?.editable ?? loadFailed)
@@ -73,67 +102,47 @@ export function useEnvironment(editing: boolean) {
 		dirtyRef.current = !sameEnvironmentEntries(next, view?.entries ?? [])
 		setEntries(next)
 	}
-	const importPackage = async (files: File[]): Promise<EnvironmentImportResult | null> => {
-		if (!editable || pendingRef.current) return null
-		pendingRef.current = true
-		saveVersion.current++
-		setOperation("import")
-		try {
-			const result = await importEnvironmentPackage(files)
-			if (!mounted.current) return null
-			setView(previous => previous && {
-				...previous,
-				imports: [...previous.imports.filter(item => item.name !== result.imported.name), result.imported],
-				suggestions: [...previous.suggestions.filter(item => item.source !== result.imported.name), ...result.suggestions],
-			})
-			return result
-		} catch (cause) {
-			if (mounted.current) showErrorToast({
-				title: "Import failed",
-				message: cause instanceof Error ? cause.message : "Could not import package",
-			})
-			return null
-		} finally {
-			pendingRef.current = false
-			if (mounted.current) setOperation(null)
-		}
-	}
 	const save = async (password: string, nextEntries = entries): Promise<boolean> => {
-		if (!view || !editable || pendingRef.current) return false
+		if (!client || !view || !editable || pendingRef.current) return false
 		pendingRef.current = true
 		saveVersion.current++
 		setOperation("save")
+		const signal = lifetime()
 		try {
-			await saveEnvironment({
+			// Sent once; a conflict or failure keeps the edits for the user to retry.
+			await withDeadline(signal, requestSignal => saveEnvironment(client, {
 				revision: view.revision,
 				entries: nextEntries.map(({ name, value, secret }) => ({ name, value, secret })),
 				password: password || null,
-			})
-			const next = await getEnvironment()
-			if (!mounted.current) return false
+			}, requestSignal))
+			const next = await withDeadline(signal, requestSignal => getEnvironment(client, requestSignal))
+			if (signal.aborted) return false
 			setView(next)
 			setEntries(next.entries)
 			dirtyRef.current = false
 			return true
 		} catch (cause) {
-			if (mounted.current) showErrorToast({
+			if (!signal.aborted) showErrorToast({
 				title: "Could not save settings",
 				message: cause instanceof Error ? cause.message : "Could not save settings",
 			})
 			return false
 		} finally {
-			pendingRef.current = false
-			if (mounted.current) setOperation(null)
+			if (!signal.aborted) {
+				pendingRef.current = false
+				setOperation(null)
+			}
 		}
 	}
 	const reset = async (): Promise<boolean> => {
-		if (!canReset || pendingRef.current) return false
+		if (!client || !canReset || pendingRef.current) return false
 		pendingRef.current = true
 		saveVersion.current++
 		setOperation("reset")
+		const signal = lifetime()
 		try {
-			await resetEnvironment()
-			if (!mounted.current) return false
+			await withDeadline(signal, requestSignal => resetEnvironment(client, requestSignal))
+			if (signal.aborted) return false
 			setView(null)
 			setEntries([])
 			dirtyRef.current = false
@@ -142,17 +151,19 @@ export function useEnvironment(editing: boolean) {
 			setRefreshVersion(version => version + 1)
 			return true
 		} catch (cause) {
-			if (mounted.current) showErrorToast({
+			if (!signal.aborted) showErrorToast({
 				title: "Could not reset settings",
 				message: cause instanceof Error ? cause.message : "Could not delete saved settings",
 			})
 			return false
 		} finally {
-			pendingRef.current = false
-			if (mounted.current) setOperation(null)
+			if (!signal.aborted) {
+				pendingRef.current = false
+				setOperation(null)
+			}
 		}
 	}
-	return { view, entries, editable, pending, loadFailed, change, save, importPackage, reset, canReset, saving: operation === "save",
+	return { view, entries, editable, pending, loadFailed, change, save, reset, canReset, saving: operation === "save",
 		retry: () => { lastLoadError.current = ""; setRefreshVersion(version => version + 1) },
 	}
 }

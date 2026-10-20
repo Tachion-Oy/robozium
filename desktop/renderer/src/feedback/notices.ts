@@ -8,7 +8,9 @@ export interface ShowErrorToastOptions {
 	detail?: string | null
 }
 
-export interface ErrorNotice extends ShowErrorToastOptions { id: number }
+export interface ShowNotificationToastOptions extends ShowErrorToastOptions { tone: "success" | "error" }
+
+export interface ErrorNotice extends ShowNotificationToastOptions { id: number }
 
 const NOTICE_DURATION_MS = 8000
 let notices: readonly ErrorNotice[] = []
@@ -21,6 +23,11 @@ function publish(next: readonly ErrorNotice[]): void {
 }
 
 export function showErrorToast(options: ShowErrorToastOptions): number {
+	return showNotificationToast({ ...options, tone: "error" })
+}
+
+/** Successes are announced politely; errors are alerts. */
+export function showNotificationToast(options: ShowNotificationToastOptions): number {
 	const id = ++nextId
 	// A repeated failure replaces its earlier notice instead of stacking.
 	publish([...notices.filter(notice => notice.title !== options.title), { ...options, id }])

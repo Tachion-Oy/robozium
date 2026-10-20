@@ -1,6 +1,8 @@
+// Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentSaveForm.tsx at 076b2c9.
+// Adapted: desktop import paths, and the save reports whether it succeeded.
 import { useState, type SubmitEvent } from "react"
-import { showErrorToast } from "@/app/components/feedback/ErrorToast"
-import { HudButton } from "../HudButton"
+import { showErrorToast } from "../../feedback/notices"
+import { HudButton } from "../hud/HudButton"
 
 type EnvironmentSaveFormProps = {
 	editable: boolean
@@ -10,7 +12,7 @@ type EnvironmentSaveFormProps = {
 	confirmPassword: boolean
 	canReset: boolean
 	onValidate: () => boolean
-	onSave: (password: string) => Promise<void>
+	onSave: (password: string) => Promise<boolean>
 	onReset: () => Promise<boolean>
 }
 

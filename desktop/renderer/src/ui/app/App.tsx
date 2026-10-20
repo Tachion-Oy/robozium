@@ -23,6 +23,8 @@ import { useCapabilities } from "../../capabilities/useCapabilities"
 import { HudButton } from "../HudButton"
 import { UnlockApiKeys } from "../hud/UnlockApiKeys"
 import { useCredentials } from "../../credentials/useCredentials"
+import { EnvironmentPanel } from "../environment/EnvironmentPanel"
+import { useEnvironmentEditor } from "../../environment/useEnvironmentEditor"
 import { useRunSession } from "../../session/useRunSession"
 import { useRunMutations } from "../../session/useRunMutations"
 import { runLabels } from "../../hud/hud-view"
@@ -100,6 +102,7 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	const projectMutations = useProjectMutations(client)
 	const projects = useProjectQuery(client, screen === "projects", { ...projectMutations, opening: launch.opening })
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
+	const environment = useEnvironmentEditor(client, screen === "environment")
 	// A launch, a disconnection or an unconfirmed model change locks navigation.
 	const navigationPending = launch.pending || !connected || models.pending
 	const selectScreen = (next: HudScreen) => { setFocusRunEditor(false); navigate({ type: "screen_selected", screen: next }) }
@@ -149,6 +152,10 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 					onChange={change => navigate({ type: "launch_changed", change })}
 					onCancel={() => navigate({ type: "launch_closed" })}
 					onSubmit={selection => { if (navigation.launch) void launch.launch({ ...navigation.launch, selection }) }} />
+			case "environment":
+				if (client) return <EnvironmentPanel environment={environment} />
+				// Standalone preview has no backend settings; it shows the placeholder.
+				// falls through
 			default:
 				return <div className="desktop-interim-content">
 					<div className="desktop-interim-content__content">

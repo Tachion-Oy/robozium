@@ -1,14 +1,15 @@
-"use client"
-
-import { requireDesktopRestart } from "@/lib/desktop"
+// Copied from robozium-electron/desktop/web/hooks/useEnvironmentEditor.ts at 076b2c9.
+// Adapted: the environment owner receives the desktop client; folder import and
+// the restart flag arrive with Restart app in a later PR.
 import { useState } from "react"
-import { showErrorToast, showNotificationToast } from "@/app/components/feedback/ErrorToast"
-import type { EnvironmentEntry } from "@/lib/robozium/wire"
-import { sameEnvironmentEntries, useEnvironment } from "./useEnvironment"
+import type { DesktopApiClient } from "../api/client"
+import { showErrorToast, showNotificationToast } from "../feedback/notices"
+import type { EnvironmentEntry } from "./environment-api"
+import { sameEnvironmentEntries, useEnvironment, type EnvironmentState } from "./useEnvironment"
 
 const startupNames = new Set(["ROBOZIUM_HUB_ROOT", "ROBOZIUM_WEB_PORT"])
 
-type Editor = {
+export type Editor = {
 	originalName: string | null
 	original: EnvironmentEntry
 	entry: EnvironmentEntry
@@ -39,10 +40,25 @@ function entryError({ entry, original, originalName }: Editor, entries: Environm
 	return ""
 }
 
-export function useEnvironmentEditor() {
+export interface EnvironmentEditorState extends EnvironmentState {
+	editor: Editor | null
+	/** The saved entries differ from what the screen shows, including an open edit. */
+	dirty: boolean
+	needsPassword: boolean
+	variables: EnvironmentVariable[]
+	openEditor: (entry?: EnvironmentEntry) => void
+	closeEditor: () => void
+	updateEditor: (entry: EnvironmentEntry) => void
+	applyEditor: () => void
+	removeVariable: (name: string) => void
+	validateSave: () => boolean
+	save: (password: string) => Promise<boolean>
+}
+
+export function useEnvironmentEditor(client: DesktopApiClient | null, visible: boolean): EnvironmentEditorState {
 	const [editor, setEditor] = useState<Editor | null>(null)
 	const [hiddenSuggestions, setHiddenSuggestions] = useState<Set<string>>(new Set())
-	const environment = useEnvironment(editor !== null)
+	const environment = useEnvironment(client, visible, editor !== null)
 	const { view, entries: savedEntries, editable, change } = environment
 
 	const newEntry = (name = "", value = "", secret = false): EnvironmentEntry => ({
@@ -115,30 +131,17 @@ export function useEnvironmentEditor() {
 		setHiddenSuggestions(previous => new Set(previous).add(name))
 		if (editor?.original.name === name) closeEditor()
 	}
-	const importPackage = async (files: File[]): Promise<boolean> => {
-		const result = await environment.importPackage(files)
-		if (!result) return false
-		revealSuggestions(new Set(result.suggestions.map(entry => entry.name)))
-		requireDesktopRestart()
-		const item = result.imported
-		showNotificationToast({
-			tone: "success", title: "Imported",
-			message: `${item.capabilities.map(capability => `${capability.kind === "tool" ? "Tool" : "Skill"} ${capability.name}`).join(", ")} found and imported. Available after restart.`,
-		})
-		return true
-	}
 	const save = async (password: string) => {
-		if (!await environment.save(password, currentEntries)) return
-		requireDesktopRestart()
+		if (!await environment.save(password, currentEntries)) return false
 		closeEditor()
 		showNotificationToast({
 			tone: "success", title: "Settings saved",
-			message: window.robozium ? "Use Restart app in Environment, then unlock with Secrets." : "Restart using ./start or start.cmd, keeping --mock for mock mode. Then unlock with Secrets.",
+			message: "Close and reopen the app, then unlock with Secrets.",
 		})
+		return true
 	}
 	const reset = async () => {
 		if (!await environment.reset()) return false
-		requireDesktopRestart()
 		closeEditor()
 		setHiddenSuggestions(new Set())
 		showNotificationToast({
@@ -152,7 +155,7 @@ export function useEnvironmentEditor() {
 		...environment,
 		editor, dirty, needsPassword,
 		variables: [...variables.values()],
-		openEditor, closeEditor, updateEditor, applyEditor, removeVariable, importPackage,
+		openEditor, closeEditor, updateEditor, applyEditor, removeVariable,
 		validateSave: () => !edited || validateEditor(),
 		save, reset,
 	}
