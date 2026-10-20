@@ -19,26 +19,34 @@ test("a refused stream reconnects quietly with growing backoff, and a frame rese
 		openStream(response)
 		streams.push(response)
 	})
+	// A paused clock moves only when the test advances it, so waiting adds no time.
+	// Small steps let requests started on the way settle before their deadlines pass.
 	await page.clock.install()
+	await page.clock.pauseAt(await page.evaluate(() => Date.now()) + 1000)
 	await start(page, backend)
+	const advance = async (ms: number) => {
+		for (let elapsed = 0; elapsed < ms; elapsed += 100) await page.clock.runFor(Math.min(100, ms - elapsed))
+	}
 	await expect.poll(() => attempts(backend)).toBe(1)
+	const advanceUntil = (expected: () => number, value: number) =>
+		expect.poll(async () => { await page.clock.runFor(25); return expected() }).toBe(value)
 	let count = 1
 	for (const delay of [500, 1000, 2000, 4000, 4000]) {
-		await page.clock.fastForward(delay - 50)
+		await advance(delay - 50)
 		expect(attempts(backend)).toBe(count)
-		await page.clock.fastForward(51)
-		await expect.poll(() => attempts(backend)).toBe(++count)
+		await advanceUntil(() => attempts(backend), ++count)
 	}
 	refuse = false
-	await page.clock.fastForward(4001)
-	await expect.poll(() => streams.length).toBe(1)
+	await advance(3950)
+	await advanceUntil(() => streams.length, 1)
 	emit(streams[0], message(1, "Back"))
 	await expect(output(page)).toHaveText("Back")
 	streams[0].end()
 	count = attempts(backend)
 	// The received frame reset the backoff to its first step.
-	await page.clock.fastForward(501)
-	await expect.poll(() => attempts(backend)).toBe(count + 1)
+	await advance(450)
+	expect(attempts(backend)).toBe(count)
+	await advanceUntil(() => attempts(backend), count + 1)
 	await expect(page.getByRole("alert")).toHaveCount(0)
 	await expect(retryOutput(page)).toHaveCount(0)
 })
