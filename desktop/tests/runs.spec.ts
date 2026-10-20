@@ -1,7 +1,7 @@
 import { expect } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { writeFile } from "node:fs/promises"
-import { test, json, catalogue, project, prepareRun, snapshot, message, delta, emit, start, view, output, runStatus, launchButton } from "./run-fixture"
+import { test, json, catalogue, project, prepareRun, snapshot, message, delta, emit, start, view, output, runStatus, launchButton, expectOverview } from "./run-fixture"
 import { captureNative, chooseModel, modelTrigger, setNativeViewport } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
@@ -196,8 +196,7 @@ test("snapshots alone update prompts and terminal status, with serialized two-se
 	await page.clock.fastForward(2001)
 	await expect.poll(() => reads.length).toBe(3)
 	json(reads[2], snapshot({ status: "completed", message_trace: [message(1, "Completed output")] }))
-	await expect(runStatus(page)).toContainText("Completed")
-	await expect(output(page)).toHaveText("Completed output")
+	await expectOverview(page)
 	await page.clock.fastForward(30_000)
 	expect(reads).toHaveLength(3)
 })
@@ -253,8 +252,7 @@ for (const end of ["closure", "409"] as const) {
 		json(reads[0], snapshot({ message_trace: [message(1, "Before closure")] }))
 		await expect.poll(() => reads.length).toBe(2)
 		json(reads[1], snapshot({ status: "completed", message_trace: [message(1, "Before closure"), message(2, "Final output")] }))
-		await expect(runStatus(page)).toContainText("Completed")
-		await expect(output(page)).toHaveText("Final output")
+		await expectOverview(page)
 		await expect(page.getByRole("alert")).toHaveCount(0)
 		await page.clock.fastForward(30_000)
 		expect(reads).toHaveLength(2)
@@ -283,13 +281,19 @@ test("output retry reconnects only the known ID and retains output and draft", a
 })
 
 for (const status of ["failed", "cancelled", "queued", "cancelling"] as const) {
-	test(`snapshot status ${status} is presented`, async ({ desktop: { page }, backend }) => {
+	const ends = status === "failed" || status === "cancelled"
+	test(`snapshot status ${status} ${ends ? "ends the run and returns to the overview" : "is presented"}`, async ({ desktop: { page }, backend }) => {
 		const run = prepareRun(backend)
 		backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ status, message_trace: [message(1, "Kept output")], error: status === "failed" ? "Execution failed" : null })))
-		await start(page, backend)
+		await backend.open()
+		await launchButton(page, "existing-project").click()
+		if (ends) {
+			await expectOverview(page)
+			await expect.poll(() => run.closed).toBe(run.streams.length)
+			return
+		}
 		await expect(runStatus(page)).toContainText(status[0].toUpperCase() + status.slice(1))
 		await expect(output(page)).toHaveText("Kept output")
-		if (status === "failed" || status === "cancelled") await expect.poll(() => run.closed).toBe(run.streams.length)
 	})
 }
 
@@ -302,10 +306,11 @@ for (const invalid of ["snapshot", "event", "unknown"] as const) {
 		await expect(output(page)).toHaveText("Keep output")
 		if (invalid === "event") emit(run.streams[0], { type: "message_delta", sequence: 2, payload: { delta: 42 } })
 		else backend.handlers.set("GET /run/run-one", response => json(response, invalid === "unknown" ? { detail: "unknown run_id" } : snapshot({ status: "nonsense" }), invalid === "unknown" ? 404 : 200))
-		await expect(page.getByRole("alert")).toContainText(invalid === "unknown" ? "unknown run_id" : "invalid run data")
-		await expect(output(page)).toHaveText("Keep output")
-		if (invalid === "unknown") await expect(runStatus(page)).toContainText("Run unavailable")
 		await expect.poll(() => run.closed).toBe(1)
+		// A confirmed missing run returns to the overview; invalid data stays readable.
+		if (invalid === "unknown") return await expectOverview(page)
+		await expect(page.getByRole("alert")).toContainText("invalid run data")
+		await expect(output(page)).toHaveText("Keep output")
 	})
 }
 
@@ -428,7 +433,7 @@ test("provider retries discard abandoned text while keeping completed history an
 	await expect(output(page)).toHaveText("Abandoned attempt")
 	await page.getByRole("textbox", { name: "Type your reply...", exact: true }).fill("Keep this draft")
 	emit(stream, retry)
-	await expect(output(page)).toHaveText("Earlier")
+	await expect(output(page)).toHaveText("Agent is working...")
 	emit(stream, delta(4, "Successful", 0, "attempt-2"))
 	emit(stream, message(5, "Successful response", "attempt-2"))
 	await expect(output(page)).toHaveText("Successful response")

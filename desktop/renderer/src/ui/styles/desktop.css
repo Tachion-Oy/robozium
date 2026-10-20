@@ -49,9 +49,9 @@ html[data-desktop] .agent-hud__header .theme-toggle__label {
 html[data-desktop] .agent-hud__header .theme-toggle { justify-content: flex-start; }
 
 /* The first row reserves the geometric centre for all four arrows and the
-   logo. Measured primary actions stay in its side lanes; the remaining actions
-   participate in ordinary left-aligned flex wrapping below it. Their DOM nodes
-   stay mounted so resize preserves focus, clipboard feedback and recording. */
+   logo. When every action fits its side lanes they stay there; otherwise all
+   of them share one row below, truncating labels instead of wrapping. Their DOM
+   nodes stay mounted so resize preserves focus, clipboard feedback and recording. */
 html[data-desktop] .agent-hud__actions {
   position: relative; display: flex; flex-wrap: wrap; align-items: flex-start;
   justify-content: flex-start; gap: 0.75rem 1rem;
@@ -70,6 +70,29 @@ html[data-desktop] .agent-hud__actions [data-hud-action-placement="primary"] {
   top: var(--hud-action-top, 0px);
 }
 html[data-desktop] .agent-hud__copy-controls { height: var(--hud-copy-action-height, 2.8rem); align-self: flex-start; }
+html[data-desktop] .agent-hud__actions[data-hud-actions="below"] {
+  flex-wrap: nowrap; padding-top: calc(var(--hud-primary-action-height, 36px) + 0.75rem);
+}
+html[data-desktop] .agent-hud__actions[data-hud-actions="below"] .agent-hud__navigation-row {
+  position: absolute; inset: 0 0 auto;
+}
+html[data-desktop] .agent-hud__actions [data-hud-action-placement="overflow"] { flex: 0 1 auto; }
+/* Record keeps its fixed width; the other labels shrink. */
+html[data-desktop] .agent-hud__actions button[data-hud-action-placement="overflow"]:not(.agent-hud__dictate) { min-width: 0; }
+/* The copy icons never shrink; they start the right-hand group, as beside the navigation. */
+html[data-desktop] .agent-hud__actions .agent-hud__copy-controls[data-hud-action-placement="overflow"] {
+  flex-shrink: 0; margin-inline-start: auto;
+}
+html[data-desktop] .agent-hud__actions button > span {
+  display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* A pending action keeps its label and pulses until its outcome arrives. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes desktop-action-busy { from { opacity: 0.55; } to { opacity: 1; } }
+  html[data-desktop] .agent-hud__actions button[aria-busy="true"] {
+    animation: desktop-action-busy 0.9s ease-in-out infinite alternate;
+  }
+}
 html[data-desktop] .agent-hud__message-direction { margin-inline: 0; }
 /* Keep hover/focus feedback in colour and glow, without moving the hit target. */
 html[data-desktop][data-theme] .agent-hud__actions button,

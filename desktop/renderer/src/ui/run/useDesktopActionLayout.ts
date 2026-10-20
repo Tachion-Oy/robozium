@@ -1,14 +1,22 @@
 // Copied from robozium-electron/desktop/web/hooks/useDesktopActionLayout.ts at 076b2c9.
+// Adapted: actions sit all beside the navigation or all on one row below it.
 import { useLayoutEffect, useRef } from "react"
 
 const ACTION_SELECTOR = ".agent-hud__cancel, .agent-hud__interrupt, .agent-hud__copy-controls, .agent-hud__dictate, .agent-hud__send"
 
+/** An action's untruncated width: labels clipped in the row below still count in full. */
+function naturalWidth(action: HTMLElement, scale: number) {
+	const clipped = Array.from(action.querySelectorAll<HTMLElement>(":scope > span"))
+		.reduce((width, label) => width + Math.max(0, label.scrollWidth - label.clientWidth), 0)
+	return action.getBoundingClientRect().width / scale + clipped
+}
+
 function laneWidth(actions: HTMLElement[], gap: number, scale: number) {
-	return actions.reduce((width, action) => width + action.getBoundingClientRect().width / scale, 0) +
+	return actions.reduce((width, action) => width + naturalWidth(action, scale), 0) +
 		Math.max(0, actions.length - 1) * gap
 }
 
-/** Keep desktop navigation centred and move crowded actions into normal flow. */
+/** Keep desktop navigation centred and move all actions below it when the side lanes are too narrow. */
 export function useDesktopActionLayout() {
 	const ref = useRef<HTMLDivElement>(null)
 
@@ -31,10 +39,9 @@ export function useDesktopActionLayout() {
 			const left = actions.filter(action => action.matches(".agent-hud__cancel, .agent-hud__interrupt"))
 			const right = actions.filter(action => action.matches(".agent-hud__copy-controls, .agent-hud__dictate, .agent-hud__send"))
 
-			// Cancel and Send are closest to their outside edges and remain longest.
-			while (left.length && laneWidth(left, gap, scale) > available) left.pop()
-			while (right.length && laneWidth(right, gap, scale) > available) right.shift()
-			const primary = new Set([...left, ...right])
+			const beside = laneWidth(left, gap, scale) <= available && laneWidth(right, gap, scale) <= available
+			root.dataset.hudActions = beside ? "beside" : "below"
+			const primary = new Set(beside ? actions : [])
 			const buttonHeight = Math.max(0, ...actions.filter(action => !action.matches(".agent-hud__copy-controls"))
 				.map(action => action.getBoundingClientRect().height / scale))
 			const height = Math.max(navigation.getBoundingClientRect().height / scale, buttonHeight)
@@ -43,6 +50,7 @@ export function useDesktopActionLayout() {
 			for (const action of actions) {
 				action.dataset.hudActionPlacement = primary.has(action) ? "primary" : "overflow"
 			}
+			if (!beside) return
 			for (const [lane, start] of [[left, 0], [right, width - laneWidth(right, gap, scale)]] as const) {
 				let offset = start
 				for (const action of lane) {

@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { writeFile } from "node:fs/promises"
-import { test, json, project, prepareRun, launchButton, runStatus, view, snapshot } from "./run-fixture"
+import { test, json, project, prepareRun, launchButton, runStatus, view, snapshot, expectOverview } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
 import { captureNative, setNativeViewport } from "./native"
 
@@ -218,9 +218,8 @@ test("reopening Tools waits for fresh choices instead of offering the previous o
 	await row(page, "existing-project").getByRole("button", { name: "Tools", exact: true }).click()
 	await capability(page, "web search").click()
 	await selector(page).getByRole("button", { name: "Launch", exact: true }).click()
-	await expect(runStatus(page)).toContainText("Completed")
+	await expectOverview(page)
 	expect(saved).toEqual({ web_search: true })
-	await view(page, "Runs Overview")
 	let refreshing: ServerResponse | undefined
 	backend.handlers.set("GET /capabilities/existing-project", response => { refreshing = response })
 	await row(page, "existing-project").getByRole("button", { name: "Tools", exact: true }).click()

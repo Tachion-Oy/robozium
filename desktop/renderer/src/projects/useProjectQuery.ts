@@ -1,19 +1,30 @@
 // Adapted from web/app/components/hud/projects/useProjectOverview.ts at 5b06d82:
-// the same polling intervals and optimistic marks. Rows and polling live here;
-// cancel and delete requests, which the reference container sent, belong to
-// useProjectMutations, so the overview component makes no requests.
+// the same polling intervals and optimistic marks. This owner only reads: cancel
+// and delete belong to useProjectMutations and launches to useProjectLaunch, and
+// App passes their pending writes in to mark the rows.
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { listProjects } from "./projects-api"
 import { markProjectsCancelling, markProjectsDeleting, markProjectOpening, mergeProjects, type ProjectRow } from "./landing"
-import { useProjectMutations, type PendingMutation, type ProjectMutationKind } from "./useProjectMutations"
+import type { PendingMutation, ProjectMutationKind } from "./useProjectMutations"
 
 const DEFAULT_POLL_INTERVAL_MS = 3000
 const CANCELLATION_POLL_INTERVAL_MS = 250
 
-function slugsOf(pending: ReadonlyMap<string, PendingMutation>, kind: ProjectMutationKind): string[] {
-	return [...pending].filter(([, mutation]) => mutation.kind === kind).map(([slug]) => slug)
+function slugsOf(pending: ReadonlyMap<string, PendingMutation>, kind: ProjectMutationKind, phase?: PendingMutation["phase"]): string[] {
+	return [...pending].filter(([, mutation]) => mutation.kind === kind && (!phase || mutation.phase === phase)).map(([slug]) => slug)
+}
+
+/** This app's writes that the rows show before a listing confirms them. */
+export interface ProjectWrites {
+	pending: ReadonlyMap<string, PendingMutation>
+	/** Changes when a write settles, so the listing is read again. */
+	revision: number
+	/** The project a launch is opening. */
+	opening: string | null
+	/** End pending mutations whose outcome a listing shows. */
+	settle: (rows: readonly ProjectRow[]) => void
 }
 
 export interface ProjectQueryState {
@@ -22,29 +33,23 @@ export interface ProjectQueryState {
 	loadError: string | null
 	rows: ProjectRow[]
 	refresh: () => void
-	markOpening: (slug: string) => void
-	clearOpening: (slug: string) => void
-	cancel: (slug: string) => Promise<void>
-	remove: (slug: string) => Promise<void>
 }
 
 /**
- * Poll the listing while the overview is visible: at once, then after each read
- * settles. A failed read keeps the last rows; rows survive the overview being hidden.
+ * Poll the listing while the overview is visible: at once, after each read
+ * settles and after each write. A failed read keeps the last rows; rows survive
+ * the overview being hidden.
  */
-export function useProjectQuery(client: DesktopApiClient | null, visible: boolean): ProjectQueryState {
+export function useProjectQuery(client: DesktopApiClient | null, visible: boolean, writes: ProjectWrites): ProjectQueryState {
 	const [listed, setListed] = useState<ProjectRow[]>([])
 	const [isInitialLoading, setIsInitialLoading] = useState(true)
 	const [loaded, setLoaded] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	const [refreshes, setRefreshes] = useState(0)
-	const [opening, setOpening] = useState<string | null>(null)
-	const refresh = () => setRefreshes(count => count + 1)
-	const mutations = useProjectMutations(client, refresh)
-	const settle = useRef(mutations.settle)
-	settle.current = mutations.settle
+	const { pending, revision, opening } = writes
+	const settle = useRef(writes.settle)
+	settle.current = writes.settle
 
-	const pending = mutations.pending
 	const intervalMs = slugsOf(pending, "cancel").length > 0 ? CANCELLATION_POLL_INTERVAL_MS : DEFAULT_POLL_INTERVAL_MS
 
 	useEffect(() => {
@@ -74,23 +79,20 @@ export function useProjectQuery(client: DesktopApiClient | null, visible: boolea
 			controller.abort()
 			if (timeout !== null) window.clearTimeout(timeout)
 		}
-	}, [client, visible, intervalMs, refreshes])
+		// A finished launch, successful or not, reads the listing again.
+	}, [client, visible, intervalMs, refreshes, revision, opening])
 
-	const rows = useMemo(
-		() => markProjectsDeleting(markProjectsCancelling(markProjectOpening(listed, opening), slugsOf(pending, "cancel")), slugsOf(pending, "delete")),
-		[listed, opening, pending],
-	)
+	const rows = useMemo(() => {
+		// An acknowledged deletion hides its row until a listing confirms it.
+		const deleted = new Set(slugsOf(pending, "delete", "settling"))
+		const shown = listed.filter(row => !deleted.has(row.slug))
+		return markProjectsDeleting(markProjectsCancelling(markProjectOpening(shown, opening), slugsOf(pending, "cancel")), slugsOf(pending, "delete"))
+	}, [listed, opening, pending])
 
 	return {
 		isInitialLoading,
 		loadError: loaded ? null : error,
 		rows,
-		refresh,
-		markOpening: setOpening,
-		clearOpening: slug => setOpening(current => current === slug ? null : current),
-		cancel: mutations.cancel,
-		remove: async slug => {
-			if (await mutations.remove(slug)) setListed(current => current.filter(row => row.slug !== slug))
-		},
+		refresh: () => setRefreshes(count => count + 1),
 	}
 }

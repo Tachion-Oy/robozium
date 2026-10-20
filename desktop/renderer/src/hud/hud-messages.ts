@@ -23,7 +23,6 @@ export interface HudLiveText {
 	agent: string
 	raw: string
 	sequence: number
-	settling: boolean
 }
 
 function promptText(content: string): string | null {

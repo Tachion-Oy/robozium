@@ -9,6 +9,8 @@ export type AgentMessage = {
 	content: string
 	contentType: ContentType
 	mode: "current" | "history" | "streaming"
+	/** Status text, such as the working indicator, that is not copied as agent output. */
+	indicator?: boolean
 }
 
 type AgentMessagePanelProps = {

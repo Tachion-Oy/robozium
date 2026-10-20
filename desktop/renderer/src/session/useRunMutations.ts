@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { showErrorToast } from "../feedback/notices"
-import { submitReply } from "../run/run-api"
+import { interruptRun, submitReply } from "../run/run-api"
 import { RunStatus } from "../run/run-contracts"
 import type { RunSessionState } from "./useRunSession"
 
@@ -15,22 +15,37 @@ export interface RunMutations {
 	canReply: boolean
 	replying: boolean
 	reply: (content: string) => Promise<ReplyResult>
+	canInterrupt: boolean
+	/** From the request until a snapshot shows a prompt or the run no longer running. */
+	interrupting: boolean
+	interrupt: () => Promise<void>
 }
 
 export function useRunMutations(client: DesktopApiClient | null, run: RunSessionState): RunMutations {
 	const active = useRef<AbortController | null>(null)
+	const interruption = useRef<AbortController | null>(null)
 	const [replying, setReplying] = useState(false)
+	const [interrupting, setInterrupting] = useState(false)
 	const { session, scope, acknowledge } = run
 	// A new displayed run, retry or client ends the previous run's writes.
 	useEffect(() => () => {
 		active.current?.abort()
 		active.current = null
+		interruption.current?.abort()
+		interruption.current = null
 		setReplying(false)
+		setInterrupting(false)
 	}, [scope])
 
 	const prompt = session?.run.prompt ?? null
-	const canReply = Boolean(session?.run.synchronized && session.run.status === RunStatus.AwaitingUserInput
-		&& prompt && !session.run.error)
+	const synchronized = Boolean(session?.run.synchronized && !session.run.error)
+	const running = session?.run.status === RunStatus.Running
+	const canReply = Boolean(synchronized && session?.run.status === RunStatus.AwaitingUserInput && prompt)
+	const canInterrupt = synchronized && running && !prompt && !interrupting
+	// The interruption has taken effect once the agent asks or stops.
+	useEffect(() => {
+		if (synchronized && (prompt || !running)) setInterrupting(false)
+	}, [synchronized, prompt, running])
 
 	const reply = async (content: string): Promise<ReplyResult> => {
 		const trimmed = content.trim()
@@ -60,5 +75,34 @@ export function useRunMutations(client: DesktopApiClient | null, run: RunSession
 		}
 	}
 
-	return { canReply, replying, reply }
+	const interrupt = async (): Promise<void> => {
+		if (!client || !session || !scope || scope.aborted || !canInterrupt || interruption.current) return
+		const controller = new AbortController()
+		interruption.current = controller
+		setInterrupting(true)
+		const signal = AbortSignal.any([scope, controller.signal])
+		let accepted = false
+		try {
+			// Never repeated; an accepted interruption stays pending until a snapshot shows its effect.
+			accepted = await withDeadline(signal, requestSignal => interruptRun(client, session.run.runId, requestSignal))
+			if (!accepted) {
+				showErrorToast({ title: "Interrupt failed", message: "Could not interrupt this run.", detail: "The backend refused the interruption." })
+			}
+		} catch (error) {
+			if (!signal.aborted) {
+				showErrorToast({
+					title: "Interrupt failed",
+					message: "Could not interrupt this run.",
+					detail: error instanceof Error ? error.message : null,
+				})
+			}
+		} finally {
+			if (interruption.current === controller) {
+				interruption.current = null
+				if (!accepted) setInterrupting(false)
+			}
+		}
+	}
+
+	return { canReply, replying, reply, canInterrupt, interrupting, interrupt }
 }

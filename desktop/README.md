@@ -4,10 +4,12 @@ The Electron app is under development. React connects directly to the Python
 API for projects, capabilities, default model selection, and live runs. In Runs
 Overview, **Launch** a project or create one with **New Project** to watch
 incremental output, messages, script output, prompts, and completion in Current
-Run, and answer its prompts. Light/Dark switches the theme. The window frame,
-header, overview, capability selector and run view use the accepted experiment's
-stylesheets and markup; interruption, cancellation from the HUD and credentials
-follow in later [roadmap](../docs/plans/desktop-roadmap.md) steps.
+Run, answer its prompts, **Interrupt** the working agent or **Cancel** the run.
+A run that completes, fails, is cancelled or goes missing returns to Runs
+Overview. Light/Dark switches the theme. The window frame, header, overview,
+capability selector and run view use the accepted experiment's stylesheets and
+markup; credentials follow in a later
+[roadmap](../docs/plans/desktop-roadmap.md) step.
 
 ## Run on Linux
 
@@ -153,8 +155,8 @@ Opening the event stream starts the prepared run. A snapshot is read immediately
 then every two seconds after the previous read settles, with ten-second deadlines.
 Snapshots and events merge by sequence/message identity. **Retry output** disposes
 old requests and reconnects the known run ID without creating another run.
-Errors preserve output and drafts. Completed, failed, and cancelled runs stay
-readable and stop polling; unknown runs show **Run unavailable**. Automatic
+Errors preserve output and drafts. Completed, failed, cancelled and unknown runs
+stop polling and return to Runs Overview. Automatic
 reconnection and recovery after reopening are planned for PR 9.
 
 In standalone preview, the overview lists one local `preview` project whose
@@ -174,14 +176,24 @@ The footer's four history arrows select the first, previous, next, or latest
 message without wrapping. New output follows the latest message unless you are
 reading older history. An active prompt stays current even when a background
 notification arrives afterward; the latest arrow returns to that prompt from a
-pinned history entry. Provider retries discard abandoned partial text. Ordinary
-agent-message completion keeps its last progress visible until new output or a
-prompt replaces it. Live text scrolls downward; selecting another entry resets
+pinned history entry. While the agent works without visible output, after
+launch, an accepted reply or a provider retry, the panel shows *Agent is
+working...* in the streaming style; earlier messages stay reachable. Provider
+retries discard abandoned partial text. Ordinary agent-message completion, or an
+interruption, keeps its last progress visible in the streaming style until new
+output or a prompt replaces it. Live text scrolls downward; selecting another entry resets
 its scroll. At either end, unavailable directions are disabled. Empty history
 disables all arrows. The center mark shows whether the agent is working or
 awaiting input; assistive technology also reads the run status. Preview retains
 three local messages and its static awaiting-input mark; its replies are not
-sent. Cancel, Interrupt and Record remain disabled.
+sent and its Cancel and Interrupt stay disabled. Record remains disabled.
+
+Connected, **Interrupt** is available while the agent works without a prompt,
+from the moment a reply is accepted. It is sent once and pulses, under its own
+label, until the agent asks or stops; a refusal or failure shows **Interrupt
+failed** and offers it again. A pending **Cancel** pulses the same way. **Cancel**
+uses the same per-project cancellation as the overview row, so the two never
+send a second request; a refusal or failure shows **Cancellation failed**.
 
 The run screen uses the experiment's markup and stylesheets. Agent messages and
 prompts render as sanitized Markdown; live text and script output stay literal.
@@ -206,8 +218,9 @@ copied as its Markdown source. Clear and Copy user reply are disabled only for
 an empty draft. Copy success shows a checkmark for two seconds and renames the
 button for assistive technology; selecting another message clears it. Copy
 failure shows an alert above the run and allows retry. Cancel stays leftmost and
-Send rightmost; when space is tight, the other actions wrap beneath the
-centered history controls.
+Send rightmost. When the actions do not all fit beside the centered history
+controls, all of them move to one row beneath; there, labels truncate with an
+ellipsis instead of wrapping.
 
 Switch views using the header, or use the current run's row in Runs Overview. The
 draft, selected message, and divider position survive view, model, theme,

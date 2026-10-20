@@ -1,5 +1,6 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/run/HudControls.tsx at 076b2c9.
-// Adapted: `available: false` shows an action disabled until its owner arrives.
+// Adapted: `available: false` shows an action disabled until its owner arrives;
+// a pending action is busy under its own label, which a span can truncate.
 import { useDesktopActionLayout } from "./useDesktopActionLayout"
 import { AudioLevelMeter } from "./AudioLevelMeter"
 import type { AgentMessage } from "./AgentMessagePanel"
@@ -75,8 +76,9 @@ export function HudControls({
 						type="button"
 						className="agent-hud__cancel"
 						onClick={cancel.onTrigger}
-						disabled={cancel.isPending || cancel.available === false}>
-						{cancel.isPending ? "Cancelling..." : "Cancel"}
+						disabled={cancel.isPending || cancel.available === false}
+						aria-busy={cancel.isPending || undefined}>
+						<span>Cancel</span>
 					</button>
 				) : null}
 				{interrupt ? (
@@ -84,8 +86,9 @@ export function HudControls({
 						type="button"
 						className="agent-hud__interrupt"
 						onClick={interrupt.onTrigger}
-						disabled={interrupt.isPending || interrupt.available === false || cancel?.isPending}>
-						{interrupt.isPending ? "Interrupting..." : "Interrupt"}
+						disabled={interrupt.isPending || interrupt.available === false || cancel?.isPending}
+						aria-busy={interrupt.isPending || undefined}>
+						<span>Interrupt</span>
 					</button>
 				) : null}
 			</div>
@@ -121,7 +124,7 @@ export function HudControls({
 						cancel?.isPending ||
 						interrupt?.isPending
 					}>
-					Send
+					<span>Send</span>
 				</button>
 			</div>
 		</div>

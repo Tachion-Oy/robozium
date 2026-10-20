@@ -1,12 +1,13 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/run/RunHud.tsx at 076b2c9.
-// Adapted: the displayed run and its reply write come from the desktop session
-// owners as props. Cancellation, interruption and dictation render unavailable
-// until their owners arrive (roadmap steps 15 and 21).
+// Adapted: the displayed run and its reply, interrupt and cancel writes come from
+// the desktop owners as props; their owners report failures. Dictation renders
+// unavailable until its owner arrives (roadmap step 21).
 import type { Dispatch, SetStateAction } from "react"
 import type { HudDisplay } from "../../hud/hud-view"
 import type { ReplyResult } from "../../session/useRunMutations"
 import type { LayoutMode } from "../hud/HudCornerControls"
 import type { AgentMessage } from "./AgentMessagePanel"
+import type { HudPendingAction } from "./HudControls"
 import { ReplyForm } from "./ReplyForm"
 import { AgentActivityState, type HudMessageNavigationDirection } from "./run-view"
 
@@ -23,9 +24,9 @@ type RunHudProps = {
 		submitting: boolean
 		submit: (content: string) => Promise<ReplyResult>
 	}
+	cancel: HudPendingAction
+	interrupt: HudPendingAction
 }
-
-const unavailable = { isPending: false, available: false, onTrigger: () => {} }
 
 export function RunHud({
 	draft,
@@ -36,6 +37,8 @@ export function RunHud({
 	focusOnOpen,
 	onSelect,
 	reply,
+	cancel,
+	interrupt,
 }: RunHudProps) {
 	const { index, currentIndex, count } = display
 	const message: AgentMessage = {
@@ -43,6 +46,7 @@ export function RunHud({
 		content: display.text,
 		contentType: display.contentType,
 		mode: display.streaming ? "streaming" : index === currentIndex ? "current" : "history",
+		indicator: display.working,
 	}
 	const handleSubmit = async () => {
 		const submittedDraft = draft
@@ -92,8 +96,8 @@ export function RunHud({
 					available: false,
 					onToggle: () => {},
 				},
-				cancel: unavailable,
-				interrupt: unavailable,
+				cancel,
+				interrupt,
 			}}
 		/>
 	)

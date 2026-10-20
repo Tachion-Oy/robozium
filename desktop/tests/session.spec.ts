@@ -25,6 +25,7 @@ function snapshot(state: RunSession, overrides: Partial<RunView>): RunSession {
 function select(state: RunSession, index: number): RunSession {
 	return reduceRunSession(state, { type: "select", index })!
 }
+const working = "Agent is working..."
 const retry = (sequence: number, agent = "root"): RunFrame => ({ type: "llm_retry", sequence, agent })
 const script = (sequence: number, content: string): RunFrame => ({ type: "script_output", sequence, content })
 
@@ -114,7 +115,7 @@ test("a provider retry discards only its transient attempt and snapshot replay c
 	let state = receive(session(), message(1, "old", "Earlier"), delta(2, "attempt-1", "Abandoned"))
 	const beforeRetry = state
 	state = receive(state, retry(3))
-	expect(selectRunDisplay(state).text).toBe("Earlier")
+	expect(selectRunDisplay(state)).toMatchObject({ text: working, streaming: true, count: 2 })
 	expect(selectRunDisplay(beforeRetry).text).toBe("Abandoned") // Reducers leave earlier states untouched.
 	state = receive(state, delta(4, "attempt-2", "Success"), message(5, "attempt-2", "Success"))
 	state = snapshot(state, { frames: [delta(2, "attempt-1", "Abandoned"), retry(3), message(5, "attempt-2", "Success")] })
@@ -184,13 +185,13 @@ test("a recovered stream boundary splits script groups without duplicating pinne
 	expect(selectRunDisplay(state).text).toBe("Second script")
 })
 
-test("ordinary completion settles visible text until output or a prompt replaces it", () => {
+test("ordinary completion settles visible text in the streaming style until output or a prompt replaces it", () => {
 	let state = receive(session(), message(1, "old", "Earlier"), delta(2, "tool", '{"action":"working"'))
 	state = receive(state, message(3, "tool", '{"action":"tool","value":"work"}', null))
-	expect(selectRunDisplay(state)).toMatchObject({ text: "action:working", streaming: false })
+	expect(selectRunDisplay(state)).toMatchObject({ text: "action:working", streaming: true })
 	expect(state.hud.view.messages.map(item => item.text)).toEqual(["Earlier"])
 	state = snapshot(state, {})
-	expect(selectRunDisplay(state).text).toBe("action:working")
+	expect(selectRunDisplay(state)).toMatchObject({ text: "action:working", streaming: true })
 	state = receive(state, delta(4, "next", "Next action"))
 	expect(selectRunDisplay(state).text).toBe("Next action")
 	state = snapshot(state, { status: "awaiting_user_input", promptId: "p1", prompt: "Continue?" })
@@ -205,7 +206,51 @@ test("ordinary completion never displaces pinned history and retry clears settli
 	state = select(state, selectRunDisplay(state).currentIndex)
 	expect(selectRunDisplay(state).text).toBe("Working")
 	state = receive(state, retry(4))
-	expect(selectRunDisplay(state)).toMatchObject({ text: "Earlier", count: 1 })
+	expect(selectRunDisplay(state)).toMatchObject({ text: working, count: 2 })
+})
+
+test("an interrupted generation keeps its cut-off text in the streaming style until the interrupt prompt", () => {
+	let state = receive(session(), message(1, "old", "Earlier"), delta(2, "cut", '{"action":"prompt_user","value":"Half a son'))
+	// The backend gives the streamed id to the next message: its interrupted-generation context.
+	state = receive(state, message(3, "cut", "The previous assistant generation was interrupted.", "interrupted_generation"))
+	expect(selectRunDisplay(state)).toMatchObject({ text: "action:prompt_user,value:Half a son", streaming: true })
+	state = snapshot(state, { status: "awaiting_user_input", promptId: "p1", prompt: "Action interrupted!" })
+	expect(selectRunDisplay(state)).toMatchObject({ text: "Action interrupted!", streaming: false })
+})
+
+test("an acknowledged reply resumes the run until a snapshot shows another prompt", () => {
+	let state = snapshot(session(), { status: "awaiting_user_input", promptId: "p1", prompt: "Continue?" })
+	state = reduceRunSession(state, { type: "replied", promptId: "p1" })!
+	expect(state.run.status).toBe("running")
+	// A snapshot taken before the reply still awaits the answered prompt.
+	state = snapshot(state, { status: "awaiting_user_input", promptId: "p1", prompt: "Continue?" })
+	expect(state.run).toMatchObject({ status: "running", prompt: null })
+	state = snapshot(state, { status: "awaiting_user_input", promptId: "p2", prompt: "Next?" })
+	expect(state.run.status).toBe("awaiting_user_input")
+})
+
+test("a launch and an acknowledged reply show the agent working until visible output arrives", () => {
+	let state = session()
+	expect(selectRunDisplay(state)).toMatchObject({ text: working, contentType: "plain-text", streaming: true, count: 1 })
+	state = snapshot(state, { status: "awaiting_user_input", promptId: "p1", prompt: "Continue?", frames: [message(1, "q", "Continue?")] })
+	expect(selectRunDisplay(state)).toMatchObject({ text: "Continue?", streaming: false, count: 1 })
+	state = reduceRunSession(state, { type: "replied", promptId: "p1" })!
+	expect(selectRunDisplay(state)).toMatchObject({ text: working, streaming: true, index: 1, count: 2 })
+	// Earlier messages stay reachable, and a snapshot without new output keeps the indicator.
+	state = select(state, 0)
+	expect(selectRunDisplay(state).text).toBe("Continue?")
+	state = select(state, 1)
+	state = snapshot(state, { frames: [message(1, "q", "Continue?")] })
+	expect(selectRunDisplay(state).text).toBe(working)
+	// Leading JSON punctuation has no visible text yet.
+	state = receive(state, delta(2, "next", '{"'))
+	expect(selectRunDisplay(state)).toMatchObject({ text: working, streaming: true, count: 2 })
+	state = receive(state, delta(3, "next", "action", 1))
+	expect(selectRunDisplay(state)).toMatchObject({ text: "action", streaming: true, count: 2 })
+	state = receive(state, message(4, "notice", "Background done"))
+	expect(selectRunDisplay(state)).toMatchObject({ text: "Background done", streaming: false, count: 2 })
+	state = snapshot(state, { status: "completed" })
+	expect(selectRunDisplay(state)).toMatchObject({ text: "Background done", count: 2 })
 })
 
 test("recovered history fills older gaps without replaying completed tokens or duplicating message identities", () => {

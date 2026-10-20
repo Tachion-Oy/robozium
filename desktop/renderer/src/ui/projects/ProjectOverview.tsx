@@ -1,7 +1,7 @@
 // Copied from web/app/components/hud/projects/ProjectOverview.tsx at 5b06d82.
-// Adapted: the overview owner, the launch lock and run opening arrive as props
-// instead of the navigation store, router and client; a launch already in
-// flight refuses another before it marks a row. A first listing that fails is
+// Adapted: the listing, the cancel and delete owner, the launch lock and run
+// opening arrive as props instead of the navigation store, router and client;
+// a launch already in flight refuses another. A first listing that fails is
 // reported with Retry instead of showing an empty hub.
 import {
 	isActiveRunStatus,
@@ -10,12 +10,14 @@ import {
 	type ProjectRow,
 } from "../../projects/landing"
 import type { ProjectQueryState } from "../../projects/useProjectQuery"
+import type { ProjectMutations } from "../../projects/useProjectMutations"
 import type { LaunchDraft } from "../../app/hud-navigation"
 import { HudButton } from "../hud/HudButton"
 import { ProjectOverviewPanel } from "./ProjectOverviewPanel"
 
 type ProjectOverviewProps = {
 	projects: ProjectQueryState
+	mutations: Pick<ProjectMutations, "cancel" | "remove">
 	navigationPending: boolean
 	isLaunching: () => boolean
 	currentRunId?: string | null
@@ -27,6 +29,7 @@ type ProjectOverviewProps = {
 
 export function ProjectOverview({
 	projects,
+	mutations,
 	navigationPending,
 	isLaunching,
 	currentRunId = null,
@@ -68,10 +71,7 @@ export function ProjectOverview({
 			navigationPending || isLaunching() ||
 			project.status !== ProjectStatus.Dormant || project.runId !== null
 		) return
-		projects.markOpening(project.slug)
-		const launched = await onLaunch({ project: project.slug, name: project.slug, selection: null })
-		projects.clearOpening(project.slug)
-		if (!launched) projects.refresh()
+		await onLaunch({ project: project.slug, name: project.slug, selection: null })
 	}
 
 	const handleProjectClick = (project: ProjectRow) => {
@@ -101,8 +101,8 @@ export function ProjectOverview({
 			onSelectCapabilities={(project) => openSelector(project.slug)}
 			onLaunchProject={handleLaunch}
 			onNewProject={() => openSelector(null)}
-			onCancelRun={(project) => void projects.cancel(project.slug)}
-			onDeleteProject={(project) => void projects.remove(project.slug)}
+			onCancelRun={(project) => void mutations.cancel(project.slug)}
+			onDeleteProject={(project) => void mutations.remove(project.slug)}
 		/>
 	)
 }

@@ -56,6 +56,27 @@ test("live output after an acknowledged reply streams instead of waiting for the
 	await expect(output(page)).toHaveText("Streaming after reply, done")
 })
 
+test("an acknowledged reply clears the panel and shows the agent working in the streaming style", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	let current = waiting()
+	backend.handlers.set("GET /run/run-one", response => json(response, current))
+	backend.handlers.set("POST /run/run-one/reply", response => {
+		current = snapshot()
+		json(response, { ok: true })
+	})
+	await start(page, backend)
+	const section = page.locator(".agent-hud__replySection")
+	await expect(output(page)).toHaveText("Question p1")
+	await expect(section).not.toHaveAttribute("data-streaming")
+	await replyBox(page).fill("Go on")
+	await send(page).click()
+	await expect(output(page)).toHaveText("Agent is working...")
+	await expect(section).toHaveAttribute("data-streaming")
+	emit(run.streams[0], delta(1, "Answer", 0))
+	await expect(output(page)).toHaveText("Answer")
+	await expect(section).toHaveAttribute("data-streaming")
+})
+
 for (const edited of [false, true]) {
 	test(`an acknowledgement clears the draft only if it is unchanged; edited=${edited}`, async ({ desktop: { page }, backend }) => {
 		prepareRun(backend)

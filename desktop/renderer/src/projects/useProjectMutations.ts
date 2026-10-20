@@ -22,9 +22,10 @@ export interface PendingMutation {
 
 export interface ProjectMutations {
 	pending: ReadonlyMap<string, PendingMutation>
+	/** Changes whenever a request settles, so a listing can be read again. */
+	revision: number
 	cancel: (slug: string) => Promise<void>
-	/** Resolves true once the backend acknowledged the deletion. */
-	remove: (slug: string) => Promise<boolean>
+	remove: (slug: string) => Promise<void>
 	/** End settling mutations whose outcome this listing shows. */
 	settle: (rows: readonly ProjectRow[]) => void
 }
@@ -42,8 +43,9 @@ function confirmed({ kind }: PendingMutation, status: ProjectStatus | undefined)
 	return kind === "delete" ? status === undefined : status === undefined || status === ProjectStatus.Dormant
 }
 
-export function useProjectMutations(client: DesktopApiClient | null, refresh: () => void): ProjectMutations {
+export function useProjectMutations(client: DesktopApiClient | null): ProjectMutations {
 	const [pending, setPending] = useState<ReadonlyMap<string, PendingMutation>>(() => new Map())
+	const [revision, setRevision] = useState(0)
 	const lifetime = useClientLifetime(client)
 	// A new client discards the previous client's mutations with their lifetime.
 	useEffect(() => () => setPending(new Map()), [client])
@@ -55,13 +57,13 @@ export function useProjectMutations(client: DesktopApiClient | null, refresh: ()
 		return next
 	})
 
-	/** Send one mutation; never repeat it, and read again once it settles. */
+	/** Send one mutation and never repeat it; its settling changes the revision. */
 	const send = async (
 		slug: string,
 		kind: ProjectMutationKind,
 		operation: (client: DesktopApiClient, signal: AbortSignal) => Promise<boolean>,
 		notice: WriteNotice,
-	): Promise<boolean> => {
+	): Promise<void> => {
 		update(slug, { kind, phase: "requesting" })
 		const signal = lifetime()
 		let accepted = false
@@ -74,14 +76,14 @@ export function useProjectMutations(client: DesktopApiClient | null, refresh: ()
 		} finally {
 			if (!signal.aborted) {
 				update(slug, accepted ? { kind, phase: "settling" } : null)
-				refresh()
+				setRevision(count => count + 1)
 			}
 		}
-		return accepted
 	}
 
 	return {
 		pending,
+		revision,
 		cancel: async slug => {
 			await send(slug, "cancel", (client, signal) => cancelProject(client, slug, signal), {
 				title: "Cancellation failed",
