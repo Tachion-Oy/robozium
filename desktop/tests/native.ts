@@ -77,7 +77,14 @@ export async function waitForPanelLayout(page: Page) {
 	})
 }
 
+/** Resolve once the renderer has drawn two frames; a hidden page draws none. */
+const framesDrawn = (page: Page) => page.evaluate(() => new Promise<boolean>(resolve =>
+	requestAnimationFrame(() => requestAnimationFrame(() => resolve(document.visibilityState === "visible")))))
+
 export async function setNativeViewport(app: ElectronApplication, page: Page, width: number, height: number, zoom: number) {
+	// Chromium holds new visual properties (size and zoom) until the renderer
+	// acknowledges the previous ones with a frame, so start from a drawing page.
+	await expect.poll(() => framesDrawn(page)).toBe(true)
 	const previousZoom = await app.evaluate(({ BrowserWindow }, { width, height }) => {
 		const window = BrowserWindow.getAllWindows()[0]
 		const previousZoom = window.webContents.getZoomFactor()
@@ -91,19 +98,45 @@ export async function setNativeViewport(app: ElectronApplication, page: Page, wi
 	// A later native synchronization can still reset zoom after the size arrives.
 	// Converge setup on both the actual zoom and renderer dimensions before testing.
 	let stale = false
-	await expect.poll(async () => {
-		const factor = await app.evaluate(({ BrowserWindow }, { zoom, stale }) => {
-			const contents = BrowserWindow.getAllWindows()[0].webContents
-			// The host can record a zoom its renderer never applied; setting the same
-			// factor again is then a no-op, so change it first to force a reapply.
-			if (stale) contents.setZoomFactor(zoom === 1 ? 1.1 : 1)
-			contents.setZoomFactor(zoom)
-			return contents.getZoomFactor()
-		}, { zoom, stale })
-		const size = await page.evaluate(() => [innerWidth, innerHeight])
-		stale = factor === zoom && (size[0] !== width / zoom || size[1] !== height / zoom)
-		return { factor, size }
-	}).toEqual({ factor: zoom, size: [width / zoom, height / zoom] })
+	try {
+		await expect.poll(async () => {
+			if (stale) {
+				// A zoom the host recorded but the renderer never applied waits for a
+				// frame: repaint the window and change the page so the renderer draws.
+				await page.evaluate(() => {
+					const root = document.documentElement
+					root.style.opacity = root.style.opacity === "0.999" ? "" : "0.999"
+				})
+			}
+			const factor = await app.evaluate(({ BrowserWindow }, { zoom, stale }) => {
+				const contents = BrowserWindow.getAllWindows()[0].webContents
+				// Setting the same factor again is a no-op, so change it first to force a reapply.
+				if (stale) {
+					contents.invalidate()
+					contents.setZoomFactor(zoom === 1 ? 1.1 : 1)
+				}
+				contents.setZoomFactor(zoom)
+				return contents.getZoomFactor()
+			}, { zoom, stale })
+			const size = await page.evaluate(() => [innerWidth, innerHeight])
+			stale = factor === zoom && (size[0] !== width / zoom || size[1] !== height / zoom)
+			return { factor, size }
+		}).toEqual({ factor: zoom, size: [width / zoom, height / zoom] })
+	} catch (error) {
+		// Report the window's state, so a failure on a CI runner can be diagnosed.
+		const host = await app.evaluate(({ BrowserWindow }) => {
+			const window = BrowserWindow.getAllWindows()[0]
+			return {
+				visible: window.isVisible(), focused: window.isFocused(), minimized: window.isMinimized(),
+				contentSize: window.getContentSize(), zoomLevel: window.webContents.getZoomLevel(),
+				painting: window.webContents.isPainting(),
+			}
+		})
+		const renderer = await page.evaluate(() => ({ visibility: document.visibilityState, focus: document.hasFocus(), devicePixelRatio }))
+		throw new Error(`${error instanceof Error ? error.message : String(error)}\nWindow: ${JSON.stringify(host)}\nRenderer: ${JSON.stringify(renderer)}`)
+	} finally {
+		await page.evaluate(() => { document.documentElement.style.opacity = "" })
+	}
 }
 
 export async function captureNative(app: ElectronApplication, page: Page, width: number, height: number) {
