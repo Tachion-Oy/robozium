@@ -1,13 +1,20 @@
-import { expect, type Page } from "@playwright/test"
+import { expect, type Locator, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { test, json, project, prepareRun, snapshot, start, view, replyBox, runStatus, expectOverview } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
+import { setNativeViewport } from "./native"
+import { expectFooterGeometry } from "./footer-geometry"
 
 const interruptButton = (page: Page) => page.locator(".agent-hud__interrupt")
 const cancelButton = (page: Page) => page.locator(".agent-hud__cancel")
 const send = (page: Page) => page.locator(".agent-hud__send")
 const posts = (backend: Backend, suffix: string) => backend.requests.filter(request => request.method === "POST" && request.path.endsWith(suffix))
 const alert = (page: Page, title: string) => page.getByRole("alert").filter({ hasText: title })
+/** A pending action keeps its label, so its width and the footer layout stay put. */
+async function expectBusy(button: Locator, label: string) {
+	await expect(button).toHaveAttribute("aria-busy", "true")
+	await expect(button).toHaveText(label)
+}
 const row = (page: Page, slug: string) => page.locator(".agent-hud__project-row", { hasText: slug })
 
 test("Interrupt is offered only while the agent works and stays pending until it asks", async ({ desktop: { page }, backend }) => {
@@ -20,16 +27,16 @@ test("Interrupt is offered only while the agent works and stays pending until it
 	await start(page, backend)
 	await expect(interruptButton(page)).toBeEnabled()
 	await interruptButton(page).click()
-	await expect(interruptButton(page)).toHaveText("Interrupting...")
+	await expectBusy(interruptButton(page), "Interrupt")
 	await expect(interruptButton(page)).toBeDisabled()
 	await expect(send(page)).toBeDisabled()
 	json(pending!, { ok: true })
 	// An accepted interruption stays pending while snapshots still show the agent working.
 	await page.clock.fastForward(2001)
-	await expect(interruptButton(page)).toHaveText("Interrupting...")
+	await expectBusy(interruptButton(page), "Interrupt")
 	current = snapshot({ status: "awaiting_user_input", current_prompt_id: "p1", current_prompt: "Interrupted. What next?" })
 	await page.clock.fastForward(2001)
-	await expect(interruptButton(page)).toHaveText("Interrupt")
+	await expect(interruptButton(page)).not.toHaveAttribute("aria-busy")
 	await expect(interruptButton(page)).toBeDisabled()
 	await replyBox(page).fill("Carry on")
 	await expect(send(page)).toBeEnabled()
@@ -54,6 +61,49 @@ test("an accepted reply offers Interrupt at once, though snapshots still show th
 	current = snapshot({ status: "awaiting_user_input", current_prompt_id: "p2", current_prompt: "Next?" })
 	await page.clock.fastForward(2001)
 	await expect(interruptButton(page)).toBeDisabled()
+})
+
+test("footer actions sit all beside the arrows or all below them, and a press never moves them", async ({ desktop: { app, page }, backend }) => {
+	prepareRun(backend)
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot()))
+	backend.handlers.set("POST /run/run-one/interrupt", () => {})
+	await start(page, backend)
+	await expect(interruptButton(page)).toBeEnabled()
+	// Interrupt joins the first row near 850 px at 125%; sample where its labels differ.
+	const widths = Array.from({ length: 21 }, (_, step) => 800 + step * 10)
+	const placements = async () => {
+		const result: Record<number, string[]> = {}
+		for (const width of widths) {
+			await setNativeViewport(app, page, width, 420, 1.25)
+			await expectFooterGeometry(page)
+			// Placement updates on an animation frame after a resize.
+			await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+			result[width] = await page.locator(".agent-hud__actions [data-hud-action-placement]").evaluateAll(actions =>
+				actions.map(action => `${action.className.split(" ")[0]}:${action.getAttribute("data-hud-action-placement")}`))
+		}
+		return result
+	}
+	// Too narrow even for one row below: labels truncate instead of wrapping.
+	for (const width of [640, 520]) {
+		await setNativeViewport(app, page, width, 420, 1.25)
+		await expectFooterGeometry(page)
+		const row = await page.locator(".agent-hud__actions").evaluate(root => {
+			const actions = [...root.querySelectorAll<HTMLElement>("[data-hud-action-placement]")]
+			const labels = [...root.querySelectorAll<HTMLElement>("button > span")]
+			return {
+				below: actions.every(action => action.dataset.hudActionPlacement === "overflow"),
+				oneRow: new Set(actions.map(action => Math.round(action.getBoundingClientRect().top))).size === 1,
+				truncated: labels.some(label => label.scrollWidth > label.clientWidth && getComputedStyle(label).textOverflow === "ellipsis"),
+			}
+		})
+		expect(row).toEqual({ below: true, oneRow: true, truncated: true })
+	}
+	const resting = await placements()
+	for (const actions of Object.values(resting)) expect(new Set(actions.map(action => action.split(":")[1])).size).toBe(1)
+	expect(new Set(Object.values(resting).map(actions => actions[0].split(":")[1]))).toEqual(new Set(["primary", "overflow"]))
+	await interruptButton(page).click()
+	await expectBusy(interruptButton(page), "Interrupt")
+	expect(await placements()).toEqual(resting)
 })
 
 for (const failure of ["refusal", "rejection", "timeout"] as const) {
@@ -88,7 +138,7 @@ test("HUD Cancel and the row share one cancellation, then the cancelled run retu
 	await expect(runStatus(page)).toContainText("Awaiting input")
 	await replyBox(page).fill("Unsent draft")
 	await cancelButton(page).click()
-	await expect(cancelButton(page)).toHaveText("Cancelling...")
+	await expectBusy(cancelButton(page), "Cancel")
 	await expect(send(page)).toBeDisabled()
 	await view(page, "Runs Overview")
 	await expect(row(page, "existing-project")).toContainText("CANCELLING")
