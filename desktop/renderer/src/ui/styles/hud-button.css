@@ -187,6 +187,13 @@ button.agent-hud__option:not(:disabled):hover {
     color 110ms ease;
 }
 
+/* Desktop: trim the uppercase label to its capitals and add the trimmed space
+   back as padding, so the label is centered at the reference height. */
+:root[data-theme="light"] .agent-hud__row-action:not(.agent-hud__option) {
+  text-box: trim-both cap alphabetic;
+  padding-block: calc(0.48rem + (1lh - 1cap) / 2);
+}
+
 :root[data-theme="light"] .agent-hud__row-action:not(:disabled):hover,
 :root[data-theme="light"] .agent-hud__row-action:not(:disabled):focus-visible {
   transform: translateY(-1px);
