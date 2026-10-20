@@ -81,10 +81,46 @@ export async function waitForPanelLayout(page: Page) {
 const framesDrawn = (page: Page) => page.evaluate(() => new Promise<boolean>(resolve =>
 	requestAnimationFrame(() => requestAnimationFrame(() => resolve(document.visibilityState === "visible")))))
 
+/** The window's and renderer's state, so a failure on a CI runner can be diagnosed. */
+async function describeWindow(app: ElectronApplication, page: Page): Promise<string> {
+	const host = await app.evaluate(({ BrowserWindow }) => {
+		const window = BrowserWindow.getAllWindows()[0]
+		return {
+			visible: window.isVisible(), focused: window.isFocused(), minimized: window.isMinimized(),
+			contentSize: window.getContentSize(), zoomLevel: window.webContents.getZoomLevel(),
+			painting: window.webContents.isPainting(),
+		}
+	})
+	const renderer = await Promise.race([
+		page.evaluate(() => ({ visibility: document.visibilityState, focus: document.hasFocus(), devicePixelRatio })),
+		new Promise(resolve => setTimeout(() => resolve("no answer"), 2000)),
+	])
+	return `Window: ${JSON.stringify(host)}\nRenderer: ${JSON.stringify(renderer)}`
+}
+
+/**
+ * The first launch on a cold CI runner can take many seconds to draw its first
+ * frame, although its document is ready. Wait for two drawn frames, asking the
+ * window to show and repaint after each second without one.
+ */
+async function waitForDrawing(app: ElectronApplication, page: Page) {
+	const deadline = Date.now() + 60_000
+	while (Date.now() < deadline) {
+		const drawn = await Promise.race([framesDrawn(page), new Promise<false>(resolve => setTimeout(() => resolve(false), 1000))])
+		if (drawn) return
+		await app.evaluate(({ BrowserWindow }) => {
+			const window = BrowserWindow.getAllWindows()[0]
+			window.show()
+			window.webContents.invalidate()
+		})
+	}
+	throw new Error(`The page drew no frame within 60 seconds.\n${await describeWindow(app, page)}`)
+}
+
 export async function setNativeViewport(app: ElectronApplication, page: Page, width: number, height: number, zoom: number) {
 	// Chromium holds new visual properties (size and zoom) until the renderer
 	// acknowledges the previous ones with a frame, so start from a drawing page.
-	await expect.poll(() => framesDrawn(page)).toBe(true)
+	await waitForDrawing(app, page)
 	const previousZoom = await app.evaluate(({ BrowserWindow }, { width, height }) => {
 		const window = BrowserWindow.getAllWindows()[0]
 		const previousZoom = window.webContents.getZoomFactor()
@@ -123,17 +159,7 @@ export async function setNativeViewport(app: ElectronApplication, page: Page, wi
 			return { factor, size }
 		}).toEqual({ factor: zoom, size: [width / zoom, height / zoom] })
 	} catch (error) {
-		// Report the window's state, so a failure on a CI runner can be diagnosed.
-		const host = await app.evaluate(({ BrowserWindow }) => {
-			const window = BrowserWindow.getAllWindows()[0]
-			return {
-				visible: window.isVisible(), focused: window.isFocused(), minimized: window.isMinimized(),
-				contentSize: window.getContentSize(), zoomLevel: window.webContents.getZoomLevel(),
-				painting: window.webContents.isPainting(),
-			}
-		})
-		const renderer = await page.evaluate(() => ({ visibility: document.visibilityState, focus: document.hasFocus(), devicePixelRatio }))
-		throw new Error(`${error instanceof Error ? error.message : String(error)}\nWindow: ${JSON.stringify(host)}\nRenderer: ${JSON.stringify(renderer)}`)
+		throw new Error(`${error instanceof Error ? error.message : String(error)}\n${await describeWindow(app, page)}`)
 	} finally {
 		await page.evaluate(() => { document.documentElement.style.opacity = "" })
 	}
