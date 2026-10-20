@@ -170,6 +170,21 @@ review in one go (84 files, +5.3k lines) and was written against the old
 | **16. Project deletion** | Confirmed deletion of dormant projects with the in-HUD confirmation. Pending deletion survives listings; focus moves to the next row. | Uncertain responses, 409 active-work gate, removal of the displayed run. |
 | **17. Reconnection** | One stream and one serialized snapshot reader per run, with backoff and deadlines. Missing runs return to the overview. No write is retried automatically. | Backend restart mid-run without duplicates; missing-run and terminal-run cases. |
 
+**Follow-up found in step 15** (its own PR from `main`):
+
+- **Prompts on the stream.** The agent's prompt message arrives over SSE, but
+  the prompt id and the awaiting-input status reach clients only through
+  `GET /run/{id}`. The center mark, Send and Interrupt therefore lag a
+  streamed prompt by up to a poll. `RunControl.request_input` registers the
+  prompt without emitting anything, a moment after the message, so reading on
+  the message can still miss it. Emit stream events when a prompt opens (id
+  and text) and closes (answered, interrupted, timed out or cancelled), and
+  take the prompt and status from them. Snapshots remain the backstop for
+  stream failure and gaps. First check that the web ignores unknown stream
+  event types, or add the events there too. Check: backend unit tests for the
+  events, and a native test in which a streamed prompt enables Send with the
+  clock paused, so no poll can be the cause.
+
 ## Milestone C — Remaining features (steps 18–21)
 
 | Step | Result | Check |
