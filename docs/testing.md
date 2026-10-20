@@ -240,6 +240,11 @@ view retention, changed-run disposal, and unmount cancellation. Controlled clock
 verify the two-second interval after reads settle and ten-second request deadlines.
 Closure and HTTP 409 cases hold an in-flight snapshot open, verify the fresh read
 waits for it, and check that terminal completion stops polling without reconnecting.
+`desktop/tests/reconnection.spec.ts` covers quiet reconnection after a refused
+stream with 0.5/1/2/4-second backoff reset by the next frame, a lost connection
+recovering output without duplicates while keeping the draft, failed polls
+keeping their cadence, and a non-retryable stream refusal reported once with
+Retry output. A snapshot deadline aborts the read and polling continues.
 History, streaming scroll, exact clipboard content, retained drafts and keyboard
 focus are exercised in both themes, including narrow windows at 125% zoom.
 Native regressions also exercise provider retries, active prompts followed by
@@ -520,9 +525,12 @@ required. Renderer tests also reject untrusted callers of the lifecycle and
 connection-address IPC methods. Separate native scenarios block initial renderer
 readiness and recover through Retry without Docker commands, and verify the
 selected-address CSP with actual desktop HTTP/SSE requests against a seeded run.
-The outage scenario stops only its disposable container to verify recovery,
-retained editor identity, project-name draft and selection, reply draft,
-divider/theme, resumed polling, and reloading the backend model selection.
+The outage scenario stops only its disposable container. While it is down, the
+mounted HUD keeps its editor identity, reply draft, output selection and divider
+without a Retry output error. After restart it verifies the theme, resumed
+polling and reloading the backend model selection; the restarted mock no longer
+has the run, so the HUD returns to the overview and the next launch offers the
+kept draft.
 Outage captures and containment
 checks cover both themes at 1260×780 and 640×420, including 125% zoom. No production
 demonstration controls are added; the test loads the actual transport source into

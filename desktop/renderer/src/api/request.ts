@@ -1,6 +1,14 @@
 // Apply a deadline to any abortable request; the caller owns its lifetime and accepted result.
 export const REQUEST_TIMEOUT_MS = 10_000
 
+/** A deadline expired; reads may try again, writes never do. */
+export class RequestTimeoutError extends Error {
+	constructor() {
+		super("Request timed out. Check the backend before trying again.")
+		this.name = "RequestTimeoutError"
+	}
+}
+
 /**
  * Bound one operation; its caller owns cancellation and stale-response handling.
  * The operation's signal ends when it settles, so parallel work it started (such
@@ -22,7 +30,7 @@ export async function withDeadline<T>(
 		return value
 	} catch (error) {
 		signal.throwIfAborted()
-		if (deadline.signal.aborted) throw new Error("Request timed out. Check the backend before trying again.")
+		if (deadline.signal.aborted) throw new RequestTimeoutError()
 		throw error
 	} finally {
 		clearTimeout(timeout)

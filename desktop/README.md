@@ -153,11 +153,15 @@ always identifies the captured run.
 
 Opening the event stream starts the prepared run. A snapshot is read immediately,
 then every two seconds after the previous read settles, with ten-second deadlines.
-Snapshots and events merge by sequence/message identity. **Retry output** disposes
-old requests and reconnects the known run ID without creating another run.
-Errors preserve output and drafts. Completed, failed, cancelled and unknown runs
-stop polling and return to Runs Overview. Automatic
-reconnection and recovery after reopening are planned for PR 9.
+Snapshots and events merge by sequence/message identity. As in the reference,
+reads recover quietly: a closed or failed stream takes a fresh snapshot and
+reconnects after 0.5, 1, 2 and then 4 seconds until a frame arrives, and failed
+snapshot reads keep polling. Only a failure that trying again cannot fix, such
+as invalid run data or a refused stream, is reported; **Retry output** then
+reconnects the known run ID without creating another run. Errors preserve output
+and drafts. Completed, failed, cancelled and unknown runs stop polling and
+return to Runs Overview. Writes are never retried. Restoring the run after the
+app reopens is the next roadmap step.
 
 In standalone preview, the overview lists one local `preview` project whose
 **Launch** opens the latest local mock message above
