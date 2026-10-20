@@ -36,6 +36,26 @@ test("Interrupt is offered only while the agent works and stays pending until it
 	expect(posts(backend, "/interrupt")).toHaveLength(1)
 })
 
+test("an accepted reply offers Interrupt at once, though snapshots still show the answered prompt", async ({ desktop: { page }, backend }) => {
+	prepareRun(backend)
+	let current = snapshot({ status: "awaiting_user_input", current_prompt_id: "p1", current_prompt: "Continue?" })
+	backend.handlers.set("GET /run/run-one", response => json(response, current))
+	backend.handlers.set("POST /run/run-one/reply", response => json(response, { ok: true }))
+	await page.clock.install()
+	await start(page, backend)
+	await expect(interruptButton(page)).toBeDisabled()
+	await replyBox(page).fill("Go on")
+	await send(page).click()
+	await expect(replyBox(page)).toHaveValue("")
+	await expect(interruptButton(page)).toBeEnabled({ timeout: 1000 })
+	// A snapshot from before the reply cannot take the working state back.
+	await page.clock.fastForward(2001)
+	await expect(interruptButton(page)).toBeEnabled()
+	current = snapshot({ status: "awaiting_user_input", current_prompt_id: "p2", current_prompt: "Next?" })
+	await page.clock.fastForward(2001)
+	await expect(interruptButton(page)).toBeDisabled()
+})
+
 for (const failure of ["refusal", "rejection", "timeout"] as const) {
 	test(`an interrupt ${failure} is reported, never repeated, and offered again`, async ({ desktop: { page }, backend }) => {
 		prepareRun(backend)

@@ -115,7 +115,7 @@ function snapshotPrompt(previous: RunPrompt | null, view: RunView, afterSequence
 	return { id: view.promptId, text: view.prompt, afterSequence }
 }
 
-/** The backend acknowledged a reply: the prompt is answered and later snapshots cannot revive it. */
+/** The backend acknowledged a reply: the run resumes, and later snapshots cannot revive the prompt. */
 function applyReply(state: RunState, promptId: string): RunUpdate {
 	return {
 		type: "replied",
@@ -123,6 +123,7 @@ function applyReply(state: RunState, promptId: string): RunUpdate {
 			...state,
 			acknowledgedPrompts: new Set([...state.acknowledgedPrompts, promptId]),
 			prompt: state.prompt?.id === promptId ? null : state.prompt,
+			status: state.status === RunStatus.AwaitingUserInput ? RunStatus.Running : state.status,
 		},
 	}
 }
@@ -131,15 +132,17 @@ function applySnapshot(state: RunState, view: RunView): RunUpdate {
 	// Token fragments are transient and cannot be recovered from history.
 	const receivedEvents = view.frames.filter(frame => frame.type !== RunEventType.MessageDelta)
 	const next = mergeEvents(state, receivedEvents)
+	// A snapshot still awaiting an answered prompt was taken before the reply.
+	const answered = view.promptId !== null && state.acknowledgedPrompts.has(view.promptId)
 	const afterSequence = receivedEvents.length > 0
 		? receivedEvents.reduce((sequence, event) => Math.max(sequence, event.sequence), -1)
 		: Math.max(next.events.at(-1)?.sequence ?? -1, state.streamSequence)
 	return {
 		type: "snapshot", receivedEvents,
 		run: {
-			...next, synchronized: true, status: view.status, error: view.error ?? state.error,
-			prompt: view.promptId !== null && state.acknowledgedPrompts.has(view.promptId)
-				? null : snapshotPrompt(state.prompt, view, afterSequence),
+			...next, synchronized: true, error: view.error ?? state.error,
+			status: answered && view.status === RunStatus.AwaitingUserInput ? RunStatus.Running : view.status,
+			prompt: answered ? null : snapshotPrompt(state.prompt, view, afterSequence),
 		},
 	}
 }

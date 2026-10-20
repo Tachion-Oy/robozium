@@ -218,6 +218,17 @@ test("an interrupted generation keeps its cut-off text in the streaming style un
 	expect(selectRunDisplay(state)).toMatchObject({ text: "Action interrupted!", streaming: false })
 })
 
+test("an acknowledged reply resumes the run until a snapshot shows another prompt", () => {
+	let state = snapshot(session(), { status: "awaiting_user_input", promptId: "p1", prompt: "Continue?" })
+	state = reduceRunSession(state, { type: "replied", promptId: "p1" })!
+	expect(state.run.status).toBe("running")
+	// A snapshot taken before the reply still awaits the answered prompt.
+	state = snapshot(state, { status: "awaiting_user_input", promptId: "p1", prompt: "Continue?" })
+	expect(state.run).toMatchObject({ status: "running", prompt: null })
+	state = snapshot(state, { status: "awaiting_user_input", promptId: "p2", prompt: "Next?" })
+	expect(state.run.status).toBe("awaiting_user_input")
+})
+
 test("a launch and an acknowledged reply show the agent working until visible output arrives", () => {
 	let state = session()
 	expect(selectRunDisplay(state)).toMatchObject({ text: working, contentType: "plain-text", streaming: true, count: 1 })
