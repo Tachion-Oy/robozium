@@ -155,8 +155,8 @@ Opening the event stream starts the prepared run. A snapshot is read immediately
 then every two seconds after the previous read settles, with ten-second deadlines.
 Snapshots and events merge by sequence/message identity. **Retry output** disposes
 old requests and reconnects the known run ID without creating another run.
-Errors preserve output and drafts. Completed, failed, and cancelled runs stay
-readable and stop polling; unknown runs show **Run unavailable**. Automatic
+Errors preserve output and drafts. Completed, failed, cancelled and unknown runs
+stop polling and return to Runs Overview. Automatic
 reconnection and recovery after reopening are planned for PR 9.
 
 In standalone preview, the overview lists one local `preview` project whose
