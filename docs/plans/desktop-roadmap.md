@@ -124,7 +124,7 @@ the capability selector from step 20 pulled in, then a working HUD.
    `session/useRunMutations`, cancellation shared through
    `projects/useProjectMutations`).
 6. **Step 17:** reconnection (done: `run/run-updates` with `api/retry`) and
-   recovery after the app reopens.
+   recovery after the app reopens (done: `recovery/useRecovery`).
 7. **Step 13:** the message log, as a selector over the run's retained events
    (see `desktop/renderer/src/ARCHITECTURE.md`), plus theme persistence.
 

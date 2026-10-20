@@ -177,7 +177,7 @@ test("initial renderer readiness times out, stops polling, and retries without D
 test("renderer HTTP and SSE use the selected backend allowed by CSP", async ({ runtime }) => {
 	const { port } = runtime
 	const { app, page } = await launchConnected(runtime)
-	expect(await page.evaluate(() => window.robozium.getBackendConnection())).toEqual({ baseUrl: `http://127.0.0.1:${port}` })
+	expect(await page.evaluate(() => window.robozium.getBackendConnection())).toEqual({ baseUrl: `http://127.0.0.1:${port}`, mode: "mock" })
 	await installTestClient(page, `http://127.0.0.1:${port}`)
 	const streamed = await page.evaluate(async () => {
 		await window.testApi.request("/projects", { method: "POST", json: { name: "Transport run" } })
@@ -301,13 +301,14 @@ test("a duplicate launch cannot stop the first app's backend", async ({ runtime 
 	expect(execFileSync(docker, ["inspect", "--format", "{{.State.Running}}", container], { encoding: "utf8" }).trim()).toBe("true")
 })
 
-test("closing and reopening preserves project data and reuses the backend image", async ({ runtime }) => {
+test("closing and reopening preserves project data and the draft, and reuses the backend image", async ({ runtime }) => {
 	const { profile, commands, port } = runtime
 	const { app, page } = await launchConnected(runtime)
 	const { project, container } = await ownedBackend(profile)
 	const image = execFileSync(docker, ["image", "inspect", "--format", "{{.Id}}", `${project}-api`], { encoding: "utf8" }).trim()
 	await createAndLaunch(page, "Native lifecycle")
 	await expect(page.getByRole("status", { name: "Run status" })).toContainText("native-lifecycle")
+	await page.getByRole("textbox", { name: "Type your reply...", exact: true }).fill("Survives reopening")
 	await chooseView(page, "Runs Overview")
 	// A second project with the same name is refused, and the selector keeps the draft.
 	await createAndLaunch(page, "Native lifecycle")
@@ -331,6 +332,10 @@ test("closing and reopening preserves project data and reuses the backend image"
 		expect(projects.some(item => item.slug === "native-lifecycle")).toBe(true)
 		await expect(reopenedPage.getByRole("button", { name: "Open native-lifecycle", exact: true })).toBeVisible()
 		expect(execFileSync(docker, ["image", "inspect", "--format", "{{.Id}}", `${project}-api`], { encoding: "utf8" }).trim()).toBe(image)
+		// The saved run did not survive the backend's shutdown, so the app stays on the
+		// overview; the saved draft is offered to the next run.
+		await reopenedPage.locator(".agent-hud__project-row", { hasText: "native-lifecycle" }).getByRole("button", { name: "Launch", exact: true }).click()
+		await expect(reopenedPage.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveValue("Survives reopening")
 		expect((await readFile(commands, "utf8")).split("\n").filter(line => line.endsWith(" build api"))).toHaveLength(1)
 		await closeWindow(reopened)
 		expect(await readFile(proof, "utf8")).toBe("native data survives shutdown\n")

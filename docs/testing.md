@@ -245,6 +245,12 @@ stream with 0.5/1/2/4-second backoff reset by the next frame, a lost connection
 recovering output without duplicates while keeping the draft, failed polls
 keeping their cadence, and a non-retryable stream refusal reported once with
 Retry output. A snapshot deadline aborts the read and polling continues.
+`desktop/tests/recovery.spec.ts` reloads the renderer, as reopening does, to
+check that the shown run and draft come back without another launch, that an
+ended run is not reopened, that a missing saved run returns to the overview once
+while keeping the draft, and that an unreadable record is reported while the live
+record stays separate. The native lifecycle reopen test keeps the draft across a
+real close and reopen.
 History, streaming scroll, exact clipboard content, retained drafts and keyboard
 focus are exercised in both themes, including narrow windows at 125% zoom.
 Native regressions also exercise provider retries, active prompts followed by

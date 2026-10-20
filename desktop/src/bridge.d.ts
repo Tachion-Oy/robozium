@@ -3,8 +3,12 @@ export interface BackendStatus {
 	message: string
 }
 
+/** Live and mock backends share one profile; renderer state is scoped by mode. */
+export type BackendMode = "live" | "mock"
+export interface BackendConnection { baseUrl: string; mode: BackendMode }
+
 export interface DesktopBridge {
-	getBackendConnection(): Promise<{ baseUrl: string } | null>
+	getBackendConnection(): Promise<BackendConnection | null>
 	getBackendStatus(): Promise<BackendStatus>
 	retryBackend(): Promise<void>
 	getVersion(): Promise<string>

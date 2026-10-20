@@ -36,14 +36,18 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `projects/useProjectLaunch` | One pending launch and the project it opens | Create project, read and save capabilities, create run |
 | `session/useRunSession` | The displayed run (`RunSession`) and its scope, which ends on open, retry, a new client or unmount | Stream and snapshot polling (`run/run-updates`) |
 | `session/useRunMutations` | One in-flight reply and one interruption of the displayed run, bound to the session scope; an accepted interruption stays pending until a snapshot shows a prompt or a stopped run | Reply, interrupt |
+| `recovery/useRecovery` | The run and draft saved for reopening, per backend mode | Renderer storage reads and writes |
 | `feedback/notices` | Visible error notices | None |
 
 `ui/app/App.tsx` composes the owners and keeps navigation (`app/hud-navigation`:
 the screen and the selector's launch draft), the reply draft, divider layout and
 focus. Owners do not import each other; App passes results between them, as when
 a launch hands its new run to `useRunSession.open`, the HUD's Cancel uses
-`useProjectMutations.cancel`, or the listing marks rows with pending writes. As in the reference, a run that ends or goes missing
-leaves Current Run for the overview (`resolveHudPresentation`).
+`useProjectMutations.cancel`, or the listing marks rows with pending writes. As
+in the reference, a run that ends or goes missing leaves Current Run for the
+overview (`resolveHudPresentation`). App seeds the draft from `useRecovery`,
+reopens the saved run once a client exists, and saves the shown run and draft
+afterwards, so startup never overwrites the record.
 
 ```mermaid
 flowchart LR

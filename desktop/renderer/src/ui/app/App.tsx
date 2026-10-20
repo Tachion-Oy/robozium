@@ -1,5 +1,5 @@
 // Compose feature state into the reference HUD frame; keep navigation and draft ownership here.
-import { useReducer, useState, type ReactNode } from "react"
+import { useEffect, useReducer, useRef, useState, type ReactNode } from "react"
 import { ViewPlaceholder } from "./ViewPlaceholder"
 import { RunHud } from "../run/RunHud"
 import { ErrorNotices, useErrorNotices } from "../feedback/ErrorToast"
@@ -27,12 +27,16 @@ import { runLabels } from "../../hud/hud-view"
 import { selectRunDisplay } from "../../session/session-reducer"
 import { isTerminal, RunStatus } from "../../run/run-contracts"
 import type { HudDisplay } from "../../hud/hud-view"
+import { useRecovery } from "../../recovery/useRecovery"
+import type { BackendMode } from "../../../../src/bridge"
 import "./interim-content.css"
 
 interface AppProps {
 	connectionNotice?: ReactNode
 	client?: DesktopApiClient | null
 	connected?: boolean
+	/** Scopes the saved run and draft; null in standalone preview. */
+	mode?: BackendMode | null
 }
 
 /** Standalone preview shows its local messages as plain text. */
@@ -63,7 +67,7 @@ function usePreviewModels(): ModelsState {
 	}
 }
 
-export function App({ connectionNotice, client = null, connected = true }: AppProps) {
+export function App({ connectionNotice, client = null, connected = true, mode = null }: AppProps) {
 	const [navigation, navigate] = useReducer(reduceHudNavigation, null, initialHudNavigation)
 	const [focusRunEditor, setFocusRunEditor] = useState(false)
 	const backendModels = useModels(client, connected)
@@ -78,16 +82,18 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	const runMutations = useRunMutations(client, run)
 	const session = run.session
 	const hasRun = client ? session !== null : hasPreview
-	const [draft, setDraft] = useState("")
+	const recovery = useRecovery(mode)
+	const [draft, setDraft] = useState(recovery.initial.draft)
 	const [selectedMessage, setSelectedMessage] = useState(mockMessages.length - 1)
 	const [layout, setLayout] = useState<LayoutMode>("top")
 	const display = client ? selectRunDisplay(session) : previewDisplay(selectedMessage)
 	const errorNotices = useErrorNotices()
 	const status = session?.run.unavailable ? "Run unavailable" : session ? runLabels[session.run.status] : "Awaiting input"
+	const runEnded = Boolean(session?.run.synchronized && isTerminal(session.run.status))
 	// As in the reference, a run that ends or goes missing leaves Current Run for the overview.
 	const presentation = resolveHudPresentation({
 		hasRun,
-		runEnded: Boolean(session?.run.synchronized && isTerminal(session.run.status)),
+		runEnded,
 		runUnavailable: Boolean(session?.run.unavailable),
 		selectedScreen: navigation.screen,
 		launch: navigation.launch,
@@ -100,13 +106,27 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	const navigationPending = launch.pending || !connected || models.pending
 	const selectScreen = (next: HudScreen) => { setFocusRunEditor(false); navigate({ type: "screen_selected", screen: next }) }
 	const openRun = (runId: string, project: string) => { run.open(runId, project); showRun() }
+	// Save the shown run and the draft once the saved run has been reopened, so
+	// startup never overwrites it; an ended or missing run is no longer saved.
+	const restored = useRef(false)
+	const savedRun = session && !runEnded && !session.run.unavailable ? { id: session.run.runId, project: session.run.project } : null
+	useEffect(() => {
+		if (client && restored.current) recovery.save({ version: 1, run: savedRun, draft })
+	}, [client, savedRun?.id, savedRun?.project, draft])
+	useEffect(() => {
+		if (!client || restored.current) return
+		restored.current = true
+		const saved = recovery.initial.run
+		if (saved) openRun(saved.id, saved.project)
+	}, [client])
 	// The HUD and the overview rows share one cancellation per project.
 	const cancelling = session !== null && (projectMutations.pending.has(session.run.project) || session.run.status === RunStatus.Cancelling)
 	const modelError = client ? models.error : ""
 	const runError = screen === "run" ? session?.run.error : ""
-	const notices = (connectionNotice || modelError || runError || errorNotices.length > 0) &&
+	const notices = (connectionNotice || modelError || recovery.error || runError || errorNotices.length > 0) &&
 		<div className="desktop-interim-content__notices">
 			{modelError && <p role="alert">{modelError}</p>}
+			{recovery.error && <p role="alert">{recovery.error}</p>}
 			{runError && <p role="alert">{runError}</p>}
 			{runError && <HudButton onClick={run.retry} disabled={!connected || launch.pending}>Retry output</HudButton>}
 			<ErrorNotices items={errorNotices} />

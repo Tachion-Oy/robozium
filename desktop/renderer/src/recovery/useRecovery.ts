@@ -1,3 +1,4 @@
+// Copied from #101 (feat/desktop-run-interactions at 4a759b5).
 // Each Electron profile already has isolated renderer storage; mode supplies the remaining scope.
 import { useCallback, useState } from "react"
 import type { BackendMode } from "../../../src/bridge"

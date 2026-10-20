@@ -65,7 +65,7 @@ export const test = native.extend<{ backend: Backend }>({
 			await use({ handlers, requests, open: async ({ awaitOverview = true } = {}) => {
 				await app.evaluate(async ({ ipcMain, protocol }, { baseUrl, modulePath }) => {
 					ipcMain.removeHandler("desktop:backend-connection")
-					ipcMain.handle("desktop:backend-connection", () => ({ baseUrl }))
+					ipcMain.handle("desktop:backend-connection", () => ({ baseUrl, mode: "mock" }))
 					protocol.unhandle("robozium")
 					const load = process.getBuiltinModule("module").createRequire(modulePath)
 					await load(modulePath).registerRendererProtocol(baseUrl)

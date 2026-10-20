@@ -2,7 +2,7 @@ import { appendFileSync, readFileSync } from "node:fs"
 import net from "node:net"
 import path from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
-import type { BackendStatus } from "./bridge"
+import type { BackendConnection, BackendStatus } from "./bridge"
 import { loadOrCreateBackendProfile } from "./backend-profile"
 import { prepareBackendRuntime, resolveBackendLayout } from "./backend-layout.cjs"
 import { findDocker, runCommand, type CommandOptions } from "./docker-command"
@@ -77,8 +77,8 @@ export class BackendController {
 		return { ...this.status }
 	}
 
-	connection(): { baseUrl: string } {
-		return { baseUrl: `http://127.0.0.1:${this.settings.port}` }
+	connection(): BackendConnection {
+		return { baseUrl: `http://127.0.0.1:${this.settings.port}`, mode: this.options.mode }
 	}
 
 	start(): Promise<void> {

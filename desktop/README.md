@@ -160,8 +160,14 @@ snapshot reads keep polling. Only a failure that trying again cannot fix, such
 as invalid run data or a refused stream, is reported; **Retry output** then
 reconnects the known run ID without creating another run. Errors preserve output
 and drafts. Completed, failed, cancelled and unknown runs stop polling and
-return to Runs Overview. Writes are never retried. Restoring the run after the
-app reopens is the next roadmap step.
+return to Runs Overview. Writes are never retried.
+
+Reopening the app restores the run Current Run showed and the unsent reply draft.
+They are saved per mode in the profile's renderer storage; output, history and
+prompts always come from the backend. A run that ended is not reopened, and a
+saved run the backend no longer has returns to the overview once. The draft is
+kept for the next run either way. An unreadable saved record is reported and the
+app starts fresh.
 
 In standalone preview, the overview lists one local `preview` project whose
 **Launch** opens the latest local mock message above
