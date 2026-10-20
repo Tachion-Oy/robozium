@@ -433,7 +433,7 @@ test("provider retries discard abandoned text while keeping completed history an
 	await expect(output(page)).toHaveText("Abandoned attempt")
 	await page.getByRole("textbox", { name: "Type your reply...", exact: true }).fill("Keep this draft")
 	emit(stream, retry)
-	await expect(output(page)).toHaveText("Earlier")
+	await expect(output(page)).toHaveText("Agent is working...")
 	emit(stream, delta(4, "Successful", 0, "attempt-2"))
 	emit(stream, message(5, "Successful response", "attempt-2"))
 	await expect(output(page)).toHaveText("Successful response")

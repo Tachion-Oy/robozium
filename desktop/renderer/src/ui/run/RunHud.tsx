@@ -46,6 +46,7 @@ export function RunHud({
 		content: display.text,
 		contentType: display.contentType,
 		mode: display.streaming ? "streaming" : index === currentIndex ? "current" : "history",
+		indicator: display.working,
 	}
 	const handleSubmit = async () => {
 		const submittedDraft = draft

@@ -15,7 +15,7 @@ export type HudAction =
 	| { type: "select"; index: number; run: RunState }
 
 export function initialHud(): HudState {
-	return { history: initialHistory(), view: initialMessageList(), liveText: null, selectedMessageId: null }
+	return { history: initialHistory(), view: initialMessageList(), liveText: null, selectedMessageId: null, working: true }
 }
 
 function updateHistoryAndView(state: HudState, previousRun: RunState, run: RunState, breakAfter: number | null): HudState {
@@ -32,32 +32,41 @@ function applyDelta(state: HudState, previousRun: RunState, run: RunState, frame
 	const next = updateHistoryAndView(state, previousRun, run, previous ? null : frame.sequence)
 	return {
 		...next,
-		liveText: { id, agent: frame.agent, raw: (previous?.raw ?? "") + frame.delta, sequence: frame.sequence, settling: false },
+		liveText: { id, agent: frame.agent, raw: (previous?.raw ?? "") + frame.delta, sequence: frame.sequence },
+		working: false,
 	}
 }
 
-function settleLiveText(live: HudLiveText | null, events: readonly RunRecord[]): HudLiveText | null {
+/** Output supersedes live text; a retry discards it while the agent keeps working. */
+function settleLiveText(live: HudLiveText | null, events: readonly RunRecord[]): { live: HudLiveText | null; discarded: boolean } {
 	for (const event of events) {
-		if (!live) return null
+		if (!live) break
 		if (event.sequence < live.sequence) continue
 		switch (event.type) {
 			case RunEventType.LlmRetry:
-				if (event.agent === live.agent) return null
+				if (event.agent === live.agent) return { live: null, discarded: true }
 				break
 			case RunEventType.ScriptOutput:
-				return null
+				return { live: null, discarded: false }
 			case RunEventType.Message:
-				if (messageText(event) !== null) return null
-				if (`message:${event.id}` === live.id) live = { ...live, settling: true }
+				// A completion without HUD text, such as a tool action, leaves its text visible.
+				if (messageText(event) !== null) return { live: null, discarded: false }
 				break
 		}
 	}
-	return live
+	return { live, discarded: false }
 }
 
-/** An answered prompt leaves the view, so the agent's live text can show again. */
+/** An answered prompt leaves the view: the agent's live text, or its working indicator, shows instead. */
 function dismissAnsweredPrompt(state: HudState, previousRun: RunState, run: RunState): HudState {
-	return updateHistoryAndView(state, previousRun, run, null)
+	return { ...updateHistoryAndView(state, previousRun, run, null), working: true }
+}
+
+/** Discarded live text leaves the agent working; newer output or a prompt ends that. */
+function updateWorking(state: HudState, next: HudState, run: RunState, settled: ReturnType<typeof settleLiveText>): HudState {
+	const newOutput = next.history.messages.at(-1)?.id !== state.history.messages.at(-1)?.id
+	const working = !newOutput && !run.prompt && (state.working || settled.discarded)
+	return { ...next, liveText: settled.live, working }
 }
 
 function applyRunUpdate(state: HudState, previousRun: RunState, update: RunUpdate): HudState {
@@ -75,8 +84,9 @@ function applyRunUpdate(state: HudState, previousRun: RunState, update: RunUpdat
 			const breakAfter = newPrompt ? run.prompt?.afterSequence ?? null : null
 			const next = updateHistoryAndView(state, previousRun, run, breakAfter)
 			// Replayed records can supersede live text even when stored history is unchanged.
-			const liveText = update.type === "snapshot" && run.prompt ? null : settleLiveText(state.liveText, update.receivedEvents)
-			return { ...next, liveText }
+			const settled = update.type === "snapshot" && run.prompt
+				? { live: null, discarded: false } : settleLiveText(state.liveText, update.receivedEvents)
+			return updateWorking(state, next, run, settled)
 		}
 	}
 }

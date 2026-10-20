@@ -1,4 +1,5 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/run/HudCopyControls.tsx at 076b2c9.
+// Adapted: an indicator message has no agent output to copy.
 import type { AgentMessage } from "./AgentMessagePanel"
 import {
 	CopyTextButton,
@@ -25,7 +26,7 @@ export function HudCopyControls({
 		},
 		{
 			copyKey: agentMessage.id,
-			content: agentMessage.content,
+			content: agentMessage.indicator ? "" : agentMessage.content,
 			target: "agent output",
 			reverseIcon: true,
 		},

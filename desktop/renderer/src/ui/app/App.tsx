@@ -38,7 +38,7 @@ interface AppProps {
 function previewDisplay(index: number): HudDisplay {
 	const last = mockMessages.length - 1
 	return {
-		id: String(index), text: mockMessages[index], contentType: "plain-text", streaming: false,
+		id: String(index), text: mockMessages[index], contentType: "plain-text", streaming: false, working: false,
 		index, currentIndex: last, count: mockMessages.length,
 	}
 }

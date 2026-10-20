@@ -24,7 +24,12 @@ export interface HudPresentation {
 	view: HudMessageList
 	selectedMessageId: string | null
 	liveText: HudLiveText | null
+	/** The agent works without output newer than its launch, an answered prompt or a discarded attempt. */
+	working: boolean
 }
+
+/** Shown in the streaming style while the agent works without visible output. */
+export const AGENT_WORKING_TEXT = "Agent is working..."
 
 /** Agent messages and prompts are Markdown; script and live output stay literal. */
 export type ContentType = "plain-text" | "markdown"
@@ -34,6 +39,8 @@ export interface HudDisplay {
 	text: string
 	contentType: ContentType
 	streaming: boolean
+	/** The working indicator stands in for output; it is not agent text. */
+	working: boolean
 	index: number
 	currentIndex: number
 	count: number
@@ -68,27 +75,31 @@ export function buildMessageList(
 	return { messages, indices: new Map(messages.map((message, index) => [message.id, index])), activePromptId }
 }
 
-/** Priority: explicitly pinned message, active prompt, live/settling text, latest completed output. */
+/** Priority: explicitly pinned message, active prompt, live text or the working indicator, latest completed output. */
 export function selectHudDisplay(state: HudPresentation | null, run: RunState | null, openScriptId: string | null): HudDisplay {
-	const empty: HudDisplay = { id: "empty", text: "", contentType: "plain-text", streaming: false, index: 0, currentIndex: 0, count: 0 }
+	const empty: HudDisplay = { id: "empty", text: "", contentType: "plain-text", streaming: false, working: false, index: 0, currentIndex: 0, count: 0 }
 	if (!state || !run) return empty
 	const { view, selectedMessageId, liveText } = state
 	const promptIndex = view.activePromptId === null ? undefined : view.indices.get(view.activePromptId)
 	const live = promptIndex === undefined ? liveText : null
-	const count = view.messages.length + (live ? 1 : 0)
+	const liveDisplay = live ? streamingText(live.raw) : ""
+	// Live text without visible characters yet, such as leading JSON punctuation, shows the agent working.
+	const working = promptIndex === undefined && !isTerminal(run.status) && (live ? !liveDisplay.trim() : state.working)
+	const count = view.messages.length + (live || working ? 1 : 0)
 	const currentIndex = promptIndex ?? Math.max(0, count - 1)
 	const selectedIndex = selectedMessageId === null ? undefined : view.indices.get(selectedMessageId)
 	const index = selectedIndex ?? currentIndex
-	if (live && index === view.messages.length) {
+	if (index === view.messages.length && (live || working)) {
+		// Settled text stays in the streaming style: it was never a completed HUD message.
 		return {
-			id: live.id, text: streamingText(live.raw), contentType: "plain-text",
-			streaming: !live.settling && !isTerminal(run.status), index, currentIndex, count,
+			id: live?.id ?? "working", text: working ? AGENT_WORKING_TEXT : liveDisplay, contentType: "plain-text",
+			streaming: !isTerminal(run.status), working, index, currentIndex, count,
 		}
 	}
 	const message = view.messages[index]
 	if (!message) return empty
 	return {
-		id: message.id, text: message.text, index, currentIndex, count,
+		id: message.id, text: message.text, working: false, index, currentIndex, count,
 		contentType: message.source === "script" ? "plain-text" : "markdown",
 		streaming: message.id === openScriptId && !run.prompt && !isTerminal(run.status),
 	}
