@@ -25,6 +25,7 @@ export interface EnvironmentView {
 	example_errors: string[]
 	imports: EnvironmentImport[]
 }
+export interface EnvironmentImportResult { imported: EnvironmentImport; suggestions: EnvironmentSuggestion[] }
 export interface EnvironmentEdit {
 	revision: string
 	entries: Pick<EnvironmentEntry, "name" | "value" | "secret">[]
@@ -100,6 +101,17 @@ export async function getEnvironment(client: DesktopApiClient, signal: AbortSign
 export async function saveEnvironment(client: DesktopApiClient, edit: EnvironmentEdit, signal: AbortSignal): Promise<void> {
 	const value = record(await client.request("/credentials/environment", { method: "POST", json: edit, signal }))
 	if (value.status !== "saved") malformed()
+}
+
+/** The backend may install a tool's dependencies first; it gives up after 180 seconds. */
+export const IMPORT_TIMEOUT_MS = 200_000
+
+/** Uploads one folder; each file keeps its path inside the folder. */
+export async function importEnvironment(client: DesktopApiClient, files: File[], signal: AbortSignal): Promise<EnvironmentImportResult> {
+	const form = new FormData()
+	for (const file of files) form.append("files", file, file.webkitRelativePath)
+	const fields = record(await client.request("/credentials/environment/import", { method: "POST", form, signal }))
+	return { imported: parseImport(fields.imported), suggestions: list(fields, "suggestions", parseSuggestion) }
 }
 
 export async function resetEnvironment(client: DesktopApiClient, signal: AbortSignal): Promise<void> {

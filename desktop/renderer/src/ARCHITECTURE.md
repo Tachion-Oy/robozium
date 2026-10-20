@@ -38,7 +38,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `projects/useProjectLaunch` | One pending launch and the project it opens | Create project, read and save capabilities, create run |
 | `session/useRunSession` | The displayed run (`RunSession`) and its scope, which ends on open, retry, a new client or unmount | Stream and snapshot polling (`run/run-updates`) |
 | `session/useRunMutations` | One in-flight reply and one interruption of the displayed run, bound to the session scope; an accepted interruption stays pending until a snapshot shows a prompt or a stopped run | Reply, interrupt |
-| `environment/useEnvironmentEditor` | The saved settings, this app's unsaved edits and the open editor; built on `environment/useEnvironment`, which polls while the screen is visible | Read, save, reset |
+| `environment/useEnvironmentEditor` | The saved settings, this app's unsaved edits, the open editor and whether a restart is needed; built on `environment/useEnvironment`, which polls while the screen is visible | Read, save, import, reset |
 | `credentials/useCredentials` | The backend's secrets status (available, locked, removable) | Status read, unlock, remove |
 | `feedback/notices` | Visible error notices | None |
 

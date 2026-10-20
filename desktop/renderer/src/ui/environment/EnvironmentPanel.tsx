@@ -1,15 +1,20 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentPanel.tsx at 076b2c9.
 // Adapted: the environment owner arrives as a prop from App, so unsaved edits
-// survive leaving the screen; folder import and Restart app follow in a later PR.
+// survive leaving the screen, and App supplies the restart action.
 import { type KeyboardEvent } from "react"
 import type { EnvironmentEditorState } from "../../environment/useEnvironmentEditor"
 import { HudButton } from "../hud/HudButton"
+import { EnvironmentFolderImport } from "./EnvironmentFolderImport"
+import { EnvironmentRestart } from "./EnvironmentRestart"
 import { EnvironmentImportList } from "./EnvironmentImportList"
 import { EnvironmentSaveForm } from "./EnvironmentSaveForm"
 import { EnvironmentVariableEditor } from "./EnvironmentVariableEditor"
 import { EnvironmentVariableList } from "./EnvironmentVariableList"
 
-export function EnvironmentPanel({ environment }: { environment: EnvironmentEditorState }) {
+export function EnvironmentPanel({ environment, onRestart }: {
+	environment: EnvironmentEditorState
+	onRestart: () => Promise<void>
+}) {
 	const { view, editor, editable, loadFailed } = environment
 
 	const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
@@ -33,6 +38,10 @@ export function EnvironmentPanel({ environment }: { environment: EnvironmentEdit
 			{view && !view.editable && <p role="status">Stop all runs and background work before editing.</p>}
 			<div className="agent-hud__table-scroll min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]">
 				<fieldset disabled={!editable} className="flex min-w-0 flex-col gap-4 pe-3">
+					<EnvironmentFolderImport
+						disabled={!editable || editor !== null}
+						onImport={environment.importPackage}
+					/>
 					<h3 className="agent-hud__capability-group-heading">Variables</h3>
 					<EnvironmentVariableList
 						variables={environment.variables}
@@ -64,6 +73,8 @@ export function EnvironmentPanel({ environment }: { environment: EnvironmentEdit
 				onSave={environment.save}
 				onReset={environment.reset}
 			/>
+			<EnvironmentRestart required={environment.restartRequired} importedPending={view?.imports.some(item => !item.active) ?? false}
+				dirty={environment.dirty || editor !== null} onRestart={onRestart} />
 			{view && view.overrides.length > 0 && <p>Manual .env overrides: {view.overrides.join(", ")}.</p>}
 		</section>
 	)

@@ -249,7 +249,7 @@ test("exposes the version bridge when launched outside the checkout", async ({ d
 		process: typeof Reflect.get(window, "process"),
 		ipcRenderer: typeof Reflect.get(window, "ipcRenderer"),
 		bridge: Object.keys(window.robozium),
-	}))).toEqual({ require: "undefined", process: "undefined", ipcRenderer: "undefined", bridge: ["getBackendConnection", "getBackendStatus", "retryBackend", "getVersion", "writeClipboardText"] })
+	}))).toEqual({ require: "undefined", process: "undefined", ipcRenderer: "undefined", bridge: ["getBackendConnection", "getBackendStatus", "retryBackend", "restartApp", "getVersion", "writeClipboardText"] })
 	// Playwright disables Chromium sandboxing unless explicitly told otherwise.
 	expect(await app.evaluate(({ app }) => app.commandLine.hasSwitch("no-sandbox"))).toBe(false)
 })

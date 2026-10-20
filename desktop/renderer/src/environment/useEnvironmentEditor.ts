@@ -1,6 +1,7 @@
 // Copied from robozium-electron/desktop/web/hooks/useEnvironmentEditor.ts at 076b2c9.
-// Adapted: the environment owner receives the desktop client; folder import and
-// the restart flag arrive with Restart app in a later PR.
+// Adapted: the environment owner receives the desktop client, and the restart
+// flag is this hook's state instead of a global store; App owns the hook, so the
+// flag lasts until the app restarts.
 import { useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { showErrorToast, showNotificationToast } from "../feedback/notices"
@@ -40,17 +41,20 @@ function entryError({ entry, original, originalName }: Editor, entries: Environm
 	return ""
 }
 
-export interface EnvironmentEditorState extends EnvironmentState {
+export interface EnvironmentEditorState extends Omit<EnvironmentState, "importPackage"> {
 	editor: Editor | null
 	/** The saved entries differ from what the screen shows, including an open edit. */
 	dirty: boolean
 	needsPassword: boolean
+	/** A save, import or reset applies only after Restart app. */
+	restartRequired: boolean
 	variables: EnvironmentVariable[]
 	openEditor: (entry?: EnvironmentEntry) => void
 	closeEditor: () => void
 	updateEditor: (entry: EnvironmentEntry) => void
 	applyEditor: () => void
 	removeVariable: (name: string) => void
+	importPackage: (files: File[]) => Promise<boolean>
 	validateSave: () => boolean
 	save: (password: string) => Promise<boolean>
 }
@@ -58,6 +62,7 @@ export interface EnvironmentEditorState extends EnvironmentState {
 export function useEnvironmentEditor(client: DesktopApiClient | null, visible: boolean): EnvironmentEditorState {
 	const [editor, setEditor] = useState<Editor | null>(null)
 	const [hiddenSuggestions, setHiddenSuggestions] = useState<Set<string>>(new Set())
+	const [restartRequired, setRestartRequired] = useState(false)
 	const environment = useEnvironment(client, visible, editor !== null)
 	const { view, entries: savedEntries, editable, change } = environment
 
@@ -131,17 +136,31 @@ export function useEnvironmentEditor(client: DesktopApiClient | null, visible: b
 		setHiddenSuggestions(previous => new Set(previous).add(name))
 		if (editor?.original.name === name) closeEditor()
 	}
+	const importPackage = async (files: File[]): Promise<boolean> => {
+		const result = await environment.importPackage(files)
+		if (!result) return false
+		revealSuggestions(new Set(result.suggestions.map(entry => entry.name)))
+		setRestartRequired(true)
+		const item = result.imported
+		showNotificationToast({
+			tone: "success", title: "Imported",
+			message: `${item.capabilities.map(capability => `${capability.kind === "tool" ? "Tool" : "Skill"} ${capability.name}`).join(", ")} found and imported. Available after restart.`,
+		})
+		return true
+	}
 	const save = async (password: string) => {
 		if (!await environment.save(password, currentEntries)) return false
+		setRestartRequired(true)
 		closeEditor()
 		showNotificationToast({
 			tone: "success", title: "Settings saved",
-			message: "Close and reopen the app, then unlock with Secrets.",
+			message: "Use Restart app in Environment, then unlock with Secrets.",
 		})
 		return true
 	}
 	const reset = async () => {
 		if (!await environment.reset()) return false
+		setRestartRequired(true)
 		closeEditor()
 		setHiddenSuggestions(new Set())
 		showNotificationToast({
@@ -153,9 +172,9 @@ export function useEnvironmentEditor(client: DesktopApiClient | null, visible: b
 
 	return {
 		...environment,
-		editor, dirty, needsPassword,
+		editor, dirty, needsPassword, restartRequired,
 		variables: [...variables.values()],
-		openEditor, closeEditor, updateEditor, applyEditor, removeVariable,
+		openEditor, closeEditor, updateEditor, applyEditor, removeVariable, importPackage,
 		validateSave: () => !edited || validateEditor(),
 		save, reset,
 	}
