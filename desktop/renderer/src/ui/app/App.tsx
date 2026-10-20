@@ -16,6 +16,7 @@ import { initialHudNavigation, reduceHudNavigation } from "../../app/hud-navigat
 import type { DesktopApiClient } from "../../api/client"
 import { useModels, type ModelsState } from "../../models/useModels"
 import { useProjectQuery } from "../../projects/useProjectQuery"
+import { useProjectMutations } from "../../projects/useProjectMutations"
 import { useProjectLaunch } from "../../projects/useProjectLaunch"
 import { ProjectStatus, type ProjectRow } from "../../projects/landing"
 import { useCapabilities } from "../../capabilities/useCapabilities"
@@ -92,14 +93,15 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 		launch: navigation.launch,
 	})
 	const screen = presentation.screen
-	const projects = useProjectQuery(client, screen === "projects")
+	const projectMutations = useProjectMutations(client)
+	const projects = useProjectQuery(client, screen === "projects", { ...projectMutations, opening: launch.opening })
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
 	// A launch, a disconnection or an unconfirmed model change locks navigation.
 	const navigationPending = launch.pending || !connected || models.pending
 	const selectScreen = (next: HudScreen) => { setFocusRunEditor(false); navigate({ type: "screen_selected", screen: next }) }
 	const openRun = (runId: string, project: string) => { run.open(runId, project); showRun() }
 	// The HUD and the overview rows share one cancellation per project.
-	const cancelling = session !== null && (projects.pending.has(session.run.project) || session.run.status === RunStatus.Cancelling)
+	const cancelling = session !== null && (projectMutations.pending.has(session.run.project) || session.run.status === RunStatus.Cancelling)
 	const modelError = client ? models.error : ""
 	const runError = screen === "run" ? session?.run.error : ""
 	const notices = (connectionNotice || modelError || runError || errorNotices.length > 0) &&
@@ -122,13 +124,13 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 						focusOnOpen={focusRunEditor} onSelect={client ? run.select : setSelectedMessage}
 						reply={{ available: runMutations.canReply, submitting: runMutations.replying, submit: runMutations.reply }}
 						cancel={{ isPending: cancelling, available: Boolean(session && !isTerminal(session.run.status)),
-							onTrigger: () => { if (session && !cancelling) void projects.cancel(session.run.project) } }}
+							onTrigger: () => { if (session && !cancelling) void projectMutations.cancel(session.run.project) } }}
 						interrupt={{ isPending: runMutations.interrupting, available: runMutations.canInterrupt,
 							onTrigger: () => void runMutations.interrupt() }} />
 				</div>
 			case "projects":
 				return client
-					? <ProjectOverview projects={projects} navigationPending={navigationPending} isLaunching={launch.isLaunching}
+					? <ProjectOverview projects={projects} mutations={projectMutations} navigationPending={navigationPending} isLaunching={launch.isLaunching}
 						currentRunId={session?.run.runId ?? null} onCurrentProjectClick={showRun} onOpenRun={openRun}
 						onSelectCapabilities={project => navigate({ type: "launch_opened", project })}
 						onLaunch={launch.launch} />

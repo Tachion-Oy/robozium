@@ -15,6 +15,8 @@ import { createProject } from "./projects-api"
 export interface ProjectLaunch {
 	launch: (draft: LaunchDraft) => Promise<boolean>
 	pending: boolean
+	/** The existing project being launched; a new project has no row yet. */
+	opening: string | null
 	/** Read synchronously, so a second click before the next render is refused. */
 	isLaunching: () => boolean
 }
@@ -27,16 +29,19 @@ export function useProjectLaunch(
 ): ProjectLaunch {
 	const active = useRef<AbortController | null>(null)
 	const [pending, setPending] = useState(false)
+	const [opening, setOpening] = useState<string | null>(null)
 	useEffect(() => () => {
 		active.current?.abort()
 		active.current = null
 		setPending(false)
+		setOpening(null)
 	}, [client])
 	const launch = async ({ project, name, selection: draftSelection }: LaunchDraft): Promise<boolean> => {
 		if (!client || active.current) return false
 		const controller = new AbortController()
 		active.current = controller
 		setPending(true)
+		setOpening(project)
 		const request = <T,>(operation: (signal: AbortSignal) => Promise<T>) => withDeadline(controller.signal, operation)
 		try {
 			// Writes are never repeated automatically; a created project is reported
@@ -70,8 +75,9 @@ export function useProjectLaunch(
 			if (active.current === controller) {
 				active.current = null
 				setPending(false)
+				setOpening(null)
 			}
 		}
 	}
-	return { launch, pending, isLaunching: () => active.current !== null }
+	return { launch, pending, opening, isLaunching: () => active.current !== null }
 }
