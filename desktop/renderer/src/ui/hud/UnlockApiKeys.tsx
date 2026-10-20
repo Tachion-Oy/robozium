@@ -2,7 +2,7 @@
 // Adapted: the status and the unlock and remove requests come from
 // credentials/useCredentials as props; the menu keeps its open state, password
 // field and error text.
-import { useEffect, useRef, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, type SubmitEvent } from "react"
 import type { CredentialsState } from "../../credentials/useCredentials"
 
 export function UnlockApiKeys({ credentials }: { credentials: CredentialsState }) {
@@ -47,7 +47,7 @@ export function UnlockApiKeys({ credentials }: { credentials: CredentialsState }
 		return () => window.clearInterval(timer)
 	}, [open, status?.locked, pending, refresh])
 
-	const submit = async (event: FormEvent<HTMLFormElement>) => {
+	const submit = async (event: SubmitEvent<HTMLFormElement>) => {
 		event.preventDefault()
 		if (pending || !password) return
 		setError("")
