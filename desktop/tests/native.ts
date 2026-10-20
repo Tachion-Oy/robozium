@@ -70,8 +70,8 @@ export async function chooseModel(page: Page, name: string) {
 export async function waitForPanelLayout(page: Page) {
 	await page.evaluate(async () => {
 		await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
-		// The activity logo pulses indefinitely; wait only for finite layout transitions.
-		const animations = (document.querySelector(".agent-hud__replySection")?.getAnimations({ subtree: true }) ?? [])
+		// The activity logo pulses indefinitely; wait only for finite transitions.
+		const animations = document.getAnimations()
 			.filter(animation => animation.effect?.getTiming().iterations !== Infinity)
 		await Promise.allSettled(animations.map(animation => animation.finished))
 	})
@@ -166,8 +166,9 @@ export async function setNativeViewport(app: ElectronApplication, page: Page, wi
 }
 
 export async function captureNative(app: ElectronApplication, page: Page, width: number, height: number) {
-	await waitForPanelLayout(page)
+	// Leaving a hovered control starts its transitions; let them finish too.
 	await page.mouse.move(0, 0)
+	await waitForPanelLayout(page)
 	await page.evaluate(() => new Promise<void>(resolve =>
 		requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
 	// CDP screenshots crop at Electron zoom. Wait for the full native surface.
