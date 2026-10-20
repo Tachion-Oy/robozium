@@ -260,3 +260,31 @@ for (const theme of ["dark", "light"]) {
 		}
 	})
 }
+
+test("light-theme row actions center their uppercase labels at the reference height", async ({ desktop: { app, page }, backend }) => {
+	await backend.open()
+	if (await page.locator("html").getAttribute("data-theme") !== "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+	await expect(page.locator("html")).toHaveAttribute("data-theme", "light")
+	const button = row(page, "existing-project").getByRole("button", { name: "Delete", exact: true })
+	// The reference height: a 0.95rem line, 0.48rem padding on each side and the border.
+	expect((await button.boundingBox())!.height).toBeCloseTo(11.4 + 2 * 5.76 + 2, 1)
+	const png = await button.screenshot({ animations: "disabled" })
+	const { height, inkRows } = await app.evaluate(({ nativeImage }, data) => {
+		const image = nativeImage.createFromBuffer(Buffer.from(data, "base64"))
+		const { width, height } = image.getSize()
+		const bitmap = image.toBitmap()
+		const pixel = (x: number, y: number) => [...bitmap.subarray((y * width + x) * 4, (y * width + x) * 4 + 3)]
+		const background = pixel(Math.floor(width / 2), 3)
+		const inkRows: number[] = []
+		// Skip the border and rounded corners; a row has ink when a pixel departs from the fill.
+		for (let y = 2; y < height - 2; y++) {
+			for (let x = 6; x < width - 6; x++) {
+				if (pixel(x, y).reduce((sum, value, index) => sum + Math.abs(value - background[index]), 0) > 90) { inkRows.push(y); break }
+			}
+		}
+		return { height, inkRows }
+	}, png.toString("base64"))
+	const above = inkRows[0] - 1
+	const below = height - 2 - inkRows[inkRows.length - 1]
+	expect(Math.abs(above - below)).toBeLessThanOrEqual(1)
+})
