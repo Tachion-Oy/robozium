@@ -266,8 +266,24 @@ test("light-theme row actions center their uppercase labels at the reference hei
 	if (await page.locator("html").getAttribute("data-theme") !== "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 	await expect(page.locator("html")).toHaveAttribute("data-theme", "light")
 	const button = row(page, "existing-project").getByRole("button", { name: "Delete", exact: true })
-	// The reference height: a 0.95rem line, 0.48rem padding on each side and the border.
-	expect((await button.boundingBox())!.height).toBeCloseTo(11.4 + 2 * 5.76 + 2, 1)
+	// The fix keeps the reference height: compare free-standing copies, outside the row's
+	// flex layout that stretches its buttons, with and without the reference rule.
+	const [actual, reference] = await button.evaluate(element => {
+		const measure = (reference: boolean) => {
+			const copy = element.cloneNode(true) as HTMLElement
+			copy.style.setProperty("position", "absolute")
+			if (reference) {
+				copy.style.setProperty("text-box", "normal")
+				copy.style.setProperty("padding-block", "0.48rem")
+			}
+			document.body.append(copy)
+			const height = copy.getBoundingClientRect().height
+			copy.remove()
+			return height
+		}
+		return [measure(false), measure(true)]
+	})
+	expect(actual).toBeCloseTo(reference, 1)
 	const png = await button.screenshot({ animations: "disabled" })
 	const { height, inkRows } = await app.evaluate(({ nativeImage }, data) => {
 		const image = nativeImage.createFromBuffer(Buffer.from(data, "base64"))
