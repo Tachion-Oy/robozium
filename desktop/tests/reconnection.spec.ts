@@ -2,6 +2,7 @@ import { expect, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { test, json, prepareRun, snapshot, message, emit, start, output, replyBox } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
+import { reconnectDelay } from "../renderer/src/run/run-updates"
 
 const attempts = (backend: Backend) => backend.requests.filter(request => request.path === "/run/run-one/stream").length
 const retryOutput = (page: Page) => page.getByRole("button", { name: "Retry output" })
@@ -10,7 +11,11 @@ function openStream(response: ServerResponse) {
 	response.write(": open\n\n")
 }
 
-test("a refused stream reconnects quietly with growing backoff, and a frame resets it", async ({ desktop: { page }, backend }) => {
+test("reconnection waits 0.5, 1 and 2 seconds, then 4 seconds", () => {
+	expect([0, 1, 2, 3, 4, 10].map(reconnectDelay)).toEqual([500, 1000, 2000, 4000, 4000, 4000])
+})
+
+test("a refused stream reconnects quietly, and a received frame resets the delay", async ({ desktop: { page }, backend }) => {
 	prepareRun(backend)
 	let refuse = true
 	const streams: ServerResponse[] = []
@@ -19,34 +24,32 @@ test("a refused stream reconnects quietly with growing backoff, and a frame rese
 		openStream(response)
 		streams.push(response)
 	})
-	// A paused clock moves only when the test advances it, so waiting adds no time.
-	// Small steps let requests started on the way settle before their deadlines pass.
+	// A paused clock moves only when the test advances it. Each delay starts once the
+	// client has handled the refusal and read a snapshot, in real time, so the test
+	// steps the clock with short real pauses instead of measuring exact delays; the
+	// schedule itself is checked above.
 	await page.clock.install()
 	await page.clock.pauseAt(await page.evaluate(() => Date.now()) + 1000)
 	await start(page, backend)
-	const advance = async (ms: number) => {
-		for (let elapsed = 0; elapsed < ms; elapsed += 100) await page.clock.runFor(Math.min(100, ms - elapsed))
+	const advanceUntil = async (done: () => boolean, limit: number) => {
+		for (let elapsed = 0; elapsed <= limit; elapsed += 100) {
+			if (done()) return elapsed
+			await page.clock.runFor(100)
+			await new Promise(resolve => setTimeout(resolve, 20))
+		}
+		throw new Error(`Not reached within ${limit} ms of page time`)
 	}
 	await expect.poll(() => attempts(backend)).toBe(1)
-	const advanceUntil = (expected: () => number, value: number) =>
-		expect.poll(async () => { await page.clock.runFor(25); return expected() }).toBe(value)
-	let count = 1
-	for (const delay of [500, 1000, 2000, 4000, 4000]) {
-		await advance(delay - 50)
-		expect(attempts(backend)).toBe(count)
-		await advanceUntil(() => attempts(backend), ++count)
-	}
+	await advanceUntil(() => attempts(backend) >= 4, 10_000)
+	await expect(page.getByRole("alert")).toHaveCount(0)
 	refuse = false
-	await advance(3950)
-	await advanceUntil(() => streams.length, 1)
+	await advanceUntil(() => streams.length === 1, 10_000)
 	emit(streams[0], message(1, "Back"))
 	await expect(output(page)).toHaveText("Back")
 	streams[0].end()
-	count = attempts(backend)
-	// The received frame reset the backoff to its first step.
-	await advance(450)
-	expect(attempts(backend)).toBe(count)
-	await advanceUntil(() => attempts(backend), count + 1)
+	const count = attempts(backend)
+	// After the frame the next attempt follows the first delay, well before the 4-second cap.
+	expect(await advanceUntil(() => attempts(backend) > count, 3500)).toBeGreaterThanOrEqual(500)
 	await expect(page.getByRole("alert")).toHaveCount(0)
 	await expect(retryOutput(page)).toHaveCount(0)
 })

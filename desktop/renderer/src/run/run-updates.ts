@@ -10,6 +10,11 @@ import type { RunAction } from "./run-reducer"
 const RUN_POLL_INTERVAL_MS = 2000
 const RECONNECT_BASE_DELAY_MS = 500
 const RECONNECT_MAX_DELAY_MS = 4000
+
+/** 0.5, 1 and 2 seconds, then 4 seconds after every further failure in a row. */
+export function reconnectDelay(failures: number): number {
+	return Math.min(RECONNECT_MAX_DELAY_MS, RECONNECT_BASE_DELAY_MS * 2 ** failures)
+}
 type RunSnapshotLoader = () => Promise<RunView | null>
 
 export function errorMessage(error: unknown) { return error instanceof Error ? error.message : "Run output unavailable." }
@@ -66,7 +71,7 @@ export function watchRun(
 			} catch (error) {
 				if (!isRetryableReadError(error)) return fail(error)
 			}
-			await abortableDelay(Math.min(RECONNECT_MAX_DELAY_MS, RECONNECT_BASE_DELAY_MS * 2 ** failures++), controller.signal)
+			await abortableDelay(reconnectDelay(failures++), controller.signal)
 		}
 	}
 
