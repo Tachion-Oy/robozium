@@ -1,58 +1,17 @@
-"use client"
+// Copied from robozium-electron/desktop/web/app/components/hud/UnlockApiKeys.tsx at 076b2c9.
+// Adapted: the status and the unlock and remove requests come from
+// credentials/useCredentials as props; the menu keeps its open state, password
+// field and error text.
+import { useEffect, useRef, useState, type FormEvent } from "react"
+import type { CredentialsState } from "../../credentials/useCredentials"
 
-import {
-	useCallback,
-	useEffect,
-	useRef,
-	useState,
-	type SubmitEvent,
-} from "react"
-import {
-	clearApiKeys,
-	getCredentialStatus,
-	unlockApiKeys,
-} from "@/lib/robozium/client"
-import type { CredentialStatus } from "@/lib/robozium/wire"
-
-export function UnlockApiKeys() {
-	const [status, setStatus] = useState<CredentialStatus | null>(null)
+export function UnlockApiKeys({ credentials }: { credentials: CredentialsState }) {
+	const { status, pending, refresh } = credentials
 	const [open, setOpen] = useState(false)
 	const [password, setPassword] = useState("")
-	const [pending, setPending] = useState(false)
 	const [error, setError] = useState("")
 	const rootRef = useRef<HTMLDivElement>(null)
 	const triggerRef = useRef<HTMLButtonElement>(null)
-	const statusVersion = useRef(0)
-
-	const refresh = useCallback(async (signal?: AbortSignal) => {
-		const version = statusVersion.current
-		try {
-			const next = await getCredentialStatus({ signal })
-			if (next && !signal?.aborted && version === statusVersion.current)
-				setStatus(next)
-		} catch {}
-	}, [])
-
-	useEffect(() => {
-		const controller = new AbortController()
-		const version = statusVersion.current
-		const loadInitialStatus = async () => {
-			try {
-				const next = await getCredentialStatus({
-					signal: controller.signal,
-				})
-				if (
-					next &&
-					!controller.signal.aborted &&
-					version === statusVersion.current
-				) {
-					setStatus(next)
-				}
-			} catch {}
-		}
-		void loadInitialStatus()
-		return () => controller.abort()
-	}, [])
 
 	const close = () => {
 		setOpen(false)
@@ -88,38 +47,25 @@ export function UnlockApiKeys() {
 		return () => window.clearInterval(timer)
 	}, [open, status?.locked, pending, refresh])
 
-	const submit = async (event: SubmitEvent<HTMLFormElement>) => {
+	const submit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault()
 		if (pending || !password) return
-		setPending(true)
-		statusVersion.current += 1
 		setError("")
-		try {
-			setStatus(await unlockApiKeys({ password }))
+		if (await credentials.unlock(password)) {
 			close()
-		} catch {
+		} else {
 			setError(
 				"Could not unlock secrets. Check the password and try again.",
 			)
 			setPassword("")
-		} finally {
-			setPending(false)
 		}
 	}
 
 	const remove = async () => {
 		if (pending || !status?.removable) return
-		setPending(true)
-		statusVersion.current += 1
 		setError("")
-		try {
-			setStatus(await clearApiKeys())
-			close()
-		} catch {
-			setError("Could not remove secrets. Try again.")
-		} finally {
-			setPending(false)
-		}
+		if (await credentials.remove()) close()
+		else setError("Could not remove secrets. Try again.")
 	}
 
 	if (!status?.available) return null

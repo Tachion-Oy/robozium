@@ -1,14 +1,16 @@
 // Copied from web/hooks/useProjectLaunch.ts at 5b06d82.
 // Adapted: requests use the desktop client under one abortable lifetime with
 // deadlines; a pending flag replaces the shared navigation lock; a launched run
-// is handed to the caller instead of navigating.
+// is handed to the caller instead of navigating; a locked backend is reported to
+// the caller, which reads the secrets status again.
 import { useEffect, useRef, useState } from "react"
-import { ApiError, type DesktopApiClient } from "../api/client"
+import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { getProjectSelection, listCapabilities, saveProjectSelection } from "../capabilities/capabilities-api"
 import { resolveCapabilitySelection } from "../capabilities/capabilities"
 import { createRun } from "../run/run-api"
 import { showErrorToast } from "../feedback/notices"
+import { isSecretsLocked, showSecretsLocked } from "../credentials/locked"
 import type { LaunchDraft } from "../app/hud-navigation"
 import { createProject } from "./projects-api"
 
@@ -26,6 +28,7 @@ export function useProjectLaunch(
 	client: DesktopApiClient | null,
 	onLaunched: (runId: string, project: string) => void,
 	onProjectCreated: (name: string, project: string) => void,
+	onSecretsLocked: () => void,
 ): ProjectLaunch {
 	const active = useRef<AbortController | null>(null)
 	const [pending, setPending] = useState(false)
@@ -60,15 +63,14 @@ export function useProjectLaunch(
 			return true
 		} catch (error) {
 			if (controller.signal.aborted) return false
-			const locked = error instanceof ApiError && error.status === 423
+			if (isSecretsLocked(error)) {
+				showSecretsLocked("Unlock secrets before starting a run.")
+				onSecretsLocked()
+				return false
+			}
 			showErrorToast({
-				title: locked ? "Secrets locked" : "Launch failed",
-				message: locked
-					? "Unlock secrets before starting a run."
-					: error instanceof Error
-						? error.message
-						: "Unable to launch project. Try again.",
-				...(locked ? { detail: "This desktop version cannot unlock secrets yet." } : {}),
+				title: "Launch failed",
+				message: error instanceof Error ? error.message : "Unable to launch project. Try again.",
 			})
 			return false
 		} finally {

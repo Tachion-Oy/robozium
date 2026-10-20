@@ -405,3 +405,40 @@ test("Cancel in the HUD cancels the run and returns to the overview", async ({ r
 	expect(cancels).toBe(1)
 	await closeWindow(app)
 })
+
+test("encrypted secrets are locked after a restart and unlock from the header", async ({ runtime }) => {
+	const { port } = runtime
+	const first = await launchConnected(runtime)
+	await test.step("Save a throwaway secret, encrypted with a test password", async () => {
+		await installTestClient(first.page, `http://127.0.0.1:${port}`)
+		await first.page.evaluate(async () => {
+			const view = await window.testApi.request("/credentials/environment") as { revision: string }
+			await window.testApi.request("/credentials/environment", { method: "POST", json: {
+				revision: view.revision, password: "lifecycle-test-password",
+				entries: [{ name: "DESKTOP_LIFECYCLE_SECRET", value: "throwaway-value", secret: true }],
+			} })
+		})
+		await closeWindow(first.app)
+	})
+	const { app, page } = await launchConnected(runtime)
+	const secrets = page.getByRole("button", { name: /^Secrets (locked|unlocked)$/ })
+	await test.step("A launch is refused while the secrets are locked", async () => {
+		await expect(secrets).toHaveText("Secrets locked")
+		await createAndLaunch(page, "Locked secrets")
+		await expect(page.getByRole("alert").filter({ hasText: "Secrets locked" })).toContainText("Open the Secrets locked menu")
+		await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Cancel", exact: true }).click()
+	})
+	await test.step("Unlock with the test password, then launch", async () => {
+		await secrets.click()
+		const menu = page.getByRole("dialog", { name: "Secrets" })
+		await menu.getByLabel("Secret password").fill("wrong password")
+		await menu.getByLabel("Secret password").press("Enter")
+		await expect(menu.getByRole("alert")).toHaveText("Could not unlock secrets. Check the password and try again.")
+		await menu.getByLabel("Secret password").fill("lifecycle-test-password")
+		await menu.getByLabel("Secret password").press("Enter")
+		await expect(secrets).toHaveText("Secrets unlocked")
+		await page.locator(".agent-hud__project-row", { hasText: "locked-secrets" }).getByRole("button", { name: "Launch", exact: true }).click()
+		await expect(page.getByRole("status", { name: "Run status" })).toContainText("locked-secrets")
+	})
+	await closeWindow(app)
+})
