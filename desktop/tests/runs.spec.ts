@@ -260,26 +260,6 @@ for (const end of ["closure", "409"] as const) {
 	})
 }
 
-test("output retry reconnects only the known ID and retains output and draft", async ({ desktop: { page }, backend }) => {
-	const run = prepareRun(backend)
-	await start(page, backend)
-	await expect.poll(() => run.streams.length).toBe(1)
-	emit(run.streams[0], message(1, "Retained"))
-	await page.getByRole("textbox", { name: "Type your reply...", exact: true }).fill("Draft")
-	run.streams[0].end()
-	await expect(page.getByRole("alert")).toContainText("disconnected")
-	await expect(output(page)).toHaveText("Retained")
-	await page.clock.install()
-	await page.clock.fastForward(30_000)
-	expect(run.streams).toHaveLength(1)
-	await page.getByRole("button", { name: "Retry output" }).click()
-	await expect.poll(() => run.streams.length).toBe(2)
-	emit(run.streams[1], message(1, "Retained")); emit(run.streams[1], message(2, "Recovered"))
-	await expect(output(page)).toHaveText("Recovered")
-	await expect(page.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveValue("Draft")
-	expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(1)
-})
-
 for (const status of ["failed", "cancelled", "queued", "cancelling"] as const) {
 	const ends = status === "failed" || status === "cancelled"
 	test(`snapshot status ${status} ${ends ? "ends the run and returns to the overview" : "is presented"}`, async ({ desktop: { page }, backend }) => {
@@ -314,7 +294,7 @@ for (const invalid of ["snapshot", "event", "unknown"] as const) {
 	})
 }
 
-test("snapshot deadline stops polling and aborts owned stream on timeout", async ({ desktop: { page }, backend }) => {
+test("a snapshot deadline aborts the read and polling continues quietly", async ({ desktop: { page }, backend }) => {
 	const run = prepareRun(backend)
 	let pending: ServerResponse | undefined
 	let closed = false
@@ -323,11 +303,12 @@ test("snapshot deadline stops polling and aborts owned stream on timeout", async
 	await start(page, backend)
 	await expect.poll(() => pending).toBeDefined()
 	await page.clock.fastForward(10_001)
-	await expect(page.getByRole("alert")).toContainText("Request timed out")
 	await expect.poll(() => closed).toBe(true)
-	await expect.poll(() => run.closed).toBe(1)
-	await page.clock.fastForward(30_000)
-	expect(backend.requests.filter(request => request.path === "/run/run-one")).toHaveLength(1)
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ status: "awaiting_user_input", current_prompt_id: "p1", current_prompt: "Still here" })))
+	await page.clock.fastForward(2001)
+	await expect(output(page)).toHaveText("Still here")
+	await expect(page.getByRole("alert")).toHaveCount(0)
+	expect(run.closed).toBe(0)
 })
 
 for (const theme of ["dark", "light"]) {
@@ -402,7 +383,7 @@ test("retrying old output cannot cancel a pending replacement creation", async (
 	const run = prepareRun(backend)
 	await start(page, backend)
 	await expect.poll(() => run.streams.length).toBe(1)
-	run.streams[0].end()
+	emit(run.streams[0], { type: "message_delta", sequence: 1, payload: { delta: 42 } })
 	await expect(page.getByRole("button", { name: "Retry output" })).toBeEnabled()
 	let pending: ServerResponse | undefined
 	prepareRun(backend, "replacement")

@@ -201,7 +201,7 @@ test("renderer HTTP and SSE use the selected backend allowed by CSP", async ({ r
 	expect(csp?.split("; ")).toContain(`connect-src http://127.0.0.1:${port}`)
 })
 
-test("outage retry preserves the HUD and resumes readiness polling after recovery", async ({ runtime }, testInfo) => {
+test("an outage preserves the HUD, and after recovery the lost run returns to the overview", async ({ runtime }, testInfo) => {
 	const { profile, port, commands } = runtime
 	const { app, page } = await launchConnected(runtime)
 	const { container } = await ownedBackend(profile)
@@ -237,6 +237,12 @@ test("outage retry preserves the HUD and resumes readiness polling after recover
 		await page.getByRole("button", { name: "Retry", exact: true }).click()
 		await expect(page.locator(".backend-notice").getByRole("alert")).toContainText("Backend connection unavailable")
 		expect(await readFile(commands, "utf8")).toBe(outageCommands)
+		// Run reads reconnect quietly while the backend is away; the HUD stays mounted.
+		await expect(reply).toHaveValue("retained across outage")
+		expect(await reply.evaluate(element => element === Reflect.get(window, "originalEditor"))).toBe(true)
+		await expect(page.locator(".agent-hud__replyBox--agent .agent-hud__replyBox-scroll")).toHaveText(selectedOutput!)
+		await expect(page.getByRole("group", { name: "Panel divider: equal" })).toBeVisible()
+		await expect(page.getByRole("button", { name: "Retry output" })).toHaveCount(0)
 	})
 	await test.step("Check the outage notice in both themes, window sizes, and zoom levels", async () => {
 		for (const theme of ["dark", "light"]) {
@@ -259,7 +265,7 @@ test("outage retry preserves the HUD and resumes readiness polling after recover
 			}
 		}
 	})
-	await test.step("Recover and preserve the mounted HUD and its state", async () => {
+	await test.step("Recover: settings are kept and the run the restart lost returns to the overview", async () => {
 		execFileSync(docker, ["start", container], { stdio: "pipe" })
 		await expect.poll(async () => {
 			try {
@@ -272,16 +278,16 @@ test("outage retry preserves the HUD and resumes readiness polling after recover
 		await page.getByRole("button", { name: "Retry", exact: true }).click()
 		await expect(page.locator(".backend-notice")).toHaveCount(0)
 		await expect.poll(() => modelReads).toBeGreaterThan(previousModelReads)
-		await expect(reply).toHaveValue("retained across outage")
-		expect(await reply.evaluate(element => element === Reflect.get(window, "originalEditor"))).toBe(true)
-		await expect(page.locator(".agent-hud__replyBox--agent .agent-hud__replyBox-scroll")).toHaveText(selectedOutput!)
-		await expect(page.getByRole("group", { name: "Panel divider: equal" })).toBeVisible()
+		const row = page.locator(".agent-hud__project-row", { hasText: "outage-project" })
+		await expect(row).toContainText("DORMANT", { timeout: 15_000 })
+		await expect(reply).toHaveCount(0)
 		await expect(model).toHaveAttribute("title", chosenModel!)
 		await expect(page.locator("html")).toHaveAttribute("data-theme", "light")
 		const recoveredRequests = readinessRequests
 		await expect.poll(() => readinessRequests, { timeout: 7000 }).toBeGreaterThan(recoveredRequests)
-		await chooseView(page, "Runs Overview")
-		await expect(page.getByRole("button", { name: /^(Open|Return to) outage-project$/ })).toBeVisible()
+		// The unsent draft belongs to the app, so the next run offers it again.
+		await row.getByRole("button", { name: "Launch", exact: true }).click()
+		await expect(reply).toHaveValue("retained across outage")
 	})
 })
 

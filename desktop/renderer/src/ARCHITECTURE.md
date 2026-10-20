@@ -86,6 +86,10 @@ flowchart LR
   hook that started it and a deadline from `api/request.ts`. A client change or
   unmount aborts it, and late results are ignored. `withDeadline` also ends the
   operation's signal when it settles, so parallel reads cannot outlive a failure.
+- **Reconnection.** Reads recover by themselves: `run/run-updates` reconnects a
+  closed or failed stream with backoff and keeps polling through failures that
+  `api/retry` classes as transient (timeouts, lost connections, 408/425/429/499
+  and 5xx). Other failures end the watch with an error and Retry output.
 - **Writes.** A write is sent once per user action and never repeated
   automatically. After a failure, the owner reads again instead. Multi-step
   commands report each completed write (such as a created project) so that
