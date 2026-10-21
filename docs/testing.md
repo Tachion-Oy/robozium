@@ -549,7 +549,13 @@ encryption password and its confirmation with the exact save body, a refused
 save keeping edits that polling does not overwrite, edits surviving a screen
 change and Escape closing the editor, the two-step reset, and both themes at
 narrow and 125% zoom with an open editor. A lifecycle scenario saves a setting
-through the screen and finds it again after reopening.
+through the screen and finds it again after reopening. The same spec covers a
+folder import uploading each file under its relative path, a refused import,
+and Restart app confirming unsaved edits in the HUD; `backend-ipc.spec.ts`
+denies `restartApp` to untrusted windows and documents. A lifecycle scenario
+saves a secret with a test password, uses Restart app (recording
+`app.relaunch` and waiting for a clean exit, then starting again), unlocks it,
+launches, then resets the environment and restarts without secrets.
 
 `tests/unit/test_desktop_access.py` checks accepted/rejected origins and Hosts,
 explicit preflight policy, native requests, Fetch Metadata, unchanged browser

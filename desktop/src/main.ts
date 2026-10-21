@@ -45,12 +45,16 @@ async function start(): Promise<void> {
 		}
 	}
 	let closing = false
-	const quit = async () => {
+	/** Stop the backend, then exit; a restart starts again only after a clean stop. */
+	const quit = async (restart = false) => {
 		if (closing) return
 		closing = true
 		window.hide()
-		try { await backend?.close(); app.exit(0) }
-		catch (error) { console.error("Backend shutdown failed:", error); app.exit(1) }
+		try {
+			await backend?.close()
+			if (restart) app.relaunch()
+			app.exit(0)
+		} catch (error) { console.error("Backend shutdown failed:", error); app.exit(1) }
 	}
 	window.on("close", event => { event.preventDefault(); void quit() })
 	app.on("before-quit", event => { event.preventDefault(); void quit() })
@@ -99,6 +103,10 @@ async function start(): Promise<void> {
 	ipcMain.handle("desktop:retry-backend", event => {
 		requireTrustedDocument(event)
 		void startBackend()
+	})
+	ipcMain.handle("desktop:relaunch", event => {
+		requireTrustedDocument(event)
+		void quit(true)
 	})
 	ipcMain.handle("desktop:version", event => {
 		requireTrustedDocument(event)

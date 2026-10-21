@@ -51,7 +51,8 @@ export const test = native.extend<{ backend: Backend }>({
 			}
 			let text = ""
 			for await (const chunk of request) text += chunk
-			const body: unknown = text ? JSON.parse(text) : undefined
+			// Multipart uploads stay raw text; everything else this app sends is JSON.
+			const body: unknown = !text ? undefined : request.headers["content-type"]?.startsWith("multipart/") ? text : JSON.parse(text)
 			requests.push({ method: request.method!, path: request.url!, body })
 			const handler = handlers.get(`${request.method} ${request.url}`) ?? capabilityDefault(request.method!, request.url!)
 			if (handler) handler(response, body)

@@ -250,9 +250,15 @@ saved file once: secrets need an encryption password, confirmed the first time.
 A refused save, for example after the settings changed elsewhere, keeps the edits.
 **Reset environment** asks first, then deletes the saved settings and secrets.
 Editing is unavailable while runs or background work are active. Unsaved edits
-survive leaving the screen. Saved changes apply after the app restarts; then
-unlock them from **Secrets locked**. Folder import and **Restart app** follow in
-the next roadmap PR.
+survive leaving the screen.
+
+**Browse folder** imports a tool or skill folder (a Python package with an
+`env.example` or `.env.example`); each file is uploaded with its path inside the
+folder, its variables join the list, and it is available after a restart. Saved
+settings, imports and resets apply after **Restart app**, which stops the
+backend and starts the app again on Runs Overview; encrypted secrets are then
+unlocked from **Secrets locked**. With
+unsaved edits, Restart app first asks in the HUD whether to discard them.
 
 Both selectors reserve stable widths for their labels, so changing the model or
 view keeps the other header controls in place. They shrink with the window;

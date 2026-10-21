@@ -7,6 +7,8 @@ export interface DesktopBridge {
 	getBackendConnection(): Promise<{ baseUrl: string } | null>
 	getBackendStatus(): Promise<BackendStatus>
 	retryBackend(): Promise<void>
+	/** Stop the backend and start the app again, so saved settings take effect. */
+	restartApp(): Promise<void>
 	getVersion(): Promise<string>
 	writeClipboardText(text: string): Promise<void>
 }

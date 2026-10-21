@@ -1,13 +1,16 @@
 // Copied from robozium-electron/desktop/web/hooks/useEnvironment.ts at 076b2c9.
 // Adapted: requests use the desktop client under its lifetime and deadlines, a
-// new client starts over, polling runs only while the screen is visible, and
-// folder import follows in a later PR.
+// new client starts over, polling runs only while the screen is visible, and an
+// import has a longer deadline than other requests.
 import { useEffect, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { useClientLifetime } from "../api/useClientLifetime"
 import { showErrorToast } from "../feedback/notices"
-import { getEnvironment, resetEnvironment, saveEnvironment, type EnvironmentEntry, type EnvironmentView } from "./environment-api"
+import {
+	getEnvironment, importEnvironment, IMPORT_TIMEOUT_MS, resetEnvironment, saveEnvironment,
+	type EnvironmentEntry, type EnvironmentImportResult, type EnvironmentView,
+} from "./environment-api"
 
 export function sameEnvironmentEntries(left: EnvironmentEntry[], right: EnvironmentEntry[]): boolean {
 	if (left.length !== right.length) return false
@@ -30,6 +33,7 @@ export interface EnvironmentState {
 	saving: boolean
 	change: (next: EnvironmentEntry[]) => void
 	save: (password: string, nextEntries?: EnvironmentEntry[]) => Promise<boolean>
+	importPackage: (files: File[]) => Promise<EnvironmentImportResult | null>
 	reset: () => Promise<boolean>
 	retry: () => void
 }
@@ -102,6 +106,34 @@ export function useEnvironment(client: DesktopApiClient | null, visible: boolean
 		dirtyRef.current = !sameEnvironmentEntries(next, view?.entries ?? [])
 		setEntries(next)
 	}
+	const importPackage = async (files: File[]): Promise<EnvironmentImportResult | null> => {
+		if (!client || !editable || pendingRef.current) return null
+		pendingRef.current = true
+		saveVersion.current++
+		setOperation("import")
+		const signal = lifetime()
+		try {
+			const result = await withDeadline(signal, requestSignal => importEnvironment(client, files, requestSignal), IMPORT_TIMEOUT_MS)
+			if (signal.aborted) return null
+			setView(previous => previous && {
+				...previous,
+				imports: [...previous.imports.filter(item => item.name !== result.imported.name), result.imported],
+				suggestions: [...previous.suggestions.filter(item => item.source !== result.imported.name), ...result.suggestions],
+			})
+			return result
+		} catch (cause) {
+			if (!signal.aborted) showErrorToast({
+				title: "Import failed",
+				message: cause instanceof Error ? cause.message : "Could not import package",
+			})
+			return null
+		} finally {
+			if (!signal.aborted) {
+				pendingRef.current = false
+				setOperation(null)
+			}
+		}
+	}
 	const save = async (password: string, nextEntries = entries): Promise<boolean> => {
 		if (!client || !view || !editable || pendingRef.current) return false
 		pendingRef.current = true
@@ -163,7 +195,7 @@ export function useEnvironment(client: DesktopApiClient | null, visible: boolean
 			}
 		}
 	}
-	return { view, entries, editable, pending, loadFailed, change, save, reset, canReset, saving: operation === "save",
+	return { view, entries, editable, pending, loadFailed, change, save, importPackage, reset, canReset, saving: operation === "save",
 		retry: () => { lastLoadError.current = ""; setRefreshVersion(version => version + 1) },
 	}
 }

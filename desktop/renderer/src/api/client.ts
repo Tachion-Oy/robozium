@@ -10,6 +10,8 @@ export class ApiError extends Error {
 interface JsonRequest {
 	method?: "GET" | "POST" | "DELETE"
 	json?: unknown
+	/** A multipart body; the browser sets its Content-Type boundary. */
+	form?: FormData
 	signal?: AbortSignal
 }
 
@@ -64,7 +66,7 @@ export class DesktopApiClient {
 			method: options.method ?? "GET",
 			signal: options.signal,
 			headers: { Accept: "application/json", ...(options.json === undefined ? {} : { "Content-Type": "application/json" }) },
-			body: options.json === undefined ? undefined : JSON.stringify(options.json),
+			body: options.form ?? (options.json === undefined ? undefined : JSON.stringify(options.json)),
 		})
 		let text: string
 		try {

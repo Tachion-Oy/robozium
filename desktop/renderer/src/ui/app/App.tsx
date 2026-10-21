@@ -153,7 +153,7 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 					onCancel={() => navigate({ type: "launch_closed" })}
 					onSubmit={selection => { if (navigation.launch) void launch.launch({ ...navigation.launch, selection }) }} />
 			case "environment":
-				if (client) return <EnvironmentPanel environment={environment} />
+				if (client) return <EnvironmentPanel environment={environment} onRestart={() => window.robozium.restartApp()} />
 				// Standalone preview has no backend settings; it shows the placeholder.
 				// falls through
 			default:
