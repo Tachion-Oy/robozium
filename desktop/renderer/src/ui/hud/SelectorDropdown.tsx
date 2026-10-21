@@ -1,5 +1,6 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/SelectorDropdown.tsx at 076b2c9.
-// Adapted: the empty catch carries a comment for the desktop lint rules.
+// Adapted: the empty catch carries a comment for the desktop lint rules; the
+// trigger markup lives in SelectorTrigger.
 import {
 	type KeyboardEvent as ReactKeyboardEvent,
 	type ReactNode,
@@ -8,6 +9,7 @@ import {
 	useRef,
 	useState,
 } from "react"
+import { SelectorTrigger } from "./SelectorTrigger"
 
 export type SelectorOption<Value extends string> = {
 	value: Value
@@ -126,27 +128,19 @@ export function SelectorDropdown<Value extends string>({
 		<div
 			ref={rootRef}
 			className={`agent-hud__model-selector agent-hud__model-selector--ready${isViewSelector ? " agent-hud__view-selector" : ""}`}>
-			<button
+			<SelectorTrigger
 				ref={triggerRef}
-				type="button"
-				className={`agent-hud__selector-trigger agent-hud__model-trigger${isViewSelector ? " agent-hud__view-trigger" : ""}`}
+				label={triggerLabel}
+				open={isOpen}
+				className={isViewSelector ? "agent-hud__view-trigger" : ""}
 				disabled={disabled}
 				aria-label={triggerLabel}
 				title={triggerLabel}
 				aria-busy={busy || undefined}
 				aria-haspopup="listbox"
-				aria-expanded={isOpen}
 				aria-controls={isOpen ? listboxId : undefined}
-				onClick={toggleMenu}>
-				<span>{triggerLabel}</span>
-				<svg
-					className="agent-hud__model-caret"
-					data-open={isOpen || undefined}
-					viewBox="0 0 16 14"
-					aria-hidden="true">
-					<path d="M8 12.75 1.25 1.25h13.5Z" />
-				</svg>
-			</button>
+				onClick={toggleMenu}
+			/>
 			{isOpen ? (
 				<div
 					ref={menuRef}

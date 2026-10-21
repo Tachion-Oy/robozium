@@ -1,9 +1,10 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/UnlockApiKeys.tsx at 076b2c9.
 // Adapted: the status and the unlock and remove requests come from
 // credentials/useCredentials as props; the menu keeps its open state, password
-// field and error text.
+// field and error text. The trigger markup lives in SelectorTrigger.
 import { useEffect, useRef, useState, type SubmitEvent } from "react"
 import type { CredentialsState } from "../../credentials/useCredentials"
+import { SelectorTrigger } from "./SelectorTrigger"
 
 export function UnlockApiKeys({ credentials }: { credentials: CredentialsState }) {
 	const { status, pending, refresh } = credentials
@@ -74,13 +75,12 @@ export function UnlockApiKeys({ credentials }: { credentials: CredentialsState }
 		<div
 			ref={rootRef}
 			className="agent-hud__model-selector agent-hud__model-selector--ready agent-hud__credential-selector">
-			<button
+			<SelectorTrigger
 				ref={triggerRef}
-				type="button"
-				className="agent-hud__selector-trigger agent-hud__model-trigger"
+				label={status.locked ? "Secrets locked" : "Secrets unlocked"}
+				open={open}
 				title={status.locked ? "Secrets locked" : "Secrets unlocked"}
 				aria-haspopup="dialog"
-				aria-expanded={open}
 				onClick={() => {
 					if (open) close()
 					else {
@@ -88,18 +88,8 @@ export function UnlockApiKeys({ credentials }: { credentials: CredentialsState }
 						setOpen(true)
 						if (!status.locked) void refresh()
 					}
-				}}>
-				<span>
-					{status.locked ? "Secrets locked" : "Secrets unlocked"}
-				</span>
-				<svg
-					className="agent-hud__model-caret"
-					data-open={open || undefined}
-					viewBox="0 0 16 14"
-					aria-hidden="true">
-					<path d="M8 12.75 1.25 1.25h13.5Z" />
-				</svg>
-			</button>
+				}}
+			/>
 			{open ? (
 				<div
 					className="agent-hud__model-menu agent-hud__credential-menu"
