@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { RunHudPhase } from "../../../../lib/robozium/session/reducer"
 import {
 	resolveHudPresentation,
+	type HudScreen,
 } from "../../../../app/components/hud/hudPresentation"
 
 describe("HUD presentation", () => {
@@ -117,7 +118,10 @@ describe("HUD presentation", () => {
 		expect(onboarding.locked).toBe(true)
 		expect(onboarding.screen).toBe("onboarding")
 		expect(onboarding.headerVariant).toBe("row")
-		expect(onboarding.screenOptions.map(({ value }) => value)).toEqual(["projects", "onboarding", "environment"])
+		const enabled = (selectedScreen: HudScreen) => resolveHudPresentation({ ...input, selectedScreen })
+			.screenOptions.map(({ label, disabled }) => [label, !disabled])
+		expect(enabled("projects")).toEqual([["Runs Overview", false], ["Dependencies", false], ["Environment", true]])
+		expect(enabled("environment")).toEqual([["Runs Overview", true], ["Dependencies", false], ["Environment", true]])
 		expect(resolveHudPresentation({ ...input, selectedScreen: "environment" }).screen).toBe("environment")
 		expect(resolveHudPresentation({ ...input, selectedScreen: "dependencies" }).screen).toBe("projects")
 		expect(resolveHudPresentation({ ...input, setupRequired: false, selectedScreen: "onboarding" }).screen).toBe("projects")
