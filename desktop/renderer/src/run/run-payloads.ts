@@ -1,7 +1,10 @@
 // Validate unknown backend payloads and normalize the run fields consumed by desktop.
 // Snapshot history and SSE share the same event decoder; message content stays uninterpreted.
 import { ApiError } from "../api/client"
-import { MessageRole, RunEventType, RunStatus, RuntimeEventCategory, RuntimeEventKind, type RunFrame, type RunView } from "./run-contracts"
+import {
+	LIFECYCLE_DETAIL_KEYS, LifecycleStatus, MessageRole, RunEventType, RunLifecycleKind, RunStatus, RuntimeEventCategory, RuntimeEventKind,
+	type LifecycleDetails, type RunFrame, type RunView,
+} from "./run-contracts"
 
 function malformed(): never {
 	throw new ApiError("malformed", "The backend returned invalid run data.")
@@ -38,6 +41,18 @@ function readMember<T extends string>(value: unknown, values: readonly T[]): T {
 	return member
 }
 
+/** Detail fields are display-only scalars; absent fields stay absent. */
+function readLifecycleDetails(payload: Record<string, unknown>): LifecycleDetails {
+	const details: Record<string, string | number | null> = {}
+	for (const key of LIFECYCLE_DETAIL_KEYS) {
+		const value = payload[key]
+		if (value === undefined) continue
+		if (value !== null && typeof value !== "string" && typeof value !== "number") malformed()
+		details[key] = value
+	}
+	return details
+}
+
 /** Unconsumed event kinds are ignored; malformed consumed fields are errors. */
 export function parseRunEvent(value: unknown): RunFrame | null {
 	const event = readObject(value)
@@ -67,8 +82,17 @@ export function parseRunEvent(value: unknown): RunFrame | null {
 		}
 		case RunEventType.ScriptOutput:
 			return { type, sequence: readSequence(event.sequence), content: readString(readObject(event.payload).content) }
-		case RunEventType.RunLifecycle:
-			return { type, sequence: readSequence(readObject(event.payload).sequence) }
+		case RunEventType.RunLifecycle: {
+			const payload = readObject(event.payload)
+			return {
+				type,
+				sequence: readSequence(payload.sequence),
+				kind: readMember(payload.kind, Object.values(RunLifecycleKind)),
+				agent: readString(payload.agent_name),
+				status: payload.status == null ? null : readMember(payload.status, Object.values(LifecycleStatus)),
+				details: readLifecycleDetails(payload),
+			}
+		}
 		case RunEventType.RuntimeEvent: {
 			const payload = readObject(event.payload)
 			if (payload.category !== RuntimeEventCategory.Llm || payload.kind !== RuntimeEventKind.Retrying) return null

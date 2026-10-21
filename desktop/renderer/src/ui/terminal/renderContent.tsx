@@ -1,12 +1,13 @@
+// Copied from robozium-electron/desktop/web/app/components/terminal/renderContent.tsx at 076b2c9.
 import { Fragment, type ReactNode } from "react"
 import {
 	StreamLogItemKind,
 	type LifecycleLogItem,
 	type MessageLogItem,
 	type StreamLogItem,
-} from "@/lib/robozium/view-model"
-import { RunLifecycleKind } from "@/lib/robozium/wire"
-import { stringifyValue } from "@/lib/robozium/stream"
+} from "../../log/view-model"
+import { RunLifecycleKind } from "../../run/run-contracts"
+import { stringifyValue } from "../../log/run-log"
 import { renderDemoContent } from "./demo/renderDemoContent"
 import { TerminalBanner, bannerRevealText } from "./TerminalBanner"
 import { TerminalCursor } from "./TerminalCursor"

@@ -288,7 +288,7 @@ test("prefix recovery followed by a split keeps unique script identities and bot
 	const selectedId = selectRunDisplay(state).id
 	state = snapshot(state, { frames: [script(2, "Prefix")] })
 	expect(selectRunDisplay(state)).toMatchObject({ id: selectedId, text: "PrefixLater" })
-	state = snapshot(state, { frames: [{ type: "run_lifecycle", sequence: 3 }] })
+	state = snapshot(state, { frames: [{ type: "run_lifecycle", sequence: 3, kind: "started", agent: "root", status: null, details: {} }] })
 	expect(selectRunDisplay(state)).toMatchObject({ id: selectedId, text: "Later" })
 	expect(state.hud.view.messages.map(item => item.id)).toEqual(["script:2", "script:4", "message:last"])
 	state = select(state, 0)

@@ -1,15 +1,12 @@
-"use client"
-
+// Copied from robozium-electron/desktop/web/app/components/terminal/TerminalStream.tsx at 076b2c9.
+// Adapted: the caller supplies the items, and the pane is always readable, so the HUD visibility store is gone.
 import { Fragment, memo, useCallback, useEffect, useState } from "react"
-import { useStore } from "zustand"
-import { useRunSessionSelector } from "@/hooks/useRunSession"
-import { hudVisibilityStore } from "@/lib/robozium/hud-visibility"
 import {
 	isPromptUserAssistantMessage,
 	StreamLogItemKind,
 	type MessageLogItem,
 	type StreamLogItem,
-} from "@/lib/robozium/view-model"
+} from "../../log/view-model"
 import { TerminalLog } from "./TerminalLog"
 import {
 	EXPANDED_MESSAGE_MAX_CHARS,
@@ -22,7 +19,7 @@ import {
 } from "./renderContent"
 
 type TerminalStreamProps = {
-	items?: StreamLogItem[]
+	items: readonly StreamLogItem[]
 	/** Allow scrolling and message expansion in a dedicated log panel. */
 	readable?: boolean
 }
@@ -61,29 +58,12 @@ export function getRevealText(item: MessageLogItem): string {
 	return messageRevealText(item)
 }
 
-export function TerminalStream({ items: providedItems, readable = false }: TerminalStreamProps) {
-	const items = useRunSessionSelector(
-		(state) => state.log.items,
-		providedItems ?? [],
-	)
+export function TerminalStream({ items, readable = false }: TerminalStreamProps) {
 	const [reveal, setReveal] = useState({ index: -1, chars: 0 })
 	const [expandedRows, setExpandedRows] = useState<Set<number>>(() => new Set())
-	// The transcript becomes scrollable whenever the run HUD or recovery matrix
-	// is minimized. Landing content has no run overlay and remains scrollable.
-	const backdropScrollable = useStore(
-		hudVisibilityStore,
-		(state) => !state.open || !state.runActive,
-	)
-	const hudDismissed = useStore(hudVisibilityStore, (state) => !state.open)
-	const scrollable = readable || backdropScrollable
 	// A dedicated log panel is readable while the surrounding HUD remains open.
-	const messagesInteractive = readable || (scrollable && hudDismissed)
-
-	useEffect(() => {
-		return hudVisibilityStore.subscribe((state, previousState) => {
-			if (state.open && !previousState.open) setExpandedRows(new Set())
-		})
-	}, [])
+	const scrollable = readable
+	const messagesInteractive = readable
 
 	const latestRevealIndex = items.length - 1
 	const latestRevealItem =

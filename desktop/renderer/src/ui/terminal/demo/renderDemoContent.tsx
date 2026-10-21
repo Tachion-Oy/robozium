@@ -1,5 +1,6 @@
+// Copied from web/app/components/terminal/demo/renderDemoContent.tsx at db6a20f.
 import { Fragment, type ReactNode } from "react"
-import type { MessageLogItem } from "@/lib/robozium/view-model"
+import type { MessageLogItem } from "../../../log/view-model"
 import { TerminalEmphasis } from "../TerminalEmphasis"
 import { TerminalTag } from "../TerminalTag"
 

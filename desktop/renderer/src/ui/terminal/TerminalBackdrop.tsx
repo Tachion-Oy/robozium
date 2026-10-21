@@ -1,3 +1,4 @@
+// Copied from robozium-electron/desktop/web/app/components/terminal/TerminalBackdrop.tsx at 076b2c9.
 import type { ReactNode } from "react"
 import { DisplayArt } from "../branding/DisplayArt"
 import { TerminalFrame } from "./TerminalFrame"

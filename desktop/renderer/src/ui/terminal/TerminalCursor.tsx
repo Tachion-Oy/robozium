@@ -1,4 +1,5 @@
-import { logRoleToCaret, StreamLogRole } from "@/lib/robozium/view-model"
+// Copied from web/app/components/terminal/TerminalCursor.tsx at db6a20f.
+import { logRoleToCaret, StreamLogRole } from "../../log/view-model"
 
 type TerminalCursorProps = {
 	role?: StreamLogRole

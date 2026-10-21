@@ -1,11 +1,10 @@
-"use client"
-
+// Copied from robozium-electron/desktop/web/app/components/terminal/demo/DemoLog.tsx at 076b2c9.
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import {
 	StreamLogItemKind,
 	type MessageLogItem,
 	type StreamLogItem,
-} from "@/lib/robozium/view-model"
+} from "../../../log/view-model"
 import { TerminalLog } from "../TerminalLog"
 import { placeholderLogItems } from "../placeholders"
 import { C64Loader } from "../C64Loader"

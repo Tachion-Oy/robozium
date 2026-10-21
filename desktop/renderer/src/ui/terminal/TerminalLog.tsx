@@ -1,5 +1,4 @@
-"use client"
-
+// Copied from web/app/components/terminal/TerminalLog.tsx at db6a20f.
 import { useLayoutEffect, useRef, type ReactNode } from "react"
 
 type TerminalLogProps = {

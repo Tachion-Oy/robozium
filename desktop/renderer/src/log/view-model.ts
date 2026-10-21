@@ -1,4 +1,6 @@
-import { type LifecycleStatus, RunLifecycleKind } from "./wire"
+// Copied from web/lib/robozium/view-model.ts at db6a20f.
+// Adapted: lifecycle kinds come from the desktop run contracts, which use const objects.
+import type { LifecycleStatus, RunLifecycleKind } from "../run/run-contracts"
 import type { ParsedMessageContent } from "./normalize"
 
 /** UI stream item role understood by terminal message rows. */
@@ -45,7 +47,7 @@ export enum StreamLogItemKind {
 export type LifecycleStartedLogItem = {
 	kind: StreamLogItemKind.Lifecycle
 	role: StreamLogRole.Lifecycle
-	phase: `${RunLifecycleKind.Started}`
+	phase: typeof RunLifecycleKind.Started
 	agentName: string
 	/** API lifecycle payload entries rendered in the process banner. */
 	details: Record<string, string>
@@ -54,7 +56,7 @@ export type LifecycleStartedLogItem = {
 export type LifecycleStoppedLogItem = {
 	kind: StreamLogItemKind.Lifecycle
 	role: StreamLogRole.Lifecycle
-	phase: `${RunLifecycleKind.Stopped}`
+	phase: typeof RunLifecycleKind.Stopped
 	agentName: string
 	status: LifecycleStatus | null
 	/** API lifecycle payload entries rendered in the process banner. */

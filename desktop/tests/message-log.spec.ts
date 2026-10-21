@@ -1,0 +1,103 @@
+import { expect, type Page } from "@playwright/test"
+import { writeFile } from "node:fs/promises"
+import { selectLogItems } from "../renderer/src/log/run-log"
+import { parseRunEvent } from "../renderer/src/run/run-payloads"
+import type { RunRecord } from "../renderer/src/run/run-contracts"
+import { test, prepareRun, message, emit, start, launchButton, replyBox } from "./run-fixture"
+import { captureNative, setNativeViewport } from "./native"
+
+const lifecycle = (sequence: number, kind: string, extra: Record<string, unknown> = {}) => ({
+	type: "run_lifecycle", payload: { kind, agent_name: "orchestrator", sequence, parent_agent_name: null, status: null, model_name: "mock", ...extra },
+})
+const script = (sequence: number, content: string) => ({ type: "script_output", sequence, payload: { content } })
+const wire = (role: string, content: string, sequence: number, kind: string | null = null) => ({
+	type: "message", sequence, message_id: `m${sequence}`, payload: { role, content, message_kind: kind },
+})
+const records = (...frames: unknown[]) => frames.map(frame => parseRunEvent(frame) as RunRecord)
+
+const toggle = (page: Page, name: "Show message log" | "Hide message log") => page.getByRole("button", { name, exact: true })
+const log = (page: Page) => page.getByRole("region", { name: "Message log" })
+
+test("the log projects messages, grouped script output and lifecycle banners from run records", () => {
+	const items = selectLogItems(records(
+		lifecycle(0, "started"),
+		wire("assistant", JSON.stringify({ action: "run_script", rationale: "Inspect", path: "a.py" }), 1),
+		script(2, "line one\n"),
+		script(3, "line two\n"),
+		{ type: "runtime_event", sequence: 4, payload: { category: "llm", kind: "retrying", agent_name: "orchestrator" } },
+		script(5, "after retry"),
+		wire("user", "plain output", 6, "script_result"),
+		wire("user", "unlabelled", 7),
+		wire("error", "Boom", 8),
+		lifecycle(9, "stopped", { status: "completed" }),
+	))
+	expect(items).toEqual([
+		{ kind: "lifecycle", role: "lifecycle", phase: "started", agentName: "orchestrator", details: { model_name: "mock" } },
+		{ kind: "message", role: "agent", content: JSON.stringify({ action: "run_script", rationale: "Inspect", path: "a.py" }),
+			parsed: { kind: "assistant", action: "run_script", rationale: "Inspect", extra: { path: "a.py" } } },
+		// A retry is not displayed, so it does not split the script output.
+		{ kind: "message", role: "script", content: "line one\nline two\nafter retry" },
+		{ kind: "message", role: "tool", content: "plain output", parsed: { kind: "user", caller: "script_result", extra: {} } },
+		{ kind: "message", role: "tool", content: "unlabelled" },
+		{ kind: "message", role: "error", content: "Boom", parsed: { kind: "error", value: "Boom" } },
+		{ kind: "lifecycle", role: "lifecycle", phase: "stopped", agentName: "orchestrator", status: "completed",
+			details: { parent_agent_name: "null", status: "completed", model_name: "mock" } },
+	])
+	// The selector keeps no state: recovered history and live appends give the same rows.
+	const events = records(script(1, "a"), script(2, "b"), wire("assistant", "{}", 3))
+	expect(selectLogItems(events)).toEqual(selectLogItems([...events]))
+})
+
+test("the toggle opens the reference placeholder before a run and the run's rows during one", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	await backend.open()
+	await expect(log(page)).toHaveCount(0)
+	await toggle(page, "Show message log").click()
+	await expect(toggle(page, "Hide message log")).toHaveAttribute("aria-expanded", "true")
+	await expect(page.locator(".desktop-workspace__panes")).toHaveAttribute("data-log-open", "true")
+	// Without an active run the pane shows the titled placeholder log.
+	await expect(log(page).locator(".app-nav__brand")).toBeVisible()
+	await expect(log(page).locator(".term-msg-badge")).not.toHaveCount(0)
+	await toggle(page, "Hide message log").click()
+	await expect(log(page)).toHaveCount(0)
+
+	await launchButton(page, "existing-project").click()
+	await expect(replyBox(page)).toBeFocused()
+	await expect.poll(() => run.streams.length).toBe(1)
+	await toggle(page, "Show message log").click()
+	await expect(log(page).locator(".app-nav__brand")).toHaveCount(0)
+	for (const frame of [lifecycle(1, "started"), message(2, "Hello from the agent"), script(3, "line one "), script(4, "line two")])
+		emit(run.streams[0], frame)
+	await expect(log(page)).toContainText("NEW PROCESS")
+	await expect(log(page)).toContainText("orchestrator")
+	await expect(log(page)).toContainText("Hello from the agent")
+	await expect(log(page)).toContainText("line one line two")
+	// The HUD keeps working beside the open log.
+	await expect(page.locator(".agent-hud__replyBox--agent")).toContainText("line one line two")
+	await toggle(page, "Hide message log").click()
+	await expect(log(page)).toHaveCount(0)
+	await expect(page.locator(".desktop-workspace__panes")).not.toHaveAttribute("data-log-open")
+})
+
+for (const theme of ["dark", "light"]) {
+	test(`the open log sits beside or below the HUD in ${theme}`, async ({ desktop: { app, page }, backend }, testInfo) => {
+		const run = prepareRun(backend)
+		await start(page, backend)
+		await expect.poll(() => run.streams.length).toBe(1)
+		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+		await expect(page.locator("html")).toHaveAttribute("data-theme", theme)
+		emit(run.streams[0], lifecycle(1, "started"))
+		emit(run.streams[0], message(2, "Hello from the agent"))
+		await toggle(page, "Show message log").click()
+		await expect(log(page)).toContainText("Hello from the agent")
+		for (const [width, height, sideBySide] of [[1260, 780, true], [900, 780, false]] as const) {
+			await setNativeViewport(app, page, width, height, 1)
+			const [hud, pane] = await Promise.all([page.locator(".agent-hud").boundingBox(), log(page).boundingBox()])
+			expect(sideBySide ? pane!.x >= hud!.x + hud!.width - 1 : pane!.y >= hud!.y + hud!.height - 1).toBe(true)
+			expect(await page.evaluate(() => document.documentElement.scrollWidth === innerWidth)).toBe(true)
+			const screenshot = testInfo.outputPath(`message-log-${theme}-${width}.png`)
+			await writeFile(screenshot, (await captureNative(app, page, width, height))!)
+			await testInfo.attach(`message-log-${theme}-${width}.png`, { path: screenshot, contentType: "image/png" })
+		}
+	})
+}

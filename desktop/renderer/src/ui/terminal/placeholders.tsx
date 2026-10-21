@@ -1,9 +1,10 @@
+// Copied from robozium-electron/desktop/web/app/components/terminal/placeholders.tsx at 076b2c9.
 import {
 	StreamLogItemKind,
 	StreamLogRole,
 	type StreamLogItem,
-} from "@/lib/robozium/view-model"
-import { RunLifecycleKind } from "@/lib/robozium/wire"
+} from "../../log/view-model"
+import { RunLifecycleKind } from "../../run/run-contracts"
 
 /**
  * Visual fixture data for the home page. Structured exactly like the live

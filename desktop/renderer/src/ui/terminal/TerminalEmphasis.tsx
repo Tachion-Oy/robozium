@@ -1,3 +1,4 @@
+// Copied from web/app/components/terminal/TerminalEmphasis.tsx at db6a20f.
 import type { ReactNode } from "react";
 
 /**

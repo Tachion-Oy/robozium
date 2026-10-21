@@ -112,4 +112,14 @@ The web keeps one large session store because its terminal is always on screen.
 The desktop shows the message log only occasionally, so it keeps no log state:
 `run-reducer` already retains every durable event of the displayed run, and the
 HUD keeps only its own projection. The log is a pure selector over those events,
-computed only while the log pane is mounted (roadmap step 13).
+computed only while the log pane is mounted:
+
+- `log/run-log` `selectLogItems` maps run records to the reference log rows:
+  messages with parsed content, consecutive script output as one row (a provider
+  retry does not split it), and lifecycle banners. `run-payloads` keeps the
+  lifecycle kind, agent, status and banner fields for it.
+- `log/useMessageLog` owns only whether the pane is open. Step 13c moves that
+  state into main, which resizes the window and remembers it.
+- `ui/log/MessageLog` memoizes the selector over the displayed run's events and
+  renders the reference `TerminalStream`, or the reference placeholder log when
+  no run is active.

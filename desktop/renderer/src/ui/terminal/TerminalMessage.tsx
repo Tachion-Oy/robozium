@@ -1,5 +1,6 @@
+// Copied from web/app/components/terminal/TerminalMessage.tsx at db6a20f.
 import type { KeyboardEvent, ReactNode } from "react";
-import { logRoleToRowLabel, StreamLogRole } from "@/lib/robozium/view-model";
+import { logRoleToRowLabel, StreamLogRole } from "../../log/view-model";
 
 type TerminalMessageProps = {
   role: StreamLogRole;

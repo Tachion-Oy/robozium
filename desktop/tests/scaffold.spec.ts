@@ -276,6 +276,9 @@ test("switches themes with the keyboard and mouse while retaining focus", async 
 		.toEqual(["Mock model", "Toggle color theme", "Runs Overview"])
 	await expect(root).toHaveAttribute("data-theme", "dark")
 	await expect(shownLabel()).toHaveText("Light")
+	// As in the reference, the message log toggle precedes the header.
+	await page.keyboard.press("Tab")
+	await expect(page.getByRole("button", { name: "Show message log", exact: true })).toBeFocused()
 	await page.keyboard.press("Tab")
 	await expect(modelTrigger(page)).toBeFocused()
 	await page.keyboard.press("Tab")

@@ -1,4 +1,5 @@
-import { StreamLogRole } from "@/lib/robozium/view-model"
+// Copied from web/app/components/terminal/C64Loader.tsx at db6a20f.
+import { StreamLogRole } from "../../log/view-model"
 import { TerminalCursor } from "./TerminalCursor"
 
 export function C64Loader() {
