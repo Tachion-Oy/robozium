@@ -168,3 +168,40 @@ test("different failures stack separately and dismiss independently", async ({ d
 	await expect(copy).toHaveCount(0)
 	await expect(toast(page)).toBeVisible()
 })
+
+test("removing a hovered toast resumes the others once the pointer is elsewhere", async ({ desktop: { app, page }, backend }) => {
+	await refusedCancel(page, backend)
+	await replyBox(page).fill("Keep my reply")
+	await app.evaluate(({ clipboard }) => {
+		clipboard.writeText = () => { throw new Error("Test clipboard unavailable") }
+	})
+	await freeze(page)
+	await page.getByRole("button", { name: "Copy user reply" }).click()
+	await cancel(page).click()
+	const copy = page.getByRole("alert").filter({ hasText: "Copy failed" })
+	await expect(toast(page)).toBeVisible()
+	// The pointer stays still while the dismissed toast leaves, then moves to the HUD.
+	await copy.getByRole("button", { name: "Dismiss error notification" }).click()
+	await page.clock.runFor(250)
+	await expect(copy).toHaveCount(0)
+	const viewport = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }))
+	await page.mouse.move(viewport.width / 2, viewport.height - 10)
+	await page.clock.runFor(5000)
+	await expect(toast(page)).toHaveClass(/agent-error-toast--hidden/)
+})
+
+test("keyboard dismissal without an earlier focus moves to the next toast", async ({ desktop: { app, page }, backend }) => {
+	await refusedCancel(page, backend)
+	await replyBox(page).fill("Keep my reply")
+	await app.evaluate(({ clipboard }) => {
+		clipboard.writeText = () => { throw new Error("Test clipboard unavailable") }
+	})
+	await page.getByRole("button", { name: "Copy user reply" }).click()
+	await cancel(page).click()
+	const copy = page.getByRole("alert").filter({ hasText: "Copy failed" })
+	await expect(toast(page)).toBeVisible()
+	await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+	await copy.getByRole("button", { name: "Dismiss error notification" }).focus()
+	await page.keyboard.press("Enter")
+	await expect(toast(page).getByRole("button", { name: "Dismiss error notification" })).toBeFocused()
+})

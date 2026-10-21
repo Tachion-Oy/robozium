@@ -1,4 +1,4 @@
-import { useRef, type ReactElement } from "react"
+import { useEffect, useRef, type ReactElement } from "react"
 import { dismiss, pause, resume, useNotices } from "../../feedback/notices"
 import { ErrorToastContent } from "./ErrorToast"
 
@@ -7,6 +7,21 @@ export function ToastViewport(): ReactElement {
 	const notices = useNotices()
 	const viewport = useRef<HTMLDivElement>(null)
 	const previousFocus = useRef<HTMLElement | null>(null)
+	// A toast removed under a still pointer never reports leaving; the next hover elsewhere resumes.
+	useEffect(() => {
+		const hoverElsewhere = (event: MouseEvent) => {
+			if (!(event.target instanceof Node && viewport.current?.contains(event.target))) resume()
+		}
+		document.addEventListener("mouseover", hoverElsewhere)
+		return () => document.removeEventListener("mouseover", hoverElsewhere)
+	}, [])
+	// Return to the element focused before the toasts, or else to another toast's Dismiss.
+	const restoreFocus = (id: number) => {
+		const previous = previousFocus.current
+		if (previous?.isConnected) return previous.focus()
+		const next = notices.findIndex(notice => notice.id !== id && notice.visible)
+		viewport.current?.children[next]?.querySelector("button")?.focus()
+	}
 	return (
 		<div ref={viewport} role="region" aria-label="Notifications"
 			className="pointer-events-none fixed inset-x-0 top-4 z-[9999] flex flex-col items-center gap-2"
@@ -20,7 +35,7 @@ export function ToastViewport(): ReactElement {
 			}}>
 			{notices.map(notice => <ErrorToastContent key={notice.id} {...notice}
 				isVisible={notice.visible} onDismiss={() => {
-					if (viewport.current?.contains(document.activeElement)) previousFocus.current?.focus()
+					if (viewport.current?.contains(document.activeElement)) restoreFocus(notice.id)
 					dismiss(notice.id)
 				}} />)}
 		</div>
