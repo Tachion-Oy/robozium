@@ -9,8 +9,13 @@ import { EnvironmentSaveForm } from "./EnvironmentSaveForm"
 import { EnvironmentVariableEditor } from "./EnvironmentVariableEditor"
 import { EnvironmentVariableList } from "./EnvironmentVariableList"
 
-export function EnvironmentPanel() {
-	const environment = useEnvironmentEditor()
+type EnvironmentPanelProps = {
+	/** Set during first-start setup, when saving loads the keys without a restart. */
+	onSetupComplete?: () => Promise<void>
+}
+
+export function EnvironmentPanel({ onSetupComplete }: EnvironmentPanelProps = {}) {
+	const environment = useEnvironmentEditor(onSetupComplete)
 	const { view, editor, editable, loadFailed } = environment
 
 	const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {

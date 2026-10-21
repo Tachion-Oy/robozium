@@ -6,7 +6,9 @@
   `.env.encrypt`, the API reports `setup_required` from `GET /credentials` and
   holds provider actions; the HUD disables projects and header controls and
   replaces **New Project** with **Start Here**, an onboarding guide paged with the
-  run view's message arrows. Mock mode is unaffected.
+  run view's message arrows. The guide adds keys in **Environment**, the only other
+  view available during setup; the first save loads them into the API and unlocks
+  the HUD without a restart. Mock mode is unaffected.
 
 - Send pasted, dropped, or selected images in web replies, including image-only
   replies. Upload while a run is processing, restore pending previews after

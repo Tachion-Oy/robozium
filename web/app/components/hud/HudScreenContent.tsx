@@ -26,6 +26,8 @@ type HudScreenContentProps = {
 	navigation: HudNavigation
 	dispatch: Dispatch<HudNavigationEvent>
 	onLaunch: (draft: LaunchDraft) => Promise<boolean>
+	/** The first save during setup loaded API keys; unlock the HUD. */
+	onSetupComplete?: () => Promise<void>
 }
 
 export function HudScreenContent({
@@ -41,6 +43,7 @@ export function HudScreenContent({
 	navigation,
 	dispatch,
 	onLaunch,
+	onSetupComplete,
 }: HudScreenContentProps) {
 	const pending = useStore(hudVisibilityStore, (state) => state.navigationPending)
 	switch (presentation.screen) {
@@ -69,7 +72,7 @@ export function HudScreenContent({
 				/>
 			) : null
 		case "environment":
-			return <EnvironmentPanel />
+			return <EnvironmentPanel onSetupComplete={presentation.locked ? onSetupComplete : undefined} />
 		case "dependencies":
 			return <DependencyPanel />
 		case "onboarding":

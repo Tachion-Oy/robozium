@@ -17,7 +17,7 @@ export type HudPresentation = {
 	headerVariant: "landing" | "row"
 	showProjectBadge: boolean
 	enableCornerControls: boolean
-	/** No API keys were configured at startup; only onboarding stays interactive. */
+	/** No API keys are configured yet; only onboarding and Environment stay interactive. */
 	locked: boolean
 }
 
@@ -43,6 +43,7 @@ const SCREEN_OPTIONS: Record<HudContext, readonly HudScreenOption[]> = {
 const SETUP_SCREEN_OPTIONS: readonly HudScreenOption[] = [
 	{ value: "projects", label: "Runs Overview" },
 	{ value: "onboarding", label: "Start Here" },
+	{ value: "environment", label: "Environment" },
 ]
 
 export function resolveHudPresentation({

@@ -97,6 +97,21 @@ it("edits a suggested secret, saves its base name directly, and clears submitted
 	expect(screen.queryByDisplayValue("dummy-key")).toBeNull()
 })
 
+it("completes first-start setup without asking for a restart", async () => {
+	const onSetupComplete = vi.fn(async () => {})
+	render(<EnvironmentPanel onSetupComplete={onSetupComplete} />)
+	await openSuggestion()
+	fireEvent.change(screen.getByLabelText("Value for SERVICE_API_KEY"), { target: { value: "dummy-key" } })
+	apply()
+	enterPassword(true)
+	fireEvent.click(screen.getByRole("button", { name: "Encrypt and save" }))
+	await waitFor(() => expect(onSetupComplete).toHaveBeenCalledOnce())
+	expect(mocks.showNotificationToast).toHaveBeenCalledWith({
+		tone: "success", title: "API keys saved",
+		message: "Robozium is ready. Start your first run with New Project.",
+	})
+})
+
 it.each([
 	["", "", "Encryption password required", "Enter an encryption password before saving."],
 	["dummy-password", "", "Passwords do not match", "Enter the same password in both fields."],

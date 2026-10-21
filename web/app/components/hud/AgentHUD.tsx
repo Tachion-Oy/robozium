@@ -48,7 +48,7 @@ export function AgentHUD({
 	modelSelectionPromise = null,
 	defaultModelSelectionPromise = null,
 }: AgentHUDProps) {
-	const setupRequired = useSetupRequired(initialSetupRequired)
+	const { setupRequired, refresh: refreshSetup } = useSetupRequired(initialSetupRequired)
 	const [layoutMode, setLayoutMode] = useState<LayoutMode>("top")
 	const [navigation, dispatch] = useReducer(reduceHudNavigation, runId, initialHudNavigation)
 	const launchProject = useProjectLaunch(
@@ -221,6 +221,10 @@ export function AgentHUD({
 							initialProjects={initialProjects}
 							layoutMode={layoutMode}
 							onReturnToRun={() => selectScreen("run")}
+							onSetupComplete={async () => {
+								await refreshSetup()
+								selectScreen("projects")
+							}}
 						/>
 					</ResizableHudBox>
 				</div>

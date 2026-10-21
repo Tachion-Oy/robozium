@@ -54,7 +54,6 @@ export function HudHeader({
 					screen={presentation.screen}
 					options={presentation.screenOptions}
 					onSelectScreen={onSelectScreen}
-					disabled={presentation.locked}
 				/>
 			</div>
 		</div>
