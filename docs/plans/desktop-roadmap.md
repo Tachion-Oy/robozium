@@ -171,6 +171,11 @@ review in one go (84 files, +5.3k lines) and was written against the old
 | **16. Project deletion** | Confirmed deletion of dormant projects with the in-HUD confirmation. Pending deletion survives listings; focus moves to the next row. | Uncertain responses, 409 active-work gate, removal of the displayed run. |
 | **17. Reconnection** | One stream and one serialized snapshot reader per run, with backoff and deadlines. Missing runs return to the overview. No write is retried automatically. | Backend restart mid-run without duplicates; missing-run and terminal-run cases. |
 
+**Dropped from step 17:** #101's `recovery/*`, which reopened the shown run and
+kept the draft across restarts. Closing or restarting the app stops the backend
+and its runs, so there is no live run to reopen and only the draft would
+survive. It returns in one piece if runs ever survive a backend restart.
+
 **Follow-up found in step 15** (its own PR from `main`):
 
 - **Prompts on the stream.** The agent's prompt message arrives over SSE, but
