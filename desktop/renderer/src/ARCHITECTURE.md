@@ -24,6 +24,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `environment/` | Saved settings and secrets requests and validation, the screen's owner and its editor state. |
 | `credentials/` | Secrets status, unlock and remove requests, and the locked-secrets notice. |
 | `feedback/` | Notifications any owner can raise. |
+| `theme/` | The document theme and saving it through the bridge. |
 | `api/` | Shared HTTP/SSE transport, request deadlines, client lifetimes and React request state. |
 | `assets/` | Bundled Anurati status-mark font. |
 
@@ -41,6 +42,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `environment/useEnvironmentEditor` | The saved settings, this app's unsaved edits, the open editor and whether a restart is needed; built on `environment/useEnvironment`, which polls while the screen is visible | Read, save, import, reset |
 | `credentials/useCredentials` | The backend's secrets status (available, locked, removable) | Status read, unlock, remove |
 | `feedback/notices` | Notifications and their pause/dismiss lifetimes | None |
+| `theme/theme` | The document's theme, applied before first render from the bridge's saved value | Save through `setTheme` (IPC) |
 
 `ui/app/App.tsx` composes the owners and keeps navigation (`app/hud-navigation`:
 the screen and the selector's launch draft), the reply draft, divider layout and

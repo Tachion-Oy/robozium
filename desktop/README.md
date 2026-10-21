@@ -6,7 +6,8 @@ Overview, **Launch** a project or create one with **New Project** to watch
 incremental output, messages, script output, prompts, and completion in Current
 Run, answer its prompts, **Interrupt** the working agent or **Cancel** the run.
 A run that completes, fails, is cancelled or goes missing returns to Runs
-Overview. Light/Dark switches the theme. The window frame, header, overview,
+Overview. Light/Dark switches the theme, which is kept for the next launch
+along with a matching window background. The window frame, header, overview,
 capability selector and run view use the accepted experiment's stylesheets and
 markup; credentials follow in a later
 [roadmap](../docs/plans/desktop-roadmap.md) step.
