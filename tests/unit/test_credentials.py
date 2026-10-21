@@ -245,3 +245,47 @@ def test_only_live_mode_requires_setup(tmp_path, monkeypatch, factory, expected)
     monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(tmp_path / ".env.encrypt"))
     client = TestClient(factory())
     assert client.get("/credentials").json()["setup_required"] is expected
+
+
+def save_groq_key(client, *, secret=True):
+    return client.post(
+        "/credentials/environment",
+        json={
+            "revision": client.get("/credentials/environment").json()["revision"],
+            "entries": [{"name": "TEST_GROQ_API_KEY", "value": "groq-synthetic", "secret": secret}],
+            "password": "test-password" if secret else None,
+        },
+    )
+
+
+@pytest.mark.parametrize("secret", [True, False])
+def test_first_setup_save_loads_keys_without_restart(tmp_path, monkeypatch, secret):
+    write_config(tmp_path)
+    monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(tmp_path / ".env.encrypt"))
+    client = TestClient(
+        create_app(deployment=load_hub(start=tmp_path), require_credentials=True)
+    )
+
+    saved = save_groq_key(client, secret=secret)
+
+    assert saved.status_code == 200, saved.text
+    assert os.environ["TEST_GROQ_API_KEY"] == "groq-synthetic"
+    assert client.get("/credentials").json() == {
+        "available": secret,
+        "locked": False,
+        "removable": secret,
+        "setup_required": False,
+    }
+    assert client.post("/run/create", json={"project": "demo"}).status_code != 423
+    # Clearing forgets keys this process loaded, as after an unlock.
+    assert client.post("/credentials/clear").status_code == 200
+    assert ("TEST_GROQ_API_KEY" in os.environ) is not secret
+
+
+def test_later_saves_apply_after_restart(tmp_path, monkeypatch):
+    write_config(tmp_path)
+    monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(tmp_path / ".env.encrypt"))
+    client = TestClient(create_app(deployment=load_hub(start=tmp_path)))
+
+    assert save_groq_key(client).status_code == 200
+    assert "TEST_GROQ_API_KEY" not in os.environ

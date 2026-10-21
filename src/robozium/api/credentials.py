@@ -33,7 +33,7 @@ class LoadedCredentials:
 
     def __init__(self, path: Path = DEFAULT_ENCRYPTED_ENV_PATH) -> None:
         self.path = _encrypted_path(path)
-        # Set at startup only: Compose reads environment files when containers start.
+        # Set at startup, when Compose reads environment files; the first save clears it.
         self.setup_required = False
         self.lock = threading.RLock()
         self.keys: dict[str, bytes] = {}
@@ -50,6 +50,22 @@ class LoadedCredentials:
                 if value is not None and _fingerprint(value) == fingerprint:
                     os.environ.pop(name, None)
             self.keys.clear()
+
+    def load(self, password: str | None) -> None:
+        """Load saved settings into this process, tracking values it adds for clear()."""
+        with self.lock:
+            before = {
+                name: os.environ.get(name)
+                for name in _credential_names(self.path) | {name.removesuffix(ENCRYPTED_SUFFIX) for name in self.encrypted}
+            }
+            load_secrets(self.path, password=password)
+            self.keys.update(
+                {
+                    name: _fingerprint(value)
+                    for name in before
+                    if (value := os.environ.get(name)) is not None and before[name] != value
+                }
+            )
 
     def reset(self) -> None:
         """Delete saved settings and forget loaded credentials without a password."""
@@ -149,6 +165,16 @@ class CredentialGateMiddleware:
         await self.app(scope, receive, send)
 
 
+async def refresh_dependencies(request: Request) -> None:
+    """Re-check dependencies after keys load; observations never fail the request."""
+    monitor = request.app.state.dependency_health
+    if monitor is not None:
+        try:
+            await monitor.run_once()
+        except Exception:
+            logger.warning("Dependency refresh failed after loading API keys")
+
+
 @router.get("/credentials", response_model=CredentialStatus)
 def get_credentials(request: Request, response: Response) -> CredentialStatus:
     response.headers["Cache-Control"] = "no-store"
@@ -174,35 +200,13 @@ async def unlock_credentials(request: Request, response: Response) -> Credential
     if not isinstance(password, str) or not password or len(password) > env.MAX_PASSWORD_CHARS:
         raise HTTPException(status_code=400, detail="A password is required")
     loaded: LoadedCredentials = request.app.state.loaded_credentials
-
-    def load_and_track() -> None:
-        with loaded.lock:
-            before = {
-                name: os.environ.get(name)
-                for name in _credential_names(loaded.path) | {name.removesuffix(ENCRYPTED_SUFFIX) for name in loaded.encrypted}
-            }
-            load_secrets(loaded.path, password=password)
-            loaded.keys.update(
-                {
-                    name: _fingerprint(value)
-                    for name in before
-                    if (value := os.environ.get(name)) is not None and before[name] != value
-                }
-            )
-
     try:
-        await asyncio.to_thread(load_and_track)
+        await asyncio.to_thread(loaded.load, password)
     except (UnicodeError, ValueError):
         raise HTTPException(
             status_code=400, detail="Could not unlock secrets"
         ) from None
-    monitor = request.app.state.dependency_health
-    if monitor is not None:
-        try:
-            await monitor.run_once()
-        except Exception:
-            # Dependency observations must not turn a successful unlock into a retry.
-            logger.warning("Dependency refresh failed after API key unlock")
+    await refresh_dependencies(request)
     response.headers["Cache-Control"] = "no-store"
     return credential_status(loaded)
 
