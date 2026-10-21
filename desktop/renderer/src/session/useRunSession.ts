@@ -4,6 +4,8 @@
 // writes to the displayed run belong to useRunMutations, bound to this hook's scope.
 import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
+import { showErrorToast } from "../feedback/notices"
+import { RunStatus } from "../run/run-contracts"
 import { watchRun } from "../run/run-updates"
 import { reduceRunSession, type RunSession } from "./session-reducer"
 
@@ -41,7 +43,11 @@ export function useRunSession(client: DesktopApiClient | null): RunSessionState 
 		lifetime.current = new AbortController()
 		setScope(lifetime.current.signal)
 		dispose.current = watchRun(client, runId, project, action => {
-			if (generation.current === current) dispatch(action)
+			if (generation.current !== current) return
+			dispatch(action)
+			if (action.type === "snapshot" && action.view.status === RunStatus.Failed) {
+				showErrorToast({ title: "Run failed", message: `Could not run "${project}".`, detail: action.view.error })
+			}
 		})
 	}
 	const open = (runId: string, project: string) => {

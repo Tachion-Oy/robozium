@@ -132,7 +132,7 @@ for (const failure of ["rejection", "refusal", "timeout"] as const) {
 		await send(page).click()
 		if (failure === "timeout") await page.clock.fastForward(10_001)
 		await expect(page.getByRole("alert").filter({ hasText: "Reply failed" }))
-			.toContainText("Reply failed: Could not send your reply. Your draft has been kept.")
+			.toContainText("Could not send your reply. Your draft has been kept.")
 		await expect(editor).toHaveValue("Keep me")
 		await expect(send(page)).toBeEnabled()
 		await page.clock.fastForward(30_000)

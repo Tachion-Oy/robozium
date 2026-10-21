@@ -161,6 +161,12 @@ backend before trying again. Launching another project replaces the local
 subscription without cancelling the previous backend run. The project label
 always identifies the captured run.
 
+Action notifications appear as top-centre toasts over the HUD in both themes.
+Errors are announced as alerts; warnings and successes are polite status messages.
+Each toast has **Dismiss**, expires after five seconds, and pauses while hovered.
+A repeated title replaces its earlier toast. Connection, model and run errors
+that need Retry remain in the persistent notices row.
+
 Opening the event stream starts the prepared run. A snapshot is read immediately,
 then every two seconds after the previous read settles, with ten-second deadlines.
 Snapshots and events merge by sequence/message identity. As in the reference,
