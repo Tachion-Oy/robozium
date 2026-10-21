@@ -113,7 +113,8 @@ does not prevent creating documents the user has requested.
 ## HUD file links (`<file src="...">label</file>`)
 
 When you create a file that the user should open from the HUD, link it using
-an explicit file tag.
+an explicit file tag. For images to display in the browser HUD, use the inline
+image format below.
 
 ### Required link format
 
@@ -148,6 +149,28 @@ to:
 3. Do not emit traversal segments like `..` in `src`.
 4. Do not include a leading slash in `src`.
 
+## Inline images in the browser HUD
+
+Present images alongside your explanation using Markdown image syntax:
+
+```md
+![Chart description](projects/example/images/chart.png)
+![Reference photo](https://example.com/photo.jpg)
+```
+
+Use the actual hub-relative path, derived from the file tool base just like a
+`<file>` link. For paths containing spaces, enclose the destination in angle
+brackets: `![Chart](<projects/example/images/my chart.png>)`. External sources
+must be direct HTTP/HTTPS image URLs, not web pages. Describe each image in its
+alternative text. Multiple images can appear in one response; users can click
+each preview to open a larger view. A sanitized `<img src="..." alt="...">` also
+works. Ordinary file links remain links rather than automatically becoming images.
+
+Save images intended for later viewing as project artifacts before presenting
+them. Pasted reply attachments are temporary and disappear after the run's workers
+stop; do not rely on those paths for lasting output. Remote URLs can also expire.
+The desktop HUD does not yet render these previews.
+
 ## HUD message formatting (markdown + HTML)
 
 HUD messages are rendered with GitHub-Flavored Markdown, and raw HTML is also
@@ -167,6 +190,7 @@ These render as expected:
 - Links (external `http(s)` links open in a new tab)
 - GFM tables (`| col | col |` with a `| --- | --- |` separator row)
 - The `<file src="...">label</file>` tag described above
+- Images in the browser HUD, using the inline image format described above
 
 Raw HTML using the elements above is fine (for example, a hand-written
 `<table>...</table>`); GFM markdown syntax is preferred where it exists.
@@ -174,9 +198,9 @@ Raw HTML using the elements above is fine (for example, a hand-written
 ### Not rendered (silently dropped)
 
 For safety, anything outside the allowed set is removed along with its
-content. In particular, do NOT rely on: `<script>`, `<style>`, `<img>`,
+content. In particular, do NOT rely on: `<script>`, `<style>`,
 `<iframe>`, embedded media, or inline event handlers / `style` attributes.
-Reference images and other media as file links instead.
+Reference other media as file links instead.
 
 ## Answering questions
 

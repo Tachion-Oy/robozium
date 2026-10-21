@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Display saved and web images inline in browser HUD responses, with compact
+  previews, an accessible larger viewer, and an original-image link. Preserve
+  image previews while output streams and show a fallback when images cannot load.
+
 - Guide fresh live starts through API key setup in the web HUD. Without `.env` or
   `.env.encrypt`, the API reports `setup_required` from `GET /credentials` and
   holds provider actions; the HUD disables projects and header controls and
@@ -14,7 +18,6 @@
   warning and success tones, Dismiss, and a five-second lifetime that pauses on
   hover. Preserve reply focus and use no inline styles under the renderer CSP.
   Show the backend error when an accepted run fails during execution.
-
 
 - Send pasted, dropped, or selected images in web replies, including image-only
   replies. Upload while a run is processing, restore pending previews after
