@@ -106,7 +106,7 @@ describe("HUD presentation", () => {
 		}).headerVariant).toBe("row")
 	})
 
-	it("limits a locked HUD to Runs Overview and onboarding", () => {
+	it("limits a locked HUD to Runs Overview, onboarding and Environment", () => {
 		const input = {
 			hasRun: false,
 			phase: RunHudPhase.Passive,
@@ -117,8 +117,9 @@ describe("HUD presentation", () => {
 		expect(onboarding.locked).toBe(true)
 		expect(onboarding.screen).toBe("onboarding")
 		expect(onboarding.headerVariant).toBe("row")
-		expect(onboarding.screenOptions.map(({ value }) => value)).toEqual(["projects", "onboarding"])
-		expect(resolveHudPresentation({ ...input, selectedScreen: "environment" }).screen).toBe("projects")
+		expect(onboarding.screenOptions.map(({ value }) => value)).toEqual(["projects", "onboarding", "environment"])
+		expect(resolveHudPresentation({ ...input, selectedScreen: "environment" }).screen).toBe("environment")
+		expect(resolveHudPresentation({ ...input, selectedScreen: "dependencies" }).screen).toBe("projects")
 		expect(resolveHudPresentation({ ...input, setupRequired: false, selectedScreen: "onboarding" }).screen).toBe("projects")
 	})
 })

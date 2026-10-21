@@ -23,13 +23,13 @@ describe("OnboardingHud", () => {
 		expect(screen.getByRole("link", { name: "OpenRouter keys" })).not.toBeNull()
 
 		fireEvent.click(arrow("Jump to latest agent message"))
-		expect(screen.getByRole("heading", { name: "Optional: encrypt your keys" })).not.toBeNull()
+		expect(screen.getByRole("heading", { name: "4. Start your first run" })).not.toBeNull()
 		expect(arrow("Next agent message").disabled).toBe(true)
 		expect(arrow("Jump to latest agent message").disabled).toBe(true)
 
 		fireEvent.click(arrow("Previous agent message"))
-		expect(screen.getByRole("heading", { name: "4. Restart Robozium" })).not.toBeNull()
-		expect(screen.getByRole("img", { name: "A terminal running ./start" })).not.toBeNull()
+		expect(screen.getByRole("heading", { name: "3. Encrypt and save" })).not.toBeNull()
+		expect(screen.getByRole("img", { name: "A padlock protecting saved API keys" })).not.toBeNull()
 
 		fireEvent.click(arrow("Jump to first agent message"))
 		expect(screen.getByRole("heading", { name: "Welcome to Robozium" })).not.toBeNull()

@@ -13,7 +13,18 @@ test("a live start without API key files locks the HUD and guides setup", async 
 	await expect(page.getByRole("button", { name: "New Project", exact: true })).toHaveCount(0)
 	await expect(page.getByRole("button", { name: "Toggle color theme" })).toBeDisabled()
 	await expect(page.locator(".agent-hud__model-trigger").first()).toBeDisabled()
-	await expect(page.locator(".agent-hud__view-trigger")).toBeDisabled()
+
+	const view = page.locator(".agent-hud__view-trigger")
+	await view.click()
+	const options = page.getByRole("listbox", { name: "HUD view" }).getByRole("option")
+	await expect(options).toHaveCount(3)
+	for (const name of ["Runs Overview", "Start Here", "Environment"]) {
+		await expect(options.filter({ hasText: name })).toHaveCount(1)
+	}
+	await page.getByRole("option", { name: "Environment" }).click()
+	await expect(page.getByRole("region", { name: "Environment settings" })).toBeVisible()
+	await view.click()
+	await page.getByRole("option", { name: "Runs Overview" }).click()
 
 	await startHere.click()
 	await expect(page.getByRole("heading", { name: "Welcome to Robozium" })).toBeVisible()
@@ -25,10 +36,9 @@ test("a live start without API key files locks the HUD and guides setup", async 
 	const next = page.getByRole("button", { name: "Next agent message" })
 	for (const heading of [
 		"1. Get an API key",
-		"2. Create your .env file",
-		"3. Paste your key",
-		"4. Restart Robozium",
-		"Optional: encrypt your keys",
+		"2. Add it in Environment",
+		"3. Encrypt and save",
+		"4. Start your first run",
 	]) {
 		await next.click()
 		await expect(page.getByRole("heading", { name: heading })).toBeVisible()
