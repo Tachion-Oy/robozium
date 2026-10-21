@@ -564,7 +564,7 @@ describe("AgentHUD setup mode", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "Start Here" }))
 		expect(screen.getByRole("heading", { name: "Welcome to Robozium" })).not.toBeNull()
-		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Start Here" }).disabled).toBe(false)
+		expect(screen.queryByRole("button", { name: "Start Here" })).toBeNull()
 
 		fireEvent.click(screen.getByRole("button", { name: "Previous agent message" }))
 		expect(screen.getByText("Landing HUD content")).not.toBeNull()

@@ -18,9 +18,9 @@ test("a live start without API key files locks the HUD and guides setup", async 
 	await view.click()
 	const options = page.getByRole("listbox", { name: "HUD view" }).getByRole("option")
 	await expect(options).toHaveCount(3)
-	for (const name of ["Runs Overview", "Start Here", "Environment"]) {
-		await expect(options.filter({ hasText: name })).toHaveCount(1)
-	}
+	await expect(options.filter({ hasText: "Runs Overview" })).toBeDisabled()
+	await expect(options.filter({ hasText: "Dependencies" })).toBeDisabled()
+	await expect(options.filter({ hasText: "Environment" })).toBeEnabled()
 	await page.getByRole("option", { name: "Environment" }).click()
 	await expect(page.getByRole("region", { name: "Environment settings" })).toBeVisible()
 	await view.click()

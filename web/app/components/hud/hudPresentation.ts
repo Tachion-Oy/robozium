@@ -7,6 +7,7 @@ export type HudContext = "landing" | "active-run" | "recovery"
 export type HudScreenOption = {
 	value: HudScreen
 	label: string
+	disabled?: boolean
 }
 
 export type HudPresentation = {
@@ -40,11 +41,15 @@ const SCREEN_OPTIONS: Record<HudContext, readonly HudScreenOption[]> = {
 	],
 }
 
-const SETUP_SCREEN_OPTIONS: readonly HudScreenOption[] = [
-	{ value: "projects", label: "Runs Overview" },
-	{ value: "onboarding", label: "Start Here" },
-	{ value: "environment", label: "Environment" },
-]
+/** Start Here opens onboarding from Runs Overview; the menu only leads to Environment. */
+const SETUP_SCREENS: readonly HudScreen[] = ["projects", "onboarding", "environment"]
+
+function setupScreenOptions(screen: HudScreen): readonly HudScreenOption[] {
+	return SCREEN_OPTIONS.landing.map((option) => ({
+		...option,
+		disabled: option.value === "dependencies" || (option.value === "projects" && screen !== "environment"),
+	}))
+}
 
 export function resolveHudPresentation({
 	hasRun,
@@ -66,14 +71,12 @@ export function resolveHudPresentation({
 		: phase === RunHudPhase.Done || runUnavailable
 			? "recovery"
 			: "active-run"
-	const screenOptions: readonly HudScreenOption[] = setupRequired
-		? SETUP_SCREEN_OPTIONS
-		: launch
-			? [...SCREEN_OPTIONS[context], { value: "launch", label: "Launch" }]
-			: SCREEN_OPTIONS[context]
-	const screen = screenOptions.some(({ value }) => value === selectedScreen)
-		? selectedScreen
-		: "projects"
+	const contextOptions: readonly HudScreenOption[] = launch
+		? [...SCREEN_OPTIONS[context], { value: "launch", label: "Launch" }]
+		: SCREEN_OPTIONS[context]
+	const allowedScreens = setupRequired ? SETUP_SCREENS : contextOptions.map(({ value }) => value)
+	const screen = allowedScreens.includes(selectedScreen) ? selectedScreen : "projects"
+	const screenOptions = setupRequired ? setupScreenOptions(screen) : contextOptions
 
 	return {
 		context,
