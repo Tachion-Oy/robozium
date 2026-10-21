@@ -274,6 +274,20 @@ truncated labels retain their full hover tooltips.
 Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset.
 The keypad + and - keys also work with Ctrl.
 
+## Tuning the light theme
+
+The light theme's button, selector and runs-table colours are tuned in one
+place: the **Light theme tuning** block at the top of
+`renderer/src/ui/styles/light-theme.css`. Each `--tune-*` knob scales how much
+accent colour is mixed in at that kind of spot (fill, hover fill, edge, text,
+glow, sheen, shadow, neutral line); `1` is the current look. The base colours
+those knobs scale are in the block below it.
+
+To try values live, run `npm --prefix desktop run start:preview`, switch to
+Light, press Ctrl+Shift+I and edit the knobs on `:root[data-theme="light"]`
+in the Styles pane, then copy the values into the file. After editing the file,
+`npm --prefix desktop run build` and Ctrl+R reload the window.
+
 ## Checks
 
 ```sh

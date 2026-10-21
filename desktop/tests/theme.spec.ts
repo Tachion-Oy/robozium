@@ -93,3 +93,28 @@ test("setTheme accepts only dark or light from the trusted window and document",
 	await expect(readFile(settings, "utf8")).rejects.toThrow()
 	expect(await backgroundColor(app)).toBe("#07080a")
 })
+
+test("light tuning knobs scale the accent mixed into buttons", async ({ desktop: { page } }) => {
+	await page.getByRole("button", { name: toggle }).click()
+	await page.mouse.move(0, 0)
+	const start = page.locator(".agent-hud__start").first()
+	// The button eases its colours, so read once two samples agree.
+	const settled = async () => {
+		const read = () => start.evaluate(element => `${getComputedStyle(element).backgroundColor} ${getComputedStyle(element).color}`)
+		let previous = await read()
+		for (;;) {
+			await page.waitForTimeout(150)
+			const current = await read()
+			if (current === previous) return current
+			previous = current
+		}
+	}
+	const initial = await settled()
+	await page.evaluate(() => document.documentElement.style.setProperty("--tune-fill", "2"))
+	const filled = await settled()
+	expect(filled).not.toBe(initial)
+	await page.evaluate(() => document.documentElement.style.setProperty("--tune-fill", "1"))
+	expect(await settled()).toBe(initial)
+	await page.evaluate(() => document.documentElement.style.setProperty("--tune-text", "0.5"))
+	expect(await settled()).not.toBe(initial)
+})

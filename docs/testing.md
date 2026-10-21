@@ -137,7 +137,8 @@ It cleans up its profiles and processes. Failure diagnostics are retained in
 background survive a restart without dropping other `settings.json` keys, that
 an unreadable settings file opens dark and is never overwritten (the switch
 still applies, with a warning), and that `setTheme` accepts only dark or light
-from the trusted window and document.
+from the trusted window and document. It also checks that the light
+`--tune-*` knobs change button colours and that `1` restores them.
 
 Frame checks cover the bundled fonts, mouse/keyboard theme switching, retained
 focus, the model/theme/view Tab order, and both themes at 1260×780 and 640×420
