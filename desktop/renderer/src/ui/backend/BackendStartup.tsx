@@ -7,7 +7,7 @@ import { HudButton } from "../HudButton"
 import type { DesktopApiClient } from "../../api/client"
 import "./backend-startup.css"
 
-export function BackendStartup({ children }: { children: (notice: ReactNode, client: DesktopApiClient | null, connected: boolean) => ReactNode }) {
+export function BackendStartup({ children }: { children: (notice: ReactNode, client: DesktopApiClient | null, connected: boolean, reconnect: () => void) => ReactNode }) {
 	const { startup, retryStartup } = useBackendStartup()
 	const { status: readiness, retryConnection } = useBackendReadiness(startup.state === "ready" ? startup.client : null)
 	const [hasOpenedHud, setHasOpenedHud] = useState(false)
@@ -24,7 +24,7 @@ export function BackendStartup({ children }: { children: (notice: ReactNode, cli
 		<p role={status.state === "error" ? "alert" : "status"}>{status.message}</p>
 		<HudButton disabled={status.state !== "error"} onClick={retry}>Retry</HudButton>
 	</div>
-	if (hasOpenedHud || status.state === "ready") return children(status.state === "ready" ? null : notice, startup.state === "ready" ? startup.client : null, status.state === "ready")
+	if (hasOpenedHud || status.state === "ready") return children(status.state === "ready" ? null : notice, startup.state === "ready" ? startup.client : null, status.state === "ready", retryConnection)
 	return <main className="hud-frame backend-startup">
 		<h1>Robozium</h1>
 		<p role={status.state === "error" ? "alert" : "status"}>{status.message}</p>

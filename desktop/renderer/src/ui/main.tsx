@@ -10,5 +10,5 @@ if (!root) throw new Error("The application root element is missing.")
 document.documentElement.style.colorScheme = document.documentElement.dataset.theme ?? "dark"
 createRoot(root).render(<>
 	<ViewportBounds />
-	<BackendStartup>{(notice, client, connected) => <App connectionNotice={notice} client={client} connected={connected} />}</BackendStartup>
+	<BackendStartup>{(notice, client, connected, reconnect) => <App connectionNotice={notice} client={client} connected={connected} onReconnect={reconnect} />}</BackendStartup>
 </>)

@@ -1,11 +1,12 @@
-"use client"
-
-import { BackendControls } from "../../desktop/BackendControls"
-import { Fragment, useEffect, useMemo, useState } from "react"
-import { checkDependencies, listDependencies } from "@/lib/robozium/client"
-import type { DependencyRecord, DependencyStatus } from "@/lib/robozium/wire"
-import { showErrorToast } from "@/app/components/feedback/ErrorToast"
-import { DisplayArt } from "@/app/components/branding/DisplayArt"
+// Copied from robozium-electron/desktop/web/app/components/hud/dependencies/DependencyPanel.tsx at 076b2c9.
+// Adapted: records and Check Now come from the dependencies owner, the diagnostic is
+// copied through the native clipboard bridge, and cells wrap as in web/ at db6a20f.
+import { BackendControls } from "./BackendControls"
+import { Fragment, useMemo, useState } from "react"
+import type { DependencyRecord, DependencyStatus } from "../../dependencies/dependencies-api"
+import type { DependenciesState } from "../../dependencies/useDependencies"
+import { showErrorToast } from "../../feedback/notices"
+import { DisplayArt } from "../branding/DisplayArt"
 
 type SortField = "dependency_id" | "status"
 type SortDirection = "ascending" | "descending"
@@ -61,13 +62,12 @@ function Metadata({
 	return (
 		<dl className="space-y-1">
 			{entries.map(([key, value]) => (
-				<div
-					key={key}
-					className="grid grid-cols-[max-content_minmax(0,1fr)] gap-1">
-					<dt className="text-term-blue text-shadow-(--term-glow-blue)">
+				<div key={key} className="wrap-anywhere">
+					<dt className="inline text-term-blue text-shadow-(--term-glow-blue)">
 						{key}=
 					</dt>
-					<dd className="break-all">{value}</dd>
+					{" "}
+					<dd className="inline">{value}</dd>
 				</div>
 			))}
 		</dl>
@@ -88,7 +88,7 @@ function DependencyDiagnostic({ dependency }: { dependency: DependencyRecord }) 
 
 	const copyDiagnostic = async () => {
 		try {
-			await navigator.clipboard.writeText(diagnostic)
+			await window.robozium.writeClipboardText(diagnostic)
 			setCopied(true)
 		} catch {
 			showErrorToast({
@@ -102,7 +102,7 @@ function DependencyDiagnostic({ dependency }: { dependency: DependencyRecord }) 
 		<tr>
 			<td colSpan={5}>
 				<div className="flex flex-wrap items-start gap-3">
-					<pre className="min-w-0 flex-1 basis-80 select-text whitespace-pre-wrap wrap-break-word text-sm">
+					<pre className="min-w-0 flex-1 basis-80 select-text whitespace-pre-wrap wrap-anywhere text-sm">
 						{diagnostic}
 					</pre>
 					<button type="button" className="app-nav__cta" onClick={copyDiagnostic}>
@@ -159,8 +159,8 @@ function DependencyTable({
 	}
 
 	return (
-		<div className="agent-hud__table-scroll min-h-0 flex-1 overflow-auto">
-			<table className="agent-hud__markdown-table w-full table-fixed text-base">
+		<div className="agent-hud__table-scroll min-h-0 min-w-0 flex-1 overflow-auto">
+			<table className="agent-hud__markdown-table w-full text-base">
 				<colgroup>
 					<col className="w-[13%]" />
 					<col className="w-[25%]" />
@@ -188,10 +188,10 @@ function DependencyTable({
 										className={`${status.className} whitespace-nowrap`}>
 										{status.label}
 									</td>
-									<td className="break-all">
+									<td>
 										<code>{dependency.dependency_id}</code>
 									</td>
-									<td className="wrap-break-word">
+									<td>
 										<Metadata
 											metadata={dependency.redacted_metadata}
 										/>
@@ -206,7 +206,7 @@ function DependencyTable({
 											</span>
 										) : null}
 									</td>
-									<td className="break-all">
+									<td>
 										{dependency.reason_code ?? "—"}
 									</td>
 								</tr>
@@ -225,36 +225,15 @@ function DependencyTable({
 	)
 }
 
-export function DependencyPanel() {
-	const [dependencies, setDependencies] = useState<DependencyRecord[]>([])
-	const [isLoading, setIsLoading] = useState(true)
-	const [isChecking, setIsChecking] = useState(false)
-	const [loadFailed, setLoadFailed] = useState(false)
+export function DependencyPanel({ dependencies: state, onBackendReconnect }: {
+	dependencies: DependenciesState
+	onBackendReconnect: () => void
+}) {
+	const { records: dependencies, loading: isLoading, checking: isChecking, loadFailed } = state
 	const [sort, setSort] = useState<DependencySort>({
 		field: "status",
 		direction: "ascending",
 	})
-
-	useEffect(() => {
-		const controller = new AbortController()
-
-		const load = async () => {
-			try {
-				const records = await listDependencies({
-					signal: controller.signal,
-				})
-				setDependencies(records)
-				setLoadFailed(false)
-			} catch {
-				if (!controller.signal.aborted) setLoadFailed(true)
-			} finally {
-				if (!controller.signal.aborted) setIsLoading(false)
-			}
-		}
-
-		void load()
-		return () => controller.abort()
-	}, [])
 
 	const available = dependencies.filter(
 		(dependency) => dependency.status === "available",
@@ -279,33 +258,13 @@ export function DependencyPanel() {
 		}))
 	}
 
-	const handleCheck = async () => {
-		setIsChecking(true)
-		try {
-			const updated = await checkDependencies()
-			setDependencies(updated)
-			setLoadFailed(false)
-		} catch (error) {
-			showErrorToast({
-				title: "Dependency Check Failed",
-				message: "Unable to check dependencies.",
-				detail:
-					error instanceof Error
-						? error.message
-						: "An unexpected error occurred.",
-			})
-		} finally {
-			setIsChecking(false)
-		}
-	}
-
 	return (
 		<section className="agent-hud__status-view flex min-h-0 w-full flex-1 flex-col">
-			<BackendControls />
+			<BackendControls onReconnect={onBackendReconnect} />
 			<div
 				className="agent-hud__replyBox min-h-0 flex-1 [--hud-reply-pad-block-start:1.25rem]
 			 [--hud-reply-pad-block-end:1.25rem] [--hud-reply-pad-inline:1.5rem]">
-				<div className="flex min-h-0 w-full flex-1 flex-col gap-4">
+				<div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-4">
 					<div className="flex shrink-0 flex-wrap items-center justify-between gap-4">
 						<p
 							className="text-xl uppercase tracking-widest"
@@ -322,7 +281,7 @@ export function DependencyPanel() {
 							type="button"
 							className="app-nav__cta disabled:cursor-wait disabled:opacity-50"
 							disabled={isLoading || isChecking}
-							onClick={handleCheck}>
+							onClick={() => void state.check()}>
 							<DisplayArt name={isChecking ? "checking" : "check-now"} />
 						</button>
 					</div>

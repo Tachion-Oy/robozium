@@ -25,6 +25,8 @@ import { UnlockApiKeys } from "../hud/UnlockApiKeys"
 import { useCredentials } from "../../credentials/useCredentials"
 import { EnvironmentPanel } from "../environment/EnvironmentPanel"
 import { useEnvironmentEditor } from "../../environment/useEnvironmentEditor"
+import { DependencyPanel } from "../dependencies/DependencyPanel"
+import { useDependencies } from "../../dependencies/useDependencies"
 import { useRunSession } from "../../session/useRunSession"
 import { useRunMutations } from "../../session/useRunMutations"
 import { runLabels } from "../../hud/hud-view"
@@ -37,6 +39,8 @@ interface AppProps {
 	connectionNotice?: ReactNode
 	client?: DesktopApiClient | null
 	connected?: boolean
+	/** Restart readiness polling, which stops while the backend is unreachable. */
+	onReconnect?: () => void
 }
 
 /** Standalone preview shows its local messages as plain text. */
@@ -67,7 +71,7 @@ function usePreviewModels(): ModelsState {
 	}
 }
 
-export function App({ connectionNotice, client = null, connected = true }: AppProps) {
+export function App({ connectionNotice, client = null, connected = true, onReconnect = () => {} }: AppProps) {
 	const [navigation, navigate] = useReducer(reduceHudNavigation, null, initialHudNavigation)
 	const [focusRunEditor, setFocusRunEditor] = useState(false)
 	const backendModels = useModels(client, connected)
@@ -102,6 +106,7 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	const projects = useProjectQuery(client, screen === "projects", { ...projectMutations, opening: launch.opening })
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
 	const environment = useEnvironmentEditor(client, screen === "environment")
+	const dependencies = useDependencies(client, screen === "dependencies")
 	// A launch, a disconnection or an unconfirmed model change locks navigation.
 	const navigationPending = launch.pending || !connected || models.pending
 	const selectScreen = (next: HudScreen) => { setFocusRunEditor(false); navigate({ type: "screen_selected", screen: next }) }
@@ -150,17 +155,25 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 					onChange={change => navigate({ type: "launch_changed", change })}
 					onCancel={() => navigate({ type: "launch_closed" })}
 					onSubmit={selection => { if (navigation.launch) void launch.launch({ ...navigation.launch, selection }) }} />
+			case "dependencies":
+				if (client) return <DependencyPanel dependencies={dependencies} onBackendReconnect={onReconnect} />
+				// Standalone preview has no dependency monitor; it shows the placeholder.
+				return placeholder()
 			case "environment":
 				if (client) return <EnvironmentPanel environment={environment} onRestart={() => window.robozium.restartApp()} />
 				// Standalone preview has no backend settings; it shows the placeholder.
 				// falls through
 			default:
-				return <div className="desktop-interim-content">
-					<div className="desktop-interim-content__content">
-						<ViewPlaceholder title={presentation.screenOptions.find(option => option.value === screen)?.label ?? ""} />
-					</div>
-				</div>
+				return placeholder()
 		}
+	}
+
+	function placeholder() {
+		return <div className="desktop-interim-content">
+			<div className="desktop-interim-content__content">
+				<ViewPlaceholder title={presentation.screenOptions.find(option => option.value === screen)?.label ?? ""} />
+			</div>
+		</div>
 	}
 
 	return (

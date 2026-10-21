@@ -104,6 +104,13 @@ async function start(): Promise<void> {
 		requireTrustedDocument(event)
 		void startBackend()
 	})
+	const manageBackend = (operation: "restart" | "recreate") => async (event: IpcMainInvokeEvent) => {
+		requireTrustedDocument(event)
+		if (!backend) throw new Error("Standalone preview has no backend to manage.")
+		await (operation === "restart" ? backend.restart() : backend.recreate())
+	}
+	ipcMain.handle("desktop:restart-backend", manageBackend("restart"))
+	ipcMain.handle("desktop:recreate-backend", manageBackend("recreate"))
 	ipcMain.handle("desktop:relaunch", event => {
 		requireTrustedDocument(event)
 		void quit(true)

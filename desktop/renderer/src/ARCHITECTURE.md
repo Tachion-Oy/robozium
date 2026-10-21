@@ -21,6 +21,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `run/` | Run contracts, requests, payload decoding, event reconciliation and live updates. |
 | `session/` | The displayed run's subscription lifetime and the atomic composition of run data with HUD state. |
 | `hud/` | Message projection, history, display selection and layout logic. |
+| `dependencies/` | Dependency monitor records and Check Now requests and validation, and the view's owner. |
 | `environment/` | Saved settings and secrets requests and validation, the screen's owner and its editor state. |
 | `credentials/` | Secrets status, unlock and remove requests, and the locked-secrets notice. |
 | `feedback/` | Notifications any owner can raise. |
@@ -39,6 +40,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `session/useRunSession` | The displayed run (`RunSession`) and its scope, which ends on open, retry, a new client or unmount | Stream and snapshot polling (`run/run-updates`) |
 | `session/useRunMutations` | One in-flight reply and one interruption of the displayed run, bound to the session scope; an accepted interruption stays pending until a snapshot shows a prompt or a stopped run | Reply, interrupt |
 | `environment/useEnvironmentEditor` | The saved settings, this app's unsaved edits, the open editor and whether a restart is needed; built on `environment/useEnvironment`, which polls while the screen is visible | Read, save, import, reset |
+| `dependencies/useDependencies` | The monitor's records, loading and load failure, and one Check Now at a time | Records read when the view opens, check |
 | `credentials/useCredentials` | The backend's secrets status (available, locked, removable) | Status read, unlock, remove |
 | `feedback/notices` | Notifications and their pause/dismiss lifetimes | None |
 
@@ -75,6 +77,8 @@ flowchart LR
   Mutations --> Notices
   Capabilities --> CapabilitiesApi
   Models --> ModelsApi["models-api"]
+  App --> Dependencies["useDependencies"] --> DependenciesApi["dependencies-api"]
+  Dependencies --> Notices
 ```
 
 ## Rules
