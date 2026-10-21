@@ -130,10 +130,11 @@ the capability selector from step 20 pulled in, then a working HUD.
 
 **Follow-ups found in step 11** (each its own small PR):
 
-- **CSP-compatible toaster.** The reference uses `react-hot-toast`, whose
-  injected inline styles the renderer's CSP blocks. Until then,
-  `ui/feedback/ErrorToast.tsx` keeps the reference's `showErrorToast` call shape
-  and shows failures as alerts in the notices row.
+- **CSP-compatible toaster — done.** `feedback/notices` owns error, warning and
+  success notifications; `ui/feedback/ToastViewport` renders the reference content
+  and stylesheet in a top-centre stack without inline styles. Dismissal keeps the
+  exit animation, and hovering pauses the five-second lifetime. Persistent errors
+  and Retry controls remain in the notices row.
 - **Preview against the mock backend.** Standalone preview duplicates the
   overview with local rows and inert controls; running it against the mock
   backend removes that separate path.

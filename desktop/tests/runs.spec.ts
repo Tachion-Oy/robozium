@@ -78,9 +78,9 @@ test("launch resolves saved capabilities, saves them, then creates the run with 
 })
 
 for (const [label, handler, alert] of [
-	["locked secrets", "POST /capabilities/existing-project", "Secrets locked: Unlock secrets before starting a run. Open the Secrets locked menu and enter your password."],
-	["an invalid selection", "POST /capabilities/existing-project", "Launch failed: API request failed (422): Invalid capability selection"],
-	["a malformed catalogue", "GET /capabilities", "Launch failed: The backend returned an invalid capability response."],
+	["locked secrets", "POST /capabilities/existing-project", ["Secrets locked", "Unlock secrets before starting a run.", "Open the Secrets locked menu and enter your password."]],
+	["an invalid selection", "POST /capabilities/existing-project", ["Launch failed", "API request failed (422): Invalid capability selection"]],
+	["a malformed catalogue", "GET /capabilities", ["Launch failed", "The backend returned an invalid capability response."]],
 ] as const) {
 	test(`launch reports ${label} and never repeats a write`, async ({ desktop: { page }, backend }) => {
 		const status = label === "locked secrets" ? 423 : label === "an invalid selection" ? 422 : 200
@@ -90,7 +90,7 @@ for (const [label, handler, alert] of [
 		await page.clock.install()
 		const launch = launchButton(page, "existing-project")
 		await launch.click()
-		await expect(page.getByRole("alert")).toHaveText(alert)
+		await expect(page.getByRole("alert").locator("p")).toHaveText([...alert])
 		await expect(launch).toBeEnabled()
 		await page.clock.fastForward(30_000)
 		expect(backend.requests.filter(request => request.method === "POST" && request.path.startsWith("/capabilities/")))

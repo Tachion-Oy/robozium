@@ -2,7 +2,7 @@
 import { useReducer, useState, type ReactNode } from "react"
 import { ViewPlaceholder } from "./ViewPlaceholder"
 import { RunHud } from "../run/RunHud"
-import { ErrorNotices, useErrorNotices } from "../feedback/ErrorToast"
+import { ToastViewport } from "../feedback/ToastViewport"
 import { AgentHud } from "../hud/AgentHud"
 import { HudHeader } from "../hud/HudHeader"
 import { ModelSelector } from "../hud/ModelSelector"
@@ -88,7 +88,6 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	const [selectedMessage, setSelectedMessage] = useState(mockMessages.length - 1)
 	const [layout, setLayout] = useState<LayoutMode>("top")
 	const display = client ? selectRunDisplay(session) : previewDisplay(selectedMessage)
-	const errorNotices = useErrorNotices()
 	const status = session?.run.unavailable ? "Run unavailable" : session ? runLabels[session.run.status] : "Awaiting input"
 	// As in the reference, a run that ends or goes missing leaves Current Run for the overview.
 	const presentation = resolveHudPresentation({
@@ -111,12 +110,11 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	const cancelling = session !== null && (projectMutations.pending.has(session.run.project) || session.run.status === RunStatus.Cancelling)
 	const modelError = client ? models.error : ""
 	const runError = screen === "run" ? session?.run.error : ""
-	const notices = (connectionNotice || modelError || runError || errorNotices.length > 0) &&
+	const notices = (connectionNotice || modelError || runError) &&
 		<div className="desktop-interim-content__notices">
 			{modelError && <p role="alert">{modelError}</p>}
 			{runError && <p role="alert">{runError}</p>}
 			{runError && <HudButton onClick={run.retry} disabled={!connected || launch.pending}>Retry output</HudButton>}
-			<ErrorNotices items={errorNotices} />
 			{connectionNotice}
 		</div>
 	const noticesRow = notices && <div className="desktop-interim-content desktop-interim-content--notices">{notices}</div>
@@ -166,13 +164,16 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	}
 
 	return (
-		<AgentHud presentation={presentation} projectSlug={session?.run.project ?? null}
-			layoutMode={layout} onLayoutModeChange={setLayout}
-			header={<HudHeader presentation={presentation} onSelectScreen={selectScreen}
-				modelSelector={<ModelSelector models={models} disabled={Boolean(client && (!connected || launch.pending))} />}
-				secretsMenu={client && <UnlockApiKeys credentials={credentials} />} />}>
-			{noticesRow}
-			{renderContent()}
-		</AgentHud>
+		<>
+			<AgentHud presentation={presentation} projectSlug={session?.run.project ?? null}
+				layoutMode={layout} onLayoutModeChange={setLayout}
+				header={<HudHeader presentation={presentation} onSelectScreen={selectScreen}
+					modelSelector={<ModelSelector models={models} disabled={Boolean(client && (!connected || launch.pending))} />}
+					secretsMenu={client && <UnlockApiKeys credentials={credentials} />} />}>
+				{noticesRow}
+				{renderContent()}
+			</AgentHud>
+			<ToastViewport />
+		</>
 	)
 }

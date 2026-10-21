@@ -1,0 +1,28 @@
+import { useRef, type ReactElement } from "react"
+import { dismiss, pause, resume, useNotices } from "../../feedback/notices"
+import { ErrorToastContent } from "./ErrorToast"
+
+/** The reference top-centre stack, using stylesheet classes under the renderer CSP. */
+export function ToastViewport(): ReactElement {
+	const notices = useNotices()
+	const viewport = useRef<HTMLDivElement>(null)
+	const previousFocus = useRef<HTMLElement | null>(null)
+	return (
+		<div ref={viewport} role="region" aria-label="Notifications"
+			className="pointer-events-none fixed inset-x-0 top-4 z-[9999] flex flex-col items-center gap-2"
+			onMouseEnter={pause} onMouseLeave={resume}
+			// Pointer dismissal keeps the editor focused; keyboard dismissal restores it.
+			onMouseDown={event => {
+				if (event.target instanceof Element && event.target.closest("button")) event.preventDefault()
+			}}
+			onFocusCapture={event => {
+				if (!event.currentTarget.contains(event.relatedTarget)) previousFocus.current = event.relatedTarget as HTMLElement | null
+			}}>
+			{notices.map(notice => <ErrorToastContent key={notice.id} {...notice}
+				isVisible={notice.visible} onDismiss={() => {
+					if (viewport.current?.contains(document.activeElement)) previousFocus.current?.focus()
+					dismiss(notice.id)
+				}} />)}
+		</div>
+	)
+}

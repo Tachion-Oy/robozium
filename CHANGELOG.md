@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Show desktop notifications as the reference toasts in both themes, with error,
+  warning and success tones, Dismiss, and a five-second lifetime that pauses on
+  hover. Preserve reply focus and use no inline styles under the renderer CSP.
+
 - Send pasted, dropped, or selected images in web replies, including image-only
   replies. Upload while a run is processing, restore pending previews after
   refresh, and remove or clear pending images through standard DELETE endpoints.

@@ -1,8 +1,7 @@
-"use client"
+import type { ReactElement } from "react"
+import type { NotificationTone } from "../../feedback/notices"
 
-import toast from "react-hot-toast"
-
-export type NotificationTone = "error" | "warning" | "success"
+export { showNotificationToast, showErrorToast } from "../../feedback/notices"
 
 type ErrorToastContentProps = {
 	title?: string
@@ -13,15 +12,6 @@ type ErrorToastContentProps = {
 	onDismiss?: () => void
 }
 
-type ShowNotificationToastOptions = {
-	title?: string
-	message: string
-	detail?: string | null
-	tone: NotificationTone
-}
-
-type ShowErrorToastOptions = Omit<ShowNotificationToastOptions, "tone">
-
 export function ErrorToastContent({
 	title = "Action Required",
 	message,
@@ -29,9 +19,11 @@ export function ErrorToastContent({
 	tone = "error",
 	isVisible,
 	onDismiss,
-}: ErrorToastContentProps) {
+}: ErrorToastContentProps): ReactElement {
 	return (
 		<section
+			role={tone === "error" ? "alert" : "status"}
+			aria-live={tone === "error" ? "assertive" : "polite"}
 			className={`agent-error-toast agent-error-toast--${tone} pointer-events-auto flex w-[min(50rem,calc(100vw-2rem))] items-start gap-3 px-4 py-4 ${
 				isVisible
 					? " agent-error-toast--visible"
@@ -58,35 +50,4 @@ export function ErrorToastContent({
 			) : null}
 		</section>
 	)
-}
-
-export function showNotificationToast({
-	title,
-	message,
-	detail,
-	tone,
-}: ShowNotificationToastOptions) {
-	return toast.custom(
-		(toastState) => (
-			<ErrorToastContent
-				title={title}
-				message={message}
-				detail={detail}
-				tone={tone}
-				isVisible={toastState.visible}
-				onDismiss={() => toast.dismiss(toastState.id)}
-			/>
-		),
-		{
-			duration: 5000,
-			ariaProps: {
-				role: "status",
-				"aria-live": "polite",
-			},
-		},
-	)
-}
-
-export function showErrorToast(options: ShowErrorToastOptions) {
-	return showNotificationToast({ ...options, tone: "error" })
 }

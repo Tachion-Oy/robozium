@@ -1,5 +1,5 @@
 /* Interim styles for components that still precede the reference port: the
- * notices row (until a CSP-compatible toaster), the placeholder views (steps 18
+ * persistent connection/model/run notices, the placeholder views (steps 18
  * and 19) and the startup screen (step 21). Tokens
  * are scoped so they cannot leak into the reference frame and header. Delete
  * this file once those components use the reference stylesheets. */

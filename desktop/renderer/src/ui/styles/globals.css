@@ -3,8 +3,7 @@
 /* ---------------------------------------------------------------------------
  * Copied from robozium-electron/desktop/web/app/globals.css at 076b2c9; the
  * stylesheets below are verbatim copies (see each file's source in the PR).
- * error-toast.css is not copied: notices render in the notices row until a
- * CSP-compatible toaster arrives.
+ * ToastViewport supplies the notification stack without injected inline styles.
  *
  *   CSS owns LOOK   -- color, background, border colour, text/box-shadow glow,
  *                      @keyframes/animation/transition, clip-path shapes,
@@ -28,6 +27,7 @@
 @import "./hud-button.css";
 @import "./project-overview.css";
 @import "./environment.css";
+@import "./error-toast.css";
 @import "./terminal.css";
 @import "./nav.css";
 @import "./light-theme.css";
