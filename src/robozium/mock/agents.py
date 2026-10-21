@@ -307,6 +307,21 @@ def mock_deployment(
         if scenario == MOCK_SCENARIO_LLM_ERROR
         else _mock_orchestrator_responses(project)
     )
+    if scenario == "inline-images":
+        image_base = f"{project.sandbox.projects}/{project.slug}/images"
+        responses[0] = {
+            "action": "prompt_user",
+            "rationale": "present image fixtures alongside prose",
+            "value": (
+                "### Image previews\n\nText before the images.\n\n"
+                f"![Landscape](<{image_base}/landscape ü.png>)\n\n"
+                f"![Portrait]({image_base}/portrait.png)\n\n"
+                "![Web reference](https://images.example.test/reference.png)\n\n"
+                f"![Missing image]({image_base}/missing.png)\n\n"
+                f'<file src="{project.sandbox.projects}/{project.slug}/documents/generated-note.txt">'
+                "Open the generated text file</file>\n\nText after the images."
+            ),
+        }
     notification = None
     if scenario == MOCK_SCENARIO_USER_NOTIFICATION:
         prose_wrap_token = "WRAP_" + ("abcdefghijklmnopqrstuvwxyz0123456789" * 24)
