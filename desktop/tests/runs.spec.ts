@@ -269,6 +269,9 @@ for (const status of ["failed", "cancelled", "queued", "cancelling"] as const) {
 		await launchButton(page, "existing-project").click()
 		if (ends) {
 			await expectOverview(page)
+			if (status === "failed") {
+				await expect(page.getByRole("alert").locator("p")).toHaveText(["Run failed", 'Could not run "existing-project".', "Execution failed"])
+			}
 			await expect.poll(() => run.closed).toBe(run.streams.length)
 			return
 		}
