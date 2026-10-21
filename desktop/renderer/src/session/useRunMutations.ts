@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { showErrorToast } from "../feedback/notices"
+import { isSecretsLocked, showSecretsLocked } from "../credentials/locked"
 import { interruptRun, submitReply } from "../run/run-api"
 import { RunStatus } from "../run/run-contracts"
 import type { RunSessionState } from "./useRunSession"
@@ -21,7 +22,7 @@ export interface RunMutations {
 	interrupt: () => Promise<void>
 }
 
-export function useRunMutations(client: DesktopApiClient | null, run: RunSessionState): RunMutations {
+export function useRunMutations(client: DesktopApiClient | null, run: RunSessionState, onSecretsLocked: () => void): RunMutations {
 	const active = useRef<AbortController | null>(null)
 	const interruption = useRef<AbortController | null>(null)
 	const [replying, setReplying] = useState(false)
@@ -61,6 +62,11 @@ export function useRunMutations(client: DesktopApiClient | null, run: RunSession
 			return "acknowledged"
 		} catch (error) {
 			if (signal.aborted) return "ignored"
+			if (isSecretsLocked(error)) {
+				showSecretsLocked("Unlock secrets before replying. Your draft has been kept.")
+				onSecretsLocked()
+				return "failed"
+			}
 			showErrorToast({
 				title: "Reply failed",
 				message: "Could not send your reply. Your draft has been kept.",

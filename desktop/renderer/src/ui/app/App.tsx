@@ -21,6 +21,8 @@ import { useProjectLaunch } from "../../projects/useProjectLaunch"
 import { ProjectStatus, type ProjectRow } from "../../projects/landing"
 import { useCapabilities } from "../../capabilities/useCapabilities"
 import { HudButton } from "../HudButton"
+import { UnlockApiKeys } from "../hud/UnlockApiKeys"
+import { useCredentials } from "../../credentials/useCredentials"
 import { useRunSession } from "../../session/useRunSession"
 import { useRunMutations } from "../../session/useRunMutations"
 import { runLabels } from "../../hud/hud-view"
@@ -71,11 +73,13 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 	const models = client ? backendModels : previewModels
 	const [hasPreview, setHasPreview] = useState(false)
 	const run = useRunSession(client)
+	const credentials = useCredentials(client, connected)
 	const showRun = () => { setFocusRunEditor(true); navigate({ type: "screen_selected", screen: "run" }) }
 	const launch = useProjectLaunch(client,
 		(runId, project) => { run.open(runId, project); navigate({ type: "launch_closed" }); showRun() },
-		(name, project) => navigate({ type: "launch_created", name, project }))
-	const runMutations = useRunMutations(client, run)
+		(name, project) => navigate({ type: "launch_created", name, project }),
+		credentials.refresh)
+	const runMutations = useRunMutations(client, run, credentials.refresh)
 	const session = run.session
 	const hasRun = client ? session !== null : hasPreview
 	const [draft, setDraft] = useState("")
@@ -158,7 +162,8 @@ export function App({ connectionNotice, client = null, connected = true }: AppPr
 		<AgentHud presentation={presentation} projectSlug={session?.run.project ?? null}
 			layoutMode={layout} onLayoutModeChange={setLayout}
 			header={<HudHeader presentation={presentation} onSelectScreen={selectScreen}
-				modelSelector={<ModelSelector models={models} disabled={Boolean(client && (!connected || launch.pending))} />} />}>
+				modelSelector={<ModelSelector models={models} disabled={Boolean(client && (!connected || launch.pending))} />}
+				secretsMenu={client && <UnlockApiKeys credentials={credentials} />} />}>
 			{noticesRow}
 			{renderContent()}
 		</AgentHud>

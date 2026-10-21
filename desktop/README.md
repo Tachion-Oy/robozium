@@ -41,8 +41,13 @@ ROBOZIUM_DESKTOP_TEST_DATA=~/.local/share/robozium-desktop-dev npm --prefix desk
 ```
 
 The profile, its projects and its API image (port 18001) are shared by every
-worktree started this way. The desktop cannot unlock an encrypted `.env.encrypt`
-yet, so this needs a plaintext key.
+worktree started this way. To keep the key encrypted instead, put an existing
+`.env.encrypt` in the profile's `live/` folder in place of `.env`, and unlock it
+from the header's **Secrets locked** menu after the app starts:
+
+```sh
+cp /path/to/.env.encrypt ~/.local/share/robozium-desktop-dev/live/.env.encrypt
+```
 
 The start command stages the allowlisted Python source. Main builds the API
 image on first launch and waits for readiness. React then checks `/ready` through
@@ -70,7 +75,12 @@ Main selects your host UID/GID for rootful Docker or `0:0` for rootless Docker.
 Provider configuration belongs in the selected runtime's `.env` or `.env.encrypt`;
 see the [credential guidance](../README.md#optional-encrypted-credentials).
 Keys and decryption remain in the Python backend. Startup opens the HUD
-after the renderer connects; credential-unlock controls follow in PR 10.
+after the renderer connects. When the runtime has a `.env.encrypt`, the header's
+**Secrets locked** menu unlocks it with its password, and **Remove secrets**
+locks it again; the menu is hidden when there are no encrypted secrets. The
+password goes only into the unlock request. A launch or reply refused because
+secrets are locked says so and points to the menu, which then shows the locked
+state.
 
 Once connected, React checks readiness every five seconds with a three-second
 timeout. A connection failure stops polling and shows an accessible notice with
@@ -379,7 +389,7 @@ Compose loads `.env.encrypt` first and `.env` second; plaintext entries override
 matching encrypted-file entries. The empty `--env-file` above prevents automatic
 checkout `.env` interpolation. Backend paths and the selected mode/port are set
 explicitly in Compose. Keys and decryption remain the Python backend's
-responsibility; desktop credential-unlock controls follow in PR 10.
+responsibility; the desktop only sends the unlock password to the backend.
 
 ```sh
 desktop_compose up --build --wait --wait-timeout 180

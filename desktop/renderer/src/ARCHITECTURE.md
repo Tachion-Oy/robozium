@@ -21,6 +21,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `run/` | Run contracts, requests, payload decoding, event reconciliation and live updates. |
 | `session/` | The displayed run's subscription lifetime and the atomic composition of run data with HUD state. |
 | `hud/` | Message projection, history, display selection and layout logic. |
+| `credentials/` | Secrets status, unlock and remove requests, and the locked-secrets notice. |
 | `feedback/` | Error notices any owner can raise. |
 | `api/` | Shared HTTP/SSE transport, request deadlines, client lifetimes and React request state. |
 | `assets/` | Bundled Anurati status-mark font. |
@@ -36,6 +37,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `projects/useProjectLaunch` | One pending launch and the project it opens | Create project, read and save capabilities, create run |
 | `session/useRunSession` | The displayed run (`RunSession`) and its scope, which ends on open, retry, a new client or unmount | Stream and snapshot polling (`run/run-updates`) |
 | `session/useRunMutations` | One in-flight reply and one interruption of the displayed run, bound to the session scope; an accepted interruption stays pending until a snapshot shows a prompt or a stopped run | Reply, interrupt |
+| `credentials/useCredentials` | The backend's secrets status (available, locked, removable) | Status read, unlock, remove |
 | `feedback/notices` | Visible error notices | None |
 
 `ui/app/App.tsx` composes the owners and keeps navigation (`app/hud-navigation`:
