@@ -1,5 +1,6 @@
 """HTTP endpoints and request limits for the Environment HUD."""
 
+import asyncio
 from collections.abc import Generator
 from contextlib import contextmanager
 from subprocess import TimeoutExpired
@@ -11,6 +12,7 @@ from fastapi.responses import JSONResponse
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from robozium.api.credentials import refresh_dependencies
 from robozium.api.environment_service import EnvironmentService
 from robozium.api.errors import EnvironmentConflictError, ProjectBusyError
 from robozium.api.models import (
@@ -54,9 +56,11 @@ def get_environment(request: Request) -> EnvironmentView:
 
 
 @router.post("", response_model=EnvironmentSaveResult)
-def save_environment(body: EnvironmentEdit, request: Request) -> EnvironmentSaveResult:
+async def save_environment(body: EnvironmentEdit, request: Request) -> EnvironmentSaveResult:
     with _environment(request) as environment:
-        environment.save(body)
+        loaded = await asyncio.to_thread(environment.save, body)
+    if loaded:
+        await refresh_dependencies(request)
     return EnvironmentSaveResult()
 
 
