@@ -18,7 +18,7 @@ function malformed(): never {
 
 const isLoading = (value: unknown): value is SkillLoading => value === "automatic" || value === "on_demand"
 
-function parseCapability(value: unknown): CapabilityView {
+export function parseCapability(value: unknown): CapabilityView {
 	if (!value || typeof value !== "object" || Array.isArray(value)) malformed()
 	if (!("name" in value) || typeof value.name !== "string" || !value.name.trim()) malformed()
 	if (!("kind" in value) || (value.kind !== "tool" && value.kind !== "skill")) malformed()

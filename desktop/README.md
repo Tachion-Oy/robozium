@@ -240,12 +240,23 @@ Switch views using the header, or use the current run's row in Runs Overview. Th
 draft, selected message, and divider position survive view, model, theme,
 window-size, and zoom changes. Reloading or restarting resets the desktop to
 Runs Overview with no local session; it does not recover an existing run yet.
-Dependencies and Environment still display “This view is coming soon.” Divider controls remain visible but disabled outside Current Run.
+Dependencies still displays “This view is coming soon.” Divider controls remain visible but disabled outside Current Run.
+
+**Environment** lists the runtime's saved settings and secrets, with the
+variables that the application and imported tools need. **Add variable** and
+**Change** open an inline editor; **Secret** stores the value encrypted, and
+stored secrets are shown masked and can be kept or replaced. Saving replaces the
+saved file once: secrets need an encryption password, confirmed the first time.
+A refused save, for example after the settings changed elsewhere, keeps the edits.
+**Reset environment** asks first, then deletes the saved settings and secrets.
+Editing is unavailable while runs or background work are active. Unsaved edits
+survive leaving the screen. Saved changes apply after the app restarts; then
+unlock them from **Secrets locked**. Folder import and **Restart app** follow in
+the next roadmap PR.
 
 Both selectors reserve stable widths for their labels, so changing the model or
 view keeps the other header controls in place. They shrink with the window;
-truncated labels retain their full hover tooltips. Provider credentials and
-environment editing arrive in later roadmap steps.
+truncated labels retain their full hover tooltips.
 
 Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset.
 The keypad + and - keys also work with Ctrl.
