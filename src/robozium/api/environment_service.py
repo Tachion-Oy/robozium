@@ -87,8 +87,13 @@ class EnvironmentService:
             imports=imported,
         )
 
-    def save(self, edit: EnvironmentEdit) -> None:
-        """Validate and encrypt a complete replacement, then atomically commit it."""
+    def save(self, edit: EnvironmentEdit) -> bool:
+        """Validate and encrypt a complete replacement, then atomically commit it.
+
+        The save that completes first-start setup also loads the settings into
+        this process, since no run has started yet; it returns True. Later saves
+        apply after a restart.
+        """
         with self._projects.stopped_runs():
             original = self._read_text(self._path)
             if edit.revision != sha256(original.encode("utf-8")).hexdigest():
@@ -107,6 +112,11 @@ class EnvironmentService:
             if len(output) > env.MAX_ENV_BYTES:
                 raise ValueError("Environment file is too large")
             self._replace_settings(original, output)
+            if not self._credentials.setup_required:
+                return False
+            self._credentials.load(edit.password)
+            self._credentials.setup_required = False
+            return True
 
     def reset(self) -> None:
         """Discard saved settings only while runs and background work are stopped."""

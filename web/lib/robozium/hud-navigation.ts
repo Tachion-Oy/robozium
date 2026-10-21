@@ -1,6 +1,6 @@
 import type { CapabilitySelection } from "./wire"
 
-export type HudScreen = "projects" | "run" | "dependencies" | "launch" | "environment"
+export type HudScreen = "projects" | "run" | "dependencies" | "launch" | "environment" | "onboarding"
 
 export type LaunchDraft = {
 	project: string | null

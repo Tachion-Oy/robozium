@@ -10,6 +10,7 @@ import { SelectorDropdown } from "./SelectorDropdown"
 type ModelSelectorProps = {
 	initialSelection: Promise<ModelSelection | null>
 	runId?: string | null
+	disabled?: boolean
 }
 
 export function ModelSelectorLoading() {
@@ -30,6 +31,7 @@ export function ModelSelectorLoading() {
 export function ModelSelector({
 	initialSelection,
 	runId = null,
+	disabled = false,
 }: ModelSelectorProps) {
 	const loadedSelection = use(initialSelection)
 	const scope = runId ?? "default"
@@ -91,6 +93,7 @@ export function ModelSelector({
 			}))}
 			triggerLabel={selected?.label ?? "Model"}
 			listboxLabel="Base model"
+			disabled={disabled}
 			onOpen={() => {
 				if (!selection) void refresh()
 			}}

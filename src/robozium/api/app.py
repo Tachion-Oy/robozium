@@ -25,7 +25,11 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp
 
 from robozium.api.capabilities import router as capability_router
-from robozium.api.credentials import CredentialGateMiddleware, LoadedCredentials
+from robozium.api.credentials import (
+    CredentialGateMiddleware,
+    LoadedCredentials,
+    missing_environment_files,
+)
 from robozium.api.credentials import router as credential_router
 from robozium.api.dependencies import router as dependency_router
 from robozium.api.desktop_access import (
@@ -111,8 +115,12 @@ class ApiApplication(FastAPI):
         )
 
 
-def create_app(*, deployment: Hub) -> FastAPI:
-    """Host the supplied Hub through ASGI, owning HTTP and runtime lifecycle."""
+def create_app(*, deployment: Hub, require_credentials: bool = False) -> FastAPI:
+    """Host the supplied Hub through ASGI, owning HTTP and runtime lifecycle.
+
+    With ``require_credentials``, a start without ``.env`` or ``.env.encrypt``
+    reports setup as required and holds provider actions until a restart.
+    """
     manager = RunManager(
         deployment.configure_deployment,
         definition=deployment.definition,
@@ -140,6 +148,10 @@ def create_app(*, deployment: Hub) -> FastAPI:
     app.state.transcription_endpoint = deployment.settings.transcription_endpoint
     app.state.loaded_credentials = LoadedCredentials(
         deployment.settings.config_file.parent / DEFAULT_ENCRYPTED_ENV_PATH
+    )
+    app.state.loaded_credentials.setup_required = (
+        require_credentials
+        and missing_environment_files(app.state.loaded_credentials.path)
     )
     app.state.environment = EnvironmentService(
         deployment, projects, app.state.loaded_credentials,
@@ -450,7 +462,7 @@ def _ephemeral_settings() -> HubSettings:
 
 
 def live_app() -> FastAPI:
-    return create_app(deployment=load_hub())
+    return create_app(deployment=load_hub(), require_credentials=True)
 
 
 def mock_app() -> FastAPI:

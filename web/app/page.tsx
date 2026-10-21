@@ -1,6 +1,11 @@
 import { AppView } from "./components/AppView"
 import { fetchSeed } from "@/lib/robozium/http"
-import type { ModelSelection, Project, RunView } from "@/lib/robozium/wire"
+import type {
+	CredentialStatus,
+	ModelSelection,
+	Project,
+	RunView,
+} from "@/lib/robozium/wire"
 
 type HomePageProps = {
 	searchParams: Promise<{ runId?: string; error?: string; from?: string }>
@@ -24,9 +29,11 @@ export default async function Home({ searchParams }: HomePageProps) {
 		? fetchSeed<RunView>(`/run/${encodeURIComponent(runId)}`)
 		: Promise.resolve(null)
 	const initialProjectsPromise = fetchSeed<Project[]>("/projects")
-	const [initialRunView, initialProjects] = await Promise.all([
+	const credentialStatusPromise = fetchSeed<CredentialStatus>("/credentials")
+	const [initialRunView, initialProjects, credentialStatus] = await Promise.all([
 		initialRunViewPromise,
 		initialProjectsPromise,
+		credentialStatusPromise,
 	])
 	return (
 		<AppView
@@ -35,6 +42,7 @@ export default async function Home({ searchParams }: HomePageProps) {
 			from={from ?? null}
 			initialRunView={initialRunView}
 			initialProjects={initialProjects}
+			setupRequired={credentialStatus?.setup_required ?? false}
 			modelSelectionPromise={modelSelectionPromise}
 			defaultModelSelectionPromise={defaultModelSelectionPromise}
 		/>

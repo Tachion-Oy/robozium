@@ -144,6 +144,7 @@ export type CredentialStatus = {
 	available: boolean
 	locked: boolean
 	removable: boolean
+	setup_required: boolean
 }
 export type CredentialUnlockBody = { password: string }
 

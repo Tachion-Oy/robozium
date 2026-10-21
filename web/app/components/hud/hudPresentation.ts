@@ -7,6 +7,7 @@ export type HudContext = "landing" | "active-run" | "recovery"
 export type HudScreenOption = {
 	value: HudScreen
 	label: string
+	disabled?: boolean
 }
 
 export type HudPresentation = {
@@ -17,6 +18,8 @@ export type HudPresentation = {
 	headerVariant: "landing" | "row"
 	showProjectBadge: boolean
 	enableCornerControls: boolean
+	/** No API keys are configured yet; only onboarding and Environment stay interactive. */
+	locked: boolean
 }
 
 const SCREEN_OPTIONS: Record<HudContext, readonly HudScreenOption[]> = {
@@ -38,30 +41,42 @@ const SCREEN_OPTIONS: Record<HudContext, readonly HudScreenOption[]> = {
 	],
 }
 
+/** Start Here opens onboarding from Runs Overview; the menu only leads to Environment. */
+const SETUP_SCREENS: readonly HudScreen[] = ["projects", "onboarding", "environment"]
+
+function setupScreenOptions(screen: HudScreen): readonly HudScreenOption[] {
+	return SCREEN_OPTIONS.landing.map((option) => ({
+		...option,
+		disabled: option.value === "dependencies" || (option.value === "projects" && screen !== "environment"),
+	}))
+}
+
 export function resolveHudPresentation({
 	hasRun,
 	phase,
 	runUnavailable,
 	selectedScreen,
 	launch = null,
+	setupRequired = false,
 }: {
 	hasRun: boolean
 	phase: RunHudPhase
 	runUnavailable: boolean
 	selectedScreen: HudScreen
 	launch?: HudNavigation["launch"]
+	setupRequired?: boolean
 }): HudPresentation {
 	const context: HudContext = !hasRun
 		? "landing"
 		: phase === RunHudPhase.Done || runUnavailable
 			? "recovery"
 			: "active-run"
-	const screenOptions: readonly HudScreenOption[] = launch
+	const contextOptions: readonly HudScreenOption[] = launch
 		? [...SCREEN_OPTIONS[context], { value: "launch", label: "Launch" }]
 		: SCREEN_OPTIONS[context]
-	const screen = screenOptions.some(({ value }) => value === selectedScreen)
-		? selectedScreen
-		: "projects"
+	const allowedScreens = setupRequired ? SETUP_SCREENS : contextOptions.map(({ value }) => value)
+	const screen = allowedScreens.includes(selectedScreen) ? selectedScreen : "projects"
+	const screenOptions = setupRequired ? setupScreenOptions(screen) : contextOptions
 
 	return {
 		context,
@@ -69,8 +84,9 @@ export function resolveHudPresentation({
 		screenOptions,
 		modelScope: context === "active-run" && screen !== "launch" ? "run" : "default",
 		headerVariant:
-			context === "landing" && screen !== "dependencies" && screen !== "environment" ? "landing" : "row",
-		showProjectBadge: context === "active-run" && screen !== "launch",
-		enableCornerControls: context === "active-run" && screen === "run",
+			context === "landing" && screen !== "dependencies" && screen !== "environment" && screen !== "onboarding" ? "landing" : "row",
+		showProjectBadge: context === "active-run" && screen !== "launch" && !setupRequired,
+		enableCornerControls: context === "active-run" && screen === "run" && !setupRequired,
+		locked: setupRequired,
 	}
 }

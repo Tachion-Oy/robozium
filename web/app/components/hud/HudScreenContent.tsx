@@ -10,6 +10,7 @@ import { ProjectOverview } from "./projects/ProjectOverview"
 import { CapabilitySelector } from "./projects/CapabilitySelector"
 import { EnvironmentPanel } from "./environment/EnvironmentPanel"
 import { DependencyPanel } from "./dependencies/DependencyPanel"
+import { OnboardingHud } from "./onboarding/OnboardingHud"
 import type { HudPresentation } from "./hudPresentation"
 
 type HudScreenContentProps = {
@@ -25,6 +26,8 @@ type HudScreenContentProps = {
 	navigation: HudNavigation
 	dispatch: Dispatch<HudNavigationEvent>
 	onLaunch: (draft: LaunchDraft) => Promise<boolean>
+	/** The first save during setup loaded API keys; unlock the HUD. */
+	onSetupComplete?: () => Promise<void>
 }
 
 export function HudScreenContent({
@@ -40,6 +43,7 @@ export function HudScreenContent({
 	navigation,
 	dispatch,
 	onLaunch,
+	onSetupComplete,
 }: HudScreenContentProps) {
 	const pending = useStore(hudVisibilityStore, (state) => state.navigationPending)
 	switch (presentation.screen) {
@@ -51,6 +55,8 @@ export function HudScreenContent({
 					onCurrentProjectClick={presentation.context === "active-run" ? onReturnToRun : undefined}
 					onSelectCapabilities={(project) => dispatch({ type: "launch_opened", project })}
 					onLaunch={onLaunch}
+					locked={presentation.locked}
+					onStartHere={() => dispatch({ type: "screen_selected", screen: "onboarding" })}
 				/>
 			) : null
 		case "launch":
@@ -66,9 +72,18 @@ export function HudScreenContent({
 				/>
 			) : null
 		case "environment":
-			return <EnvironmentPanel />
+			return <EnvironmentPanel onSetupComplete={presentation.locked ? onSetupComplete : undefined} />
 		case "dependencies":
 			return <DependencyPanel />
+		case "onboarding":
+			return (
+				<div className="agent-hud__run-view">
+					<OnboardingHud
+						layoutMode={layoutMode}
+						onExit={() => dispatch({ type: "screen_selected", screen: "projects" })}
+					/>
+				</div>
+			)
 		case "run":
 			return runId ? (
 				<div className="agent-hud__run-view">

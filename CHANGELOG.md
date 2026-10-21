@@ -2,10 +2,19 @@
 
 ## Unreleased
 
+- Guide fresh live starts through API key setup in the web HUD. Without `.env` or
+  `.env.encrypt`, the API reports `setup_required` from `GET /credentials` and
+  holds provider actions; the HUD disables projects and header controls and
+  replaces **New Project** with **Start Here**, an onboarding guide paged with the
+  run view's message arrows. The guide adds keys in **Environment**, the only other
+  view available during setup; the first save loads them into the API and unlocks
+  the HUD without a restart. Mock mode is unaffected.
+
 - Show desktop notifications as the reference toasts in both themes, with error,
   warning and success tones, Dismiss, and a five-second lifetime that pauses on
   hover. Preserve reply focus and use no inline styles under the renderer CSP.
   Show the backend error when an accepted run fails during execution.
+
 
 - Send pasted, dropped, or selected images in web replies, including image-only
   replies. Upload while a run is processing, restore pending previews after

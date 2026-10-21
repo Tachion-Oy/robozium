@@ -28,6 +28,7 @@ export type HudControlModel = {
 type HudControlsProps = HudControlModel & {
 	agentMessage: AgentMessage
 	navigation: HudMessageNavigationModel
+	locked?: boolean
 	replyDraft: string
 	hasImages?: boolean
 	onAddImages?: () => void
@@ -43,6 +44,7 @@ export function HudControls({
 	agentMessage,
 	dictation,
 	navigation,
+	locked = false,
 	replyDraft,
 	hasImages = false,
 	onAddImages,
@@ -75,7 +77,7 @@ export function HudControls({
 						variant="warning"
 						className="agent-hud__cancel"
 						onClick={cancel.onTrigger}
-						disabled={cancel.isPending}>
+						disabled={locked || cancel.isPending}>
 						{cancel.isPending ? "Cancelling..." : "Cancel"}
 					</HudButton>
 				) : null}
@@ -85,7 +87,7 @@ export function HudControls({
 						variant="danger"
 						className="agent-hud__interrupt"
 						onClick={interrupt.onTrigger}
-						disabled={interrupt.isPending || cancel?.isPending}>
+						disabled={locked || interrupt.isPending || cancel?.isPending}>
 						{interrupt.isPending ? "Interrupting..." : "Interrupt"}
 					</HudButton>
 				) : null}
@@ -96,6 +98,7 @@ export function HudControls({
 					agentMessage={agentMessage}
 					replyDraft={replyDraft}
 					hasImages={hasImages}
+					disabled={locked}
 					onClearReply={onClearReply}
 				/>
 				<div className="agent-hud__composer-buttons">
@@ -115,7 +118,7 @@ export function HudControls({
 						variant="success"
 						className="agent-hud__dictate"
 						onClick={dictation.onToggle}
-						disabled={dictation.isTranscribing}
+						disabled={locked || dictation.isTranscribing}
 						data-dictation-state={dictationState}
 						aria-label={dictationAccessibleLabel}
 						title={dictation.isTranscribing ? dictationAccessibleLabel : undefined}

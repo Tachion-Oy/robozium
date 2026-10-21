@@ -41,13 +41,14 @@ export function HudHeader({
 					<ModelSelector
 						runId={presentation.modelScope === "run" ? runId : null}
 						initialSelection={modelSelectionPromise}
+						disabled={presentation.locked}
 					/>
 				) : (
 					<ModelSelectorLoading />
 				)}
 			</Suspense>
 			<div className="agent-hud__header-actions flex shrink-0 items-start gap-(--hud-actions-gap)">
-				<ThemeToggle />
+				<ThemeToggle disabled={presentation.locked} />
 				<UnlockApiKeys />
 				<HudScreenSelector
 					screen={presentation.screen}

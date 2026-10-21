@@ -26,6 +26,13 @@ vi.mock("next/navigation", () => ({
 	useSearchParams: () => new URLSearchParams(mocks.searchParams),
 	useRouter: () => ({ push: vi.fn() }),
 }))
+vi.mock("../../../../app/components/hud/environment/EnvironmentPanel", () => ({
+	EnvironmentPanel: ({ onSetupComplete }: { onSetupComplete?: () => Promise<void> }) => (
+		<button type="button" onClick={() => void onSetupComplete?.()}>
+			Save setup keys
+		</button>
+	),
+}))
 vi.mock("../../../../hooks/useHudEscapeDismiss", () => ({
 	useHudEscapeDismiss: () => {},
 }))
@@ -85,13 +92,22 @@ vi.mock("../../../../app/components/hud/projects/ProjectOverview", () => ({
 		initialProjects,
 		currentRunId,
 		onCurrentProjectClick,
+		locked,
+		onStartHere,
 	}: {
 		initialProjects?: Project[] | null
 		currentRunId?: string | null
 		onCurrentProjectClick?: () => void
+		locked?: boolean
+		onStartHere?: () => void
 	}) => (
 		<div>
 			Landing HUD content
+			{locked ? (
+				<button type="button" onClick={onStartHere}>
+					Start Here
+				</button>
+			) : null}
 			<span data-testid="landing-initial-status">
 				{initialProjects?.[0]?.status ?? "missing"}
 			</span>
@@ -520,5 +536,67 @@ describe("AgentHUD status mode", () => {
 		expect(screen.getByText("Run HUD content")).not.toBeNull()
 		expect(screen.queryByText("Landing HUD content")).toBeNull()
 		expect(hudSizeStore.getState().progress).toBe(0)
+	})
+})
+
+describe("AgentHUD setup mode", () => {
+	it("locks the header and pages through onboarding from Start Here", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => Response.json({
+				available: false,
+				locked: false,
+				removable: false,
+				setup_required: true,
+			})),
+		)
+		render(
+			<AgentHUD
+				runId={null}
+				introDone
+				initialSetupRequired
+				modelSelectionPromise={Promise.resolve(null)}
+			/>,
+		)
+
+		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Toggle color theme" }).disabled).toBe(true)
+		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Runs Overview" }).disabled).toBe(false)
+
+		fireEvent.click(screen.getByRole("button", { name: "Start Here" }))
+		expect(screen.getByRole("heading", { name: "Welcome to Robozium" })).not.toBeNull()
+		expect(screen.queryByRole("button", { name: "Start Here" })).toBeNull()
+
+		fireEvent.click(screen.getByRole("button", { name: "Previous agent message" }))
+		expect(screen.getByText("Landing HUD content")).not.toBeNull()
+	})
+
+	it("unlocks the HUD after keys are saved in Environment", async () => {
+		let setupRequired = true
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => Response.json({
+				available: true,
+				locked: false,
+				removable: true,
+				setup_required: setupRequired,
+			})),
+		)
+		render(
+			<AgentHUD
+				runId={null}
+				introDone
+				initialSetupRequired
+				modelSelectionPromise={Promise.resolve(null)}
+			/>,
+		)
+
+		fireEvent.click(screen.getByRole("button", { name: "Runs Overview" }))
+		fireEvent.click(screen.getByRole("option", { name: "Environment" }))
+		setupRequired = false
+		fireEvent.click(screen.getByRole("button", { name: "Save setup keys" }))
+
+		await waitFor(() => expect(screen.queryByRole("button", { name: "Start Here" })).toBeNull())
+		expect(screen.getByText("Landing HUD content")).not.toBeNull()
+		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Toggle color theme" }).disabled).toBe(false)
 	})
 })

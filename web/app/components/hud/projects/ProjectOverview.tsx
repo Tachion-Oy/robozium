@@ -26,6 +26,8 @@ type ProjectOverviewProps = {
 	onCurrentProjectClick?: () => void
 	onSelectCapabilities: (project: string | null) => void
 	onLaunch: (draft: LaunchDraft) => Promise<boolean>
+	locked?: boolean
+	onStartHere?: () => void
 }
 
 export function ProjectOverview({
@@ -34,6 +36,8 @@ export function ProjectOverview({
 	onCurrentProjectClick,
 	onSelectCapabilities,
 	onLaunch,
+	locked = false,
+	onStartHere,
 }: ProjectOverviewProps) {
 	const router = useRouter()
 	const navigationPending = useStore(
@@ -138,6 +142,8 @@ export function ProjectOverview({
 			projects={projects.rows}
 			currentRunId={currentRunId}
 			navigationPending={navigationPending}
+			locked={locked}
+			onStartHere={onStartHere}
 			onProjectClick={handleProjectClick}
 			onSelectCapabilities={(project) => openSelector(project.slug)}
 			onLaunchProject={handleLaunch}

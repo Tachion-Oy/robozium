@@ -38,7 +38,7 @@ function entryError({ entry, original, originalName }: Editor, entries: Environm
 	return ""
 }
 
-export function useEnvironmentEditor() {
+export function useEnvironmentEditor(onSetupComplete?: () => Promise<void>) {
 	const [editor, setEditor] = useState<Editor | null>(null)
 	const [hiddenSuggestions, setHiddenSuggestions] = useState<Set<string>>(new Set())
 	const environment = useEnvironment(editor !== null)
@@ -128,6 +128,14 @@ export function useEnvironmentEditor() {
 	const save = async (password: string) => {
 		if (!await environment.save(password, currentEntries)) return
 		closeEditor()
+		if (onSetupComplete) {
+			showNotificationToast({
+				tone: "success", title: "API keys saved",
+				message: "Robozium is ready. Start your first run with New Project.",
+			})
+			await onSetupComplete()
+			return
+		}
 		showNotificationToast({
 			tone: "success", title: "Settings saved",
 			message: "Restart using ./start or start.cmd, keeping --mock for mock mode. Then unlock with Secrets.",

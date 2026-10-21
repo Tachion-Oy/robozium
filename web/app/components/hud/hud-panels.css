@@ -512,6 +512,18 @@
   text-align: left;
 }
 
+/* Monochrome line art masked in the panel's text colour, like DisplayArt. */
+.agent-hud__message-illustration {
+  float: right;
+  width: min(40%, 14rem);
+  aspect-ratio: 2 / 1;
+  margin: 0.25rem 0 0.5rem 1rem;
+  background: currentColor;
+  opacity: 0.85;
+  -webkit-mask: var(--illustration-source) center / contain no-repeat;
+  mask: var(--illustration-source) center / contain no-repeat;
+}
+
 
 
 /* Live streaming "responding" view streams straight into the agent panel — no
