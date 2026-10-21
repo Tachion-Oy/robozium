@@ -40,7 +40,7 @@ Reviewed against `origin/main` at `55e3b3c` (after #120).
 | Step | State | PRs |
 | --- | --- | --- |
 | 1–8 Scaffold, renderer, backend lifecycle, API client | Done | — |
-| 9 Parity harness | **Not committed.** #102 used a local harness; no script exists | — |
+| 9 Visual regression | Replaced by desktop screenshot tests; the cross-app harness was never committed | — |
 | 10 Frame and header | Done (octagon follow-up open) | #102 |
 | 11 Running HUD | Done; Record disabled, links inert | #104 |
 | 12 Projects overview with capability selector | Done | #105, #106 |
@@ -60,23 +60,22 @@ Reviewed against `origin/main` at `55e3b3c` (after #120).
 | 27 UI tweaks | Not started | — |
 | 28 Opening links | Not started | — |
 
-**Order from here.** One runnable PR per item, copies first:
+**Order from here.** Related small steps share a PR so each CI run covers
+more ground; 200–400 hand-written lines is the ceiling, not the target.
 
-1. **13a** Theme persistence and native background.
-2. **27** Footer layout (makes room for the message-log toggle).
-3. **9** Parity harness, needed for 13c's layout-dependent window sizing.
-4. **13b** Message log pane and toggle.
-5. **13c** Native window grow/shrink for the log.
-6. **25** Image attachments (25a, 25b).
-7. **28** Opening links.
-8. **21a** Dictation.
-9. **19** Dependencies, then backend restart/recreate.
-10. **Prompts on the stream** (Milestone B follow-up).
-11. **21b** Startup splash.
-12. **27** Remaining UI tweaks, interleaved where convenient; light-theme
-    tuning after 13a.
-13. **26** Onboarding, once #121 merges.
-14. Preview against the mock backend; Milestone D.
+| PR | Contents |
+| --- | --- |
+| A. Theme | 13a theme persistence and native background; light-theme colour knobs gathered in one place for hand tuning |
+| B. UI tweaks | Step 27: stable selectors, no project title in Runs view, footer layout with the log slot, octagon |
+| C. Message log | 13b (copy commit first); 13c too if it fits |
+| D. Log window sizing | 13c, if C has no room |
+| E. Image attachments | 25, split in two only if it exceeds the size limit |
+| F. Links and dictation | 28 and 21a: the two preload-privilege operations |
+| G. Dependencies | 19: panel and backend restart/recreate |
+| H. Stream prompts and splash | Prompts on the stream, 21b; separate PRs unless both are small |
+
+App identity (step 27) lands whenever the logo design is ready; 26 waits for
+#121; Milestone D comes last.
 
 ## Parity checklist
 
@@ -143,7 +142,7 @@ the PR that closes it.
 
 ## Visual check
 
-A capture harness (step 9) runs the experiment and the desktop app against the
+A capture harness (step 9, now superseded by desktop snapshot tests) runs the experiment and the desktop app against the
 same mock backend data. It captures matching states:
 
 - **Windows:** client widths 1260, 900, 760 and 640, plus the wrap transitions.
@@ -168,7 +167,7 @@ Each step is one PR and is runnable: launch the app to see its result.
 
 | Step | Result | Check |
 | --- | --- | --- |
-| **9. Parity harness** | Not committed yet; build it before 13c. One command launches the experiment and the desktop app on isolated mock profiles, drives the states above, and writes side-by-side captures and a diff report. A baseline report documents today's gaps. No app changes. | Two runs on the same build produce identical captures. |
+| **9. Visual regression** | The cross-app parity harness was used locally for #102 and never committed. Now that most screens are ported and step 27 changes the look deliberately, the desktop app's own screenshot tests (`toMatchSnapshot` in the native specs, as in `scaffold.spec.ts` and `footer.spec.ts`) are the baseline. Remaining ports (message log, dependencies, splash) are compared with the experiment by eye. | Snapshot specs cover each ported screen in both themes; deliberate changes update the baselines with before/after captures. |
 | **10. Stylesheet foundation, frame and header** | Copy the reference global, theme, frame, selector and button CSS, the fonts, and `desktop.css`. Set `data-desktop`. Port the frame, project badge, header, model/view selectors and theme toggle with reference markup. Delete the replaced `ui/` CSS and components. The octagon follows as its own visual PR. | Header and frame match in both themes at all widths and zooms, including label truncation. |
 | **11. Running HUD** | Port the message panel, Markdown, composer, message navigation and footer actions. Copy `hud-panels.css` (`hud-controls.css` arrived with the corner controls in step 10). Port `useDesktopActionLayout` with mount handling. Actions not yet wired (send, interrupt, cancel, record) render disabled. Links render but stay inert (see follow-ups). | Running, script and Markdown states match. Button stacking and wrapping match at every width, at both zooms. |
 | **12. Projects overview** | Port `ProjectOverviewPanel` and its CSS: status, start/open/return, empty state, New Project entry. Cancel/delete render as in the reference and are wired in steps 15–16. The capability selector slot waits for step 20. | Empty and populated overview match. |
