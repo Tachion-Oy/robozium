@@ -119,7 +119,7 @@ test("copy failure reports an alert and retry preserves draft and selection", as
 	})
 	const copy = copyReplyButton(page)
 	await copy.click()
-	await expect(page.getByRole("alert")).toHaveText("Copy failed: Could not copy the user reply. Try again.")
+	await expect(page.getByRole("alert").locator("p")).toHaveText(["Copy failed", "Could not copy the user reply.", "Try again."])
 	await expect(copy).toBeEnabled()
 	await expect(reply).toHaveValue(" retry\nthis ")
 	await expect(agentText(page)).toHaveText(before!)

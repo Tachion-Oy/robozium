@@ -23,7 +23,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `hud/` | Message projection, history, display selection and layout logic. |
 | `environment/` | Saved settings and secrets requests and validation, the screen's owner and its editor state. |
 | `credentials/` | Secrets status, unlock and remove requests, and the locked-secrets notice. |
-| `feedback/` | Error notices any owner can raise. |
+| `feedback/` | Notifications any owner can raise. |
 | `api/` | Shared HTTP/SSE transport, request deadlines, client lifetimes and React request state. |
 | `assets/` | Bundled Anurati status-mark font. |
 
@@ -40,7 +40,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `session/useRunMutations` | One in-flight reply and one interruption of the displayed run, bound to the session scope; an accepted interruption stays pending until a snapshot shows a prompt or a stopped run | Reply, interrupt |
 | `environment/useEnvironmentEditor` | The saved settings, this app's unsaved edits, the open editor and whether a restart is needed; built on `environment/useEnvironment`, which polls while the screen is visible | Read, save, import, reset |
 | `credentials/useCredentials` | The backend's secrets status (available, locked, removable) | Status read, unlock, remove |
-| `feedback/notices` | Visible error notices | None |
+| `feedback/notices` | Notifications and their pause/dismiss lifetimes | None |
 
 `ui/app/App.tsx` composes the owners and keeps navigation (`app/hud-navigation`:
 the screen and the selector's launch draft), the reply draft, divider layout and
@@ -98,8 +98,11 @@ flowchart LR
   automatically. After a failure, the owner reads again instead. Multi-step
   commands report each completed write (such as a created project) so that
   trying again does not repeat it.
-- **Errors.** Owners raise `showErrorToast` from `feedback/notices`; the notices
-  row renders them until a CSP-compatible toaster replaces it.
+- **Errors.** Owners raise `showErrorToast` or `showNotificationToast` from
+  `feedback/notices`; `ui/feedback/ToastViewport` renders the reference toasts
+  without inline styles. The store owns tone, replacement, dismissal and hover
+  timing. Persistent connection, model and run errors keep their notices row
+  and Retry controls.
 
 ## The message log
 

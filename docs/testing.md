@@ -179,6 +179,14 @@ navigate nor open windows.
 The native test fixture and capture helpers are shared by the scaffold and
 footer scenarios.
 
+Toast checks use refused cancellations, failed launches, clipboard failure and
+Environment reset through the native fixture backend. They cover top-centre
+overlay placement and containment at 640×420 with 125% zoom in both themes,
+assertive errors and polite successes, pointer/keyboard dismissal with retained
+focus, exit removal, five-second expiry, hover pause, same-title replacement and
+independent stacking. The viewport has no inline styles or CSP violations. Native
+captures in both themes are attached for review.
+
 Desktop transport tests also run in this suite, using disposable loopback HTTP
 servers and the actual client. They cover JSON request policy, origin/redirect
 rejection, HTTP status and safe detail, malformed JSON, cancellation, SSE UTF-8
