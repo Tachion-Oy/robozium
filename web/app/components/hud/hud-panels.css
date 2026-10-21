@@ -1,5 +1,137 @@
 /* HUD panels: base and light-theme presentation. */
 
+.agent-hud__image-preview {
+  position: relative;
+  display: inline-flex;
+  max-width: min(100%, 360px);
+  margin: 0.35rem 0;
+  padding: 0;
+  vertical-align: middle;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--term-blue) 35%, transparent);
+  border-radius: 0.35rem;
+  background: var(--hud-input-bg);
+  color: var(--hud-input-text);
+  font: inherit;
+  text-shadow: none;
+}
+
+button.agent-hud__image-preview {
+  cursor: zoom-in;
+}
+
+.agent-hud__image-preview img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+}
+
+.agent-hud__image-preview[aria-busy="true"] {
+  min-width: min(100%, 180px);
+  min-height: 96px;
+}
+
+.agent-hud__image-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0.5rem;
+  background: var(--hud-input-bg);
+  font-size: 0.85em;
+}
+
+.agent-hud__image-unavailable {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.5rem;
+  border: 1px solid color-mix(in oklab, var(--term-blue) 35%, transparent);
+  border-radius: 0.35rem;
+}
+
+.agent-hud__image-dialog {
+  position: fixed;
+  inset: 0;
+  width: fit-content;
+  height: fit-content;
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  padding: 0.75rem;
+  overflow: auto;
+  border: 1px solid var(--term-blue);
+  border-radius: 0.5rem;
+  background: var(--hud-input-bg);
+  color: var(--hud-input-text);
+  font: inherit;
+  text-shadow: none;
+}
+
+.agent-hud__image-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.agent-hud__image-dialog::backdrop {
+  background: rgb(0 0 0 / 75%);
+}
+
+.agent-hud__image-stage {
+  position: relative;
+  flex-shrink: 1;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  max-width: 100%;
+  max-height: calc(100dvh - 8rem);
+}
+
+.agent-hud__image-stage > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.agent-hud__image-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.agent-hud__image-toolbar > span {
+  flex: 1 1 10rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.agent-hud__image-toolbar .agent-hud__markdown-link {
+  color: inherit;
+}
+
+.agent-hud__image-toolbar button {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--term-blue);
+  border-radius: 0.25rem;
+  background: var(--hud-input-bg);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.agent-hud__image-preview:focus-visible,
+.agent-hud__image-dialog :focus-visible {
+  outline: 2px solid var(--term-blue);
+  outline-offset: 2px;
+}
+
 /* Base */
 
 .agent-hud__run-view > .agent-hud__replySection {
