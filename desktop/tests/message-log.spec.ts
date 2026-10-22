@@ -81,15 +81,16 @@ test("the toggle opens the reference placeholder before a run and the run's rows
 	// The live log has no title, and its first row sits as far below the top as the tail's margin at the bottom.
 	const margins = await log(page).evaluate(pane => {
 		const top = pane.getBoundingClientRect().top
-		const first = pane.querySelector(".term-msg, .term-banner")!.getBoundingClientRect().top
 		const scroller = pane.querySelector(".term-log")!
 		const rail = scroller.parentElement!
 		const content = scroller.firstElementChild!
+		// Where rows begin, before any row's own margin (a lifecycle banner adds a few pixels).
+		const first = content.getBoundingClientRect().top + parseFloat(getComputedStyle(content).paddingTop)
 		const bottom = parseFloat(getComputedStyle(rail).paddingBottom) + parseFloat(getComputedStyle(content).paddingBottom)
-		return { above: Math.round(first - top), below: Math.round(bottom) }
+		return { above: first - top, below: bottom }
 	})
 	// Measured with the log beside the HUD, where nothing has scrolled yet.
-	expect(Math.abs(margins.above - margins.below)).toBeLessThanOrEqual(2)
+	expect(Math.abs(margins.above - margins.below)).toBeLessThanOrEqual(1)
 	// The HUD keeps working beside the open log.
 	await expect(page.locator(".agent-hud__replyBox--agent")).toContainText("line one line two")
 	await toggle(page, "Hide message log").click()
