@@ -1,9 +1,10 @@
-"use client"
-
+// Copied from web/hooks/useReplyImages.ts at 2a0c183.
+// Adapted: the draft sends through the desktop client.
 import { useEffect, useMemo, useSyncExternalStore } from "react"
 import type { FileRejection } from "react-dropzone"
-import { createReplyImageDraft, type ReplyImage } from "@/lib/robozium/reply-images"
-export type { ReplyImage } from "@/lib/robozium/reply-images"
+import type { DesktopApiClient } from "../api/client"
+import { createReplyImageDraft, type ReplyImage } from "./reply-images"
+export type { ReplyImage } from "./reply-images"
 
 export const REPLY_IMAGE_LIMIT = 4
 export const REPLY_IMAGE_MAX_BYTES = 10 * 1024 * 1024
@@ -40,8 +41,8 @@ function rejectionReason({ file, errors }: FileRejection): string {
 }
 
 /** Own the queue above HUD screens; navigation never deletes server attachments. */
-export function useReplyImages(runId: string | null, ended = false): ReplyImagesModel {
-	const draft = useMemo(() => createReplyImageDraft(runId), [runId])
+export function useReplyImages(client: DesktopApiClient | null, runId: string | null, ended = false): ReplyImagesModel {
+	const draft = useMemo(() => createReplyImageDraft(client, runId), [client, runId])
 	const snapshot = useSyncExternalStore(draft.subscribe, draft.getSnapshot, draft.getSnapshot)
 	useEffect(() => {
 		if (!ended) draft.activate()

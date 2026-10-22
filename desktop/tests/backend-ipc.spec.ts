@@ -39,7 +39,7 @@ for (const method of ["getBackendStatus", "getBackendConnection", "retryBackend"
 	})
 }
 
-test("the CSP admits only bundled images, which the overview's display art uses", async ({ desktop: { app, page } }) => {
+test("the CSP admits bundled images, which the overview's display art uses, and local previews", async ({ desktop: { app, page } }) => {
 	const { csp, svg } = await app.evaluate(async ({ net }, url) => {
 		const document = await net.fetch(url)
 		await document.body?.cancel()
@@ -49,7 +49,8 @@ test("the CSP admits only bundled images, which the overview's display art uses"
 	}, documentUrl)
 	const directives = csp!.split("; ")
 	expect(directives).toContain("default-src 'none'")
-	expect(directives.filter(directive => directive.startsWith("img-src"))).toEqual(["img-src 'self'"])
+	// Without a backend, only bundled art and local reply previews load.
+	expect(directives.filter(directive => directive.startsWith("img-src"))).toEqual(["img-src 'self' blob:"])
 	expect(svg).toEqual({ status: 200, type: "image/svg+xml" })
 	const art = page.locator(".display-art--new-project")
 	await expect(art).toBeVisible()

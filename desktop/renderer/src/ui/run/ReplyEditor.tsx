@@ -1,8 +1,10 @@
-"use client"
-
+// Copied from web/app/components/hud/run/ReplyEditor.tsx at 2a0c183.
+// Adapted: autoFocus focuses the reply when Current Run opens; restored previews
+// load from the backend with crossorigin; the composer is disabled only with its
+// editor, not whenever images cannot be added.
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEventHandler } from "react"
 import type { DropzoneState } from "react-dropzone"
-import type { ReplyImage, ReplyImagesModel } from "@/hooks/useReplyImages"
+import type { ReplyImage, ReplyImagesModel } from "../../attachments/useReplyImages"
 import { HudButton } from "../HudButton"
 
 type ReplyEditorProps = {
@@ -11,6 +13,7 @@ type ReplyEditorProps = {
 	dropzone?: DropzoneState
 	canSubmit: boolean
 	disabled?: boolean
+	autoFocus?: boolean
 	onChange: (value: string) => void
 }
 
@@ -20,6 +23,7 @@ export function ReplyEditor({
 	dropzone,
 	canSubmit,
 	disabled = false,
+	autoFocus = false,
 	onChange,
 }: ReplyEditorProps) {
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -60,7 +64,8 @@ export function ReplyEditor({
 		<div
 			{...dropzone?.getRootProps({ role: "group", "aria-label": "Reply composer", tabIndex: 0 })}
 			className="agent-hud__replyBox agent-hud__replyBox--user"
-			data-drag-active={dropzone?.isDragActive || undefined}>
+			data-drag-active={dropzone?.isDragActive || undefined}
+			aria-disabled={disabled || undefined}>
 			{dropzone ? <input {...dropzone.getInputProps({ "aria-label": "Choose images" })} /> : null}
 			<div className="agent-hud__reply-text">
 				<textarea
@@ -74,6 +79,7 @@ export function ReplyEditor({
 					}}
 					onKeyDown={handleKeyDown}
 					disabled={disabled}
+					autoFocus={autoFocus}
 					placeholder="Type your reply..."
 				/>
 				{images?.isBusy ? (
@@ -102,9 +108,8 @@ function ReplyImagePreview({ image, onRemove }: { image: ReplyImage; onRemove: (
 	const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading")
 	return (
 		<li className="agent-hud__reply-image" aria-busy={status === "loading" || image.status === "queued" || image.status === "uploading"}>
-			{/* Local object URLs and temporary hub files bypass the image optimizer. */}
-			{/* eslint-disable-next-line @next/next/no-img-element */}
-			<img src={image.url} alt={image.name} onLoad={() => setStatus("loaded")} onError={() => setStatus("error")} />
+			{/* The desktop backend admits hub file reads only with the renderer's Origin. */}
+			<img src={image.url} crossOrigin="anonymous" alt={image.name} onLoad={() => setStatus("loaded")} onError={() => setStatus("error")} />
 			{status !== "loaded" ? (
 				<span className="agent-hud__reply-image-status" role="status">
 					{status === "loading" ? "Loading…" : "Preview unavailable"}

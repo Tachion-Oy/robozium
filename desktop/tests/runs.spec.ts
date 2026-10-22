@@ -146,7 +146,7 @@ test("creation deadlines abort the request and ignore late success", async ({ de
 	json(pending!, { run_id: "late" })
 	await page.clock.fastForward(30_000)
 	expect(backend.requests.filter(request => request.path === "/run/create")).toHaveLength(1)
-	await expect(page.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveCount(0)
+	await expect(page.getByRole("textbox", { name: "Reply text", exact: true })).toHaveCount(0)
 })
 
 test("late snapshots merge older history with newer SSE, deduplicate chunks and replace partial messages", async ({ desktop: { page }, backend }) => {
@@ -209,13 +209,13 @@ test("view changes retain one session, project, history selection and draft; new
 	emit(first.streams[0], message(1, "First")); emit(first.streams[0], message(2, "Second"))
 	await expect(output(page)).toHaveText("Second")
 	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
-	await page.getByRole("textbox", { name: "Type your reply...", exact: true }).fill("Keep my draft")
+	await page.getByRole("textbox", { name: "Reply text", exact: true }).fill("Keep my draft")
 	await view(page, "Environment"); await view(page, "Runs Overview")
 	await expect(page.getByRole("button", { name: "Open second-project", exact: true })).toBeVisible()
 	await view(page, "Current Run")
 	await expect(output(page)).toHaveText("First")
 	await expect(runStatus(page)).toContainText("existing-project")
-	await expect(page.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveValue("Keep my draft")
+	await expect(page.getByRole("textbox", { name: "Reply text", exact: true })).toHaveValue("Keep my draft")
 	expect(first.streams).toHaveLength(1)
 	let oldRead: ServerResponse | undefined
 	let oldClosed = false
@@ -231,7 +231,7 @@ test("view changes retain one session, project, history selection and draft; new
 	emit(second.streams[0], message(1, "New run"))
 	await expect(output(page)).toHaveText("New run")
 	await expect(runStatus(page)).toContainText("second-project")
-	await expect(page.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveValue("Keep my draft")
+	await expect(page.getByRole("textbox", { name: "Reply text", exact: true })).toHaveValue("Keep my draft")
 	expect(backend.requests.filter(request => request.path.includes("cancel"))).toHaveLength(0)
 	await page.goto("about:blank")
 	await expect.poll(() => second.closed).toBe(1)
@@ -415,7 +415,7 @@ test("provider retries discard abandoned text while keeping completed history an
 	emit(stream, message(1, "Earlier"))
 	emit(stream, delta(2, "Abandoned attempt", 0, "attempt-1"))
 	await expect(output(page)).toHaveText("Abandoned attempt")
-	await page.getByRole("textbox", { name: "Type your reply...", exact: true }).fill("Keep this draft")
+	await page.getByRole("textbox", { name: "Reply text", exact: true }).fill("Keep this draft")
 	emit(stream, retry)
 	await expect(output(page)).toHaveText("Agent is working...")
 	emit(stream, delta(4, "Successful", 0, "attempt-2"))
@@ -428,7 +428,7 @@ test("provider retries discard abandoned text while keeping completed history an
 	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
 	await expect(output(page)).toHaveText("Earlier")
 	await expect(page.getByRole("button", { name: "Previous agent message", exact: true })).toBeDisabled()
-	await expect(page.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveValue("Keep this draft")
+	await expect(page.getByRole("textbox", { name: "Reply text", exact: true })).toHaveValue("Keep this draft")
 })
 
 test("active prompts stay visible before later notifications and latest navigation returns to the prompt", async ({ desktop: { page }, backend }) => {
@@ -542,7 +542,7 @@ test("a prompt separates pinned script output through dismissal and later histor
 	json(reads[0], snapshot({ status: "awaiting_user_input", current_prompt_id: "p1", current_prompt: "Continue?", message_trace: [script(2, "Before")] }))
 	await expect(output(page)).toHaveText("Continue?")
 	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
-	await page.getByRole("textbox", { name: "Type your reply...", exact: true }).fill("Retained draft")
+	await page.getByRole("textbox", { name: "Reply text", exact: true }).fill("Retained draft")
 	await page.clock.fastForward(2001)
 	await expect.poll(() => reads.length).toBe(2)
 	json(reads[1], snapshot({ message_trace: [script(2, "Before")] }))
@@ -560,7 +560,7 @@ test("a prompt separates pinned script output through dismissal and later histor
 	await expect(output(page)).toHaveText("After")
 	emit(run.streams[0], script(5, " continued"))
 	await expect(output(page)).toHaveText("After continued")
-	await expect(page.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveValue("Retained draft")
+	await expect(page.getByRole("textbox", { name: "Reply text", exact: true })).toHaveValue("Retained draft")
 })
 
 test("agent Markdown renders sanitized and its links stay inside the app", async ({ desktop: { app, page }, backend }) => {

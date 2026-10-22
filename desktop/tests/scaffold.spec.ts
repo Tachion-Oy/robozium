@@ -10,7 +10,8 @@ async function expectPanelGeometry(page: Page, layout: "top" | "equal" | "bottom
 	const geometry = await page.locator(".agent-hud__panels").evaluate(container => {
 		const panels = [...container.querySelectorAll<HTMLElement>(".agent-hud__replyBox")]
 		const bounds = panels.map(panel => panel.getBoundingClientRect())
-		const content = panels.map(panel => panel.firstElementChild as HTMLElement)
+		// The composer's hidden image input precedes its text column.
+		const content = panels.map(panel => panel.querySelector<HTMLElement>(":scope > :not(input)")!)
 		return {
 			contained: bounds.every(rect => rect.x >= 0 && rect.y >= 0
 				&& rect.right <= innerWidth && rect.bottom <= innerHeight),
@@ -148,7 +149,7 @@ for (const theme of ["dark", "light"]) {
 		const view = viewTrigger(page)
 		const up = page.getByRole("button", { name: "Move panel divider up" })
 		const down = page.getByRole("button", { name: "Move panel divider down" })
-		const reply = page.getByRole("textbox", { name: "Type your reply...", exact: true })
+		const reply = page.getByRole("textbox", { name: "Reply text", exact: true })
 		if (theme === "light") await toggle.click()
 		await expect(up).toBeDisabled()
 		await expect(down).toBeDisabled()
@@ -223,7 +224,7 @@ for (const theme of ["dark", "light"]) {
 		await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight])).toEqual([512, 336])
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 		await page.getByRole("button", { name: "Launch", exact: true }).click()
-		const reply = page.getByRole("textbox", { name: "Type your reply...", exact: true })
+		const reply = page.getByRole("textbox", { name: "Reply text", exact: true })
 		await reply.fill(("A long draft " + "x".repeat(180) + "\n").repeat(30))
 		await expectPanelGeometry(page, "top")
 		await reply.press("Control+End")
@@ -401,7 +402,7 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 	for (const zoom of [1, 1.25]) {
 		test(`frame fits ${width}x${height} at ${zoom} zoom in both themes`, async ({ desktop: { app, page } }) => {
 			await page.getByRole("button", { name: "Launch", exact: true }).click()
-			await page.getByRole("textbox", { name: "Type your reply...", exact: true }).blur()
+			await page.getByRole("textbox", { name: "Reply text", exact: true }).blur()
 			await setNativeViewport(app, page, width, height, zoom)
 			await page.evaluate(async () => { await document.fonts.ready })
 			for (const theme of ["dark", "light"]) {

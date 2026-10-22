@@ -1,5 +1,6 @@
-"use client"
-
+// Copied from web/app/components/hud/run/ReplyForm.tsx at 2a0c183.
+// Adapted: the composer can focus the reply on open; the onboarding lock arrives
+// with onboarding (roadmap step 26).
 import type { SubmitEventHandler } from "react"
 import { useDropzone } from "react-dropzone"
 import {
@@ -7,7 +8,7 @@ import {
 	REPLY_IMAGE_LIMIT,
 	REPLY_IMAGE_MAX_BYTES,
 	type ReplyImagesModel,
-} from "@/hooks/useReplyImages"
+} from "../../attachments/useReplyImages"
 import {
 	AgentMessagePanel,
 	type AgentMessage,
@@ -16,7 +17,7 @@ import {
 	HudControls,
 	type HudControlModel,
 } from "./HudControls"
-import type { LayoutMode } from "../HudCornerControls"
+import type { LayoutMode } from "../hud/HudCornerControls"
 import type { HudMessageNavigationModel } from "./HudMessageNavigation"
 import { ReplyEditor } from "./ReplyEditor"
 
@@ -25,6 +26,7 @@ export type ReplyComposerModel = {
 	images: ReplyImagesModel
 	isReplyAvailable: boolean
 	isSubmitting: boolean
+	focusOnOpen?: boolean
 	onChange: (value: string) => void
 	onSubmit: () => void | Promise<void>
 }
@@ -35,8 +37,6 @@ type ReplyFormProps = {
 	navigation: HudMessageNavigationModel
 	controls: HudControlModel
 	layoutMode: LayoutMode
-	/** Disable every control except message navigation. */
-	locked?: boolean
 }
 
 export function ReplyForm({
@@ -45,7 +45,6 @@ export function ReplyForm({
 	navigation,
 	controls,
 	layoutMode,
-	locked = false,
 }: ReplyFormProps) {
 	const dropzone = useDropzone({
 		accept: REPLY_IMAGE_ACCEPT,
@@ -54,11 +53,10 @@ export function ReplyForm({
 		noClick: true,
 		noKeyboard: true,
 		onDrop: composer.images.onDrop,
-		disabled: locked || !composer.images.canAdd || controls.cancel?.isPending,
+		disabled: !composer.images.canAdd || controls.cancel?.isPending,
 	})
 	const canSubmit = Boolean(
-		!locked &&
-			(composer.value.trim() || composer.images.images.length) &&
+		(composer.value.trim() || composer.images.images.length) &&
 			composer.images.isReady &&
 			composer.isReplyAvailable &&
 			!composer.isSubmitting &&
@@ -87,7 +85,7 @@ export function ReplyForm({
 					images={composer.images}
 					dropzone={dropzone}
 					canSubmit={canSubmit}
-					disabled={locked}
+					autoFocus={composer.focusOnOpen}
 					onChange={composer.onChange}
 				/>
 			</div>
@@ -95,11 +93,10 @@ export function ReplyForm({
 				{...controls}
 				agentMessage={message}
 				navigation={navigation}
-				locked={locked}
 				replyDraft={composer.value}
 				hasImages={composer.images.images.length > 0}
 				onAddImages={dropzone.open}
-				imagesDisabled={locked || !composer.images.canAdd || controls.cancel?.isPending}
+				imagesDisabled={!composer.images.canAdd || controls.cancel?.isPending}
 				onClearReply={() => {
 					composer.onChange("")
 					composer.images.onClear()

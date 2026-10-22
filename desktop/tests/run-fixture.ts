@@ -21,6 +21,8 @@ export function prepareRun(backend: Backend, id = "run-one", project = "existing
 	let closed = 0
 	backend.handlers.set("POST /run/create", response => json(response, { run_id: id }))
 	backend.handlers.set(`GET /run/${id}`, response => json(response, snapshot({ project })))
+	// No staged reply images unless a test stages some.
+	if (!backend.handlers.has(`GET /run/${id}/files`)) backend.handlers.set(`GET /run/${id}/files`, response => json(response, []))
 	backend.handlers.set(`GET /run/${id}/stream`, response => {
 		response.writeHead(200, { "Content-Type": "text/event-stream" })
 		response.write(": open\n\n")
@@ -41,7 +43,7 @@ export async function view(page: Page, label: string) {
 	await chooseView(page, label)
 }
 export const output = (page: Page) => page.locator(".agent-hud__replyBox--agent .agent-hud__replyBox-scroll")
-export const replyBox = (page: Page) => page.getByRole("textbox", { name: "Type your reply...", exact: true })
+export const replyBox = (page: Page) => page.getByRole("textbox", { name: "Reply text", exact: true })
 export const runStatus = (page: Page) => page.getByRole("status", { name: "Run status" })
 /** A finished or missing run leaves Current Run for the overview, as in the reference. */
 export async function expectOverview(page: Page) {

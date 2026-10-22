@@ -41,7 +41,7 @@ test("fixture history navigates without wrapping and retains selection with draf
 	await latest.press("Space")
 	await expect(message).toContainText("Mock run ready.")
 	await previous.press("Enter")
-	const reply = page.getByRole("textbox", { name: "Type your reply...", exact: true })
+	const reply = page.getByRole("textbox", { name: "Reply text", exact: true })
 	await reply.fill(" retained\n draft ")
 	await page.getByRole("button", { name: "Move panel divider up" }).click()
 	await chooseModel(page, "Mock extended context model")
@@ -62,7 +62,7 @@ test("fixture history navigates without wrapping and retains selection with draf
 
 test("copy preserves exact text, expires feedback, clears stale feedback, and Clear keeps the same editor", async ({ desktop: { app, page } }) => {
 	await page.getByRole("button", { name: "Launch", exact: true }).click()
-	const reply = page.getByRole("textbox", { name: "Type your reply...", exact: true })
+	const reply = page.getByRole("textbox", { name: "Reply text", exact: true })
 	const copyReply = copyReplyButton(page)
 	const copyAgent = copyAgentButton(page)
 	await expect(copyReply).toHaveAccessibleName("Copy user reply")
@@ -108,7 +108,7 @@ test("copy preserves exact text, expires feedback, clears stale feedback, and Cl
 
 test("copy failure reports an alert and retry preserves draft and selection", async ({ desktop: { app, page } }) => {
 	await page.getByRole("button", { name: "Launch", exact: true }).click()
-	const reply = page.getByRole("textbox", { name: "Type your reply...", exact: true })
+	const reply = page.getByRole("textbox", { name: "Reply text", exact: true })
 	await reply.fill(" retry\nthis ")
 	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
 	const before = await agentText(page).textContent()
@@ -144,7 +144,7 @@ for (const theme of ["dark", "light"]) {
 		await page.evaluate(async () => { await document.fonts.ready })
 		await waitForPanelLayout(page)
 		const message = page.locator(".agent-hud__replyBox-scroll")
-		const reply = page.getByRole("textbox", { name: "Type your reply...", exact: true })
+		const reply = page.getByRole("textbox", { name: "Reply text", exact: true })
 		const draft = "Retained draft line\n".repeat(30)
 		await reply.fill(draft)
 		await reply.evaluate((element: HTMLTextAreaElement) => {
@@ -176,7 +176,7 @@ for (const theme of ["dark", "light"]) {
 	test(`footer keeps mounted controls, focus, and feedback while wrapping in ${theme}`, async ({ desktop: { app, page } }) => {
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 		await page.getByRole("button", { name: "Launch", exact: true }).click()
-		await page.getByRole("textbox", { name: "Type your reply...", exact: true }).fill("A local reply\nwith another line.")
+		await page.getByRole("textbox", { name: "Reply text", exact: true }).fill("A local reply\nwith another line.")
 		await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
 		await page.evaluate(async () => { await document.fonts.ready })
 		expect(await page.evaluate(() => document.fonts.check('31px "Anurati Pro"'))).toBe(true)

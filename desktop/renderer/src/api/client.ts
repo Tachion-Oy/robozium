@@ -12,6 +12,8 @@ interface JsonRequest {
 	json?: unknown
 	/** A multipart body; the browser sets its Content-Type boundary. */
 	form?: FormData
+	/** Raw bytes, sent as application/octet-stream. */
+	bytes?: Blob
 	signal?: AbortSignal
 }
 
@@ -45,6 +47,11 @@ export class DesktopApiClient {
 		}
 	}
 
+	/** An absolute backend URL, for resources the page loads itself, such as images. */
+	url(path: string): string {
+		return new URL(path, this.base).href
+	}
+
 	private async sendRequest(path: string, options: RequestInit): Promise<Response> {
 		const url = new URL(path, this.base)
 		if (url.origin !== this.base.origin || url.username || url.password) {
@@ -61,13 +68,16 @@ export class DesktopApiClient {
 		return response
 	}
 
+	/** Resolves null for 204 No Content. */
 	async request(path: string, options: JsonRequest = {}): Promise<unknown> {
+		const contentType = options.json !== undefined ? "application/json" : options.bytes ? "application/octet-stream" : undefined
 		const response = await this.sendRequest(path, {
 			method: options.method ?? "GET",
 			signal: options.signal,
-			headers: { Accept: "application/json", ...(options.json === undefined ? {} : { "Content-Type": "application/json" }) },
-			body: options.form ?? (options.json === undefined ? undefined : JSON.stringify(options.json)),
+			headers: { Accept: "application/json", ...(contentType ? { "Content-Type": contentType } : {}) },
+			body: options.form ?? options.bytes ?? (options.json === undefined ? undefined : JSON.stringify(options.json)),
 		})
+		if (response.status === 204) return null
 		let text: string
 		try {
 			text = await response.text()

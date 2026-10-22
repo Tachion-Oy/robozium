@@ -1,5 +1,10 @@
-import { AgentApiError, deleteRunAttachments, listRunAttachments, uploadRunAttachment } from "./client"
-import type { RunAttachment } from "./wire"
+// Copied from web/lib/robozium/reply-images.ts at 2a0c183.
+// Adapted: requests go through the desktop client under a deadline and end when
+// the draft is disposed; restored previews load from the backend origin. Without
+// a run (standalone preview) there is nothing to retry.
+import { ApiError, type DesktopApiClient } from "../api/client"
+import { withDeadline } from "../api/request"
+import { deleteRunAttachments, hubFileUrl, listRunAttachments, uploadRunAttachment, type RunAttachment } from "./attachments-api"
 
 export type ReplyImage = {
 	url: string
@@ -27,7 +32,9 @@ type Snapshot = {
 const pendingOperations = new Map<string, Promise<void>>()
 
 /** One queue owns all pending-collection mutations, including reply acceptance. */
-export function createReplyImageDraft(runId: string | null) {
+export function createReplyImageDraft(client: DesktopApiClient | null, runId: string | null) {
+	let requests = new AbortController()
+	const call = <T>(operation: (signal: AbortSignal) => Promise<T>) => withDeadline(requests.signal, operation)
 	let entries: DraftImage[] = []
 	let active = false
 	let generation = 0
@@ -46,8 +53,8 @@ export function createReplyImageDraft(runId: string | null) {
 			images: entries.filter((entry) => !entry.discard || entry.status === "failed").map(({ url, name, serverId, status }) => ({ url, name, serverId, status })),
 			error, isBusy,
 			isReady: active && loaded && !needsSync && !clearing && !isBusy && entries.every((entry) => entry.status === "ready" && !entry.discard),
-			canAdd: active && Boolean(runId) && !clearing,
-			canRetry: active && !isBusy && (!loaded || needsSync || clearing || entries.some((entry) => entry.status === "failed")),
+			canAdd: active && Boolean(client && runId) && !clearing,
+			canRetry: active && Boolean(client && runId) && !isBusy && (!loaded || needsSync || clearing || entries.some((entry) => entry.status === "failed")),
 		}
 		listeners.forEach((listener) => listener())
 	}
@@ -88,15 +95,15 @@ export function createReplyImageDraft(runId: string | null) {
 	}
 	const adopt = (attachment: RunAttachment): DraftImage => ({
 		name: attachment.name, serverId: attachment.id, status: "ready", discard: clearing,
-		url: `/api/files/${attachment.path.split("/").map(encodeURIComponent).join("/")}`,
+		url: hubFileUrl(client!, attachment.path),
 	})
 	const restore = async (version: number) => {
-		const pending = await listRunAttachments(runId!)
+		const pending = await call((signal) => listRunAttachments(client!, runId!, signal))
 		if (!current(version)) return
 		const ids = new Set(pending.map(({ id }) => id))
 		for (const entry of [...entries]) {
 			if (entry.serverId && !ids.has(entry.serverId)) forget(entry)
-			if (!entry.serverId && entry.uploadId) entry.serverId = pending.find((item) => item.upload_id === entry.uploadId)?.id
+			if (!entry.serverId && entry.uploadId) entry.serverId = pending.find((item) => item.uploadId === entry.uploadId)?.id
 			if (entry.serverId && !entry.discard) entry.status = "ready"
 		}
 		// Server entries precede files added while the restoration request was pending.
@@ -112,7 +119,7 @@ export function createReplyImageDraft(runId: string | null) {
 		entry.status = "uploading"
 		publish()
 		try {
-			const attachment = await uploadRunAttachment(runId!, entry.file!, entry.uploadId!)
+			const attachment = await call((signal) => uploadRunAttachment(client!, runId!, entry.file!, entry.uploadId!, signal))
 			if (!current(version)) return
 			entry.serverId = attachment.id
 			entry.status = "ready"
@@ -130,7 +137,7 @@ export function createReplyImageDraft(runId: string | null) {
 		try {
 			if (needsSync) await restore(version)
 			if (!current(version)) return
-			if (entry.serverId) await deleteRunAttachments(runId!, entry.serverId)
+			if (entry.serverId) await call((signal) => deleteRunAttachments(client!, runId!, entry.serverId, signal))
 			if (current(version)) forget(entry)
 		} catch (cause) {
 			if (!current(version)) return
@@ -141,7 +148,7 @@ export function createReplyImageDraft(runId: string | null) {
 	}
 	const clear = async (version: number) => {
 		try {
-			await deleteRunAttachments(runId!)
+			await call((signal) => deleteRunAttachments(client!, runId!, undefined, signal))
 			if (!current(version)) return
 			entries.forEach((entry) => { if (entry.file) URL.revokeObjectURL(entry.url) })
 			entries = []
@@ -160,11 +167,13 @@ export function createReplyImageDraft(runId: string | null) {
 		getSnapshot: () => snapshot,
 		activate: () => {
 			active = true
-			if (runId) enqueue(restore)
+			requests = new AbortController()
+			if (client && runId) enqueue(restore)
 			else publish()
 		},
 		dispose: () => {
 			active = false
+			requests.abort()
 			generation += 1
 			queue.length = 0
 			entries.forEach((entry) => { if (entry.file) URL.revokeObjectURL(entry.url) })
@@ -196,7 +205,7 @@ export function createReplyImageDraft(runId: string | null) {
 			publish()
 		},
 		onClear: () => {
-			if (!active || !runId || clearing) return
+			if (!active || !client || !runId || clearing) return
 			clearing = true
 			entries.forEach((entry) => { entry.discard = true; entry.status = "removing" })
 			error = null
@@ -228,7 +237,7 @@ export function createReplyImageDraft(runId: string | null) {
 						// A response for a disposed run must not clear the next run's text draft.
 						resolve(current(version) && accepted)
 					} catch (cause) {
-						if (submitted.length && current(version) && (!(cause instanceof AgentApiError) || cause.status >= 500)) {
+						if (submitted.length && current(version) && (!(cause instanceof ApiError) || cause.kind !== "http" || (cause.status ?? 500) >= 500)) {
 							needsSync = true
 							fail(new Error("Reply acknowledgement was lost. Refresh images before retrying."))
 						}

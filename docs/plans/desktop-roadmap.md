@@ -55,7 +55,7 @@ Reviewed against `origin/main` at `55e3b3c` (after #120).
 | 21 Dictation and startup | Not started | — |
 | 22–24 Ship | Not started | — |
 | Toasts (step 11 follow-up) | Done | #120 |
-| 25 Image attachments | Not started | — |
+| 25 Image attachments | Done | This PR |
 | 26 Onboarding | Blocked on #121 | — |
 | 27 UI tweaks | Not started | — |
 | 28 Opening links | Not started | — |
@@ -87,7 +87,8 @@ the PR that closes it.
 | Theme persistence; native background `#07080a` dark, `#f3f0e7` light | E | `index.html` hard-codes `data-theme="dark"`; `main.ts` sets no background | 13a |
 | Message log pane, toggle, `TerminalStream`/`renderContent`, `DemoLog` | E | CSS rules only; no toggle in `AgentHud` | 13b |
 | Window grow/shrink for the log (side-by-side ≥1120px, stacked below; restore unless user-resized) | E (`message-log-window.cjs`) | Absent | 13c |
-| Image attachments: paste, drop, picker, thumbnails, remove, retry, image-only replies | W | Composer predates images | 25 |
+| Image attachments: paste, drop, picker, thumbnails, remove, retry, image-only replies | W | Done | 25 |
+| Agent images inline: compact previews, larger viewer, original-image link | W (#125) | Not shown inline; needs hub files in the window, as links do | 28 |
 | Markdown and `<file src>` hub-file links, including sent images | W (new design for desktop) | Rendered, inert; `main.ts` denies navigation | 28 |
 | Dictation: Record, audio meter, `/transcribe`, microphone permission | E, W | Record hard-disabled in `ui/run/RunHud.tsx`; all permissions refused | 21a |
 | Dependencies panel: sort, Check now, copy diagnostic | E, W | `ViewPlaceholder` | 19 |

@@ -1,10 +1,12 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/run/RunHud.tsx at 076b2c9.
 // Adapted: the displayed run and its reply, interrupt and cancel writes come from
 // the desktop owners as props; their owners report failures. Dictation renders
-// unavailable until its owner arrives (roadmap step 21).
+// unavailable until its owner arrives (roadmap step 21). Images follow
+// web/app/components/hud/run/RunHud.tsx at 2a0c183.
 import type { Dispatch, SetStateAction } from "react"
+import type { ReplyImagesModel } from "../../attachments/useReplyImages"
 import type { HudDisplay } from "../../hud/hud-view"
-import type { ReplyResult } from "../../session/useRunMutations"
+import type { ReplyImages, ReplyResult } from "../../session/useRunMutations"
 import type { LayoutMode } from "../hud/HudCornerControls"
 import type { AgentMessage } from "./AgentMessagePanel"
 import type { HudPendingAction } from "./HudControls"
@@ -14,6 +16,7 @@ import { AgentActivityState, type HudMessageNavigationDirection } from "./run-vi
 type RunHudProps = {
 	draft: string
 	onDraftChange: Dispatch<SetStateAction<string>>
+	images: ReplyImagesModel
 	layoutMode: LayoutMode
 	display: HudDisplay
 	awaitingInput: boolean
@@ -22,7 +25,7 @@ type RunHudProps = {
 	reply: {
 		available: boolean
 		submitting: boolean
-		submit: (content: string) => Promise<ReplyResult>
+		submit: (content: string, images: ReplyImages) => Promise<ReplyResult>
 	}
 	cancel: HudPendingAction
 	interrupt: HudPendingAction
@@ -31,6 +34,7 @@ type RunHudProps = {
 export function RunHud({
 	draft,
 	onDraftChange,
+	images,
 	layoutMode,
 	display,
 	awaitingInput,
@@ -51,7 +55,7 @@ export function RunHud({
 	const handleSubmit = async () => {
 		const submittedDraft = draft
 		// The owner reports failures; an acknowledged reply clears only an unchanged draft.
-		if (await reply.submit(draft) === "acknowledged") {
+		if (await reply.submit(draft, images) === "acknowledged") {
 			onDraftChange((current) =>
 				current === submittedDraft ? "" : current,
 			)
@@ -71,6 +75,7 @@ export function RunHud({
 			layoutMode={layoutMode}
 			composer={{
 				value: draft,
+				images,
 				isReplyAvailable: reply.available,
 				isSubmitting: reply.submitting,
 				focusOnOpen,

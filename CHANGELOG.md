@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Attach images to desktop replies by pasting, dropping or choosing them with
+  **image**, as in the web HUD: thumbnails while they upload, remove and
+  **Retry images**, the same limits and messages, and image-only replies. Staged
+  images stay when you switch views and return when the run is reopened.
+
 - Display saved and web images inline in browser HUD responses, with compact
   previews, an accessible larger viewer, and an original-image link. Preserve
   image previews while output streams and show a fallback when images cannot load.

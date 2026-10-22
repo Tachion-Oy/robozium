@@ -13,6 +13,8 @@ import { installTestClient } from "../tests/transport"
 const desktop = path.resolve(__dirname, "..")
 const docker = execFileSync("which", ["docker"], { encoding: "utf8" }).trim()
 const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`
+// An 8×4 PNG.
+const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAECAIAAAA8r+mnAAAAEUlEQVR4nGNQOJCAFTFQTwIAyM0oAY5QpvwAAAAASUVORK5CYII=", "base64")
 interface Runtime {
 	directory: string
 	profile: string
@@ -212,7 +214,7 @@ test("an outage preserves the HUD, and after recovery the lost run returns to th
 		if (request.method() === "GET" && request.url() === `http://127.0.0.1:${port}/models`) modelReads++
 	})
 	await createAndLaunch(page, "Outage project")
-	const reply = page.getByRole("textbox", { name: "Type your reply...", exact: true })
+	const reply = page.getByRole("textbox", { name: "Reply text", exact: true })
 	await reply.fill("retained across outage")
 	await reply.evaluate(element => Reflect.set(window, "originalEditor", element))
 	await expect(page.locator(".agent-hud__replyBox--agent .agent-hud__replyBox-scroll")).toContainText("Hello! I generated a text artifact")
@@ -379,12 +381,26 @@ test("UI starts a project run, answers its prompts and returns to the overview a
 	await expect(output).toContainText("Hello! I generated a text artifact")
 	await expect(status).toContainText("Awaiting input")
 	// Both prompts are answered through the HUD: Enter first, then Send.
-	const reply = page.getByRole("textbox", { name: "Type your reply...", exact: true })
+	const reply = page.getByRole("textbox", { name: "Reply text", exact: true })
 	await reply.fill("Continue the mock")
 	await reply.press("Enter")
 	await expect(output).toHaveText("Thanks. One more thing before I finish?")
 	await expect(reply).toHaveValue("")
+	// The last reply carries an image; the backend serves staged files to the renderer's previews.
+	await page.getByLabel("Choose images").setInputFiles({ name: "mock.png", mimeType: "image/png", buffer: png })
 	await reply.fill("Finish the mock")
+	await expect(page.locator(".agent-hud__send")).toBeEnabled()
+	expect(await page.evaluate(async () => {
+		const { baseUrl } = (await window.robozium.getBackendConnection())!
+		const runId = (await (await fetch(new URL("/projects", baseUrl))).json() as { slug: string; run_id: string }[])
+			.find(project => project.slug === "desktop-output")!.run_id
+		const [staged] = await (await fetch(new URL(`/run/${runId}/files`, baseUrl))).json() as { path: string }[]
+		const image = new Image()
+		image.crossOrigin = "anonymous"
+		image.src = new URL(`/files/${staged.path}`, baseUrl).href
+		await image.decode()
+		return image.naturalWidth
+	})).toBe(8)
 	await page.locator(".agent-hud__send").click()
 	await expect(page.locator(".agent-hud__project-row", { hasText: "desktop-output" })).toContainText("DORMANT")
 	await expect(reply).toHaveCount(0)
@@ -401,7 +417,7 @@ test("Cancel in the HUD cancels the run and returns to the overview", async ({ r
 	await expect(page.getByRole("status", { name: "Run status" })).toContainText("Awaiting input")
 	await page.locator(".agent-hud__cancel").click()
 	await expect(page.locator(".agent-hud__project-row", { hasText: "desktop-cancel" })).toContainText("DORMANT")
-	await expect(page.getByRole("textbox", { name: "Type your reply...", exact: true })).toHaveCount(0)
+	await expect(page.getByRole("textbox", { name: "Reply text", exact: true })).toHaveCount(0)
 	expect(cancels).toBe(1)
 	await closeWindow(app)
 })

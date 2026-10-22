@@ -69,8 +69,8 @@ test("footer actions sit all beside the arrows or all below them, and a press ne
 	backend.handlers.set("POST /run/run-one/interrupt", () => {})
 	await start(page, backend)
 	await expect(interruptButton(page)).toBeEnabled()
-	// Interrupt joins the first row near 850 px at 125%; sample where its labels differ.
-	const widths = Array.from({ length: 21 }, (_, step) => 800 + step * 10)
+	// The actions join the first row near 1180 px at 125%; sample where their labels differ.
+	const widths = Array.from({ length: 21 }, (_, step) => 1080 + step * 10)
 	const placements = async () => {
 		const result: Record<number, string[]> = {}
 		for (const width of widths) {
