@@ -35,7 +35,7 @@ application's CSS, which was tuned by hand over weeks.
 
 ## Status
 
-Reviewed against `origin/main` at `55e3b3c` (after #120).
+Reviewed against `origin/main` at `b640105` (after #127).
 
 | Step | State | PRs |
 | --- | --- | --- |
@@ -44,38 +44,38 @@ Reviewed against `origin/main` at `55e3b3c` (after #120).
 | 10 Frame and header | Done (octagon follow-up open) | #102 |
 | 11 Running HUD | Done; Record disabled, links inert | #104 |
 | 12 Projects overview with capability selector | Done | #105, #106 |
-| 13 Message log and theme persistence | **Not started.** Only the `desktop.css` `[data-log-open]` rules are present; theme resets to dark on restart | — |
+| 13 Message log and theme persistence | Done | #123, #124, #127 |
 | 14 Replies | Done | #108 |
 | 15 Interrupt and cancel | Done | #110 |
 | 16 Project deletion | Done (with the overview) | #106 |
 | 17 Reconnection | Done; recovery dropped | #112, #113 |
 | 18 Environment | Done | #116, #117 |
-| 19 Dependencies | Not started (`ViewPlaceholder`) | — |
+| 19 Dependencies | Done | #126 |
 | 20 Credentials and capabilities | Done | #106, #115 |
 | 21 Dictation and startup | Dictation done; startup not started | #131 |
-| 22–24 Ship | Not started | — |
+| 22 Instance handling | Window size, zoom and second-instance focus done | #127 |
+| 23–24 Ship | Linux packaging in progress; macOS deferred | — |
 | Toasts (step 11 follow-up) | Done | #120 |
 | 25 Image attachments | Done | #128 |
-| 26 Onboarding | Blocked on #121 | — |
+| 26 Onboarding | Unblocked (#121 merged); not started | — |
 | 27 UI tweaks | Not started | — |
 | 28 Opening links | Done | #131 |
+| 29 Inline agent images | Not started (web #125) | — |
 
 **Order from here.** Related small steps share a PR so each CI run covers
-more ground; 200–400 hand-written lines is the ceiling, not the target.
+more ground; 200–400 hand-written lines is the ceiling, not the target. Done:
+theme (#123), message log (#124), window sizing (#127), Dependencies (#126).
 
-| PR | Contents |
-| --- | --- |
-| A. Theme | 13a theme persistence and native background; light-theme colour knobs gathered in one place for hand tuning |
-| B. UI tweaks | Step 27: stable selectors, no project title in Runs view, footer layout with the log slot, octagon |
-| C. Message log | 13b (copy commit first); 13c too if it fits |
-| D. Log window sizing | 13c with step 22's window size, zoom and second-instance focus (done) |
-| E. Image attachments | 25, split in two only if it exceeds the size limit |
-| F. Links and dictation | 28 and 21a: the two preload-privilege operations |
-| G. Dependencies | 19: panel and backend restart/recreate |
-| H. Stream prompts and splash | Prompts on the stream, 21b; separate PRs unless both are small |
-
-App identity (step 27) lands whenever the logo design is ready; 26 waits for
-#121; Milestone D comes last.
+| # | PR | Contents |
+| --- | --- | --- |
+| — | Image attachments | 25 (in progress) |
+| 1 | Installable Linux app | `.deb` from `npm run package:linux`; the installed app keeps its profile in `~/.config/Robozium` (step 24, Linux only) |
+| 2 | Links and dictation | 28 and 21a: the two preload-privilege operations |
+| 3 | UI tweaks | Step 27: stable selectors, no project title in Runs view, footer layout, octagon |
+| 4 | Live prompts and splash | Prompts on the stream, 21b; separate PRs unless both are small |
+| 5 | Onboarding and inline agent images | 26 and 29, both from `web/` |
+| 6 | App logo | Step 27's app identity, when the design is ready; also the package icon |
+| 7 | macOS | Step 23 and the macOS half of 24; deferred |
 
 ## Parity checklist
 
@@ -84,21 +84,21 @@ the PR that closes it.
 
 | Gap | Ref | Desktop today | Step |
 | --- | --- | --- | --- |
-| Theme persistence; native background `#07080a` dark, `#f3f0e7` light | E | `index.html` hard-codes `data-theme="dark"`; `main.ts` sets no background | 13a |
-| Message log pane, toggle, `TerminalStream`/`renderContent`, `DemoLog` | E | CSS rules only; no toggle in `AgentHud` | 13b |
-| Window grow/shrink for the log (side-by-side ≥1120px, stacked below; restore unless user-resized) | E (`message-log-window.cjs`) | Done | 13c |
-| Image attachments: paste, drop, picker, thumbnails, remove, retry, image-only replies | W | Done | 25 |
-| Agent images inline: compact previews, larger viewer, original-image link | W (#125) | Not shown inline; needs hub files in the window, as links do | 28 |
-| Markdown and `<file src>` hub-file links, including sent images | W (new design for desktop) | Done: web links open in the browser, hub files with their default application | 28 |
-| Dictation: Record, audio meter, `/transcribe`, microphone permission | E, W | Done | 21a |
-| Dependencies panel: sort, Check now, copy diagnostic | E, W | `ViewPlaceholder` | 19 |
-| Backend restart/recreate (`BackendControls`) | E | Only startup `retryBackend` | 19 |
+| Theme persistence; native background `#07080a` dark, `#f3f0e7` light | E | Done (#123) | 13a |
+| Message log pane, toggle, `TerminalStream`/`renderContent`, `DemoLog` | E | Done (#124) | 13b |
+| Window grow/shrink for the log (side-by-side ≥1120px, stacked below; restore unless user-resized) | E (`message-log-window.cjs`) | Done (#127) | 13c |
+| Image attachments: paste, drop, picker, thumbnails, remove, retry, image-only replies | W | Done (#128) | 25 |
+| Agent images inline: compact previews, larger viewer, original-image link | W (#125) | Not shown inline; needs hub files in the window, as links do | 29 |
+| Markdown and `<file src>` hub-file links, including sent images | W (new design for desktop) | Done (#131): web links open in the browser, hub files with their default application | 28 |
+| Dictation: Record, audio meter, `/transcribe`, microphone permission | E, W | Done (#131) | 21a |
+| Dependencies panel: sort, Check now, copy diagnostic | E, W | Done (#126) | 19 |
+| Backend restart/recreate (`BackendControls`) | E | Done (#126) | 19 |
 | Startup splash, handoff to the painted HUD, splash during restart | E | Plain `ui/backend/BackendStartup.tsx` | 21b |
 | Prompt id and awaiting-input state on the stream | — | Lags a streamed prompt by up to a poll | Follow-up |
 | Window 1260×780 default, 640×420 minimum, 90% of work area maximum, size saved | E | Done; the 90% cap applies to sizes the app picks, not to manual resizing | 22 |
 | Zoom ±0.1 within 0.5–3, saved | E | Done | 22 |
 | Second-instance focus | E | Done | 22 |
-| API-key onboarding and setup gate | W (#121) | Absent | 26 |
+| API-key onboarding and setup gate | W (#121, merged) | Absent | 26 |
 | Switch the open run's model mid-run (`run_id` on `/models`) | W | Done: Current Run reads and switches its run's model | Fix |
 
 ## Presentation rules
@@ -275,9 +275,9 @@ Step 27 checklist (append further small findings here):
 | --- | --- |
 | **22. Instance handling** | Duplicate-launch focus (`second-instance` handler), settings validation, independent test profiles. Window as in the experiment: 1260×780 default, 640×420 minimum, at most 90% of the screen work area, size saved. Zoom in steps of 0.1 between 0.5 and 3, saved, and applied to the splash too. |
 | **23. Portable backend runtime** | Remove the Linux-only assumptions so the same code runs on macOS (details below). |
-| **24. Packaging for both platforms** | One `electron-builder` configuration with two targets, built with `npm run package:linux` and `npm run package:mac`, from shared allowlisted resources and locked backend inputs. Linux produces a `.deb`. macOS produces a `.dmg` for arm64 and x64; it is unsigned at first, and signing/notarization is an opt-in follow-up driven by environment variables. |
+| **24. Packaging** | **Linux now:** one `electron-builder` configuration, built with `npm run package:linux`, producing a `.deb`. The installed app keeps its profile in Electron's `userData` (`~/.config/Robozium`), not next to a checkout, and ships the staged backend and Compose files as plain resources for Docker. **macOS later:** a `.dmg` for arm64 and x64 from the same configuration (`npm run package:mac`), unsigned at first, with signing/notarization as an opt-in follow-up driven by environment variables. |
 
-Step 23 covers:
+Step 23 (macOS, deferred) covers:
 
 - **Networking:** replace `network_mode: host` in `desktop/compose.yaml` with
   ports published on loopback (`127.0.0.1:<port>:<port>`). Uvicorn binds
@@ -291,11 +291,11 @@ Step 23 covers:
 
 It is verified on Linux CI and with a manual run on a Mac with Docker Desktop.
 
-Step 24 is verified in CI on both platforms:
+Step 24 is verified in CI:
 
 - **Linux:** install the `.deb` and exercise it in disposable CI without host
   Node or Python.
-- **macOS:** the runner builds the `.dmg` and launches the packaged app. Hosted
+- **macOS (later):** the runner builds the `.dmg` and launches the packaged app. Hosted
   macOS runners have no Docker, so the CI check covers the missing-Docker state
   and the renderer. The full backend flow is a documented manual check on a Mac.
 
