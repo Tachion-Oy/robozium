@@ -148,6 +148,9 @@ for (const theme of ["dark", "light"]) {
 			expect(geometry).toEqual({ metadataContained: true, cellOverflow: expect.any(Number) })
 			expect(geometry.cellOverflow).toBeLessThanOrEqual(1)
 			expect(await page.evaluate(() => document.documentElement.scrollWidth === innerWidth)).toBe(true)
+			// The diagnostic's Copy button stays at body size, below the Check Now headline.
+			expect(await panel(page).getByRole("button", { name: "Copy diagnostic" }).evaluate(button =>
+				parseFloat(getComputedStyle(button).fontSize) <= parseFloat(getComputedStyle(document.documentElement).fontSize))).toBe(true)
 			const screenshot = testInfo.outputPath(`dependencies-${theme}-${width}-${zoom}.png`)
 			await writeFile(screenshot, (await captureNative(app, page, width, height))!)
 			await testInfo.attach(`dependencies-${theme}-${width}-${zoom}.png`, { path: screenshot, contentType: "image/png" })

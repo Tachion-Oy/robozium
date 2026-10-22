@@ -905,6 +905,11 @@
 :root[data-theme="light"] .agent-hud__status-view [class*="text-shadow"] {
   text-shadow: none;
 }
+/* The diagnostic's Copy button reads as a row action, not a headline call to
+   action: keep it at body size in both themes. */
+.agent-hud__status-view td .app-nav__cta {
+  font-size: 1rem;
+}
 :root[data-theme="light"] .agent-hud__status-view .app-nav__cta {
   border: 0.08rem solid
     color-mix(in oklab, var(--term-green) 58%, var(--hud-input-border));

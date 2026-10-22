@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Show the dependency monitor in the desktop Dependencies view: sortable records,
+  **Check Now**, and copyable diagnostics, with **Restart backend** and
+  **Recreate backend** for this installation's API container. In both apps the
+  diagnostic's **Copy diagnostic** button now stays at body size in dark mode.
+
 - Guide fresh live starts through API key setup in the web HUD. Without `.env` or
   `.env.encrypt`, the API reports `setup_required` from `GET /credentials` and
   holds provider actions; the HUD disables projects and header controls and
