@@ -1,7 +1,7 @@
 /* Match the selector beside it; use the HUD size controls' blue palette. */
 .theme-toggle.agent-hud__selector-trigger {
   --btn-accent: var(--term-blue);
-  --btn-edge: color-mix(in oklab, var(--term-blue) 62%, transparent);
+  --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 62% * var(--tune-edge, 1), 100%), transparent);
   --btn-fill-strength: 10%;
   display: inline-flex;
   align-items: center;
@@ -9,18 +9,18 @@
   gap: 0.55rem;
   flex: 0 0 auto;
   width: auto;
-  color: color-mix(in oklab, var(--term-blue) 76%, white 24%);
+  color: color-mix(in oklab, var(--term-blue) clamp(0%, 76% * var(--tune-text, 1), 100%), white);
   font-size: inherit;
 }
 
 .theme-toggle.agent-hud__selector-trigger:hover {
-  --btn-edge: color-mix(in oklab, var(--term-blue) 88%, white 12%);
+  --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
   --btn-fill-strength: 24%;
-  color: color-mix(in oklab, var(--term-blue) 76%, white 24%);
+  color: color-mix(in oklab, var(--term-blue) clamp(0%, 76% * var(--tune-text, 1), 100%), white);
 }
 
 .theme-toggle:focus-visible {
-  outline: 2px solid color-mix(in oklab, var(--term-blue) 80%, white 20%);
+  outline: 2px solid color-mix(in oklab, var(--term-blue) clamp(0%, 80% * var(--tune-hover-edge, 1), 100%), white);
   outline-offset: 2px;
 }
 
@@ -48,8 +48,8 @@
 
 :root[data-theme="light"] .theme-toggle.agent-hud__selector-trigger {
   --btn-tone: var(--term-blue);
-  --btn-edge: color-mix(in oklab, var(--btn-tone) 58%, var(--hud-input-border));
-  --btn-fill: color-mix(in oklab, var(--btn-tone) 13%, var(--hud-input-bg));
+  --btn-edge: color-mix(in oklab, var(--btn-tone) clamp(0%, 58% * var(--tune-edge, 1), 100%), var(--hud-input-border));
+  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 13% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
   --btn-ring: 0.08rem;
   min-height: 2.35rem;
   padding: 0.5rem 0.78rem;
@@ -59,17 +59,17 @@
   background:
     linear-gradient(
       to top,
-      color-mix(in oklab, var(--btn-tone) 68%, transparent) 0 0.16rem,
+      color-mix(in oklab, var(--btn-tone) clamp(0%, 68% * var(--tune-fill, 1), 100%), transparent) 0 0.16rem,
       transparent 0.16rem
     ),
     linear-gradient(
       180deg,
-      color-mix(in oklab, white 30%, var(--btn-fill)),
-      color-mix(in oklab, var(--btn-fill) 88%, var(--hud-input-bg))
+      color-mix(in oklab, white clamp(0%, 30% * var(--tune-sheen, 1), 100%), var(--btn-fill)),
+      color-mix(in oklab, var(--btn-fill) clamp(0%, 88% * var(--tune-fill, 1), 100%), var(--hud-input-bg))
     );
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white 68%, transparent),
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 68% * var(--tune-sheen, 1), 100%), transparent),
     0 0.13rem 0.2rem
-      color-mix(in oklab, var(--hud-control-ink) 11%, transparent);
+      color-mix(in oklab, var(--hud-control-ink) clamp(0%, 11% * var(--tune-shadow, 1), 100%), transparent);
   letter-spacing: 0.045em;
   text-shadow: none;
 }
@@ -81,7 +81,7 @@
 
 :root[data-theme="light"] .theme-toggle.agent-hud__selector-trigger:hover,
 :root[data-theme="light"] .theme-toggle.agent-hud__selector-trigger:focus-visible {
-  border-color: color-mix(in oklab, var(--term-blue) 72%, var(--hud-control-ink));
-  background: color-mix(in oklab, var(--term-blue) 16%, var(--hud-input-bg));
+  border-color: color-mix(in oklab, var(--term-blue) clamp(0%, 72% * var(--tune-hover-edge, 1), 100%), var(--hud-control-ink));
+  background: color-mix(in oklab, var(--term-blue) clamp(0%, 16% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
   color: var(--hud-control-ink);
 }

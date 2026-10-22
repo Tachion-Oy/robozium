@@ -199,7 +199,7 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
     ),
     rgb(var(--hud-shell-rgb) / 0.72);
   background-size: 3.5rem 3.5rem, 3.5rem 3.5rem, auto, auto;
-  /* Built here (not from a :root var) so --hud-glow-scale resolves against this
+  /* Built here (not from a:root var) so --hud-glow-scale resolves against this
      element -- letting .agent-hud__box--inactive dim it. */
   box-shadow:
     var(--hud-title-shadow, 0 0 0 transparent),
@@ -263,10 +263,10 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   width: var(--hud-corner-control-size);
   height: var(--hud-corner-control-size);
   box-sizing: border-box;
-  color: color-mix(in oklab, var(--term-blue) 76%, white 24%);
+  color: color-mix(in oklab, var(--term-blue) clamp(0%, 76% * var(--tune-text, 1), 100%), white);
   filter:
-    drop-shadow(0 0 1px color-mix(in oklab, var(--term-blue) 58%, transparent))
-    drop-shadow(0 0 6px color-mix(in oklab, var(--term-blue) 28%, transparent));
+    drop-shadow(0 0 1px color-mix(in oklab, var(--term-blue) clamp(0%, 58% * var(--tune-glow, 1), 100%), transparent))
+    drop-shadow(0 0 6px color-mix(in oklab, var(--term-blue) clamp(0%, 28% * var(--tune-glow, 1), 100%), transparent));
   opacity: 0.72;
   transition:
     color 140ms ease,
@@ -290,12 +290,12 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
 .agent-hud__resize-handle:hover .agent-hud__resize-wedge,
 .agent-hud__resize-handle:focus-visible .agent-hud__resize-wedge,
 .agent-hud__box--resizing .agent-hud__resize-wedge {
-  --btn-edge: color-mix(in oklab, var(--term-blue) 88%, white 12%);
+  --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
   --btn-fill-strength: 24%;
-  color: color-mix(in oklab, var(--term-blue) 68%, white 32%);
+  color: color-mix(in oklab, var(--term-blue) clamp(0%, 68% * var(--tune-text, 1), 100%), white);
   filter:
-    drop-shadow(0 0 2px color-mix(in oklab, var(--term-blue) 78%, transparent))
-    drop-shadow(0 0 8px color-mix(in oklab, var(--term-blue) 42%, transparent));
+    drop-shadow(0 0 2px color-mix(in oklab, var(--term-blue) clamp(0%, 78% * var(--tune-hover-glow, 1), 100%), transparent))
+    drop-shadow(0 0 8px color-mix(in oklab, var(--term-blue) clamp(0%, 42% * var(--tune-hover-glow, 1), 100%), transparent));
   opacity: 1;
 }
 
@@ -646,17 +646,17 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   letter-spacing: 0.075em;
   padding: 0.28rem 0.72rem 0.32rem;
   border: 1px solid
-    color-mix(in oklab, var(--term-green) 26%, var(--hud-input-border));
+    color-mix(in oklab, var(--term-green) clamp(0%, 26% * var(--tune-edge, 1), 100%), var(--hud-input-border));
   border-radius: 0.26rem;
   background: linear-gradient(
     180deg,
-    color-mix(in oklab, white 38%, var(--hud-input-bg)),
-    color-mix(in oklab, var(--term-green) 6%, var(--hud-input-bg))
+    color-mix(in oklab, white clamp(0%, 38% * var(--tune-sheen, 1), 100%), var(--hud-input-bg)),
+    color-mix(in oklab, var(--term-green) clamp(0%, 6% * var(--tune-fill, 1), 100%), var(--hud-input-bg))
   );
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white 64%, transparent),
-    inset 0 -0.14rem 0 color-mix(in oklab, var(--term-green) 62%, transparent),
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 64% * var(--tune-sheen, 1), 100%), transparent),
+    inset 0 -0.14rem 0 color-mix(in oklab, var(--term-green) clamp(0%, 62% * var(--tune-glow, 1), 100%), transparent),
     0 0.16rem 0.24rem
-      color-mix(in oklab, var(--hud-control-ink) 11%, transparent);
+      color-mix(in oklab, var(--hud-control-ink) clamp(0%, 11% * var(--tune-shadow, 1), 100%), transparent);
 }
 :root[data-theme="light"]
   .agent-hud__event-label
@@ -665,7 +665,7 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   height: 2.15rem;
   flex: 0 0 auto;
   background: var(--term-green);
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white 34%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 34% * var(--tune-sheen, 1), 100%), transparent);
   content: none;
 }
 :root[data-theme="light"]
@@ -692,24 +692,24 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   gap: 0.62rem;
   padding: 0.72rem;
   border: 1px solid
-    color-mix(in oklab, var(--term-blue) 28%, var(--hud-input-border));
+    color-mix(in oklab, var(--term-blue) clamp(0%, 28% * var(--tune-edge, 1), 100%), var(--hud-input-border));
   border-radius: 0.64rem;
   background: linear-gradient(
     180deg,
-    color-mix(in oklab, white 28%, var(--hud-box-bg)),
-    color-mix(in oklab, var(--term-blue) 5%, var(--hud-box-bg))
+    color-mix(in oklab, white clamp(0%, 28% * var(--tune-sheen, 1), 100%), var(--hud-box-bg)),
+    color-mix(in oklab, var(--term-blue) clamp(0%, 5% * var(--tune-fill, 1), 100%), var(--hud-box-bg))
   );
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white 68%, transparent),
-    inset 0 -0.16rem 0 color-mix(in oklab, var(--term-blue) 34%, transparent),
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 68% * var(--tune-sheen, 1), 100%), transparent),
+    inset 0 -0.16rem 0 color-mix(in oklab, var(--term-blue) clamp(0%, 34% * var(--tune-glow, 1), 100%), transparent),
     0 0.58rem 1.25rem
-      color-mix(in oklab, var(--hud-control-ink) 19%, transparent);
+      color-mix(in oklab, var(--hud-control-ink) clamp(0%, 19% * var(--tune-shadow, 1), 100%), transparent);
   filter: none;
 }
 :root[data-theme="light"] .agent-hud__mini-box::before {
   inset: 0.34rem;
   clip-path: none;
   border: 1px solid
-    color-mix(in oklab, var(--hud-input-border) 42%, transparent);
+    color-mix(in oklab, var(--hud-input-border) clamp(0%, 42% * var(--tune-line, 1), 100%), transparent);
   border-radius: 0.42rem;
   background: transparent;
   backdrop-filter: none;
@@ -740,20 +740,20 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   background: repeating-linear-gradient(
       0deg,
       transparent 0 3px,
-      color-mix(in oklab, var(--hud-input-text) 1.4%, transparent) 3px 4px
+      color-mix(in oklab, var(--hud-input-text) clamp(0%, 1.4% * var(--tune-shadow, 1), 100%), transparent) 3px 4px
     ),
     linear-gradient(
       180deg,
-      color-mix(in oklab, white 10%, var(--hud-light-center-bg)),
+      color-mix(in oklab, white clamp(0%, 10% * var(--tune-sheen, 1), 100%), var(--hud-light-center-bg)),
       var(--hud-light-center-bg) 22%,
       color-mix(
         in oklab,
-        var(--hud-input-text) 2%,
+        var(--hud-input-text) clamp(0%, 2% * var(--tune-text, 1), 100%),
         var(--hud-light-center-bg)
       )
     ),
     var(--hud-light-center-bg);
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white 44%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 44% * var(--tune-sheen, 1), 100%), transparent);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
@@ -762,7 +762,7 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   --shell-rail: 0.1rem;
   --shell-rail-color: color-mix(
     in oklab,
-    var(--hud-input-border) 58%,
+    var(--hud-input-border) clamp(0%, 58% * var(--tune-line, 1), 100%),
     transparent
   );
   --shell-bevel: transparent calc(50% - var(--shell-rail) / 2),
@@ -801,7 +801,7 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   box-sizing: border-box;
   inset: 0.56rem;
   border: 1px solid
-    color-mix(in oklab, var(--hud-input-border) 58%, transparent);
+    color-mix(in oklab, var(--hud-input-border) clamp(0%, 58% * var(--tune-line, 1), 100%), transparent);
   border-radius: 0.34rem;
   background: none;
 }
@@ -830,16 +830,16 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   clip-path: none;
   --hud-light-rail-bg: color-mix(
     in oklab,
-    var(--hud-control-ink) 13%,
+    var(--hud-control-ink) clamp(0%, 13% * var(--tune-text, 1), 100%),
     var(--hud-box-bg)
   );
   --hud-light-center-bg: color-mix(
     in oklab,
-    var(--hud-control-ink) 8%,
+    var(--hud-control-ink) clamp(0%, 8% * var(--tune-text, 1), 100%),
     var(--hud-box-bg)
   );
   border: 1px solid
-    color-mix(in oklab, var(--hud-input-border) 74%, var(--hud-control-ink));
+    color-mix(in oklab, var(--hud-input-border) clamp(0%, 74% * var(--tune-line, 1), 100%), var(--hud-control-ink));
   border-radius: 0.58rem;
   /* A solid base prevents the dark stream beneath the HUD from leaking
      through antialiased pixels where the rounded inner surface meets the
@@ -848,11 +848,11 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   /* The opaque light shell covers the title without the dark shell's top
      shadow. Keep its outer halo faint and centered on every edge. */
   box-shadow: inset 0 0 0 var(--hud-light-inner-rail) var(--hud-light-rail-bg),
-    inset 0 1px 0 color-mix(in oklab, white 38%, transparent),
+    inset 0 1px 0 color-mix(in oklab, white clamp(0%, 38% * var(--tune-sheen, 1), 100%), transparent),
     0 0 1rem
-      color-mix(in oklab, var(--hud-control-ink) 8%, transparent),
+      color-mix(in oklab, var(--hud-control-ink) clamp(0%, 8% * var(--tune-shadow, 1), 100%), transparent),
     0 0 2.8rem
-      color-mix(in oklab, var(--hud-control-ink) 4%, transparent);
+      color-mix(in oklab, var(--hud-control-ink) clamp(0%, 4% * var(--tune-shadow, 1), 100%), transparent);
   filter: none;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;

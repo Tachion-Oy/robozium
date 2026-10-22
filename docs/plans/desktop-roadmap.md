@@ -10,6 +10,10 @@ preload, a React/Vite renderer talking directly to the Python API, explicit
 state owners, and native regression tests. The browser application under `web/`
 stays as it is.
 
+Parity also covers features added to `web/` after the experiment was cut
+(2026-10-13): image attachments and, once merged, API-key onboarding. For
+those, `web/` is the reference, since the experiment predates them.
+
 ## Starting point
 
 Steps 1–8 are merged in `main`: the Electron scaffold, the Vite renderer,
@@ -28,6 +32,72 @@ application's CSS, which was tuned by hand over weeks.
 | Electron main, preload, backend controller, Docker lifecycle | `main` (`desktop/src/`) | Keep |
 | API transport, run/session/project/model owners | `main` (`desktop/renderer/src/{api,run,session,projects,models,hud,app}`) | Keep; extend through owners |
 | Presentation: markup, class names, CSS, layout hooks | Experiment (`desktop/web/app/{components,styles}`, `desktop/web/hooks/*`) | Import as the starting point, replacing `renderer/src/ui/**`; iterate from there |
+
+## Status
+
+Reviewed against `origin/main` at `55e3b3c` (after #120).
+
+| Step | State | PRs |
+| --- | --- | --- |
+| 1–8 Scaffold, renderer, backend lifecycle, API client | Done | — |
+| 9 Visual regression | Replaced by desktop screenshot tests; the cross-app harness was never committed | — |
+| 10 Frame and header | Done (octagon follow-up open) | #102 |
+| 11 Running HUD | Done; Record disabled, links inert | #104 |
+| 12 Projects overview with capability selector | Done | #105, #106 |
+| 13 Message log and theme persistence | **Not started.** Only the `desktop.css` `[data-log-open]` rules are present; theme resets to dark on restart | — |
+| 14 Replies | Done | #108 |
+| 15 Interrupt and cancel | Done | #110 |
+| 16 Project deletion | Done (with the overview) | #106 |
+| 17 Reconnection | Done; recovery dropped | #112, #113 |
+| 18 Environment | Done | #116, #117 |
+| 19 Dependencies | Not started (`ViewPlaceholder`) | — |
+| 20 Credentials and capabilities | Done | #106, #115 |
+| 21 Dictation and startup | Not started | — |
+| 22–24 Ship | Not started | — |
+| Toasts (step 11 follow-up) | Done | #120 |
+| 25 Image attachments | Not started | — |
+| 26 Onboarding | Blocked on #121 | — |
+| 27 UI tweaks | Not started | — |
+| 28 Opening links | Not started | — |
+
+**Order from here.** Related small steps share a PR so each CI run covers
+more ground; 200–400 hand-written lines is the ceiling, not the target.
+
+| PR | Contents |
+| --- | --- |
+| A. Theme | 13a theme persistence and native background; light-theme colour knobs gathered in one place for hand tuning |
+| B. UI tweaks | Step 27: stable selectors, no project title in Runs view, footer layout with the log slot, octagon |
+| C. Message log | 13b (copy commit first); 13c too if it fits |
+| D. Log window sizing | 13c, if C has no room |
+| E. Image attachments | 25, split in two only if it exceeds the size limit |
+| F. Links and dictation | 28 and 21a: the two preload-privilege operations |
+| G. Dependencies | 19: panel and backend restart/recreate |
+| H. Stream prompts and splash | Prompts on the stream, 21b; separate PRs unless both are small |
+
+App identity (step 27) lands whenever the logo design is ready; 26 waits for
+#121; Milestone D comes last.
+
+## Parity checklist
+
+Gaps against the experiment (E) and current `web/` (W). Tick an item off in
+the PR that closes it.
+
+| Gap | Ref | Desktop today | Step |
+| --- | --- | --- | --- |
+| Theme persistence; native background `#07080a` dark, `#f3f0e7` light | E | `index.html` hard-codes `data-theme="dark"`; `main.ts` sets no background | 13a |
+| Message log pane, toggle, `TerminalStream`/`renderContent`, `DemoLog` | E | CSS rules only; no toggle in `AgentHud` | 13b |
+| Window grow/shrink for the log (side-by-side ≥1120px, stacked below; restore unless user-resized) | E (`message-log-window.cjs`) | Absent | 13c |
+| Image attachments: paste, drop, picker, thumbnails, remove, retry, image-only replies | W | Composer predates images | 25 |
+| Markdown and `<file src>` hub-file links, including sent images | W (new design for desktop) | Rendered, inert; `main.ts` denies navigation | 28 |
+| Dictation: Record, audio meter, `/transcribe`, microphone permission | E, W | Record hard-disabled in `ui/run/RunHud.tsx`; all permissions refused | 21a |
+| Dependencies panel: sort, Check now, copy diagnostic | E, W | `ViewPlaceholder` | 19 |
+| Backend restart/recreate (`BackendControls`) | E | Only startup `retryBackend` | 19 |
+| Startup splash, handoff to the painted HUD, splash during restart | E | Plain `ui/backend/BackendStartup.tsx` | 21b |
+| Prompt id and awaiting-input state on the stream | — | Lags a streamed prompt by up to a poll | Follow-up |
+| Window 1260×780 default, 640×420 minimum, 90% of work area maximum, size saved | E | Fixed 900×600 | 22 |
+| Zoom ±0.1 within 0.5–3, saved | E | ±0.5 levels, not saved | 22 |
+| Second-instance focus | E | Lock without a focus handler | 22 |
+| API-key onboarding and setup gate | W (#121) | Absent | 26 |
 
 ## Presentation rules
 
@@ -72,7 +142,7 @@ application's CSS, which was tuned by hand over weeks.
 
 ## Visual check
 
-A capture harness (step 9) runs the experiment and the desktop app against the
+A capture harness (step 9, now superseded by desktop snapshot tests) runs the experiment and the desktop app against the
 same mock backend data. It captures matching states:
 
 - **Windows:** client widths 1260, 900, 760 and 640, plus the wrap transitions.
@@ -97,36 +167,13 @@ Each step is one PR and is runnable: launch the app to see its result.
 
 | Step | Result | Check |
 | --- | --- | --- |
-| **9. Parity harness** | One command launches the experiment and the desktop app on isolated mock profiles, drives the states above, and writes side-by-side captures and a diff report. A baseline report documents today's gaps. No app changes. | Two runs on the same build produce identical captures. |
+| **9. Visual regression** | The cross-app parity harness was used locally for #102 and never committed. Now that most screens are ported and step 27 changes the look deliberately, the desktop app's own screenshot tests (`toMatchSnapshot` in the native specs, as in `scaffold.spec.ts` and `footer.spec.ts`) are the baseline. Remaining ports (message log, dependencies, splash) are compared with the experiment by eye. | Snapshot specs cover each ported screen in both themes; deliberate changes update the baselines with before/after captures. |
 | **10. Stylesheet foundation, frame and header** | Copy the reference global, theme, frame, selector and button CSS, the fonts, and `desktop.css`. Set `data-desktop`. Port the frame, project badge, header, model/view selectors and theme toggle with reference markup. Delete the replaced `ui/` CSS and components. The octagon follows as its own visual PR. | Header and frame match in both themes at all widths and zooms, including label truncation. |
 | **11. Running HUD** | Port the message panel, Markdown, composer, message navigation and footer actions. Copy `hud-panels.css` (`hud-controls.css` arrived with the corner controls in step 10). Port `useDesktopActionLayout` with mount handling. Actions not yet wired (send, interrupt, cancel, record) render disabled. Links render but stay inert (see follow-ups). | Running, script and Markdown states match. Button stacking and wrapping match at every width, at both zooms. |
 | **12. Projects overview** | Port `ProjectOverviewPanel` and its CSS: status, start/open/return, empty state, New Project entry. Cancel/delete render as in the reference and are wired in steps 15–16. The capability selector slot waits for step 20. | Empty and populated overview match. |
-| **13. Docked message log and theme persistence** | Port `MessageLog`, the toggle, `TerminalStream`/`renderContent` and the terminal CSS. Add a `useMessageLog` owner and native window grow/shrink in main, with shared size constants. Persist theme and log state through named preload methods; set the native background per theme. | Log open/closed matches side-by-side (≥1120px) and stacked (<1120px). Theme survives a restart. |
-
-**Order from here** (chosen after step 11): a working Runs overview first, with
-the capability selector from step 20 pulled in, then a working HUD.
-
-1. **Projects and launch owners:** full project summaries, capability requests,
-   and the launch command (create project, resolve and save capabilities, create
-   run). No visible change; the interim **Start run** uses it.
-2. **Step 12 with the step 20 selector:** the reference overview and capability
-   selector UI, replacing the interim overview, with the reference's cancel and
-   delete. `UnlockApiKeys` stays in step 20.
-3. **Overview cancel and delete hardening** (steps 15 and 16, overview side):
-   #101's uncertain-outcome reconciliation, on one keyed request registry
-   shared by both, distinguishing outstanding, acknowledged and reconciling
-   writes. The launch marking and refresh sequence moves from the overview
-   component into its owner, so every launch entry point gets the same
-   guarantees.
-4. **Step 14:** replies (done: `session/useRunMutations`, bound to the session scope).
-5. **Step 15, HUD side:** interrupt, HUD cancel, and returning to the overview
-   when a run ends or goes missing (done: interruption in
-   `session/useRunMutations`, cancellation shared through
-   `projects/useProjectMutations`).
-6. **Step 17:** reconnection (done: `run/run-updates` with `api/retry`) and
-   recovery after the app reopens.
-7. **Step 13:** the message log, as a selector over the run's retained events
-   (see `desktop/renderer/src/ARCHITECTURE.md`), plus theme persistence.
+| **13a. Theme persistence** | Named preload `getTheme`/`setTheme` backed by a settings store in main. Apply the stored theme before first paint; set `nativeTheme.themeSource` and the window background per theme. | Theme survives a restart with no dark flash in light mode. |
+| **13b. Message log** | Port `MessageLog`, the toggle, `TerminalStream`/`renderContent`, `DemoLog` and the terminal CSS. A `useMessageLog` owner selects from the run's retained events (see `desktop/renderer/src/ARCHITECTURE.md`). The toggle sits in the footer slot from step 27. | Log open/closed matches the reference in both themes. |
+| **13c. Native log window sizing** | Port `message-log-window.cjs` into main with size constants shared with CSS. Grow side-by-side at ≥1120px, stacked below; restore the original size unless the user resized; re-expand on zoom. Persist log state through a named preload method. | Open/closed matches side-by-side and stacked, at both zooms. |
 
 **Follow-ups found in step 11** (each its own small PR):
 
@@ -138,9 +185,7 @@ the capability selector from step 20 pulled in, then a working HUD.
 - **Preview against the mock backend.** Standalone preview duplicates the
   overview with local rows and inert controls; running it against the mock
   backend removes that separate path.
-- **Opening links.** Markdown file and external links render but do nothing:
-  `main.ts` denies new windows and navigation. Opening a hub file or an
-  external page needs a named preload operation with validated targets.
+- **Opening links.** Promoted to step 28.
 
 ## Milestone B — Running work (steps 14–17)
 
@@ -192,20 +237,41 @@ survive. It returns in one piece if runs ever survive a backend restart.
   events, and a native test in which a streamed prompt enables Send with the
   clock paused, so no poll can be the cause.
 
-## Milestone C — Remaining features (steps 18–21)
+## Milestone C — Remaining features (steps 18–21, 25–28)
 
 | Step | Result | Check |
 | --- | --- | --- |
 | **18. Environment** | Environment panel (display, edit, import, reset) with its own API module and owner. Restart app with in-HUD unsaved-edit confirmation. Done: `environment/useEnvironmentEditor`, folder import and Restart app (`desktop:relaunch`). | Edits, imports, validation failures, persistence and restart against isolated mock data; captures match. |
 | **19. Dependencies** | Dependency panel and diagnostics. Restart/recreate backend through `backend-controller.ts`, limited to owned services. | Available/missing/error states and restart/recreate; captures match. |
 | **20. Credentials and capabilities** | `UnlockApiKeys` and the overview capability selector, through owners. Done: the selector in step 12, `UnlockApiKeys` through `credentials/useCredentials`. | Lock/unlock, failures and capability persistence; captures match. |
-| **21. Dictation and startup** | Dictation (`useDictation`, audio meter, transcription endpoint) with microphone permission. Bring over #101's startup splash (see Milestone B) and its handoff to the painted HUD. | Recording lifecycle and permission denial. Startup animation and handoff compared with the reference. |
+| **21a. Dictation** | `useDictation` owner, audio meter and a transcription API module. Allow only `media` (audio) for the trusted main frame; every other permission stays refused. Enable Record. | Recording lifecycle and permission denial. |
+| **21b. Startup** | Bring over #101's startup splash (see Milestone B) and its handoff to the painted HUD, including the splash during restart. | Startup animation and handoff compared with the reference. |
+| **25. Image attachments** | From `web/`, not the experiment. **25a:** copy the newer `ReplyForm`, `ReplyEditor`, `useReplyImages` and `reply-images`; add an `api/attachments` module (`POST/GET/DELETE /run/{id}/files[/{attachmentId}]`, client `upload_id` for retries) and a per-run image queue owner. **25b:** paste, drop and picker via react-dropzone, previews (CSP `img-src` for `blob:` and the backend origin; check the `desktop_access` Host/Origin rules), remove, retry, image-only Send. The backend and RoboZ `read_images` need no change. | Native spec: paste an image, upload, send; the agent turn receives the file. Limits and rejections match `web/`. |
+| **26. Onboarding** | Blocked on #121. Port the `setup_required` gate (423 for provider actions), the locked HUD with START HERE, `OnboardingHud` and its pages. | Fresh live profile shows onboarding; the first Environment save unlocks without a restart. |
+| **27. UI tweaks** | Several small visual PRs, each editing the desktop CSS and markup in place with before/after captures in both themes. Checklist below. | Captures per item. |
+| **28. Opening links** | Two validated preload operations. `openExternal(url)` accepts http(s) only and calls `shell.openExternal`. `openHubFile(path)` resolves inside the hub directory with a realpath containment check and calls `shell.openPath`. Sent images open the same way. | Native specs: allowed and rejected targets, including traversal and symlink escapes. |
+
+Step 27 checklist (append further small findings here):
+
+- [ ] **Light theme:** tune the colours and make them more pronounced.
+- [ ] **Project title in Runs view:** the label is misplaced there; the Runs
+  overview should not show a run's project title at all.
+- [ ] **Stable selectors:** options in every selector (view, model) never
+  disappear. Unavailable options stay listed with a dimmed, disabled style,
+  so an open dropdown keeps its size when the backend changes, for example
+  when a run ends and Current Run can no longer be reopened.
+- [ ] **Footer layout:** move the three small buttons to the right-hand side
+  and add the message-log button slot (before 13b).
+- [ ] **App identity:** a favicon and app logo/icon distinct from the company
+  logo, used for the window icon and step 24's packaging icons.
+- [ ] **Octagon:** the button shape improvement on the reference selectors
+  (see Presentation rules).
 
 ## Milestone D — Ship (steps 22–24)
 
 | Step | Result |
 | --- | --- |
-| **22. Instance handling** | Duplicate-launch focus, settings validation, window size and zoom preferences, independent test profiles. |
+| **22. Instance handling** | Duplicate-launch focus (`second-instance` handler), settings validation, independent test profiles. Window as in the experiment: 1260×780 default, 640×420 minimum, at most 90% of the screen work area, size saved. Zoom in steps of 0.1 between 0.5 and 3, saved, and applied to the splash too. |
 | **23. Portable backend runtime** | Remove the Linux-only assumptions so the same code runs on macOS (details below). |
 | **24. Packaging for both platforms** | One `electron-builder` configuration with two targets, built with `npm run package:linux` and `npm run package:mac`, from shared allowlisted resources and locked backend inputs. Linux produces a `.deb`. macOS produces a `.dmg` for arm64 and x64; it is unsigned at first, and signing/notarization is an opt-in follow-up driven by environment variables. |
 

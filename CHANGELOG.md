@@ -5,6 +5,10 @@
 - Display saved and web images inline in browser HUD responses, with compact
   previews, an accessible larger viewer, and an original-image link. Preserve
   image previews while output streams and show a fallback when images cannot load.
+- Show the dependency monitor in the desktop Dependencies view: sortable records,
+  **Check Now**, and copyable diagnostics, with **Restart backend** and
+  **Recreate backend** for this installation's API container. In both apps the
+  diagnostic's **Copy diagnostic** button now stays at body size in dark mode.
 
 - Guide fresh live starts through API key setup in the web HUD. Without `.env` or
   `.env.encrypt`, the API reports `setup_required` from `GET /credentials` and
@@ -13,6 +17,11 @@
   run view's message arrows. The guide adds keys in **Environment**, the only other
   view available during setup; the first save loads them into the API and unlocks
   the HUD without a restart. Mock mode is unaffected.
+
+- Show the desktop message log beside the HUD, or below it in narrow windows,
+  from the toggle on the HUD's right edge. It lists the displayed run's
+  messages, script output and agent lifecycle banners as in the reference, and
+  shows the reference placeholder log when no run is active.
 
 - Show desktop notifications as the reference toasts in both themes, with error,
   warning and success tones, Dismiss, and a five-second lifetime that pauses on

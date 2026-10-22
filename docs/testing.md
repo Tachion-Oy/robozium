@@ -133,6 +133,13 @@ unsupported methods, malformed paths, traversal, and symlink escapes.
 It cleans up its profiles and processes. Failure diagnostics are retained in
 `desktop/test-results/` and `desktop/playwright-report/`.
 
+`desktop/tests/theme.spec.ts` checks that the chosen theme and native window
+background survive a restart without dropping other `settings.json` keys, that
+an unreadable settings file opens dark and is never overwritten (the switch
+still applies, with a warning), and that `setTheme` accepts only dark or light
+from the trusted window and document. It also checks that the light
+`--tune-*` knobs change button colours and that `1` restores them.
+
 Frame checks cover the bundled fonts, mouse/keyboard theme switching, retained
 focus, the model/theme/view Tab order, and both themes at 1260×780 and 640×420
 client sizes with native zoom 1 and 1.25. The reference HUD box must fill the
@@ -550,6 +557,17 @@ menu without encrypted secrets, unlocking with Enter or the button, a wrong
 password, the pending lock against Escape, Escape and outside-click closing,
 **Remove secrets** and its failure, and 423 launches and replies reading the
 status again.
+
+`desktop/tests/dependencies.spec.ts` covers a failed load recovered by Check
+Now, the empty state, the availability count, sorting by status and ID in both
+directions, copying a diagnostic through the native clipboard, a failed check
+keeping the rows, Checking while a check runs, and Restart/Recreate calling
+their IPC channels one at a time, reporting failures and restarting readiness
+polling. Long identifiers, metadata and diagnostics stay inside their cells in
+both themes at 1260×780 and at 640×420 with 125% zoom; captures are attached.
+Lifecycle tests check that restart and recreate verify ownership before
+running their exact Compose commands, run one at a time, make shutdown wait,
+and leave a replaced container untouched.
 
 `desktop/tests/environment.spec.ts` covers a failed load with Retry and masked
 secrets, editing disabled while work is active, validation of a new secret, the

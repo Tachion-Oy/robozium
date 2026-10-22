@@ -1,7 +1,7 @@
 import { expect } from "@playwright/test"
 import { test, documentUrl, preload } from "./native"
 
-for (const method of ["getBackendStatus", "getBackendConnection", "retryBackend", "restartApp"] as const) {
+for (const method of ["getBackendStatus", "getBackendConnection", "retryBackend", "restartBackend", "recreateBackend", "restartApp"] as const) {
 	test(`${method} only accepts the trusted window and document`, async ({ desktop: { app, page } }) => {
 		await expect(page.getByRole("button", { name: "Launch", exact: true })).toBeVisible()
 		expect(await page.evaluate(() => window.robozium.getBackendStatus())).toEqual({ state: "ready", message: "Local preview" })

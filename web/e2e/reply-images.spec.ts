@@ -310,6 +310,8 @@ test("previews keep panel bounds, compact size, selection, and independent scrol
 					await page.getByRole("button", { name: "Clear reply" }).click()
 					await expect(list).toHaveCount(0)
 					expect(await editor.evaluate((element) => element.clientWidth)).toBe(fullTextWidth)
+					// Removing the preview list reflows the HUD; sample bounds once it settles, as above.
+					await waitForHudLayout(page, [".agent-hud__replyBox--user"])
 					expect(await panel.boundingBox()).toEqual(before)
 				}
 			}

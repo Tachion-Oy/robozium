@@ -498,7 +498,7 @@ test("prefix recovery followed by a split keeps both script entries navigable an
 	await expect(output(page)).toHaveText("PrefixLater")
 	await page.clock.fastForward(2001)
 	await expect.poll(() => reads.length).toBe(2)
-	json(reads[1], snapshot({ message_trace: [{ type: "run_lifecycle", payload: { sequence: 3 } }] }))
+	json(reads[1], snapshot({ message_trace: [{ type: "run_lifecycle", payload: { sequence: 3, kind: "started", agent_name: "root" } }] }))
 	await expect(output(page)).toHaveText("Later")
 	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
 	await expect(output(page)).toHaveText("Prefix")

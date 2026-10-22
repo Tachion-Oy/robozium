@@ -21,9 +21,11 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `run/` | Run contracts, requests, payload decoding, event reconciliation and live updates. |
 | `session/` | The displayed run's subscription lifetime and the atomic composition of run data with HUD state. |
 | `hud/` | Message projection, history, display selection and layout logic. |
+| `dependencies/` | Dependency monitor records and Check Now requests and validation, and the view's owner. |
 | `environment/` | Saved settings and secrets requests and validation, the screen's owner and its editor state. |
 | `credentials/` | Secrets status, unlock and remove requests, and the locked-secrets notice. |
 | `feedback/` | Notifications any owner can raise. |
+| `theme/` | The document theme and saving it through the bridge. |
 | `api/` | Shared HTTP/SSE transport, request deadlines, client lifetimes and React request state. |
 | `assets/` | Bundled Anurati status-mark font. |
 
@@ -39,8 +41,10 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `session/useRunSession` | The displayed run (`RunSession`) and its scope, which ends on open, retry, a new client or unmount | Stream and snapshot polling (`run/run-updates`) |
 | `session/useRunMutations` | One in-flight reply and one interruption of the displayed run, bound to the session scope; an accepted interruption stays pending until a snapshot shows a prompt or a stopped run | Reply, interrupt |
 | `environment/useEnvironmentEditor` | The saved settings, this app's unsaved edits, the open editor and whether a restart is needed; built on `environment/useEnvironment`, which polls while the screen is visible | Read, save, import, reset |
+| `dependencies/useDependencies` | The monitor's records, loading and load failure, and one Check Now at a time | Records read when the view opens, check |
 | `credentials/useCredentials` | The backend's secrets status (available, locked, removable) | Status read, unlock, remove |
 | `feedback/notices` | Notifications and their pause/dismiss lifetimes | None |
+| `theme/theme` | The document's theme, applied before first render from the bridge's saved value | Save through `setTheme` (IPC) |
 
 `ui/app/App.tsx` composes the owners and keeps navigation (`app/hud-navigation`:
 the screen and the selector's launch draft), the reply draft, divider layout and
@@ -75,6 +79,8 @@ flowchart LR
   Mutations --> Notices
   Capabilities --> CapabilitiesApi
   Models --> ModelsApi["models-api"]
+  App --> Dependencies["useDependencies"] --> DependenciesApi["dependencies-api"]
+  Dependencies --> Notices
 ```
 
 ## Rules
@@ -110,4 +116,14 @@ The web keeps one large session store because its terminal is always on screen.
 The desktop shows the message log only occasionally, so it keeps no log state:
 `run-reducer` already retains every durable event of the displayed run, and the
 HUD keeps only its own projection. The log is a pure selector over those events,
-computed only while the log pane is mounted (roadmap step 13).
+computed only while the log pane is mounted:
+
+- `log/run-log` `selectLogItems` maps run records to the reference log rows:
+  messages with parsed content, consecutive script output as one row (a provider
+  retry does not split it), and lifecycle banners. `run-payloads` keeps the
+  lifecycle kind, agent, status and banner fields for it.
+- `log/useMessageLog` owns only whether the pane is open. Step 13c moves that
+  state into main, which resizes the window and remembers it.
+- `ui/log/MessageLog` memoizes the selector over the displayed run's events and
+  renders the reference `TerminalStream`, or the reference placeholder log when
+  no run is active.
