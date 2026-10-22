@@ -31,6 +31,10 @@ export function AgentMessagePanel({ message }: AgentMessagePanelProps) {
 		<div className="agent-hud__replyBox agent-hud__replyBox--agent">
 			<div
 				className="agent-hud__replyBox-scroll"
+				onLoadCapture={() => {
+					const element = scrollRef.current
+					if (element && message.mode === "streaming") element.scrollTop = element.scrollHeight
+				}}
 				ref={scrollRef}>
 				{message.illustration ? (
 					<span
@@ -47,7 +51,7 @@ export function AgentMessagePanel({ message }: AgentMessagePanelProps) {
 						{message.content}
 					</pre>
 				) : (
-					<HudMarkdown>{message.content}</HudMarkdown>
+					<HudMarkdown key={message.id}>{message.content}</HudMarkdown>
 				)}
 			</div>
 		</div>

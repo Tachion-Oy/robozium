@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Display saved and web images inline in browser HUD responses, with compact
+  previews, an accessible larger viewer, and an original-image link. Preserve
+  image previews while output streams and show a fallback when images cannot load.
 - Show the dependency monitor in the desktop Dependencies view: sortable records,
   **Check Now**, and copyable diagnostics, with **Restart backend** and
   **Recreate backend** for this installation's API container. In both apps the
@@ -24,7 +27,6 @@
   warning and success tones, Dismiss, and a five-second lifetime that pauses on
   hover. Preserve reply focus and use no inline styles under the renderer CSP.
   Show the backend error when an accepted run fails during execution.
-
 
 - Send pasted, dropped, or selected images in web replies, including image-only
   replies. Upload while a run is processing, restore pending previews after
