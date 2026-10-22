@@ -56,6 +56,7 @@ export function AgentHud({ presentation, projectSlug, layoutMode, onLayoutModeCh
 							title={messageLog.open ? "Hide message log" : "Show message log"}
 							aria-expanded={messageLog.open}
 							aria-controls="desktop-message-log"
+							disabled={messageLog.pending}
 							onClick={messageLog.toggle}>
 							<svg className="agent-hud__size-icon" viewBox="0 0 20 20" aria-hidden="true">
 								<path d={messageLog.open ? "M12 5 7 10l5 5" : "M7 5l5 5-5 5"} />

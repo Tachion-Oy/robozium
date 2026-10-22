@@ -122,8 +122,11 @@ computed only while the log pane is mounted:
   messages with parsed content, consecutive script output as one row (a provider
   retry does not split it), and lifecycle banners. `run-payloads` keeps the
   lifecycle kind, agent, status and banner fields for it.
-- `log/useMessageLog` owns only whether the pane is open. Step 13c moves that
-  state into main, which resizes the window and remembers it.
+- Main owns whether the pane is open (`src/message-log-window`), because
+  opening it grows the window to fit both panes and closing it restores the
+  earlier size unless the user resized meanwhile. `log/useMessageLog` reads and
+  changes that state through the `getMessageLog`/`setMessageLog` preload
+  operations, so it survives renderer reloads.
 - `ui/log/MessageLog` memoizes the selector over the displayed run's events and
   renders the reference `TerminalStream`, or the reference placeholder log when
   no run is active.

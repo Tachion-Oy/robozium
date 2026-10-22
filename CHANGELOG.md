@@ -15,6 +15,11 @@
   view available during setup; the first save loads them into the API and unlocks
   the HUD without a restart. Mock mode is unaffected.
 
+- Grow the desktop window to fit the message log when it opens, side by side or
+  stacked, and restore the earlier size when it closes unless you resized it.
+  Open at 1260×780 or the last size, zoom in 10% steps, remember size and zoom
+  across launches, and bring the open window forward on a second launch.
+
 - Show the desktop message log beside the HUD, or below it in narrow windows,
   from the toggle on the HUD's right edge. It lists the displayed run's
   messages, script output and agent lifecycle banners as in the reference, and

@@ -88,8 +88,8 @@ test("the toggle opens the reference placeholder before a run and the run's rows
 		const bottom = parseFloat(getComputedStyle(rail).paddingBottom) + parseFloat(getComputedStyle(content).paddingBottom)
 		return { above: Math.round(first - top), below: Math.round(bottom) }
 	})
-	// A lifecycle banner adds its own few pixels of top margin.
-	expect(Math.abs(margins.above - margins.below)).toBeLessThanOrEqual(6)
+	// Measured with the log beside the HUD, where nothing has scrolled yet.
+	expect(Math.abs(margins.above - margins.below)).toBeLessThanOrEqual(2)
 	// The HUD keeps working beside the open log.
 	await expect(page.locator(".agent-hud__replyBox--agent")).toContainText("line one line two")
 	await toggle(page, "Hide message log").click()

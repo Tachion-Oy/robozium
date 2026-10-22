@@ -1,8 +1,7 @@
-import { _electron, expect, type ElectronApplication } from "@playwright/test"
-import { once } from "node:events"
+import { expect, type ElectronApplication } from "@playwright/test"
 import { readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { test, documentUrl, launchArgs, preload } from "./native"
+import { test, documentUrl, preload, reopen } from "./native"
 
 const toggle = "Toggle color theme"
 
@@ -10,19 +9,6 @@ async function backgroundColor(app: ElectronApplication): Promise<string> {
 	return (await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBackgroundColor())).toLowerCase()
 }
 
-/** Close through the native window, as a user does, then start again on the same profile. */
-async function reopen(app: ElectronApplication, profile: string): Promise<ElectronApplication> {
-	const exited = once(app.process(), "exit")
-	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())
-	expect(await exited).toEqual([0, null])
-	return _electron.launch({
-		args: launchArgs,
-		chromiumSandbox: true,
-		cwd: path.dirname(profile),
-		env: { ...process.env, ROBOZIUM_DESKTOP_TEST_DATA: profile },
-		timeout: 15_000,
-	})
-}
 
 test("the chosen theme and window background survive a restart, keeping other settings", async ({ desktop: { app, page } }) => {
 	const profile = await app.evaluate(({ app }) => app.getPath("userData"))

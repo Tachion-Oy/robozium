@@ -15,5 +15,7 @@ const bridge: DesktopBridge = {
 	restartApp: () => ipcRenderer.invoke("desktop:relaunch"),
 	getVersion: () => ipcRenderer.invoke("desktop:version"),
 	writeClipboardText: text => ipcRenderer.invoke("desktop:write-clipboard-text", text),
+	getMessageLog: () => ipcRenderer.invoke("desktop:message-log"),
+	setMessageLog: open => ipcRenderer.invoke("desktop:set-message-log", open),
 }
 contextBridge.exposeInMainWorld("robozium", bridge)
