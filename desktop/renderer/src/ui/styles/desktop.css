@@ -225,11 +225,13 @@ html[data-desktop] .desktop-message-log .term-frame { position: relative; top: a
   max-width: none;
   /* Mirror the distance from the split to the HUD panel border. */
   padding-inline: var(--desktop-panel-inset);
-  /* Rows fade out at both edges as they scroll past; the tail's padding keeps
-     the newest row and the prompt clear of the lower fade. */
-  mask-image: linear-gradient(to bottom, transparent, black 3rem, black calc(100% - 2.5rem), transparent);
+  /* Rows fade out at both edges as they scroll past; equal padding keeps the
+     first and newest rows clear of the fades. */
+  mask-image: linear-gradient(to bottom, transparent, black 2.5rem, black calc(100% - 2.5rem), transparent);
 }
-.desktop-message-log .term-log > div { max-width: none; padding-bottom: 2.5rem; }
+.desktop-message-log .term-log > div { max-width: none; padding-block: 2.5rem; }
+/* Without the title, the live log keeps the same margin above as below. */
+.desktop-message-log[data-live] .term-frame { padding-top: 3vh; }
 .desktop-message-log .term-msg { overflow-wrap: anywhere; }
 /* A typed command after the prompt, wrapping in a narrow pane. */
 .desktop-message-log .term-prompt-command { min-width: 0; margin-left: 0.5ch; overflow-wrap: anywhere; }
