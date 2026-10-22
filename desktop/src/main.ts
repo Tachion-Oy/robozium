@@ -1,9 +1,11 @@
-import { app, BrowserWindow, clipboard, ipcMain, nativeTheme, protocol, type IpcMainInvokeEvent } from "electron"
+import { app, BrowserWindow, clipboard, ipcMain, nativeTheme, protocol, screen, type IpcMainInvokeEvent } from "electron"
 import { mkdirSync } from "node:fs"
 import path from "node:path"
 import { BackendController } from "./backend-controller"
 import { registerRendererProtocol, rendererUrl } from "./renderer-protocol"
-import { isAppTheme, readTheme, saveTheme, themeBackground } from "./settings"
+import { MessageLogWindow } from "./message-log-window"
+import { isAppTheme, readSettings, saveSettings, themeBackground, type DesktopSettings } from "./settings"
+import { boundedSize, DEFAULT_SIZE, nextZoom, windowLimits, zoomShortcut } from "./window"
 
 protocol.registerSchemesAsPrivileged([
 	{ scheme: "robozium", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
@@ -21,17 +23,21 @@ async function start(): Promise<void> {
 	if (!preview && !app.requestSingleInstanceLock()) { app.exit(0); return }
 	await app.whenReady()
 
-	const theme = readTheme(profile)
+	const settings = readSettings(profile)
+	const theme = settings.theme
 	nativeTheme.themeSource = theme
+	// The app picks at most 90% of the work area; the user may resize further.
+	const size = boundedSize(settings.window ?? DEFAULT_SIZE, windowLimits(screen.getPrimaryDisplay().workArea))
 	const window = new BrowserWindow({
-		width: 900,
-		height: 600,
+		...size,
+		useContentSize: true,
 		title: "Robozium",
 		show: false,
 		backgroundColor: themeBackground[theme],
 		webPreferences: {
 			preload: path.join(__dirname, "preload.js"),
 			additionalArguments: [`--robozium-theme=${theme}`],
+			zoomFactor: settings.zoom,
 			sandbox: true,
 			contextIsolation: true,
 			nodeIntegration: false,
@@ -61,26 +67,56 @@ async function start(): Promise<void> {
 			app.exit(0)
 		} catch (error) { console.error("Backend shutdown failed:", error); app.exit(1) }
 	}
-	window.on("close", event => { event.preventDefault(); void quit() })
+	/** Preferences are conveniences: a failed save must not interrupt the window. */
+	const save = (changes: Partial<DesktopSettings>) => {
+		try {
+			saveSettings(profile, changes)
+		} catch (error) { console.error("Settings could not be saved:", error) }
+	}
+	const logWindow = new MessageLogWindow(window, bounds => screen.getDisplayMatching(bounds))
+	let savedSize = size
+	/** Write only real changes; startup's own sizing is not a preference. */
+	const saveSize = () => {
+		if (window.isDestroyed()) return
+		const next = logWindow.savedSize()
+		if (next.width === savedSize.width && next.height === savedSize.height) return
+		savedSize = next
+		save({ window: next })
+	}
+	let resizeTimer: NodeJS.Timeout | undefined
+	// GNOME's frame metrics settle when its native title bar is first shown.
+	window.once("show", () => window.setContentSize(size.width, size.height))
+	window.setMinimumSize(640, 420)
+	window.on("will-resize", () => { if (logWindow.open) logWindow.manuallyResized = true })
+	window.on("resize", () => {
+		logWindow.resized()
+		clearTimeout(resizeTimer)
+		resizeTimer = setTimeout(saveSize, 250)
+	})
+	window.on("close", event => { event.preventDefault(); clearTimeout(resizeTimer); saveSize(); void quit() })
+	// The lock above makes later launches exit; bring this window forward instead.
+	app.on("second-instance", () => {
+		if (closing) return
+		if (window.isMinimized()) window.restore()
+		window.show()
+		window.focus()
+	})
 	app.on("before-quit", event => { event.preventDefault(); void quit() })
 	window.setMenuBarVisibility(false)
 	const contents = window.webContents
+	let zoom = settings.zoom
 	contents.on("before-input-event", (event, input) => {
-		const modifier = process.platform === "darwin"
-			? input.meta && !input.control : input.control && !input.meta
-		if (input.type !== "keyDown" || !modifier || input.alt || input.isComposing) return
-		let level = contents.getZoomLevel()
-		switch (input.key) {
-			case "+":
-			case "=": level += 0.5; break
-			case "-": level -= 0.5; break
-			case "0": level = 0; break
-			default: return
-		}
+		const direction = zoomShortcut(input, process.platform)
+		if (direction === null) return
 		// Match logical keys across layouts/keypads and suppress the menu's second step.
 		event.preventDefault()
-		contents.setZoomLevel(level)
+		zoom = nextZoom(contents.getZoomFactor(), direction)
+		contents.setZoomFactor(zoom)
+		if (logWindow.open) logWindow.expand()
+		save({ zoom })
 	})
+	// A reload resets the document's zoom; keep the chosen one.
+	contents.on("dom-ready", () => contents.setZoomFactor(zoom))
 	contents.setWindowOpenHandler(() => ({ action: "deny" }))
 	contents.on("will-navigate", event => event.preventDefault())
 	contents.on("will-frame-navigate", event => event.preventDefault())
@@ -130,7 +166,15 @@ async function start(): Promise<void> {
 		// The window follows the choice even when saving it fails.
 		nativeTheme.themeSource = theme
 		window.setBackgroundColor(themeBackground[theme])
-		saveTheme(profile, theme)
+		saveSettings(profile, { theme })
+	})
+	ipcMain.handle("desktop:message-log", event => {
+		requireTrustedDocument(event)
+		return { open: logWindow.open }
+	})
+	ipcMain.handle("desktop:set-message-log", (event, open: unknown) => {
+		requireTrustedDocument(event)
+		return logWindow.setOpen(open)
 	})
 	ipcMain.handle("desktop:write-clipboard-text", (event, text: unknown) => {
 		requireTrustedDocument(event)

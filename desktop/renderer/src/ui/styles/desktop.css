@@ -232,6 +232,8 @@ html[data-desktop] .desktop-message-log .term-frame { position: relative; top: a
 .desktop-message-log .term-log > div { max-width: none; padding-block: 2.5rem; }
 /* Without the title, the live log keeps the same margin above as below. */
 .desktop-message-log[data-live] .term-frame { padding-top: 3vh; }
+/* A leading banner's own separation would add to that margin. */
+.desktop-message-log .term-log > div > :first-child { margin-top: 0; }
 .desktop-message-log .term-msg { overflow-wrap: anywhere; }
 /* A typed command after the prompt, wrapping in a narrow pane. */
 .desktop-message-log .term-prompt-command { min-width: 0; margin-left: 0.5ch; overflow-wrap: anywhere; }

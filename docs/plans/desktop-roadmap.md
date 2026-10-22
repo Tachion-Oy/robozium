@@ -68,7 +68,7 @@ more ground; 200–400 hand-written lines is the ceiling, not the target.
 | A. Theme | 13a theme persistence and native background; light-theme colour knobs gathered in one place for hand tuning |
 | B. UI tweaks | Step 27: stable selectors, no project title in Runs view, footer layout with the log slot, octagon |
 | C. Message log | 13b (copy commit first); 13c too if it fits |
-| D. Log window sizing | 13c, if C has no room |
+| D. Log window sizing | 13c with step 22's window size, zoom and second-instance focus (done) |
 | E. Image attachments | 25, split in two only if it exceeds the size limit |
 | F. Links and dictation | 28 and 21a: the two preload-privilege operations |
 | G. Dependencies | 19: panel and backend restart/recreate |
@@ -86,7 +86,7 @@ the PR that closes it.
 | --- | --- | --- | --- |
 | Theme persistence; native background `#07080a` dark, `#f3f0e7` light | E | `index.html` hard-codes `data-theme="dark"`; `main.ts` sets no background | 13a |
 | Message log pane, toggle, `TerminalStream`/`renderContent`, `DemoLog` | E | CSS rules only; no toggle in `AgentHud` | 13b |
-| Window grow/shrink for the log (side-by-side ≥1120px, stacked below; restore unless user-resized) | E (`message-log-window.cjs`) | Absent | 13c |
+| Window grow/shrink for the log (side-by-side ≥1120px, stacked below; restore unless user-resized) | E (`message-log-window.cjs`) | Done | 13c |
 | Image attachments: paste, drop, picker, thumbnails, remove, retry, image-only replies | W | Composer predates images | 25 |
 | Markdown and `<file src>` hub-file links, including sent images | W (new design for desktop) | Rendered, inert; `main.ts` denies navigation | 28 |
 | Dictation: Record, audio meter, `/transcribe`, microphone permission | E, W | Record hard-disabled in `ui/run/RunHud.tsx`; all permissions refused | 21a |
@@ -94,9 +94,9 @@ the PR that closes it.
 | Backend restart/recreate (`BackendControls`) | E | Only startup `retryBackend` | 19 |
 | Startup splash, handoff to the painted HUD, splash during restart | E | Plain `ui/backend/BackendStartup.tsx` | 21b |
 | Prompt id and awaiting-input state on the stream | — | Lags a streamed prompt by up to a poll | Follow-up |
-| Window 1260×780 default, 640×420 minimum, 90% of work area maximum, size saved | E | Fixed 900×600 | 22 |
-| Zoom ±0.1 within 0.5–3, saved | E | ±0.5 levels, not saved | 22 |
-| Second-instance focus | E | Lock without a focus handler | 22 |
+| Window 1260×780 default, 640×420 minimum, 90% of work area maximum, size saved | E | Done; the 90% cap applies to sizes the app picks, not to manual resizing | 22 |
+| Zoom ±0.1 within 0.5–3, saved | E | Done | 22 |
+| Second-instance focus | E | Done | 22 |
 | API-key onboarding and setup gate | W (#121) | Absent | 26 |
 
 ## Presentation rules

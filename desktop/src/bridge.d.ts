@@ -21,6 +21,10 @@ export interface DesktopBridge {
 	restartApp(): Promise<void>
 	getVersion(): Promise<string>
 	writeClipboardText(text: string): Promise<void>
+	/** Whether the message log is open; main keeps it across renderer reloads. */
+	getMessageLog(): Promise<{ open: boolean }>
+	/** Open or close the message log, growing the window to fit it and restoring it afterwards. */
+	setMessageLog(open: boolean): Promise<{ open: boolean }>
 }
 
 declare global {
