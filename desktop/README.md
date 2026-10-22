@@ -28,7 +28,8 @@ for the credential-free mock backend). Docker Engine with Compose v2.24 or newer
 is required at runtime; the first start builds the backend image, which needs
 internet access and can take several minutes.
 
-The installed app keeps everything in `~/.config/Robozium/`: settings, window
+The installed app keeps everything in `~/.config/Robozium/` (under
+`$XDG_CONFIG_HOME` when that is set): settings, window
 size and theme, and per mode (`live/`, `mock/`) the hub, logs and saved
 environment, including `.env.encrypt`. Add provider keys once in
 **Environment**; they survive updates and reinstalls. Install a newer build the
