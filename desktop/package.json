@@ -2,7 +2,7 @@
   "name": "robozium-desktop",
   "version": "0.1.0",
   "private": true,
-  "description": "Robozium Electron scaffold",
+  "description": "Robozium desktop application",
   "license": "Apache-2.0",
   "type": "commonjs",
   "main": "dist/main.js",
@@ -14,6 +14,7 @@
     "build": "npm run typecheck && tsc -p tsconfig.json && vite build",
     "start": "npm run backend:stage && npm run build && electron .",
     "start:preview": "npm run build && electron . --preview",
+    "package:linux": "npm run backend:stage && npm run build && electron-builder --linux deb",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p renderer/tsconfig.json && tsc -p tsconfig.tests.json && tsc -p tsconfig.vite.json",
     "backend:stage": "node scripts/stage-backend.mjs",
@@ -45,10 +46,51 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.1.2",
     "electron": "44.7.0",
+    "electron-builder": "26.15.3",
     "eslint": "9.39.4",
     "tailwindcss": "4.2.2",
     "typescript": "5.9.3",
     "typescript-eslint": "8.59.0",
     "vite": "8.3.4"
-  }
+  },
+  "homepage": "https://github.com/Tachion-Oy/robozium",
+  "author": "Tachion Oy",
+  "build": {
+    "appId": "fi.tachion.robozium",
+    "productName": "Robozium",
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "package.json",
+      "!node_modules/**"
+    ],
+    "extraResources": [
+      {
+        "from": ".stage/backend",
+        "to": "backend/stage"
+      },
+      {
+        "from": "compose.yaml",
+        "to": "backend/compose.yaml"
+      },
+      {
+        "from": "src/backend-layout.json",
+        "to": "backend/src/backend-layout.json"
+      }
+    ],
+    "linux": {
+      "target": [
+        "deb"
+      ],
+      "category": "Development",
+      "executableName": "robozium",
+      "maintainer": "Tachion Oy <https://github.com/Tachion-Oy/robozium>",
+      "synopsis": "Run and supervise Robozium agents from the desktop",
+      "syncDesktopName": true
+    }
+  },
+  "desktopName": "robozium.desktop"
 }

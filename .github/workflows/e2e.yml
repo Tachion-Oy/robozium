@@ -196,10 +196,60 @@ jobs:
           include-hidden-files: true
           retention-days: 7
 
+  package:
+    name: Linux package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      ROBOZIUM_HOME: ${{ runner.temp }}/robozium-home
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Build the Debian package
+        run: |
+          npm --prefix desktop ci
+          npm --prefix desktop run package:linux
+      - name: Install the package and run its backend in mock mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y xvfb ./desktop/release/robozium-desktop_*_amd64.deb
+          mkdir -p "$ROBOZIUM_HOME"
+          # A fresh home: the installed app keeps its profile in ~/.config/Robozium.
+          HOME="$ROBOZIUM_HOME" xvfb-run -a robozium --mock > "$RUNNER_TEMP/robozium.log" 2>&1 &
+          ready=""
+          for _ in $(seq 1 180); do
+            if curl -fsS -H "Origin: robozium://app" http://127.0.0.1:18000/ready >/dev/null 2>&1; then ready=yes; break; fi
+            sleep 5
+          done
+          test -n "$ready" || { echo "The installed app's backend never became ready."; exit 1; }
+          test -d "$ROBOZIUM_HOME/.config/Robozium/mock/hub"
+          # Quitting stops this installation's container; nothing keeps running.
+          kill -TERM "$(pgrep -o -x robozium)"
+          for _ in $(seq 1 60); do pgrep -x robozium >/dev/null || break; sleep 1; done
+          if pgrep -x robozium >/dev/null; then echo "The installed app did not exit."; exit 1; fi
+          test -z "$(docker ps --quiet --filter label=com.docker.compose.service=api)"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ failure() }}
+        with:
+          name: linux-package-reports
+          path: |
+            ${{ runner.temp }}/robozium.log
+            ${{ runner.temp }}/robozium-home/.config/Robozium/mock/.runtime/
+          include-hidden-files: true
+          retention-days: 7
+
   full-e2e:
     name: Full E2E
     if: ${{ always() }}
-    needs: [scope, chromium, firefox, webkit, installation, runner, docker, electron]
+    needs: [scope, chromium, firefox, webkit, installation, runner, docker, electron, package]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -214,7 +264,7 @@ jobs:
 
           results = json.loads(os.environ["REQUIRED_RESULTS"])
           web_jobs = {"chromium", "firefox", "webkit", "installation", "runner"}
-          required = web_jobs | {"scope", "docker", "electron"}
+          required = web_jobs | {"scope", "docker", "electron", "package"}
           # Web jobs may be skipped only when the scope job said so.
           web_result = "success" if os.environ["WEB_AFFECTED"] == "true" else "skipped"
           expected = {name: web_result if name in web_jobs else "success" for name in required}

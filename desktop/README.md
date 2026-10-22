@@ -12,6 +12,31 @@ capability selector and run view use the accepted experiment's stylesheets and
 markup; credentials follow in a later
 [roadmap](../docs/plans/desktop-roadmap.md) step.
 
+## Install on Linux
+
+Build a Debian package from a checkout (Node.js 22.12 or newer and npm), then
+install it:
+
+```sh
+npm --prefix desktop ci
+npm --prefix desktop run package:linux
+sudo apt install ./desktop/release/robozium-desktop_*_amd64.deb
+```
+
+Start **Robozium** from the application menu, or run `robozium` (add `--mock`
+for the credential-free mock backend). Docker Engine with Compose v2.24 or newer
+is required at runtime; the first start builds the backend image, which needs
+internet access and can take several minutes.
+
+The installed app keeps everything in `~/.config/Robozium/`: settings, window
+size and theme, and per mode (`live/`, `mock/`) the hub, logs and saved
+environment, including `.env.encrypt`. Add provider keys once in
+**Environment**; they survive updates and reinstalls. Install a newer build the
+same way. `sudo apt remove robozium-desktop` removes the app and keeps that
+folder; delete it to remove your data. The installed app and a checkout's
+`npm --prefix desktop start` both use port 18001 in live mode, so close one
+before starting the other, or set `ROBOZIUM_DESKTOP_API_PORT` for the checkout.
+
 ## Run on Linux
 
 Requires Linux Docker Engine with Compose v2.24 or newer, Node.js 22.12 or newer,

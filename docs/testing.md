@@ -449,19 +449,30 @@ and intentional Playwright failures. A deliberately failing probe is expected
 to make its browser invocation fail; the infrastructure test passes only when
 the runner reports that failure and cleans up correctly.
 
+## Linux package check
+
+The **Linux package** job builds the `.deb` with
+`npm --prefix desktop run package:linux`, installs it with apt on the runner,
+and starts the installed `robozium --mock` under Xvfb with a fresh `HOME`. It
+waits for the packaged backend to report ready, checks that the profile was
+created in `~/.config/Robozium`, then sends the app SIGTERM and requires it to
+exit with no backend container left running. On failure it uploads the app log
+and the profile's runtime logs. Profile and resource locations for installed and
+checkout runs are unit-tested in `backend-tests/lifecycle/locations.test.mjs`.
+
 ## Full E2E policy
 
-**Full E2E must pass in CI before merging.** Its aggregate check requires all seven
+**Full E2E must pass in CI before merging.** Its aggregate check requires all eight
 independent jobs to succeed: Chromium, Firefox, WebKit, installation, runner
-infrastructure, Docker onboarding with restart recovery, and the Electron
-scaffold. Failed, cancelled, missing, or skipped jobs fail the gate. Fork PRs use
+infrastructure, Docker onboarding with restart recovery, the Electron
+scaffold, and the Linux package. Failed, cancelled, missing, or skipped jobs fail the gate. Fork PRs use
 read-only permissions and credential-free mocks.
 
 The one exception is a pull request that changes only `desktop/`, `docs/` and
 `CHANGELOG.md`. The desktop app renders with Electron's own Chromium and does not
 use the web application, so the change-scope job skips the five browser and
-package jobs, and the gate requires them to be skipped. Docker and Electron
-still run. Pushes to `main` and manual dispatches always run every job.
+package jobs, and the gate requires them to be skipped. Docker, Electron and
+the Linux package still run. Pushes to `main` and manual dispatches always run every job.
 
 The [shared workflow](../.github/workflows/e2e-browser.yml) pins the Linux browser
 environment and installs locked dependencies. Browser jobs use the production
