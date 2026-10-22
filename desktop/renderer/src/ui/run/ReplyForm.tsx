@@ -1,6 +1,13 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/run/ReplyForm.tsx at 076b2c9.
-// Adapted: the composer can focus the reply on open.
+"use client"
+
 import type { SubmitEventHandler } from "react"
+import { useDropzone } from "react-dropzone"
+import {
+	REPLY_IMAGE_ACCEPT,
+	REPLY_IMAGE_LIMIT,
+	REPLY_IMAGE_MAX_BYTES,
+	type ReplyImagesModel,
+} from "@/hooks/useReplyImages"
 import {
 	AgentMessagePanel,
 	type AgentMessage,
@@ -9,15 +16,15 @@ import {
 	HudControls,
 	type HudControlModel,
 } from "./HudControls"
-import type { LayoutMode } from "../hud/HudCornerControls"
+import type { LayoutMode } from "../HudCornerControls"
 import type { HudMessageNavigationModel } from "./HudMessageNavigation"
 import { ReplyEditor } from "./ReplyEditor"
 
 export type ReplyComposerModel = {
 	value: string
+	images: ReplyImagesModel
 	isReplyAvailable: boolean
 	isSubmitting: boolean
-	focusOnOpen?: boolean
 	onChange: (value: string) => void
 	onSubmit: () => void | Promise<void>
 }
@@ -28,6 +35,8 @@ type ReplyFormProps = {
 	navigation: HudMessageNavigationModel
 	controls: HudControlModel
 	layoutMode: LayoutMode
+	/** Disable every control except message navigation. */
+	locked?: boolean
 }
 
 export function ReplyForm({
@@ -36,9 +45,21 @@ export function ReplyForm({
 	navigation,
 	controls,
 	layoutMode,
+	locked = false,
 }: ReplyFormProps) {
+	const dropzone = useDropzone({
+		accept: REPLY_IMAGE_ACCEPT,
+		maxSize: REPLY_IMAGE_MAX_BYTES,
+		maxFiles: REPLY_IMAGE_LIMIT,
+		noClick: true,
+		noKeyboard: true,
+		onDrop: composer.images.onDrop,
+		disabled: locked || !composer.images.canAdd || controls.cancel?.isPending,
+	})
 	const canSubmit = Boolean(
-		composer.value.trim() &&
+		!locked &&
+			(composer.value.trim() || composer.images.images.length) &&
+			composer.images.isReady &&
 			composer.isReplyAvailable &&
 			!composer.isSubmitting &&
 			!controls.cancel?.isPending &&
@@ -63,8 +84,10 @@ export function ReplyForm({
 				<AgentMessagePanel message={message} />
 				<ReplyEditor
 					value={composer.value}
+					images={composer.images}
+					dropzone={dropzone}
 					canSubmit={canSubmit}
-					autoFocus={composer.focusOnOpen}
+					disabled={locked}
 					onChange={composer.onChange}
 				/>
 			</div>
@@ -72,8 +95,15 @@ export function ReplyForm({
 				{...controls}
 				agentMessage={message}
 				navigation={navigation}
+				locked={locked}
 				replyDraft={composer.value}
-				onClearReply={() => composer.onChange("")}
+				hasImages={composer.images.images.length > 0}
+				onAddImages={dropzone.open}
+				imagesDisabled={locked || !composer.images.canAdd || controls.cancel?.isPending}
+				onClearReply={() => {
+					composer.onChange("")
+					composer.images.onClear()
+				}}
 				submission={{
 					canSubmit,
 					isSubmitting: composer.isSubmitting,
