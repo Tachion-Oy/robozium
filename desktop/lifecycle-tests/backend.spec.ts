@@ -293,13 +293,22 @@ test("an outage preserves the HUD, and after recovery the lost run returns to th
 	})
 })
 
-test("a duplicate launch cannot stop the first app's backend", async ({ runtime }) => {
+test("a duplicate launch focuses the first window and cannot stop its backend", async ({ runtime }) => {
 	const { app } = await launchConnected(runtime)
 	const { container } = await ownedBackend(runtime.profile)
+	// Count the first window's focus requests; window managers differ in what focus looks like.
+	await app.evaluate(({ BrowserWindow }) => {
+		const window = BrowserWindow.getAllWindows()[0]
+		const focus = window.focus.bind(window)
+		Reflect.set(globalThis, "focusRequests", 0)
+		window.focus = () => { Reflect.set(globalThis, "focusRequests", Number(Reflect.get(globalThis, "focusRequests")) + 1); focus() }
+	})
 	execFileSync(app.process().spawnfile, [desktop, "--mock", "--ozone-platform=x11"], {
 		env: { ...process.env, ROBOZIUM_DESKTOP_TEST_DATA: runtime.profile },
 		cwd: runtime.directory, timeout: 15_000, stdio: "pipe",
 	})
+	await expect.poll(() => app.evaluate(() => Reflect.get(globalThis, "focusRequests"))).toBe(1)
+	expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(true)
 	expect(execFileSync(docker, ["inspect", "--format", "{{.State.Running}}", container], { encoding: "utf8" }).trim()).toBe("true")
 })
 

@@ -178,7 +178,7 @@ for (const theme of ["dark", "light"]) {
 			window.webContents.sendInputEvent({ type: "keyDown", keyCode: "+", modifiers: ["control"] })
 			window.webContents.sendInputEvent({ type: "keyUp", keyCode: "+", modifiers: ["control"] })
 		})
-		await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.getZoomLevel())).toBeCloseTo(0.5)
+		await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.getZoomFactor())).toBeCloseTo(1.1)
 		await expect(reply).toBeFocused()
 		await toggle.click()
 		await toggle.click()
@@ -250,7 +250,7 @@ test("exposes the version bridge when launched outside the checkout", async ({ d
 		process: typeof Reflect.get(window, "process"),
 		ipcRenderer: typeof Reflect.get(window, "ipcRenderer"),
 		bridge: Object.keys(window.robozium),
-	}))).toEqual({ require: "undefined", process: "undefined", ipcRenderer: "undefined", bridge: ["theme", "setTheme", "getBackendConnection", "getBackendStatus", "retryBackend", "restartBackend", "recreateBackend", "restartApp", "getVersion", "writeClipboardText"] })
+	}))).toEqual({ require: "undefined", process: "undefined", ipcRenderer: "undefined", bridge: ["theme", "setTheme", "getBackendConnection", "getBackendStatus", "retryBackend", "restartBackend", "recreateBackend", "restartApp", "getVersion", "writeClipboardText", "getMessageLog", "setMessageLog"] })
 	// Playwright disables Chromium sandboxing unless explicitly told otherwise.
 	expect(await app.evaluate(({ app }) => app.commandLine.hasSwitch("no-sandbox"))).toBe(false)
 })
@@ -377,9 +377,9 @@ for (const theme of ["dark", "light"]) {
 test("native Ctrl shortcuts zoom both ways and reset with an open selector", async ({ desktop: { app, page } }) => {
 	await modelTrigger(page).click()
 	const selected = page.getByRole("option", { selected: true })
-	for (const [keyCode, level] of [
-		["-", -0.5], ["=", 0], ["+", 0.5], ["numadd", 1],
-		["numsub", 0.5], ["-", 0], ["=", 0.5], ["0", 0],
+	for (const [keyCode, factor] of [
+		["-", 0.9], ["=", 1], ["+", 1.1], ["numadd", 1.2],
+		["numsub", 1.1], ["-", 1], ["=", 1.1], ["0", 1],
 	] as const) {
 		// CDP page.keyboard bypasses Electron's native shortcut handling.
 		await app.evaluate(({ BrowserWindow }, keyCode) => {
@@ -390,8 +390,8 @@ test("native Ctrl shortcuts zoom both ways and reset with an open selector", asy
 			window.webContents.sendInputEvent({ type: "keyUp", keyCode, modifiers: [modifier] })
 		}, keyCode)
 		await expect.poll(() => app.evaluate(({ BrowserWindow }) =>
-			BrowserWindow.getAllWindows()[0].webContents.getZoomLevel()), { message: `Zoom after Ctrl+${keyCode}` })
-			.toBeCloseTo(level)
+			BrowserWindow.getAllWindows()[0].webContents.getZoomFactor()), { message: `Zoom after Ctrl+${keyCode}` })
+			.toBeCloseTo(factor)
 		await expect(selected).toBeFocused()
 		await expect(selected).toHaveAccessibleName("Mock model")
 		await expect(modelTrigger(page)).toHaveAttribute("aria-expanded", "true")

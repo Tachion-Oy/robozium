@@ -84,8 +84,10 @@ test("footer actions sit all beside the arrows or all below them, and a press ne
 		return result
 	}
 	// Too narrow even for one row below: labels truncate instead of wrapping.
-	for (const width of [640, 520]) {
-		await setNativeViewport(app, page, width, 420, 1.25)
+	// The window stops at 640 px, so a higher zoom stands in for a narrower window.
+	// Each step keeps whole CSS pixels at both the previous and the new zoom.
+	for (const zoom of [1.6, 1.25]) {
+		await setNativeViewport(app, page, 640, 480, zoom)
 		await expectFooterGeometry(page)
 		const row = await page.locator(".agent-hud__actions").evaluate(root => {
 			const actions = [...root.querySelectorAll<HTMLElement>("[data-hud-action-placement]")]

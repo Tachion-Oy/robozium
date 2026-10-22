@@ -278,8 +278,16 @@ Both selectors reserve stable widths for their labels, so changing the model or
 view keeps the other header controls in place. They shrink with the window;
 truncated labels retain their full hover tooltips.
 
-Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset.
-The keypad + and - keys also work with Ctrl.
+Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset
+(Command on macOS). Zoom moves in 10% steps between 50% and 300%. The keypad +
+and - keys also work.
+
+The window opens at 1260×780, or at the size it had when the app last closed,
+within 640×420 and 90% of the screen. Zoom is remembered too. Opening the
+message log grows the window just enough to show both panes, side by side when
+the screen is wide enough and stacked otherwise; closing it restores the
+earlier size unless you resized the window meanwhile. Launching the app again
+brings the open window to the front.
 
 ## Tuning the light theme
 

@@ -1,4 +1,4 @@
-import { expect, test as base, type ElectronApplication, type Page } from "@playwright/test"
+import { _electron, expect, test as base, type ElectronApplication, type Page } from "@playwright/test"
 import { once } from "node:events"
 import type { ChildProcess } from "node:child_process"
 import { mkdtemp, rm } from "node:fs/promises"
@@ -52,6 +52,20 @@ export const test = base.extend<{ desktop: { app: ElectronApplication; page: Pag
 		}
 	},
 })
+
+/** Close through the native window, as a user does, then start again on the same profile. */
+export async function reopen(app: ElectronApplication, profile: string): Promise<ElectronApplication> {
+	const exited = once(app.process(), "exit")
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())
+	expect(await exited).toEqual([0, null])
+	return _electron.launch({
+		args: launchArgs,
+		chromiumSandbox: true,
+		cwd: path.dirname(profile),
+		env: { ...process.env, ROBOZIUM_DESKTOP_TEST_DATA: profile },
+		timeout: 15_000,
+	})
+}
 
 /** Header selectors are buttons named after their current value, with listbox menus. */
 export const modelTrigger = (page: Page) => page.locator(".agent-hud__model-trigger:not(.agent-hud__view-trigger)")
