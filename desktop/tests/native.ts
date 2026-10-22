@@ -11,15 +11,17 @@ export const launchArgs = [desktopRoot, "--preview", "--ozone-platform=x11", "--
 export const documentUrl = "robozium://app/index.html"
 export const preload = path.join(desktopRoot, "dist/preload.js")
 
-export const test = base.extend<{ desktop: { app: ElectronApplication; page: Page } }>({
-	desktop: async ({ playwright }, use, testInfo) => {
+export const test = base.extend<{ launchSwitches: string[]; desktop: { app: ElectronApplication; page: Page } }>({
+	/** Extra Chromium switches, such as a fake microphone. */
+	launchSwitches: [[], { option: true }],
+	desktop: async ({ playwright, launchSwitches }, use, testInfo) => {
 		const directory = await mkdtemp(path.join(tmpdir(), "robozium-scaffold-"))
 		const logs: string[] = []
 		let app: ElectronApplication | undefined
 		let child: ChildProcess | undefined
 		try {
 			app = await playwright._electron.launch({
-				args: launchArgs,
+				args: [...launchArgs, ...launchSwitches],
 				chromiumSandbox: true,
 				cwd: directory,
 				env: { ...process.env, ROBOZIUM_DESKTOP_TEST_DATA: path.join(directory, "profile") },

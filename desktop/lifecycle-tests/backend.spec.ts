@@ -389,6 +389,16 @@ test("UI starts a project run, answers its prompts and returns to the overview a
 	const status = page.getByRole("status", { name: "Run status" })
 	await expect(output).toContainText("Hello! I generated a text artifact")
 	await expect(status).toContainText("Awaiting input")
+	// The artifact link opens the generated file from this installation's hub.
+	await app.evaluate(({ shell }) => {
+		const opened: string[] = []
+		Reflect.set(globalThis, "openedPaths", opened)
+		shell.openPath = async target => { opened.push(target); return "" }
+	})
+	await output.getByRole("link", { name: "Open the generated text file" }).click()
+	await expect.poll(() => app.evaluate(() => Reflect.get(globalThis, "openedPaths"))).toEqual([
+		expect.stringMatching(/\/hub\/projects\/desktop-output\/documents\/generated-note\.txt$/),
+	])
 	// Both prompts are answered through the HUD: Enter first, then Send.
 	const reply = page.getByRole("textbox", { name: "Reply text", exact: true })
 	await reply.fill("Continue the mock")

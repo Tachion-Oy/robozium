@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Dictate desktop replies with **Record**, as in the reference: a live audio
+  meter while recording, then the transcript joins the draft. Only the app's own
+  window may use the microphone, and only for audio.
+- Open links in desktop agent messages: web links in the default browser, and
+  hub files such as generated artifacts with their default application. Only
+  http and https links leave the app, and a file opens only if it resolves
+  inside the hub, symlinks included.
+
 - Attach images to desktop replies by pasting, dropping or choosing them with
   **image**, as in the web HUD: thumbnails while they upload, remove and
   **Retry images**, the same limits and messages, and image-only replies. Staged

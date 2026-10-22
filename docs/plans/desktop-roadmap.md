@@ -52,13 +52,13 @@ Reviewed against `origin/main` at `55e3b3c` (after #120).
 | 18 Environment | Done | #116, #117 |
 | 19 Dependencies | Not started (`ViewPlaceholder`) | — |
 | 20 Credentials and capabilities | Done | #106, #115 |
-| 21 Dictation and startup | Not started | — |
+| 21 Dictation and startup | Dictation done; startup not started | This PR |
 | 22–24 Ship | Not started | — |
 | Toasts (step 11 follow-up) | Done | #120 |
 | 25 Image attachments | Done | #128 |
 | 26 Onboarding | Blocked on #121 | — |
 | 27 UI tweaks | Not started | — |
-| 28 Opening links | Not started | — |
+| 28 Opening links | Done | This PR |
 
 **Order from here.** Related small steps share a PR so each CI run covers
 more ground; 200–400 hand-written lines is the ceiling, not the target.
@@ -89,8 +89,8 @@ the PR that closes it.
 | Window grow/shrink for the log (side-by-side ≥1120px, stacked below; restore unless user-resized) | E (`message-log-window.cjs`) | Done | 13c |
 | Image attachments: paste, drop, picker, thumbnails, remove, retry, image-only replies | W | Done | 25 |
 | Agent images inline: compact previews, larger viewer, original-image link | W (#125) | Not shown inline; needs hub files in the window, as links do | 28 |
-| Markdown and `<file src>` hub-file links, including sent images | W (new design for desktop) | Rendered, inert; `main.ts` denies navigation | 28 |
-| Dictation: Record, audio meter, `/transcribe`, microphone permission | E, W | Record hard-disabled in `ui/run/RunHud.tsx`; all permissions refused | 21a |
+| Markdown and `<file src>` hub-file links, including sent images | W (new design for desktop) | Done: web links open in the browser, hub files with their default application | 28 |
+| Dictation: Record, audio meter, `/transcribe`, microphone permission | E, W | Done | 21a |
 | Dependencies panel: sort, Check now, copy diagnostic | E, W | `ViewPlaceholder` | 19 |
 | Backend restart/recreate (`BackendControls`) | E | Only startup `retryBackend` | 19 |
 | Startup splash, handoff to the painted HUD, splash during restart | E | Plain `ui/backend/BackendStartup.tsx` | 21b |

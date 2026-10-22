@@ -31,6 +31,7 @@ import { useDependencies } from "../../dependencies/useDependencies"
 import { useRunSession } from "../../session/useRunSession"
 import { useRunMutations } from "../../session/useRunMutations"
 import { useReplyImages } from "../../attachments/useReplyImages"
+import { useDictation } from "../../dictation/useDictation"
 import { runLabels } from "../../hud/hud-view"
 import { selectRunDisplay } from "../../session/session-reducer"
 import { isTerminal, RunStatus, type RunRecord } from "../../run/run-contracts"
@@ -98,6 +99,9 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 	const replyImages = useReplyImages(client, session?.run.runId ?? null, runEnded)
 	const hasRun = client ? session !== null : hasPreview
 	const [draft, setDraft] = useState("")
+	// As in the reference, a transcript joins the draft after a space.
+	const dictation = useDictation({ client, onTranscript: text =>
+		setDraft(current => current.trim() ? `${current.trimEnd()} ${text}` : text) })
 	const [selectedMessage, setSelectedMessage] = useState(mockMessages.length - 1)
 	const [layout, setLayout] = useState<LayoutMode>("top")
 	const display = client ? selectRunDisplay(session) : previewDisplay(selectedMessage)
@@ -138,7 +142,7 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 			case "run":
 				return <div className="agent-hud__run-view">
 					{session && <p className="sr-only" role="status" aria-label="Run status">{session.run.project} · {status}</p>}
-					<RunHud key={session?.run.runId ?? "preview"} draft={draft} onDraftChange={setDraft} images={replyImages}
+					<RunHud key={session?.run.runId ?? "preview"} draft={draft} onDraftChange={setDraft} images={replyImages} dictation={dictation}
 						layoutMode={layout} display={display} awaitingInput={client ? Boolean(session?.run.prompt) : true}
 						focusOnOpen={focusRunEditor} onSelect={client ? run.select : setSelectedMessage}
 						reply={{ available: runMutations.canReply, submitting: runMutations.replying, submit: runMutations.reply }}
