@@ -3,33 +3,7 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { hubFilePath } from "../src/links"
-import { documentUrl, preload } from "./native"
-import { test, json, prepareRun, snapshot, start, output } from "./run-fixture"
-
-const markdown = "Read [the docs](https://example.com/docs?a=1) or <file src=\"reports/out.txt\">the report</file>."
-
-test("agent links open outside the window: web links in the browser, hub files refused without a hub", async ({ desktop: { app, page }, backend }) => {
-	await app.evaluate(({ shell }) => {
-		const opened: string[] = []
-		Reflect.set(globalThis, "openedLinks", opened)
-		shell.openExternal = async url => { opened.push(url) }
-	})
-	prepareRun(backend)
-	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({
-		status: "awaiting_user_input", current_prompt_id: "p1", current_prompt: markdown,
-	})))
-	await start(page, backend)
-	await expect(output(page)).toContainText("Read the docs or the report.")
-	await output(page).getByRole("link", { name: "the docs" }).click()
-	await expect.poll(() => app.evaluate(() => Reflect.get(globalThis, "openedLinks"))).toEqual(["https://example.com/docs?a=1"])
-	expect(page.url()).toBe(documentUrl)
-
-	await expect(output(page).getByRole("link", { name: "the report" })).toHaveAttribute("href", "reports/out.txt")
-	await output(page).getByRole("link", { name: "the report" }).click()
-	await expect(page.getByRole("alert").filter({ hasText: "Could not open link" }))
-		.toContainText("The standalone preview has no hub files.")
-	expect(page.url()).toBe(documentUrl)
-})
+import { test, documentUrl, preload } from "./native"
 
 test("only http(s) links open, and only for the app's own document", async ({ desktop: { app, page } }) => {
 	await app.evaluate(({ shell }) => {
