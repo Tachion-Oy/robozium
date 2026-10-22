@@ -211,8 +211,8 @@ Aug 29 \u2192 Aug 31`
 		expect(screen.getByText("Ignore this")).not.toBeNull()
 	})
 
-	it("strips disallowed raw html elements", () => {
-		render(
+	it("strips disallowed raw html elements while supporting image tags", () => {
+		const { container } = render(
 			createElement(
 				HudMarkdown,
 				null,
@@ -220,8 +220,9 @@ Aug 29 \u2192 Aug 31`
 			),
 		)
 
-		expect(screen.queryByRole("img", { name: "Bad image" })).toBeNull()
+		expect(screen.getByRole("img", { name: "Bad image" }).getAttribute("src")).toBe("/api/files/x")
 		expect(screen.queryByText('alert("xss")')).toBeNull()
-		expect(screen.getByText("BeforeAfter")).not.toBeNull()
+		expect(container.textContent).toContain("Before")
+		expect(container.textContent).toContain("After")
 	})
 })

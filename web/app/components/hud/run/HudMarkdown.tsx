@@ -3,6 +3,8 @@ import ReactMarkdown from "react-markdown"
 import rehypeRaw from "rehype-raw"
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize"
 import remarkGfm from "remark-gfm"
+import { resolveHudImageUrl } from "@/lib/robozium/hud-images"
+import { HudImage, HudImageLinkContext, HudImageViewer } from "./HudImage"
 
 type HudMarkdownProps = {
 	children: string
@@ -13,6 +15,7 @@ type HudRendererProps = {
 	children?: ReactNode
 	href?: string
 	src?: string
+	alt?: string
 	className?: string
 }
 
@@ -148,6 +151,7 @@ const HUD_ALLOWED_ELEMENTS = [
 	"th",
 	"td",
 	"file",
+	"img",
 ]
 
 function toHubFileUrl(src: string): string | null {
@@ -179,7 +183,8 @@ function isExternalHttpUrl(href: string): boolean {
 	}
 }
 
-function transformHudLinkUrl(url: string): string | null {
+function transformHudLinkUrl(url: string, key: string, node: HudHastNode): string | null {
+	if (node.tagName === "img" && key === "src") return resolveHudImageUrl(url)
 	const trimmed = url.trim()
 
 	if (!trimmed) {
@@ -211,7 +216,7 @@ function HudFileLink({
 			href={href}
 			target="_blank"
 			rel="noreferrer">
-			{children}
+			<HudImageLinkContext value={true}>{children}</HudImageLinkContext>
 		</a>
 	)
 }
@@ -220,6 +225,7 @@ const HUD_MARKDOWN_COMPONENTS: Record<
 	string,
 	(props: HudRendererProps) => ReactNode
 > = {
+	img: ({ src, alt }) => <HudImage key={src} src={src} alt={alt} />,
 	file: ({ children, src }) => (
 		<HudFileLink src={src}>{children}</HudFileLink>
 	),
@@ -232,7 +238,7 @@ const HUD_MARKDOWN_COMPONENTS: Record<
 				href={href}
 				target="_blank"
 				rel="noreferrer">
-				{children}
+				<HudImageLinkContext value={true}>{children}</HudImageLinkContext>
 			</a>
 		)
 	},
@@ -269,19 +275,21 @@ export function HudMarkdown({ children, className }: HudMarkdownProps) {
 		.filter(Boolean)
 		.join(" ")
 	return (
-		<div className={rootClassName}>
-			<ReactMarkdown
-				remarkPlugins={[remarkGfm]}
-				rehypePlugins={[
-					rehypeRaw,
-					[rehypeSanitize, HUD_SANITIZE_SCHEMA],
-					rehypeDecodeHudUnicodeEscapes,
-				]}
-				allowedElements={HUD_ALLOWED_ELEMENTS}
-				urlTransform={transformHudLinkUrl}
-				components={HUD_MARKDOWN_COMPONENTS as never}>
-				{children}
-			</ReactMarkdown>
-		</div>
+		<HudImageViewer>
+			<div className={rootClassName}>
+				<ReactMarkdown
+					remarkPlugins={[remarkGfm]}
+					rehypePlugins={[
+						rehypeRaw,
+						[rehypeSanitize, HUD_SANITIZE_SCHEMA],
+						rehypeDecodeHudUnicodeEscapes,
+					]}
+					allowedElements={HUD_ALLOWED_ELEMENTS}
+					urlTransform={transformHudLinkUrl}
+					components={HUD_MARKDOWN_COMPONENTS as never}>
+					{children}
+				</ReactMarkdown>
+			</div>
+		</HudImageViewer>
 	)
 }
