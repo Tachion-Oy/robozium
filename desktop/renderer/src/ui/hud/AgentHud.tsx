@@ -1,16 +1,20 @@
 // Frame markup copied from robozium-electron/desktop/web/app/components/hud/AgentHUD.tsx
 // (lines 178-243) at 076b2c9, in its desktop configuration: no intro, minimize or
-// resize handle. The message log and its toggle follow in roadmap step 13.
+// resize handle. The caller supplies the message log pane and owns whether it is open.
 import type { ReactNode } from "react"
+import type { MessageLogState } from "../../log/useMessageLog"
 import { HudCornerControls, moveLayoutMode, type LayoutMode } from "./HudCornerControls"
 import { HudProjectBadge } from "./HudProjectBadge"
 import type { HudPresentation } from "./hudPresentation"
 
-export function AgentHud({ presentation, projectSlug, layoutMode, onLayoutModeChange, header, children }: {
+export function AgentHud({ presentation, projectSlug, layoutMode, onLayoutModeChange, messageLog, logPane, header, children }: {
 	presentation: HudPresentation
 	projectSlug: string | null
 	layoutMode: LayoutMode
 	onLayoutModeChange: (mode: LayoutMode) => void
+	messageLog: MessageLogState
+	/** Rendered only while the log is open. */
+	logPane: () => ReactNode
 	header: ReactNode
 	children: ReactNode
 }) {
@@ -30,7 +34,7 @@ export function AgentHud({ presentation, projectSlug, layoutMode, onLayoutModeCh
 
 	return (
 		<div className="desktop-workspace">
-			<div className="desktop-workspace__panes">
+			<div className="desktop-workspace__panes" data-log-open={messageLog.open || undefined}>
 				<div
 					className={hudClassName}
 					aria-live="polite">
@@ -45,6 +49,18 @@ export function AgentHud({ presentation, projectSlug, layoutMode, onLayoutModeCh
 								onMinimize: () => {},
 							}}
 						/>
+						<button
+							type="button"
+							className="desktop-message-log-toggle agent-hud__corner-control"
+							aria-label={messageLog.open ? "Hide message log" : "Show message log"}
+							title={messageLog.open ? "Hide message log" : "Show message log"}
+							aria-expanded={messageLog.open}
+							aria-controls="desktop-message-log"
+							onClick={messageLog.toggle}>
+							<svg className="agent-hud__size-icon" viewBox="0 0 20 20" aria-hidden="true">
+								<path d={messageLog.open ? "M12 5 7 10l5 5" : "M7 5l5 5-5 5"} />
+							</svg>
+						</button>
 						{presentation.showProjectBadge ? (
 							<HudProjectBadge projectSlug={projectSlug} />
 						) : null}
@@ -52,6 +68,7 @@ export function AgentHud({ presentation, projectSlug, layoutMode, onLayoutModeCh
 						{children}
 					</div>
 				</div>
+				{messageLog.open && logPane()}
 			</div>
 		</div>
 	)

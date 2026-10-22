@@ -1,4 +1,31 @@
 /*  Light palette, terminal raster, stream typography, and navigation  */
+
+/*  Light theme tuning
+    Strength multipliers for the buttons, selectors and runs table. Each scales
+    the percentage of colour mixed in at that spot, so 1 keeps today's look,
+    1.3 is 30% stronger and 0.7 is 30% weaker (capped at 100%).
+    Base colours are in the next block: --term-green (Start, Send, awaiting),
+    --term-blue (copy, selectors, rows), --term-amber, --term-red, the surfaces
+    --hud-input-bg and --hud-box-bg, text --hud-input-text and
+    --hud-control-ink, borders --hud-input-border, and the --hud-status-* row
+    colours. */
+:root[data-theme="light"] {
+    --tune-fill: 1;         /* accent tint in button and row backgrounds */
+    --tune-hover-fill: 1;   /* the same while hovered or focused */
+    --tune-edge: 1;         /* accent in borders and button edges */
+    --tune-hover-edge: 1;   /* the same while hovered or focused */
+    --tune-text: 1;         /* accent in label and status text */
+    --tune-glow: 1;         /* accent glows and coloured shadows */
+    --tune-hover-glow: 1;   /* the same while hovered or focused */
+    --tune-sheen: 1;        /* white top highlights and lightened surfaces */
+    --tune-shadow: 1;       /* neutral drop shadows */
+    --tune-line: 1;         /* neutral (non-accent) borders */
+}
+/*  Narrow a knob to one area by setting it on that area, for example:
+    :root[data-theme="light"] .agent-hud__project-view { --tune-fill: 1.4; }  runs table
+    :root[data-theme="light"] .agent-hud__actions { --tune-fill: 1.4; }       footer buttons
+    :root[data-theme="light"] .agent-hud__header { --tune-fill: 1.4; }        header selectors */
+
 :root[data-theme="light"] {
     color-scheme: light;
     /* Stream shading knobs. The first is visible whenever the HUD is absent

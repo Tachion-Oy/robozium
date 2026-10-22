@@ -4,6 +4,7 @@ import { ViewPlaceholder } from "./ViewPlaceholder"
 import { RunHud } from "../run/RunHud"
 import { ToastViewport } from "../feedback/ToastViewport"
 import { AgentHud } from "../hud/AgentHud"
+import { MessageLog } from "../log/MessageLog"
 import { HudHeader } from "../hud/HudHeader"
 import { ModelSelector } from "../hud/ModelSelector"
 import type { LayoutMode } from "../hud/HudCornerControls"
@@ -31,9 +32,12 @@ import { useRunSession } from "../../session/useRunSession"
 import { useRunMutations } from "../../session/useRunMutations"
 import { runLabels } from "../../hud/hud-view"
 import { selectRunDisplay } from "../../session/session-reducer"
-import { isTerminal, RunStatus } from "../../run/run-contracts"
+import { isTerminal, RunStatus, type RunRecord } from "../../run/run-contracts"
 import type { HudDisplay } from "../../hud/hud-view"
+import { useMessageLog } from "../../log/useMessageLog"
 import "./interim-content.css"
+
+const noEvents: readonly RunRecord[] = []
 
 interface AppProps {
 	connectionNotice?: ReactNode
@@ -79,6 +83,7 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 	const models = client ? backendModels : previewModels
 	const [hasPreview, setHasPreview] = useState(false)
 	const run = useRunSession(client)
+	const messageLog = useMessageLog()
 	const credentials = useCredentials(client, connected)
 	const showRun = () => { setFocusRunEditor(true); navigate({ type: "screen_selected", screen: "run" }) }
 	const launch = useProjectLaunch(client,
@@ -179,7 +184,8 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 	return (
 		<>
 			<AgentHud presentation={presentation} projectSlug={session?.run.project ?? null}
-				layoutMode={layout} onLayoutModeChange={setLayout}
+				layoutMode={layout} onLayoutModeChange={setLayout} messageLog={messageLog}
+				logPane={() => <MessageLog active={presentation.context === "active-run"} events={session?.run.events ?? noEvents} />}
 				header={<HudHeader presentation={presentation} onSelectScreen={selectScreen}
 					modelSelector={<ModelSelector models={models} disabled={Boolean(client && (!connected || launch.pending))} />}
 					secretsMenu={client && <UnlockApiKeys credentials={credentials} />} />}>

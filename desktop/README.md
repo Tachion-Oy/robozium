@@ -6,7 +6,8 @@ Overview, **Launch** a project or create one with **New Project** to watch
 incremental output, messages, script output, prompts, and completion in Current
 Run, answer its prompts, **Interrupt** the working agent or **Cancel** the run.
 A run that completes, fails, is cancelled or goes missing returns to Runs
-Overview. Light/Dark switches the theme. The window frame, header, overview,
+Overview. Light/Dark switches the theme, which is kept for the next launch
+along with a matching window background. The window frame, header, overview,
 capability selector and run view use the accepted experiment's stylesheets and
 markup; credentials follow in a later
 [roadmap](../docs/plans/desktop-roadmap.md) step.
@@ -279,6 +280,20 @@ truncated labels retain their full hover tooltips.
 
 Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset.
 The keypad + and - keys also work with Ctrl.
+
+## Tuning the light theme
+
+The light theme's button, selector and runs-table colours are tuned in one
+place: the **Light theme tuning** block at the top of
+`renderer/src/ui/styles/light-theme.css`. Each `--tune-*` knob scales how much
+accent colour is mixed in at that kind of spot (fill, hover fill, edge, text,
+glow, sheen, shadow, neutral line); `1` is the current look. The base colours
+those knobs scale are in the block below it.
+
+To try values live, run `npm --prefix desktop run start:preview`, switch to
+Light, press Ctrl+Shift+I and edit the knobs on `:root[data-theme="light"]`
+in the Styles pane, then copy the values into the file. After editing the file,
+`npm --prefix desktop run build` and Ctrl+R reload the window.
 
 ## Checks
 

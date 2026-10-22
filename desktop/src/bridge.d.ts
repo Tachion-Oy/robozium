@@ -3,7 +3,13 @@ export interface BackendStatus {
 	message: string
 }
 
+export type AppTheme = "dark" | "light"
+
 export interface DesktopBridge {
+	/** The saved theme at launch, so the renderer can apply it before first paint. */
+	readonly theme: AppTheme
+	/** Save the theme and match the native window background to it. */
+	setTheme(theme: AppTheme): Promise<void>
 	getBackendConnection(): Promise<{ baseUrl: string } | null>
 	getBackendStatus(): Promise<BackendStatus>
 	retryBackend(): Promise<void>

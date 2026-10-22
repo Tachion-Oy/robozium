@@ -20,12 +20,12 @@
   color: white;
   --nav-brand-filter:
     drop-shadow(0 0 0.07em var(--term-lime))
-    drop-shadow(0 0 0.25em color-mix(in oklab, var(--term-lime) 80%, transparent))
-    drop-shadow(0 0 0.48em color-mix(in oklab, var(--term-lime) 50%, transparent));
+    drop-shadow(0 0 0.25em color-mix(in oklab, var(--term-lime) clamp(0%, 80% * var(--tune-fill, 1), 100%), transparent))
+    drop-shadow(0 0 0.48em color-mix(in oklab, var(--term-lime) clamp(0%, 50% * var(--tune-fill, 1), 100%), transparent));
   --nav-brand-filter-hover:
     drop-shadow(0 0 0.1em var(--term-lime))
-    drop-shadow(0 0 0.32em color-mix(in oklab, var(--term-lime) 95%, transparent))
-    drop-shadow(0 0 0.6em color-mix(in oklab, var(--term-lime) 72%, transparent));
+    drop-shadow(0 0 0.32em color-mix(in oklab, var(--term-lime) clamp(0%, 95% * var(--tune-fill, 1), 100%), transparent))
+    drop-shadow(0 0 0.6em color-mix(in oklab, var(--term-lime) clamp(0%, 72% * var(--tune-fill, 1), 100%), transparent));
   text-decoration: none;
   user-select: none;
   white-space: nowrap;
@@ -119,7 +119,7 @@
 }
 
 .app-nav__cta {
-  --app-nav-cta-ink: color-mix(in oklab, var(--term-lime) 80%, white 20%);
+  --app-nav-cta-ink: color-mix(in oklab, var(--term-lime) clamp(0%, 80% * var(--tune-fill, 1), 100%), white);
   -webkit-appearance: none;
   appearance: none;
   font-size: clamp(2rem, 2.7vw, 2.1rem);
@@ -151,7 +151,7 @@
 .app-nav__cta:hover,
 .app-nav__cta:focus-visible {
   outline: none;
-  --app-nav-cta-ink: color-mix(in oklab, var(--term-lime) 70%, white 30%);
+  --app-nav-cta-ink: color-mix(in oklab, var(--term-lime) clamp(0%, 70% * var(--tune-hover-fill, 1), 100%), white);
   color: var(--app-nav-cta-ink);
   background-image: none;
   background-color: transparent;

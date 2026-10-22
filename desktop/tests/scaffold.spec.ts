@@ -249,7 +249,7 @@ test("exposes the version bridge when launched outside the checkout", async ({ d
 		process: typeof Reflect.get(window, "process"),
 		ipcRenderer: typeof Reflect.get(window, "ipcRenderer"),
 		bridge: Object.keys(window.robozium),
-	}))).toEqual({ require: "undefined", process: "undefined", ipcRenderer: "undefined", bridge: ["getBackendConnection", "getBackendStatus", "retryBackend", "restartBackend", "recreateBackend", "restartApp", "getVersion", "writeClipboardText"] })
+	}))).toEqual({ require: "undefined", process: "undefined", ipcRenderer: "undefined", bridge: ["theme", "setTheme", "getBackendConnection", "getBackendStatus", "retryBackend", "restartBackend", "recreateBackend", "restartApp", "getVersion", "writeClipboardText"] })
 	// Playwright disables Chromium sandboxing unless explicitly told otherwise.
 	expect(await app.evaluate(({ app }) => app.commandLine.hasSwitch("no-sandbox"))).toBe(false)
 })
@@ -276,6 +276,9 @@ test("switches themes with the keyboard and mouse while retaining focus", async 
 		.toEqual(["Mock model", "Toggle color theme", "Runs Overview"])
 	await expect(root).toHaveAttribute("data-theme", "dark")
 	await expect(shownLabel()).toHaveText("Light")
+	// As in the reference, the message log toggle precedes the header.
+	await page.keyboard.press("Tab")
+	await expect(page.getByRole("button", { name: "Show message log", exact: true })).toBeFocused()
 	await page.keyboard.press("Tab")
 	await expect(modelTrigger(page)).toBeFocused()
 	await page.keyboard.press("Tab")
