@@ -52,13 +52,13 @@ Reviewed against `origin/main` at `55e3b3c` (after #120).
 | 18 Environment | Done | #116, #117 |
 | 19 Dependencies | Not started (`ViewPlaceholder`) | — |
 | 20 Credentials and capabilities | Done | #106, #115 |
-| 21 Dictation and startup | Dictation done; startup not started | This PR |
+| 21 Dictation and startup | Dictation done; startup not started | #131 |
 | 22–24 Ship | Not started | — |
 | Toasts (step 11 follow-up) | Done | #120 |
 | 25 Image attachments | Done | #128 |
 | 26 Onboarding | Blocked on #121 | — |
 | 27 UI tweaks | Not started | — |
-| 28 Opening links | Done | This PR |
+| 28 Opening links | Done | #131 |
 
 **Order from here.** Related small steps share a PR so each CI run covers
 more ground; 200–400 hand-written lines is the ceiling, not the target.
