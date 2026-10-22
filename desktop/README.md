@@ -247,7 +247,14 @@ Switch views using the header, or use the current run's row in Runs Overview. Th
 draft, selected message, and divider position survive view, model, theme,
 window-size, and zoom changes. Reloading or restarting resets the desktop to
 Runs Overview with no local session; it does not recover an existing run yet.
-Dependencies still displays “This view is coming soon.” Divider controls remain visible but disabled outside Current Run.
+**Dependencies** lists the backend's dependency monitor records: status, ID,
+redacted metadata, check time and failure reason, sortable by status or ID.
+**Check Now** probes every dependency again (up to about 20 seconds), and an
+unavailable dependency's diagnostic can be copied. **Restart backend** restarts
+this installation's API container; **Recreate backend** recreates it from the
+same image so it reads `.env` again. Both keep mounted data, check container
+ownership first, and run one at a time; the HUD reconnects when they finish.
+Standalone preview shows a placeholder, as it has no backend. Divider controls remain visible but disabled outside Current Run.
 
 **Environment** lists the runtime's saved settings and secrets, with the
 variables that the application and imported tools need. **Add variable** and

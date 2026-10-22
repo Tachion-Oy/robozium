@@ -27,6 +27,7 @@
 @import "./hud-button.css";
 @import "./project-overview.css";
 @import "./environment.css";
+@import "./dependencies.css";
 @import "./error-toast.css";
 @import "./terminal.css";
 @import "./nav.css";

@@ -558,6 +558,17 @@ password, the pending lock against Escape, Escape and outside-click closing,
 **Remove secrets** and its failure, and 423 launches and replies reading the
 status again.
 
+`desktop/tests/dependencies.spec.ts` covers a failed load recovered by Check
+Now, the empty state, the availability count, sorting by status and ID in both
+directions, copying a diagnostic through the native clipboard, a failed check
+keeping the rows, Checking while a check runs, and Restart/Recreate calling
+their IPC channels one at a time, reporting failures and restarting readiness
+polling. Long identifiers, metadata and diagnostics stay inside their cells in
+both themes at 1260×780 and at 640×420 with 125% zoom; captures are attached.
+Lifecycle tests check that restart and recreate verify ownership before
+running their exact Compose commands, run one at a time, make shutdown wait,
+and leave a replaced container untouched.
+
 `desktop/tests/environment.spec.ts` covers a failed load with Retry and masked
 secrets, editing disabled while work is active, validation of a new secret, the
 encryption password and its confirmation with the exact save body, a refused

@@ -11,5 +11,5 @@ if (!root) throw new Error("The application root element is missing.")
 applyTheme(window.robozium.theme)
 createRoot(root).render(<>
 	<ViewportBounds />
-	<BackendStartup>{(notice, client, connected) => <App connectionNotice={notice} client={client} connected={connected} />}</BackendStartup>
+	<BackendStartup>{(notice, client, connected, reconnect) => <App connectionNotice={notice} client={client} connected={connected} onReconnect={reconnect} />}</BackendStartup>
 </>)

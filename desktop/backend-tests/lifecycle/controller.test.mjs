@@ -5,6 +5,7 @@ import path from "node:path"
 import net from "node:net"
 import process from "node:process"
 import { test } from "node:test"
+import { setImmediate as tick } from "node:timers/promises"
 import { BackendController, portAvailable } from "../../dist/backend-controller.js"
 import { loadOrCreateBackendProfile } from "../../dist/backend-profile.js"
 import { resolveBackendLayout } from "../../dist/backend-layout.cjs"
@@ -269,4 +270,68 @@ for (const result of ["", "failure"]) test(`context resolution ${result || "empt
 	await controller.start()
 	await controller.close()
 	assert.equal(state.calls.at(-1).command.env.DOCKER_CONTEXT, "test-context")
+})
+
+const managed = state => async args => {
+	if (args.includes("restart")) { state.restarts = (state.restarts ?? 0) + 1; return "" }
+}
+
+for (const [operation, expected] of [
+	["restart", ["restart", "api"]],
+	["recreate", ["up", "--detach", "--no-build", "--force-recreate", "--no-deps", "api"]],
+]) test(`${operation} checks ownership, runs ${expected.join(" ")} and waits until ready`, async t => {
+	const { controller, state, settings } = fixture(t)
+	state.intercept = managed(state)
+	await assert.rejects(controller[operation](), /Start the backend/)
+	await controller.start()
+	const count = state.calls.length
+	const pending = controller[operation]()
+	assert.equal(controller.snapshot().state, "starting")
+	await pending
+	const calls = commands(state).slice(count)
+	assert.deepEqual(calls.map(args => args[0]), ["ps", "inspect", "compose"])
+	assert.deepEqual(calls[2].slice(-expected.length), expected)
+	assert.equal(calls[2][calls[2].indexOf("--project-name") + 1], settings.project)
+	assert.deepEqual(controller.snapshot(), { state: "ready", message: "Backend ready" })
+	await controller.close()
+})
+
+test("backend operations run one at a time and shutdown waits for them", async t => {
+	let release
+	const { controller, state } = fixture(t)
+	await controller.start()
+	state.intercept = async args => {
+		if (args.includes("restart")) return new Promise(resolve => { release = () => resolve("") })
+	}
+	const restart = controller.restart()
+	await assert.rejects(controller.recreate(), /already running/)
+	await assert.rejects(controller.restart(), /already running/)
+	await tick()
+	const close = controller.close()
+	let closed = false
+	void (async () => { await close; closed = true })()
+	await tick()
+	assert.equal(closed, false)
+	release()
+	await assert.rejects(restart, /cancel|abort/i)
+	await close
+	assert.equal(commands(state).at(-1)[0], "stop")
+	await assert.rejects(controller.restart(), /closing/)
+})
+
+test("a replaced container stops an operation before any change, and a failure can be retried", async t => {
+	const { controller, state } = fixture(t)
+	await controller.start()
+	state.intercept = managed(state)
+	state.mutate = value => { value.labels["fi.tachion.robozium.desktop.installation"] = "foreign" }
+	await assert.rejects(controller.recreate(), /ownership/)
+	assert.equal(controller.snapshot().state, "error")
+	assert.equal(state.restarts, undefined)
+	assert.equal(commands(state).filter(args => args.includes("--force-recreate")).length, 0)
+	state.mutate = undefined
+	await assert.rejects(controller.restart(), /Start the backend/)
+	await controller.start()
+	await controller.restart()
+	assert.equal(state.restarts, 1)
+	await controller.close()
 })

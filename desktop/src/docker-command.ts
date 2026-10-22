@@ -40,7 +40,7 @@ export interface CommandOptions {
 export function runCommand(executable: string, args: string[], options: CommandOptions): Promise<string> {
 	return new Promise((resolve, reject) => {
 		if (options.signal.aborted) {
-			reject(new Error("Backend startup cancelled."))
+			reject(new Error("Backend operation cancelled."))
 			return
 		}
 
@@ -81,7 +81,7 @@ export function runCommand(executable: string, args: string[], options: CommandO
 			forceKillTimer = setTimeout(() => sendSignal("SIGKILL"), 2000)
 		}
 
-		const handleAbort = () => terminate("Backend startup cancelled.")
+		const handleAbort = () => terminate("Backend operation cancelled.")
 		const commandTimer = setTimeout(() => {
 			terminate("Docker command timed out. Check Docker and retry.")
 		}, options.timeout ?? 120_000)

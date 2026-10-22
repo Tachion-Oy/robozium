@@ -55,6 +55,7 @@ export function portAvailable(port: number): Promise<boolean> {
 /** API-only adaptation of the ownership and cancellation boundaries in experiment 076b2c9. */
 export class BackendController {
 	private status: BackendStatus = { state: "starting", message: "Checking Docker…" }
+	/** Startup, restart or recreate; only one runs at a time and shutdown waits for it. */
 	private pendingStartup?: Promise<void>
 	private pendingShutdown?: Promise<void>
 	private startupAbort = new AbortController()
@@ -94,8 +95,41 @@ export class BackendController {
 
 		this.startupAbort = new AbortController()
 		this.status = { state: "starting", message: "Checking Docker…" }
-		this.pendingStartup = this.launchWithStatus()
+		this.pendingStartup = this.withStatus(() => this.launch())
 
+		return this.pendingStartup
+	}
+
+	/** Restart the API container; it keeps the environment it was created with. */
+	restart(): Promise<void> {
+		return this.manage("Restarting the backend…", ["restart", "api"])
+	}
+
+	/** Recreate the API container from the same image, so it reads `.env` again. Mounted data is kept. */
+	recreate(): Promise<void> {
+		return this.manage("Recreating the backend…", ["up", "--detach", "--no-build", "--force-recreate", "--no-deps", "api"])
+	}
+
+	private manage(message: string, args: string[]): Promise<void> {
+		if (this.closing) {
+			return Promise.reject(new Error("Robozium is closing."))
+		}
+		if (this.pendingStartup) {
+			return Promise.reject(new Error("A backend operation is already running."))
+		}
+		if (this.status.state !== "ready") {
+			return Promise.reject(new Error("Start the backend before managing it."))
+		}
+		this.status = { state: "starting", message }
+		this.pendingStartup = this.withStatus(async () => {
+			const log = (output: string) => {
+				appendFileSync(this.layout.dockerLog, output, { mode: 0o600 })
+			}
+			// Throws before any change when a container is not this installation's.
+			await this.ownedContainers()
+			await this.compose(args, { timeout: 120_000, log })
+			await this.waitUntilReady()
+		})
 		return this.pendingStartup
 	}
 
@@ -110,9 +144,9 @@ export class BackendController {
 		return this.pendingShutdown
 	}
 
-	private async launchWithStatus(): Promise<void> {
+	private async withStatus(operation: () => Promise<void>): Promise<void> {
 		try {
-			await this.launch()
+			await operation()
 		} catch (error) {
 			if (!this.closing) {
 				const message = error instanceof Error ? error.message : String(error)
