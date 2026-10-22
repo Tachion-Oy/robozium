@@ -277,8 +277,12 @@ test("run parsing preserves the wire contract while normalizing retry controls",
 	} })).toEqual({ type: "message_delta", sequence: 2, id: "m2", delta: "Progress", chunk: 0, agent: "root" })
 	expect(parseRunEvent({ type: "script_output", sequence: 3, payload: { content: "stdout" } }))
 		.toEqual({ type: "script_output", sequence: 3, content: "stdout" })
-	expect(parseRunEvent({ type: "run_lifecycle", payload: { sequence: 4 } }))
-		.toEqual({ type: "run_lifecycle", sequence: 4 })
+	expect(parseRunEvent({ type: "run_lifecycle", payload: {
+		kind: "stopped", agent_name: "root", sequence: 4, parent_agent_name: null, status: "completed",
+		model_name: "model", max_context_tokens: 8000, output_format: "text", unknown: "ignored",
+	} })).toEqual({ type: "run_lifecycle", sequence: 4, kind: "stopped", agent: "root", status: "completed", details: {
+		parent_agent_name: null, status: "completed", model_name: "model", max_context_tokens: 8000,
+	} })
 	expect(parseRunEvent({ type: "runtime_event", sequence: 5, payload: { category: "llm", kind: "retrying", agent_name: "root" } }))
 		.toEqual({ type: "llm_retry", sequence: 5, agent: "root" })
 })
@@ -293,6 +297,9 @@ test("run parsing rejects malformed consumed fields and ignores unconsumed event
 		{ type: "script_output", sequence: -1, payload: { content: "text" } },
 		{ type: "script_output", sequence: 1, payload: { content: 42 } },
 		{ type: "run_lifecycle", sequence: 1, payload: {} },
+		{ type: "run_lifecycle", payload: { sequence: 1, kind: "paused", agent_name: "root" } },
+		{ type: "run_lifecycle", payload: { sequence: 1, kind: "stopped", agent_name: "root", status: "unknown" } },
+		{ type: "run_lifecycle", payload: { sequence: 1, kind: "started", agent_name: "root", temperature: {} } },
 	]) expect(() => parseRunEvent(value)).toThrow("invalid run data")
 	expect(parseRunEvent({ type: "future_event" })).toBeNull()
 	expect(parseRunEvent({ type: "llm_retry" })).toBeNull() // Only the parser creates this local control event.

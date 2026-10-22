@@ -10,6 +10,11 @@
   view available during setup; the first save loads them into the API and unlocks
   the HUD without a restart. Mock mode is unaffected.
 
+- Show the desktop message log beside the HUD, or below it in narrow windows,
+  from the toggle on the HUD's right edge. It lists the displayed run's
+  messages, script output and agent lifecycle banners as in the reference, and
+  shows the reference placeholder log when no run is active.
+
 - Show desktop notifications as the reference toasts in both themes, with error,
   warning and success tones, Dismiss, and a five-second lifetime that pauses on
   hover. Preserve reply focus and use no inline styles under the renderer CSP.
