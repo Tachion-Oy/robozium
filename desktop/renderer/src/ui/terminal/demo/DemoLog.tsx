@@ -1,4 +1,5 @@
 // Copied from robozium-electron/desktop/web/app/components/terminal/demo/DemoLog.tsx at 076b2c9.
+// Adapted: the placeholder's prompt can carry a typed command.
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import {
 	StreamLogItemKind,
@@ -51,13 +52,13 @@ function introRevealText(item: StreamLogItem): string {
  * as the boot intro hands off to this (same content already visible, so no
  * fade is wanted there) and true when returning to landing after a run.
  */
-export function PlaceholderLog({ fadeIn = false, scrollable = false }: { fadeIn?: boolean; scrollable?: boolean }) {
+export function PlaceholderLog({ fadeIn = false, scrollable = false, command }: { fadeIn?: boolean; scrollable?: boolean; command?: string }) {
 	return (
 		<TerminalLog enter={fadeIn} scrollable={scrollable}>
 			{placeholderLogItems.map((item, i) => (
 				<Fragment key={i}>{renderContent(item, "demo")}</Fragment>
 			))}
-			<C64Loader />
+			<C64Loader command={command} />
 		</TerminalLog>
 	)
 }

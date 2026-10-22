@@ -48,7 +48,7 @@ test("the log projects messages, grouped script output and lifecycle banners fro
 	expect(selectLogItems(events)).toEqual(selectLogItems([...events]))
 })
 
-test("the toggle opens the reference placeholder before a run and the run's rows during one", async ({ desktop: { page }, backend }) => {
+test("the toggle opens the reference placeholder before a run and the run's rows during one", async ({ desktop: { app, page }, backend }) => {
 	const run = prepareRun(backend)
 	await backend.open()
 	await expect(log(page)).toHaveCount(0)
@@ -57,7 +57,13 @@ test("the toggle opens the reference placeholder before a run and the run's rows
 	await expect(page.locator(".desktop-workspace__panes")).toHaveAttribute("data-log-open", "true")
 	// Without an active run the pane shows the titled placeholder log.
 	await expect(log(page).locator(".app-nav__brand")).toBeVisible()
+	// The title is drawn from bundled art, so it must ship with the renderer.
+	expect(await app.evaluate(async ({ net }) => (await net.fetch("robozium://app/branding/robozium.svg")).status)).toBe(200)
 	await expect(log(page).locator(".term-msg-badge")).not.toHaveCount(0)
+	await expect(log(page).locator(".term-prompt")).toHaveText("robozium@local:~$START AN AGENT TO SEE THE LIVE MESSAGES !")
+	// Rows fade out at both edges of the pane rather than being cut off.
+	expect(await log(page).locator(".term-log").evaluate(element => getComputedStyle(element).maskImage))
+		.toMatch(/^linear-gradient\(rgba\(0, 0, 0, 0\), .*, rgba\(0, 0, 0, 0\)\)$/)
 	await toggle(page, "Hide message log").click()
 	await expect(log(page)).toHaveCount(0)
 
