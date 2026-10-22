@@ -39,37 +39,37 @@ button.agent-hud__option:not(:disabled):hover {
 }
 
 .agent-hud__row-tools {
-  color: color-mix(in oklab, var(--term-blue) 60%, white 40%);
-  border-color: color-mix(in oklab, var(--term-blue) 62%, transparent);
-  background: color-mix(in oklab, var(--term-blue) 10%, transparent);
+  color: color-mix(in oklab, var(--term-blue) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
+  border-color: color-mix(in oklab, var(--term-blue) clamp(0%, 62% * var(--tune-edge, 1), 100%), transparent);
+  background: color-mix(in oklab, var(--term-blue) clamp(0%, 10% * var(--tune-fill, 1), 100%), transparent);
 }
 
 .agent-hud__row-tools:not(:disabled):hover,
 .agent-hud__row-tools:not(:disabled):focus-visible {
-  color: color-mix(in oklab, var(--term-blue) 72%, white 28%);
-  border-color: color-mix(in oklab, var(--term-blue) 88%, white 12%);
-  background: color-mix(in oklab, var(--term-blue) 26%, transparent);
+  color: color-mix(in oklab, var(--term-blue) clamp(0%, 72% * var(--tune-text, 1), 100%), white);
+  border-color: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
+  background: color-mix(in oklab, var(--term-blue) clamp(0%, 26% * var(--tune-hover-fill, 1), 100%), transparent);
   text-shadow: var(--term-glow-blue);
 }
 
 .agent-hud__row-launch {
-  color: color-mix(in oklab, var(--term-green) 60%, white 40%);
-  border-color: color-mix(in oklab, var(--term-green) 62%, transparent);
-  background: color-mix(in oklab, var(--term-green) 10%, transparent);
+  color: color-mix(in oklab, var(--term-green) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
+  border-color: color-mix(in oklab, var(--term-green) clamp(0%, 62% * var(--tune-edge, 1), 100%), transparent);
+  background: color-mix(in oklab, var(--term-green) clamp(0%, 10% * var(--tune-fill, 1), 100%), transparent);
 }
 
 .agent-hud__row-launch:not(:disabled):hover,
 .agent-hud__row-launch:not(:disabled):focus-visible {
-  color: color-mix(in oklab, var(--term-green) 72%, white 28%);
-  border-color: color-mix(in oklab, var(--term-green) 88%, white 12%);
-  background: color-mix(in oklab, var(--term-green) 26%, transparent);
+  color: color-mix(in oklab, var(--term-green) clamp(0%, 72% * var(--tune-text, 1), 100%), white);
+  border-color: color-mix(in oklab, var(--term-green) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
+  background: color-mix(in oklab, var(--term-green) clamp(0%, 26% * var(--tune-hover-fill, 1), 100%), transparent);
   text-shadow: var(--term-glow-green);
 }
 
 .agent-hud__option[aria-checked="true"] {
   color: var(--term-green);
   border-color: var(--term-green);
-  background: color-mix(in oklab, var(--term-green) 15%, var(--hud-input-bg));
+  background: color-mix(in oklab, var(--term-green) clamp(0%, 15% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 
 .agent-hud__option[aria-checked="true"]:disabled {
@@ -82,35 +82,35 @@ button.agent-hud__option:not(:disabled):hover {
 }
 
 .agent-hud__row-cancel {
-  color: color-mix(in oklab, var(--term-amber) 60%, white 40%);
-  border-color: color-mix(in oklab, var(--term-amber) 45%, transparent);
-  background: color-mix(in oklab, var(--term-amber) 8%, transparent);
+  color: color-mix(in oklab, var(--term-amber) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
+  border-color: color-mix(in oklab, var(--term-amber) clamp(0%, 45% * var(--tune-edge, 1), 100%), transparent);
+  background: color-mix(in oklab, var(--term-amber) clamp(0%, 8% * var(--tune-fill, 1), 100%), transparent);
 }
 
 .agent-hud__row-cancel:not(:disabled):hover {
-  color: color-mix(in oklab, var(--term-amber) 80%, white 20%);
-  border-color: color-mix(in oklab, var(--term-amber) 80%, white 20%);
-  background: color-mix(in oklab, var(--term-amber) 18%, transparent);
+  color: color-mix(in oklab, var(--term-amber) clamp(0%, 80% * var(--tune-text, 1), 100%), white);
+  border-color: color-mix(in oklab, var(--term-amber) clamp(0%, 80% * var(--tune-hover-edge, 1), 100%), white);
+  background: color-mix(in oklab, var(--term-amber) clamp(0%, 18% * var(--tune-hover-fill, 1), 100%), transparent);
   text-shadow: var(--term-glow-amber);
 }
 
 .agent-hud__row-delete {
-  color: color-mix(in oklab, var(--term-red) 60%, white 40%);
-  border-color: color-mix(in oklab, var(--term-red) 45%, transparent);
-  background: color-mix(in oklab, var(--term-red) 8%, transparent);
+  color: color-mix(in oklab, var(--term-red) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
+  border-color: color-mix(in oklab, var(--term-red) clamp(0%, 45% * var(--tune-edge, 1), 100%), transparent);
+  background: color-mix(in oklab, var(--term-red) clamp(0%, 8% * var(--tune-fill, 1), 100%), transparent);
 }
 
 .agent-hud__row-delete:not(:disabled):hover {
-  color: color-mix(in oklab, var(--term-red) 82%, white 18%);
-  border-color: color-mix(in oklab, var(--term-red) 82%, white 18%);
-  background: color-mix(in oklab, var(--term-red) 18%, transparent);
+  color: color-mix(in oklab, var(--term-red) clamp(0%, 82% * var(--tune-text, 1), 100%), white);
+  border-color: color-mix(in oklab, var(--term-red) clamp(0%, 82% * var(--tune-hover-edge, 1), 100%), white);
+  background: color-mix(in oklab, var(--term-red) clamp(0%, 18% * var(--tune-hover-fill, 1), 100%), transparent);
   text-shadow: var(--term-glow-red);
 }
 
 .agent-hud__row-delete--confirm {
-  color: color-mix(in oklab, var(--term-red) 88%, white 12%);
-  border-color: color-mix(in oklab, var(--term-red) 88%, white 12%);
-  background: color-mix(in oklab, var(--term-red) 24%, transparent);
+  color: color-mix(in oklab, var(--term-red) clamp(0%, 88% * var(--tune-text, 1), 100%), white);
+  border-color: color-mix(in oklab, var(--term-red) clamp(0%, 88% * var(--tune-edge, 1), 100%), white);
+  background: color-mix(in oklab, var(--term-red) clamp(0%, 24% * var(--tune-fill, 1), 100%), transparent);
   text-shadow: var(--term-glow-red);
 }
 
@@ -120,22 +120,22 @@ button.agent-hud__option:not(:disabled):hover {
 }
 
 :root[data-theme="light"] .agent-hud__row-tools {
-  color: color-mix(in oklab, var(--term-blue) 72%, var(--hud-input-text));
-  border-color: color-mix(in oklab, var(--term-blue) 46%, var(--hud-input-border));
-  background: color-mix(in oklab, var(--term-blue) 10%, var(--hud-input-bg));
+  color: color-mix(in oklab, var(--term-blue) clamp(0%, 72% * var(--tune-text, 1), 100%), var(--hud-input-text));
+  border-color: color-mix(in oklab, var(--term-blue) clamp(0%, 46% * var(--tune-edge, 1), 100%), var(--hud-input-border));
+  background: color-mix(in oklab, var(--term-blue) clamp(0%, 10% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 
 :root[data-theme="light"] .agent-hud__row-launch {
-  color: color-mix(in oklab, var(--term-green) 72%, var(--hud-input-text));
-  border-color: color-mix(in oklab, var(--term-green) 46%, var(--hud-input-border));
-  background: color-mix(in oklab, var(--term-green) 10%, var(--hud-input-bg));
+  color: color-mix(in oklab, var(--term-green) clamp(0%, 72% * var(--tune-text, 1), 100%), var(--hud-input-text));
+  border-color: color-mix(in oklab, var(--term-green) clamp(0%, 46% * var(--tune-edge, 1), 100%), var(--hud-input-border));
+  background: color-mix(in oklab, var(--term-green) clamp(0%, 10% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 
 :root[data-theme="light"] .agent-hud__row-tools:not(:disabled):hover,
 :root[data-theme="light"] .agent-hud__row-tools:not(:disabled):focus-visible {
   color: var(--term-blue);
   border-color: var(--term-blue);
-  background: color-mix(in oklab, var(--term-blue) 22%, var(--hud-input-bg));
+  background: color-mix(in oklab, var(--term-blue) clamp(0%, 22% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
   text-shadow: none;
 }
 
@@ -143,34 +143,34 @@ button.agent-hud__option:not(:disabled):hover {
 :root[data-theme="light"] .agent-hud__row-launch:not(:disabled):focus-visible {
   color: var(--term-green);
   border-color: var(--term-green);
-  background: color-mix(in oklab, var(--term-green) 22%, var(--hud-input-bg));
+  background: color-mix(in oklab, var(--term-green) clamp(0%, 22% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
   text-shadow: none;
 }
 
 :root[data-theme="light"] .agent-hud__row-cancel {
-  color: color-mix(in oklab, var(--term-amber) 72%, var(--hud-input-text));
+  color: color-mix(in oklab, var(--term-amber) clamp(0%, 72% * var(--tune-text, 1), 100%), var(--hud-input-text));
   border-color: color-mix(
     in oklab,
-    var(--term-amber) 46%,
+    var(--term-amber) clamp(0%, 46% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
-  background: color-mix(in oklab, var(--term-amber) 10%, var(--hud-input-bg));
+  background: color-mix(in oklab, var(--term-amber) clamp(0%, 10% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 
 :root[data-theme="light"] .agent-hud__row-delete {
-  color: color-mix(in oklab, var(--term-red) 72%, var(--hud-input-text));
+  color: color-mix(in oklab, var(--term-red) clamp(0%, 72% * var(--tune-text, 1), 100%), var(--hud-input-text));
   border-color: color-mix(
     in oklab,
-    var(--term-red) 44%,
+    var(--term-red) clamp(0%, 44% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
-  background: color-mix(in oklab, var(--term-red) 9%, var(--hud-input-bg));
+  background: color-mix(in oklab, var(--term-red) clamp(0%, 9% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 
 :root[data-theme="light"] .agent-hud__row-delete--confirm {
   color: var(--term-red);
   border-color: var(--term-red);
-  background: color-mix(in oklab, var(--term-red) 24%, var(--hud-input-bg));
+  background: color-mix(in oklab, var(--term-red) clamp(0%, 24% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 
 :root[data-theme="light"] .agent-hud__row-action {
@@ -179,7 +179,7 @@ button.agent-hud__option:not(:disabled):hover {
   backdrop-filter: none;
   min-width: 5.75rem;
   padding: 0.48rem 0.82rem;
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white 58%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 58% * var(--tune-sheen, 1), 100%), transparent);
   transition: transform 110ms ease,
     border-color 110ms ease,
     background 110ms ease,
@@ -198,9 +198,9 @@ button.agent-hud__option:not(:disabled):hover {
 :root[data-theme="light"] .agent-hud__row-action:not(:disabled):focus-visible {
   transform: translateY(-1px);
   filter: saturate(1.18);
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white 70%, transparent),
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 70% * var(--tune-sheen, 1), 100%), transparent),
     0 0.22rem 0.42rem
-      color-mix(in oklab, currentColor 18%, transparent);
+      color-mix(in oklab, currentColor clamp(0%, 18% * var(--tune-hover-glow, 1), 100%), transparent);
   outline: none;
 }
 

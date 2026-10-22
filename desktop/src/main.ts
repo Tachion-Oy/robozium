@@ -1,8 +1,9 @@
-import { app, BrowserWindow, clipboard, ipcMain, protocol, type IpcMainInvokeEvent } from "electron"
+import { app, BrowserWindow, clipboard, ipcMain, nativeTheme, protocol, type IpcMainInvokeEvent } from "electron"
 import { mkdirSync } from "node:fs"
 import path from "node:path"
 import { BackendController } from "./backend-controller"
 import { registerRendererProtocol, rendererUrl } from "./renderer-protocol"
+import { isAppTheme, readTheme, saveTheme, themeBackground } from "./settings"
 
 protocol.registerSchemesAsPrivileged([
 	{ scheme: "robozium", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
@@ -20,13 +21,17 @@ async function start(): Promise<void> {
 	if (!preview && !app.requestSingleInstanceLock()) { app.exit(0); return }
 	await app.whenReady()
 
+	const theme = readTheme(profile)
+	nativeTheme.themeSource = theme
 	const window = new BrowserWindow({
 		width: 900,
 		height: 600,
 		title: "Robozium",
 		show: false,
+		backgroundColor: themeBackground[theme],
 		webPreferences: {
 			preload: path.join(__dirname, "preload.js"),
+			additionalArguments: [`--robozium-theme=${theme}`],
 			sandbox: true,
 			contextIsolation: true,
 			nodeIntegration: false,
@@ -111,6 +116,14 @@ async function start(): Promise<void> {
 	ipcMain.handle("desktop:version", event => {
 		requireTrustedDocument(event)
 		return app.getVersion()
+	})
+	ipcMain.handle("desktop:set-theme", (event, theme: unknown) => {
+		requireTrustedDocument(event)
+		if (!isAppTheme(theme)) throw new TypeError("Theme must be dark or light.")
+		// The window follows the choice even when saving it fails.
+		nativeTheme.themeSource = theme
+		window.setBackgroundColor(themeBackground[theme])
+		saveTheme(profile, theme)
 	})
 	ipcMain.handle("desktop:write-clipboard-text", (event, text: unknown) => {
 		requireTrustedDocument(event)

@@ -25,7 +25,7 @@
 
 .agent-hud__model-trigger {
   --btn-accent: var(--selector-accent);
-  --btn-edge: color-mix(in oklab, var(--selector-accent) 62%, transparent);
+  --btn-edge: color-mix(in oklab, var(--selector-accent) clamp(0%, 62% * var(--tune-edge, 1), 100%), transparent);
   --btn-fill-strength: 10%;
   display: inline-flex;
   align-items: center;
@@ -33,17 +33,17 @@
   gap: 0.55rem;
   width: 100%;
   max-width: 100%;
-  color: color-mix(in oklab, var(--selector-accent) 60%, white 40%);
+  color: color-mix(in oklab, var(--selector-accent) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
 }
 
 .agent-hud__model-trigger:not(:disabled):hover {
   --btn-fill-strength: 26%;
-  --btn-edge: color-mix(in oklab, var(--selector-accent) 88%, white 12%);
-  color: color-mix(in oklab, var(--selector-accent) 72%, white 28%);
+  --btn-edge: color-mix(in oklab, var(--selector-accent) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
+  color: color-mix(in oklab, var(--selector-accent) clamp(0%, 72% * var(--tune-text, 1), 100%), white);
   text-shadow:
-    0 0 3px color-mix(in oklab, var(--selector-accent) 88%, white 12%),
-    0 0 14px color-mix(in oklab, var(--selector-accent) 65%, transparent),
-    0 0 36px color-mix(in oklab, var(--selector-accent) 40%, transparent);
+    0 0 3px color-mix(in oklab, var(--selector-accent) clamp(0%, 88% * var(--tune-hover-glow, 1), 100%), white),
+    0 0 14px color-mix(in oklab, var(--selector-accent) clamp(0%, 65% * var(--tune-hover-glow, 1), 100%), transparent),
+    0 0 36px color-mix(in oklab, var(--selector-accent) clamp(0%, 40% * var(--tune-hover-glow, 1), 100%), transparent);
 }
 
 .agent-hud__model-trigger > span {
@@ -56,7 +56,7 @@
   width: 0.8rem;
   height: 0.7rem;
   fill: currentColor;
-  filter: drop-shadow(0 0 4px color-mix(in oklab, var(--selector-accent) 72%, transparent));
+  filter: drop-shadow(0 0 4px color-mix(in oklab, var(--selector-accent) clamp(0%, 72% * var(--tune-glow, 1), 100%), transparent));
   transition: transform 140ms ease;
 }
 
@@ -68,7 +68,7 @@
   /* Shape-locked equivalent of the original 8px cut at a 16px root. */
   --menu-cut: 0.5rem;
   --menu-ring: 2px;
-  --menu-edge: color-mix(in oklab, var(--selector-accent) 62%, transparent);
+  --menu-edge: color-mix(in oklab, var(--selector-accent) clamp(0%, 62% * var(--tune-edge, 1), 100%), transparent);
   position: absolute;
   top: calc(100% + 0.5rem);
   left: 0;
@@ -102,8 +102,8 @@
     var(--menu-ring) calc(100% - 2 * var(--menu-cut));
   background-repeat: no-repeat;
   box-shadow:
-    0 0 18px color-mix(in oklab, var(--selector-accent) 18%, transparent),
-    inset 0 0 18px color-mix(in oklab, var(--selector-accent) 7%, transparent);
+    0 0 18px color-mix(in oklab, var(--selector-accent) clamp(0%, 18% * var(--tune-glow, 1), 100%), transparent),
+    inset 0 0 18px color-mix(in oklab, var(--selector-accent) clamp(0%, 7% * var(--tune-glow, 1), 100%), transparent);
 }
 
 .agent-hud__view-menu {
@@ -167,7 +167,7 @@
   border: 0;
   background: transparent;
   padding: 0.55rem 0.7rem;
-  color: color-mix(in oklab, var(--selector-accent) 62%, white 38%);
+  color: color-mix(in oklab, var(--selector-accent) clamp(0%, 62% * var(--tune-text, 1), 100%), white);
   font-family: var(--font-agent-input);
   line-height: 1.2;
   text-align: left;
@@ -177,9 +177,9 @@
 
 .agent-hud__model-option:hover {
   outline: none;
-  background: color-mix(in oklab, var(--selector-accent) 18%, transparent);
-  color: color-mix(in oklab, var(--selector-accent) 82%, white 18%);
-  text-shadow: 0 0 10px color-mix(in oklab, var(--selector-accent) 58%, transparent);
+  background: color-mix(in oklab, var(--selector-accent) clamp(0%, 18% * var(--tune-hover-fill, 1), 100%), transparent);
+  color: color-mix(in oklab, var(--selector-accent) clamp(0%, 82% * var(--tune-text, 1), 100%), white);
+  text-shadow: 0 0 10px color-mix(in oklab, var(--selector-accent) clamp(0%, 58% * var(--tune-hover-glow, 1), 100%), transparent);
 }
 
 .agent-hud__model-option:focus-visible {
@@ -212,7 +212,7 @@
 :root[data-theme="light"] .agent-hud__model-menu {
     padding: 0.35rem;
     border: 0.08rem solid
-    color-mix(in oklab, var(--selector-accent) 48%, var(--hud-input-border));
+    color-mix(in oklab, var(--selector-accent) clamp(0%, 48% * var(--tune-edge, 1), 100%), var(--hud-input-border));
     border-radius: 0.42rem;
     background: color-mix(in oklab, var(--hud-input-bg) 94%, white 6%);
     background-image: none;
@@ -236,7 +236,7 @@
 :root[data-theme="light"] .agent-hud__model-option:focus-visible {
     background: color-mix(
     in oklab,
-    var(--selector-accent) 14%,
+    var(--selector-accent) clamp(0%, 14% * var(--tune-hover-fill, 1), 100%),
     var(--hud-input-bg)
   );
     color: var(--hud-input-text);
@@ -268,12 +268,12 @@
     --btn-ring: 1px;
     --btn-edge: color-mix(
     in oklab,
-    var(--selector-accent) 48%,
+    var(--selector-accent) clamp(0%, 48% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
     --btn-fill: color-mix(
     in oklab,
-    var(--selector-accent) 7%,
+    var(--selector-accent) clamp(0%, 7% * var(--tune-fill, 1), 100%),
     var(--hud-input-bg)
   );
     min-height: 2.35rem;
@@ -282,18 +282,18 @@
     letter-spacing: 0.045em;
     filter: drop-shadow(
     0 0.16rem 0.16rem
-      color-mix(in oklab, var(--hud-control-ink) 10%, transparent)
+      color-mix(in oklab, var(--hud-control-ink) clamp(0%, 10% * var(--tune-shadow, 1), 100%), transparent)
   );
     color: var(--hud-control-ink);
     border: 1px solid var(--btn-edge);
     --selector-bay-divider: color-mix(
     in oklab,
-    var(--hud-control-ink) 24%,
+    var(--hud-control-ink) clamp(0%, 24% * var(--tune-text, 1), 100%),
     var(--hud-input-border)
   );
     --selector-bay-bg: color-mix(
     in oklab,
-    white 14%,
+    white clamp(0%, 14% * var(--tune-sheen, 1), 100%),
     var(--hud-input-bg)
   );
     background: linear-gradient(
@@ -305,13 +305,13 @@
     ),
     linear-gradient(
       180deg,
-      color-mix(in oklab, white 30%, var(--btn-fill)),
-      color-mix(in oklab, var(--btn-fill) 88%, var(--hud-input-bg))
+      color-mix(in oklab, white clamp(0%, 30% * var(--tune-sheen, 1), 100%), var(--btn-fill)),
+      color-mix(in oklab, var(--btn-fill) clamp(0%, 88% * var(--tune-fill, 1), 100%), var(--hud-input-bg))
     );
-    box-shadow: inset 0 1px 0 color-mix(in oklab, white 68%, transparent),
-    inset 0 -0.16rem 0 color-mix(in oklab, var(--btn-tone) 68%, transparent),
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 68% * var(--tune-sheen, 1), 100%), transparent),
+    inset 0 -0.16rem 0 color-mix(in oklab, var(--btn-tone) clamp(0%, 68% * var(--tune-glow, 1), 100%), transparent),
     0 0.13rem 0.2rem
-      color-mix(in oklab, var(--hud-control-ink) 11%, transparent);
+      color-mix(in oklab, var(--hud-control-ink) clamp(0%, 11% * var(--tune-shadow, 1), 100%), transparent);
     transition: transform 110ms ease,
     border-color 110ms ease,
     background 110ms ease,
@@ -328,21 +328,21 @@
     transform: translateY(-1px);
     --btn-edge: color-mix(
     in oklab,
-    var(--selector-accent) 72%,
+    var(--selector-accent) clamp(0%, 72% * var(--tune-hover-edge, 1), 100%),
     var(--hud-control-ink)
   );
     --btn-fill: color-mix(
     in oklab,
-    var(--selector-accent) 14%,
+    var(--selector-accent) clamp(0%, 14% * var(--tune-hover-fill, 1), 100%),
     var(--hud-input-bg)
   );
     border-color: var(--btn-edge);
     color: var(--hud-control-ink);
-    box-shadow: inset 0 1px 0 color-mix(in oklab, white 76%, transparent),
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 76% * var(--tune-sheen, 1), 100%), transparent),
     inset 0 -0.18rem 0
-      color-mix(in oklab, var(--selector-accent) 78%, transparent),
+      color-mix(in oklab, var(--selector-accent) clamp(0%, 78% * var(--tune-hover-glow, 1), 100%), transparent),
     0 0.28rem 0.48rem
-      color-mix(in oklab, var(--selector-accent) 22%, transparent);
+      color-mix(in oklab, var(--selector-accent) clamp(0%, 22% * var(--tune-hover-glow, 1), 100%), transparent);
     filter: none;
     outline: none
 }
@@ -351,21 +351,21 @@
     transform: translateY(-1px);
     --btn-edge: color-mix(
     in oklab,
-    var(--selector-accent) 72%,
+    var(--selector-accent) clamp(0%, 72% * var(--tune-hover-edge, 1), 100%),
     var(--hud-control-ink)
   );
     --btn-fill: color-mix(
     in oklab,
-    var(--selector-accent) 14%,
+    var(--selector-accent) clamp(0%, 14% * var(--tune-hover-fill, 1), 100%),
     var(--hud-input-bg)
   );
     border-color: var(--btn-edge);
     color: var(--hud-control-ink);
-    box-shadow: inset 0 1px 0 color-mix(in oklab, white 76%, transparent),
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 76% * var(--tune-sheen, 1), 100%), transparent),
     inset 0 -0.18rem 0
-      color-mix(in oklab, var(--selector-accent) 78%, transparent),
+      color-mix(in oklab, var(--selector-accent) clamp(0%, 78% * var(--tune-hover-glow, 1), 100%), transparent),
     0 0.28rem 0.48rem
-      color-mix(in oklab, var(--selector-accent) 22%, transparent);
+      color-mix(in oklab, var(--selector-accent) clamp(0%, 22% * var(--tune-hover-glow, 1), 100%), transparent);
     filter: none;
     outline: none
 }
