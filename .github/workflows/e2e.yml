@@ -222,19 +222,21 @@ jobs:
           sudo apt-get install -y xvfb ./desktop/release/robozium-desktop_*_amd64.deb
           mkdir -p "$ROBOZIUM_HOME"
           # A fresh home: the installed app keeps its profile in ~/.config/Robozium.
-          HOME="$ROBOZIUM_HOME" xvfb-run -a robozium --mock > "$RUNNER_TEMP/robozium.log" 2>&1 &
+          # The runner sets XDG_CONFIG_HOME, which Electron prefers over HOME.
+          HOME="$ROBOZIUM_HOME" XDG_CONFIG_HOME="$ROBOZIUM_HOME/.config" \
+            xvfb-run -a robozium --mock > "$RUNNER_TEMP/robozium.log" 2>&1 &
           ready=""
           for _ in $(seq 1 180); do
             if curl -fsS -H "Origin: robozium://app" http://127.0.0.1:18000/ready >/dev/null 2>&1; then ready=yes; break; fi
             sleep 5
           done
           test -n "$ready" || { echo "The installed app's backend never became ready."; exit 1; }
-          test -d "$ROBOZIUM_HOME/.config/Robozium/mock/hub"
+          test -d "$ROBOZIUM_HOME/.config/Robozium/mock/hub" || { echo "The profile is not in ~/.config/Robozium."; exit 1; }
           # Quitting stops this installation's container; nothing keeps running.
           kill -TERM "$(pgrep -o -x robozium)"
           for _ in $(seq 1 60); do pgrep -x robozium >/dev/null || break; sleep 1; done
           if pgrep -x robozium >/dev/null; then echo "The installed app did not exit."; exit 1; fi
-          test -z "$(docker ps --quiet --filter label=com.docker.compose.service=api)"
+          test -z "$(docker ps --quiet --filter label=com.docker.compose.service=api)" || { echo "The API container is still running."; exit 1; }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ failure() }}
         with:
