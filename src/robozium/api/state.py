@@ -126,6 +126,9 @@ class RunView(TypedDict):
     current_prompt_id: str | None
     current_prompt: str | None
     error: str | None
+    # The stream sequence the next event will take, so a client can tell
+    # whether this view was read before or after a streamed event.
+    next_sequence: int
 
 
 class ProjectRunItem(TypedDict):

@@ -3,7 +3,7 @@
 import { ApiError } from "../api/client"
 import {
 	LIFECYCLE_DETAIL_KEYS, LifecycleStatus, MessageRole, RunEventType, RunLifecycleKind, RunStatus, RuntimeEventCategory, RuntimeEventKind,
-	type LifecycleDetails, type RunFrame, type RunView,
+	type LifecycleDetails, type RunFrame, type RunPromptSignal, type RunView,
 } from "./run-contracts"
 
 function malformed(): never {
@@ -107,6 +107,16 @@ export function parseRunEvent(value: unknown): RunFrame | null {
 	}
 }
 
+/** Stream events add prompt signals to the trace events. */
+export function parseStreamEvent(value: unknown): RunFrame | RunPromptSignal | null {
+	const event = readObject(value)
+	const type = event.type
+	if (type !== RunEventType.PromptOpened && type !== RunEventType.PromptClosed) return parseRunEvent(event)
+	const payload = readObject(event.payload)
+	const signal = { sequence: readSequence(event.sequence), id: readIdentifier(payload.prompt_id) }
+	return type === RunEventType.PromptOpened ? { ...signal, type, text: readString(payload.prompt) } : { ...signal, type }
+}
+
 export function parseCreatedRunId(value: unknown): string {
 	return readIdentifier(readObject(value).run_id)
 }
@@ -130,5 +140,6 @@ export function parseRunSnapshot(value: unknown): RunView {
 		promptId,
 		prompt,
 		error: readNullableString(snapshot.error),
+		nextSequence: snapshot.next_sequence == null ? null : readSequence(snapshot.next_sequence),
 	}
 }

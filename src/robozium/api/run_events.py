@@ -6,12 +6,11 @@ import logging
 from collections import deque
 from collections.abc import Callable
 from copy import deepcopy
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from threading import RLock
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 from roboz.runtime.events import (
-    EventSink,
     MessageDeltaEvent,
     MessageEvent,
     PipeEvent,
@@ -32,6 +31,24 @@ from robozium.api.state import (
 
 logger = logging.getLogger(__name__)
 
+PromptCloseReason = Literal["answered", "timed_out", "cancelled", "interrupted"]
+
+
+@dataclass(frozen=True)
+class PromptEvent:
+    """A host prompt opened or closed; snapshots still carry the current prompt."""
+
+    kind: Literal["opened", "closed"]
+    prompt_id: str
+    prompt: str | None = None
+    accepts_images: bool = False
+    reason: PromptCloseReason | None = None
+    sequence: int | None = None
+
+
+RunEvent = PipeEvent | PromptEvent
+RunEventSink = Callable[[RunEvent], None]
+
 
 class _EventState(TypedDict):
     next_sequence: int
@@ -47,7 +64,7 @@ class RunEvents:
     def __init__(self, *, message_history_limit: int) -> None:
         self._lock = RLock()
         self._delivery_lock = RLock()
-        self._listeners: list[EventSink] = []
+        self._listeners: list[RunEventSink] = []
         self._state: _EventState = {
             "next_sequence": 1,
             "agent_stack": [],
@@ -55,7 +72,7 @@ class RunEvents:
             "parent_agent_name": None,
             "message_trace": deque(maxlen=message_history_limit),
         }
-        self._completion_listeners: dict[EventSink, Callable[[], None]] = {}
+        self._completion_listeners: dict[RunEventSink, Callable[[], None]] = {}
         self._completed = False
 
     def snapshot(self) -> RunProjection:
@@ -67,7 +84,7 @@ class RunEvents:
             }
 
     def subscribe(
-        self, listener: EventSink, on_complete: Callable[[], None] | None = None
+        self, listener: RunEventSink, on_complete: Callable[[], None] | None = None
     ) -> None:
         with self._delivery_lock:
             with self._lock:
@@ -78,7 +95,7 @@ class RunEvents:
             if completed and on_complete is not None:
                 on_complete()
 
-    def unsubscribe(self, listener: EventSink) -> None:
+    def unsubscribe(self, listener: RunEventSink) -> None:
         with self._lock:
             if listener in self._listeners:
                 self._listeners.remove(listener)
@@ -97,7 +114,7 @@ class RunEvents:
                 except Exception:
                     logger.warning("Completion listener raised", exc_info=True)
 
-    def dispatch(self, event: PipeEvent) -> PipeEvent:
+    def dispatch(self, event: RunEvent) -> RunEvent:
         # Sequencing and fanout share one order, without holding the state lock
         # while calling external listeners (which may read a run snapshot).
         with self._delivery_lock:
@@ -111,12 +128,10 @@ class RunEvents:
                     logger.warning("Event listener raised", exc_info=True)
         return event
 
-    def _normalize_and_record(
-        self, state: _EventState, event: PipeEvent
-    ) -> PipeEvent:
+    def _normalize_and_record(self, state: _EventState, event: RunEvent) -> RunEvent:
         sequence = self._next_run_sequence(state)
         match event:
-            case MessageDeltaEvent():
+            case MessageDeltaEvent() | PromptEvent():
                 return replace(event, sequence=sequence)
             case MessageEvent():
                 normalized = replace(event, sequence=sequence)
@@ -221,4 +236,4 @@ class RunEvents:
         return sequence
 
 
-__all__ = ["RunEvents"]
+__all__ = ["PromptCloseReason", "PromptEvent", "RunEvent", "RunEventSink", "RunEvents"]

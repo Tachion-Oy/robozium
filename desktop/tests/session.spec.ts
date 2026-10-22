@@ -19,8 +19,13 @@ function message(sequence: number, id: string, content: string, kind: string | n
 }
 function snapshot(state: RunSession, overrides: Partial<RunView>): RunSession {
 	return reduceRunSession(state, { type: "snapshot", view: {
-		project: "project", status: "running", frames: [], promptId: null, prompt: null, error: null, ...overrides,
+		project: "project", status: "running", frames: [], promptId: null, prompt: null, error: null, nextSequence: null, ...overrides,
 	} })!
+}
+function prompt(state: RunSession, sequence: number, id: string, text?: string): RunSession {
+	const signal = text === undefined
+		? { type: "prompt_closed", sequence, id } as const : { type: "prompt_opened", sequence, id, text } as const
+	return reduceRunSession(state, { type: "prompt", signal })!
 }
 function select(state: RunSession, index: number): RunSession {
 	return reduceRunSession(state, { type: "select", index })!
@@ -33,7 +38,7 @@ test("run reconciliation accepts live prefixes after recovery and rejects duplic
 	let run = initialRun("run", "project")
 	const completed = message(6, "background", "Background")
 	run = reduceRun(run, { type: "snapshot", view: {
-		project: "project", status: "running", frames: [completed], promptId: null, prompt: null, error: null,
+		project: "project", status: "running", frames: [completed], promptId: null, prompt: null, error: null, nextSequence: null,
 	} }).run
 	const prefix = reduceRun(run, { type: "frame", frame: delta(5, "active", "Prefix") })
 	expect(prefix.type).toBe("delta")
@@ -227,6 +232,31 @@ test("an acknowledged reply resumes the run until a snapshot shows another promp
 	expect(state.run).toMatchObject({ status: "running", prompt: null })
 	state = snapshot(state, { status: "awaiting_user_input", promptId: "p2", prompt: "Next?" })
 	expect(state.run.status).toBe("awaiting_user_input")
+})
+
+test("a streamed prompt opens and closes at once, and only snapshots read after it can replace it", () => {
+	let state = receive(session(), delta(1, "live", "Thinking"))
+	state = prompt(state, 2, "p1", "Continue?")
+	expect(state.run).toMatchObject({ status: "awaiting_user_input", prompt: { id: "p1", text: "Continue?" } })
+	expect(selectRunDisplay(state)).toMatchObject({ text: "Continue?", streaming: false })
+	// Polled while the prompt opened: the view predates the stream's signal.
+	state = snapshot(state, { nextSequence: 2 })
+	expect(state.run).toMatchObject({ status: "awaiting_user_input", prompt: { id: "p1" } })
+	state = snapshot(state, { nextSequence: 3, status: "awaiting_user_input", promptId: "p1", prompt: "Continue?" })
+	expect(state.run.prompt?.id).toBe("p1")
+	// The agent timed out the prompt: it closes and the run carries on.
+	state = prompt(state, 3, "p1")
+	expect(state.run).toMatchObject({ status: "running", prompt: null })
+	expect(selectRunDisplay(state)).toMatchObject({ text: working, streaming: true })
+	state = snapshot(state, { nextSequence: 3, status: "awaiting_user_input", promptId: "p1", prompt: "Continue?" })
+	expect(state.run).toMatchObject({ status: "running", prompt: null })
+	// A late opening of a closed prompt cannot revive it; a fresh view still shows a new prompt.
+	state = prompt(state, 2, "p1", "Continue?")
+	expect(state.run.prompt).toBeNull()
+	state = snapshot(state, { nextSequence: 5, status: "awaiting_user_input", promptId: "p2", prompt: "Next?" })
+	expect(state.run.prompt?.id).toBe("p2")
+	state = snapshot(state, { nextSequence: null, status: "running" })
+	expect(state.run.prompt).toBeNull()
 })
 
 test("a launch and an acknowledged reply show the agent working until visible output arrives", () => {

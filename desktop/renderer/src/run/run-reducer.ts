@@ -1,6 +1,6 @@
 // Reconcile SSE and snapshots into run data: events, status, prompt and stream cursors.
 // Return accepted updates for consumers; this module has no HUD state or display rules.
-import { isTerminal, RunEventType, RunStatus, type RunDelta, type RunFrame, type RunRecord, type RunView } from "./run-contracts"
+import { isTerminal, RunEventType, RunStatus, type RunDelta, type RunFrame, type RunPromptSignal, type RunRecord, type RunView } from "./run-contracts"
 
 export interface RunPrompt {
 	id: string
@@ -23,14 +23,17 @@ export interface RunState {
 	unavailable: boolean
 	/** A snapshot has been applied since the last error or retry. */
 	synchronized: boolean
-	/** Prompts this app answered; a late snapshot cannot bring them back. */
+	/** Prompts this app answered or saw close; a late snapshot cannot bring them back. */
 	acknowledgedPrompts: ReadonlySet<string>
+	/** Sequence of the last streamed prompt signal; a snapshot read before it keeps the streamed prompt. */
+	promptSequence: number
 }
 
 export type RunAction =
 	| { type: "frame"; frame: RunFrame }
 	| { type: "snapshot"; view: RunView }
 	| { type: "error"; message: string; unavailable: boolean }
+	| { type: "prompt"; signal: RunPromptSignal }
 	| { type: "replied"; promptId: string }
 	| { type: "retry" }
 
@@ -39,8 +42,7 @@ export type RunAction =
 export type RunUpdate = { run: RunState } & (
 	| { type: "delta"; frame: RunDelta }
 	| { type: "events" | "snapshot"; receivedEvents: readonly RunRecord[] }
-	| { type: "replied" }
-	| { type: "state" }
+	| { type: "prompt" | "replied" | "state" }
 )
 
 export function initialRun(runId: string, project: string): RunState {
@@ -48,7 +50,7 @@ export function initialRun(runId: string, project: string): RunState {
 		runId, project, status: RunStatus.Queued, prompt: null, events: [],
 		completedMessageIds: new Set(), retrySequences: new Map(),
 		streamSequence: -1, streamMessage: null, error: "", unavailable: false,
-		synchronized: false, acknowledgedPrompts: new Set(),
+		synchronized: false, acknowledgedPrompts: new Set(), promptSequence: -1,
 	}
 }
 
@@ -128,6 +130,33 @@ function applyReply(state: RunState, promptId: string): RunUpdate {
 	}
 }
 
+/** A streamed prompt opens or closes at once; snapshots remain the backstop. */
+function applyPromptSignal(state: RunState, signal: RunPromptSignal): RunUpdate {
+	const run = { ...state, promptSequence: Math.max(state.promptSequence, signal.sequence), streamSequence: Math.max(state.streamSequence, signal.sequence) }
+	if (signal.type === RunEventType.PromptClosed) {
+		const open = state.prompt?.id === signal.id
+		return {
+			type: "prompt",
+			run: {
+				...run,
+				acknowledgedPrompts: new Set([...state.acknowledgedPrompts, signal.id]),
+				prompt: open ? null : state.prompt,
+				status: open && state.status === RunStatus.AwaitingUserInput ? RunStatus.Running : state.status,
+			},
+		}
+	}
+	if (state.acknowledgedPrompts.has(signal.id) || isTerminal(state.status)) return { type: "state", run }
+	const afterSequence = Math.max(state.events.at(-1)?.sequence ?? -1, state.streamSequence)
+	return {
+		type: "prompt",
+		run: {
+			...run,
+			prompt: state.prompt?.id === signal.id ? state.prompt : { id: signal.id, text: signal.text, afterSequence },
+			status: state.status === RunStatus.Cancelling ? state.status : RunStatus.AwaitingUserInput,
+		},
+	}
+}
+
 function applySnapshot(state: RunState, view: RunView): RunUpdate {
 	// Token fragments are transient and cannot be recovered from history.
 	const receivedEvents = view.frames.filter(frame => frame.type !== RunEventType.MessageDelta)
@@ -137,6 +166,10 @@ function applySnapshot(state: RunState, view: RunView): RunUpdate {
 	const afterSequence = receivedEvents.length > 0
 		? receivedEvents.reduce((sequence, event) => Math.max(sequence, event.sequence), -1)
 		: Math.max(next.events.at(-1)?.sequence ?? -1, state.streamSequence)
+	// Read before the last streamed prompt signal: its prompt and status are newer.
+	if (!isTerminal(view.status) && view.nextSequence !== null && view.nextSequence <= state.promptSequence) {
+		return { type: "snapshot", receivedEvents, run: { ...next, synchronized: true, error: view.error ?? state.error } }
+	}
 	return {
 		type: "snapshot", receivedEvents,
 		run: {
@@ -151,6 +184,7 @@ export function reduceRun(state: RunState, action: RunAction): RunUpdate {
 	switch (action.type) {
 		case "error": return { type: "state", run: { ...state, synchronized: false, error: action.message, unavailable: action.unavailable } }
 		case "retry": return { type: "state", run: { ...state, synchronized: false, error: "", unavailable: false } }
+		case "prompt": return applyPromptSignal(state, action.signal)
 		case "replied": return applyReply(state, action.promptId)
 		case "snapshot": return applySnapshot(state, action.view)
 		case "frame": {

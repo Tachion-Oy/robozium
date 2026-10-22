@@ -76,6 +76,11 @@ function applyRunUpdate(state: HudState, previousRun: RunState, update: RunUpdat
 			return state
 		case "replied":
 			return dismissAnsweredPrompt(state, previousRun, run)
+		case "prompt":
+			if (run.prompt?.id === previousRun.prompt?.id) return state
+			if (!run.prompt) return dismissAnsweredPrompt(state, previousRun, run)
+			// A streamed prompt replaces live text, as a polled one does.
+			return updateWorking(state, updateHistoryAndView(state, previousRun, run, run.prompt.afterSequence), run, { live: null, discarded: false })
 		case "delta":
 			return applyDelta(state, previousRun, run, update.frame)
 		case "events":

@@ -94,7 +94,7 @@ the PR that closes it.
 | Dependencies panel: sort, Check now, copy diagnostic | E, W | Done (#126) | 19 |
 | Backend restart/recreate (`BackendControls`) | E | Done (#126) | 19 |
 | Startup splash, handoff to the painted HUD, splash during restart | E | Plain `ui/backend/BackendStartup.tsx` | 21b |
-| Prompt id and awaiting-input state on the stream | — | Lags a streamed prompt by up to a poll | Follow-up |
+| Prompt id and awaiting-input state on the stream | — | Done: `prompt_opened` and `prompt_closed` stream events | Done |
 | Window 1260×780 default, 640×420 minimum, 90% of work area maximum, size saved | E | Done; the 90% cap applies to sizes the app picks, not to manual resizing | 22 |
 | Zoom ±0.1 within 0.5–3, saved | E | Done | 22 |
 | Second-instance focus | E | Done | 22 |
@@ -226,7 +226,14 @@ survive. It returns in one piece if runs ever survive a backend restart.
 
 **Follow-up found in step 15** (its own PR from `main`):
 
-- **Prompts on the stream.** The agent's prompt message arrives over SSE, but
+- **Prompts on the stream (done).** The API now streams `prompt_opened` (id,
+  text, whether images are accepted) and `prompt_closed` (answered, timed out,
+  cancelled or interrupted) from the agent's thread, so a close never precedes
+  its open. The run view adds `next_sequence`, and the desktop keeps a
+  streamed prompt against a snapshot read before it. The web ignores the new
+  events and field. The original note follows.
+
+  The agent's prompt message arrives over SSE, but
   the prompt id and the awaiting-input status reach clients only through
   `GET /run/{id}`. The center mark, Send and Interrupt therefore lag a
   streamed prompt by up to a poll. `RunControl.request_input` registers the

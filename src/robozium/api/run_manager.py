@@ -14,7 +14,6 @@ from roboz.deployment import DeployableAgent
 from roboz.llm import LLMEndpoint
 from roboz.models import Str, StrImage
 from roboz.runtime import bind_api_user_io, default_event_sinks, reset_api_user_io
-from roboz.runtime.events import EventSink
 
 from robozium.api.attachments import AttachmentInfo, UploadedImage
 from robozium.api.errors import (
@@ -24,6 +23,7 @@ from robozium.api.errors import (
 )
 from robozium.api.projects import Project
 from robozium.api.run_control import RunControl
+from robozium.api.run_events import RunEventSink
 from robozium.api.state import (
     CapabilitySelection,
     ProjectRunItem,
@@ -232,6 +232,7 @@ class RunManager:
             "current_prompt_id": raw["current_prompt_id"],
             "current_prompt": raw["current_prompt"],
             "error": raw["error"],
+            "next_sequence": raw["next_sequence"],
         }
 
     def list_project_runs(
@@ -275,13 +276,13 @@ class RunManager:
     def subscribe_event_listener(
         self,
         run_id: str,
-        event_listener: EventSink,
+        event_listener: RunEventSink,
         on_complete: Callable[[], None] | None = None,
     ) -> None:
         self._control(run_id).subscribe(event_listener, on_complete)
 
     def unsubscribe_event_listener(
-        self, run_id: str, event_listener: EventSink
+        self, run_id: str, event_listener: RunEventSink
     ) -> None:
         with self._lock:
             control = self._runs.get(run_id)

@@ -13,6 +13,7 @@ from roboz.runtime.events import (
     ScriptOutputEvent,
 )
 
+from robozium.api.run_events import PromptEvent
 from robozium.api.sse import event_to_sse_frame
 
 
@@ -187,4 +188,22 @@ def test_event_to_sse_frame_serializes_runtime_event() -> None:
             "agent_name": "root",
             "data": {"error_kind": "auth", "model": "gpt-4.1"},
         },
+    }
+
+
+def test_event_to_sse_frame_serializes_prompt_opening_and_closing() -> None:
+    opened = PromptEvent(
+        "opened", "p1", prompt="Which file?", accepts_images=True, sequence=4
+    )
+    closed = PromptEvent("closed", "p1", reason="timed_out", sequence=5)
+
+    assert json.loads(event_to_sse_frame(opened)[6:-2]) == {
+        "type": "prompt_opened",
+        "sequence": 4,
+        "payload": {"prompt_id": "p1", "prompt": "Which file?", "accepts_images": True},
+    }
+    assert json.loads(event_to_sse_frame(closed)[6:-2]) == {
+        "type": "prompt_closed",
+        "sequence": 5,
+        "payload": {"prompt_id": "p1", "reason": "timed_out"},
     }

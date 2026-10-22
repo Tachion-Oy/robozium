@@ -2,8 +2,8 @@
 // Payload validation lives in run-payloads; session code owns request lifetimes and reconciliation.
 import { ApiError, type DesktopApiClient } from "../api/client"
 import type { CapabilitySelection } from "../capabilities/capabilities-api"
-import type { RunFrame, RunView } from "./run-contracts"
-import { parseCreatedRunId, parseRunEvent, parseRunSnapshot } from "./run-payloads"
+import type { RunFrame, RunPromptSignal, RunView } from "./run-contracts"
+import { parseCreatedRunId, parseRunSnapshot, parseStreamEvent } from "./run-payloads"
 
 /** A null selection lets the backend use its default capabilities and reuse any active run. */
 export async function createRun(
@@ -18,9 +18,11 @@ export async function getRunSnapshot(client: DesktopApiClient, runId: string, si
 	return parseRunSnapshot(response)
 }
 
-export async function* streamRunEvents(client: DesktopApiClient, runId: string, signal: AbortSignal): AsyncGenerator<RunFrame> {
+export async function* streamRunEvents(
+	client: DesktopApiClient, runId: string, signal: AbortSignal,
+): AsyncGenerator<RunFrame | RunPromptSignal> {
 	for await (const value of client.streamEvents(`/run/${encodeURIComponent(runId)}/stream`, signal)) {
-		const event = parseRunEvent(value)
+		const event = parseStreamEvent(value)
 		if (event) yield event
 	}
 }

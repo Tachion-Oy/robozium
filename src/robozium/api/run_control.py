@@ -19,7 +19,12 @@ from roboz.runtime.pipe import EventPipe
 
 from robozium.api.attachments import AttachmentInfo, RunAttachments, UploadedImage
 from robozium.api.projects import Project
-from robozium.api.run_events import RunEvents
+from robozium.api.run_events import (
+    PromptCloseReason,
+    PromptEvent,
+    RunEvents,
+    RunEventSink,
+)
 from robozium.api.state import CapabilitySelection, ProjectRunItem, RunState, RunStatus
 from robozium.api.wait_registry import RunCancelled, WaitRegistry
 from robozium.hub.application import AttachmentSettings
@@ -272,10 +277,24 @@ class RunControl:
             self._prompt_accepts_images = accepts_images
             self._prompt_id, self._prompt = prompt_id, message
             self._status = RunStatus.AWAITING_USER_INPUT
+        # This thread emits both events, so a stream never sees a close before
+        # its open. Emission stays outside the lifecycle lock.
+        reason: PromptCloseReason = "interrupted"
         try:
-            return self._registry.wait(prompt_id, timeout_s=timeout)
+            self._events.dispatch(
+                PromptEvent(
+                    "opened", prompt_id, prompt=message, accepts_images=accepts_images
+                )
+            )
+            reply = self._registry.wait(prompt_id, timeout_s=timeout)
+            reason = "answered"
+            return reply
         except TimeoutError:
+            reason = "timed_out"
             return None
+        except RunCancelled:
+            reason = "cancelled"
+            raise
         finally:
             with self._lock:
                 self._registry.discard(prompt_id)
@@ -283,6 +302,7 @@ class RunControl:
                 self._prompt_accepts_images = False
                 if self._status == RunStatus.AWAITING_USER_INPUT:
                     self._status = RunStatus.RUNNING
+            self._events.dispatch(PromptEvent("closed", prompt_id, reason=reason))
 
     def check_reply(self, prompt_id: str | None, *, images: bool = False) -> None:
         with self._lock:
@@ -455,9 +475,9 @@ class RunControl:
         return not self.is_busy()
 
     def subscribe(
-        self, listener: EventSink, on_complete: Callable[[], None] | None = None
+        self, listener: RunEventSink, on_complete: Callable[[], None] | None = None
     ) -> None:
         self._events.subscribe(listener, on_complete)
 
-    def unsubscribe(self, listener: EventSink) -> None:
+    def unsubscribe(self, listener: RunEventSink) -> None:
         self._events.unsubscribe(listener)

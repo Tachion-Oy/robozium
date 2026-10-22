@@ -21,7 +21,6 @@ from roboz.llm import (
 from roboz.llm.calls import call_transcription_api
 from roboz.models import Str
 from roboz.runtime import log_with_data
-from roboz.runtime.events import PipeEvent
 from starlette.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp
 
@@ -50,6 +49,7 @@ from robozium.api.files import router as file_router
 from robozium.api.lifespan import application_lifespan
 from robozium.api.models import *
 from robozium.api.project_service import ProjectService
+from robozium.api.run_events import RunEvent
 from robozium.api.run_manager import RunManager
 from robozium.api.sse import event_to_sse_frame
 from robozium.api.state import RunStatus
@@ -363,7 +363,7 @@ def create_app(*, deployment: Hub, require_credentials: bool = False) -> FastAPI
             )
             raise HTTPException(status_code=409, detail="run already finished")
         stream_started = asyncio.get_running_loop().time()
-        event_queue: queue.Queue[PipeEvent | None] = queue.Queue()
+        event_queue: queue.Queue[RunEvent | None] = queue.Queue()
         stream_queue_listener = event_queue.put_nowait
 
         try:

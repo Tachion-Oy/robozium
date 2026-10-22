@@ -8,6 +8,9 @@ export const RunEventType = {
 	RuntimeEvent: "runtime_event",
 	// Desktop control event normalized from an LLM retry runtime event.
 	LlmRetry: "llm_retry",
+	// Live prompt signals; snapshots still carry the current prompt.
+	PromptOpened: "prompt_opened",
+	PromptClosed: "prompt_closed",
 } as const
 
 export const MessageRole = {
@@ -60,6 +63,11 @@ export type RunFrame = { sequence: number } & (
 		details: LifecycleDetails
 	}
 )
+/** Stream-only: the trace never records prompt signals. */
+export type RunPromptSignal = { sequence: number; id: string } & (
+	| { type: typeof RunEventType.PromptOpened; text: string }
+	| { type: typeof RunEventType.PromptClosed }
+)
 export type RunDelta = Extract<RunFrame, { type: typeof RunEventType.MessageDelta }>
 export type RunRecord = Exclude<RunFrame, RunDelta>
 export interface RunView {
@@ -69,4 +77,6 @@ export interface RunView {
 	promptId: string | null
 	prompt: string | null
 	error: string | null
+	/** Sequence of the next stream event when read; null from a backend without it. */
+	nextSequence: number | null
 }

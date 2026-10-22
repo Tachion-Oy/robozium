@@ -5,7 +5,7 @@ import time
 from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from threading import Event, current_thread
+from threading import Event, Thread, current_thread
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -39,10 +39,10 @@ from roboz.tools import prompt_user_at_start, stop
 from robozium.api.errors import ProjectBusyError, ProjectCancellationInProgressError
 from robozium.api.projects import Project
 from robozium.api.run_control import RunControl
-from robozium.api.run_events import RunEvents
+from robozium.api.run_events import PromptEvent, RunEvents
 from robozium.api.run_manager import RunManager
 from robozium.api.user_io import ApiUserIO
-from robozium.api.wait_registry import WaitRegistry
+from robozium.api.wait_registry import RunCancelled, WaitRegistry
 
 
 @tool
@@ -256,6 +256,7 @@ def test_run_manager_api_user_io_unblocks_on_resolve() -> None:
         if view["status"] == "awaiting_user_input":
             prompt_id = view["current_prompt_id"]
             assert view["current_prompt"] is not None
+            assert view["next_sequence"] > 1
             break
         if view["status"] in ("failed", "completed"):
             raise AssertionError(f"unexpected terminal state: {view}")
@@ -290,6 +291,81 @@ def test_api_user_io_returns_none_when_prompt_times_out() -> None:
     # this would block forever instead of returning None.
     assert io.request_input("question?", timeout=0.01) is None
     assert control.snapshot()["current_prompt_id"] is None
+
+
+def _ask_in_thread(
+    control: RunControl, outcome: list[object], timeout: float | None = None
+) -> Thread:
+    def ask() -> None:
+        try:
+            outcome.append(
+                control.request_input("Question?", timeout, accepts_images=True)
+            )
+        except RunCancelled as exc:
+            outcome.append(exc)
+
+    thread = Thread(target=ask, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 5.0
+    while control.snapshot()["current_prompt_id"] is None:
+        assert time.monotonic() < deadline, "the prompt never opened"
+        time.sleep(0.01)
+    return thread
+
+
+def test_a_prompt_streams_its_opening_and_its_answer() -> None:
+    control = RunControl(_project(), _TEST_DEFAULT_ENDPOINT, history_limit=5000)
+    emitted: list[object] = []
+    control.subscribe(emitted.append)
+    outcome: list[object] = []
+    thread = _ask_in_thread(control, outcome)
+    prompt_id = control.snapshot()["current_prompt_id"]
+    assert prompt_id is not None
+
+    deadline = time.monotonic() + 5.0
+    while not emitted:
+        assert time.monotonic() < deadline
+        time.sleep(0.01)
+    assert emitted == [
+        PromptEvent(
+            "opened", prompt_id, prompt="Question?", accepts_images=True, sequence=1
+        )
+    ]
+    # The view reads after the opening, so a client keeps the streamed prompt.
+    assert control.snapshot()["next_sequence"] == 2
+
+    control.submit_reply(prompt_id, Str(value="Yes"))
+    thread.join(5.0)
+    assert outcome == [Str(value="Yes")]
+    assert emitted[1:] == [
+        PromptEvent("closed", prompt_id, reason="answered", sequence=2)
+    ]
+    # Prompt events are live signals only; the snapshot owns the current prompt.
+    assert control.snapshot()["message_trace"] == []
+
+
+def test_a_prompt_that_times_out_or_is_cancelled_streams_why_it_closed() -> None:
+    control = RunControl(_project(), _TEST_DEFAULT_ENDPOINT, history_limit=5000)
+    emitted: list[object] = []
+    control.subscribe(emitted.append)
+
+    assert control.request_input("Question?", timeout=0.01) is None
+    outcome: list[object] = []
+    thread = _ask_in_thread(control, outcome)
+    assert control.cancel() is True
+    thread.join(5.0)
+
+    assert isinstance(outcome[0], RunCancelled)
+    assert [
+        (event.kind, event.reason, event.sequence)
+        for event in emitted
+        if isinstance(event, PromptEvent)
+    ] == [
+        ("opened", None, 1),
+        ("closed", "timed_out", 2),
+        ("opened", None, 3),
+        ("closed", "cancelled", 4),
+    ]
 
 
 def test_api_user_io_notify_streams_message_event_to_sink() -> None:

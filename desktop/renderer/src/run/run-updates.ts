@@ -3,7 +3,7 @@
 import { ApiError, type DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { isRetryableReadError } from "../api/retry"
-import { isTerminal, type RunFrame, type RunView } from "./run-contracts"
+import { isTerminal, RunEventType, type RunFrame, type RunPromptSignal, type RunView } from "./run-contracts"
 import { getRunSnapshot, streamRunEvents } from "./run-api"
 import type { RunAction } from "./run-reducer"
 
@@ -58,7 +58,8 @@ export function watchRun(
 			try {
 				await consumeRunStream(client, runId, controller.signal, frame => {
 					failures = 0
-					dispatch({ type: "frame", frame })
+					dispatch(frame.type === RunEventType.PromptOpened || frame.type === RunEventType.PromptClosed
+						? { type: "prompt", signal: frame } : { type: "frame", frame })
 				})
 			} catch (error) {
 				if (controller.signal.aborted) return
@@ -145,7 +146,7 @@ async function consumeRunStream(
 	client: DesktopApiClient,
 	runId: string,
 	signal: AbortSignal,
-	onFrame: (frame: RunFrame) => void,
+	onFrame: (frame: RunFrame | RunPromptSignal) => void,
 ): Promise<void> {
 	for await (const frame of streamRunEvents(client, runId, signal)) {
 		if (signal.aborted) return

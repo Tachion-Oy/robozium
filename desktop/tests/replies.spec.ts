@@ -36,6 +36,28 @@ test("Enter and Send post one trimmed reply; Shift+Enter and IME composition do 
 	expect(replies(backend)).toHaveLength(1)
 })
 
+test("a streamed prompt enables Send before the next poll, and its close returns the agent to working", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	// A paused clock holds the two-second poll: only the stream can open the prompt.
+	await page.clock.install()
+	await page.clock.pauseAt(await page.evaluate(() => Date.now()) + 1000)
+	await start(page, backend)
+	const reads = () => backend.requests.filter(request => request.path === "/run/run-one").length
+	await expect.poll(reads).toBe(1)
+	await expect.poll(() => run.streams.length).toBe(1)
+	await replyBox(page).fill("Ready")
+	await expect(send(page)).toBeDisabled()
+	emit(run.streams[0], { type: "prompt_opened", sequence: 1, payload: { prompt_id: "p1", prompt: "Streamed question?", accepts_images: false } })
+	await expect(output(page)).toHaveText("Streamed question?")
+	await expect(send(page)).toBeEnabled()
+	emit(run.streams[0], { type: "prompt_closed", sequence: 2, payload: { prompt_id: "p1", reason: "timed_out" } })
+	await expect(output(page)).toHaveText("Agent is working...")
+	await expect(send(page)).toBeDisabled()
+	await expect(replyBox(page)).toHaveValue("Ready")
+	expect(reads()).toBe(1)
+	expect(replies(backend)).toHaveLength(0)
+})
+
 test("live output after an acknowledged reply streams instead of waiting for the completed message", async ({ desktop: { page }, backend }) => {
 	const run = prepareRun(backend)
 	let current = waiting()
