@@ -24,7 +24,20 @@ test("Record dictates into the draft: recording, transcribing, then the text joi
 	await record(page).click()
 	await expect(record(page)).toHaveAttribute("aria-pressed", "true")
 	await expect(record(page)).toHaveAccessibleName("Stop")
-	await expect(page.locator(".agent-hud__dictate-meter")).toBeVisible()
+	const meter = page.locator(".agent-hud__dictate-meter")
+	await expect(meter).toBeVisible()
+	// Every segment has room to show, and the fake device's beeps light some up.
+	expect(await meter.locator(".agent-hud__dictate-meter-segment").evaluateAll(segments =>
+		segments.map(segment => segment.getBoundingClientRect().width > 0))).toEqual(Array(6).fill(true))
+	expect(await meter.evaluate(element => new Promise<boolean>(resolve => {
+		const lit = new MutationObserver(() => {
+			if (!element.querySelector("[data-active]")) return
+			lit.disconnect()
+			resolve(true)
+		})
+		lit.observe(element, { subtree: true, attributes: true })
+		setTimeout(() => resolve(false), 4000)
+	}))).toBe(true)
 	// Let the recorder deliver audio before stopping.
 	await page.waitForTimeout(500)
 	await record(page).click()
