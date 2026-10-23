@@ -1,9 +1,11 @@
-import { app, BrowserWindow, clipboard, ipcMain, nativeTheme, protocol, screen, type IpcMainInvokeEvent } from "electron"
+import { app, BrowserWindow, clipboard, ipcMain, nativeTheme, protocol, screen, shell, type IpcMainInvokeEvent } from "electron"
 import { mkdirSync } from "node:fs"
 import path from "node:path"
 import { BackendController } from "./backend-controller"
 import { registerRendererProtocol, rendererUrl } from "./renderer-protocol"
 import { MessageLogWindow } from "./message-log-window"
+import { externalUrl, hubFilePath } from "./links"
+import { permissionAllowed, permissionRequestAllowed } from "./security"
 import { isAppTheme, readSettings, saveSettings, themeBackground, type DesktopSettings } from "./settings"
 import { boundedSize, DEFAULT_SIZE, nextZoom, windowLimits, zoomShortcut } from "./window"
 
@@ -122,8 +124,11 @@ async function start(): Promise<void> {
 	contents.on("will-frame-navigate", event => event.preventDefault())
 	contents.on("will-redirect", event => event.preventDefault())
 	contents.on("will-attach-webview", event => event.preventDefault())
-	contents.session.setPermissionCheckHandler(() => false)
-	contents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
+	// Only the bundled document's main frame may record audio, for dictation.
+	contents.session.setPermissionCheckHandler((requester, permission, _origin, details) =>
+		permissionAllowed(window, requester, rendererUrl, permission, details))
+	contents.session.setPermissionRequestHandler((requester, permission, callback, details) =>
+		callback(permissionRequestAllowed(window, requester, rendererUrl, permission, details)))
 
 	const requireTrustedDocument = (event: IpcMainInvokeEvent) => {
 		// Only this window's main document may use desktop operations.
@@ -180,6 +185,16 @@ async function start(): Promise<void> {
 		requireTrustedDocument(event)
 		if (typeof text !== "string") throw new TypeError("Clipboard text must be a string.")
 		clipboard.writeText(text)
+	})
+	ipcMain.handle("desktop:open-external", async (event, url: unknown) => {
+		requireTrustedDocument(event)
+		await shell.openExternal(externalUrl(url))
+	})
+	ipcMain.handle("desktop:open-hub-file", async (event, file: unknown) => {
+		requireTrustedDocument(event)
+		if (!backend) throw new Error("The standalone preview has no hub files.")
+		const failure = await shell.openPath(await hubFilePath(backend.hubDirectory, file))
+		if (failure) throw new Error(failure)
 	})
 	await window.loadURL(rendererUrl)
 	window.show()

@@ -1,10 +1,11 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/run/RunHud.tsx at 076b2c9.
 // Adapted: the displayed run and its reply, interrupt and cancel writes come from
-// the desktop owners as props; their owners report failures. Dictation renders
-// unavailable until its owner arrives (roadmap step 21). Images follow
+// the desktop owners as props; their owners report failures. Dictation comes
+// from App, so a recording outlives view switches. Images follow
 // web/app/components/hud/run/RunHud.tsx at 2a0c183.
 import type { Dispatch, SetStateAction } from "react"
 import type { ReplyImagesModel } from "../../attachments/useReplyImages"
+import type { UseDictationResult } from "../../dictation/useDictation"
 import type { HudDisplay } from "../../hud/hud-view"
 import type { ReplyImages, ReplyResult } from "../../session/useRunMutations"
 import type { LayoutMode } from "../hud/HudCornerControls"
@@ -17,6 +18,7 @@ type RunHudProps = {
 	draft: string
 	onDraftChange: Dispatch<SetStateAction<string>>
 	images: ReplyImagesModel
+	dictation: UseDictationResult
 	layoutMode: LayoutMode
 	display: HudDisplay
 	awaitingInput: boolean
@@ -35,6 +37,7 @@ export function RunHud({
 	draft,
 	onDraftChange,
 	images,
+	dictation,
 	layoutMode,
 	display,
 	awaitingInput,
@@ -96,10 +99,11 @@ export function RunHud({
 			}}
 			controls={{
 				dictation: {
-					isRecording: false,
-					isTranscribing: false,
-					available: false,
-					onToggle: () => {},
+					isRecording: dictation.isRecording,
+					audioLevel: dictation.audioLevel,
+					isTranscribing: dictation.isTranscribing,
+					available: dictation.available,
+					onToggle: dictation.toggle,
 				},
 				cancel,
 				interrupt,

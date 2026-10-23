@@ -84,7 +84,8 @@ html[data-desktop] .agent-hud__actions .agent-hud__image[data-hud-action-placeme
 html[data-desktop] .agent-hud__actions .agent-hud__copy-controls[data-hud-action-placement="overflow"] {
   flex-shrink: 0; margin-inline-start: auto;
 }
-html[data-desktop] .agent-hud__actions button > span {
+/* Labels shorten with an ellipsis; Record's level meter keeps its own layout. */
+html[data-desktop] .agent-hud__actions button > span:not(.agent-hud__dictate-meter) {
   display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 /* A pending action keeps its label and pulses until its outcome arrives. */

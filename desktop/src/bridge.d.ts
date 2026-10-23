@@ -25,6 +25,10 @@ export interface DesktopBridge {
 	getMessageLog(): Promise<{ open: boolean }>
 	/** Open or close the message log, growing the window to fit it and restoring it afterwards. */
 	setMessageLog(open: boolean): Promise<{ open: boolean }>
+	/** Open an http(s) link in the default browser. */
+	openExternal(url: string): Promise<void>
+	/** Open a hub-relative file or folder with its default application; targets outside the hub are refused. */
+	openHubFile(file: string): Promise<void>
 }
 
 declare global {

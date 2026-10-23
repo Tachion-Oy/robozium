@@ -78,6 +78,13 @@ export class BackendController {
 		return { ...this.status }
 	}
 
+	/** The host directory mounted as the backend's hub, where agents' files live. */
+	get hubDirectory(): string {
+		const hub = this.layout.mounts.find(mount => mount.destination === "/hub")
+		if (!hub) throw new Error("The desktop layout has no hub mount.")
+		return hub.source
+	}
+
 	connection(): { baseUrl: string } {
 		return { baseUrl: `http://127.0.0.1:${this.settings.port}` }
 	}
