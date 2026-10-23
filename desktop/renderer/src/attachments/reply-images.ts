@@ -19,20 +19,43 @@ type DraftImage = ReplyImage & {
 	uploadId?: string
 }
 
-type Snapshot = {
+export type ReplyImagesState = {
 	images: readonly ReplyImage[]
 	error: string | null
 	isBusy: boolean
+	/** Every image is uploaded and nothing is pending: a reply may be sent. */
 	isReady: boolean
 	canAdd: boolean
 	canRetry: boolean
 }
 
-// A reopened composer waits for the previous instance's in-flight work before GET.
+/**
+ * The pending images of one run's reply, kept in step with the backend.
+ * React observes it through subscribe/getSnapshot; it owns no React state.
+ */
+export interface ReplyImageDraft {
+	subscribe(listener: () => void): () => void
+	getSnapshot(): ReplyImagesState
+	/** Restore the run's pending images from the backend and accept edits. */
+	activate(): void
+	/** Abort requests and drop local state; server attachments stay. */
+	dispose(): void
+	/** Queue uploads; `rejection` explains files refused before upload. */
+	add(files: File[], rejection: string | null): void
+	onRemove(url: string): void
+	onClear(): void
+	/** Reload from the backend, then finish failed uploads and removals. */
+	onRetry(): void
+	/** Send once ready; true only if the backend accepted the reply. */
+	submit(send: (hasImages: boolean) => Promise<boolean>): Promise<boolean>
+}
+
+// Shared by all drafts: a reopened composer waits for the previous instance's
+// in-flight work before GET.
 const pendingOperations = new Map<string, Promise<void>>()
 
 /** One queue owns all pending-collection mutations, including reply acceptance. */
-export function createReplyImageDraft(client: DesktopApiClient | null, runId: string | null) {
+export function createReplyImageDraft(client: DesktopApiClient | null, runId: string | null): ReplyImageDraft {
 	let requests = new AbortController()
 	const call = <T>(operation: (signal: AbortSignal) => Promise<T>) => withDeadline(requests.signal, operation)
 	let entries: DraftImage[] = []
@@ -45,7 +68,7 @@ export function createReplyImageDraft(client: DesktopApiClient | null, runId: st
 	let error: string | null = null
 	const queue: Array<() => Promise<void>> = []
 	const listeners = new Set<() => void>()
-	let snapshot: Snapshot = { images: [], error, isBusy: false, isReady: false, canAdd: false, canRetry: false }
+	let snapshot: ReplyImagesState = { images: [], error, isBusy: false, isReady: false, canAdd: false, canRetry: false }
 	const current = (version: number) => active && version === generation
 	const publish = () => {
 		const isBusy = running || queue.length > 0
@@ -226,7 +249,7 @@ export function createReplyImageDraft(client: DesktopApiClient | null, runId: st
 				}
 			})
 		},
-		submit: (send: (hasImages: boolean) => Promise<boolean>): Promise<boolean> => {
+		submit: (send) => {
 			if (!snapshot.isReady) return Promise.resolve(false)
 			const submitted = [...entries]
 			return new Promise((resolve, reject) => {

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react"
 import type { FileRejection } from "react-dropzone"
 import type { DesktopApiClient } from "../api/client"
-import { createReplyImageDraft, type ReplyImage } from "./reply-images"
+import { createReplyImageDraft, type ReplyImageDraft, type ReplyImagesState } from "./reply-images"
 export type { ReplyImage } from "./reply-images"
 
 export const REPLY_IMAGE_LIMIT = 4
@@ -15,18 +15,9 @@ export const REPLY_IMAGE_ACCEPT = {
 	"image/gif": [".gif"],
 }
 
-export type ReplyImagesModel = {
-	images: readonly ReplyImage[]
-	error: string | null
-	isBusy: boolean
-	isReady: boolean
-	canAdd: boolean
-	canRetry: boolean
-	onRetry: () => void
-	submit: (send: (hasImages: boolean) => Promise<boolean>) => Promise<boolean>
+/** The draft's state and edits, with dropzone files in place of add. */
+export type ReplyImagesModel = ReplyImagesState & Pick<ReplyImageDraft, "onRemove" | "onClear" | "onRetry" | "submit"> & {
 	onDrop: (files: File[], rejections: FileRejection[]) => void
-	onRemove: (url: string) => void
-	onClear: () => void
 }
 
 function rejectionReason({ file, errors }: FileRejection): string {
