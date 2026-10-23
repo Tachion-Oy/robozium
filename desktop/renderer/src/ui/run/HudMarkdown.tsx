@@ -1,5 +1,8 @@
 // Copied from web/app/components/hud/run/HudMarkdown.tsx at 86ef5c1.
-import type { ReactNode } from "react"
+// Adapted: links open through the desktop bridge instead of navigating; a file
+// link names its hub-relative path.
+import type { MouseEvent, ReactNode } from "react"
+import { openExternalLink, openHubFile } from "../../links/open-link"
 import ReactMarkdown from "react-markdown"
 import rehypeRaw from "rehype-raw"
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize"
@@ -151,7 +154,7 @@ const HUD_ALLOWED_ELEMENTS = [
 	"file",
 ]
 
-function toHubFileUrl(src: string): string | null {
+function toHubFilePath(src: string): string | null {
 	const trimmed = src.trim()
 	if (!trimmed || trimmed.startsWith("/")) {
 		return null
@@ -166,9 +169,7 @@ function toHubFileUrl(src: string): string | null {
 		return null
 	}
 
-	return `/api/files/${segments
-		.map((segment) => encodeURIComponent(segment))
-		.join("/")}`
+	return segments.join("/")
 }
 
 function isExternalHttpUrl(href: string): boolean {
@@ -194,6 +195,14 @@ function transformHudLinkUrl(url: string): string | null {
 	return null
 }
 
+/** The window never navigates; main opens the target outside it. */
+function opening(open: () => void) {
+	return (event: MouseEvent<HTMLAnchorElement>) => {
+		event.preventDefault()
+		open()
+	}
+}
+
 function HudFileLink({
 	src,
 	children,
@@ -201,17 +210,16 @@ function HudFileLink({
 	src?: string
 	children?: ReactNode
 }) {
-	const href = src ? toHubFileUrl(src) : null
-	if (!href) {
+	const path = src ? toHubFilePath(src) : null
+	if (!path) {
 		return <>{children}</>
 	}
 
 	return (
 		<a
 			className="agent-hud__markdown-link"
-			href={href}
-			target="_blank"
-			rel="noreferrer">
+			href={path}
+			onClick={opening(() => openHubFile(path))}>
 			{children}
 		</a>
 	)
@@ -231,8 +239,7 @@ const HUD_MARKDOWN_COMPONENTS: Record<
 			<a
 				className="agent-hud__markdown-link"
 				href={href}
-				target="_blank"
-				rel="noreferrer">
+				onClick={opening(() => openExternalLink(href))}>
 				{children}
 			</a>
 		)

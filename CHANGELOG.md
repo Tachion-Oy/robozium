@@ -6,8 +6,15 @@
   a transcription key the API answers 409 naming the provider ("Dictation needs
   an API key for groq. Add it under Environment, then record again."), and
   disabled transcription answers 409 rather than 503. The web HUD shows these
-  and locked keys as a **Dictation unavailable** notice.
-
+  and locked keys as a **Dictation unavailable** notice, and so does the
+  desktop HUD.
+- Dictate desktop replies with **Record**, as in the reference: a live audio
+  meter while recording, then the transcript joins the draft. Only the app's own
+  window may use the microphone, and only for audio.
+- Open links in desktop agent messages: web links in the default browser, and
+  hub files such as generated artifacts with their default application. Only
+  http and https links leave the app, and a file opens only if it resolves
+  inside the hub, symlinks included.
 - Switch the open run's model from the desktop's Current Run, as in the web HUD,
   so a reply with images can go to a vision model mid-run. Other screens still
   set the default for new runs. A desktop profile whose `settings.json` was

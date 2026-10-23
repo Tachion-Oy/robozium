@@ -563,7 +563,12 @@ test("a prompt separates pinned script output through dismissal and later histor
 	await expect(page.getByRole("textbox", { name: "Reply text", exact: true })).toHaveValue("Retained draft")
 })
 
-test("agent Markdown renders sanitized and its links stay inside the app", async ({ desktop: { app, page }, backend }) => {
+test("agent Markdown renders sanitized and its links open outside the window", async ({ desktop: { app, page }, backend }) => {
+	await app.evaluate(({ shell }) => {
+		const opened: string[] = []
+		Reflect.set(globalThis, "openedLinks", opened)
+		shell.openExternal = async url => { opened.push(url) }
+	})
 	const run = prepareRun(backend)
 	await start(page, backend)
 	await expect.poll(() => run.streams.length).toBe(1)
@@ -578,11 +583,16 @@ test("agent Markdown renders sanitized and its links stay inside the app", async
 	await expect(agent.locator("strong")).toHaveText("Bold")
 	await expect(agent.locator("img")).toHaveCount(0)
 	const url = page.url()
-	// Opening files and external pages needs native privileges that arrive separately.
+	// Main opens the target outside the window, which never navigates.
 	for (const name of ["External", "the report"]) {
 		await agent.getByRole("link", { name, exact: true }).click()
 		expect(page.url()).toBe(url)
 		expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1)
 	}
+	await expect.poll(() => app.evaluate(() => Reflect.get(globalThis, "openedLinks"))).toEqual(["https://example.invalid/page"])
+	await expect(agent.getByRole("link", { name: "the report", exact: true })).toHaveAttribute("href", "notes/report.txt")
+	// The standalone preview has no hub to open files from.
+	await expect(page.getByRole("alert").filter({ hasText: "Could not open link" }))
+		.toContainText("The standalone preview has no hub files.")
 	expect(await page.title()).not.toBe("injected")
 })

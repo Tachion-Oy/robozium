@@ -1,7 +1,7 @@
 // Notifications any owner can raise; the viewport owns presentation and hover.
 import { useSyncExternalStore } from "react"
 
-export type NotificationTone = "error" | "warning" | "success"
+export type NotificationTone = "info" | "error" | "warning" | "success"
 
 export interface ShowErrorToastOptions {
 	title?: string
