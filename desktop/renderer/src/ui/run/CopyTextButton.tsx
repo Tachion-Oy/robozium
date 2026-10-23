@@ -8,6 +8,7 @@ export type CopyTextButtonProps = {
 	content: string
 	target: "agent output" | "user reply"
 	reverseIcon?: boolean
+	disabled?: boolean
 }
 
 export function CopyTextButton({
@@ -15,6 +16,7 @@ export function CopyTextButton({
 	content,
 	target,
 	reverseIcon = false,
+	disabled = false,
 }: CopyTextButtonProps) {
 	const copiedTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
 	const [copiedKey, setCopiedKey] = useState<string | null>(null)
@@ -53,7 +55,7 @@ export function CopyTextButton({
 			type="button"
 			className="agent-hud__copy-text"
 			onClick={() => void handleCopy()}
-			disabled={!content}
+			disabled={disabled || !content}
 			data-copied={isCopied || undefined}
 			aria-label={isCopied ? `${targetLabel} copied` : `Copy ${target}`}
 			title={isCopied ? `${targetLabel} copied` : `Copy ${target}`}>

@@ -28,7 +28,7 @@ export interface EnvironmentOutcomes {
 	onReplaced: (next: EnvironmentView) => void
 	onImported: (result: EnvironmentImportResult) => void
 	onReset: () => void
-	/** Adopted keys loaded without a restart. */
+	/** Keys loaded without a restart: an adopted key file, or a save during setup. */
 	onKeysLoaded: () => void
 }
 
@@ -43,7 +43,10 @@ export interface EnvironmentMutations extends EnvironmentWrites {
 	reset: () => Promise<boolean>
 }
 
-export function useEnvironmentMutations(client: DesktopApiClient | null, outcomes: EnvironmentOutcomes): EnvironmentMutations {
+/** During first-start setup (`setupRequired`) a save loads the keys at once, as an adopted key file does. */
+export function useEnvironmentMutations(
+	client: DesktopApiClient | null, setupRequired: boolean, outcomes: EnvironmentOutcomes,
+): EnvironmentMutations {
 	const [operation, setOperation] = useState<Operation | null>(null)
 	const [restartRequired, setRestartRequired] = useState(false)
 	const lifetime = useClientLifetime(client)
@@ -94,6 +97,14 @@ export function useEnvironmentMutations(client: DesktopApiClient | null, outcome
 		const next = await read(client, signal)
 		if (signal.aborted) return false
 		outcomes.onReplaced(next)
+		if (setupRequired) {
+			showNotificationToast({
+				tone: "success", title: "API keys saved",
+				message: "Robozium is ready. Start your first run with New Project.",
+			})
+			outcomes.onKeysLoaded()
+			return true
+		}
 		setRestartRequired(true)
 		showNotificationToast({
 			tone: "success", title: "Settings saved",

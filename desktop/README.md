@@ -54,6 +54,16 @@ Normal startup uses live mode. For a credential-free mock backend:
 npm --prefix desktop start -- --mock
 ```
 
+### First start in live mode
+
+Without saved settings or a `.env`, a live start locks the HUD as the web HUD
+does: Runs Overview shows **Start Here** instead of **New Project**, project
+rows, the model selector and run controls are disabled, and the view menu leads
+only to Environment. **Start Here** opens a guide paged with the message arrows.
+Its first step: drop an existing `.env.encrypt` on **Key file** in Environment
+and enter its password. Otherwise add a key and choose **Encrypt and save**.
+Either way the keys load at once and the HUD unlocks without a restart.
+
 ### Live testing from a worktree
 
 Live mode reads provider keys from `<profile>/live/.env`. To try real model

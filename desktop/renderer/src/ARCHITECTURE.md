@@ -47,7 +47,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `environment/useEnvironmentDraft` | The saved settings, polled while the screen is visible, with this app's unsaved edits and the open editor on top; App passes it each write's outcome | Read |
 | `environment/useEnvironmentMutations` | One write to the saved settings at a time, and whether a restart is needed | Save, import, key file, reset |
 | `dependencies/useDependencies` | The monitor's records, loading and load failure, and one Check Now at a time | Records read when the view opens, check |
-| `credentials/useCredentials` | The backend's secrets status (available, locked, removable) | Status read, unlock, remove |
+| `credentials/useCredentials` | The backend's secrets status (available, locked, removable) and whether first-start setup is required, which locks the HUD on the onboarding guide | Status read, unlock, remove |
 | `feedback/notices` | Notifications and their pause/dismiss lifetimes | None |
 | `theme/theme` | The document's theme, applied before first render from the bridge's saved value | Save through `setTheme` (IPC) |
 

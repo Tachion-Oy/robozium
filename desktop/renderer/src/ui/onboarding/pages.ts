@@ -1,3 +1,6 @@
+// Copied from web/app/components/hud/onboarding/pages.ts at af87bea.
+// Adapted: adding keys starts from an existing key file, and illustrations are
+// named for their CSS classes.
 import type { AgentMessage } from "../run/AgentMessagePanel"
 
 type OnboardingPage = Pick<AgentMessage, "id" | "content" | "illustration">
@@ -13,7 +16,15 @@ Robozium runs its agents on hosted models, so it needs **at least one provider A
 Use the arrows beside the **A** below to move through the steps.
 
 Just exploring? Start Robozium in mock mode instead to try it with scripted replies and no keys.`,
-		illustration: { src: "/onboarding/keys.svg", alt: "A key next to the Robozium window" },
+		illustration: { name: "keys", alt: "A key next to the Robozium window" },
+	},
+	{
+		id: "key-file",
+		content: `## Already have your keys?
+
+If you saved keys in Robozium before, in the browser app or another install, you have a \`.env.encrypt\` file. Open **HUD view → Environment**, drop it on **Key file** and enter the password you encrypted it with. Your keys load at once; no restart and nothing to type again.
+
+No key file yet? Use the arrows to set up a key in a few steps.`,
 	},
 	{
 		id: "get-key",
@@ -45,7 +56,7 @@ Add \`CEREBRAS_API_KEY\` or \`GROQ_API_KEY\` the same way if you have them.`,
 Enter a password, confirm it and choose **Encrypt and save**. Your keys are stored encrypted and work immediately; no restart needed.
 
 After a later restart, choose **Secrets locked** in the header and enter the password to unlock them. Keep the password somewhere safe outside the Robozium folder. If you forget it, **Reset environment** removes the saved settings so you can start again.`,
-		illustration: { src: "/onboarding/secrets.svg", alt: "A padlock protecting saved API keys" },
+		illustration: { name: "secrets", alt: "A padlock protecting saved API keys" },
 	},
 	{
 		id: "done",
@@ -53,6 +64,6 @@ After a later restart, choose **Secrets locked** in the header and enter the pas
 
 Once the keys are saved, this guide disappears and **New Project** on **Runs Overview** starts your first run.
 
-Prefer files? A plain \`.env\` beside the app, copied from \`.env.example\`, also works and overrides saved settings after a restart.`,
+Prefer files? A plain \`.env\` in the app's \`live\` folder (\`~/.config/Robozium/live\` when installed), copied from \`.env.example\`, also works and overrides saved settings after a restart.`,
 	},
 ]

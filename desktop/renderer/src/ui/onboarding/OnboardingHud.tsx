@@ -1,13 +1,10 @@
-"use client"
-
+// Copied from web/app/components/hud/onboarding/OnboardingHud.tsx at af87bea.
+// Adapted: desktop import paths.
 import { useState } from "react"
-import type { ReplyImagesModel } from "@/hooks/useReplyImages"
-import {
-	AgentActivityState,
-	type HudMessageNavigationDirection,
-} from "@/lib/robozium/session/reducer"
-import type { LayoutMode } from "../HudCornerControls"
+import type { ReplyImagesModel } from "../../attachments/useReplyImages"
+import type { LayoutMode } from "../hud/HudCornerControls"
 import { ReplyForm } from "../run/ReplyForm"
+import { AgentActivityState, type HudMessageNavigationDirection } from "../run/run-view"
 import { ONBOARDING_PAGES } from "./pages"
 
 const ignore = () => {}

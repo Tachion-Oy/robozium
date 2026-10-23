@@ -25,6 +25,9 @@ type ProjectOverviewProps = {
 	onOpenRun: (runId: string, project: string) => void
 	onSelectCapabilities: (project: string | null) => void
 	onLaunch: (draft: LaunchDraft) => Promise<boolean>
+	/** API keys are missing: rows are disabled and Start Here opens the guide. */
+	locked?: boolean
+	onStartHere?: () => void
 }
 
 export function ProjectOverview({
@@ -37,6 +40,8 @@ export function ProjectOverview({
 	onOpenRun,
 	onSelectCapabilities,
 	onLaunch,
+	locked = false,
+	onStartHere,
 }: ProjectOverviewProps) {
 	if (projects.isInitialLoading) {
 		return (
@@ -97,6 +102,8 @@ export function ProjectOverview({
 			projects={projects.rows}
 			currentRunId={currentRunId}
 			navigationPending={navigationPending}
+			locked={locked}
+			onStartHere={onStartHere}
 			onProjectClick={handleProjectClick}
 			onSelectCapabilities={(project) => openSelector(project.slug)}
 			onLaunchProject={handleLaunch}

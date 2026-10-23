@@ -1,6 +1,5 @@
 // Copied from web/app/components/hud/run/ReplyForm.tsx at 2a0c183.
-// Adapted: the composer can focus the reply on open; the onboarding lock arrives
-// with onboarding (roadmap step 26).
+// Adapted: the composer can focus the reply on open.
 import type { SubmitEventHandler } from "react"
 import { useDropzone } from "react-dropzone"
 import {
@@ -37,6 +36,8 @@ type ReplyFormProps = {
 	navigation: HudMessageNavigationModel
 	controls: HudControlModel
 	layoutMode: LayoutMode
+	/** Disable every control except message navigation. */
+	locked?: boolean
 }
 
 export function ReplyForm({
@@ -45,6 +46,7 @@ export function ReplyForm({
 	navigation,
 	controls,
 	layoutMode,
+	locked = false,
 }: ReplyFormProps) {
 	const dropzone = useDropzone({
 		accept: REPLY_IMAGE_ACCEPT,
@@ -53,9 +55,10 @@ export function ReplyForm({
 		noClick: true,
 		noKeyboard: true,
 		onDrop: composer.images.onDrop,
-		disabled: !composer.images.canAdd || controls.cancel?.isPending,
+		disabled: locked || !composer.images.canAdd || controls.cancel?.isPending,
 	})
 	const canSubmit = Boolean(
+		!locked &&
 		(composer.value.trim() || composer.images.images.length) &&
 			composer.images.isReady &&
 			composer.isReplyAvailable &&
@@ -85,6 +88,7 @@ export function ReplyForm({
 					images={composer.images}
 					dropzone={dropzone}
 					canSubmit={canSubmit}
+					disabled={locked}
 					autoFocus={composer.focusOnOpen}
 					onChange={composer.onChange}
 				/>
@@ -93,10 +97,11 @@ export function ReplyForm({
 				{...controls}
 				agentMessage={message}
 				navigation={navigation}
+				locked={locked}
 				replyDraft={composer.value}
 				hasImages={composer.images.images.length > 0}
 				onAddImages={dropzone.open}
-				imagesDisabled={!composer.images.canAdd || controls.cancel?.isPending}
+				imagesDisabled={locked || !composer.images.canAdd || controls.cancel?.isPending}
 				onClearReply={() => {
 					composer.onChange("")
 					composer.images.onClear()

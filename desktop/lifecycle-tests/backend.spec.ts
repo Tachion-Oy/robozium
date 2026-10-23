@@ -20,7 +20,8 @@ interface Runtime {
 	profile: string
 	port: number
 	commands: string
-	launch: () => Promise<ElectronApplication>
+	/** Mock unless a test needs the live backend's own behavior, such as first-start setup. */
+	launch: (mode?: "mock" | "live") => Promise<ElectronApplication>
 }
 
 const test = base.extend<{ runtime: Runtime }>({
@@ -38,9 +39,9 @@ const test = base.extend<{ runtime: Runtime }>({
 			await mkdir(path.join(directory, "bin"))
 			await writeFile(commands, "")
 			await writeFile(path.join(directory, "bin/docker"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${shellQuote(commands)}\nexec ${shellQuote(docker)} "$@"\n`, { mode: 0o700 })
-			await use({ directory, profile, port, commands, launch: async () => {
+			await use({ directory, profile, port, commands, launch: async (mode = "mock") => {
 				const app = await playwright._electron.launch({
-					args: [desktop, "--mock", "--ozone-platform=x11", "--force-device-scale-factor=1"],
+					args: [desktop, ...(mode === "mock" ? ["--mock"] : []), "--ozone-platform=x11", "--force-device-scale-factor=1"],
 					chromiumSandbox: true, cwd: directory, timeout: 15_000,
 					env: { ...process.env, PATH: `${directory}/bin:${process.env.PATH}`, ROBOZIUM_DESKTOP_TEST_DATA: profile, ROBOZIUM_DESKTOP_API_PORT: String(port) },
 				})
@@ -70,18 +71,20 @@ const test = base.extend<{ runtime: Runtime }>({
 				try {
 					const installation = (await readFile(path.join(profile, "backend-installation-id"), "utf8")).trim()
 					expect(installation).toMatch(/^[a-f0-9]{12}$/)
-					const project = `robozium-desktop-${installation}-mock`
-					const ids = execFileSync(docker, ["ps", "-aq", "--filter", `label=com.docker.compose.project=${project}`], { encoding: "utf8" }).trim().split(/\s+/).filter(Boolean)
-					for (const id of ids) {
-						expect(execFileSync(docker, ["inspect", "--format", '{{index .Config.Labels "fi.tachion.robozium.desktop.installation"}}', id], { encoding: "utf8" }).trim()).toBe(installation)
-						const logs = spawnSync(docker, ["logs", id], { encoding: "utf8", timeout: 15_000 })
-						await testInfo.attach(`api-${id}.log`, { body: logs.stdout + logs.stderr, contentType: "text/plain" })
-						execFileSync(docker, ["rm", "--force", id], { stdio: "pipe" })
-					}
-					try {
-						execFileSync(docker, ["image", "rm", `${project}-api`], { stdio: "pipe" })
-					} catch {
-						// Startup may not have built an image.
+					for (const mode of ["mock", "live"]) {
+						const project = `robozium-desktop-${installation}-${mode}`
+						const ids = execFileSync(docker, ["ps", "-aq", "--filter", `label=com.docker.compose.project=${project}`], { encoding: "utf8" }).trim().split(/\s+/).filter(Boolean)
+						for (const id of ids) {
+							expect(execFileSync(docker, ["inspect", "--format", '{{index .Config.Labels "fi.tachion.robozium.desktop.installation"}}', id], { encoding: "utf8" }).trim()).toBe(installation)
+							const logs = spawnSync(docker, ["logs", id], { encoding: "utf8", timeout: 15_000 })
+							await testInfo.attach(`api-${id}.log`, { body: logs.stdout + logs.stderr, contentType: "text/plain" })
+							execFileSync(docker, ["rm", "--force", id], { stdio: "pipe" })
+						}
+						try {
+							execFileSync(docker, ["image", "rm", `${project}-api`], { stdio: "pipe" })
+						} catch {
+							// Startup may not have built an image in this mode.
+						}
 					}
 					let buildLog = ""
 					try {
@@ -548,5 +551,16 @@ test("a secret saved in Environment applies after Restart app and a reset remove
 		await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible()
 		await expect(secrets(page)).toHaveCount(0)
 	})
+	await closeWindow(app)
+})
+
+test("a live start without keys opens on Start Here, and the guide explains the key file", async ({ runtime }) => {
+	const app = await runtime.launch("live")
+	const page = await app.firstWindow()
+	await expect(page.getByRole("button", { name: "Start Here", exact: true })).toBeVisible({ timeout: 180_000 })
+	await expect(page.getByRole("button", { name: "New Project", exact: true })).toHaveCount(0)
+	await page.getByRole("button", { name: "Start Here", exact: true }).click()
+	await page.getByRole("button", { name: "Next agent message", exact: true }).click()
+	await expect(page.locator(".agent-hud__replyBox--agent")).toContainText("drop it on Key file")
 	await closeWindow(app)
 })

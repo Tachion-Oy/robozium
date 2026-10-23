@@ -530,6 +530,15 @@
   mask: var(--illustration-source) center / contain no-repeat;
 }
 
+/* Desktop: each illustration is a class, since the CSP forbids inline styles. */
+.agent-hud__message-illustration--keys {
+  --illustration-source: url("/onboarding/keys.svg");
+}
+
+.agent-hud__message-illustration--secrets {
+  --illustration-source: url("/onboarding/secrets.svg");
+}
+
 
 
 /* Live streaming "responding" view streams straight into the agent panel — no
