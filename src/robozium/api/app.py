@@ -15,6 +15,7 @@ from roboz.endpoints import DEFAULT_ENCRYPTED_ENV_PATH
 from roboz.llm import (
     MockTranscriptionEndpoint,
     ModelSelector,
+    TranscriptionEndpoint,
     TranscriptionEndpointLike,
 )
 from roboz.llm.calls import call_transcription_api
@@ -300,11 +301,24 @@ def create_app(*, deployment: Hub, require_credentials: bool = False) -> FastAPI
         endpoint: TranscriptionEndpointLike | None = (
             request.app.state.transcription_endpoint
         )
+        # Dictation that is switched off or has no key is a setup state, not a failure.
         if endpoint is None:
             raise HTTPException(
-                status_code=503,
+                status_code=409,
                 detail="Voice transcription is not configured for this server.",
             )
+        if isinstance(endpoint, TranscriptionEndpoint):
+            try:
+                # Opening the audio API loads the key without sending a request.
+                await asyncio.to_thread(lambda: endpoint.client.audio)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Dictation needs an API key for {endpoint.api_name}. "
+                        "Add it under Environment, then record again."
+                    ),
+                ) from exc
         try:
             text = await asyncio.to_thread(
                 call_transcription_api,

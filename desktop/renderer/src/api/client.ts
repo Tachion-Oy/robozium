@@ -1,7 +1,8 @@
 // Shared HTTP policy and SSE framing. Callers supply endpoint paths and validate domain payloads.
 // Transport owns response readers; feature/session owners supply cancellation signals.
 export class ApiError extends Error {
-	constructor(readonly kind: "http" | "malformed" | "connection", message: string, readonly status?: number) {
+	/** `detail` is the server's own explanation, when it gave one. */
+	constructor(readonly kind: "http" | "malformed" | "connection", message: string, readonly status?: number, readonly detail?: string) {
 		super(message)
 		this.name = "ApiError"
 	}
@@ -32,7 +33,7 @@ async function httpError(response: Response, signal?: AbortSignal | null): Promi
 	}
 	signal?.throwIfAborted()
 	const description = detail ? `: ${detail}` : "."
-	return new ApiError("http", `API request failed (${response.status})${description}`, response.status)
+	return new ApiError("http", `API request failed (${response.status})${description}`, response.status, detail || undefined)
 }
 
 export class DesktopApiClient {

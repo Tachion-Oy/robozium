@@ -11,10 +11,12 @@ vi.mock("../../lib/robozium/client", async (importOriginal) => ({
 
 vi.mock("../../app/components/feedback/ErrorToast", () => ({
 	showErrorToast: vi.fn(),
+	showNotificationToast: vi.fn(),
 }))
-import { showErrorToast } from "../../app/components/feedback/ErrorToast"
+import { showErrorToast, showNotificationToast } from "../../app/components/feedback/ErrorToast"
 
 const showErrorToastMock = vi.mocked(showErrorToast)
+const showNotificationToastMock = vi.mocked(showNotificationToast)
 const transcribeAudioMock = vi.mocked(transcribeAudio)
 
 let animationFrameCallback: FrameRequestCallback | null = null
@@ -85,6 +87,7 @@ const trackStop = vi.fn()
 beforeEach(() => {
 	transcribeAudioMock.mockReset()
 	showErrorToastMock.mockReset()
+	showNotificationToastMock.mockReset()
 	trackStop.mockReset()
 	animationFrameCallback = null
 	animationFrameId = 0
@@ -190,20 +193,23 @@ describe("useDictation", () => {
 	})
 
 	it.each([
-		[503, "Voice transcription is not configured for this server."],
+		[409, "Voice transcription is not configured for this server."],
+		[409, "Dictation needs an API key for groq. Add it under Environment, then record again."],
 		[423, "Unlock API keys before using providers"],
-	])("preserves the API explanation for %s on each failed recording", async (status, message) => {
+	])("explains a %s setup state as a notice on each recording", async (status, message) => {
 		transcribeAudioMock.mockRejectedValue(new AgentApiError(status, message))
 		const { result } = renderHook(() => useDictation({ onTranscript: vi.fn() }))
 		for (let attempt = 0; attempt < 2; attempt += 1) {
 			await act(async () => result.current.toggle())
 			await act(async () => result.current.toggle())
 		}
-		expect(showErrorToastMock).toHaveBeenCalledTimes(2)
-		expect(showErrorToastMock).toHaveBeenLastCalledWith({
-			title: "Transcription failed",
+		expect(showNotificationToastMock).toHaveBeenCalledTimes(2)
+		expect(showNotificationToastMock).toHaveBeenLastCalledWith({
+			tone: "info",
+			title: "Dictation unavailable",
 			message,
 		})
+		expect(showErrorToastMock).not.toHaveBeenCalled()
 		expect(result.current.isTranscribing).toBe(false)
 	})
 

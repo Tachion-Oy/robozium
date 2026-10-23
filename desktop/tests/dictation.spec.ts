@@ -52,19 +52,30 @@ test("Record dictates into the draft: recording, transcribing, then the text joi
 	await expect(record(page)).toBeEnabled()
 })
 
-test("a transcription failure is reported and keeps the draft", async ({ desktop: { page }, backend }) => {
+test("a missing key is a notice, a provider failure an error, and both keep the draft", async ({ desktop: { page }, backend }) => {
 	prepareRun(backend)
 	backend.handlers.set("GET /run/run-one", response => json(response, waiting()))
-	backend.handlers.set("POST /transcribe", response =>
-		json(response, { detail: "Voice transcription is not configured for this server." }, 503))
+	const detail = "Dictation needs an API key for groq. Add it under Environment, then record again."
+	backend.handlers.set("POST /transcribe", response => json(response, { detail }, 409))
 	await start(page, backend)
 	await replyBox(page).fill("Keep me")
 	await record(page).click()
 	await expect(record(page)).toHaveAttribute("aria-pressed", "true")
 	await page.waitForTimeout(500)
 	await record(page).click()
+	const notice = page.getByRole("status").filter({ hasText: "Dictation unavailable" })
+	await expect(notice).toContainText(detail)
+	await expect(notice).not.toContainText("API request failed")
+	await expect(page.getByRole("alert")).toHaveCount(0)
+	await notice.getByRole("button", { name: "Dismiss info notification" }).click()
+
+	backend.handlers.set("POST /transcribe", response => json(response, { detail: "transcription failed" }, 502))
+	await record(page).click()
+	await expect(record(page)).toHaveAttribute("aria-pressed", "true")
+	await page.waitForTimeout(500)
+	await record(page).click()
 	await expect(page.getByRole("alert").filter({ hasText: "Transcription failed" }))
-		.toContainText("API request failed (503): Voice transcription is not configured for this server.")
+		.toContainText("API request failed (502): transcription failed")
 	await expect(replyBox(page)).toHaveValue("Keep me")
 	await expect(record(page)).toBeEnabled()
 })

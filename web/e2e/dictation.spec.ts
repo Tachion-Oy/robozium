@@ -38,21 +38,22 @@ test("dictation failures use a toast, preserve the draft and layout, and allow r
 		element.getAnimations().map((animation) => animation.finished),
 	))
 	const before = await hud.boundingBox()
-	const detail = "Voice transcription is not configured for this server."
+	const detail = "Dictation needs an API key for groq. Add it under Environment, then record again."
 	await page.route("**/api/transcribe", (route) => route.fulfill({
-		status: 503,
+		status: 409,
 		json: { detail },
 	}))
 
 	await page.getByRole("button", { name: "Record", exact: true }).click()
 	await page.getByRole("button", { name: "Stop", exact: true }).click()
 	const toast = page.locator(".agent-error-toast")
-	await expect(toast).toContainText("Transcription failed")
+	await expect(toast).toHaveClass(/agent-error-toast--info/)
+	await expect(toast).toContainText("Dictation unavailable")
 	await expect(toast).toContainText(detail)
 	await expect(hud.locator(".agent-hud__dictation-error")).toHaveCount(0)
 	await expect(editor).toHaveValue("Keep my draft.")
 	expect(await hud.boundingBox()).toEqual(before)
-	await toast.getByRole("button", { name: "Dismiss error notification" }).click()
+	await toast.getByRole("button", { name: "Dismiss info notification" }).click()
 
 	// Retry against the isolated mock backend; no external provider is called.
 	await page.unroute("**/api/transcribe")

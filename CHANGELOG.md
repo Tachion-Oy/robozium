@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Explain dictation that cannot run yet instead of reporting a failure. Without
+  a transcription key the API answers 409 naming the provider ("Dictation needs
+  an API key for groq. Add it under Environment, then record again."), and
+  disabled transcription answers 409 rather than 503. The web HUD shows these
+  and locked keys as a **Dictation unavailable** notice, and so does the
+  desktop HUD.
 - Dictate desktop replies with **Record**, as in the reference: a live audio
   meter while recording, then the transcript joins the draft. Only the app's own
   window may use the microphone, and only for audio.
