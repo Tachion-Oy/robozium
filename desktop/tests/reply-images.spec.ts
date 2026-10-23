@@ -9,7 +9,7 @@ const waiting = () => snapshot({ status: "awaiting_user_input", current_prompt_i
 const panel = (page: Page) => page.getByRole("group", { name: "Reply composer" })
 const previews = (page: Page) => panel(page).getByRole("img")
 const send = (page: Page) => page.locator(".agent-hud__send")
-const imageButton = (page: Page) => page.getByRole("button", { name: "image", exact: true })
+const imageButton = (page: Page) => page.getByRole("button", { name: "Add images", exact: true })
 const requestsTo = (backend: Backend, method: string, prefix: string) =>
 	backend.requests.filter(request => request.method === method && request.path.startsWith(prefix))
 

@@ -115,8 +115,11 @@ export function HudControls({
 						className="agent-hud__image"
 						onClick={onAddImages}
 						disabled={imagesDisabled}
+						aria-label="Add images"
 						title="Add images (PNG, JPEG, WebP, GIF; up to four, 10 MiB each)">
-						<span>image</span>
+						<svg className="agent-hud__image-icon" viewBox="0 0 16 16" aria-hidden="true">
+							<path d="M8 1.5v13M1.5 8h13" />
+						</svg>
 					</button>
 				) : null}
 				<button
