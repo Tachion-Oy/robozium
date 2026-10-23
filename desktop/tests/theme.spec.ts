@@ -13,12 +13,12 @@ async function backgroundColor(app: ElectronApplication): Promise<string> {
 test("the chosen theme and window background survive a restart, keeping other settings", async ({ desktop: { app, page } }) => {
 	const profile = await app.evaluate(({ app }) => app.getPath("userData"))
 	const settings = path.join(profile, "settings.json")
-	await writeFile(settings, JSON.stringify({ installationId: "0123456789ab", theme: "dark" }))
+	await writeFile(settings, JSON.stringify({ future: "kept", theme: "dark" }))
 	expect(await backgroundColor(app)).toBe("#07080a")
 
 	await page.getByRole("button", { name: toggle }).click()
 	await expect(page.locator("html")).toHaveAttribute("data-theme", "light")
-	await expect.poll(async () => JSON.parse(await readFile(settings, "utf8"))).toEqual({ installationId: "0123456789ab", theme: "light" })
+	await expect.poll(async () => JSON.parse(await readFile(settings, "utf8"))).toEqual({ future: "kept", theme: "light" })
 	expect(await backgroundColor(app)).toBe("#f3f0e7")
 
 	const reopened = await reopen(app, profile)

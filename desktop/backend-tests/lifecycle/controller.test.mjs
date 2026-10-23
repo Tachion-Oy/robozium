@@ -59,37 +59,30 @@ function fixture(t, options = {}) {
 const commands = state => state.calls.map(call => call.args)
 const noMutation = state => assert.equal(commands(state).some(args => ["stop", "rm"].includes(args[0]) || args.includes("up") || args.includes("build")), false)
 
-test("profile keeps stable mode identities and imports experiment settings without rewriting them", t => {
+test("profile keeps one identity across modes and takes ports only from the override", t => {
 	const { profile, settings } = fixture(t)
 	assert.equal(loadOrCreateBackendProfile(profile, "live").installation, settings.installation)
 	assert.equal(loadOrCreateBackendProfile(profile, "live").port, 18001)
-	const file = path.join(profile, "settings.json")
-	const original = JSON.stringify({ installationId: settings.installation, ports: { live: { api: 23001 }, mock: { api: 23000 } }, theme: "light", future: true })
-	writeFileSync(file, original)
-	assert.equal(loadOrCreateBackendProfile(profile, "live").port, 23001)
 	assert.equal(loadOrCreateBackendProfile(profile, "mock", "24000").port, 24000)
-	assert.equal(readFileSync(file, "utf8"), original)
 	for (const port of ["", "0", "1023", "65536", "1.5", "bad"]) assert.throws(() => loadOrCreateBackendProfile(profile, "live", port), /API port/)
-	writeFileSync(file, JSON.stringify({ installationId: "abcdefabcdef" }))
+	writeFileSync(path.join(profile, "backend-installation-id"), "not-an-id\n")
 	assert.throws(() => loadOrCreateBackendProfile(profile, "mock"), /ownership/)
 })
 
-test("imports the experiment identity on first launch", t => {
-	const { profile, settings } = fixture(t)
-	rmSync(path.join(profile, "backend-installation-id"))
-	writeFileSync(path.join(profile, "settings.json"), JSON.stringify({ installationId: "abcdefabcdef" }))
-	assert.equal(loadOrCreateBackendProfile(profile, "live").installation, "abcdefabcdef")
-	assert.notEqual(settings.installation, "abcdefabcdef")
-})
-
-test("settings saved without an identifier keep the saved installation", t => {
+test("settings.json is UI preferences only and never configures the backend", t => {
 	const { profile, settings } = fixture(t)
 	const file = path.join(profile, "settings.json")
-	writeFileSync(file, JSON.stringify({ theme: "light" }))
-	assert.equal(loadOrCreateBackendProfile(profile, "live").installation, settings.installation)
-	assert.equal(readFileSync(file, "utf8"), JSON.stringify({ theme: "light" }))
-	writeFileSync(file, JSON.stringify({ installationId: "not-an-id", theme: "light" }))
-	assert.throws(() => loadOrCreateBackendProfile(profile, "live"), /Invalid desktop installation identifier/)
+	for (const content of [
+		JSON.stringify({ theme: "light" }),
+		// Keys the experiment kept here no longer select an identity or a port.
+		JSON.stringify({ installationId: "abcdefabcdef", ports: { live: { api: 23001 } }, theme: "light" }),
+		"not json",
+	]) {
+		writeFileSync(file, content)
+		const live = loadOrCreateBackendProfile(profile, "live")
+		assert.deepEqual([live.installation, live.port], [settings.installation, 18001])
+		assert.equal(readFileSync(file, "utf8"), content)
+	}
 })
 
 for (const [name, setup, error] of [

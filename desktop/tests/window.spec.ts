@@ -131,10 +131,10 @@ test("settings keep other keys and fall back per preference", async () => {
 	try {
 		const file = path.join(profile, "settings.json")
 		expect(readSettings(profile)).toEqual({ theme: "dark", window: null, zoom: 1 })
-		await writeFile(file, JSON.stringify({ installationId: "id", theme: "light", window: { width: 1000, height: 700 }, zoom: 1.2 }))
+		await writeFile(file, JSON.stringify({ future: "kept", theme: "light", window: { width: 1000, height: 700 }, zoom: 1.2 }))
 		expect(readSettings(profile)).toEqual({ theme: "light", window: { width: 1000, height: 700 }, zoom: 1.2 })
 		saveSettings(profile, { zoom: 1.3 })
-		expect(JSON.parse(await readFile(file, "utf8"))).toEqual({ installationId: "id", theme: "light", window: { width: 1000, height: 700 }, zoom: 1.3 })
+		expect(JSON.parse(await readFile(file, "utf8"))).toEqual({ future: "kept", theme: "light", window: { width: 1000, height: 700 }, zoom: 1.3 })
 		await writeFile(file, JSON.stringify({ theme: "blue", window: { width: "wide", height: 700 }, zoom: 9 }))
 		expect(readSettings(profile)).toEqual({ theme: "dark", window: null, zoom: 1 })
 		await writeFile(file, JSON.stringify({ theme: "light", window: { width: -1, height: 700 }, zoom: 0.4 }))
