@@ -57,7 +57,7 @@ Reviewed against `origin/main` at `b640105` (after #127).
 | 23–24 Ship | Linux packaging in progress; macOS deferred | — |
 | Toasts (step 11 follow-up) | Done | #120 |
 | 25 Image attachments | Done | #128 |
-| 26 Onboarding | Done, with key-file adoption | #136, this PR |
+| 26 Onboarding | Done, with key-file adoption | #136, #137 |
 | 27 UI tweaks | Not started | — |
 | 28 Opening links | Done | #131 |
 | 29 Inline agent images | Not started (web #125) | — |
