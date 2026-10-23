@@ -24,6 +24,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `dependencies/` | Dependency monitor records and Check Now requests and validation, and the view's owner. |
 | `environment/` | Saved settings and secrets requests and validation, the screen's owner and its editor state. |
 | `credentials/` | Secrets status, unlock and remove requests, and the locked-secrets notice. |
+| `attachments/` | Image staging requests for a run's next reply, and the reply's image queue. |
 | `feedback/` | Notifications any owner can raise. |
 | `theme/` | The document theme and saving it through the bridge. |
 | `api/` | Shared HTTP/SSE transport, request deadlines, client lifetimes and React request state. |
@@ -40,6 +41,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `projects/useProjectLaunch` | One pending launch and the project it opens | Create project, read and save capabilities, create run |
 | `session/useRunSession` | The displayed run (`RunSession`) and its scope, which ends on open, retry, a new client or unmount | Stream and snapshot polling (`run/run-updates`) |
 | `session/useRunMutations` | One in-flight reply and one interruption of the displayed run, bound to the session scope; an accepted interruption stays pending until a snapshot shows a prompt or a stopped run | Reply, interrupt |
+| `attachments/useReplyImages` | The displayed run's staged reply images, from selection to acceptance; one queue orders uploads, removal, clearing and the reply that sends them, and a reopened run restores them from the backend | List, upload, delete |
 | `environment/useEnvironmentEditor` | The saved settings, this app's unsaved edits, the open editor and whether a restart is needed; built on `environment/useEnvironment`, which polls while the screen is visible | Read, save, import, reset |
 | `dependencies/useDependencies` | The monitor's records, loading and load failure, and one Check Now at a time | Records read when the view opens, check |
 | `credentials/useCredentials` | The backend's secrets status (available, locked, removable) | Status read, unlock, remove |
@@ -66,6 +68,8 @@ flowchart LR
   App --> RunMutations["useRunMutations"]
   RunMutations -- "scope, acknowledge" --> Session
   RunMutations --> RunApi
+  App --> ReplyImages["useReplyImages"] --> AttachmentsApi["attachments-api"]
+  App -- "image queue" --> RunMutations
   Launch -- "run id" --> App
   Launch --> ProjectsApi["projects-api"]
   Launch --> CapabilitiesApi["capabilities-api"]

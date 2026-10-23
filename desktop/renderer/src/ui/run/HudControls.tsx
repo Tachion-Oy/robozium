@@ -1,6 +1,7 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/run/HudControls.tsx at 076b2c9.
 // Adapted: `available: false` shows an action disabled until its owner arrives;
 // a pending action is busy under its own label, which a span can truncate.
+// The image picker follows web/app/components/hud/run/HudControls.tsx at 2a0c183.
 import { useDesktopActionLayout } from "./useDesktopActionLayout"
 import { AudioLevelMeter } from "./AudioLevelMeter"
 import type { AgentMessage } from "./AgentMessagePanel"
@@ -34,6 +35,9 @@ type HudControlsProps = HudControlModel & {
 	agentMessage: AgentMessage
 	navigation: HudMessageNavigationModel
 	replyDraft: string
+	hasImages?: boolean
+	onAddImages?: () => void
+	imagesDisabled?: boolean
 	onClearReply: () => void
 	submission: {
 		canSubmit: boolean
@@ -46,6 +50,9 @@ export function HudControls({
 	dictation,
 	navigation,
 	replyDraft,
+	hasImages = false,
+	onAddImages,
+	imagesDisabled,
 	onClearReply,
 	submission,
 	cancel,
@@ -99,8 +106,22 @@ export function HudControls({
 				<HudCopyControls
 					agentMessage={agentMessage}
 					replyDraft={replyDraft}
+					hasImages={hasImages}
 					onClearReply={onClearReply}
 				/>
+				{onAddImages ? (
+					<button
+						type="button"
+						className="agent-hud__image"
+						onClick={onAddImages}
+						disabled={imagesDisabled}
+						aria-label="Add images"
+						title="Add images (PNG, JPEG, WebP, GIF; up to four, 10 MiB each)">
+						<svg className="agent-hud__image-icon" viewBox="0 0 16 16" aria-hidden="true">
+							<path d="M8 1.5v13M1.5 8h13" />
+						</svg>
+					</button>
+				) : null}
 				<button
 					type="button"
 					className="agent-hud__dictate"

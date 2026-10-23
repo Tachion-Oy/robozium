@@ -49,12 +49,18 @@ export const test = native.extend<{ backend: Backend }>({
 				response.end()
 				return
 			}
-			let text = ""
-			for await (const chunk of request) text += chunk
-			// Multipart uploads stay raw text; everything else this app sends is JSON.
-			const body: unknown = !text ? undefined : request.headers["content-type"]?.startsWith("multipart/") ? text : JSON.parse(text)
+			const chunks: Buffer[] = []
+			for await (const chunk of request) chunks.push(chunk as Buffer)
+			const bytes = Buffer.concat(chunks)
+			const type = request.headers["content-type"] ?? ""
+			// Image uploads stay bytes and multipart uploads raw text; everything else this app sends is JSON.
+			const body: unknown = !bytes.length ? undefined : type === "application/octet-stream" ? bytes
+				: type.startsWith("multipart/") ? bytes.toString() : JSON.parse(bytes.toString())
 			requests.push({ method: request.method!, path: request.url!, body })
-			const handler = handlers.get(`${request.method} ${request.url}`) ?? capabilityDefault(request.method!, request.url!)
+			// A handler for the exact URL wins over one for its path without the query.
+			const pathname = request.url!.split("?", 1)[0]
+			const handler = handlers.get(`${request.method} ${request.url}`) ?? handlers.get(`${request.method} ${pathname}`)
+				?? capabilityDefault(request.method!, request.url!)
 			if (handler) handler(response, body)
 			else json(response, { detail: "Unexpected test request" }, 404)
 		})

@@ -2,7 +2,7 @@
 // Adapted: actions sit all beside the navigation or all on one row below it.
 import { useLayoutEffect, useRef } from "react"
 
-const ACTION_SELECTOR = ".agent-hud__cancel, .agent-hud__interrupt, .agent-hud__copy-controls, .agent-hud__dictate, .agent-hud__send"
+const ACTION_SELECTOR = ".agent-hud__cancel, .agent-hud__interrupt, .agent-hud__copy-controls, .agent-hud__image, .agent-hud__dictate, .agent-hud__send"
 
 /** An action's untruncated width: labels clipped in the row below still count in full. */
 function naturalWidth(action: HTMLElement, scale: number) {
@@ -37,7 +37,7 @@ export function useDesktopActionLayout() {
 			const scale = root.getBoundingClientRect().width / width || 1
 			const available = Math.max(0, (width - navigation.getBoundingClientRect().width / scale) / 2 - gap)
 			const left = actions.filter(action => action.matches(".agent-hud__cancel, .agent-hud__interrupt"))
-			const right = actions.filter(action => action.matches(".agent-hud__copy-controls, .agent-hud__dictate, .agent-hud__send"))
+			const right = actions.filter(action => action.matches(".agent-hud__copy-controls, .agent-hud__image, .agent-hud__dictate, .agent-hud__send"))
 
 			const beside = laneWidth(left, gap, scale) <= available && laneWidth(right, gap, scale) <= available
 			root.dataset.hudActions = beside ? "beside" : "below"

@@ -1,5 +1,6 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/run/HudCopyControls.tsx at 076b2c9.
-// Adapted: an indicator message has no agent output to copy.
+// Adapted: an indicator message has no agent output to copy. Clear also removes
+// images, as in web/app/components/hud/run/HudCopyControls.tsx at 2a0c183.
 import type { AgentMessage } from "./AgentMessagePanel"
 import {
 	CopyTextButton,
@@ -9,6 +10,7 @@ import {
 type HudCopyControlsProps = {
 	agentMessage: AgentMessage
 	replyDraft: string
+	hasImages?: boolean
 	onClearReply: () => void
 }
 
@@ -16,6 +18,7 @@ type HudCopyControlsProps = {
 export function HudCopyControls({
 	agentMessage,
 	replyDraft,
+	hasImages = false,
 	onClearReply,
 }: HudCopyControlsProps) {
 	const targets: CopyTextButtonProps[] = [
@@ -41,7 +44,7 @@ export function HudCopyControls({
 				type="button"
 				className="agent-hud__copy-text agent-hud__clear-reply"
 				onClick={onClearReply}
-				disabled={!replyDraft}
+				disabled={!replyDraft && !hasImages}
 				aria-label="Clear reply"
 				title="Clear reply">
 				<svg

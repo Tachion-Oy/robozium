@@ -77,8 +77,9 @@ html[data-desktop] .agent-hud__actions[data-hud-actions="below"] .agent-hud__nav
   position: absolute; inset: 0 0 auto;
 }
 html[data-desktop] .agent-hud__actions [data-hud-action-placement="overflow"] { flex: 0 1 auto; }
-/* Record keeps its fixed width; the other labels shrink. */
-html[data-desktop] .agent-hud__actions button[data-hud-action-placement="overflow"]:not(.agent-hud__dictate) { min-width: 0; }
+/* Record keeps its fixed width and the image plus has no label to shorten; the other labels shrink. */
+html[data-desktop] .agent-hud__actions button[data-hud-action-placement="overflow"]:not(.agent-hud__dictate, .agent-hud__image) { min-width: 0; }
+html[data-desktop] .agent-hud__actions .agent-hud__image[data-hud-action-placement="overflow"] { flex-shrink: 0; }
 /* The copy icons never shrink; they start the right-hand group, as beside the navigation. */
 html[data-desktop] .agent-hud__actions .agent-hud__copy-controls[data-hud-action-placement="overflow"] {
   flex-shrink: 0; margin-inline-start: auto;

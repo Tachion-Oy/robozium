@@ -30,6 +30,7 @@ import { DependencyPanel } from "../dependencies/DependencyPanel"
 import { useDependencies } from "../../dependencies/useDependencies"
 import { useRunSession } from "../../session/useRunSession"
 import { useRunMutations } from "../../session/useRunMutations"
+import { useReplyImages } from "../../attachments/useReplyImages"
 import { runLabels } from "../../hud/hud-view"
 import { selectRunDisplay } from "../../session/session-reducer"
 import { isTerminal, RunStatus, type RunRecord } from "../../run/run-contracts"
@@ -92,6 +93,9 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 		credentials.refresh)
 	const runMutations = useRunMutations(client, run, credentials.refresh)
 	const session = run.session
+	const runEnded = Boolean(session?.run.synchronized && isTerminal(session.run.status))
+	// Above the screens, so switching views keeps the staged images.
+	const replyImages = useReplyImages(client, session?.run.runId ?? null, runEnded)
 	const hasRun = client ? session !== null : hasPreview
 	const [draft, setDraft] = useState("")
 	const [selectedMessage, setSelectedMessage] = useState(mockMessages.length - 1)
@@ -101,7 +105,7 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 	// As in the reference, a run that ends or goes missing leaves Current Run for the overview.
 	const presentation = resolveHudPresentation({
 		hasRun,
-		runEnded: Boolean(session?.run.synchronized && isTerminal(session.run.status)),
+		runEnded,
 		runUnavailable: Boolean(session?.run.unavailable),
 		selectedScreen: navigation.screen,
 		launch: navigation.launch,
@@ -134,7 +138,7 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 			case "run":
 				return <div className="agent-hud__run-view">
 					{session && <p className="sr-only" role="status" aria-label="Run status">{session.run.project} · {status}</p>}
-					<RunHud key={session?.run.runId ?? "preview"} draft={draft} onDraftChange={setDraft}
+					<RunHud key={session?.run.runId ?? "preview"} draft={draft} onDraftChange={setDraft} images={replyImages}
 						layoutMode={layout} display={display} awaitingInput={client ? Boolean(session?.run.prompt) : true}
 						focusOnOpen={focusRunEditor} onSelect={client ? run.select : setSelectedMessage}
 						reply={{ available: runMutations.canReply, submitting: runMutations.replying, submit: runMutations.reply }}
