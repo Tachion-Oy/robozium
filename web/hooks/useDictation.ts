@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { AgentApiError, transcribeAudio } from "@/lib/robozium/client"
-import { showErrorToast } from "@/app/components/feedback/ErrorToast"
+import { showErrorToast, showNotificationToast } from "@/app/components/feedback/ErrorToast"
 
 export type UseDictationResult = {
 	/** Mic is open and capturing. */
@@ -37,6 +37,8 @@ type AudioLevelMonitor = {
 	frameId: number
 }
 
+/** Statuses where dictation waits on setup: locked keys (423), a missing key or none configured (409). */
+const SETUP_STATUSES = new Set([409, 423])
 const AUDIO_LEVEL_SEGMENTS = 6
 const AUDIO_NOISE_FLOOR = 0.02
 const AUDIO_LEVEL_CEILING = 0.2
@@ -226,7 +228,11 @@ export function useDictation({
 			})
 			if (text.trim()) onTranscript(text.trim())
 		} catch (error) {
-			if (!controller.signal.aborted && !cancelledRef.current) {
+			if (controller.signal.aborted || cancelledRef.current) return
+			if (error instanceof AgentApiError && SETUP_STATUSES.has(error.status)) {
+				// Locked, missing or disabled keys are setup to finish, not failures.
+				showNotificationToast({ tone: "info", title: "Dictation unavailable", message: error.message })
+			} else {
 				showErrorToast({
 					title: "Transcription failed",
 					message: error instanceof AgentApiError

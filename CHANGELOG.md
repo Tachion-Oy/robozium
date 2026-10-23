@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Explain dictation that cannot run yet instead of reporting a failure. Without
+  a transcription key the API answers 409 naming the provider ("Dictation needs
+  an API key for groq. Add it under Environment, then record again."), and
+  disabled transcription answers 409 rather than 503. The web HUD shows these
+  and locked keys as a **Dictation unavailable** notice.
+
 - Switch the open run's model from the desktop's Current Run, as in the web HUD,
   so a reply with images can go to a vision model mid-run. Other screens still
   set the default for new runs. A desktop profile whose `settings.json` was

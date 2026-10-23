@@ -37,16 +37,34 @@ def test_default_transcription_uses_groq_whisper(tmp_path: Path) -> None:
     assert endpoint.model_name == "whisper-large-v3-turbo"
 
 
-def test_disabled_transcription_returns_clear_service_unavailable(
+def test_disabled_transcription_is_a_setup_state(
     tmp_path: Path,
 ) -> None:
     client = TestClient(create_app(deployment=_deployment(None, tmp_path)))
     response = client.post(
         "/transcribe", files={"file": ("clip.webm", b"audio", "audio/webm")}
     )
-    assert response.status_code == 503
+    assert response.status_code == 409
     assert response.json() == {
         "detail": "Voice transcription is not configured for this server."
+    }
+
+
+def test_missing_transcription_key_names_the_provider(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Key files are read from the working directory; an empty one has none.
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    endpoint = load_hub(start=tmp_path).settings.transcription_endpoint
+    client = TestClient(create_app(deployment=_deployment(endpoint, tmp_path)))
+    response = client.post(
+        "/transcribe", files={"file": ("clip.webm", b"audio", "audio/webm")}
+    )
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "Dictation needs an API key for groq. "
+        "Add it under Environment, then record again."
     }
 
 
