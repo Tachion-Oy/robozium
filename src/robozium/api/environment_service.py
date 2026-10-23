@@ -118,6 +118,40 @@ class EnvironmentService:
             self._credentials.setup_required = False
             return True
 
+    def replace_file(self, revision: str, content: bytes, password: str | None) -> bool:
+        """Adopt a whole saved-settings file, such as one kept from another install.
+
+        The password must open its secrets, so a file that cannot be unlocked is
+        never adopted. Like ``save``, completing first-start setup loads it into
+        this process and returns True; otherwise it applies after a restart.
+        """
+        if len(content) > env.MAX_ENV_BYTES:
+            raise ValueError("Environment file is too large")
+        try:
+            text = content.decode("utf-8")
+        except UnicodeError:
+            raise ValueError("Environment file must be UTF-8") from None
+        stored = self._parse_values(text)
+        for name in stored:
+            base = name.removesuffix(ENCRYPTED_SUFFIX)
+            if base in env.CONTROLLED_NAMES:
+                raise ValueError("This setting is controlled by the application")
+            if name != base and base in env.STARTUP_NAMES:
+                raise ValueError("Startup settings must remain unencrypted")
+        decrypt_env_values(stored, password=password)
+        with self._projects.stopped_runs():
+            original = self._read_text(self._path)
+            if revision != sha256(original.encode("utf-8")).hexdigest():
+                raise EnvironmentConflictError(
+                    "Settings changed elsewhere. Refresh before saving."
+                )
+            self._replace_settings(original, content)
+            if not self._credentials.setup_required:
+                return False
+            self._credentials.load(password)
+            self._credentials.setup_required = False
+            return True
+
     def reset(self) -> None:
         """Discard saved settings only while runs and background work are stopped."""
         with self._projects.stopped_runs():

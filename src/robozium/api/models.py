@@ -107,6 +107,12 @@ class EnvironmentSaveResult(BaseModel):
     status: Literal["saved"] = "saved"
 
 
+class EnvironmentFileResult(BaseModel):
+    status: Literal["replaced"] = "replaced"
+    # True when first-start setup loaded the keys at once; otherwise restart.
+    loaded: bool
+
+
 class EnvironmentImportResult(BaseModel):
     imported: EnvironmentImport
     suggestions: list[EnvironmentSuggestion]

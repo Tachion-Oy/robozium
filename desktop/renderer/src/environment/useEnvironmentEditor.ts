@@ -41,7 +41,7 @@ function entryError({ entry, original, originalName }: Editor, entries: Environm
 	return ""
 }
 
-export interface EnvironmentEditorState extends Omit<EnvironmentState, "importPackage"> {
+export interface EnvironmentEditorState extends Omit<EnvironmentState, "importPackage" | "replaceFile"> {
 	editor: Editor | null
 	/** The saved entries differ from what the screen shows, including an open edit. */
 	dirty: boolean
@@ -55,11 +55,14 @@ export interface EnvironmentEditorState extends Omit<EnvironmentState, "importPa
 	applyEditor: () => void
 	removeVariable: (name: string) => void
 	importPackage: (files: File[]) => Promise<boolean>
+	/** Resolves to an error to show beside the key file, or null once it is in use. */
+	replaceFile: (file: File, password: string) => Promise<string | null>
 	validateSave: () => boolean
 	save: (password: string) => Promise<boolean>
 }
 
-export function useEnvironmentEditor(client: DesktopApiClient | null, visible: boolean): EnvironmentEditorState {
+/** `onKeysLoaded` runs when adopted keys load without a restart, so App can refresh the secrets status. */
+export function useEnvironmentEditor(client: DesktopApiClient | null, visible: boolean, onKeysLoaded: () => void): EnvironmentEditorState {
 	const [editor, setEditor] = useState<Editor | null>(null)
 	const [hiddenSuggestions, setHiddenSuggestions] = useState<Set<string>>(new Set())
 	const [restartRequired, setRestartRequired] = useState(false)
@@ -148,6 +151,18 @@ export function useEnvironmentEditor(client: DesktopApiClient | null, visible: b
 		})
 		return true
 	}
+	const replaceFile = async (file: File, password: string) => {
+		const result = await environment.replaceFile(file, password)
+		if ("error" in result) return result.error
+		closeEditor()
+		// First-start setup loads the keys at once; later replacements apply after a restart.
+		if (!result.loaded) setRestartRequired(true)
+		showNotificationToast(result.loaded
+			? { tone: "success", title: "Keys loaded", message: "Your key file is in use." }
+			: { tone: "success", title: "Key file saved", message: "Use Restart app in Environment, then unlock with Secrets." })
+		if (result.loaded) onKeysLoaded()
+		return null
+	}
 	const save = async (password: string) => {
 		if (!await environment.save(password, currentEntries)) return false
 		setRestartRequired(true)
@@ -174,7 +189,7 @@ export function useEnvironmentEditor(client: DesktopApiClient | null, visible: b
 		...environment,
 		editor, dirty, needsPassword, restartRequired,
 		variables: [...variables.values()],
-		openEditor, closeEditor, updateEditor, applyEditor, removeVariable, importPackage,
+		openEditor, closeEditor, updateEditor, applyEditor, removeVariable, importPackage, replaceFile,
 		validateSave: () => !edited || validateEditor(),
 		save, reset,
 	}

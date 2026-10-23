@@ -7,7 +7,7 @@ from subprocess import TimeoutExpired
 from typing import Annotated
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -17,6 +17,7 @@ from robozium.api.environment_service import EnvironmentService
 from robozium.api.errors import EnvironmentConflictError, ProjectBusyError
 from robozium.api.models import (
     EnvironmentEdit,
+    EnvironmentFileResult,
     EnvironmentImportResult,
     EnvironmentSaveResult,
     EnvironmentView,
@@ -27,6 +28,8 @@ router = APIRouter(prefix="/credentials/environment")
 _REQUEST_LIMITS = {
     "/credentials/environment": ("application/json", env.MAX_ENV_BYTES),
     "/credentials/environment/import": ("multipart/form-data", env.MAX_PACKAGE_BYTES),
+    # The settings file plus its password, revision and multipart framing.
+    "/credentials/environment/file": ("multipart/form-data", env.MAX_ENV_BYTES + 16 * 1024),
 }
 
 
@@ -73,6 +76,22 @@ def import_folder(
         return environment.import_folder(
             [(file.filename or "", file.file) for file in files]
         )
+
+
+@router.post("/file", response_model=EnvironmentFileResult)
+async def replace_environment_file(
+    request: Request,
+    file: Annotated[UploadFile, File()],
+    revision: Annotated[str, Form()],
+    password: Annotated[str | None, Form(max_length=env.MAX_PASSWORD_CHARS)] = None,
+) -> EnvironmentFileResult:
+    """Adopt an existing .env.encrypt whose secrets the password opens."""
+    content = await file.read(env.MAX_ENV_BYTES + 1)
+    with _environment(request) as environment:
+        loaded = await asyncio.to_thread(environment.replace_file, revision, content, password)
+    if loaded:
+        await refresh_dependencies(request)
+    return EnvironmentFileResult(loaded=loaded)
 
 
 @router.delete("")

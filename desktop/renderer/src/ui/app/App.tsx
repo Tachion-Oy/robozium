@@ -120,7 +120,7 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 	const projectMutations = useProjectMutations(client)
 	const projects = useProjectQuery(client, screen === "projects", { ...projectMutations, opening: launch.opening })
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
-	const environment = useEnvironmentEditor(client, screen === "environment")
+	const environment = useEnvironmentEditor(client, screen === "environment", credentials.refresh)
 	const dependencies = useDependencies(client, screen === "dependencies")
 	// A launch, a disconnection or an unconfirmed model change locks navigation.
 	const navigationPending = launch.pending || !connected || models.pending

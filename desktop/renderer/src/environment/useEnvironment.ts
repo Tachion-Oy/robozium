@@ -8,7 +8,7 @@ import { withDeadline } from "../api/request"
 import { useClientLifetime } from "../api/useClientLifetime"
 import { showErrorToast } from "../feedback/notices"
 import {
-	getEnvironment, importEnvironment, IMPORT_TIMEOUT_MS, resetEnvironment, saveEnvironment,
+	getEnvironment, importEnvironment, IMPORT_TIMEOUT_MS, replaceEnvironmentFile, resetEnvironment, saveEnvironment,
 	type EnvironmentEntry, type EnvironmentImportResult, type EnvironmentView,
 } from "./environment-api"
 
@@ -34,6 +34,8 @@ export interface EnvironmentState {
 	change: (next: EnvironmentEntry[]) => void
 	save: (password: string, nextEntries?: EnvironmentEntry[]) => Promise<boolean>
 	importPackage: (files: File[]) => Promise<EnvironmentImportResult | null>
+	/** Adopt a key file; failures are returned for the row to show, not raised as toasts. */
+	replaceFile: (file: File, password: string) => Promise<{ loaded: boolean } | { error: string }>
 	reset: () => Promise<boolean>
 	retry: () => void
 }
@@ -42,7 +44,7 @@ export interface EnvironmentState {
 export function useEnvironment(client: DesktopApiClient | null, visible: boolean, editing: boolean): EnvironmentState {
 	const [view, setView] = useState<EnvironmentView | null>(null)
 	const [entries, setEntries] = useState<EnvironmentEntry[]>([])
-	const [operation, setOperation] = useState<"save" | "import" | "reset" | null>(null)
+	const [operation, setOperation] = useState<"save" | "import" | "file" | "reset" | null>(null)
 	const pending = operation !== null
 	const [loadFailed, setLoadFailed] = useState(false)
 	const lastLoadError = useRef("")
@@ -166,6 +168,31 @@ export function useEnvironment(client: DesktopApiClient | null, visible: boolean
 			}
 		}
 	}
+	const replaceFile = async (file: File, password: string): Promise<{ loaded: boolean } | { error: string }> => {
+		if (!client || !view || !editable || pendingRef.current) return { error: "Settings cannot be changed right now." }
+		pendingRef.current = true
+		saveVersion.current++
+		setOperation("file")
+		const signal = lifetime()
+		try {
+			// Sent once; a wrong password or a conflict keeps the chosen file for another try.
+			const result = await withDeadline(signal, requestSignal =>
+				replaceEnvironmentFile(client, file, view.revision, password, requestSignal))
+			const next = await withDeadline(signal, requestSignal => getEnvironment(client, requestSignal))
+			if (signal.aborted) return { error: "" }
+			setView(next)
+			setEntries(next.entries)
+			dirtyRef.current = false
+			return result
+		} catch (cause) {
+			return { error: signal.aborted ? "" : cause instanceof Error ? cause.message : "Could not use the key file" }
+		} finally {
+			if (!signal.aborted) {
+				pendingRef.current = false
+				setOperation(null)
+			}
+		}
+	}
 	const reset = async (): Promise<boolean> => {
 		if (!client || !canReset || pendingRef.current) return false
 		pendingRef.current = true
@@ -195,7 +222,7 @@ export function useEnvironment(client: DesktopApiClient | null, visible: boolean
 			}
 		}
 	}
-	return { view, entries, editable, pending, loadFailed, change, save, importPackage, reset, canReset, saving: operation === "save",
+	return { view, entries, editable, pending, loadFailed, change, save, importPackage, replaceFile, reset, canReset, saving: operation === "save",
 		retry: () => { lastLoadError.current = ""; setRefreshVersion(version => version + 1) },
 	}
 }

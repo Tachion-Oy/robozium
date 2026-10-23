@@ -1,10 +1,12 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentPanel.tsx at 076b2c9.
 // Adapted: the environment owner arrives as a prop from App, so unsaved edits
-// survive leaving the screen, and App supplies the restart action.
+// survive leaving the screen, and App supplies the restart action. A key file
+// row adopts an existing .env.encrypt.
 import { type KeyboardEvent } from "react"
 import type { EnvironmentEditorState } from "../../environment/useEnvironmentEditor"
 import { HudButton } from "../hud/HudButton"
 import { EnvironmentFolderImport } from "./EnvironmentFolderImport"
+import { EnvironmentKeyFileImport } from "./EnvironmentKeyFileImport"
 import { EnvironmentRestart } from "./EnvironmentRestart"
 import { EnvironmentImportList } from "./EnvironmentImportList"
 import { EnvironmentSaveForm } from "./EnvironmentSaveForm"
@@ -38,6 +40,12 @@ export function EnvironmentPanel({ environment, onRestart }: {
 			{view && !view.editable && <p role="status">Stop all runs and background work before editing.</p>}
 			<div className="agent-hud__table-scroll min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]">
 				<fieldset disabled={!editable} className="flex min-w-0 flex-col gap-4 pe-3">
+					<h3 className="agent-hud__capability-group-heading">Key file</h3>
+					<EnvironmentKeyFileImport
+						disabled={!editable || editor !== null}
+						replacing={(view?.entries.length ?? 0) > 0}
+						onReplace={environment.replaceFile}
+					/>
 					<EnvironmentFolderImport
 						disabled={!editable || editor !== null}
 						onImport={environment.importPackage}

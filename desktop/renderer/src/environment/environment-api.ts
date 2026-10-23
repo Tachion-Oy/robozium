@@ -114,6 +114,23 @@ export async function importEnvironment(client: DesktopApiClient, files: File[],
 	return { imported: parseImport(fields.imported), suggestions: list(fields, "suggestions", parseSuggestion) }
 }
 
+/**
+ * Adopts a whole saved-settings file, such as an existing .env.encrypt; the
+ * backend accepts it only if the password opens its secrets. `loaded` is true
+ * when first-start setup loaded the keys at once; otherwise they apply after a restart.
+ */
+export async function replaceEnvironmentFile(
+	client: DesktopApiClient, file: File, revision: string, password: string, signal: AbortSignal,
+): Promise<{ loaded: boolean }> {
+	const form = new FormData()
+	form.append("file", file, file.name)
+	form.append("revision", revision)
+	if (password) form.append("password", password)
+	const fields = record(await client.request("/credentials/environment/file", { method: "POST", form, signal }))
+	if (fields.status !== "replaced" || typeof fields.loaded !== "boolean") malformed()
+	return { loaded: fields.loaded }
+}
+
 export async function resetEnvironment(client: DesktopApiClient, signal: AbortSignal): Promise<void> {
 	await client.request("/credentials/environment", { method: "DELETE", signal })
 }
