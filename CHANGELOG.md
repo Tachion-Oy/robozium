@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Switch the open run's model from the desktop's Current Run, as in the web HUD,
+  so a reply with images can go to a vision model mid-run. Other screens still
+  set the default for new runs. A desktop profile whose `settings.json` was
+  created by saving the theme or window size, without an installation
+  identifier, no longer fails to start.
+
 - Attach images to desktop replies by pasting, dropping or choosing them with
   **image**, as in the web HUD: thumbnails while they upload, remove and
   **Retry images**, the same limits and messages, and image-only replies. Staged

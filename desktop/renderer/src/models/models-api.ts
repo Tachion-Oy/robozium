@@ -28,12 +28,15 @@ function parseModelSelection(value: unknown): ModelSelection {
 	return { models, selected_model_id: value.selected_model_id }
 }
 
-export async function getModelSelection(client: DesktopApiClient, signal: AbortSignal): Promise<ModelSelection> {
-	return parseModelSelection(await client.request("/models", { signal }))
+/** With a run, the run's own model; without one, the default for new runs. */
+export async function getModelSelection(client: DesktopApiClient, runId: string | null, signal: AbortSignal): Promise<ModelSelection> {
+	const query = runId ? `?run_id=${encodeURIComponent(runId)}` : ""
+	return parseModelSelection(await client.request(`/models${query}`, { signal }))
 }
 
-export async function selectModel(client: DesktopApiClient, modelId: string, signal: AbortSignal): Promise<ModelSelection> {
-	const value = await client.request("/models", { method: "POST", json: { model_id: modelId }, signal })
+/** With a run, switch that run's model for its next turn; without one, set the default for new runs. */
+export async function selectModel(client: DesktopApiClient, modelId: string, runId: string | null, signal: AbortSignal): Promise<ModelSelection> {
+	const value = await client.request("/models", { method: "POST", json: runId ? { model_id: modelId, run_id: runId } : { model_id: modelId }, signal })
 	const selected = parseModelSelection(value)
 	if (!selected.models.length || selected.selected_model_id !== modelId) malformed()
 	return selected

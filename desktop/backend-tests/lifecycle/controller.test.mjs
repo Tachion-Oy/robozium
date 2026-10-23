@@ -82,6 +82,16 @@ test("imports the experiment identity on first launch", t => {
 	assert.notEqual(settings.installation, "abcdefabcdef")
 })
 
+test("settings saved without an identifier keep the saved installation", t => {
+	const { profile, settings } = fixture(t)
+	const file = path.join(profile, "settings.json")
+	writeFileSync(file, JSON.stringify({ theme: "light" }))
+	assert.equal(loadOrCreateBackendProfile(profile, "live").installation, settings.installation)
+	assert.equal(readFileSync(file, "utf8"), JSON.stringify({ theme: "light" }))
+	writeFileSync(file, JSON.stringify({ installationId: "not-an-id", theme: "light" }))
+	assert.throws(() => loadOrCreateBackendProfile(profile, "live"), /Invalid desktop installation identifier/)
+})
+
 for (const [name, setup, error] of [
 	["missing Docker", { controller: { findDocker: () => undefined } }, /Docker was not found/],
 	["old Compose", { version: "2.23.0" }, /v2.24/],

@@ -1,5 +1,6 @@
 // Keep the acknowledged backend model selection; choosing a model again retries a failed write.
-// Reconnects refresh server state; reads and writes share one request owner.
+// Reconnects refresh server state; reads and writes share one request owner. With a run,
+// the selection is that run's model, as in the web HUD; without one, the default for new runs.
 import { useCallback, useEffect, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { getModelSelection, selectModel, type ModelSelection } from "./models-api"
@@ -13,7 +14,7 @@ export interface ModelsState {
 	refresh: () => void
 }
 
-export function useModels(client: DesktopApiClient | null, connected: boolean): ModelsState {
+export function useModels(client: DesktopApiClient | null, connected: boolean, runId: string | null): ModelsState {
 	const [selection, setSelection] = useState<ModelSelection>()
 	const [retryModel, setRetryModel] = useState<string | null>(null)
 	const request = useRequest()
@@ -23,9 +24,9 @@ export function useModels(client: DesktopApiClient | null, connected: boolean): 
 		setRetryModel(null)
 	}, [])
 	const refresh = useCallback(() => {
-		if (client && connected) void run(signal => getModelSelection(client, signal), confirm)
-	}, [client, connected, run, confirm])
-	// Revalidate server state on recovery; keep the mounted application's local state.
+		if (client && connected) void run(signal => getModelSelection(client, runId, signal), confirm)
+	}, [client, connected, runId, run, confirm])
+	// Revalidate server state on recovery and when the selection's run changes.
 	useEffect(() => {
 		refresh()
 		return cancel
@@ -36,7 +37,7 @@ export function useModels(client: DesktopApiClient | null, connected: boolean): 
 		if (model === selection?.selected_model_id && retryModel === null && !request.error) return
 		void run(signal => {
 			setRetryModel(model)
-			return selectModel(client, model, signal)
+			return selectModel(client, model, runId, signal)
 		}, confirm)
 	}
 	return { selection, pending: request.pending, error: request.error, choose, refresh }
