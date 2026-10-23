@@ -2,6 +2,7 @@ import { expect, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { test, catalogue, json } from "./selection-fixture"
 import { chooseModel, chooseView as view, modelTrigger } from "./native"
+import { prepareRun, start } from "./run-fixture"
 
 const notices = (page: Page) => page.locator(".desktop-interim-content__notices")
 
@@ -209,4 +210,35 @@ test("recovery reconciles a pending model write without replaying it", async ({ 
 	await expect(model).toHaveAttribute("title", "Second model")
 	await page.keyboard.press("Escape")
 	expect(backend.requests.filter(request => request.method === "POST")).toHaveLength(1)
+})
+
+test("Current Run shows and switches its run's model, and the other screens keep the default", async ({ desktop: { page }, backend }) => {
+	prepareRun(backend)
+	const selected = { default: "one", run: "two" }
+	const posts: unknown[] = []
+	backend.handlers.set("GET /models", response => json(response, { ...catalogue, selected_model_id: selected.default }))
+	backend.handlers.set("GET /models?run_id=run-one", response => json(response, { ...catalogue, selected_model_id: selected.run }))
+	backend.handlers.set("POST /models", (response, body) => {
+		const { model_id, run_id } = body as { model_id: string; run_id?: string }
+		posts.push(body)
+		selected[run_id === "run-one" ? "run" : "default"] = model_id
+		json(response, { ...catalogue, selected_model_id: model_id })
+	})
+	await start(page, backend)
+	const model = modelTrigger(page)
+	await expect(model).toHaveAttribute("title", "Second model")
+	await view(page, "Runs Overview")
+	await expect(model).toHaveAttribute("title", "First model")
+	await view(page, "Current Run")
+	await expect(model).toHaveAttribute("title", "Second model")
+	// Switching mid-run changes only this run, as before an image reply to a vision model.
+	await chooseModel(page, "First model")
+	await expect(model).toHaveAttribute("title", "First model")
+	await view(page, "Runs Overview")
+	await expect(model).toHaveAttribute("title", "First model")
+	await chooseModel(page, "Second model")
+	await expect(model).toHaveAttribute("title", "Second model")
+	await view(page, "Current Run")
+	await expect(model).toHaveAttribute("title", "First model")
+	expect(posts).toEqual([{ model_id: "one", run_id: "run-one" }, { model_id: "two" }])
 })

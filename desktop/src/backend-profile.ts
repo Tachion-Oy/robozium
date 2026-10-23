@@ -18,7 +18,9 @@ export function loadOrCreateBackendProfile(directory: string, mode: "live" | "mo
 	const settings = existsSync(settingsFile)
 		? JSON.parse(readFileSync(settingsFile, "utf8"))
 		: undefined
-	if (settings !== undefined && !/^[a-f0-9]{12}$/.test(settings?.installationId ?? "")) {
+	// Saving the theme or window size can create settings.json without an identifier;
+	// the saved identifier file then still names the installation.
+	if (settings?.installationId !== undefined && !/^[a-f0-9]{12}$/.test(settings.installationId)) {
 		throw new Error("Invalid desktop installation identifier in settings.json.")
 	}
 

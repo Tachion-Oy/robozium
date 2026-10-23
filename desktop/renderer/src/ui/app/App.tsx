@@ -80,9 +80,6 @@ function usePreviewModels(): ModelsState {
 export function App({ connectionNotice, client = null, connected = true, onReconnect = () => {} }: AppProps) {
 	const [navigation, navigate] = useReducer(reduceHudNavigation, null, initialHudNavigation)
 	const [focusRunEditor, setFocusRunEditor] = useState(false)
-	const backendModels = useModels(client, connected)
-	const previewModels = usePreviewModels()
-	const models = client ? backendModels : previewModels
 	const [hasPreview, setHasPreview] = useState(false)
 	const run = useRunSession(client)
 	const messageLog = useMessageLog()
@@ -115,6 +112,11 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 		launch: navigation.launch,
 	})
 	const screen = presentation.screen
+	// As in the web HUD, Current Run shows and switches its live run's model; other screens set the default.
+	const modelRun = screen === "run" && session && !runEnded && !session.run.unavailable ? session.run.runId : null
+	const backendModels = useModels(client, connected, modelRun)
+	const previewModels = usePreviewModels()
+	const models = client ? backendModels : previewModels
 	const projectMutations = useProjectMutations(client)
 	const projects = useProjectQuery(client, screen === "projects", { ...projectMutations, opening: launch.opening })
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")

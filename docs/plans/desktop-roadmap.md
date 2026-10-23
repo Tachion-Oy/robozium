@@ -99,6 +99,7 @@ the PR that closes it.
 | Zoom ±0.1 within 0.5–3, saved | E | Done | 22 |
 | Second-instance focus | E | Done | 22 |
 | API-key onboarding and setup gate | W (#121) | Absent | 26 |
+| Switch the open run's model mid-run (`run_id` on `/models`) | W | Done: Current Run reads and switches its run's model | Fix |
 
 ## Presentation rules
 
