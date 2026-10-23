@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Fix the desktop app failing to start after its first theme change on a fresh
+  profile: saving a preference created `settings.json` without the installation
+  identifier, which startup then rejected. Only an invalid identifier is rejected now.
+
 - Attach images to desktop replies by pasting, dropping or choosing them with
   **image**, as in the web HUD: thumbnails while they upload, remove and
   **Retry images**, the same limits and messages, and image-only replies. Staged

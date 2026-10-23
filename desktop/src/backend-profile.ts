@@ -18,7 +18,9 @@ export function loadOrCreateBackendProfile(directory: string, mode: "live" | "mo
 	const settings = existsSync(settingsFile)
 		? JSON.parse(readFileSync(settingsFile, "utf8"))
 		: undefined
-	if (settings !== undefined && !/^[a-f0-9]{12}$/.test(settings?.installationId ?? "")) {
+	// Only the experiment's settings carry the identity; the app's own preferences
+	// (theme, window size, zoom) may create the file without it.
+	if (settings?.installationId !== undefined && !/^[a-f0-9]{12}$/.test(settings.installationId)) {
 		throw new Error("Invalid desktop installation identifier in settings.json.")
 	}
 

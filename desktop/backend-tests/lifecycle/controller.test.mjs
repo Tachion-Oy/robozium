@@ -74,6 +74,15 @@ test("profile keeps stable mode identities and imports experiment settings witho
 	assert.throws(() => loadOrCreateBackendProfile(profile, "mock"), /ownership/)
 })
 
+test("preferences saved without an identity keep the profile's own", t => {
+	const { profile, settings } = fixture(t)
+	// A fresh profile's first theme change writes settings.json with only the theme.
+	writeFileSync(path.join(profile, "settings.json"), JSON.stringify({ theme: "light" }))
+	assert.equal(loadOrCreateBackendProfile(profile, "live").installation, settings.installation)
+	writeFileSync(path.join(profile, "settings.json"), JSON.stringify({ installationId: "not-an-id", theme: "light" }))
+	assert.throws(() => loadOrCreateBackendProfile(profile, "live"), /Invalid desktop installation identifier/)
+})
+
 test("imports the experiment identity on first launch", t => {
 	const { profile, settings } = fixture(t)
 	rmSync(path.join(profile, "backend-installation-id"))
