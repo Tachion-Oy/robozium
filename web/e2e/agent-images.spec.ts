@@ -42,7 +42,12 @@ async function openImages(page: Page, request: APIRequestContext) {
 test("agent images expand accessibly, survive history and refresh, and retain original links", async ({ page, request }) => {
 	test.setTimeout(90_000)
 	const errors: string[] = []
-	page.on("pageerror", (error) => errors.push(error.message))
+	let reloading = false
+	page.on("pageerror", (error) => {
+		// WebKit reports the run poll that a reload cancels as an access-control failure.
+		if (reloading && /due to access control checks/.test(error.message)) return
+		errors.push(error.message)
+	})
 	const { runId, slug } = await openImages(page, request)
 	const panel = page.locator(".agent-hud__replyBox--agent")
 	const trigger = panel.getByRole("button", { name: "Expand Landscape" })
@@ -81,9 +86,11 @@ test("agent images expand accessibly, survive history and refresh, and retain or
 	await expect(dialog).toHaveCount(0)
 	await expect(trigger).toBeFocused()
 	await trigger.click()
+	reloading = true
 	await page.reload()
 	await expect(dialog).toHaveCount(0)
 	await expect(trigger).toBeVisible()
+	reloading = false
 	const editor = page.getByRole("textbox", { name: "Reply text" })
 	await editor.fill("Continue")
 	await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled()

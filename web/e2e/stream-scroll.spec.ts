@@ -86,6 +86,10 @@ test("dismissing the HUD unlocks scrolling without shifting the log", async ({
 	})
 	await expect(hud).not.toHaveClass(/agent-hud--hidden/)
 	await expect(log).toHaveCSS("overflow-y", "hidden")
+	// Switching to the new run resets the draft; type only once its first prompt shows.
+	await expect(page.locator(".agent-hud__agent", {
+		hasText: "Hello! I generated a text artifact for validation:",
+	})).toBeVisible({ timeout: 15_000 })
 	await page
 		.locator(".agent-hud__textarea")
 		.fill(
