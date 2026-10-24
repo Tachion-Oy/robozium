@@ -27,6 +27,7 @@ import { useCredentials } from "../../credentials/useCredentials"
 import { EnvironmentPanel } from "../environment/EnvironmentPanel"
 import { useEnvironmentDraft } from "../../environment/useEnvironmentDraft"
 import { useEnvironmentMutations } from "../../environment/useEnvironmentMutations"
+import { useHubFolder } from "../../hub-folder/useHubFolder"
 import { DependencyPanel } from "../dependencies/DependencyPanel"
 import { useDependencies } from "../../dependencies/useDependencies"
 import { useRunSession } from "../../session/useRunSession"
@@ -137,6 +138,7 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 		},
 	})
 	const environmentDraft = useEnvironmentDraft(client, screen === "environment", environmentMutations)
+	const hubFolder = useHubFolder()
 	const dependencies = useDependencies(client, screen === "dependencies")
 	// A launch, a disconnection or an unconfirmed model change locks navigation.
 	const navigationPending = projectMutations.launching || !connected || models.pending
@@ -195,7 +197,7 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 				// Standalone preview has no dependency monitor; it shows the placeholder.
 				return placeholder()
 			case "environment":
-				if (client) return <EnvironmentPanel draft={environmentDraft} mutations={environmentMutations} onRestart={() => window.robozium.restartApp()} />
+				if (client) return <EnvironmentPanel draft={environmentDraft} mutations={environmentMutations} hub={hubFolder} onRestart={() => window.robozium.restartApp()} />
 				// Standalone preview has no backend settings; it shows the placeholder.
 				// falls through
 			default:

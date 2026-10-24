@@ -37,10 +37,13 @@ class ProjectService:
         root = sandbox.resolved_root
         allowed = {sandbox.readonly, sandbox.shared, sandbox.projects}
         if root.exists():
+            # Hidden folders such as .git belong to tools that manage the hub, not to a misplaced root.
             unexpected = sorted(
                 child.name
                 for child in root.iterdir()
-                if child.is_dir() and child.name not in allowed
+                if child.is_dir()
+                and child.name not in allowed
+                and not child.name.startswith(".")
             )
             if unexpected:
                 raise ValueError(

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react"
+import type { BackendStatus } from "../../../src/bridge"
 import { DesktopApiClient } from "../api/client"
 
 type StartupState =
-	| { state: "starting" | "error"; message: string }
+	| { state: "starting" | "error"; message: string; action?: BackendStatus["action"] }
 	| { state: "ready"; client: DesktopApiClient | null }
 
 /** Own Docker startup polling and discover the renderer's connection once ready. */
@@ -23,7 +24,7 @@ export function useBackendStartup() {
 					const status = await window.robozium.getBackendStatus()
 					if (!active) return
 					if (status.state !== "ready") {
-						setStartup({ state: status.state, message: status.message })
+						setStartup({ state: status.state, message: status.message, action: status.action })
 						if (status.state === "starting") startupTimer = setTimeout(checkStartup, 500)
 						return
 					}

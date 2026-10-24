@@ -4,6 +4,22 @@
     "dockerLog": {
       "mount": "/logs",
       "filename": "docker.log"
+    },
+    "locations": {
+      "checkoutProfile": "../../.artifacts/desktop/data",
+      "checkoutPreviewProfile": "../../.artifacts/desktop/scaffold",
+      "installedPreviewProfile": "preview",
+      "installedBackend": "backend",
+      "checkoutBackend": "..",
+      "installedSource": "stage",
+      "checkoutSource": ".stage/backend",
+      "compose": "compose.yaml",
+      "settings": "settings.json",
+      "installationId": "backend-installation-id",
+      "hubFolder": "hub-folder",
+      "defaultHub": "~/Robozium-Hub",
+      "isolatedHub": "hub",
+      "hubProjects": "projects"
     }
   },
   "services": {
@@ -54,7 +70,7 @@
         },
         {
           "type": "bind",
-          "source": "${ROBOZIUM_DESKTOP_RUNTIME}/hub",
+          "source": "${ROBOZIUM_DESKTOP_HUB:?Select an absolute hub folder}",
           "target": "/hub",
           "read_only": false,
           "bind": {
@@ -81,7 +97,7 @@
         },
         {
           "type": "bind",
-          "source": "${ROBOZIUM_DESKTOP_RUNTIME}/hub/readonly/safe-scripts",
+          "source": "${ROBOZIUM_DESKTOP_HUB}/readonly/safe-scripts",
           "target": "/hub/readonly/safe-scripts",
           "read_only": true,
           "bind": {

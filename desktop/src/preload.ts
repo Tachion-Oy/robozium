@@ -19,5 +19,9 @@ const bridge: DesktopBridge = {
 	setMessageLog: open => ipcRenderer.invoke("desktop:set-message-log", open),
 	openExternal: url => ipcRenderer.invoke("desktop:open-external", url),
 	openHubFile: file => ipcRenderer.invoke("desktop:open-hub-file", file),
+	getHubFolder: () => ipcRenderer.invoke("desktop:hub-folder"),
+	chooseHubFolder: () => ipcRenderer.invoke("desktop:choose-hub-folder"),
+	useHubFolder: () => ipcRenderer.invoke("desktop:use-hub-folder"),
+	openHubFolder: () => ipcRenderer.invoke("desktop:open-hub-folder"),
 }
 contextBridge.exposeInMainWorld("robozium", bridge)

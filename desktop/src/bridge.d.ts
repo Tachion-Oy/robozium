@@ -1,7 +1,22 @@
 export interface BackendStatus {
 	state: "starting" | "ready" | "error"
 	message: string
+	/** The failure is the hub folder's: the user can choose another one, then retry. */
+	action?: "choose-hub-folder"
 }
+
+/** The hub folder this launch mounts and the one recorded for the next launch. */
+export interface HubFolderStatus {
+	/** The folder the running backend mounts; null before it launches. */
+	current: string | null
+	/** The folder the next launch uses: the chosen one, else the default; null when not choosable. */
+	selected: string | null
+	/** False for mock mode and previews, which keep a throwaway hub of their own. */
+	choosable: boolean
+}
+
+/** A folder picked in the native dialog; a non-empty folder without hub files needs confirming first. */
+export type HubFolderPick = { folder: string; needsConfirmation: boolean } | null
 
 export type AppTheme = "dark" | "light"
 
@@ -29,6 +44,13 @@ export interface DesktopBridge {
 	openExternal(url: string): Promise<void>
 	/** Open a hub-relative file or folder with its default application; targets outside the hub are refused. */
 	openHubFile(file: string): Promise<void>
+	getHubFolder(): Promise<HubFolderStatus>
+	/** Pick a hub folder with the native folder dialog; null when cancelled. Errors explain a refused folder. */
+	chooseHubFolder(): Promise<HubFolderPick>
+	/** Record the last picked folder for the next launch. */
+	useHubFolder(): Promise<HubFolderStatus>
+	/** Open the hub folder in the file manager. */
+	openHubFolder(): Promise<void>
 }
 
 declare global {

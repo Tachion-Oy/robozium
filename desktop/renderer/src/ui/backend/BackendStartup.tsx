@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react"
 import { useBackendStartup } from "../../backend/useBackendStartup"
 import { useBackendReadiness } from "../../backend/useBackendReadiness"
+import { StartupHubFolder } from "./StartupHubFolder"
 import { HudButton } from "../HudButton"
 import type { DesktopApiClient } from "../../api/client"
 import "./backend-startup.css"
@@ -28,6 +29,8 @@ export function BackendStartup({ children }: { children: (notice: ReactNode, cli
 	return <main className="hud-frame backend-startup">
 		<h1>Robozium</h1>
 		<p role={status.state === "error" ? "alert" : "status"}>{status.message}</p>
-		{status.state === "error" && <HudButton onClick={retry}>Retry</HudButton>}
+		{startup.state === "error" && startup.action === "choose-hub-folder"
+			? <StartupHubFolder onRetry={retryStartup} />
+			: status.state === "error" && <HudButton onClick={retry}>Retry</HudButton>}
 	</main>
 }

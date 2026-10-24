@@ -4,13 +4,17 @@ import path from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
 import type { BackendStatus } from "./bridge"
 import { loadOrCreateBackendProfile } from "./backend-profile"
-import { prepareBackendRuntime, resolveBackendLayout } from "./backend-layout.cjs"
+import { isInside, prepareBackendRuntime, resolveBackendLayout } from "./backend-layout.cjs"
 import { findDocker, runCommand, type CommandOptions } from "./docker-command"
+import { HubFolderError, resolveHubFolder } from "./hub-folder"
+import type { HubFolderLocation } from "./locations"
 
 interface BackendOptions {
 	profile: string
 	source: string
 	compose: string
+	/** The user's hub folder; without one, the runtime keeps a throwaway hub. */
+	hubFolder?: HubFolderLocation | null
 	mode: "live" | "mock"
 	port?: string
 	run?: typeof runCommand
@@ -65,12 +69,12 @@ export class BackendController {
 	private environment: NodeJS.ProcessEnv = {}
 	private targetPinned = false
 	private readonly settings: ReturnType<typeof loadOrCreateBackendProfile>
-	private readonly layout: ReturnType<typeof resolveBackendLayout>
+	/** Resolved at each launch, so a newly chosen hub folder applies on retry or restart. */
+	private launchedLayout?: ReturnType<typeof resolveBackendLayout>
 	private readonly run: typeof runCommand
 
 	constructor(private readonly options: BackendOptions) {
 		this.settings = loadOrCreateBackendProfile(options.profile, options.mode, options.port)
-		this.layout = resolveBackendLayout(this.settings.runtime)
 		this.run = options.run ?? runCommand
 	}
 
@@ -80,9 +84,12 @@ export class BackendController {
 
 	/** The host directory mounted as the backend's hub, where agents' files live. */
 	get hubDirectory(): string {
-		const hub = this.layout.mounts.find(mount => mount.destination === "/hub")
-		if (!hub) throw new Error("The desktop layout has no hub mount.")
-		return hub.source
+		return this.layout.hub
+	}
+
+	private get layout(): ReturnType<typeof resolveBackendLayout> {
+		if (!this.launchedLayout) throw new Error("The backend has not been launched.")
+		return this.launchedLayout
 	}
 
 	connection(): { baseUrl: string } {
@@ -157,7 +164,7 @@ export class BackendController {
 		} catch (error) {
 			if (!this.closing) {
 				const message = error instanceof Error ? error.message : String(error)
-				this.status = { state: "error", message }
+				this.status = error instanceof HubFolderError ? { state: "error", message, action: "choose-hub-folder" } : { state: "error", message }
 			}
 			throw error
 		} finally {
@@ -166,14 +173,18 @@ export class BackendController {
 	}
 
 	private async launch(): Promise<void> {
+		const { runtime } = this.settings
+		const hub = this.options.hubFolder ? resolveHubFolder(this.options.hubFolder, path.dirname(runtime)) : undefined
+		this.launchedLayout = resolveBackendLayout(runtime, hub)
 		prepareBackendRuntime(this.layout)
 		const securityOptions = await this.prepareDocker()
 		const buildId = this.readBuildId()
-		const { runtime, port, installation } = this.settings
+		const { port, installation } = this.settings
 
 		Object.assign(this.environment, {
 			ROBOZIUM_DESKTOP_SOURCE: this.options.source,
 			ROBOZIUM_DESKTOP_RUNTIME: runtime,
+			ROBOZIUM_DESKTOP_HUB: this.layout.hub,
 			ROBOZIUM_DESKTOP_BUILD_ID: buildId,
 			ROBOZIUM_DESKTOP_INSTALLATION: installation,
 			ROBOZIUM_DESKTOP_API_PORT: String(port),
@@ -313,10 +324,14 @@ export class BackendController {
 		const labelsMatch = Object.entries(expectedLabels).every(([label, expected]) => {
 			return container.labels?.[label] === expected
 		})
+		// The hub mounts may come from any hub folder this installation used before, such as
+		// a container left running by a crash after a new folder was chosen. The labels prove
+		// ownership, and `compose up` recreates the container with the current folder.
 		const mountsMatch = this.layout.mounts.every(expected => {
+			const anyHubSource = isInside(expected.source, this.layout.hub)
 			return container.mounts?.some(mount => {
 				return mount.Destination === expected.destination
-					&& mount.Source === expected.source
+					&& (anyHubSource || mount.Source === expected.source)
 					&& mount.RW === expected.writable
 			})
 		})
@@ -368,10 +383,21 @@ export class BackendController {
 			} catch {
 				this.startupAbort.signal.throwIfAborted()
 			}
+			await this.failIfStopped()
 
 			await delay(this.options.pollInterval ?? 500, undefined, { signal: this.startupAbort.signal })
 		}
 		throw new Error("Backend readiness timed out. Check the desktop Docker log and retry; your data is preserved.")
+	}
+
+	/** A backend that exited during startup will never become ready; report its own error at once. */
+	private async failIfStopped(): Promise<void> {
+		const containers = await this.ownedContainers()
+		if (containers.length === 0 || containers.some(container => container.running)) return
+		const output = await this.command(["logs", "--tail", "40", containers[0].id])
+		const reason = output.split("\n").map(line => line.trim()).reverse()
+			.find(line => /^[A-Za-z.]*(Error|Exception)\b/.test(line))
+		throw new Error(`The backend stopped during startup${reason ? `: ${reason}` : ". Check the desktop Docker log"}. Your data is preserved.`)
 	}
 
 	private async stopBackend(): Promise<void> {

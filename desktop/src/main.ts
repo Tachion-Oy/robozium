@@ -5,6 +5,7 @@ import { BackendController } from "./backend-controller"
 import { registerRendererProtocol, rendererUrl } from "./renderer-protocol"
 import { MessageLogWindow } from "./message-log-window"
 import { externalUrl, hubFilePath } from "./links"
+import { checkHubFolderChoice, recordedHubFolder, saveHubFolder } from "./hub-folder"
 import { permissionAllowed, permissionRequestAllowed } from "./security"
 import { desktopLocations } from "./locations"
 import { isAppTheme, readSettings, saveSettings, themeBackground, type DesktopSettings } from "./settings"
@@ -16,9 +17,11 @@ protocol.registerSchemesAsPrivileged([
 
 app.setName("Robozium")
 const preview = process.argv.includes("--preview")
-const { profile, source, compose } = desktopLocations({
+const mode = process.argv.includes("--mock") ? "mock" : "live"
+const { profile, source, compose, hubFolder } = desktopLocations({
 	packaged: app.isPackaged, appDirectory: __dirname, resourcesPath: process.resourcesPath,
-	userData: app.getPath("userData"), preview, profileOverride: process.env.ROBOZIUM_DESKTOP_TEST_DATA,
+	userData: app.getPath("userData"), home: app.getPath("home"), mode, preview,
+	profileOverride: process.env.ROBOZIUM_DESKTOP_TEST_DATA,
 })
 
 async function start(): Promise<void> {
@@ -49,8 +52,8 @@ async function start(): Promise<void> {
 		},
 	})
 	const backend = preview ? undefined : new BackendController({
-		profile, mode: process.argv.includes("--mock") ? "mock" : "live", port: process.env.ROBOZIUM_DESKTOP_API_PORT,
-		source, compose,
+		profile, mode, port: process.env.ROBOZIUM_DESKTOP_API_PORT,
+		source, compose, hubFolder,
 	})
 	await registerRendererProtocol(backend?.connection().baseUrl)
 	const startBackend = async () => {
@@ -197,6 +200,49 @@ async function start(): Promise<void> {
 		requireTrustedDocument(event)
 		if (!backend) throw new Error("The standalone preview has no hub files.")
 		const failure = await shell.openPath(await hubFilePath(backend.hubDirectory, file))
+		if (failure) throw new Error(failure)
+	})
+	const currentHub = () => {
+		try { return backend?.hubDirectory ?? null } catch { return null }
+	}
+	const hubFolderStatus = () => ({
+		current: currentHub(),
+		selected: hubFolder ? recordedHubFolder(hubFolder) ?? hubFolder.defaultFolder : null,
+		choosable: hubFolder !== null,
+	})
+	/** Only a folder the user picked in the dialog may be recorded. */
+	let pickedHubFolder: string | null = null
+	ipcMain.handle("desktop:hub-folder", event => {
+		requireTrustedDocument(event)
+		return hubFolderStatus()
+	})
+	ipcMain.handle("desktop:choose-hub-folder", async event => {
+		requireTrustedDocument(event)
+		if (!hubFolder) throw new Error("This launch keeps its own hub folder.")
+		const result = await dialog.showOpenDialog(window, {
+			title: "Choose hub folder", buttonLabel: "Use folder",
+			defaultPath: recordedHubFolder(hubFolder) ?? hubFolder.defaultFolder,
+			properties: ["openDirectory", "createDirectory"],
+		})
+		pickedHubFolder = null
+		if (result.canceled || result.filePaths.length === 0) return null
+		const choice = checkHubFolderChoice(result.filePaths[0], profile, app.getPath("temp"))
+		pickedHubFolder = choice.folder
+		return choice
+	})
+	ipcMain.handle("desktop:use-hub-folder", event => {
+		requireTrustedDocument(event)
+		if (!hubFolder || !pickedHubFolder) throw new Error("Choose a hub folder first.")
+		// Checked again: the folder may have changed while the confirmation was open.
+		saveHubFolder(hubFolder, checkHubFolderChoice(pickedHubFolder, profile, app.getPath("temp")).folder)
+		pickedHubFolder = null
+		return hubFolderStatus()
+	})
+	ipcMain.handle("desktop:open-hub-folder", async event => {
+		requireTrustedDocument(event)
+		const folder = currentHub()
+		if (!folder) throw new Error("The hub folder is not in use yet.")
+		const failure = await shell.openPath(folder)
 		if (failure) throw new Error(failure)
 	})
 	await window.loadURL(rendererUrl)

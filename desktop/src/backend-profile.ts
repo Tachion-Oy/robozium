@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs"
 import path from "node:path"
+import { locations } from "./backend-layout.cjs"
 
 interface BackendProfile {
 	installation: string
@@ -18,7 +19,7 @@ export function loadOrCreateBackendProfile(directory: string, mode: "live" | "mo
 	mkdirSync(directory, { recursive: true, mode: 0o700 })
 	const profileDirectory = realpathSync(directory)
 
-	const identityFile = path.join(profileDirectory, "backend-installation-id")
+	const identityFile = path.join(profileDirectory, locations.installationId)
 	const savedInstallation = existsSync(identityFile)
 		? readFileSync(identityFile, "utf8").trim()
 		: undefined

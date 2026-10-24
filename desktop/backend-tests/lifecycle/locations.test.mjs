@@ -1,25 +1,28 @@
 import assert from "node:assert/strict"
 import path from "node:path"
 import { test } from "node:test"
-import { desktopLocations } from "../../dist/locations.js"
+import { desktopLocations, expandHome } from "../../dist/locations.js"
 
-const base = { appDirectory: "/repo/desktop/dist", resourcesPath: "/opt/Robozium/resources", userData: "/home/user/.config/Robozium", preview: false }
+const base = { appDirectory: "/repo/desktop/dist", resourcesPath: "/opt/Robozium/resources", userData: "/home/user/.config/Robozium", home: "/home/user", mode: "live", preview: false }
 
 test("an installed app keeps its profile in the user's config directory and reads backend files from resources", () => {
 	assert.deepEqual(desktopLocations({ ...base, packaged: true }), {
 		profile: "/home/user/.config/Robozium",
 		source: "/opt/Robozium/resources/backend/stage",
 		compose: "/opt/Robozium/resources/backend/compose.yaml",
+		hubFolder: {
+			file: "/home/user/.config/Robozium/hub-folder", defaultFolder: "/home/user/Robozium-Hub",
+			earlierFolder: "/home/user/.config/Robozium/live/hub",
+		},
 	})
 	assert.equal(desktopLocations({ ...base, packaged: true, preview: true }).profile, "/home/user/.config/Robozium/preview")
 })
 
 test("a checkout keeps its own profile beside it and reads the staged backend from the checkout", () => {
-	assert.deepEqual(desktopLocations({ ...base, packaged: false }), {
-		profile: "/repo/.artifacts/desktop/data",
-		source: "/repo/desktop/.stage/backend",
-		compose: "/repo/desktop/compose.yaml",
-	})
+	const checkout = desktopLocations({ ...base, packaged: false })
+	assert.deepEqual([checkout.profile, checkout.source, checkout.compose], [
+		"/repo/.artifacts/desktop/data", "/repo/desktop/.stage/backend", "/repo/desktop/compose.yaml",
+	])
 	assert.equal(desktopLocations({ ...base, packaged: false, preview: true }).profile, "/repo/.artifacts/desktop/scaffold")
 })
 
@@ -28,4 +31,22 @@ test("an explicit profile wins in both, resolved to an absolute path", () => {
 		assert.equal(desktopLocations({ ...base, packaged, profileOverride: "relative/profile" }).profile, path.resolve("relative/profile"))
 		assert.equal(desktopLocations({ ...base, packaged, profileOverride: "/shared/dev" }).profile, "/shared/dev")
 	}
+})
+
+test("every live launch can choose its hub; only an installed app defaults to ~/Robozium-Hub", () => {
+	assert.deepEqual(desktopLocations({ ...base, packaged: false }).hubFolder, {
+		file: "/repo/.artifacts/desktop/data/hub-folder", defaultFolder: "/repo/.artifacts/desktop/data/live/hub", earlierFolder: null,
+	})
+	assert.deepEqual(desktopLocations({ ...base, packaged: true, profileOverride: "/tests/profile" }).hubFolder, {
+		file: "/tests/profile/hub-folder", defaultFolder: "/tests/profile/live/hub", earlierFolder: null,
+	})
+	for (const inputs of [{ packaged: true, mode: "mock" }, { packaged: false, mode: "mock" }, { packaged: true, preview: true }]) {
+		assert.equal(desktopLocations({ ...base, ...inputs }).hubFolder, null, JSON.stringify(inputs))
+	}
+})
+
+test("a leading ~/ starts from the home directory; other locations are kept", () => {
+	assert.equal(expandHome("~/Robozium-Hub", "/home/user"), "/home/user/Robozium-Hub")
+	assert.equal(expandHome("/data/hub", "/home/user"), "/data/hub")
+	assert.equal(expandHome("~other/hub", "/home/user"), "~other/hub")
 })
