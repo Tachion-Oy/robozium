@@ -382,13 +382,15 @@ Use that definition for mount preparation, ownership validation, Docker logging,
 and Compose integration. Repeating paths such as `.runtime/local-deps` or
 `hub/readonly/safe-scripts` in controller or helper path lists is prohibited.
 
-All desktop code is TypeScript in ES modules. Node runs the scripts and backend
-tests directly, so `src`, `scripts` and `backend-tests` use only syntax Node can
-strip: no enums, namespaces or constructor parameter properties, and
-type-only imports use `import type`. `tsc` enforces both. Relative imports name
-their `.ts` file. The one CommonJS file is the sandboxed preload,
-`src/preload.cts`, because Electron requires it; `tsconfig.preload.json` compiles
-it on its own.
+All desktop code is TypeScript in ES modules. Node runs the main-process
+sources, scripts and backend tests directly, so `src`, `scripts` and
+`backend-tests` follow three rules that `tsc` enforces: only syntax Node can
+strip (no enums, namespaces or constructor parameter properties), `import type`
+for type-only imports, and relative imports that name their `.ts` file. The
+exception is the sandboxed preload, `src/preload.cts`: Electron requires it to be
+CommonJS, so `tsconfig.preload.json` compiles it on its own and Node never runs
+it directly. The renderer and Playwright tests are bundled or transpiled by Vite
+and Playwright, so their imports omit extensions.
 
 Desktop setup prepares the host folders Docker needs to mount, including the
 nested read-only safe-scripts mount. The hub owns its application structure and
