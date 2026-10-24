@@ -129,8 +129,10 @@ following RoboZ's policy. These settings enforce the PR process:
 - Require a pull request before merging, with **zero** mandatory approving
   reviews so a sole maintainer can merge their own PR. Maintainers still review
   community contributions. Dismiss stale approvals when new commits are pushed.
-- Require the GitHub Actions **CI** and **Full E2E** status checks and an
-  up-to-date branch.
+- Require the GitHub Actions **CI**, **Full E2E** and **Linux package** status
+  checks. Merge through a merge queue rather than requiring an up-to-date
+  branch, so a merge tests the combined result once instead of every open pull
+  request updating and re-running after each merge.
 - Require conversation resolution before merging.
 - Enforce the rules for administrators too; disable bypassing the requirements.
 - Keep force pushes and branch deletion disabled.
