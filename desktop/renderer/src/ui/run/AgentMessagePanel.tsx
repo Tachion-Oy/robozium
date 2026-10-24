@@ -1,9 +1,12 @@
 // Copied from web/app/components/hud/run/AgentMessagePanel.tsx at 86ef5c1.
 // Adapted: content types come from the desktop HUD view. The illustration
 // follows web at af87bea, named by a class because the renderer CSP forbids
-// inline styles. Inline images follow web at 2a0c183.
+// inline styles. Inline images follow web at 2a0c183; their viewer sits outside
+// the per-message Markdown so a new message does not close it, and the scroll
+// area takes focus back when the viewer's trigger is gone.
 import { useEffect, useRef } from "react"
 import type { ContentType } from "../../hud/hud-view"
+import { HudImageViewer } from "./HudImage"
 import { HudMarkdown } from "./HudMarkdown"
 
 export type AgentMessage = {
@@ -19,10 +22,9 @@ export type AgentMessage = {
 
 type AgentMessagePanelProps = {
 	message: AgentMessage
-	hubFileUrl?: (path: string) => string
 }
 
-export function AgentMessagePanel({ message, hubFileUrl }: AgentMessagePanelProps) {
+export function AgentMessagePanel({ message }: AgentMessagePanelProps) {
 	const scrollRef = useRef<HTMLDivElement>(null)
 
 	useEffect(() => {
@@ -36,6 +38,7 @@ export function AgentMessagePanel({ message, hubFileUrl }: AgentMessagePanelProp
 		<div className="agent-hud__replyBox agent-hud__replyBox--agent">
 			<div
 				className="agent-hud__replyBox-scroll"
+				tabIndex={-1}
 				onLoadCapture={() => {
 					const element = scrollRef.current
 					if (element && message.mode === "streaming") element.scrollTop = element.scrollHeight
@@ -55,7 +58,9 @@ export function AgentMessagePanel({ message, hubFileUrl }: AgentMessagePanelProp
 						{message.content}
 					</pre>
 				) : (
-					<HudMarkdown key={message.id} hubFileUrl={hubFileUrl}>{message.content}</HudMarkdown>
+					<HudImageViewer returnFocus={scrollRef}>
+						<HudMarkdown key={message.id}>{message.content}</HudMarkdown>
+					</HudImageViewer>
 				)}
 			</div>
 		</div>

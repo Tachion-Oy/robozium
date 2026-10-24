@@ -32,7 +32,6 @@ export type ReplyComposerModel = {
 
 type ReplyFormProps = {
 	message: AgentMessage
-	hubFileUrl?: (path: string) => string
 	composer: ReplyComposerModel
 	navigation: HudMessageNavigationModel
 	controls: HudControlModel
@@ -43,7 +42,6 @@ type ReplyFormProps = {
 
 export function ReplyForm({
 	message,
-	hubFileUrl,
 	composer,
 	navigation,
 	controls,
@@ -84,7 +82,7 @@ export function ReplyForm({
 			<div
 				className="agent-hud__panels"
 				data-layout={layoutMode}>
-				<AgentMessagePanel message={message} hubFileUrl={hubFileUrl} />
+				<AgentMessagePanel message={message} />
 				<ReplyEditor
 					value={composer.value}
 					images={composer.images}

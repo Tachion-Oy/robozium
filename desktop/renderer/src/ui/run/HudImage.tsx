@@ -1,14 +1,16 @@
 // Copied from web/app/components/hud/run/HudImage.tsx at 2a0c183.
 // Adapted: hub images load from the backend, which requires the renderer's
-// Origin, and "Open original" opens the image outside the window.
-import { createContext, useContext, useEffect, useRef, useState, type MouseEvent, type ReactNode, type Ref } from "react"
+// Origin. Remote images never load without a click: the CSP admits only the
+// backend, and "Open original" opens either kind outside the window. The viewer
+// outlives message changes and returns focus to the panel when its trigger is gone.
+import { createContext, useContext, useEffect, useRef, useState, type MouseEvent, type ReactNode, type Ref, type RefObject } from "react"
 import { resolveHudImageSource } from "../../links/hud-images"
 import { openExternalLink, openHubFile } from "../../links/open-link"
 
 type ResolvedImage = {
 	src: string
-	/** Hub files come from the backend, which accepts only the renderer's Origin. */
-	crossOrigin: "anonymous" | undefined
+	/** Agent output must not make the window fetch from other hosts. */
+	remote: boolean
 	openOriginal: () => void
 }
 
@@ -20,20 +22,19 @@ type ImageSelection = ResolvedImage & {
 }
 
 const ImageViewerContext = createContext<(image: ImageSelection) => void>(() => {})
-const HubFileUrlContext = createContext<((path: string) => string) | null>(null)
+/** The backend address of a hub file; without one, as in the standalone preview, hub images are unavailable. */
+export const HubFileUrlContext = createContext<((path: string) => string) | null>(null)
 // Linked images must not place a button (or a fallback link) inside an anchor.
 export const HudImageLinkContext = createContext(false)
 
-/** Without `hubFileUrl`, as in the standalone preview, hub images are unavailable. */
-export function HudImageViewer({ hubFileUrl, children }: { hubFileUrl?: (path: string) => string; children: ReactNode }) {
+/** `returnFocus` takes focus when the viewer closes after its trigger left the page. */
+export function HudImageViewer({ returnFocus, children }: { returnFocus: RefObject<HTMLElement | null>; children: ReactNode }) {
 	const [selection, setSelection] = useState<ImageSelection | null>(null)
 	return (
-		<HubFileUrlContext value={hubFileUrl ?? null}>
-			<ImageViewerContext value={setSelection}>
-				{children}
-				{selection ? <ImageDialog key={selection.src} image={selection} onClose={() => setSelection(null)} /> : null}
-			</ImageViewerContext>
-		</HubFileUrlContext>
+		<ImageViewerContext value={setSelection}>
+			{children}
+			{selection ? <ImageDialog key={selection.src} image={selection} returnFocus={returnFocus} onClose={() => setSelection(null)} /> : null}
+		</ImageViewerContext>
 	)
 }
 
@@ -41,10 +42,10 @@ function useResolvedImage(src: string | undefined): ResolvedImage | null {
 	const hubFileUrl = useContext(HubFileUrlContext)
 	const source = src ? resolveHudImageSource(src) : null
 	if (source?.kind === "web") {
-		return { src: source.url, crossOrigin: undefined, openOriginal: () => openExternalLink(source.url) }
+		return { src: source.url, remote: true, openOriginal: () => openExternalLink(source.url) }
 	}
 	if (source?.kind === "hub" && hubFileUrl) {
-		return { src: hubFileUrl(source.path), crossOrigin: "anonymous", openOriginal: () => openHubFile(source.path) }
+		return { src: hubFileUrl(source.path), remote: false, openOriginal: () => openHubFile(source.path) }
 	}
 	return null
 }
@@ -58,7 +59,11 @@ function OriginalLink({ image, linkRef }: { image: ResolvedImage; linkRef?: Ref<
 	return <a ref={linkRef} className="agent-hud__markdown-link" href={image.src} onClick={open}>Open original</a>
 }
 
-function ImageDialog({ image, onClose }: { image: ImageSelection; onClose: () => void }) {
+function ImageDialog({ image, returnFocus, onClose }: {
+	image: ImageSelection
+	returnFocus: RefObject<HTMLElement | null>
+	onClose: () => void
+}) {
 	const dialogRef = useRef<HTMLDialogElement>(null)
 	const closeRef = useRef<HTMLButtonElement>(null)
 	const originalRef = useRef<HTMLAnchorElement>(null)
@@ -70,9 +75,10 @@ function ImageDialog({ image, onClose }: { image: ImageSelection; onClose: () =>
 		closeRef.current?.focus({ preventScroll: true })
 		return () => {
 			dialog.close()
-			if (image.trigger.isConnected) image.trigger.focus({ preventScroll: true })
+			const target = image.trigger.isConnected ? image.trigger : returnFocus.current
+			target?.focus({ preventScroll: true })
 		}
-	}, [image])
+	}, [image, returnFocus])
 
 	return (
 		<dialog
@@ -91,11 +97,6 @@ function ImageDialog({ image, onClose }: { image: ImageSelection; onClose: () =>
 						originalRef.current?.focus()
 					}
 				}
-				// The HUD also listens for Escape; stop it there, keeping the native cancel.
-				if (event.key === "Escape") {
-					event.stopPropagation()
-					event.nativeEvent.stopImmediatePropagation()
-				}
 			}}
 			onClick={(event) => {
 				if (event.target !== event.currentTarget) return
@@ -110,7 +111,7 @@ function ImageDialog({ image, onClose }: { image: ImageSelection; onClose: () =>
 			</div>
 			<div className="agent-hud__image-stage" style={{ width: image.width, aspectRatio: `${image.width} / ${image.height}` }}>
 				{failed ? <p role="status">Image unavailable</p> : (
-					<img src={image.src} crossOrigin={image.crossOrigin} alt={image.description} referrerPolicy="no-referrer" decoding="async" onError={() => setFailed(true)} />
+					<img src={image.src} crossOrigin="anonymous" alt={image.description} referrerPolicy="no-referrer" decoding="async" onError={() => setFailed(true)} />
 				)}
 			</div>
 		</dialog>
@@ -124,6 +125,14 @@ export function HudImage({ src, alt }: { src?: string; alt?: string }) {
 	const [status, setStatus] = useState<"loading" | "loaded" | "failed">("loading")
 	const description = alt?.trim() || "Image"
 	if (!image) return <span className="agent-hud__image-unavailable">{description} — Image unavailable</span>
+	if (image.remote) {
+		return (
+			<span className="agent-hud__image-unavailable">
+				{description} — Remote image{" "}
+				{!linked ? <OriginalLink image={image} /> : null}
+			</span>
+		)
+	}
 
 	if (status === "failed") {
 		return (
@@ -136,7 +145,7 @@ export function HudImage({ src, alt }: { src?: string; alt?: string }) {
 
 	const preview = (
 		<>
-			<img src={image.src} crossOrigin={image.crossOrigin} alt={description} loading="lazy" decoding="async" referrerPolicy="no-referrer"
+			<img src={image.src} crossOrigin="anonymous" alt={description} loading="lazy" decoding="async" referrerPolicy="no-referrer"
 				onLoad={() => setStatus("loaded")} onError={() => setStatus("failed")} />
 			{status === "loading" ? <span className="agent-hud__image-loading">Loading image…</span> : null}
 		</>

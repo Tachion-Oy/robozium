@@ -85,7 +85,7 @@ test("picker, paste and drop upload images that an image-only reply sends", asyn
 		return response.headers.get("Content-Security-Policy")!.split("; ")
 	}, documentUrl)
 	const origin = csp.find(directive => directive.startsWith("connect-src "))!.slice("connect-src ".length)
-	expect(csp).toContain(`img-src 'self' blob: https: ${origin}`)
+	expect(csp).toContain(`img-src 'self' blob: ${origin}`)
 
 	await expect(send(page)).toBeDisabled()
 	const chooser = page.waitForEvent("filechooser")

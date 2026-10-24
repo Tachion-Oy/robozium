@@ -31,8 +31,6 @@ type RunHudProps = {
 	}
 	cancel: HudPendingAction
 	interrupt: HudPendingAction
-	/** The backend address of a hub file, for inline agent images. */
-	hubFileUrl?: (path: string) => string
 }
 
 export function RunHud({
@@ -48,7 +46,6 @@ export function RunHud({
 	reply,
 	cancel,
 	interrupt,
-	hubFileUrl,
 }: RunHudProps) {
 	const { index, currentIndex, count } = display
 	const message: AgentMessage = {
@@ -78,7 +75,6 @@ export function RunHud({
 	return (
 		<ReplyForm
 			message={message}
-			hubFileUrl={hubFileUrl}
 			layoutMode={layoutMode}
 			composer={{
 				value: draft,

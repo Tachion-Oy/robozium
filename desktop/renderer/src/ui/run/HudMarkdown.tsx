@@ -1,20 +1,19 @@
 // Copied from web/app/components/hud/run/HudMarkdown.tsx at 2a0c183.
 // Adapted: links open through the desktop bridge instead of navigating; a file
-// link names its hub-relative path, and hub images load from the backend.
+// link names its hub-relative path, and images render through HudImage.
 import type { MouseEvent, ReactNode } from "react"
 import { openExternalLink, openHubFile } from "../../links/open-link"
 import ReactMarkdown from "react-markdown"
 import rehypeRaw from "rehype-raw"
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize"
 import remarkGfm from "remark-gfm"
+import { joinHubPath } from "../../links/hub-path"
 import { resolveHudImageSource } from "../../links/hud-images"
-import { HudImage, HudImageLinkContext, HudImageViewer } from "./HudImage"
+import { HudImage, HudImageLinkContext } from "./HudImage"
 
 type HudMarkdownProps = {
 	children: string
 	className?: string
-	/** The backend address of a hub file, for inline images. */
-	hubFileUrl?: (path: string) => string
 }
 
 type HudRendererProps = {
@@ -162,20 +161,7 @@ const HUD_ALLOWED_ELEMENTS = [
 
 function toHubFilePath(src: string): string | null {
 	const trimmed = src.trim()
-	if (!trimmed || trimmed.startsWith("/")) {
-		return null
-	}
-
-	const segments = trimmed.split("/")
-	if (
-		segments.some(
-			(segment) => !segment || segment === "." || segment === "..",
-		)
-	) {
-		return null
-	}
-
-	return segments.join("/")
+	return trimmed.startsWith("/") ? null : joinHubPath(trimmed.split("/"))
 }
 
 function isExternalHttpUrl(href: string): boolean {
@@ -281,26 +267,24 @@ const HUD_MARKDOWN_COMPONENTS: Record<
 	),
 }
 
-export function HudMarkdown({ children, className, hubFileUrl }: HudMarkdownProps) {
+export function HudMarkdown({ children, className }: HudMarkdownProps) {
 	const rootClassName = ["agent-hud__agent", "agent-hud__markdown", className]
 		.filter(Boolean)
 		.join(" ")
 	return (
-		<HudImageViewer hubFileUrl={hubFileUrl}>
-			<div className={rootClassName}>
-				<ReactMarkdown
-					remarkPlugins={[remarkGfm]}
-					rehypePlugins={[
-						rehypeRaw,
-						[rehypeSanitize, HUD_SANITIZE_SCHEMA],
-						rehypeDecodeHudUnicodeEscapes,
-					]}
-					allowedElements={HUD_ALLOWED_ELEMENTS}
-					urlTransform={transformHudLinkUrl}
-					components={HUD_MARKDOWN_COMPONENTS as never}>
-					{children}
-				</ReactMarkdown>
-			</div>
-		</HudImageViewer>
+		<div className={rootClassName}>
+			<ReactMarkdown
+				remarkPlugins={[remarkGfm]}
+				rehypePlugins={[
+					rehypeRaw,
+					[rehypeSanitize, HUD_SANITIZE_SCHEMA],
+					rehypeDecodeHudUnicodeEscapes,
+				]}
+				allowedElements={HUD_ALLOWED_ELEMENTS}
+				urlTransform={transformHudLinkUrl}
+				components={HUD_MARKDOWN_COMPONENTS as never}>
+				{children}
+			</ReactMarkdown>
+		</div>
 	)
 }

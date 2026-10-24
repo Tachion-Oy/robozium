@@ -1,10 +1,19 @@
 // Copied from web/lib/robozium/hud-images.ts at 2a0c183.
 // Adapted: a hub image keeps its hub-relative path, which the backend serves
-// and main opens; there is no app-relative proxy.
+// and main opens; there is no app-relative proxy. Hub path rules are shared
+// with file links.
+import { hasControlCharacter, joinHubPath } from "./hub-path"
 
 export type HudImageSource = { kind: "web"; url: string } | { kind: "hub"; path: string }
 
-const hasControlCharacter = (value: string) => Array.from(value).some(char => char < " " || char === "\u007f")
+// Markdown encodes spaces and Unicode before invoking urlTransform; raw HTML may carry a literal "%".
+function decodeSegment(segment: string): string {
+	try {
+		return decodeURIComponent(segment)
+	} catch {
+		return segment
+	}
+}
 
 /** Resolve authored image sources without allowing arbitrary app-relative requests. */
 export function resolveHudImageSource(source: string): HudImageSource | null {
@@ -21,14 +30,6 @@ export function resolveHudImageSource(source: string): HudImageSource | null {
 		}
 	}
 
-	try {
-		// Markdown encodes spaces and Unicode before invoking urlTransform.
-		const segments = value.split("/").map((segment) => decodeURIComponent(segment))
-		if (segments.some((segment) =>
-			!segment || segment === "." || segment === ".." || /[/\\]/.test(segment) || hasControlCharacter(segment),
-		)) return null
-		return { kind: "hub", path: segments.join("/") }
-	} catch {
-		return null
-	}
+	const path = joinHubPath(value.split("/").map(decodeSegment))
+	return path === null ? null : { kind: "hub", path }
 }
