@@ -113,7 +113,7 @@ does not prevent creating documents the user has requested.
 ## HUD file links (`<file src="...">label</file>`)
 
 When you create a file that the user should open from the HUD, link it using
-an explicit file tag. For images to display in the browser HUD, use the inline
+an explicit file tag. For images to display in the HUD, use the inline
 image format below.
 
 ### Required link format
@@ -149,7 +149,7 @@ to:
 3. Do not emit traversal segments like `..` in `src`.
 4. Do not include a leading slash in `src`.
 
-## Inline images in the browser HUD
+## Inline images in the HUD
 
 Present images alongside your explanation using Markdown image syntax:
 
@@ -169,7 +169,6 @@ works. Ordinary file links remain links rather than automatically becoming image
 Save images intended for later viewing as project artifacts before presenting
 them. Pasted reply attachments are temporary and disappear after the run's workers
 stop; do not rely on those paths for lasting output. Remote URLs can also expire.
-The desktop HUD does not yet render these previews.
 
 ## HUD message formatting (markdown + HTML)
 
@@ -190,7 +189,7 @@ These render as expected:
 - Links (external `http(s)` links open in a new tab)
 - GFM tables (`| col | col |` with a `| --- | --- |` separator row)
 - The `<file src="...">label</file>` tag described above
-- Images in the browser HUD, using the inline image format described above
+- Images, using the inline image format described above
 
 Raw HTML using the elements above is fine (for example, a hand-written
 `<table>...</table>`); GFM markdown syntax is preferred where it exists.

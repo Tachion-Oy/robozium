@@ -1,7 +1,7 @@
 // Copied from web/app/components/hud/run/AgentMessagePanel.tsx at 86ef5c1.
 // Adapted: content types come from the desktop HUD view. The illustration
 // follows web at af87bea, named by a class because the renderer CSP forbids
-// inline styles.
+// inline styles. Inline images follow web at 2a0c183.
 import { useEffect, useRef } from "react"
 import type { ContentType } from "../../hud/hud-view"
 import { HudMarkdown } from "./HudMarkdown"
@@ -19,9 +19,10 @@ export type AgentMessage = {
 
 type AgentMessagePanelProps = {
 	message: AgentMessage
+	hubFileUrl?: (path: string) => string
 }
 
-export function AgentMessagePanel({ message }: AgentMessagePanelProps) {
+export function AgentMessagePanel({ message, hubFileUrl }: AgentMessagePanelProps) {
 	const scrollRef = useRef<HTMLDivElement>(null)
 
 	useEffect(() => {
@@ -35,6 +36,10 @@ export function AgentMessagePanel({ message }: AgentMessagePanelProps) {
 		<div className="agent-hud__replyBox agent-hud__replyBox--agent">
 			<div
 				className="agent-hud__replyBox-scroll"
+				onLoadCapture={() => {
+					const element = scrollRef.current
+					if (element && message.mode === "streaming") element.scrollTop = element.scrollHeight
+				}}
 				ref={scrollRef}>
 				{message.illustration ? (
 					<span
@@ -50,7 +55,7 @@ export function AgentMessagePanel({ message }: AgentMessagePanelProps) {
 						{message.content}
 					</pre>
 				) : (
-					<HudMarkdown>{message.content}</HudMarkdown>
+					<HudMarkdown key={message.id} hubFileUrl={hubFileUrl}>{message.content}</HudMarkdown>
 				)}
 			</div>
 		</div>

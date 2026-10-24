@@ -581,7 +581,8 @@ test("agent Markdown renders sanitized and its links open outside the window", a
 	const agent = page.locator(".agent-hud__replyBox--agent")
 	await expect(agent.getByRole("heading", { name: "Report" })).toBeVisible()
 	await expect(agent.locator("strong")).toHaveText("Bold")
-	await expect(agent.locator("img")).toHaveCount(0)
+	// The image keeps its source but loses the handler.
+	await expect(agent).toContainText("Image — Image unavailable")
 	const url = page.url()
 	// Main opens the target outside the window, which never navigates.
 	for (const name of ["External", "the report"]) {

@@ -33,6 +33,7 @@ import { useDependencies } from "../../dependencies/useDependencies"
 import { useRunSession } from "../../session/useRunSession"
 import { useRunMutations } from "../../session/useRunMutations"
 import { useReplyImages } from "../../attachments/useReplyImages"
+import { hubFileUrl } from "../../attachments/attachments-api"
 import { useDictation } from "../../dictation/useDictation"
 import { runLabels } from "../../hud/hud-view"
 import { selectRunDisplay } from "../../session/session-reducer"
@@ -169,7 +170,8 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 						cancel={{ isPending: cancelling, available: Boolean(session && !isTerminal(session.run.status)),
 							onTrigger: () => { if (session && !cancelling) void projectMutations.cancel(session.run.project) } }}
 						interrupt={{ isPending: runMutations.interrupting, available: runMutations.canInterrupt,
-							onTrigger: () => void runMutations.interrupt() }} />
+							onTrigger: () => void runMutations.interrupt() }}
+						hubFileUrl={client ? path => hubFileUrl(client, path) : undefined} />
 				</div>
 			case "projects":
 				return client
