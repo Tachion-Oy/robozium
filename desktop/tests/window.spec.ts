@@ -86,7 +86,7 @@ test("repeated toggles are idempotent and invalid IPC payloads cannot resize the
 })
 
 test("the log's window minima match the desktop.css pane layout", async () => {
-	const css = await readFile(path.join(__dirname, "../renderer/src/ui/styles/desktop.css"), "utf8")
+	const css = await readFile(path.join(import.meta.dirname, "../renderer/src/ui/styles/desktop.css"), "utf8")
 	expect(css).toContain("grid-template-columns: minmax(640px, 3fr) minmax(480px, 2fr)")
 	expect(css).toContain(`@container desktop-workspace (width < ${LOG_SIDE_WIDTH}px)`)
 	expect(css).toContain("grid-template-rows: minmax(336px, 3fr) minmax(224px, 2fr)")

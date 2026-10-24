@@ -3,10 +3,10 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, sy
 import { tmpdir } from "node:os"
 import path from "node:path"
 import process from "node:process"
-import { test } from "node:test"
-import { checkHubFolderChoice, HubFolderError, recordedHubFolder, resolveHubFolder } from "../../dist/hub-folder.js"
+import { test, type TestContext } from "node:test"
+import { checkHubFolderChoice, HubFolderError, recordedHubFolder, resolveHubFolder } from "../../src/hub-folder.ts"
 
-function fixture(t) {
+function fixture(t: TestContext) {
 	const directory = mkdtempSync(path.join(tmpdir(), "robozium-hub-folder-"))
 	t.after(() => rmSync(directory, { recursive: true, force: true }))
 	const profile = path.join(directory, "profile")

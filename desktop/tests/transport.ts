@@ -10,7 +10,7 @@ declare global {
 
 /** Execute the actual client in the native renderer without production test controls. */
 export async function installTestClient(page: Page, baseUrl: string) {
-	const source = await readFile(path.resolve(__dirname, "../renderer/src/api/client.ts"), "utf8")
+	const source = await readFile(path.resolve(import.meta.dirname, "../renderer/src/api/client.ts"), "utf8")
 	const { outputText } = transpileModule(source, { compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2022 } })
 	await page.evaluate(`(() => { const exports = {}; ${outputText}\nwindow.testApi = new exports.DesktopApiClient(${JSON.stringify(baseUrl)}); })()`)
 }

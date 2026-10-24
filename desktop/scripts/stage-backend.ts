@@ -6,17 +6,17 @@ import { fileURLToPath } from "node:url"
 
 // Adapted from experiment 076b2c9. Never traverse private runtime directories.
 export function stageBackend(root = path.resolve(import.meta.dirname, "../..")) {
-	const inputs = []
-	function inspect(relative) {
+	const inputs: [source: string, destination: string][] = []
+	function inspect(relative: string) {
 		const stat = fs.lstatSync(path.join(root, relative))
 		if (stat.isSymbolicLink()) throw new Error(`Staging rejects symlinks: ${relative}`)
 		return stat
 	}
-	function file(source, destination = source) {
+	function file(source: string, destination = source) {
 		if (!inspect(source).isFile()) throw new Error(`Expected a regular file: ${source}`)
 		inputs.push([source, destination])
 	}
-	function pythonSources(directory) {
+	function pythonSources(directory: string) {
 		if (!inspect(directory).isDirectory()) throw new Error(`Expected a directory: ${directory}`)
 		for (const name of fs.readdirSync(path.join(root, directory)).sort()) {
 			const relative = path.join(directory, name)

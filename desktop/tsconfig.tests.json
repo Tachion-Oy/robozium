@@ -2,8 +2,12 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": false,
     "rootDir": ".",
     "noEmit": true
   },
-  "include": ["tests/**/*.ts", "lifecycle-tests/**/*.ts", "playwright.lifecycle.config.ts", "playwright.config.ts", "src/bridge.d.ts"]
+  "include": ["tests/**/*.ts", "lifecycle-tests/**/*.ts", "playwright.lifecycle.config.ts", "playwright.config.ts", "src/bridge.ts"]
 }

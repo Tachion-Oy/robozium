@@ -1,10 +1,10 @@
 import path from "node:path"
-import { locations } from "./backend-layout.cjs"
+import { locations } from "./backend-layout.ts"
 
 interface LocationInputs {
 	/** Electron's `app.isPackaged`. */
 	packaged: boolean
-	/** Directory of the compiled main process (`__dirname`). */
+	/** Directory of the compiled main process (`import.meta.dirname`). */
 	appDirectory: string
 	/** Electron's `process.resourcesPath`; plain files packaged beside the app archive. */
 	resourcesPath: string

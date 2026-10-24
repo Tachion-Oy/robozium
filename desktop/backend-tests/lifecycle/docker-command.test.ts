@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import process from "node:process"
-import { runCommand } from "../../dist/docker-command.js"
+import { runCommand } from "../../src/docker-command.ts"
 
 const options = () => ({ cwd: process.cwd(), env: {}, signal: new globalThis.AbortController().signal })
 test("command output is bounded, stderr stays out of JSON, and arguments never enter a shell", async () => {
@@ -23,7 +23,7 @@ test("timeouts terminate a running command", async () => {
 
 test("cancellation waits for a stubborn process to be killed", async () => {
 	const abort = new globalThis.AbortController()
-	let pid
+	let pid = 0
 	const command = runCommand(process.execPath, ["-e", 'process.on("SIGTERM", () => {}); console.log(process.pid); setInterval(() => {}, 1000)'], {
 		...options(), signal: abort.signal, log: text => { pid = Number(text.trim()); abort.abort() },
 	})

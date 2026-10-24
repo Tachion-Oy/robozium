@@ -1,7 +1,7 @@
 import { accessSync, constants, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs"
 import path from "node:path"
-import { isInside, locations } from "./backend-layout.cjs"
-import type { HubFolderLocation } from "./locations"
+import { isInside, locations } from "./backend-layout.ts"
+import type { HubFolderLocation } from "./locations.ts"
 
 /** A hub folder that cannot be used; the user must reconnect it or choose another. */
 export class HubFolderError extends Error {}

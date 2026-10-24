@@ -126,7 +126,7 @@ npm --prefix desktop run test:electron
 ```
 
 On Linux, `test:electron` and `test:backend:electron` run Playwright on a private
-Xvfb display (`scripts/virtual-display.mjs`; install `xvfb`), so test windows
+Xvfb display (`scripts/virtual-display.ts`; install `xvfb`), so test windows
 never take over your screen, with or without a desktop session. The suite uses one
 worker and no retries, checks the version bridge and renderer isolation,
 rejects untrusted IPC senders and navigation, and verifies native close and
@@ -323,7 +323,7 @@ that must both pass.
 
 ## Desktop backend checks
 
-With Linux Docker Engine/Compose and Node.js 22.12 or newer:
+With Linux Docker Engine/Compose and Node.js 22.18 or newer:
 
 ```sh
 npm --prefix desktop run test:backend
@@ -463,7 +463,7 @@ waits for the packaged backend to report ready, checks that the profile was
 created in `~/.config/Robozium`, then sends the app SIGTERM and requires it to
 exit with no backend container left running. On failure it uploads the app log
 and the profile's runtime logs. Profile and resource locations for installed and
-checkout runs are unit-tested in `backend-tests/lifecycle/locations.test.mjs`.
+checkout runs are unit-tested in `backend-tests/lifecycle/locations.test.ts`.
 
 ## Full E2E policy
 
@@ -527,11 +527,12 @@ npm --prefix desktop run test:backend:lifecycle
 npm --prefix desktop run test:backend:electron
 ```
 
-The lifecycle unit suite compiles Electron main and exercises the controller with
-scripted Docker/HTTP boundaries and real temporary files. It checks discovery
-failure, Compose/daemon requirements, installation identity and legacy settings,
-image reuse/rebuild, occupied ports, label/mount ownership, readiness failure and
-retry, cancellation during build/start/readiness, and shutdown ownership rechecks.
+The lifecycle unit suite runs Electron main's sources directly and exercises the
+controller with scripted Docker/HTTP boundaries and real temporary files. It
+checks discovery failure, Compose/daemon requirements, installation identity and
+legacy settings, image reuse/rebuild, occupied ports, label/mount ownership,
+readiness failure and retry, cancellation during build/start/readiness, and
+shutdown ownership rechecks.
 Docker target tests preserve explicit context/host/TLS settings across retries
 and reject failed or empty context resolution before changing containers.
 Process tests execute disposable Node children to check bounded output, argument

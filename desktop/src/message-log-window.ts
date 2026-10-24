@@ -1,7 +1,7 @@
 // Copied from robozium-electron/desktop/electron/message-log-window.cjs at 076b2c9.
 // Adapted: TypeScript, and the pane minima are named so tests can match them
 // against the desktop.css layout.
-import { windowLimits, type Size, type WorkArea } from "./window"
+import { windowLimits, type Size, type WorkArea } from "./window.ts"
 
 /** CSS pixel minima of the log layouts in desktop.css: HUD + log side by side, or stacked. */
 export const LOG_SIDE_WIDTH = 640 + 480
@@ -27,6 +27,8 @@ export interface LogWindowTarget {
 	webContents: { getZoomFactor(): number }
 }
 
+type DisplayLookup = (bounds: Bounds) => { workArea: WorkArea & { x: number; y: number } }
+
 /** Own temporary native expansion independently of document reloads. */
 export class MessageLogWindow {
 	open = false
@@ -34,11 +36,13 @@ export class MessageLogWindow {
 	private baseline: Size | null = null
 	private applying = false
 	private expected: Size | null = null
+	private readonly window: LogWindowTarget
+	private readonly display: DisplayLookup
 
-	constructor(
-		private readonly window: LogWindowTarget,
-		private readonly display: (bounds: Bounds) => { workArea: WorkArea & { x: number; y: number } },
-	) {}
+	constructor(window: LogWindowTarget, display: DisplayLookup) {
+		this.window = window
+		this.display = display
+	}
 
 	private maximum(): Size {
 		const bounds = this.window.getBounds()

@@ -5,11 +5,11 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
-export const desktopRoot = path.resolve(__dirname, "..")
+export const desktopRoot = path.resolve(import.meta.dirname, "..")
 // Use Xvfb even when the host has Wayland; keep screenshot density reproducible.
 export const launchArgs = [desktopRoot, "--preview", "--ozone-platform=x11", "--force-device-scale-factor=1"]
 export const documentUrl = "robozium://app/index.html"
-export const preload = path.join(desktopRoot, "dist/preload.js")
+export const preload = path.join(desktopRoot, "dist/preload.cjs")
 
 export const test = base.extend<{ launchSwitches: string[]; desktop: { app: ElectronApplication; page: Page } }>({
 	/** Extra Chromium switches, such as a fake microphone. */

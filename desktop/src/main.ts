@@ -1,15 +1,15 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme, protocol, screen, shell, type IpcMainInvokeEvent } from "electron"
 import { mkdirSync } from "node:fs"
 import path from "node:path"
-import { BackendController } from "./backend-controller"
-import { registerRendererProtocol, rendererUrl } from "./renderer-protocol"
-import { MessageLogWindow } from "./message-log-window"
-import { externalUrl, hubFilePath } from "./links"
-import { checkHubFolderChoice, recordedHubFolder, saveHubFolder } from "./hub-folder"
-import { permissionAllowed, permissionRequestAllowed } from "./security"
-import { desktopLocations } from "./locations"
-import { isAppTheme, readSettings, saveSettings, themeBackground, type DesktopSettings } from "./settings"
-import { boundedSize, DEFAULT_SIZE, nextZoom, windowLimits, zoomShortcut } from "./window"
+import { BackendController } from "./backend-controller.ts"
+import { registerRendererProtocol, rendererUrl } from "./renderer-protocol.ts"
+import { MessageLogWindow } from "./message-log-window.ts"
+import { externalUrl, hubFilePath } from "./links.ts"
+import { checkHubFolderChoice, recordedHubFolder, saveHubFolder } from "./hub-folder.ts"
+import { permissionAllowed, permissionRequestAllowed } from "./security.ts"
+import { desktopLocations } from "./locations.ts"
+import { isAppTheme, readSettings, saveSettings, themeBackground, type DesktopSettings } from "./settings.ts"
+import { boundedSize, DEFAULT_SIZE, nextZoom, windowLimits, zoomShortcut } from "./window.ts"
 
 protocol.registerSchemesAsPrivileged([
 	{ scheme: "robozium", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
@@ -19,7 +19,7 @@ app.setName("Robozium")
 const preview = process.argv.includes("--preview")
 const mode = process.argv.includes("--mock") ? "mock" : "live"
 const { profile, source, compose, hubFolder } = desktopLocations({
-	packaged: app.isPackaged, appDirectory: __dirname, resourcesPath: process.resourcesPath,
+	packaged: app.isPackaged, appDirectory: import.meta.dirname, resourcesPath: process.resourcesPath,
 	userData: app.getPath("userData"), home: app.getPath("home"), mode, preview,
 	profileOverride: process.env.ROBOZIUM_DESKTOP_TEST_DATA,
 })
@@ -43,7 +43,7 @@ async function start(): Promise<void> {
 		show: false,
 		backgroundColor: themeBackground[theme],
 		webPreferences: {
-			preload: path.join(__dirname, "preload.js"),
+			preload: path.join(import.meta.dirname, "preload.cjs"),
 			additionalArguments: [`--robozium-theme=${theme}`],
 			zoomFactor: settings.zoom,
 			sandbox: true,
