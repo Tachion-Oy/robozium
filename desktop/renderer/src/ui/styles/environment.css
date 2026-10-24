@@ -41,3 +41,29 @@
 :root[data-theme="light"] .agent-hud__environment .agent-hud__table-scroll {
   padding-inline: 0;
 }
+
+/* The key file's password prompt: centred over the dimmed HUD, opaque in both themes. */
+.agent-hud__key-file-dialog {
+  /* The base reset zeroes margins; the top layer centres a dialog only with auto margins. */
+  margin: auto;
+  width: min(34rem, calc(100vw - 4rem));
+  padding: 1.5rem;
+  border: 1px solid var(--term-blue);
+  background: linear-gradient(var(--hud-box-bg), var(--hud-box-bg)), var(--term-bg);
+  color: var(--hud-text);
+  font: inherit;
+  box-shadow: var(--term-glow-blue);
+}
+
+.agent-hud__key-file-dialog::backdrop {
+  background: rgb(0 0 0 / 0.6);
+}
+
+.agent-hud__key-file-dialog [role="alert"] {
+  color: var(--term-red);
+}
+
+.agent-hud__key-file-dialog .agent-hud__project-input:focus-visible {
+  outline: 2px solid var(--term-blue);
+  outline-offset: 2px;
+}
