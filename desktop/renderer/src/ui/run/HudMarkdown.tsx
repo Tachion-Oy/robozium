@@ -1,12 +1,15 @@
-// Copied from web/app/components/hud/run/HudMarkdown.tsx at 86ef5c1.
+// Copied from web/app/components/hud/run/HudMarkdown.tsx at 2a0c183.
 // Adapted: links open through the desktop bridge instead of navigating; a file
-// link names its hub-relative path.
+// link names its hub-relative path, and images render through HudImage.
 import type { MouseEvent, ReactNode } from "react"
 import { openExternalLink, openHubFile } from "../../links/open-link"
 import ReactMarkdown from "react-markdown"
 import rehypeRaw from "rehype-raw"
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize"
 import remarkGfm from "remark-gfm"
+import { joinHubPath } from "../../links/hub-path"
+import { resolveHudImageSource } from "../../links/hud-images"
+import { HudImage, HudImageLinkContext } from "./HudImage"
 
 type HudMarkdownProps = {
 	children: string
@@ -17,6 +20,7 @@ type HudRendererProps = {
 	children?: ReactNode
 	href?: string
 	src?: string
+	alt?: string
 	className?: string
 }
 
@@ -152,24 +156,12 @@ const HUD_ALLOWED_ELEMENTS = [
 	"th",
 	"td",
 	"file",
+	"img",
 ]
 
 function toHubFilePath(src: string): string | null {
 	const trimmed = src.trim()
-	if (!trimmed || trimmed.startsWith("/")) {
-		return null
-	}
-
-	const segments = trimmed.split("/")
-	if (
-		segments.some(
-			(segment) => !segment || segment === "." || segment === "..",
-		)
-	) {
-		return null
-	}
-
-	return segments.join("/")
+	return trimmed.startsWith("/") ? null : joinHubPath(trimmed.split("/"))
 }
 
 function isExternalHttpUrl(href: string): boolean {
@@ -181,7 +173,9 @@ function isExternalHttpUrl(href: string): boolean {
 	}
 }
 
-function transformHudLinkUrl(url: string): string | null {
+function transformHudLinkUrl(url: string, key: string, node: HudHastNode): string | null {
+	// HudImage resolves the kept source to a hub file or web address.
+	if (node.tagName === "img" && key === "src") return resolveHudImageSource(url) ? url : null
 	const trimmed = url.trim()
 
 	if (!trimmed) {
@@ -220,7 +214,7 @@ function HudFileLink({
 			className="agent-hud__markdown-link"
 			href={path}
 			onClick={opening(() => openHubFile(path))}>
-			{children}
+			<HudImageLinkContext value={true}>{children}</HudImageLinkContext>
 		</a>
 	)
 }
@@ -229,6 +223,7 @@ const HUD_MARKDOWN_COMPONENTS: Record<
 	string,
 	(props: HudRendererProps) => ReactNode
 > = {
+	img: ({ src, alt }) => <HudImage key={src} src={src} alt={alt} />,
 	file: ({ children, src }) => (
 		<HudFileLink src={src}>{children}</HudFileLink>
 	),
@@ -240,7 +235,7 @@ const HUD_MARKDOWN_COMPONENTS: Record<
 				className="agent-hud__markdown-link"
 				href={href}
 				onClick={opening(() => openExternalLink(href))}>
-				{children}
+				<HudImageLinkContext value={true}>{children}</HudImageLinkContext>
 			</a>
 		)
 	},

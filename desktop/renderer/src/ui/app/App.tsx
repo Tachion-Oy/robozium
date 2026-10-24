@@ -1,7 +1,8 @@
 // Compose feature state into the reference HUD frame; keep navigation and draft ownership here.
-import { useReducer, useState, type ReactNode } from "react"
+import { useMemo, useReducer, useState, type ReactNode } from "react"
 import { ViewPlaceholder } from "./ViewPlaceholder"
 import { RunHud } from "../run/RunHud"
+import { HubFileUrlContext } from "../run/HudImage"
 import { ToastViewport } from "../feedback/ToastViewport"
 import { AgentHud } from "../hud/AgentHud"
 import { MessageLog } from "../log/MessageLog"
@@ -33,6 +34,7 @@ import { useDependencies } from "../../dependencies/useDependencies"
 import { useRunSession } from "../../session/useRunSession"
 import { useRunMutations } from "../../session/useRunMutations"
 import { useReplyImages } from "../../attachments/useReplyImages"
+import { hubFileUrl } from "../../attachments/attachments-api"
 import { useDictation } from "../../dictation/useDictation"
 import { runLabels } from "../../hud/hud-view"
 import { selectRunDisplay } from "../../session/session-reducer"
@@ -97,6 +99,7 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 	const runEnded = Boolean(session?.run.synchronized && isTerminal(session.run.status))
 	// Above the screens, so switching views keeps the staged images.
 	const replyImages = useReplyImages(client, session?.run.runId ?? null, runEnded)
+	const fileUrl = useMemo(() => client ? (path: string) => hubFileUrl(client, path) : null, [client])
 	const hasRun = client ? session !== null : hasPreview
 	const [draft, setDraft] = useState("")
 	// As in the reference, a transcript joins the draft after a space.
@@ -162,14 +165,16 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 			case "run":
 				return <div className="agent-hud__run-view">
 					{session && <p className="sr-only" role="status" aria-label="Run status">{session.run.project} · {status}</p>}
-					<RunHud key={session?.run.runId ?? "preview"} draft={draft} onDraftChange={setDraft} images={replyImages} dictation={dictation}
-						layoutMode={layout} display={display} awaitingInput={client ? Boolean(session?.run.prompt) : true}
-						focusOnOpen={focusRunEditor} onSelect={client ? runSession.select : setSelectedMessage}
-						reply={{ available: runMutations.canReply, submitting: runMutations.replying, submit: runMutations.reply }}
-						cancel={{ isPending: cancelling, available: Boolean(session && !isTerminal(session.run.status)),
-							onTrigger: () => { if (session && !cancelling) void projectMutations.cancel(session.run.project) } }}
-						interrupt={{ isPending: runMutations.interrupting, available: runMutations.canInterrupt,
-							onTrigger: () => void runMutations.interrupt() }} />
+					<HubFileUrlContext value={fileUrl}>
+						<RunHud key={session?.run.runId ?? "preview"} draft={draft} onDraftChange={setDraft} images={replyImages} dictation={dictation}
+							layoutMode={layout} display={display} awaitingInput={client ? Boolean(session?.run.prompt) : true}
+							focusOnOpen={focusRunEditor} onSelect={client ? runSession.select : setSelectedMessage}
+							reply={{ available: runMutations.canReply, submitting: runMutations.replying, submit: runMutations.reply }}
+							cancel={{ isPending: cancelling, available: Boolean(session && !isTerminal(session.run.status)),
+								onTrigger: () => { if (session && !cancelling) void projectMutations.cancel(session.run.project) } }}
+							interrupt={{ isPending: runMutations.interrupting, available: runMutations.canInterrupt,
+								onTrigger: () => void runMutations.interrupt() }} />
+					</HubFileUrlContext>
 				</div>
 			case "projects":
 				return client
