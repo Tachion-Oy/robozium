@@ -20,9 +20,9 @@
     "backend:stage": "node scripts/stage-backend.mjs",
     "test:backend": "node --test backend-tests/*.test.mjs",
     "test:backend:lifecycle": "tsc -p tsconfig.json && node --test backend-tests/lifecycle/*.test.mjs",
-    "test:backend:electron": "npm run backend:stage && npm run build && playwright test --config playwright.lifecycle.config.ts",
+    "test:backend:electron": "npm run backend:stage && npm run build && node scripts/virtual-display.mjs playwright test --config playwright.lifecycle.config.ts",
     "test:backend:docker": "node backend-tests/smoke.mjs",
-    "test:electron": "npm run build && playwright test"
+    "test:electron": "npm run build && node scripts/virtual-display.mjs playwright test"
   },
   "dependencies": {
     "@fontsource-variable/sixtyfour": "5.3.0",
