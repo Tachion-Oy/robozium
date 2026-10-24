@@ -25,6 +25,24 @@ Set `ROBOZIUM_WEB_PORT` in `.env` to change the web port. The API listens on
 `127.0.0.1:8000`; the web app also binds to loopback. Ctrl+C stops the app
 without deleting project data.
 
+### Desktop app on Debian and Ubuntu
+
+The desktop app installs with apt and upgrades with `sudo apt upgrade`. It needs
+Docker and an x86-64 (amd64) machine. Add the signed repository once:
+
+```sh
+sudo install -d /etc/apt/keyrings
+curl -fsSL https://raw.githubusercontent.com/Tachion-Oy/robozium/main/desktop/packaging/robozium-archive-keyring.asc \
+  | sudo tee /etc/apt/keyrings/robozium.asc >/dev/null
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/robozium.asc] https://github.com/Tachion-Oy/robozium/releases/latest/download ./" \
+  | sudo tee /etc/apt/sources.list.d/robozium.list
+sudo apt update && sudo apt install robozium-desktop
+```
+
+Upgrades replace only the installed program. Settings, environment variables,
+encrypted keys and installed tools stay in `~/.config/Robozium`, and projects
+stay in the hub folder.
+
 ### Optional encrypted credentials
 
 In the HUD's **Environment** panel, save API keys as secrets in `.env.encrypt`,
