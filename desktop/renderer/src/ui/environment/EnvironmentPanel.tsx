@@ -1,18 +1,22 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentPanel.tsx at 076b2c9.
-// Adapted: the environment owner arrives as a prop from App, so unsaved edits
-// survive leaving the screen, and App supplies the restart action.
+// Adapted: the draft and its writes arrive as props from App, so unsaved edits
+// survive leaving the screen, and App supplies the restart action. A key file
+// row adopts an existing .env.encrypt.
 import { type KeyboardEvent } from "react"
-import type { EnvironmentEditorState } from "../../environment/useEnvironmentEditor"
+import type { EnvironmentDraft } from "../../environment/useEnvironmentDraft"
+import type { EnvironmentMutations } from "../../environment/useEnvironmentMutations"
 import { HudButton } from "../hud/HudButton"
 import { EnvironmentFolderImport } from "./EnvironmentFolderImport"
+import { EnvironmentKeyFileImport } from "./EnvironmentKeyFileImport"
 import { EnvironmentRestart } from "./EnvironmentRestart"
 import { EnvironmentImportList } from "./EnvironmentImportList"
 import { EnvironmentSaveForm } from "./EnvironmentSaveForm"
 import { EnvironmentVariableEditor } from "./EnvironmentVariableEditor"
 import { EnvironmentVariableList } from "./EnvironmentVariableList"
 
-export function EnvironmentPanel({ environment, onRestart }: {
-	environment: EnvironmentEditorState
+export function EnvironmentPanel({ environment, mutations, onRestart }: {
+	environment: EnvironmentDraft
+	mutations: EnvironmentMutations
 	onRestart: () => Promise<void>
 }) {
 	const { view, editor, editable, loadFailed } = environment
@@ -38,9 +42,15 @@ export function EnvironmentPanel({ environment, onRestart }: {
 			{view && !view.editable && <p role="status">Stop all runs and background work before editing.</p>}
 			<div className="agent-hud__table-scroll min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]">
 				<fieldset disabled={!editable} className="flex min-w-0 flex-col gap-4 pe-3">
+					<h3 className="agent-hud__capability-group-heading">Key file</h3>
+					<EnvironmentKeyFileImport
+						disabled={!editable || editor !== null}
+						replacing={(view?.entries.length ?? 0) > 0}
+						onReplace={async (file, password) => view ? mutations.replaceFile(file, password, view.revision) : "Settings cannot be changed right now."}
+					/>
 					<EnvironmentFolderImport
 						disabled={!editable || editor !== null}
-						onImport={environment.importPackage}
+						onImport={mutations.importPackage}
 					/>
 					<h3 className="agent-hud__capability-group-heading">Variables</h3>
 					<EnvironmentVariableList
@@ -65,15 +75,15 @@ export function EnvironmentPanel({ environment, onRestart }: {
 			<EnvironmentSaveForm
 				editable={editable}
 				dirty={environment.dirty}
-				pending={environment.saving}
+				pending={mutations.saving}
 				needsPassword={environment.needsPassword}
 				confirmPassword={!view?.requires_password}
 				canReset={environment.canReset}
 				onValidate={environment.validateSave}
-				onSave={environment.save}
-				onReset={environment.reset}
+				onSave={async password => view ? mutations.save(password, environment.currentEntries, view.revision) : false}
+				onReset={mutations.reset}
 			/>
-			<EnvironmentRestart required={environment.restartRequired} importedPending={view?.imports.some(item => !item.active) ?? false}
+			<EnvironmentRestart required={mutations.restartRequired} importedPending={view?.imports.some(item => !item.active) ?? false}
 				dirty={environment.dirty || editor !== null} onRestart={onRestart} />
 			{view && view.overrides.length > 0 && <p>Manual .env overrides: {view.overrides.join(", ")}.</p>}
 		</section>

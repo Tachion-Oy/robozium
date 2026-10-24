@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain, nativeTheme, protocol, screen, shell, type IpcMainInvokeEvent } from "electron"
+import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme, protocol, screen, shell, type IpcMainInvokeEvent } from "electron"
 import { mkdirSync } from "node:fs"
 import path from "node:path"
 import { BackendController } from "./backend-controller"
@@ -209,6 +209,8 @@ async function main(): Promise<void> {
 		await start()
 	} catch (error) {
 		console.error("Robozium could not start:", error)
+		// Without a window the failure would otherwise be visible only in a terminal.
+		dialog.showErrorBox("Robozium could not start", error instanceof Error ? error.message : String(error))
 		app.exit(1)
 	}
 }

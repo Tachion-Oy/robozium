@@ -1,6 +1,6 @@
 // Own the displayed run's subscription lifetime for the app, surviving view changes.
 // Reducers own data and presentation; this hook owns requests, cancellation and stale callbacks.
-// Launching a run belongs to projects/useProjectLaunch, which hands the new run to open;
+// Launching a run belongs to projects/useProjectMutations, which hands the new run to open;
 // writes to the displayed run belong to useRunMutations, bound to this hook's scope.
 import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"

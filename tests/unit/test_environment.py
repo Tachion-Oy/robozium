@@ -9,7 +9,7 @@ import pytest
 from config_support import write_config
 from dotenv import dotenv_values
 from fastapi.testclient import TestClient
-from roboz.endpoints import decrypt_env_values
+from roboz.endpoints import decrypt_env_values, encrypt_env_values, serialize_env
 
 from robozium.api.app import create_app
 from robozium.hub.utils import load_hub
@@ -64,6 +64,24 @@ def save(client, entries, password=None, revision=None):
             "entries": entries,
             "password": password,
         },
+    )
+
+
+def key_file(values, password="password", secret_names=None):
+    secret = set(values) if secret_names is None else secret_names
+    return serialize_env(
+        encrypt_env_values(values, secret_names=secret, password=password)
+    ).encode()
+
+
+def replace_file(client, content, password="password", revision=None):
+    data = {"revision": revision or client.get(URL).json()["revision"]}
+    if password is not None:
+        data["password"] = password
+    return client.post(
+        URL + "/file",
+        data=data,
+        files={"file": (".env.encrypt", content, "application/octet-stream")},
     )
 
 
@@ -303,6 +321,7 @@ def test_queued_run_blocks_saving_and_import(client):
     client.post("/run/create", json={"project": "busy"})
     assert client.get(URL).json()["editable"] is False
     assert save(client, []).status_code == 409
+    assert replace_file(client, key_file({"TOKEN": "synthetic"})).status_code == 409
     assert upload(client).status_code == 409
     assert client.delete(URL).status_code == 409
     client.post("/projects/busy/cancel")
@@ -565,3 +584,47 @@ def test_invalid_upload_headers_are_rejected_before_copying(
     assert response.status_code == status
     assert response.headers["cache-control"] == "no-store"
     assert not (tmp_path / "local").exists()
+
+
+def test_key_file_replaces_settings_only_when_its_password_opens_it(client, tmp_path):
+    path = tmp_path / ".env.encrypt"
+    path.write_text("SETTING=original\n")
+    initial = client.get(URL).json()["revision"]
+    content = key_file({"TOKEN": "synthetic"})
+
+    wrong = replace_file(client, content, password="wrong")
+    assert wrong.status_code == 400
+    assert path.read_text() == "SETTING=original\n"
+
+    adopted = replace_file(client, content)
+    assert adopted.json() == {"status": "replaced", "loaded": False}
+    assert path.read_bytes() == content
+    assert decrypt_env_values(dotenv_values(path), password="password") == {
+        "TOKEN": "synthetic"
+    }
+    # Outside first-start setup, the adopted keys apply after a restart.
+    assert "TOKEN" not in os.environ
+    assert replace_file(client, content, revision=initial).status_code == 409
+    assert path.read_bytes() == content
+
+
+@pytest.mark.parametrize(
+    "content, error",
+    [
+        (b"A=1\nA=2\n", "Invalid or duplicate dotenv assignment"),
+        (b"ROBOZIUM_ENCRYPTED_ENV_PATH=elsewhere\n", "This setting is controlled by the application"),
+        (
+            key_file({"ROBOZIUM_WEB_PORT": "3000"}),
+            "Startup settings must remain unencrypted",
+        ),
+        (b"TOKEN=\xff\n", "Environment file must be UTF-8"),
+        (b"A" * (256 * 1024 + 1), "Environment file is too large"),
+    ],
+)
+def test_invalid_key_files_preserve_saved_settings(client, tmp_path, content, error):
+    path = tmp_path / ".env.encrypt"
+    path.write_text("SETTING=original\n")
+    response = replace_file(client, content)
+    assert response.status_code == 400
+    assert response.json()["detail"] == error
+    assert path.read_text() == "SETTING=original\n"

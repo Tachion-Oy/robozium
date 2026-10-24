@@ -18,14 +18,14 @@ import type { DesktopApiClient } from "../../api/client"
 import { useModels, type ModelsState } from "../../models/useModels"
 import { useProjectQuery } from "../../projects/useProjectQuery"
 import { useProjectMutations } from "../../projects/useProjectMutations"
-import { useProjectLaunch } from "../../projects/useProjectLaunch"
 import { ProjectStatus, type ProjectRow } from "../../projects/landing"
 import { useCapabilities } from "../../capabilities/useCapabilities"
 import { HudButton } from "../HudButton"
 import { UnlockApiKeys } from "../hud/UnlockApiKeys"
 import { useCredentials } from "../../credentials/useCredentials"
 import { EnvironmentPanel } from "../environment/EnvironmentPanel"
-import { useEnvironmentEditor } from "../../environment/useEnvironmentEditor"
+import { useEnvironmentDraft } from "../../environment/useEnvironmentDraft"
+import { useEnvironmentMutations } from "../../environment/useEnvironmentMutations"
 import { DependencyPanel } from "../dependencies/DependencyPanel"
 import { useDependencies } from "../../dependencies/useDependencies"
 import { useRunSession } from "../../session/useRunSession"
@@ -85,10 +85,11 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 	const messageLog = useMessageLog()
 	const credentials = useCredentials(client, connected)
 	const showRun = () => { setFocusRunEditor(true); navigate({ type: "screen_selected", screen: "run" }) }
-	const launch = useProjectLaunch(client,
-		(runId, project) => { run.open(runId, project); navigate({ type: "launch_closed" }); showRun() },
-		(name, project) => navigate({ type: "launch_created", name, project }),
-		credentials.refresh)
+	const projectMutations = useProjectMutations(client, {
+		onLaunched: (runId, project) => { run.open(runId, project); navigate({ type: "launch_closed" }); showRun() },
+		onProjectCreated: (name, project) => navigate({ type: "launch_created", name, project }),
+		onSecretsLocked: credentials.refresh,
+	})
 	const runMutations = useRunMutations(client, run, credentials.refresh)
 	const session = run.session
 	const runEnded = Boolean(session?.run.synchronized && isTerminal(session.run.status))
@@ -117,13 +118,19 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 	const backendModels = useModels(client, connected, modelRun)
 	const previewModels = usePreviewModels()
 	const models = client ? backendModels : previewModels
-	const projectMutations = useProjectMutations(client)
-	const projects = useProjectQuery(client, screen === "projects", { ...projectMutations, opening: launch.opening })
+	const projects = useProjectQuery(client, screen === "projects", projectMutations)
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
-	const environment = useEnvironmentEditor(client, screen === "environment")
+	// Each write's outcome goes to the draft declared below; it runs only after both exist.
+	const environmentMutations = useEnvironmentMutations(client, {
+		onReplaced: next => environment.replaced(next),
+		onImported: result => environment.imported(result),
+		onReset: () => environment.reset(),
+		onKeysLoaded: credentials.refresh,
+	})
+	const environment = useEnvironmentDraft(client, screen === "environment", environmentMutations)
 	const dependencies = useDependencies(client, screen === "dependencies")
 	// A launch, a disconnection or an unconfirmed model change locks navigation.
-	const navigationPending = launch.pending || !connected || models.pending
+	const navigationPending = projectMutations.launching || !connected || models.pending
 	const selectScreen = (next: HudScreen) => { setFocusRunEditor(false); navigate({ type: "screen_selected", screen: next }) }
 	const openRun = (runId: string, project: string) => { run.open(runId, project); showRun() }
 	// The HUD and the overview rows share one cancellation per project.
@@ -134,7 +141,7 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 		<div className="desktop-interim-content__notices">
 			{modelError && <p role="alert">{modelError}</p>}
 			{runError && <p role="alert">{runError}</p>}
-			{runError && <HudButton onClick={run.retry} disabled={!connected || launch.pending}>Retry output</HudButton>}
+			{runError && <HudButton onClick={run.retry} disabled={!connected || projectMutations.launching}>Retry output</HudButton>}
 			{connectionNotice}
 		</div>
 	const noticesRow = notices && <div className="desktop-interim-content desktop-interim-content--notices">{notices}</div>
@@ -155,10 +162,10 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 				</div>
 			case "projects":
 				return client
-					? <ProjectOverview projects={projects} mutations={projectMutations} navigationPending={navigationPending} isLaunching={launch.isLaunching}
+					? <ProjectOverview projects={projects} mutations={projectMutations} navigationPending={navigationPending} isLaunching={projectMutations.isLaunching}
 						currentRunId={session?.run.runId ?? null} onCurrentProjectClick={showRun} onOpenRun={openRun}
 						onSelectCapabilities={project => navigate({ type: "launch_opened", project })}
-						onLaunch={launch.launch} />
+						onLaunch={projectMutations.launch} />
 					: <ProjectOverviewPanel projects={previewProjects(hasPreview)} navigationPending={false}
 						currentRunId={hasPreview ? "preview" : null}
 						onProjectClick={() => { if (hasPreview) showRun() }} onSelectCapabilities={() => {}} onNewProject={() => {}}
@@ -169,13 +176,13 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 					disabled={navigationPending}
 					onChange={change => navigate({ type: "launch_changed", change })}
 					onCancel={() => navigate({ type: "launch_closed" })}
-					onSubmit={selection => { if (navigation.launch) void launch.launch({ ...navigation.launch, selection }) }} />
+					onSubmit={selection => { if (navigation.launch) void projectMutations.launch({ ...navigation.launch, selection }) }} />
 			case "dependencies":
 				if (client) return <DependencyPanel dependencies={dependencies} onBackendReconnect={onReconnect} />
 				// Standalone preview has no dependency monitor; it shows the placeholder.
 				return placeholder()
 			case "environment":
-				if (client) return <EnvironmentPanel environment={environment} onRestart={() => window.robozium.restartApp()} />
+				if (client) return <EnvironmentPanel environment={environment} mutations={environmentMutations} onRestart={() => window.robozium.restartApp()} />
 				// Standalone preview has no backend settings; it shows the placeholder.
 				// falls through
 			default:
@@ -197,7 +204,7 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 				layoutMode={layout} onLayoutModeChange={setLayout} messageLog={messageLog}
 				logPane={() => <MessageLog active={presentation.context === "active-run"} events={session?.run.events ?? noEvents} />}
 				header={<HudHeader presentation={presentation} onSelectScreen={selectScreen}
-					modelSelector={<ModelSelector models={models} disabled={Boolean(client && (!connected || launch.pending))} />}
+					modelSelector={<ModelSelector models={models} disabled={Boolean(client && (!connected || projectMutations.launching))} />}
 					secretsMenu={client && <UnlockApiKeys credentials={credentials} />} />}>
 				{noticesRow}
 				{renderContent()}

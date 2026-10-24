@@ -6,7 +6,13 @@ import pytest
 from config_support import write_config
 from dotenv import dotenv_values
 from fastapi.testclient import TestClient
-from roboz.endpoints import ENCRYPTED_NAMESPACE, encrypt_env, load_secrets
+from roboz.endpoints import (
+    ENCRYPTED_NAMESPACE,
+    encrypt_env,
+    encrypt_env_values,
+    load_secrets,
+    serialize_env,
+)
 
 from robozium.api.app import create_app, live_app, mock_app
 from robozium.api.credentials import credential_status
@@ -280,6 +286,40 @@ def test_first_setup_save_loads_keys_without_restart(tmp_path, monkeypatch, secr
     # Clearing forgets keys this process loaded, as after an unlock.
     assert client.post("/credentials/clear").status_code == 200
     assert ("TEST_GROQ_API_KEY" in os.environ) is not secret
+
+
+def test_first_setup_key_file_loads_keys_without_restart(tmp_path, monkeypatch):
+    write_config(tmp_path)
+    monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(tmp_path / ".env.encrypt"))
+    client = TestClient(
+        create_app(deployment=load_hub(start=tmp_path), require_credentials=True)
+    )
+    content = serialize_env(
+        encrypt_env_values(
+            {"TEST_GROQ_API_KEY": "groq-synthetic"},
+            secret_names={"TEST_GROQ_API_KEY"},
+            password="test-password",
+        )
+    ).encode()
+
+    adopted = client.post(
+        "/credentials/environment/file",
+        data={
+            "revision": client.get("/credentials/environment").json()["revision"],
+            "password": "test-password",
+        },
+        files={"file": (".env.encrypt", content, "application/octet-stream")},
+    )
+
+    assert adopted.json() == {"status": "replaced", "loaded": True}, adopted.text
+    assert os.environ["TEST_GROQ_API_KEY"] == "groq-synthetic"
+    assert client.get("/credentials").json() == {
+        "available": True,
+        "locked": False,
+        "removable": True,
+        "setup_required": False,
+    }
+    assert client.post("/run/create", json={"project": "demo"}).status_code != 423
 
 
 def test_later_saves_apply_after_restart(tmp_path, monkeypatch):

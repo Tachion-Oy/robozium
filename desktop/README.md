@@ -294,6 +294,14 @@ A refused save, for example after the settings changed elsewhere, keeps the edit
 Editing is unavailable while runs or background work are active. Unsaved edits
 survive leaving the screen.
 
+**Key file** adopts an existing `.env.encrypt`, for example from another
+install or the web runtime, so keys are never typed again: drop the file on the
+row or choose **Browse file**, enter the password it was encrypted with, and
+choose **Use key file** (**Replace saved settings** when settings exist). The
+backend accepts the file only if that password opens its secrets; a wrong
+password shows in place and keeps the file. On a fresh live start the keys load
+at once, without a restart; otherwise they apply after **Restart app**.
+
 **Browse folder** imports a tool or skill folder (a Python package with an
 `env.example` or `.env.example`); each file is uploaded with its path inside the
 folder, its variables join the list, and it is available after a restart. Saved
@@ -391,8 +399,9 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   operations. `run-payloads.ts` decodes snapshots and SSE through the same event
   validator. `run-updates.ts` coordinates concurrent streaming, serialized
   snapshots and polling with shared cleanup; `run-reducer.ts` owns backend state.
-- `renderer/src/projects/useProjectLaunch.ts` owns the launch command: project
-  creation, capability resolution and saving, and run creation.
+- `renderer/src/projects/useProjectMutations.ts` owns the launch command (project
+  creation, capability resolution and saving, and run creation) beside cancel
+  and delete.
   `renderer/src/session/useRunSession.ts` owns the displayed run's subscription.
   `session-reducer.ts` composes run reconciliation and HUD projection atomically.
   `hud/hud-reducer.ts` coordinates live text, history and selection;

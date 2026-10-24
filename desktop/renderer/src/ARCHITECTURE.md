@@ -37,15 +37,15 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | Owner | Holds | Requests |
 | --- | --- | --- |
 | `models/useModels` | Confirmed model selection | Catalogue read, selection write |
-| `projects/useProjectQuery` | Project rows and the first-load error; shows the rows with the pending writes App passes in (mutations, the opening launch) | Listing poll while visible, again after each write |
-| `projects/useProjectMutations` | This app's cancel and delete requests per project, shared by the rows and the HUD: requesting, then settling until a listing confirms them | Cancel, delete |
+| `projects/useProjectQuery` | Project rows and the first-load error; shows the rows with the pending writes App passes in (mutations and the opening launch) | Listing poll while visible, again after each write |
+| `projects/useProjectMutations` | This app's cancel and delete requests per project, shared by the rows and the HUD: requesting, then settling until a listing confirms them; one pending launch and the project it opens | Cancel, delete; create project, read and save capabilities, create run |
 | `capabilities/useCapabilities` | The open selector's catalogue and saved choices | Catalogue and selection reads |
-| `projects/useProjectLaunch` | One pending launch and the project it opens | Create project, read and save capabilities, create run |
 | `session/useRunSession` | The displayed run (`RunSession`) and its scope, which ends on open, retry, a new client or unmount | Stream and snapshot polling (`run/run-updates`) |
 | `session/useRunMutations` | One in-flight reply and one interruption of the displayed run, bound to the session scope; an accepted interruption stays pending until a snapshot shows a prompt or a stopped run | Reply, interrupt |
 | `dictation/useDictation` | One recording and its transcription; App joins the transcript to the reply draft, so a recording outlives view switches | Transcribe |
 | `attachments/useReplyImages` | The displayed run's staged reply images, from selection to acceptance; one queue orders uploads, removal, clearing and the reply that sends them, and a reopened run restores them from the backend | List, upload, delete |
-| `environment/useEnvironmentEditor` | The saved settings, this app's unsaved edits, the open editor and whether a restart is needed; built on `environment/useEnvironment`, which polls while the screen is visible | Read, save, import, reset |
+| `environment/useEnvironmentDraft` | The saved settings, polled while the screen is visible, with this app's unsaved edits and the open editor on top; App passes it each write's outcome | Read |
+| `environment/useEnvironmentMutations` | One write to the saved settings at a time, and whether a restart is needed | Save, import, key file, reset |
 | `dependencies/useDependencies` | The monitor's records, loading and load failure, and one Check Now at a time | Records read when the view opens, check |
 | `credentials/useCredentials` | The backend's secrets status (available, locked, removable) | Status read, unlock, remove |
 | `feedback/notices` | Notifications and their pause/dismiss lifetimes | None |
@@ -63,21 +63,19 @@ flowchart LR
   App["ui/app/App"] --> Models["useModels"]
   App --> Query["useProjectQuery"]
   App --> Mutations["useProjectMutations"]
-  Mutations -- "pending, revision" --> App
-  Launch -- "opening" --> App
+  Mutations -- "pending, revision, opening" --> App
   App --> Capabilities["useCapabilities"]
-  App --> Launch["useProjectLaunch"]
   App --> Session["useRunSession"]
   App --> RunMutations["useRunMutations"]
   RunMutations -- "scope, acknowledge" --> Session
   RunMutations --> RunApi
   App --> ReplyImages["useReplyImages"] --> AttachmentsApi["attachments-api"]
   App -- "image queue" --> RunMutations
-  Launch -- "run id" --> App
-  Launch --> ProjectsApi["projects-api"]
-  Launch --> CapabilitiesApi["capabilities-api"]
-  Launch --> RunApi["run-api"]
-  Launch --> Notices["feedback/notices"]
+  Mutations -- "run id" --> App
+  Mutations --> ProjectsApi["projects-api"]
+  Mutations --> CapabilitiesApi["capabilities-api"]
+  Mutations --> RunApi["run-api"]
+  Mutations --> Notices["feedback/notices"]
   Session --> Updates["run-updates"] --> RunApi
   Session --> Reducer["session-reducer"] --> RunReducer["run-reducer"]
   Reducer --> HudReducer["hud-reducer"]
