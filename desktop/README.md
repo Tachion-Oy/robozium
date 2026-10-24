@@ -357,8 +357,8 @@ npm --prefix desktop run typecheck
 npm --prefix desktop run test:electron
 ```
 
-On Linux without a display, run the tests with
-`xvfb-run -a npm --prefix desktop run test:electron`.
+On Linux the native test scripts start their own Xvfb display (`sudo apt install
+xvfb`), so test windows never appear on your screen.
 
 See the [testing guide](../docs/testing.md#electron-scaffold-checks) for diagnostics
 and CI details.
@@ -514,7 +514,7 @@ Backend validation runs separately from the native UI suite:
 npm --prefix desktop run test:backend
 npm --prefix desktop run test:backend:docker
 npm --prefix desktop run test:backend:lifecycle
-xvfb-run -a npm --prefix desktop run test:backend:electron
+npm --prefix desktop run test:backend:electron
 ```
 
 The first command checks staging and Compose with synthetic inputs. The second

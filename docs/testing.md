@@ -125,7 +125,9 @@ npm --prefix desktop ci
 npm --prefix desktop run test:electron
 ```
 
-On headless Linux, prefix the test command with `xvfb-run -a`. The suite uses one
+On Linux, `test:electron` and `test:backend:electron` run Playwright on a private
+Xvfb display (`scripts/virtual-display.mjs`; install `xvfb`), so test windows
+never take over your screen, with or without a desktop session. The suite uses one
 worker and no retries, checks the version bridge and renderer isolation,
 rejects untrusted IPC senders and navigation, and verifies native close and
 reopening. Resource checks cover built JavaScript/CSS, unknown resources,
@@ -292,7 +294,7 @@ Linux screenshot baselines live beside the native tests. Review visual changes
 against the experiment before explicitly updating them:
 
 ```sh
-xvfb-run -a npm --prefix desktop run test:electron -- --update-snapshots=all --grep 'frame fits|footer keeps'
+npm --prefix desktop run test:electron -- --update-snapshots=all --grep 'frame fits|footer keeps'
 ```
 
 Ordinary runs never create or update baselines. Run without `--update-snapshots`
@@ -313,7 +315,7 @@ CI sets `DEBUG=pw:browser` and saves combined command output in
 `.artifacts/desktop/electron-launch.log`, uploaded with failure reports. This
 includes native errors before Playwright's Electron launch resolves; the
 fixture's per-test log cannot capture that stage. For local launch debugging,
-use `DEBUG=pw:browser xvfb-run -a npm --prefix desktop run test:electron`.
+use `DEBUG=pw:browser npm --prefix desktop run test:electron`.
 
 CI checks desktop lint, types, and compilation. Full E2E runs the native suite on
 Ubuntu with Chromium sandboxing enabled, split across two Electron scaffold shards
@@ -522,7 +524,7 @@ After installing desktop dependencies:
 
 ```sh
 npm --prefix desktop run test:backend:lifecycle
-xvfb-run -a npm --prefix desktop run test:backend:electron
+npm --prefix desktop run test:backend:electron
 ```
 
 The lifecycle unit suite compiles Electron main and exercises the controller with
