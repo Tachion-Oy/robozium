@@ -1,5 +1,6 @@
 // Copied from web/app/components/hud/HudHeader.tsx at a664db2.
 // Adapted: the model selector and the secrets menu are supplied by the caller.
+// The setup lock follows web at af87bea.
 import type { ReactNode } from "react"
 import { ThemeToggle } from "../theme/ThemeToggle"
 import { HudScreenSelector } from "./HudScreenSelector"

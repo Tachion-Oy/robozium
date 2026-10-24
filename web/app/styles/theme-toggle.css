@@ -13,7 +13,7 @@
   font-size: inherit;
 }
 
-.theme-toggle.agent-hud__selector-trigger:not(:disabled):hover {
+.theme-toggle.agent-hud__selector-trigger:hover {
   --btn-edge: color-mix(in oklab, var(--term-blue) 88%, white 12%);
   --btn-fill-strength: 24%;
   color: color-mix(in oklab, var(--term-blue) 76%, white 24%);
@@ -54,7 +54,7 @@
   filter: none;
 }
 
-:root[data-theme="light"] .theme-toggle.agent-hud__selector-trigger:not(:disabled):hover,
+:root[data-theme="light"] .theme-toggle.agent-hud__selector-trigger:hover,
 :root[data-theme="light"] .theme-toggle.agent-hud__selector-trigger:focus-visible {
   border-color: color-mix(in oklab, var(--term-blue) 72%, var(--hud-control-ink));
   background: color-mix(in oklab, var(--term-blue) 16%, var(--hud-input-bg));

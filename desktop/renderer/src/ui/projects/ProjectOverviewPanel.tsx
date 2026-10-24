@@ -1,5 +1,5 @@
 // Copied from web/app/components/hud/projects/ProjectOverviewPanel.tsx at 5b06d82.
-// Adapted: import paths.
+// Adapted: import paths. The setup lock and Start Here follow web at af87bea (#121).
 import { useState } from "react"
 import {
 	isActiveRunStatus,
@@ -14,6 +14,9 @@ type ProjectOverviewPanelProps = {
 	projects: ProjectRow[]
 	currentRunId?: string | null
 	navigationPending: boolean
+	/** API keys are missing: every row is disabled and only Start Here works. */
+	locked?: boolean
+	onStartHere?: () => void
 	onProjectClick: (project: ProjectRow) => void
 	onSelectCapabilities: (project: ProjectRow) => void
 	onLaunchProject: (project: ProjectRow) => void
@@ -35,10 +38,11 @@ function formatRelative(createdAt: number): string {
 	return `${hours}h ago`
 }
 
-function statusDisplay(status: ProjectStatus): {
+function statusDisplay(status: ProjectStatus, locked: boolean): {
 	label: string
 	className: string
 } {
+	if (locked) return { label: "DISABLED", className: `${HUD_TEXT} opacity-60` }
 	switch (status) {
 		case ProjectStatus.Running:
 			return {
@@ -147,6 +151,7 @@ function RowActions({
 function ProjectRowItem({
 	project,
 	isCurrent,
+	locked,
 	onProjectClick,
 	onSelectCapabilities,
 	onLaunchProject,
@@ -155,16 +160,18 @@ function ProjectRowItem({
 }: {
 	project: ProjectRow
 	isCurrent: boolean
+	locked: boolean
 	onProjectClick: (project: ProjectRow) => void
 	onSelectCapabilities: (project: ProjectRow) => void
 	onLaunchProject: (project: ProjectRow) => void
 	onCancelRun: (project: ProjectRow) => void
 	onDeleteProject: (project: ProjectRow) => void
 }) {
-	const display = statusDisplay(project.status)
+	const display = statusDisplay(project.status, locked)
 	const canOpen =
-		isActiveRunStatus(project.status) ||
-		project.status === ProjectStatus.Dormant
+		!locked &&
+		(isActiveRunStatus(project.status) ||
+			project.status === ProjectStatus.Dormant)
 
 	return (
 		<li className="agent-hud__project-row flex items-center gap-2">
@@ -208,6 +215,7 @@ function ProjectRowItem({
 function ProjectsTable({
 	projects,
 	currentRunId,
+	locked,
 	onProjectClick,
 	onSelectCapabilities,
 	onLaunchProject,
@@ -216,6 +224,7 @@ function ProjectsTable({
 }: {
 	projects: ProjectRow[]
 	currentRunId: string | null
+	locked: boolean
 	onProjectClick: (project: ProjectRow) => void
 	onSelectCapabilities: (project: ProjectRow) => void
 	onLaunchProject: (project: ProjectRow) => void
@@ -242,6 +251,7 @@ function ProjectsTable({
 						key={project.slug}
 						project={project}
 						isCurrent={isCurrentRunRow(project, currentRunId)}
+						locked={locked}
 						onProjectClick={onProjectClick}
 						onSelectCapabilities={onSelectCapabilities}
 						onLaunchProject={onLaunchProject}
@@ -258,6 +268,8 @@ export function ProjectOverviewPanel({
 	projects,
 	currentRunId = null,
 	navigationPending,
+	locked = false,
+	onStartHere,
 	onProjectClick,
 	onSelectCapabilities,
 	onLaunchProject,
@@ -268,13 +280,14 @@ export function ProjectOverviewPanel({
 	return (
 		<div className="agent-hud__project-view flex min-h-0 w-full flex-1 flex-col gap-8">
 			<fieldset
-				disabled={navigationPending}
+				disabled={navigationPending || locked}
 				aria-busy={navigationPending}
 				className="agent-hud__table-scroll m-0 min-h-0 min-w-0 flex-1 overflow-y-auto border-0 px-2 py-0">
 				{projects.length > 0 ? (
 					<ProjectsTable
 						projects={projects}
 						currentRunId={currentRunId}
+						locked={locked}
 						onProjectClick={onProjectClick}
 						onSelectCapabilities={onSelectCapabilities}
 						onLaunchProject={onLaunchProject}
@@ -292,10 +305,10 @@ export function ProjectOverviewPanel({
 			<div className="flex justify-center">
 				<button
 					type="button"
-					onClick={onNewProject}
+					onClick={locked ? onStartHere : onNewProject}
 					disabled={navigationPending}
 					className="app-nav__cta agent-hud__start">
-					<DisplayArt name="new-project" />
+					<DisplayArt name={locked ? "start-here" : "new-project"} />
 				</button>
 			</div>
 		</div>

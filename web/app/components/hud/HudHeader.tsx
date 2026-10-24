@@ -48,7 +48,7 @@ export function HudHeader({
 				)}
 			</Suspense>
 			<div className="agent-hud__header-actions flex shrink-0 items-start gap-(--hud-actions-gap)">
-				<ThemeToggle disabled={presentation.locked} />
+				<ThemeToggle />
 				<UnlockApiKeys />
 				<HudScreenSelector
 					screen={presentation.screen}

@@ -57,7 +57,7 @@ Reviewed against `origin/main` at `b640105` (after #127).
 | 23–24 Ship | Linux packaging in progress; macOS deferred | — |
 | Toasts (step 11 follow-up) | Done | #120 |
 | 25 Image attachments | Done | #128 |
-| 26 Onboarding | Unblocked (#121 merged); not started | — |
+| 26 Onboarding | Done, with key-file adoption | #136, #137 |
 | 27 UI tweaks | Not started | — |
 | 28 Opening links | Done | #131 |
 | 29 Inline agent images | Not started (web #125) | — |
@@ -98,7 +98,7 @@ the PR that closes it.
 | Window 1260×780 default, 640×420 minimum, 90% of work area maximum, size saved | E | Done; the 90% cap applies to sizes the app picks, not to manual resizing | 22 |
 | Zoom ±0.1 within 0.5–3, saved | E | Done | 22 |
 | Second-instance focus | E | Done | 22 |
-| API-key onboarding and setup gate | W (#121, merged) | Absent | 26 |
+| API-key onboarding and setup gate | W (#121) | Done; Environment also adopts an existing `.env.encrypt` | 26 |
 | Switch the open run's model mid-run (`run_id` on `/models`) | W | Done: Current Run reads and switches its run's model | Fix |
 
 ## Presentation rules

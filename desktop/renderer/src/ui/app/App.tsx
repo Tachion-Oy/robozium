@@ -10,6 +10,7 @@ import { ModelSelector } from "../hud/ModelSelector"
 import type { LayoutMode } from "../hud/HudCornerControls"
 import { resolveHudPresentation, type HudScreen } from "../hud/hudPresentation"
 import { ProjectOverview } from "../projects/ProjectOverview"
+import { OnboardingHud } from "../onboarding/OnboardingHud"
 import { ProjectOverviewPanel } from "../projects/ProjectOverviewPanel"
 import { CapabilitySelector } from "../projects/CapabilitySelector"
 import { mockMessages, modelOptions } from "../../app/preview"
@@ -104,6 +105,8 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 	const [layout, setLayout] = useState<LayoutMode>("top")
 	const display = client ? selectRunDisplay(session) : previewDisplay(selectedMessage)
 	const status = session?.run.unavailable ? "Run unavailable" : session ? runLabels[session.run.status] : "Awaiting input"
+	// A live start without keys locks the HUD on the guide and Environment, as in the web HUD.
+	const setupRequired = Boolean(credentials.status?.setupRequired)
 	// As in the reference, a run that ends or goes missing leaves Current Run for the overview.
 	const presentation = resolveHudPresentation({
 		hasRun,
@@ -111,6 +114,7 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 		runUnavailable: Boolean(session?.run.unavailable),
 		selectedScreen: navigation.screen,
 		launch: navigation.launch,
+		setupRequired,
 	})
 	const screen = presentation.screen
 	// As in the web HUD, Current Run shows and switches its live run's model; other screens set the default.
@@ -121,11 +125,15 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 	const projects = useProjectQuery(client, screen === "projects", projectMutations)
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
 	// Each write's outcome goes to the draft declared below; it runs only after both exist.
-	const environmentMutations = useEnvironmentMutations(client, {
+	const environmentMutations = useEnvironmentMutations(client, setupRequired, {
 		onReplaced: next => environment.replaced(next),
 		onImported: result => environment.imported(result),
 		onReset: () => environment.reset(),
-		onKeysLoaded: credentials.refresh,
+		// Keys that load without a restart end setup: refresh the status and return to Runs Overview.
+		onKeysLoaded: () => {
+			credentials.refresh()
+			if (setupRequired) navigate({ type: "screen_selected", screen: "projects" })
+		},
 	})
 	const environment = useEnvironmentDraft(client, screen === "environment", environmentMutations)
 	const dependencies = useDependencies(client, screen === "dependencies")
@@ -165,12 +173,16 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 					? <ProjectOverview projects={projects} mutations={projectMutations} navigationPending={navigationPending} isLaunching={projectMutations.isLaunching}
 						currentRunId={session?.run.runId ?? null} onCurrentProjectClick={showRun} onOpenRun={openRun}
 						onSelectCapabilities={project => navigate({ type: "launch_opened", project })}
-						onLaunch={projectMutations.launch} />
+						onLaunch={projectMutations.launch} locked={presentation.locked} onStartHere={() => selectScreen("onboarding")} />
 					: <ProjectOverviewPanel projects={previewProjects(hasPreview)} navigationPending={false}
 						currentRunId={hasPreview ? "preview" : null}
 						onProjectClick={() => { if (hasPreview) showRun() }} onSelectCapabilities={() => {}} onNewProject={() => {}}
 						onLaunchProject={() => { setHasPreview(true); showRun() }}
 						onCancelRun={() => {}} onDeleteProject={() => {}} />
+			case "onboarding":
+				return <div className="agent-hud__run-view">
+					<OnboardingHud layoutMode={layout} onExit={() => selectScreen("projects")} />
+				</div>
 			case "launch":
 				return navigation.launch && <CapabilitySelector draft={navigation.launch} capabilities={capabilities}
 					disabled={navigationPending}
@@ -204,7 +216,7 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 				layoutMode={layout} onLayoutModeChange={setLayout} messageLog={messageLog}
 				logPane={() => <MessageLog active={presentation.context === "active-run"} events={session?.run.events ?? noEvents} />}
 				header={<HudHeader presentation={presentation} onSelectScreen={selectScreen}
-					modelSelector={<ModelSelector models={models} disabled={Boolean(client && (!connected || projectMutations.launching))} />}
+					modelSelector={<ModelSelector models={models} disabled={presentation.locked || Boolean(client && (!connected || projectMutations.launching))} />}
 					secretsMenu={client && <UnlockApiKeys credentials={credentials} />} />}>
 				{noticesRow}
 				{renderContent()}

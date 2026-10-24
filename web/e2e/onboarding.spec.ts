@@ -11,7 +11,13 @@ test("a live start without API key files locks the HUD and guides setup", async 
 	const startHere = page.getByRole("button", { name: "Start Here", exact: true })
 	await expect(startHere).toBeVisible()
 	await expect(page.getByRole("button", { name: "New Project", exact: true })).toHaveCount(0)
-	await expect(page.getByRole("button", { name: "Toggle color theme" })).toBeDisabled()
+	// The theme is a display preference, so setup leaves it available.
+	const html = page.locator("html")
+	const theme = await html.getAttribute("data-theme")
+	await page.getByRole("button", { name: "Toggle color theme" }).click()
+	await expect(html).not.toHaveAttribute("data-theme", theme ?? "")
+	await page.getByRole("button", { name: "Toggle color theme" }).click()
+	await expect(html).toHaveAttribute("data-theme", theme ?? "")
 	await expect(page.locator(".agent-hud__model-trigger").first()).toBeDisabled()
 
 	const view = page.locator(".agent-hud__view-trigger")

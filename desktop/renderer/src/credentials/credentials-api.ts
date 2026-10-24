@@ -2,8 +2,14 @@
 // useCredentials owns the status; requests here have no local state.
 import { ApiError, type DesktopApiClient } from "../api/client"
 
-// Contract from web/lib/robozium/wire.ts at 076b2c9.
-export interface CredentialStatus { available: boolean; locked: boolean; removable: boolean }
+// Contract from web/lib/robozium/wire.ts at af87bea.
+export interface CredentialStatus {
+	available: boolean
+	locked: boolean
+	removable: boolean
+	/** A live start with no saved settings or .env: provider actions wait for keys. */
+	setupRequired: boolean
+}
 
 function parseCredentialStatus(value: unknown): CredentialStatus {
 	if (!value || typeof value !== "object" || Array.isArray(value)
@@ -12,7 +18,10 @@ function parseCredentialStatus(value: unknown): CredentialStatus {
 		|| !("removable" in value) || typeof value.removable !== "boolean") {
 		throw new ApiError("malformed", "The backend returned an invalid secrets status.")
 	}
-	return { available: value.available, locked: value.locked, removable: value.removable }
+	// Older backends omit it; they never hold provider actions for setup.
+	const setupRequired = "setup_required" in value ? value.setup_required : false
+	if (typeof setupRequired !== "boolean") throw new ApiError("malformed", "The backend returned an invalid secrets status.")
+	return { available: value.available, locked: value.locked, removable: value.removable, setupRequired }
 }
 
 export async function getCredentialStatus(client: DesktopApiClient, signal: AbortSignal): Promise<CredentialStatus> {

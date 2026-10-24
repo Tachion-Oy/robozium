@@ -1,7 +1,8 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/run/HudControls.tsx at 076b2c9.
 // Adapted: `available: false` shows an action disabled until its owner arrives;
 // a pending action is busy under its own label, which a span can truncate.
-// The image picker follows web/app/components/hud/run/HudControls.tsx at 2a0c183.
+// The image picker follows web/app/components/hud/run/HudControls.tsx at 2a0c183,
+// and the setup lock web at af87bea (#121).
 import { useDesktopActionLayout } from "./useDesktopActionLayout"
 import { AudioLevelMeter } from "./AudioLevelMeter"
 import type { AgentMessage } from "./AgentMessagePanel"
@@ -34,6 +35,8 @@ export type HudControlModel = {
 type HudControlsProps = HudControlModel & {
 	agentMessage: AgentMessage
 	navigation: HudMessageNavigationModel
+	/** Disable every control except message navigation. */
+	locked?: boolean
 	replyDraft: string
 	hasImages?: boolean
 	onAddImages?: () => void
@@ -49,6 +52,7 @@ export function HudControls({
 	agentMessage,
 	dictation,
 	navigation,
+	locked = false,
 	replyDraft,
 	hasImages = false,
 	onAddImages,
@@ -83,7 +87,7 @@ export function HudControls({
 						type="button"
 						className="agent-hud__cancel"
 						onClick={cancel.onTrigger}
-						disabled={cancel.isPending || cancel.available === false}
+						disabled={locked || cancel.isPending || cancel.available === false}
 						aria-busy={cancel.isPending || undefined}>
 						<span>Cancel</span>
 					</button>
@@ -93,7 +97,7 @@ export function HudControls({
 						type="button"
 						className="agent-hud__interrupt"
 						onClick={interrupt.onTrigger}
-						disabled={interrupt.isPending || interrupt.available === false || cancel?.isPending}
+						disabled={locked || interrupt.isPending || interrupt.available === false || cancel?.isPending}
 						aria-busy={interrupt.isPending || undefined}>
 						<span>Interrupt</span>
 					</button>
@@ -107,6 +111,7 @@ export function HudControls({
 					agentMessage={agentMessage}
 					replyDraft={replyDraft}
 					hasImages={hasImages}
+					disabled={locked}
 					onClearReply={onClearReply}
 				/>
 				{onAddImages ? (
@@ -126,7 +131,7 @@ export function HudControls({
 					type="button"
 					className="agent-hud__dictate"
 					onClick={dictation.onToggle}
-					disabled={dictation.isTranscribing || dictation.available === false}
+					disabled={locked || dictation.isTranscribing || dictation.available === false}
 					data-dictation-state={dictationState}
 					aria-label={dictationAccessibleLabel}
 					title={dictation.isTranscribing ? dictationAccessibleLabel : undefined}
