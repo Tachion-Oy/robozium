@@ -7,15 +7,14 @@
 import { execFileSync, spawn } from "node:child_process"
 import console from "node:console"
 import { existsSync, mkdtempSync, openSync, readFileSync } from "node:fs"
-import { createRequire } from "node:module"
 import os from "node:os"
 import path from "node:path"
 import process from "node:process"
 import { setTimeout as sleep } from "node:timers/promises"
 
-const require = createRequire(import.meta.url)
-const { locations } = require("../src/backend-layout.cjs")
-const { build } = require("../package.json")
+const readJson = file => JSON.parse(readFileSync(path.join(import.meta.dirname, "..", file), "utf8"))
+const { locations } = readJson("src/backend-layout.json")["x-desktop"]
+const { build } = readJson("package.json")
 
 const [oldDeb, newDeb] = process.argv.slice(2).map(file => path.resolve(file))
 if (!oldDeb || !newDeb) throw new Error("Usage: check-upgrade.mjs OLD_DEB NEW_DEB")
