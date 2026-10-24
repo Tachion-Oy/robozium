@@ -144,6 +144,23 @@ test("Restart and Recreate run one backend operation at a time, report failures 
 	await expect(restart).toBeEnabled()
 })
 
+test("a slow restart shows its step, not the expected outage, even when readiness fails", async ({ desktop: { app, page }, backend }) => {
+	const { calls, finish } = await holdBackendOperations(app)
+	await openDependencies(page, backend, [dependency("executable:git")])
+	const before = backend.requests.filter(request => request.path === "/ready").length
+	backend.handlers.set("GET /ready", response => json(response, { detail: "Restarting" }, 503))
+	await panel(page).getByLabel("Backend controls").getByRole("button", { name: "Restart backend" }).click()
+	await expect.poll(calls).toEqual(["restart"])
+	// The five-second poll fails while the operation runs.
+	await expect.poll(() => backend.requests.filter(request => request.path === "/ready").length, { timeout: 10_000 }).toBeGreaterThan(before)
+	await expect(page.locator(".backend-notice").getByRole("alert")).toHaveText("Backend connection unavailable. Check the backend and retry.")
+	await expect(page.locator(".startup .startup__status")).toHaveText("Restarting the backend…")
+	await expect(page.locator(".startup .startup__failure")).toHaveCount(0)
+	backend.handlers.set("GET /ready", response => json(response, { status: "ready" }))
+	await finish()
+	await startupDone(page)
+})
+
 test("a reconnect that fails after a restart shows the error and Retry on the loading screen", async ({ desktop: { app, page }, backend }) => {
 	const { calls, finish } = await holdBackendOperations(app)
 	await openDependencies(page, backend, [dependency("executable:git")])

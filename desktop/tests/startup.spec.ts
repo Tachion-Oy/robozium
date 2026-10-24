@@ -68,6 +68,8 @@ test("while the backend starts, the loading screen announces its step", async ({
 	await page.emulateMedia({ reducedMotion: "reduce" })
 	await page.reload()
 	await expect(page.locator(`${screen} .agent-hud__mini-box`)).toBeVisible()
+	// A first launch can take minutes, so its step shows as text too.
 	await expect(page.locator(`${screen} [role='status']`)).toHaveText("Checking Docker…")
+	await expect(page.locator(`${screen} .startup__status`)).toBeVisible()
 	await expect(page.locator(launchButton)).toHaveCount(0)
 })

@@ -25,7 +25,7 @@ export function BackendStartup({ children }: { children: (notice: ReactNode, cli
 	const [hasOpenedHud, setHasOpenedHud] = useState(false)
 	const status = startup.state !== "ready" ? startup
 		: startup.client === null ? { state: "ready", message: "Local preview" } : readiness
-	const screen = useStartupScreen(status.state === "ready")
+	const screen = useStartupScreen(status.state === "ready", retryConnection)
 
 	useEffect(() => {
 		// Once opened, keep the HUD mounted through outages to retain local UI state.
@@ -34,19 +34,19 @@ export function BackendStartup({ children }: { children: (notice: ReactNode, cli
 
 	const retry = startup.state === "error" ? retryStartup : retryConnection
 	const backend: BackendOperations = {
-		manage: operation => screen.cover(async () => {
-			try { await (operation === "restart" ? window.robozium.restartBackend() : window.robozium.recreateBackend()) }
-			// Readiness polling stops while the backend is down; start it again either way.
-			finally { retryConnection() }
-		}),
-		restartApp: () => screen.cover(() => window.robozium.restartApp(), false),
+		manage: operation => operation === "restart"
+			? screen.cover(() => window.robozium.restartBackend(), "Restarting the backend…")
+			: screen.cover(() => window.robozium.recreateBackend(), "Recreating the backend…"),
+		restartApp: () => screen.cover(() => window.robozium.restartApp(), "Restarting Robozium…", false),
 	}
 	const notice = <div className="backend-notice">
 		<p role={status.state === "error" ? "alert" : "status"}>{status.message}</p>
 		<HudButton disabled={status.state !== "error"} onClick={retry}>Retry</HudButton>
 	</div>
-	// The screen shows failures while it covers the app, including a reconnect after a restart.
-	const failure: StartupFailure | null = status.state !== "error" || (hasOpenedHud && !screen.mode) ? null : {
+	// The screen shows failures while it covers the app, including a reconnect after a
+	// restart, but not the expected outage while an operation runs or the app exits.
+	const covered = screen.mode !== null && !screen.busy
+	const failure: StartupFailure | null = status.state !== "error" || (hasOpenedHud && !covered) ? null : {
 		message: status.message,
 		actions: startup.state === "error" && startup.action === "choose-hub-folder"
 			? <StartupHubFolder onRetry={retryStartup} />
@@ -57,6 +57,6 @@ export function BackendStartup({ children }: { children: (notice: ReactNode, cli
 		<div className="backend-startup__app" inert={screen.mode !== null}>
 			{(hasOpenedHud || status.state === "ready") && children(status.state === "ready" ? null : notice, startup.state === "ready" ? startup.client : null, status.state === "ready", backend)}
 		</div>
-		{screen.mode && <StartupScreen mode={screen.mode} ready={screen.ready} status={status.message} failure={failure} onFaded={screen.dismiss} />}
+		{screen.mode && <StartupScreen mode={screen.mode} ready={screen.ready} status={screen.activity ?? status.message} failure={failure} onFaded={screen.dismiss} />}
 	</>
 }

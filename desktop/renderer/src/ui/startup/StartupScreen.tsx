@@ -2,7 +2,8 @@
 // Adapted: it covers the application in the same document instead of a separate
 // native view, so its state arrives as props from BackendStartup rather than over
 // the launcher bridge, and its failure carries the startup's own actions. Reduced
-// motion requested during the introduction settles it, as #101's splash did.
+// motion requested during the introduction settles it, as #101's splash did. The
+// status shows the startup step, since a first launch can take minutes.
 import { useEffect, useState, type ReactNode } from "react"
 import { AgentActivityState } from "../run/run-view"
 import { MinimizedHudFrame } from "../hud/MinimizedHudFrame"
@@ -79,12 +80,12 @@ export function StartupScreen({ mode, ready, status, failure, onFaded }: Startup
 			</TerminalBackdrop>
 			{loadingStarted && (
 				<div
-					className={`agent-hud agent-hud--landing startup__hud${skipIntro ? "" : " startup__hud--enter"}`}>
+					className={`agent-hud agent-hud--landing startup__hud${skipIntro ? "" : " startup__hud--enter"}${failure ? " startup__hud--failed" : ""}`}>
 					<div className="agent-hud__box">
 						<div className="startup__loading">
 							<MinimizedHudFrame
 								agentActivityState={AgentActivityState.Working}
-								heading={<p className="startup__label" role="status"><span className="startup__loading-art" aria-hidden="true" /><span className="sr-only">{status}</span></p>}>
+								heading={<p className="startup__label" role="status"><span className="startup__loading-art" aria-hidden="true" />{/* A failure shows its message below instead. */}<span className={failure ? "sr-only" : "startup__status"}>{status}</span></p>}>
 								<svg className="startup__outline" viewBox="0 0 100 100" aria-hidden="true">
 									<polygon points={octagonPoints} strokeWidth="1" vectorEffect="non-scaling-stroke" />
 									<polygon points={octagonPoints} transform="translate(1.5 1.5) scale(0.97)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
