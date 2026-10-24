@@ -4,7 +4,7 @@
 // client under its lifetime and deadlines, an import has a longer deadline than
 // other requests, and the restart flag lasts until the app restarts.
 import { useEffect, useRef, useState } from "react"
-import type { DesktopApiClient } from "../api/client"
+import { ApiError, type DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { useClientLifetime } from "../api/useClientLifetime"
 import { showErrorToast, showNotificationToast } from "../feedback/notices"
@@ -129,7 +129,8 @@ export function useEnvironmentMutations(client: DesktopApiClient | null, outcome
 			: { tone: "success", title: "Key file saved", message: "Use Restart app in Environment, then unlock with Secrets." })
 		if (loaded) outcomes.onKeysLoaded()
 		return null
-	}, cause => cause instanceof Error ? cause.message : "Could not use the key file")
+	}, cause => cause instanceof ApiError && cause.detail ? cause.detail
+		: cause instanceof Error ? cause.message : "Could not use the key file")
 
 	const reset = () => run("reset", false, async (client, signal) => {
 		await withDeadline(signal, requestSignal => resetEnvironment(client, requestSignal))

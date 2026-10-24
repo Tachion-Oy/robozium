@@ -40,9 +40,12 @@ test("a dropped key file with its password loads the keys at once; a wrong passw
 		form.dispatchEvent(new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }))
 	}, content)
 	await expect(keyFile(page).getByLabel("Selected key file")).toHaveValue(".env.encrypt")
+	// The file needs its password before it can be sent.
+	await expect(keyFile(page).getByLabel("Key file password")).toBeFocused()
+	await expect(keyFile(page).getByRole("button", { name: "Use key file" })).toBeDisabled()
 	await keyFile(page).getByLabel("Key file password").fill("wrong")
 	await keyFile(page).getByRole("button", { name: "Use key file" }).click()
-	await expect(keyFile(page).getByRole("alert")).toHaveText("API request failed (400): Invalid encrypted secret or password")
+	await expect(keyFile(page).getByRole("alert")).toHaveText("Invalid encrypted secret or password")
 	await expect(keyFile(page).getByLabel("Selected key file")).toHaveValue(".env.encrypt")
 
 	await keyFile(page).getByLabel("Key file password").fill("right")

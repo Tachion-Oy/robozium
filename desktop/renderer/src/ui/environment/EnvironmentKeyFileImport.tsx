@@ -23,7 +23,7 @@ export function EnvironmentKeyFileImport({ disabled, replacing, onReplace }: {
 	})
 	const submit = async (event: SubmitEvent<HTMLFormElement>) => {
 		event.preventDefault()
-		if (!file || disabled || pending) return
+		if (!file || !password || disabled || pending) return
 		setPending(true)
 		try {
 			const failure = await onReplace(file, password)
@@ -61,11 +61,12 @@ export function EnvironmentKeyFileImport({ disabled, replacing, onReplace }: {
 					aria-label="Key file password"
 					placeholder="Password it was encrypted with"
 					autoComplete="off"
+					autoFocus
 					value={password}
 					onChange={event => setPassword(event.target.value)}
 					disabled={disabled || pending}
 				/>
-				<HudButton type="submit" disabled={disabled || pending}>
+				<HudButton type="submit" disabled={disabled || pending || !password}>
 					{pending ? "Checking…" : replacing ? "Replace saved settings" : "Use key file"}
 				</HudButton>
 			</div>}
