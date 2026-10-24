@@ -15,10 +15,10 @@ function fixture(t) {
 	for (const directory of ["desktop/scripts", "desktop/src", "src/robozium/nested", "private", "local/imports", ".runtime", ".artifacts"]) {
 		fs.mkdirSync(path.join(root, directory), { recursive: true })
 	}
-	for (const name of ["Dockerfile", ".dockerignore", "hub.config.py", "compose.yaml", "scripts/stage-backend.mjs", "scripts/prepare-runtime.mjs", "src/backend-layout.json", "src/backend-layout.cjs"]) {
+	for (const name of ["Dockerfile", ".dockerignore", "compose.yaml", "scripts/stage-backend.mjs", "scripts/prepare-runtime.mjs", "src/backend-layout.json", "src/backend-layout.cjs"]) {
 		fs.copyFileSync(path.join(desktop, name), path.join(root, "desktop", name))
 	}
-	for (const name of ["pyproject.toml", "uv.lock", "README.md", "LICENSE", "CHANGELOG.md", "src/robozium/__init__.py", "src/robozium/nested/module.py"]) {
+	for (const name of ["hub.config.py", "pyproject.toml", "uv.lock", "README.md", "LICENSE", "CHANGELOG.md", "src/robozium/__init__.py", "src/robozium/nested/module.py"]) {
 		fs.writeFileSync(path.join(root, name), `# public ${name}\n`)
 	}
 	for (const name of [".env", ".env.encrypt", "private/key.py", "local/imports/private.py", ".runtime/data", ".artifacts/data", "src/robozium/.env", "src/robozium/cache.pyc"]) {

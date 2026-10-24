@@ -28,8 +28,9 @@ export function stageBackend(root = path.resolve(import.meta.dirname, "../..")) 
 	}
 	inspect("desktop")
 	inspect("src")
-	for (const name of ["Dockerfile", ".dockerignore", "hub.config.py"]) file(`desktop/${name}`, name)
-	for (const name of ["pyproject.toml", "uv.lock", "README.md", "LICENSE", "CHANGELOG.md"]) file(name)
+	for (const name of ["Dockerfile", ".dockerignore"]) file(`desktop/${name}`, name)
+	// The backend configuration is the repository's own, shared with the web runtime.
+	for (const name of ["hub.config.py", "pyproject.toml", "uv.lock", "README.md", "LICENSE", "CHANGELOG.md"]) file(name)
 	pythonSources("src/robozium")
 
 	// Check output parents before replacing only our generated build directory.

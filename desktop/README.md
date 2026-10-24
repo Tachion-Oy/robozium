@@ -91,9 +91,11 @@ and `DOCKER_HOST` settings retain Docker's normal precedence and TLS settings.
 Restart the app to select a different target.
 
 Managed app data lives in `.artifacts/desktop/data/`, with separate `live/` and
-`mock/` runtime directories. A saved installation identifier scopes Docker project
-ownership; existing experiment `settings.json` installation IDs and API ports
-are read without rewriting the file. Defaults are live **18001** and mock **18000**.
+`mock/` runtime directories. The installation identifier in
+`backend-installation-id` scopes Docker project ownership. `settings.json` holds
+only UI preferences (theme, window size, zoom); the backend is configured by the
+repository's `hub.config.py` and the runtime's `.env`, as in the web runtime.
+Defaults are live **18001** and mock **18000**.
 Set `ROBOZIUM_DESKTOP_API_PORT` to an unused port to override that mode's port.
 Stop the app before changing a port; existing containers with different ownership,
 ports, or mounts are rejected. Do not share a hub between managed and manual runs.

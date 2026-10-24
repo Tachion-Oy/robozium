@@ -6,7 +6,10 @@ import { MAX_ZOOM, MIN_ZOOM, type Size } from "./window"
 /** Native window colour behind the renderer, matching each theme's canvas. */
 export const themeBackground: Readonly<Record<AppTheme, string>> = { dark: "#07080a", light: "#f3f0e7" }
 
-/** The desktop's own preferences; the backend profile keeps other keys in the same file. */
+/**
+ * settings.json holds only these UI preferences. Backend configuration lives in
+ * hub.config.py and the runtime's .env; the installation identity in backend-installation-id.
+ */
 export interface DesktopSettings {
 	theme: AppTheme
 	/** Window content size, before the message log grew it; null opens at the default. */
@@ -50,12 +53,12 @@ export function readSettings(profile: string): DesktopSettings {
 }
 
 /**
- * Save preferences into settings.json, keeping the other keys: the backend
- * profile keeps its installation identity and ports in the same file.
+ * Save preferences into settings.json. Unknown keys are kept, so a file written
+ * by a newer or older version keeps what it does not understand.
  */
 export function saveSettings(profile: string, changes: Partial<DesktopSettings>): void {
 	const file = settingsFile(profile)
-	// An unreadable file throws rather than being replaced, so its identity survives.
+	// An unreadable file throws rather than being replaced, so a hand edit is not lost.
 	const settings: unknown = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {}
 	if (typeof settings !== "object" || settings === null || Array.isArray(settings)) {
 		throw new Error("settings.json does not contain an object.")
