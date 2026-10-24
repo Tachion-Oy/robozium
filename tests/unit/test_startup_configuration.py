@@ -297,6 +297,8 @@ def test_project_service_owns_startup_layout_validation(config_file):
         service.recover()
     unexpected.rmdir()
     (config.settings.sandbox.root / "note.txt").write_text("root files are permitted")
+    for hidden in (".git", ".agents", ".codex"):
+        (config.settings.sandbox.root / hidden).mkdir()
     service.recover()
     assert service.create("New Project") == "new-project"
     project = config.project("New Project")
