@@ -449,6 +449,19 @@ and intentional Playwright failures. A deliberately failing probe is expected
 to make its browser invocation fail; the infrastructure test passes only when
 the runner reports that failure and cleans up correctly.
 
+## Linux package check
+
+The [Linux package workflow](../.github/workflows/package.yml) is a separate
+required check, apart from Full E2E. It builds the `.deb` with
+`npm --prefix desktop run package:linux`, keeps it as the
+`robozium-desktop-deb` workflow artifact for 14 days, installs it with apt on the runner,
+and starts the installed `robozium --mock` under Xvfb with a fresh `HOME`. It
+waits for the packaged backend to report ready, checks that the profile was
+created in `~/.config/Robozium`, then sends the app SIGTERM and requires it to
+exit with no backend container left running. On failure it uploads the app log
+and the profile's runtime logs. Profile and resource locations for installed and
+checkout runs are unit-tested in `backend-tests/lifecycle/locations.test.mjs`.
+
 ## Full E2E policy
 
 **Full E2E must pass in CI before merging.** Its aggregate check requires all seven

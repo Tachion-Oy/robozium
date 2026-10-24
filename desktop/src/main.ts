@@ -6,6 +6,7 @@ import { registerRendererProtocol, rendererUrl } from "./renderer-protocol"
 import { MessageLogWindow } from "./message-log-window"
 import { externalUrl, hubFilePath } from "./links"
 import { permissionAllowed, permissionRequestAllowed } from "./security"
+import { desktopLocations } from "./locations"
 import { isAppTheme, readSettings, saveSettings, themeBackground, type DesktopSettings } from "./settings"
 import { boundedSize, DEFAULT_SIZE, nextZoom, windowLimits, zoomShortcut } from "./window"
 
@@ -15,8 +16,10 @@ protocol.registerSchemesAsPrivileged([
 
 app.setName("Robozium")
 const preview = process.argv.includes("--preview")
-const profile = path.resolve(process.env.ROBOZIUM_DESKTOP_TEST_DATA
-	?? path.join(__dirname, "../../.artifacts/desktop", preview ? "scaffold" : "data"))
+const { profile, source, compose } = desktopLocations({
+	packaged: app.isPackaged, appDirectory: __dirname, resourcesPath: process.resourcesPath,
+	userData: app.getPath("userData"), preview, profileOverride: process.env.ROBOZIUM_DESKTOP_TEST_DATA,
+})
 
 async function start(): Promise<void> {
 	mkdirSync(profile, { recursive: true, mode: 0o700 })
@@ -47,7 +50,7 @@ async function start(): Promise<void> {
 	})
 	const backend = preview ? undefined : new BackendController({
 		profile, mode: process.argv.includes("--mock") ? "mock" : "live", port: process.env.ROBOZIUM_DESKTOP_API_PORT,
-		source: path.join(__dirname, "../.stage/backend"), compose: path.join(__dirname, "../compose.yaml"),
+		source, compose,
 	})
 	await registerRendererProtocol(backend?.connection().baseUrl)
 	const startBackend = async () => {
