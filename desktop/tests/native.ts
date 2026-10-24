@@ -34,6 +34,7 @@ export const test = base.extend<{ launchSwitches: string[]; desktop: { app: Elec
 			const page = await app.firstWindow()
 			const errors: string[] = []
 			page.on("pageerror", error => errors.push(error.message))
+			await skipIntro(page)
 			await expect(page.locator(".agent-hud__box")).toBeVisible()
 			await expect(page.getByRole("button", { name: "Launch", exact: true })).toBeVisible()
 			await use({ app, page })
@@ -55,6 +56,29 @@ export const test = base.extend<{ launchSwitches: string[]; desktop: { app: Elec
 		}
 	},
 })
+
+/** The startup screen has handed the window over to the application. */
+export async function startupDone(page: Page) {
+	await expect(page.locator(".startup")).toHaveCount(0)
+}
+
+/**
+ * Reduced motion settles the launch animation, which startup.spec.ts covers
+ * itself. The emulation ends with the startup screen, since reduced motion also
+ * stills the HUD's own animations.
+ */
+export async function skipIntro(page: Page) {
+	await page.emulateMedia({ reducedMotion: "reduce" })
+	await startupDone(page)
+	await page.emulateMedia({ reducedMotion: null })
+}
+
+/** Reload the document, skipping the launch animation it plays again. */
+export async function reloadApp(page: Page) {
+	await page.emulateMedia({ reducedMotion: "reduce" })
+	await page.reload()
+	await skipIntro(page)
+}
 
 /** Close through the native window, as a user does, then start again on the same profile. */
 export async function reopen(app: ElectronApplication, profile: string): Promise<ElectronApplication> {

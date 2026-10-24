@@ -67,7 +67,8 @@ async function start(): Promise<void> {
 	const quit = async (restart = false) => {
 		if (closing) return
 		closing = true
-		window.hide()
+		// A restart keeps the window, which shows the startup screen until the app exits.
+		if (!restart) window.hide()
 		try {
 			await backend?.close()
 			if (restart) app.relaunch()

@@ -96,10 +96,12 @@ cp /path/to/.env.encrypt ~/.local/share/robozium-desktop-dev/live/.env.encrypt
 
 The start command stages the allowlisted Python source. Main builds the API
 image on first launch and waits for readiness. React then checks `/ready` through
-its HTTP client before showing the HUD. The first
-build requires internet.
+its HTTP client before showing the HUD. Meanwhile the startup screen plays the
+experiment's introduction, then a loading HUD; it fades into the HUD once the
+backend is ready and the HUD has drawn beneath it. Reduced motion skips the
+introduction. The first build requires internet.
 Later launches reuse the image when the staged inputs match its build identifier.
-Startup failures show an explanation and **Retry**. Closing the window cancels
+Startup failures show an explanation and **Retry** on the loading screen. Closing the window cancels
 startup, waits for its Docker client to exit, and stops only the installation's
 verified API containers. Containers, images, credentials, and host data remain.
 A second managed launch using the same profile exits without changing its backend.
@@ -299,7 +301,8 @@ redacted metadata, check time and failure reason, sortable by status or ID.
 unavailable dependency's diagnostic can be copied. **Restart backend** restarts
 this installation's API container; **Recreate backend** recreates it from the
 same image so it reads `.env` again. Both keep mounted data, check container
-ownership first, and run one at a time; the HUD reconnects when they finish.
+ownership first, and run one at a time; the loading screen covers the HUD
+until it reconnects. **Restart app** shows it too, until the app closes.
 Standalone preview shows a placeholder, as it has no backend. Divider controls remain visible but disabled outside Current Run.
 
 **Environment** lists the runtime's saved settings and secrets, with the

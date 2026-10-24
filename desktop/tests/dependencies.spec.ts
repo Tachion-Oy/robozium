@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test"
 import { writeFile } from "node:fs/promises"
 import { test, json, view } from "./run-fixture"
-import { captureNative, setNativeViewport } from "./native"
+import { captureNative, setNativeViewport, startupDone } from "./native"
 import type { Backend } from "./selection-fixture"
 
 type Dependency = {
@@ -111,16 +111,22 @@ test("Restart and Recreate run one backend operation at a time, report failures 
 
 	await restart.click()
 	await expect.poll(calls).toEqual(["restart"])
+	// The loading screen covers the HUD while the backend restarts.
+	await expect(page.locator(".startup[data-stage='loading']")).toBeVisible()
 	await expect(restart).toBeDisabled()
 	await expect(recreate).toBeDisabled()
 	const before = readiness()
 	await finish()
+	await startupDone(page)
 	await expect(recreate).toBeEnabled()
 	await expect.poll(readiness).toBeGreaterThan(before)
 
 	await recreate.click()
 	await expect.poll(calls).toEqual(["restart", "recreate"])
+	await expect(page.locator(".startup")).toBeVisible()
 	await finish("A backend operation is already running.")
+	// A failure removes the loading screen again and explains itself.
+	await startupDone(page)
 	await expect(page.getByRole("alert").filter({ hasText: "Backend operation failed" })).toContainText("A backend operation is already running.")
 	await expect(restart).toBeEnabled()
 })

@@ -1,6 +1,7 @@
 import { expect, type ElectronApplication, type Page } from "@playwright/test"
 import { test, json, view } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
+import { startupDone } from "./native"
 
 type Pick = { folder: string; needsConfirmation: boolean } | { refused: string } | null
 const environment = { revision: "r1", entries: [], overrides: [], requires_password: false, editable: true, suggestions: [], example_errors: [], imports: [] }
@@ -113,10 +114,13 @@ test("a missing hub folder stops startup, and choosing another retries", async (
 			status = { state: "ready", message: "Backend ready" }
 		})
 	})
+	// Reduced motion shows the loading screen, and its failure, at once.
+	await page.emulateMedia({ reducedMotion: "reduce" })
 	await page.reload()
 	await expect(page.getByRole("alert")).toHaveText("Hub folder /media/drive/Robozium-Hub is missing. Reconnect it or choose another folder.")
 	await pickNext(app, { folder: "/home/user/Robozium-Hub", needsConfirmation: false })
 	await page.getByRole("button", { name: "Choose folder…" }).click()
+	await startupDone(page)
 	await expect(page.locator(".agent-hud__box")).toBeVisible()
 	expect(await used(app)).toEqual(["/home/user/Robozium-Hub"])
 	expect(await app.evaluate(() => Reflect.get(globalThis, "retries"))).toBe(1)

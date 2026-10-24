@@ -1,7 +1,3 @@
-.hud-frame.backend-startup { grid-template-rows: auto; align-content: center; justify-items: center; gap: 1rem; padding: 2rem; text-align: center; }
-.backend-startup h1 { margin: 0; font-size: 1.4rem; }
-.backend-startup p { max-width: 38rem; margin: 0; overflow-wrap: anywhere; }
-.backend-startup [role="alert"] { color: var(--term-red); }
 .backend-notice { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem 1rem; margin-left: auto; max-width: 100%; }
 .backend-notice p { color: var(--term-red); overflow-wrap: anywhere; }
 .backend-notice .hud-button { min-height: 2rem; }

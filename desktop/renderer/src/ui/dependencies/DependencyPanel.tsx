@@ -225,9 +225,9 @@ function DependencyTable({
 	)
 }
 
-export function DependencyPanel({ dependencies: state, onBackendReconnect }: {
+export function DependencyPanel({ dependencies: state, onManageBackend }: {
 	dependencies: DependenciesState
-	onBackendReconnect: () => void
+	onManageBackend: (operation: "restart" | "recreate") => Promise<void>
 }) {
 	const { records: dependencies, loading: isLoading, checking: isChecking, loadFailed } = state
 	const [sort, setSort] = useState<DependencySort>({
@@ -260,7 +260,7 @@ export function DependencyPanel({ dependencies: state, onBackendReconnect }: {
 
 	return (
 		<section className="agent-hud__status-view flex min-h-0 w-full flex-1 flex-col">
-			<BackendControls onReconnect={onBackendReconnect} />
+			<BackendControls onManage={onManageBackend} />
 			<div
 				className="agent-hud__replyBox min-h-0 flex-1 [--hud-reply-pad-block-start:1.25rem]
 			 [--hud-reply-pad-block-end:1.25rem] [--hud-reply-pad-inline:1.5rem]">
