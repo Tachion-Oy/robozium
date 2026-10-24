@@ -1,55 +1,26 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme, protocol, screen, shell, type IpcMainInvokeEvent } from "electron"
-import { mkdirSync } from "node:fs"
+import { app, clipboard, dialog, ipcMain, nativeTheme, screen, shell, type BrowserWindow, type IpcMainInvokeEvent } from "electron"
 import { BackendController } from "./backend-controller.ts"
 import { registerRendererProtocol, rendererUrl } from "./renderer-protocol.ts"
 import { MessageLogWindow } from "./message-log-window.ts"
 import { externalUrl, hubFilePath } from "./links.ts"
 import { checkHubFolderChoice, recordedHubFolder, saveHubFolder } from "./hub-folder.ts"
-import { permissionAllowed, permissionRequestAllowed } from "./security.ts"
-import { desktopLocations } from "./locations.ts"
-import { isAppTheme, readSettings, saveSettings, themeBackground, type DesktopSettings } from "./settings.ts"
-import { boundedSize, DEFAULT_SIZE, nextZoom, windowLimits, zoomShortcut } from "./window.ts"
+import type { DesktopLocations } from "./locations.ts"
+import { isAppTheme, saveSettings, themeBackground, type DesktopSettings } from "./settings.ts"
+import { nextZoom, zoomShortcut, type Size } from "./window.ts"
 
-protocol.registerSchemesAsPrivileged([
-	{ scheme: "robozium", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
-])
+/** What the bootstrap resolved before the window opened. */
+export interface StartContext {
+	locations: DesktopLocations
+	mode: "live" | "mock"
+	preview: boolean
+	settings: DesktopSettings
+	/** The window's starting content size, within the work area. */
+	size: Size
+}
 
-app.setName("Robozium")
-const preview = process.argv.includes("--preview")
-const mode = process.argv.includes("--mock") ? "mock" : "live"
-const { profile, source, compose, preload, hubFolder } = desktopLocations({
-	packaged: app.isPackaged, appDirectory: import.meta.dirname, resourcesPath: process.resourcesPath,
-	userData: app.getPath("userData"), home: app.getPath("home"), mode, preview,
-	profileOverride: process.env.ROBOZIUM_DESKTOP_TEST_DATA,
-})
-
-async function start(): Promise<void> {
-	mkdirSync(profile, { recursive: true, mode: 0o700 })
-	app.setPath("userData", profile)
-	// A second process must not take over or stop the same installation's backend.
-	if (!preview && !app.requestSingleInstanceLock()) { app.exit(0); return }
-	await app.whenReady()
-
-	const settings = readSettings(profile)
-	const theme = settings.theme
-	nativeTheme.themeSource = theme
-	// The app picks at most 90% of the work area; the user may resize further.
-	const size = boundedSize(settings.window ?? DEFAULT_SIZE, windowLimits(screen.getPrimaryDisplay().workArea))
-	const window = new BrowserWindow({
-		...size,
-		useContentSize: true,
-		title: "Robozium",
-		show: false,
-		backgroundColor: themeBackground[theme],
-		webPreferences: {
-			preload,
-			additionalArguments: [`--robozium-theme=${theme}`],
-			zoomFactor: settings.zoom,
-			sandbox: true,
-			contextIsolation: true,
-			nodeIntegration: false,
-		},
-	})
+/** Load the application into the bootstrap's window and start the backend behind it. */
+export async function start(window: BrowserWindow, { locations, mode, preview, settings, size }: StartContext): Promise<void> {
+	const { profile, source, compose, hubFolder } = locations
 	const backend = preview ? undefined : new BackendController({
 		profile, mode, port: process.env.ROBOZIUM_DESKTOP_API_PORT,
 		source, compose, hubFolder,
@@ -63,14 +34,21 @@ async function start(): Promise<void> {
 		}
 	}
 	let closing = false
+	let relaunch = false
 	/** Stop the backend, then exit; a restart starts again only after a clean stop. */
 	const quit = async (restart = false) => {
-		if (closing) return
+		if (closing) {
+			// Closing during a restart hides the window at once and exits without starting again.
+			if (!restart) { relaunch = false; window.hide() }
+			return
+		}
 		closing = true
-		window.hide()
+		relaunch = restart
+		// A restart keeps the window, which shows the startup screen until the app exits.
+		if (!restart) window.hide()
 		try {
 			await backend?.close()
-			if (restart) app.relaunch()
+			if (relaunch) app.relaunch()
 			app.exit(0)
 		} catch (error) { console.error("Backend shutdown failed:", error); app.exit(1) }
 	}
@@ -91,9 +69,6 @@ async function start(): Promise<void> {
 		save({ window: next })
 	}
 	let resizeTimer: NodeJS.Timeout | undefined
-	// GNOME's frame metrics settle when its native title bar is first shown.
-	window.once("show", () => window.setContentSize(size.width, size.height))
-	window.setMinimumSize(640, 420)
 	window.on("will-resize", () => { if (logWindow.open) logWindow.manuallyResized = true })
 	window.on("resize", () => {
 		logWindow.resized()
@@ -109,7 +84,6 @@ async function start(): Promise<void> {
 		window.focus()
 	})
 	app.on("before-quit", event => { event.preventDefault(); void quit() })
-	window.setMenuBarVisibility(false)
 	const contents = window.webContents
 	let zoom = settings.zoom
 	contents.on("before-input-event", (event, input) => {
@@ -124,16 +98,6 @@ async function start(): Promise<void> {
 	})
 	// A reload resets the document's zoom; keep the chosen one.
 	contents.on("dom-ready", () => contents.setZoomFactor(zoom))
-	contents.setWindowOpenHandler(() => ({ action: "deny" }))
-	contents.on("will-navigate", event => event.preventDefault())
-	contents.on("will-frame-navigate", event => event.preventDefault())
-	contents.on("will-redirect", event => event.preventDefault())
-	contents.on("will-attach-webview", event => event.preventDefault())
-	// Only the bundled document's main frame may record audio, for dictation.
-	contents.session.setPermissionCheckHandler((requester, permission, _origin, details) =>
-		permissionAllowed(window, requester, rendererUrl, permission, details))
-	contents.session.setPermissionRequestHandler((requester, permission, callback, details) =>
-		callback(permissionRequestAllowed(window, requester, rendererUrl, permission, details)))
 
 	const requireTrustedDocument = (event: IpcMainInvokeEvent) => {
 		// Only this window's main document may use desktop operations.
@@ -248,17 +212,3 @@ async function start(): Promise<void> {
 	window.show()
 	void startBackend()
 }
-
-async function main(): Promise<void> {
-	try {
-		await start()
-	} catch (error) {
-		console.error("Robozium could not start:", error)
-		// Without a window the failure would otherwise be visible only in a terminal.
-		dialog.showErrorBox("Robozium could not start", error instanceof Error ? error.message : String(error))
-		app.exit(1)
-	}
-}
-
-app.on("window-all-closed", () => app.quit())
-void main()

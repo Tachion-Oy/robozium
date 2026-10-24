@@ -235,4 +235,6 @@ test("Restart app confirms unsaved edits in the HUD before restarting", async ({
 	await panel(page).getByRole("button", { name: "Restart", exact: true }).click()
 	await expect.poll(relaunches).toBe(1)
 	await expect(panel(page).getByRole("button", { name: "Restarting…" })).toBeDisabled()
+	// The loading screen stays until the app exits; this stub never does.
+	await expect(page.locator(".startup[data-stage='loading']")).toBeVisible()
 })

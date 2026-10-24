@@ -41,6 +41,7 @@ import { selectRunDisplay } from "../../session/session-reducer"
 import { isTerminal, RunStatus, type RunRecord } from "../../run/run-contracts"
 import type { HudDisplay } from "../../hud/hud-view"
 import { useMessageLog } from "../../log/useMessageLog"
+import type { BackendOperations } from "../backend/BackendStartup"
 import "./interim-content.css"
 
 const noEvents: readonly RunRecord[] = []
@@ -49,8 +50,8 @@ interface AppProps {
 	connectionNotice?: ReactNode
 	client?: DesktopApiClient | null
 	connected?: boolean
-	/** Restart readiness polling, which stops while the backend is unreachable. */
-	onReconnect?: () => void
+	/** Backend restarts, covered by the startup screen; absent in the standalone preview. */
+	backend?: BackendOperations
 }
 
 /** Standalone preview shows its local messages as plain text. */
@@ -81,7 +82,7 @@ function usePreviewModels(): ModelsState {
 	}
 }
 
-export function App({ connectionNotice, client = null, connected = true, onReconnect = () => {} }: AppProps) {
+export function App({ connectionNotice, client = null, connected = true, backend }: AppProps) {
 	const [navigation, navigate] = useReducer(reduceHudNavigation, null, initialHudNavigation)
 	const [focusRunEditor, setFocusRunEditor] = useState(false)
 	const [hasPreview, setHasPreview] = useState(false)
@@ -198,11 +199,11 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 					onCancel={() => navigate({ type: "launch_closed" })}
 					onSubmit={selection => { if (navigation.launch) void projectMutations.launch({ ...navigation.launch, selection }) }} />
 			case "dependencies":
-				if (client) return <DependencyPanel dependencies={dependencies} onBackendReconnect={onReconnect} />
+				if (client && backend) return <DependencyPanel dependencies={dependencies} onManageBackend={backend.manage} />
 				// Standalone preview has no dependency monitor; it shows the placeholder.
 				return placeholder()
 			case "environment":
-				if (client) return <EnvironmentPanel draft={environmentDraft} mutations={environmentMutations} hub={hubFolder} onRestart={() => window.robozium.restartApp()} />
+				if (client && backend) return <EnvironmentPanel draft={environmentDraft} mutations={environmentMutations} hub={hubFolder} onRestart={backend.restartApp} />
 				// Standalone preview has no backend settings; it shows the placeholder.
 				// falls through
 			default:

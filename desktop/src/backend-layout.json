@@ -20,7 +20,10 @@
       "hubFolder": "hub-folder",
       "defaultHub": "~/Robozium-Hub",
       "isolatedHub": "hub",
-      "hubProjects": "projects"
+      "hubProjects": "projects",
+      "compiledMain": "../dist/main.js",
+      "splash": "../splash",
+      "splashBranding": "../renderer/public/branding"
     }
   },
   "services": {
