@@ -93,6 +93,10 @@ flowchart LR
 - **Direction.** `ui/` imports owners; owners and feature modules never import
   `ui/`. Shared `api/` imports no feature module. HUD projection consumes
   validated run data, while run reconciliation has no HUD dependency.
+- **Names.** A variable holding an owner is named after its hook:
+  `useProjectQuery` → `projectQuery`, `useEnvironmentDraft` →
+  `environmentDraft`. Where an owner is split, the reads keep the area's name
+  (`…Query`, `…Session`, `…Draft`) and the writes are `…Mutations`.
 - **Contracts.** Exported functions and hooks declare their return types, using
   named interfaces for structured results (`docs/code-style.md`).
 - **Endpoints.** Feature API modules own endpoint paths and payload validation.
