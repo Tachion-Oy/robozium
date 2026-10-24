@@ -462,8 +462,23 @@ and starts the installed `robozium --mock` under Xvfb with a fresh `HOME`. It
 waits for the packaged backend to report ready, checks that the profile was
 created in `~/.config/Robozium`, then sends the app SIGTERM and requires it to
 exit with no backend container left running. On failure it uploads the app log
-and the profile's runtime logs. Profile and resource locations for installed and
+and the profile's runtime logs. It then runs
+[check-upgrade.mjs](../desktop/packaging/check-upgrade.mjs). The check installs the
+latest release's `.deb`, or this build before the first release. It runs the live
+app, creates a project in `~/Robozium-Hub` and saves an encrypted secret with a
+password, then upgrades to the new `.deb`. It requires the project and the
+installation identity to survive and the secret to unlock with its password. Profile and resource locations for installed and
 checkout runs are unit-tested in `backend-tests/lifecycle/locations.test.ts`.
+
+## Releases
+
+Pushing a `v<version>` tag runs the [release workflow](../.github/workflows/release.yml).
+The tag must match `desktop/package.json` and be newer than the latest release,
+so apt upgrades to it. The workflow builds the `.deb` and signs a flat apt
+repository with the `APT_SIGNING_KEY` secret. It installs from that repository
+using the committed public key, runs the upgrade check from the previous release,
+and attaches the repository files to the GitHub Release. Users' apt sources point
+at `releases/latest/download`.
 
 ## Full E2E policy
 
