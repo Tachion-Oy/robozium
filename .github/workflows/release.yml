@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Check the version and fetch the previous release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          node desktop/packaging/apt-repository.mjs check-version "$TAG"
+          node desktop/packaging/apt-repository.mjs previous previous-release
+      - name: Build the Debian package
+        run: |
+          npm --prefix desktop ci
+          npm --prefix desktop run package:linux
+      - name: Build and sign the apt repository
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+        run: node desktop/packaging/apt-repository.mjs build "$RUNNER_TEMP/apt"
+      - name: Install from the signed repository, as users do
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo install -m 644 desktop/packaging/robozium-archive-keyring.asc /etc/apt/keyrings/robozium.asc
+          echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/robozium.asc] file:$RUNNER_TEMP/apt ./" | sudo tee /etc/apt/sources.list.d/robozium.list
+          sudo apt-get update
+          sudo apt-get install -y robozium-desktop xvfb
+          sudo rm /etc/apt/sources.list.d/robozium.list
+      - name: Upgrade from the previous release
+        if: ${{ hashFiles('previous-release/*.deb') != '' }}
+        run: node desktop/packaging/check-upgrade.mjs previous-release/*.deb "$RUNNER_TEMP"/apt/*.deb
+        env:
+          UPGRADE_LOG: ${{ runner.temp }}/robozium.log
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        working-directory: ${{ runner.temp }}/apt
+        run: gh release create "$TAG" --title "Robozium ${TAG#v}" --generate-notes ./*
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ failure() }}
+        with:
+          name: release-reports
+          path: ${{ runner.temp }}/robozium.log
+          if-no-files-found: ignore
+          retention-days: 7

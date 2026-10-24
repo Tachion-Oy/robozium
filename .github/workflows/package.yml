@@ -18,7 +18,7 @@ jobs:
   package:
     name: Linux package
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -62,6 +62,18 @@ jobs:
           for _ in $(seq 1 60); do pgrep -x robozium >/dev/null || break; sleep 1; done
           if pgrep -x robozium >/dev/null; then echo "The installed app did not exit."; exit 1; fi
           test -z "$(docker ps --quiet --filter label=com.docker.compose.service=api)" || { echo "The API container is still running."; exit 1; }
+      - name: Fetch the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: node desktop/packaging/apt-repository.mjs previous previous-release
+      - name: Upgrade from the latest release and keep user data
+        env:
+          UPGRADE_LOG: ${{ runner.temp }}/robozium.log
+        # Before the first release, this build is reinstalled over itself.
+        run: |
+          old="$(ls previous-release/*.deb 2>/dev/null || ls desktop/release/robozium-desktop_*_amd64.deb)"
+          node desktop/packaging/check-upgrade.mjs "$old" desktop/release/robozium-desktop_*_amd64.deb
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ failure() }}
         with:

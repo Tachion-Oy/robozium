@@ -264,7 +264,7 @@ Step 27 checklist (append further small findings here):
 | --- | --- |
 | **22. Instance handling** | Duplicate-launch focus (`second-instance` handler), settings validation, independent test profiles. Window as in the experiment: 1260×780 default, 640×420 minimum, at most 90% of the screen work area, size saved. Zoom in steps of 0.1 between 0.5 and 3, saved, and applied to the splash too. |
 | **23. Portable backend runtime** | Remove the Linux-only assumptions so the same code runs on macOS (details below). |
-| **24. Packaging** | **Linux now:** one `electron-builder` configuration, built with `npm run package:linux`, producing a `.deb`. The installed app keeps its profile in Electron's `userData` (`~/.config/Robozium`), not next to a checkout, and ships the staged backend and Compose files as plain resources for Docker. **macOS later:** a `.dmg` for arm64 and x64 from the same configuration (`npm run package:mac`), unsigned at first, with signing/notarization as an opt-in follow-up driven by environment variables. |
+| **24. Packaging** | **Linux now:** one `electron-builder` configuration, built with `npm run package:linux`, producing a `.deb`. The installed app keeps its profile in Electron's `userData` (`~/.config/Robozium`), not next to a checkout, and ships the staged backend and Compose files as plain resources for Docker. A `v<version>` tag publishes it as a signed apt repository on GitHub Releases, so users install with `apt install` and upgrade with `apt upgrade` without losing their profile or hub. **macOS later:** a `.dmg` for arm64 and x64 from the same configuration (`npm run package:mac`), unsigned at first, with signing/notarization as an opt-in follow-up driven by environment variables. |
 
 Step 23 (macOS, deferred) covers:
 
@@ -340,4 +340,4 @@ Phase 2.
   networking or Linux-only signals. Window chrome and shortcuts use
   Electron's cross-platform APIs.
 - **Launch modes:** normal launch is live; tests use isolated mock profiles.
-- **Out of scope:** automatic updates, Windows and store publishing.
+- **Out of scope:** in-app automatic updates (Linux upgrades come through apt), Windows and store publishing.
