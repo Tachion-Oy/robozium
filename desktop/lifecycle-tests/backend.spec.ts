@@ -134,7 +134,8 @@ test("Docker startup failure presents an accessible retry that starts the backen
 	await writeFile(path.join(directory, "bin/docker"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${shellQuote(commands)}\nif [ "$1" = info ] && [ ! -f ${shellQuote(enabled)} ]; then exit 1; fi\nexec ${shellQuote(docker)} "$@"\n`, { mode: 0o700 })
 	const app = await runtime.launch()
 	const page = await app.firstWindow()
-	await expect(page.getByRole("alert")).toContainText("Docker is unavailable")
+	// The failure shows on the loading screen once the launch animation has played.
+	await expect(page.getByRole("alert")).toContainText("Docker is unavailable", { timeout: 15_000 })
 	await expect(page.getByRole("button", { name: "New Project", exact: true })).toHaveCount(0)
 	await setNativeViewport(app, page, 640, 420, 1.25)
 	expect(await page.evaluate(() => document.documentElement.scrollHeight === innerHeight)).toBe(true)

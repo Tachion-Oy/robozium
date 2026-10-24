@@ -7,7 +7,7 @@ import { useBackendReadiness } from "../../backend/useBackendReadiness"
 import { useStartupScreen } from "../../backend/useStartupScreen"
 import { StartupScreen, type StartupFailure } from "../startup/StartupScreen"
 import { StartupHubFolder } from "./StartupHubFolder"
-import { HudButton } from "../hud/HudButton"
+import { HudButton } from "../HudButton"
 import type { DesktopApiClient } from "../../api/client"
 import "./backend-startup.css"
 
