@@ -17,7 +17,6 @@ export const test = base.extend<{ launchSwitches: string[]; desktop: { app: Elec
 	launchSwitches: [[], { option: true }],
 	// A cold runner can take most of a test's budget to launch; time that apart.
 	desktop: [async ({ playwright, launchSwitches }, use, testInfo) => {
-		const started = Date.now() // TEMPORARY timing
 		const directory = await mkdtemp(path.join(tmpdir(), "robozium-scaffold-"))
 		const logs: string[] = []
 		let app: ElectronApplication | undefined
@@ -38,20 +37,11 @@ export const test = base.extend<{ launchSwitches: string[]; desktop: { app: Elec
 			page.on("pageerror", error => errors.push(error.message))
 			await expect(page.locator(".agent-hud__box")).toBeVisible()
 			await expect(page.getByRole("button", { name: "Launch", exact: true })).toBeVisible()
-			console.log(`TIMING ${testInfo.title}: ready ${Date.now() - started}ms`) // TEMPORARY
 			// Actions wait for a stable element, which takes drawn frames.
 			await waitForDrawing(app, page)
-			console.log(`TIMING ${testInfo.title}: drawing ${Date.now() - started}ms`) // TEMPORARY
 			await use({ app, page })
 			expect(errors).toEqual([])
 		} finally {
-			if (app && testInfo.status !== testInfo.expectedStatus) {
-				const page = app.windows()[0]
-				// TEMPORARY diagnostic for the cold-start flake.
-				const state = page ? await Promise.race([describeWindow(app, page), new Promise(resolve => setTimeout(() => resolve("no answer"), 5000))]) : "no window"
-				const raf = page ? await Promise.race([framesDrawn(page), new Promise(resolve => setTimeout(() => resolve("no frame in 3s"), 3000))]) : null
-				console.log(`DIAG ${testInfo.title}\n${String(state)}\nframes: ${String(raf)}`)
-			}
 			try {
 				if (app && child?.exitCode === null && child.signalCode === null) {
 					await app.close()
