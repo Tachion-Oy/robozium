@@ -399,8 +399,9 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   operations. `run-payloads.ts` decodes snapshots and SSE through the same event
   validator. `run-updates.ts` coordinates concurrent streaming, serialized
   snapshots and polling with shared cleanup; `run-reducer.ts` owns backend state.
-- `renderer/src/projects/useProjectLaunch.ts` owns the launch command: project
-  creation, capability resolution and saving, and run creation.
+- `renderer/src/projects/useProjectMutations.ts` owns the launch command (project
+  creation, capability resolution and saving, and run creation) beside cancel
+  and delete.
   `renderer/src/session/useRunSession.ts` owns the displayed run's subscription.
   `session-reducer.ts` composes run reconciliation and HUD projection atomically.
   `hud/hud-reducer.ts` coordinates live text, history and selection;
