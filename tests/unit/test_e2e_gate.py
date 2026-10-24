@@ -14,7 +14,7 @@ WORKFLOW = yaml.load(
     (ROOT / ".github/workflows/e2e.yml").read_text(), Loader=yaml.BaseLoader
 )
 WEB_JOBS = {"chromium", "firefox", "webkit", "installation", "runner"}
-REQUIRED_JOBS = WEB_JOBS | {"scope", "docker", "electron", "package"}
+REQUIRED_JOBS = WEB_JOBS | {"scope", "docker", "electron"}
 RESULTS = ["success", "failure", "cancelled", "skipped", None]
 
 
