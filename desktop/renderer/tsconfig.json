@@ -10,5 +10,5 @@
     "noUncheckedSideEffectImports": true,
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "../src/bridge.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "../src/bridge.d.ts"]
 }

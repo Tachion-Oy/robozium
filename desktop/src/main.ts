@@ -1,6 +1,5 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme, protocol, screen, shell, type IpcMainInvokeEvent } from "electron"
 import { mkdirSync } from "node:fs"
-import path from "node:path"
 import { BackendController } from "./backend-controller.ts"
 import { registerRendererProtocol, rendererUrl } from "./renderer-protocol.ts"
 import { MessageLogWindow } from "./message-log-window.ts"
@@ -18,7 +17,7 @@ protocol.registerSchemesAsPrivileged([
 app.setName("Robozium")
 const preview = process.argv.includes("--preview")
 const mode = process.argv.includes("--mock") ? "mock" : "live"
-const { profile, source, compose, hubFolder } = desktopLocations({
+const { profile, source, compose, preload, hubFolder } = desktopLocations({
 	packaged: app.isPackaged, appDirectory: import.meta.dirname, resourcesPath: process.resourcesPath,
 	userData: app.getPath("userData"), home: app.getPath("home"), mode, preview,
 	profileOverride: process.env.ROBOZIUM_DESKTOP_TEST_DATA,
@@ -43,7 +42,7 @@ async function start(): Promise<void> {
 		show: false,
 		backgroundColor: themeBackground[theme],
 		webPreferences: {
-			preload: path.join(import.meta.dirname, "preload.cjs"),
+			preload,
 			additionalArguments: [`--robozium-theme=${theme}`],
 			zoomFactor: settings.zoom,
 			sandbox: true,

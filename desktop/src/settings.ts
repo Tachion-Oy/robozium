@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import { locations } from "./backend-layout.ts"
-import type { AppTheme } from "./bridge.ts"
+import type { AppTheme } from "./bridge.d.ts"
 import { MAX_ZOOM, MIN_ZOOM, type Size } from "./window.ts"
 
 /** Native window colour behind the renderer, matching each theme's canvas. */

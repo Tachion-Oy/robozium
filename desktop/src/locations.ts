@@ -33,6 +33,8 @@ export interface DesktopLocations {
 	source: string
 	/** Compose file; it extends `src/backend-layout.json` beside it. */
 	compose: string
+	/** The compiled sandboxed preload script, beside the main process. */
+	preload: string
 	/** Where a live launch records its chosen hub folder; null for mock mode and previews. */
 	hubFolder: HubFolderLocation | null
 }
@@ -64,6 +66,7 @@ export function desktopLocations(inputs: LocationInputs): DesktopLocations {
 		profile,
 		source: path.join(backend, packaged ? locations.installedSource : locations.checkoutSource),
 		compose: path.join(backend, locations.compose),
+		preload: path.join(appDirectory, locations.preload),
 		hubFolder: mode === "live" && !preview
 			? {
 				file: path.join(profile, locations.hubFolder),

@@ -2,7 +2,6 @@ import fs from "node:fs"
 import { createHash } from "node:crypto"
 import path from "node:path"
 import process from "node:process"
-import { fileURLToPath } from "node:url"
 
 // Adapted from experiment 076b2c9. Never traverse private runtime directories.
 export function stageBackend(root = path.resolve(import.meta.dirname, "../..")) {
@@ -57,6 +56,6 @@ export function stageBackend(root = path.resolve(import.meta.dirname, "../..")) 
 	return target
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && path.resolve(process.argv[1]) === import.meta.filename) {
 	process.stdout.write(`Staged backend: ${stageBackend()}\n`)
 }

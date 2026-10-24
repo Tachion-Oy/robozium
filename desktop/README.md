@@ -384,9 +384,11 @@ and Compose integration. Repeating paths such as `.runtime/local-deps` or
 
 All desktop code is TypeScript in ES modules. Node runs the scripts and backend
 tests directly, so `src`, `scripts` and `backend-tests` use only syntax Node can
-strip (no enums, namespaces or constructor parameter properties; `tsc` enforces
-this), and relative imports name their `.ts` file. The one CommonJS file is the
-sandboxed preload, `src/preload.cts`, because Electron requires it.
+strip: no enums, namespaces or constructor parameter properties, and
+type-only imports use `import type`. `tsc` enforces both. Relative imports name
+their `.ts` file. The one CommonJS file is the sandboxed preload,
+`src/preload.cts`, because Electron requires it; `tsconfig.preload.json` compiles
+it on its own.
 
 Desktop setup prepares the host folders Docker needs to mount, including the
 nested read-only safe-scripts mount. The hub owns its application structure and
