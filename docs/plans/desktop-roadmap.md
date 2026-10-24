@@ -35,7 +35,7 @@ application's CSS, which was tuned by hand over weeks.
 
 ## Status
 
-Reviewed against `origin/main` at `b640105` (after #127).
+Reviewed against `origin/main` at `e1ba35b` (after #145).
 
 | Step | State | PRs |
 | --- | --- | --- |
@@ -54,7 +54,7 @@ Reviewed against `origin/main` at `b640105` (after #127).
 | 20 Credentials and capabilities | Done | #106, #115 |
 | 21 Dictation and startup | Dictation done; startup not started | #131 |
 | 22 Instance handling | Window size, zoom and second-instance focus done | #127 |
-| 23–24 Ship | Linux packaging in progress; macOS deferred | — |
+| 23–24 Ship | Linux packaging done; macOS deferred | #129 |
 | Toasts (step 11 follow-up) | Done | #120 |
 | 25 Image attachments | Done | #128 |
 | 26 Onboarding | Done, with key-file adoption | #136, #137 |
@@ -63,18 +63,16 @@ Reviewed against `origin/main` at `b640105` (after #127).
 | 29 Inline agent images | Not started (web #125) | — |
 
 **Order from here.** Related small steps share a PR so each CI run covers
-more ground; 200–400 hand-written lines is the ceiling, not the target. Done:
-theme (#123), message log (#124), window sizing (#127), Dependencies (#126).
+more ground; 200–400 hand-written lines is the ceiling, not the target.
 
 | # | PR | Contents |
 | --- | --- | --- |
-| — | Image attachments | 25 (in progress) |
-| 1 | Installable Linux app | `.deb` from `npm run package:linux`; the installed app keeps its profile in `~/.config/Robozium` (step 24, Linux only) |
-| 2 | Links and dictation | 28 and 21a: the two preload-privilege operations |
-| 3 | UI tweaks | Step 27: stable selectors, no project title in Runs view, footer layout, octagon |
-| 4 | Live prompts and splash | Prompts on the stream, 21b; separate PRs unless both are small |
-| 5 | Onboarding and inline agent images | 26 and 29, both from `web/` |
-| 6 | App logo | Step 27's app identity, when the design is ready; also the package icon |
+| 1 | Inline agent images | Step 29, from `web/` (#125) |
+| 2 | Interrupt on Send | Interrupt lights up as soon as a reply is sent (see the step 15 follow-up) |
+| 3 | UI tweaks | Step 27: light theme, stable selectors, no project title in Runs view, footer layout, octagon |
+| 4 | Splash and app logo | 21b and step 27's app identity: the logo goes on the splash, the window icon and the `.deb` icon |
+| 5 | Preview mode | Remove `--preview` or run it against the mock backend (see the step 11 follow-ups) |
+| 6 | Instance handling leftovers | Step 22: settings validation and independent test profiles |
 | 7 | macOS | Step 23 and the macOS half of 24; deferred |
 
 ## Parity checklist
@@ -94,7 +92,7 @@ the PR that closes it.
 | Dependencies panel: sort, Check now, copy diagnostic | E, W | Done (#126) | 19 |
 | Backend restart/recreate (`BackendControls`) | E | Done (#126) | 19 |
 | Startup splash, handoff to the painted HUD, splash during restart | E | Plain `ui/backend/BackendStartup.tsx` | 21b |
-| Prompt id and awaiting-input state on the stream | — | Lags a streamed prompt by up to a poll | Follow-up |
+| Interrupt enabled as soon as a reply is sent | — | Waits for the next poll | Follow-up |
 | Window 1260×780 default, 640×420 minimum, 90% of work area maximum, size saved | E | Done; the 90% cap applies to sizes the app picks, not to manual resizing | 22 |
 | Zoom ±0.1 within 0.5–3, saved | E | Done | 22 |
 | Second-instance focus | E | Done | 22 |
@@ -184,9 +182,11 @@ Each step is one PR and is runnable: launch the app to see its result.
   and stylesheet in a top-centre stack without inline styles. Dismissal keeps the
   exit animation, and hovering pauses the five-second lifetime. Persistent errors
   and Retry controls remain in the notices row.
-- **Preview against the mock backend.** Standalone preview duplicates the
-  overview with local rows and inert controls; running it against the mock
-  backend removes that separate path.
+- **Preview mode.** `npm run start:preview` opens the app without a backend:
+  `ui/app/App.tsx` and `app/preview.ts` substitute a local project, messages
+  and models, and Record is unavailable. Every connected feature carries a
+  "no client" branch for it. Remove the mode, or run it against the mock
+  backend, and delete those branches.
 - **Opening links.** Promoted to step 28.
 
 ## Milestone B — Running work (steps 14–17)
@@ -226,18 +226,14 @@ survive. It returns in one piece if runs ever survive a backend restart.
 
 **Follow-up found in step 15** (its own PR from `main`):
 
-- **Prompts on the stream.** The agent's prompt message arrives over SSE, but
-  the prompt id and the awaiting-input status reach clients only through
-  `GET /run/{id}`. The center mark, Send and Interrupt therefore lag a
-  streamed prompt by up to a poll. `RunControl.request_input` registers the
-  prompt without emitting anything, a moment after the message, so reading on
-  the message can still miss it. Emit stream events when a prompt opens (id
-  and text) and closes (answered, interrupted, timed out or cancelled), and
-  take the prompt and status from them. Snapshots remain the backstop for
-  stream failure and gaps. First check that the web ignores unknown stream
-  event types, or add the events there too. Check: backend unit tests for the
-  events, and a native test in which a streamed prompt enables Send with the
-  clock paused, so no poll can be the cause.
+- **Interrupt on Send.** After the user sends a reply, the agent is working
+  again, but Interrupt stays disabled until the next poll reports it. Enable
+  Interrupt as soon as the reply is acknowledged. Send may keep waiting for the
+  poll after a prompt arrives: the interval is a few seconds, shorter than
+  anyone takes to write a reply. Streaming prompt events to remove that
+  delay (#130) was tried and dropped as far too large for the gain. Check: a
+  native test in which Interrupt is enabled right after Send with the clock
+  paused.
 
 ## Milestone C — Remaining features (steps 18–21, 25–28)
 
@@ -265,7 +261,8 @@ Step 27 checklist (append further small findings here):
 - [ ] **Footer layout:** move the three small buttons to the right-hand side
   and add the message-log button slot (before 13b).
 - [ ] **App identity:** a favicon and app logo/icon distinct from the company
-  logo, used for the window icon and step 24's packaging icons.
+  logo, used for the window icon and step 24's packaging icons. Ships with
+  the splash (21b), which shows it.
 - [ ] **Octagon:** the button shape improvement on the reference selectors
   (see Presentation rules).
 
