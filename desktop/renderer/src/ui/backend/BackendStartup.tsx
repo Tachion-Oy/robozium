@@ -20,6 +20,17 @@ export function BackendStartup({ children }: { children: (notice: ReactNode, cli
 		if (status.state === "ready") setHasOpenedHud(true)
 	}, [status.state])
 
+	// Main's startup screen shows Docker startup failures itself; the hub folder choice
+	// and connection failures are this component's, so the screen gives way to them.
+	const painted = status.state === "ready" || (status.state === "error"
+		&& (startup.state === "ready" || startup.action === "choose-hub-folder"))
+	useEffect(() => {
+		if (!painted) return
+		// The screen fades once the HUD or this failure has painted beneath it.
+		let frame = requestAnimationFrame(() => { frame = requestAnimationFrame(() => { void window.robozium.ready() }) })
+		return () => cancelAnimationFrame(frame)
+	}, [painted])
+
 	const retry = startup.state === "error" ? retryStartup : retryConnection
 	const notice = <div className="backend-notice">
 		<p role={status.state === "error" ? "alert" : "status"}>{status.message}</p>

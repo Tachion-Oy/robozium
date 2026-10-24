@@ -1,7 +1,7 @@
 import { expect, type ElectronApplication } from "@playwright/test"
 import { readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { test, documentUrl, preload, reopen } from "./native"
+import { test, appWindow, documentUrl, preload, reopen } from "./native"
 
 const toggle = "Toggle color theme"
 
@@ -23,7 +23,7 @@ test("the chosen theme and window background survive a restart, keeping other se
 
 	const reopened = await reopen(app, profile)
 	try {
-		const window = await reopened.firstWindow()
+		const window = await appWindow(reopened)
 		await expect(window.locator(".agent-hud__box")).toBeVisible()
 		expect(await window.evaluate(() => [document.documentElement.dataset.theme, document.documentElement.style.colorScheme])).toEqual(["light", "light"])
 		expect(await backgroundColor(reopened)).toBe("#f3f0e7")
@@ -44,7 +44,7 @@ test("an unreadable settings file opens dark and is never overwritten", async ({
 
 	const reopened = await reopen(app, profile)
 	try {
-		const window = await reopened.firstWindow()
+		const window = await appWindow(reopened)
 		await expect(window.locator(".agent-hud__box")).toBeVisible()
 		await expect(window.locator("html")).toHaveAttribute("data-theme", "dark")
 		expect(await backgroundColor(reopened)).toBe("#07080a")

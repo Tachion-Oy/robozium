@@ -10,6 +10,7 @@ export const desktopRoot = path.resolve(import.meta.dirname, "..")
 // Use Xvfb even when the host has Wayland; keep screenshot density reproducible.
 export const launchArgs = [desktopRoot, "--preview", "--ozone-platform=x11", "--force-device-scale-factor=1"]
 export const documentUrl = "robozium://app/index.html"
+export const startupUrl = "robozium://app/startup.html"
 export const preload = path.join(desktopRoot, "dist", locations.preload)
 
 export const test = base.extend<{ launchSwitches: string[]; desktop: { app: ElectronApplication; page: Page } }>({
@@ -32,7 +33,7 @@ export const test = base.extend<{ launchSwitches: string[]; desktop: { app: Elec
 			child = app.process()
 			child.stdout?.on("data", chunk => logs.push(String(chunk)))
 			child.stderr?.on("data", chunk => logs.push(String(chunk)))
-			const page = await app.firstWindow()
+			const page = await appWindow(app)
 			const errors: string[] = []
 			page.on("pageerror", error => errors.push(error.message))
 			await expect(page.locator(".agent-hud__box")).toBeVisible()
@@ -58,6 +59,29 @@ export const test = base.extend<{ launchSwitches: string[]; desktop: { app: Elec
 		}
 	}, { timeout: 60_000 }],
 })
+
+/** The application document; main's startup screen is a separate page over it. */
+export async function appWindow(app: ElectronApplication): Promise<Page> {
+	// The window's page exists before it navigates, so wait for the document rather than a new page.
+	await expect.poll(() => app.windows().some(page => page.url() === documentUrl), { timeout: 30_000 }).toBe(true)
+	return app.windows().find(page => page.url() === documentUrl)!
+}
+
+/** Main's startup screen over the window, as its own page. */
+export async function startupPage(app: ElectronApplication): Promise<Page> {
+	const isStartup = (page: Page) => page.url().startsWith(startupUrl)
+	await expect.poll(() => app.windows().some(isStartup), { timeout: 30_000 }).toBe(true)
+	return app.windows().filter(isStartup).at(-1)!
+}
+
+/** The stage of main's startup screen over the window, or null once it is removed. */
+export async function startupStage(app: ElectronApplication): Promise<string | null> {
+	return await app.evaluate(async ({ BrowserWindow, WebContentsView }) => {
+		const view = BrowserWindow.getAllWindows()[0]?.contentView.children.find(child => child instanceof WebContentsView)
+		if (!view || view.webContents.isDestroyed()) return null
+		return await view.webContents.executeJavaScript(`document.querySelector(".startup")?.dataset.stage ?? "pending"`) as string
+	})
+}
 
 /** Close through the native window, as a user does, then start again on the same profile. */
 export async function reopen(app: ElectronApplication, profile: string): Promise<ElectronApplication> {

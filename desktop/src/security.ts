@@ -26,3 +26,12 @@ export function permissionRequestAllowed(
 	const mediaType = mediaTypes?.length && mediaTypes.every(type => type === "audio") ? "audio" : "unknown"
 	return permissionAllowed(window, webContents, documentUrl, permission, { ...details, mediaType })
 }
+
+/** A document that never navigates, opens popups or attaches webviews; main opens links outside it. */
+export function lockNavigation(contents: WebContents): void {
+	contents.setWindowOpenHandler(() => ({ action: "deny" }))
+	contents.on("will-navigate", event => event.preventDefault())
+	contents.on("will-frame-navigate", event => event.preventDefault())
+	contents.on("will-redirect", event => event.preventDefault())
+	contents.on("will-attach-webview", event => event.preventDefault())
+}

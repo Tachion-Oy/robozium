@@ -135,6 +135,12 @@ unsupported methods, malformed paths, traversal, and symlink escapes.
 It cleans up its profiles and processes. Failure diagnostics are retained in
 `desktop/test-results/` and `desktop/playwright-report/`.
 
+`desktop/tests/startup.spec.ts` checks that the startup screen covers the window
+as soon as it shows, keeps the introduction up over an already drawn HUD, and is
+removed after its fade. The lifecycle tests cover a Docker failure and Retry on the loading screen, and the
+loading screen during Restart backend and Restart app. Native tests drive the app
+page beneath the screen (`appWindow` in `desktop/tests/native.ts`).
+
 `desktop/tests/theme.spec.ts` checks that the chosen theme and native window
 background survive a restart without dropping other `settings.json` keys, that
 an unreadable settings file opens dark and is never overwritten (the switch

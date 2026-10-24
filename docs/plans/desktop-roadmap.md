@@ -52,7 +52,7 @@ Reviewed against `origin/main` at `e1ba35b` (after #145).
 | 18 Environment | Done | #116, #117 |
 | 19 Dependencies | Done | #126 |
 | 20 Credentials and capabilities | Done | #106, #115 |
-| 21 Dictation and startup | Dictation done; startup not started | #131 |
+| 21 Dictation and startup | Done | #131, #158 |
 | 22 Instance handling | Window size, zoom and second-instance focus done | #127 |
 | 23–24 Ship | Linux packaging done; macOS deferred | #129 |
 | Toasts (step 11 follow-up) | Done | #120 |
@@ -67,12 +67,11 @@ more ground; 200–400 hand-written lines is the ceiling, not the target.
 
 | # | PR | Contents |
 | --- | --- | --- |
-| 1 | Startup splash | 21b, keeping the current splash artwork |
-| 2 | UI tweaks | Step 27: light theme, stable selectors, no project title in Runs view, footer layout, octagon |
-| 3 | App logo | Step 27's app identity: the logo goes on the splash, the window icon and the `.deb` icon |
-| 4 | Preview mode | Remove `--preview` or run it against the mock backend (see the step 11 follow-ups) |
-| 5 | Instance handling leftovers | Step 22: settings validation and independent test profiles |
-| 6 | macOS | Step 23 and the macOS half of 24; deferred |
+| 1 | UI tweaks | Step 27: light theme, stable selectors, no project title in Runs view, footer layout, octagon |
+| 2 | App logo | Step 27's app identity: the logo goes on the splash, the window icon and the `.deb` icon |
+| 3 | Preview mode | Remove `--preview` or run it against the mock backend (see the step 11 follow-ups) |
+| 4 | Instance handling leftovers | Step 22: settings validation and independent test profiles |
+| 5 | macOS | Step 23 and the macOS half of 24; deferred |
 
 ## Parity checklist
 
@@ -90,7 +89,7 @@ the PR that closes it.
 | Dictation: Record, audio meter, `/transcribe`, microphone permission | E, W | Done (#131) | 21a |
 | Dependencies panel: sort, Check now, copy diagnostic | E, W | Done (#126) | 19 |
 | Backend restart/recreate (`BackendControls`) | E | Done (#126) | 19 |
-| Startup splash, handoff to the painted HUD, splash during restart | E | Plain `ui/backend/BackendStartup.tsx` | 21b |
+| Startup splash, handoff to the painted HUD, splash during restart | E | Done (#158): the experiment's startup document over the window, shown by main | 21b |
 | Window 1260×780 default, 640×420 minimum, 90% of work area maximum, size saved | E | Done; the 90% cap applies to sizes the app picks, not to manual resizing | 22 |
 | Zoom ±0.1 within 0.5–3, saved | E | Done | 22 |
 | Second-instance focus | E | Done | 22 |
@@ -235,7 +234,7 @@ for the gain.
 | **19. Dependencies** | Dependency panel and diagnostics. Restart/recreate backend through `backend-controller.ts`, limited to owned services. | Available/missing/error states and restart/recreate; captures match. |
 | **20. Credentials and capabilities** | `UnlockApiKeys` and the overview capability selector, through owners. Done: the selector in step 12, `UnlockApiKeys` through `credentials/useCredentials`. | Lock/unlock, failures and capability persistence; captures match. |
 | **21a. Dictation** | `useDictation` owner, audio meter and a transcription API module. Allow only `media` (audio) for the trusted main frame; every other permission stays refused. Enable Record. | Recording lifecycle and permission denial. |
-| **21b. Startup** | Bring over #101's startup splash (see Milestone B) and its handoff to the painted HUD, including the splash during restart. | Startup animation and handoff compared with the reference. |
+| **21b. Startup** | Done, as in the experiment: the startup screen is its own document that main shows over the window at launch, before a development launch has built the app, and during backend restarts and Restart app. It fades once the HUD has drawn beneath it. | Startup animation and handoff compared with the reference. |
 | **25. Image attachments** | From `web/`, not the experiment. **25a:** copy the newer `ReplyForm`, `ReplyEditor`, `useReplyImages` and `reply-images`; add an `api/attachments` module (`POST/GET/DELETE /run/{id}/files[/{attachmentId}]`, client `upload_id` for retries) and a per-run image queue owner. **25b:** paste, drop and picker via react-dropzone, previews (CSP `img-src` for `blob:` and the backend origin; check the `desktop_access` Host/Origin rules), remove, retry, image-only Send. The backend and RoboZ `read_images` need no change. | Native spec: paste an image, upload, send; the agent turn receives the file. Limits and rejections match `web/`. |
 | **26. Onboarding** | Blocked on #121. Port the `setup_required` gate (423 for provider actions), the locked HUD with START HERE, `OnboardingHud` and its pages. | Fresh live profile shows onboarding; the first Environment save unlocks without a restart. |
 | **27. UI tweaks** | Several small visual PRs, each editing the desktop CSS and markup in place with before/after captures in both themes. Checklist below. | Captures per item. |

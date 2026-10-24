@@ -1,3 +1,5 @@
 <!doctype html>
-<html lang="en" data-desktop="true"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'"><title>Robozium</title></head>
-<body><div id="root"></div><script type="module" src="./main.tsx"></script></body></html>
+<!-- Copied from robozium-electron/desktop/web/startup/index.html at 076b2c9.
+     Adapted: main sends the Content-Security-Policy with the document, as for the app. -->
+<html lang="en" data-desktop="true"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Robozium</title></head>
+<body><div id="root"></div><script type="module" src="./src/ui/startup/main.tsx"></script></body></html>

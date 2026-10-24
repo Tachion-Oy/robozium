@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import net from "node:net"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { captureNative, chooseView, documentUrl, modelTrigger, setNativeViewport } from "../tests/native"
+import { appWindow, startupPage, startupStage, captureNative, chooseView, documentUrl, modelTrigger, setNativeViewport } from "../tests/native"
 import { expectFooterGeometry } from "../tests/footer-geometry"
 import { resolveBackendLayout } from "../src/backend-layout"
 import { installTestClient } from "../tests/transport"
@@ -109,7 +109,7 @@ async function closeWindow(app: ElectronApplication) {
 
 async function launchConnected(runtime: Runtime) {
 	const app = await runtime.launch()
-	const page = await app.firstWindow()
+	const page = await appWindow(app)
 	await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible({ timeout: 180_000 })
 	return { app, page }
 }
@@ -133,26 +133,42 @@ test("Docker startup failure presents an accessible retry that starts the backen
 	const enabled = path.join(directory, "enabled")
 	await writeFile(path.join(directory, "bin/docker"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${shellQuote(commands)}\nif [ "$1" = info ] && [ ! -f ${shellQuote(enabled)} ]; then exit 1; fi\nexec ${shellQuote(docker)} "$@"\n`, { mode: 0o700 })
 	const app = await runtime.launch()
-	const page = await app.firstWindow()
-	await expect(page.getByRole("alert")).toContainText("Docker is unavailable")
+	const page = await appWindow(app)
+	// The loading screen shows the failure once the launch animation has played.
+	const startup = await startupPage(app)
+	await expect(startup.getByRole("alert")).toContainText("Docker is unavailable", { timeout: 30_000 })
 	await expect(page.getByRole("button", { name: "New Project", exact: true })).toHaveCount(0)
 	await setNativeViewport(app, page, 640, 420, 1.25)
-	expect(await page.evaluate(() => document.documentElement.scrollHeight === innerHeight)).toBe(true)
-	const retry = await page.getByRole("button", { name: "Retry", exact: true }).boundingBox()
-	expect(retry!.height).toBeGreaterThan(24)
-	expect(retry!.height).toBeLessThan(60)
+	// The zoom shortcut zooms the startup screen too; apply the same zoom to it here.
+	await app.evaluate(({ BrowserWindow, WebContentsView }) => {
+		const view = BrowserWindow.getAllWindows()[0].contentView.children.find(child => child instanceof WebContentsView)!
+		view.webContents.setZoomFactor(1.25)
+	})
+	await expect.poll(() => startup.evaluate(() => [innerWidth, innerHeight])).toEqual([512, 336])
+	expect(await startup.evaluate(() => document.documentElement.scrollHeight === innerHeight)).toBe(true)
+	// The message and Retry fit the smallest window at 125%.
+	for (const control of [startup.getByRole("alert"), startup.getByRole("button", { name: "Retry", exact: true })]) {
+		const box = (await control.boundingBox())!
+		expect(box.height).toBeGreaterThan(12)
+		expect(box.y + box.height).toBeLessThanOrEqual(336)
+	}
 	const screenshot = testInfo.outputPath("startup-error.png")
-	await writeFile(screenshot, (await captureNative(app, page, 640, 420))!)
+	// CDP screenshots crop at Electron zoom; capture the native surface instead.
+	await writeFile(screenshot, Buffer.from(await app.evaluate(async ({ BrowserWindow, WebContentsView }) => {
+		const view = BrowserWindow.getAllWindows()[0].contentView.children.find(child => child instanceof WebContentsView)!
+		return (await view.webContents.capturePage()).toPNG().toString("base64")
+	}), "base64"))
 	await testInfo.attach("startup-error.png", { path: screenshot, contentType: "image/png" })
 	await writeFile(enabled, "retry")
-	await page.getByRole("button", { name: "Retry", exact: true }).click()
+	await startup.getByRole("button", { name: "Retry", exact: true }).click()
 	await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible({ timeout: 180_000 })
+	await expect.poll(() => startupStage(app), { timeout: 20_000 }).toBeNull()
 })
 
 test("initial renderer readiness times out, stops polling, and retries without Docker", async ({ runtime }) => {
 	const { port, commands } = runtime
 	const app = await runtime.launch()
-	const page = await app.firstWindow()
+	const page = await appWindow(app)
 	let blocked = true
 	let readinessRequests = 0
 	const abortedReady = page.waitForEvent("requestfailed", request => request.url() === `http://127.0.0.1:${port}/ready`)
@@ -338,7 +354,7 @@ test("closing and reopening preserves project data and reuses the backend image"
 	})
 	await test.step("Reopen the installation and reuse its project and image", async () => {
 		const reopened = await runtime.launch()
-		const reopenedPage = await reopened.firstWindow()
+		const reopenedPage = await appWindow(reopened)
 		await expect(reopenedPage.getByRole("button", { name: "New Project", exact: true })).toBeVisible({ timeout: 30_000 })
 		await installTestClient(reopenedPage, `http://127.0.0.1:${port}`)
 		const projects = await reopenedPage.evaluate(async () => await window.testApi.request("/projects") as { slug: string }[])
@@ -355,7 +371,7 @@ test("closing the native window cancels an in-progress build client", async ({ r
 	const marker = path.join(runtime.directory, "build-pid")
 	await writeFile(path.join(runtime.directory, "bin/docker"), `#!/bin/sh\ncase "$*" in\n  *" build api") echo $$ > ${shellQuote(marker)}; exec sleep 120;;\nesac\nexec ${shellQuote(docker)} "$@"\n`, { mode: 0o700 })
 	const app = await runtime.launch()
-	const page = await app.firstWindow()
+	const page = await appWindow(app)
 	await expect(page.getByRole("status")).toContainText("Building the backend", { timeout: 15_000 })
 	await expect.poll(async () => {
 		try {
@@ -499,17 +515,31 @@ test("a setting saved in Environment is stored by the backend and shown after re
 	await closeWindow(app)
 })
 
+test("Restart backend covers the HUD with the loading screen until the HUD has reconnected", async ({ runtime }) => {
+	const { app, page } = await launchConnected(runtime)
+	await expect.poll(() => startupStage(app), { timeout: 20_000 }).toBeNull()
+	await chooseView(page, "Dependencies")
+	const restart = page.getByLabel("Backend controls").getByRole("button", { name: "Restart backend" })
+	await restart.click()
+	await expect.poll(() => startupStage(app)).toBe("loading")
+	await expect.poll(() => startupStage(app), { timeout: 90_000 }).toBeNull()
+	await expect(restart).toBeEnabled()
+	await expect(page.locator(".backend-notice")).toHaveCount(0)
+	await closeWindow(app)
+})
+
 test("a secret saved in Environment applies after Restart app and a reset removes it", async ({ runtime }) => {
 	const marker = path.join(runtime.directory, "relaunched")
 	/** Playwright cannot follow a relaunched process; record the request, wait for a clean exit, then start again. */
 	const restartApp = async (app: ElectronApplication, page: Page) => {
-		await app.evaluate(({ app }, marker) => {
-			app.relaunch = () => process.getBuiltinModule("fs").writeFileSync(marker, "relaunch")
+		await app.evaluate(({ app, BrowserWindow }, marker) => {
+			// Record whether the loading screen still covers the window when the app restarts.
+			app.relaunch = () => process.getBuiltinModule("fs").writeFileSync(marker, `relaunch covered=${BrowserWindow.getAllWindows()[0].contentView.children.length}`)
 		}, marker)
 		const exited = once(app.process(), "exit")
 		await page.getByRole("region", { name: "Environment settings" }).getByRole("button", { name: "Restart app" }).click()
 		expect(await exited).toEqual([0, null])
-		expect(await readFile(marker, "utf8")).toBe("relaunch")
+		expect(await readFile(marker, "utf8")).toBe("relaunch covered=1")
 		await rm(marker)
 		return launchConnected(runtime)
 	}
@@ -556,7 +586,7 @@ test("a secret saved in Environment applies after Restart app and a reset remove
 
 test("a live start without keys opens on Start Here, and the guide explains the key file", async ({ runtime }) => {
 	const app = await runtime.launch("live")
-	const page = await app.firstWindow()
+	const page = await appWindow(app)
 	await expect(page.getByRole("button", { name: "Start Here", exact: true })).toBeVisible({ timeout: 180_000 })
 	await expect(page.getByRole("button", { name: "New Project", exact: true })).toHaveCount(0)
 	await page.getByRole("button", { name: "Start Here", exact: true }).click()

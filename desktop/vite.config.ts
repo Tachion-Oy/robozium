@@ -9,6 +9,8 @@ export default defineConfig({
 	css: { postcss: { plugins: [tailwindcss()] } },
 	build: {
 		outDir: "../dist/renderer",
+		// The application and the startup screen that main shows over it.
+		rollupOptions: { input: ["index.html", "startup.html"].map(page => path.join(import.meta.dirname, "renderer", page)) },
 		emptyOutDir: true,
 		// The renderer CSP allows only bundled files, not inlined data: fonts.
 		assetsInlineLimit: 0,

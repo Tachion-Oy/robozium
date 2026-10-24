@@ -1,13 +1,14 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme, protocol, screen, shell, type IpcMainInvokeEvent } from "electron"
+import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme, protocol, screen, shell, type Input, type IpcMainInvokeEvent } from "electron"
 import { mkdirSync } from "node:fs"
 import { BackendController } from "./backend-controller.ts"
 import { registerRendererProtocol, rendererUrl } from "./renderer-protocol.ts"
 import { MessageLogWindow } from "./message-log-window.ts"
 import { externalUrl, hubFilePath } from "./links.ts"
 import { checkHubFolderChoice, recordedHubFolder, saveHubFolder } from "./hub-folder.ts"
-import { permissionAllowed, permissionRequestAllowed } from "./security.ts"
+import { lockNavigation, permissionAllowed, permissionRequestAllowed } from "./security.ts"
 import { desktopLocations } from "./locations.ts"
 import { isAppTheme, readSettings, saveSettings, themeBackground, type DesktopSettings } from "./settings.ts"
+import { StartupView } from "./startup-view.ts"
 import { boundedSize, DEFAULT_SIZE, nextZoom, windowLimits, zoomShortcut } from "./window.ts"
 
 protocol.registerSchemesAsPrivileged([
@@ -17,7 +18,7 @@ protocol.registerSchemesAsPrivileged([
 app.setName("Robozium")
 const preview = process.argv.includes("--preview")
 const mode = process.argv.includes("--mock") ? "mock" : "live"
-const { profile, source, compose, preload, hubFolder } = desktopLocations({
+const { profile, source, compose, preload, startupPreload, hubFolder } = desktopLocations({
 	packaged: app.isPackaged, appDirectory: import.meta.dirname, resourcesPath: process.resourcesPath,
 	userData: app.getPath("userData"), home: app.getPath("home"), mode, preview,
 	profileOverride: process.env.ROBOZIUM_DESKTOP_TEST_DATA,
@@ -55,6 +56,10 @@ async function start(): Promise<void> {
 		source, compose, hubFolder,
 	})
 	await registerRendererProtocol(backend?.connection().baseUrl)
+	lockNavigation(window.webContents)
+	const startup = new StartupView(window, startupPreload, settings)
+	// The screen shows the window once it has painted; everything slow runs behind it.
+	void startup.show("intro")
 	const startBackend = async () => {
 		try {
 			await backend?.start()
@@ -63,14 +68,22 @@ async function start(): Promise<void> {
 		}
 	}
 	let closing = false
+	let relaunch = false
 	/** Stop the backend, then exit; a restart starts again only after a clean stop. */
 	const quit = async (restart = false) => {
-		if (closing) return
+		if (closing) {
+			// Closing during a restart hides the window at once and exits without starting again.
+			if (!restart) { relaunch = false; window.hide() }
+			return
+		}
 		closing = true
-		window.hide()
+		relaunch = restart
+		// A restart keeps the window, which shows the loading screen until the app exits.
+		if (restart) await startup.show("loading")
+		else window.hide()
 		try {
 			await backend?.close()
-			if (restart) app.relaunch()
+			if (relaunch) app.relaunch()
 			app.exit(0)
 		} catch (error) { console.error("Backend shutdown failed:", error); app.exit(1) }
 	}
@@ -112,23 +125,22 @@ async function start(): Promise<void> {
 	window.setMenuBarVisibility(false)
 	const contents = window.webContents
 	let zoom = settings.zoom
-	contents.on("before-input-event", (event, input) => {
+	/** Zoom shortcuts zoom the application and the startup screen alike. */
+	const zoomInput = (input: Input) => {
 		const direction = zoomShortcut(input, process.platform)
-		if (direction === null) return
-		// Match logical keys across layouts/keypads and suppress the menu's second step.
-		event.preventDefault()
+		if (direction === null) return false
 		zoom = nextZoom(contents.getZoomFactor(), direction)
 		contents.setZoomFactor(zoom)
+		startup.setZoom(zoom)
 		if (logWindow.open) logWindow.expand()
 		save({ zoom })
-	})
+		return true
+	}
+	// Match logical keys across layouts/keypads and suppress the menu's second step.
+	contents.on("before-input-event", (event, input) => { if (zoomInput(input)) event.preventDefault() })
+	startup.onInput = zoomInput
 	// A reload resets the document's zoom; keep the chosen one.
 	contents.on("dom-ready", () => contents.setZoomFactor(zoom))
-	contents.setWindowOpenHandler(() => ({ action: "deny" }))
-	contents.on("will-navigate", event => event.preventDefault())
-	contents.on("will-frame-navigate", event => event.preventDefault())
-	contents.on("will-redirect", event => event.preventDefault())
-	contents.on("will-attach-webview", event => event.preventDefault())
 	// Only the bundled document's main frame may record audio, for dictation.
 	contents.session.setPermissionCheckHandler((requester, permission, _origin, details) =>
 		permissionAllowed(window, requester, rendererUrl, permission, details))
@@ -155,10 +167,22 @@ async function start(): Promise<void> {
 		requireTrustedDocument(event)
 		void startBackend()
 	})
+	ipcMain.handle("desktop:ready", event => {
+		requireTrustedDocument(event)
+		startup.appPainted()
+	})
 	const manageBackend = (operation: "restart" | "recreate") => async (event: IpcMainInvokeEvent) => {
 		requireTrustedDocument(event)
 		if (!backend) throw new Error("Standalone preview has no backend to manage.")
-		await (operation === "restart" ? backend.restart() : backend.recreate())
+		// The application reconnects after the operation; its next ready() ends the screen.
+		await startup.show("loading")
+		try {
+			await (operation === "restart" ? backend.restart() : backend.recreate())
+		} catch (error) {
+			startup.remove()
+			throw error
+		}
+		startup.awaitApp()
 	}
 	ipcMain.handle("desktop:restart-backend", manageBackend("restart"))
 	ipcMain.handle("desktop:recreate-backend", manageBackend("recreate"))
@@ -176,6 +200,7 @@ async function start(): Promise<void> {
 		// The window follows the choice even when saving it fails.
 		nativeTheme.themeSource = theme
 		window.setBackgroundColor(themeBackground[theme])
+		startup.theme = theme
 		saveSettings(profile, { theme })
 	})
 	ipcMain.handle("desktop:message-log", event => {
@@ -244,8 +269,17 @@ async function start(): Promise<void> {
 		const failure = await shell.openPath(folder)
 		if (failure) throw new Error(failure)
 	})
+	// Startup failures show on the screen with Retry, as in the experiment; choosing
+	// another hub folder needs the application, which shows that failure itself.
+	startup.status = () => {
+		const status = backend?.snapshot() ?? { state: "starting", message: "Starting Robozium…" }
+		return status.state === "error" && status.action !== "choose-hub-folder"
+			? { state: "unavailable", message: status.message }
+			: { state: "starting", message: status.message }
+	}
+	startup.retry = () => void startBackend()
+	startup.awaitApp()
 	await window.loadURL(rendererUrl)
-	window.show()
 	void startBackend()
 }
 

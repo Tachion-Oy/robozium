@@ -1,8 +1,10 @@
+// Copied from robozium-electron/desktop/web/startup/main.tsx at 076b2c9.
+// Adapted: the stylesheets live in ui/styles.
 import { createRoot } from "react-dom/client"
 import { StartupScreen } from "./StartupScreen"
 import "./presentation.css"
-import "../app/styles/fonts.css"
-import "../app/components/desktop/desktop.css"
+import "../styles/fonts.css"
+import "../styles/desktop.css"
 import "./startup.css"
 
 const theme = new URL(location.href).searchParams.get("theme") === "light" ? "light" : "dark"

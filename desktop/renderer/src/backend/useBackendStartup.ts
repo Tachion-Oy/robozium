@@ -24,8 +24,12 @@ export function useBackendStartup() {
 					const status = await window.robozium.getBackendStatus()
 					if (!active) return
 					if (status.state !== "ready") {
-						setStartup({ state: status.state, message: status.message, action: status.action })
-						if (status.state === "starting") startupTimer = setTimeout(checkStartup, 500)
+						// Polling continues through a failure; an unchanged status renders nothing new.
+						const next: StartupState = { state: status.state, message: status.message, action: status.action }
+						setStartup(current => current.state !== "ready" && current.state === next.state
+							&& current.message === next.message && current.action === next.action ? current : next)
+						// Keep following a failure: the startup screen's Retry starts the backend again.
+						startupTimer = setTimeout(checkStartup, 500)
 						return
 					}
 					hasStartedBackend.current = true

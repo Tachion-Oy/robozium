@@ -1,7 +1,7 @@
 import { expect, type ElectronApplication } from "@playwright/test"
 import { readFile } from "node:fs/promises"
 import path from "node:path"
-import { test, reopen } from "./native"
+import { test, appWindow, reopen } from "./native"
 
 const contentSize = (app: ElectronApplication) =>
 	app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentSize())
@@ -61,7 +61,7 @@ test("zoom steps by a tenth and zoom and window size survive a restart", async (
 
 	const reopened = await reopen(app, profile)
 	try {
-		const window = await reopened.firstWindow()
+		const window = await appWindow(reopened)
 		await expect(window.locator(".agent-hud__box")).toBeVisible()
 		await expect.poll(() => contentSize(reopened)).toEqual([1000, 700])
 		await expect.poll(() => zoomFactor(reopened)).toBeCloseTo(1.2)
@@ -75,7 +75,7 @@ test("a window grown by the log is remembered at its earlier size", async ({ des
 	await expect.poll(() => contentSize(app)).toEqual([1120, 650])
 	const reopened = await reopen(app, profile)
 	try {
-		await expect((await reopened.firstWindow()).locator(".agent-hud__box")).toBeVisible()
+		await expect((await appWindow(reopened)).locator(".agent-hud__box")).toBeVisible()
 		await expect.poll(() => contentSize(reopened)).toEqual([900, 650])
 	} finally { await reopened.close() }
 })

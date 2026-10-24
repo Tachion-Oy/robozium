@@ -22,6 +22,27 @@ export type HubFolderPick = { folder: string; needsConfirmation: boolean } | nul
 
 export type AppTheme = "dark" | "light"
 
+/** Startup as the startup screen shows it; "unavailable" shows the message with Retry. */
+export interface LauncherStatus {
+	state: "starting" | "unavailable"
+	message: string
+}
+
+/** The startup screen's operations, from its own preload. */
+export interface LauncherBridge {
+	status(): Promise<LauncherStatus>
+	retry(): Promise<void>
+	/** Fonts have loaded; show the window. */
+	visible(): Promise<void>
+	/** The first frame has drawn. */
+	painted(): Promise<void>
+	/** The fade has started; main removes the screen if it never reports an end. */
+	handoff(): Promise<void>
+	faded(): Promise<void>
+	/** The application has drawn beneath the screen, which may now fade. */
+	onReady(callback: () => void): () => void
+}
+
 export interface DesktopBridge {
 	/** The saved theme at launch, so the renderer can apply it before first paint. */
 	readonly theme: AppTheme
@@ -29,6 +50,8 @@ export interface DesktopBridge {
 	setTheme(theme: AppTheme): Promise<void>
 	getBackendConnection(): Promise<{ baseUrl: string } | null>
 	getBackendStatus(): Promise<BackendStatus>
+	/** The HUD, or the startup failure, has painted; the startup screen covering it may fade. */
+	ready(): Promise<void>
 	retryBackend(): Promise<void>
 	/** Restart this installation's API container; resolves once it is ready again. */
 	restartBackend(): Promise<void>

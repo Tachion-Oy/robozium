@@ -1,20 +1,14 @@
-import { useCallback, useEffect, useState } from "react"
-import type { BackendStatus } from "../lib/desktop"
-import { AgentActivityState } from "../lib/robozium/session/reducer.types"
-import { HudButton } from "../app/components/hud/HudButton"
-import { MinimizedHudFrame } from "../app/components/hud/MinimizedHudFrame"
-import { TerminalBackdrop } from "../app/components/terminal/TerminalBackdrop"
-import { IntroStream, PlaceholderLog } from "../app/components/terminal/demo/DemoLog"
-
-export interface LauncherBridge {
-	status(): Promise<BackendStatus>
-	retry(): Promise<void>
-	visible(): Promise<void>
-	painted(): Promise<void>
-	handoff(): Promise<void>
-	faded(): Promise<void>
-	onReady(callback: () => void): () => void
-}
+// Copied from robozium-electron/desktop/web/startup/StartupScreen.tsx at 076b2c9.
+// Adapted: imports follow this renderer's layout, the launcher contract lives in
+// the desktop bridge, promise chains are awaited, and a failure raises the loader
+// so its message and Retry fit the smallest window.
+import { useCallback, useEffect, useState, type ReactNode } from "react"
+import type { LauncherBridge } from "../../../../src/bridge"
+import { AgentActivityState } from "../run/run-view"
+import { HudButton } from "../hud/HudButton"
+import { MinimizedHudFrame } from "../hud/MinimizedHudFrame"
+import { TerminalBackdrop } from "../terminal/TerminalBackdrop"
+import { IntroStream, PlaceholderLog } from "../terminal/demo/DemoLog"
 
 // Equal sides and 135-degree interior angles; the cut is 100 / (2 + sqrt(2)).
 const octagonPoints = "29.289322,0 70.710678,0 100,29.289322 100,70.710678 70.710678,100 29.289322,100 0,70.710678 0,29.289322"
@@ -24,7 +18,7 @@ declare global {
 }
 
 /** Local presentation runs independently of Docker and the application document. */
-export function StartupScreen() {
+export function StartupScreen(): ReactNode {
 	const [skipIntro] = useState(() => new URL(location.href).searchParams.get("mode") === "loading")
 	const [reducedMotion] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches)
 	const [introDone, setIntroDone] = useState(skipIntro)
@@ -54,7 +48,8 @@ export function StartupScreen() {
 
 	useEffect(() => {
 		let active = true
-		void document.fonts.ready.then(async () => {
+		void (async () => {
+			await document.fonts.ready
 			if (!active) return
 			await window.launcher.visible()
 			await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
@@ -64,15 +59,16 @@ export function StartupScreen() {
 				setIntroDone(true)
 				setLoadingStarted(true)
 			}
-		})
+		})()
 		return () => { active = false }
 	}, [reducedMotion])
 
 	useEffect(() => {
 		if (!revealing) return
-		void window.launcher.handoff().then(() => {
-			if (reducedMotion) void window.launcher.faded()
-		})
+		void (async () => {
+			await window.launcher.handoff()
+			if (reducedMotion) await window.launcher.faded()
+		})()
 	}, [revealing, reducedMotion])
 
 	return (
@@ -87,7 +83,7 @@ export function StartupScreen() {
 			</TerminalBackdrop>
 			{loadingStarted && (
 				<div
-					className={`agent-hud agent-hud--landing startup__hud${skipIntro ? "" : " startup__hud--enter"}`}>
+					className={`agent-hud agent-hud--landing startup__hud${skipIntro ? "" : " startup__hud--enter"}${failure ? " startup__hud--failed" : ""}`}>
 					<div className="agent-hud__box">
 						<div className="startup__loading">
 							<MinimizedHudFrame

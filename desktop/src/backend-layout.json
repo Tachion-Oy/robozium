@@ -15,6 +15,7 @@
       "checkoutSource": ".stage/backend",
       "compose": "compose.yaml",
       "preload": "preload.cjs",
+      "startupPreload": "startup-preload.cjs",
       "settings": "settings.json",
       "installationId": "backend-installation-id",
       "hubFolder": "hub-folder",

@@ -2,7 +2,7 @@ import { _electron, expect, type Page } from "@playwright/test"
 import { once } from "node:events"
 import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { test, desktopRoot, launchArgs, documentUrl, preload, waitForPanelLayout, captureNative, chooseModel, chooseView, modelTrigger, setNativeViewport, viewTrigger } from "./native"
+import { test, appWindow, desktopRoot, launchArgs, documentUrl, preload, waitForPanelLayout, captureNative, chooseModel, chooseView, modelTrigger, setNativeViewport, viewTrigger } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
 async function expectPanelGeometry(page: Page, layout: "top" | "equal" | "bottom") {
@@ -250,7 +250,7 @@ test("exposes the version bridge when launched outside the checkout", async ({ d
 		process: typeof Reflect.get(window, "process"),
 		ipcRenderer: typeof Reflect.get(window, "ipcRenderer"),
 		bridge: Object.keys(window.robozium),
-	}))).toEqual({ require: "undefined", process: "undefined", ipcRenderer: "undefined", bridge: ["theme", "setTheme", "getBackendConnection", "getBackendStatus", "retryBackend", "restartBackend", "recreateBackend", "restartApp", "getVersion", "writeClipboardText", "getMessageLog", "setMessageLog", "openExternal", "openHubFile", "getHubFolder", "chooseHubFolder", "useHubFolder", "openHubFolder"] })
+	}))).toEqual({ require: "undefined", process: "undefined", ipcRenderer: "undefined", bridge: ["theme", "setTheme", "getBackendConnection", "getBackendStatus", "ready", "retryBackend", "restartBackend", "recreateBackend", "restartApp", "getVersion", "writeClipboardText", "getMessageLog", "setMessageLog", "openExternal", "openHubFile", "getHubFolder", "chooseHubFolder", "useHubFolder", "openHubFolder"] })
 	// Playwright disables Chromium sandboxing unless explicitly told otherwise.
 	expect(await app.evaluate(({ app }) => app.commandLine.hasSwitch("no-sandbox"))).toBe(false)
 })
@@ -580,6 +580,6 @@ test("native close exits and the same profile can reopen", async ({ desktop: { a
 		timeout: 15_000,
 	})
 	try {
-		await expect((await reopened.firstWindow()).locator(".agent-hud__box")).toBeVisible()
+		await expect((await appWindow(reopened)).locator(".agent-hud__box")).toBeVisible()
 	} finally { await reopened.close() }
 })

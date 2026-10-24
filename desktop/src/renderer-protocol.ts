@@ -4,6 +4,8 @@ import path from "node:path"
 import { pathToFileURL } from "node:url"
 
 export const rendererUrl = "robozium://app/index.html"
+/** The startup screen, a second document of the same bundle. */
+export const startupUrl = "robozium://app/startup.html"
 
 export async function registerRendererProtocol(baseUrl?: string): Promise<void> {
 	const root = await realpath(path.join(import.meta.dirname, "renderer"))

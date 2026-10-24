@@ -1,11 +1,13 @@
+/* Copied from robozium-electron/desktop/web/startup/presentation.css at 076b2c9.
+   Adapted: the reference stylesheets live in ui/styles. */
 @import "tailwindcss";
-@import "../app/styles/theme.css";
-@import "../app/styles/base.css";
-@import "../app/styles/crt.css";
-@import "../app/styles/display-art.css";
-@import "../app/styles/terminal.css";
-@import "../app/styles/nav.css";
-@import "../app/styles/light-theme.css";
-@import "../app/components/hud/hud-frame.css";
-@import "../app/components/hud/hud-controls.css";
-@import "../app/components/hud/hud-button.css";
+@import "../styles/theme.css";
+@import "../styles/base.css";
+@import "../styles/crt.css";
+@import "../styles/display-art.css";
+@import "../styles/terminal.css";
+@import "../styles/nav.css";
+@import "../styles/light-theme.css";
+@import "../styles/hud-frame.css";
+@import "../styles/hud-controls.css";
+@import "../styles/hud-button.css";

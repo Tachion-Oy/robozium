@@ -4,5 +4,5 @@
     // Electron requires a CommonJS sandboxed preload, whose imports compile to require().
     "verbatimModuleSyntax": false
   },
-  "include": ["src/preload.cts", "src/bridge.d.ts"]
+  "include": ["src/preload.cts", "src/startup-preload.cts", "src/bridge.d.ts"]
 }
