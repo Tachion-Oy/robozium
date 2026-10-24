@@ -75,6 +75,7 @@ export interface EnvironmentDraft {
 	/** Write outcomes, passed in by App. */
 	replaced: (next: EnvironmentView) => void
 	imported: (result: EnvironmentImportResult) => void
+	removed: (name: string) => void
 	reset: () => void
 }
 
@@ -236,6 +237,13 @@ export function useEnvironmentDraft(client: DesktopApiClient | null, visible: bo
 				suggestions: [...previous.suggestions.filter(item => item.source !== result.imported.name), ...result.suggestions],
 			})
 			revealSuggestions(new Set(result.suggestions.map(entry => entry.name)))
+		},
+		removed: name => {
+			setView(previous => previous && {
+				...previous,
+				imports: previous.imports.filter(item => item.name !== name),
+				suggestions: previous.suggestions.filter(item => item.source !== name),
+			})
 		},
 		reset: () => {
 			setView(null)

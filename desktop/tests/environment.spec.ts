@@ -194,6 +194,30 @@ test("importing a folder uploads each file under its relative path and asks for 
 	}
 })
 
+test("removing an import asks for confirmation, keeps it on failure, and asks for a restart", async ({ desktop: { page }, backend }) => {
+	const imported = { name: "local_tool", active: true, variables: [],
+		capabilities: [{ name: "local_tool", kind: "tool", selectable: true, loading: null }] }
+	let current = environment({ imports: [imported] })
+	backend.handlers.set("GET /credentials/environment", response => json(response, current))
+	backend.handlers.set("DELETE /credentials/environment/imports/local_tool", response => json(response, { detail: "Stop all runs first" }, 409))
+	await openEnvironment(page, backend)
+	const imports = panel(page).getByRole("region", { name: "Tools & skills" })
+	await imports.getByRole("button", { name: "Remove local_tool" }).click()
+	await imports.getByRole("button", { name: "Confirm removing local_tool" }).click()
+	await expect(alert(page, "Remove failed")).toContainText("Stop all runs first")
+	await expect(imports.getByText("local tool", { exact: true })).toBeVisible()
+	backend.handlers.set("DELETE /credentials/environment/imports/local_tool", response => {
+		current = environment()
+		json(response, { status: "removed" })
+	})
+	await imports.getByRole("button", { name: "Remove local_tool" }).click()
+	await imports.getByRole("button", { name: "Confirm removing local_tool" }).click()
+	await expect(page.getByRole("status").filter({ hasText: "Removed" })).toContainText("Removed local_tool. Takes effect after restart.")
+	await expect(imports).toContainText("No imports yet.")
+	await expect(panel(page).getByRole("status").filter({ hasText: "Restart to apply your changes." })).toBeVisible()
+	expect(backend.requests.filter(request => request.method === "DELETE" && request.path === "/credentials/environment/imports/local_tool")).toHaveLength(2)
+})
+
 test("Restart app confirms unsaved edits in the HUD before restarting", async ({ desktop: { app, page }, backend }) => {
 	await app.evaluate(({ ipcMain }) => {
 		ipcMain.removeHandler("desktop:relaunch")

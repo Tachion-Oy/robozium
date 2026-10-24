@@ -20,7 +20,11 @@ from roboz.endpoints import (
 )
 
 from robozium.api.credentials import LoadedCredentials
-from robozium.api.errors import EnvironmentConflictError, ProjectBusyError
+from robozium.api.errors import (
+    EnvironmentConflictError,
+    EnvironmentImportNotFoundError,
+    ProjectBusyError,
+)
 from robozium.api.models import (
     CapabilityView,
     EnvironmentEdit,
@@ -67,6 +71,8 @@ class EnvironmentService:
             for package, values in hub.local_packages.items()
             if package.parent == self._destination
         }
+        # Labels of removed packages stay loaded until restart; re-imports may reuse them.
+        self._removed_labels: set[str] = set()
 
     def read(self) -> EnvironmentView:
         """Return masked settings and examples, without importing or executing code."""
@@ -180,7 +186,27 @@ class EnvironmentService:
                 result = self._inspect_package(stage)
                 stage.rename(destination)
                 self._imports[name] = result.imported
+                self._removed_labels.difference_update(
+                    cap.name for cap in result.imported.capabilities
+                )
             return result
+
+    def remove_import(self, name: str) -> None:
+        """Delete an imported package copy; loaded capabilities remain until restart."""
+        with self._projects.stopped_runs():
+            item = self._imports.get(name)
+            if item is None:
+                raise EnvironmentImportNotFoundError(f"No imported folder named {name}")
+            destination = self._destination / name
+            if destination.is_symlink() or not destination.resolve().is_relative_to(
+                self._destination.resolve()
+            ):
+                raise ValueError("The imported folder must stay inside local/imports/")
+            if destination.exists():
+                shutil.rmtree(destination)
+            del self._imports[name]
+            if item.active:
+                self._removed_labels.update(cap.name for cap in item.capabilities)
 
     @staticmethod
     def _read_text(path: Path) -> str:
@@ -412,6 +438,7 @@ class EnvironmentService:
             CapabilityView.model_validate(value.label) for value in discovered
         ]
         existing = {label.name for label in self._hub.capabilities()}
+        existing -= self._removed_labels
         existing.update(
             cap.name for item in self._imports.values() for cap in item.capabilities
         )

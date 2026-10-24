@@ -188,6 +188,53 @@ def test_existing_folder_and_duplicate_labels_preserve_committed_package(
     assert (tmp_path / "local/imports/bundle/__init__.py").read_bytes() == original
 
 
+def test_remove_deletes_the_copy_and_allows_reimport_before_restart(client, tmp_path):
+    assert upload(client).status_code == 200
+    response = client.delete(URL + "/imports/bundle")
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert not (tmp_path / "local/imports/bundle").exists()
+    assert client.get(URL).json()["imports"] == []
+    assert upload(client).status_code == 200
+    assert (tmp_path / "local/imports/bundle/__init__.py").is_file()
+
+
+def test_removing_a_loaded_package_frees_its_labels_for_reimport(tmp_path, monkeypatch):
+    package = tmp_path / "local/imports/bundle"
+    (package / "nested").mkdir(parents=True)
+    (package / "__init__.py").write_text(SOURCE)
+    (package / "env.example").write_text("SERVICE_TOKEN=\n")
+    (package / "nested/__init__.py").write_text("NAME = 'actual_tool'\n")
+    write_config(tmp_path)
+    monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(tmp_path / ".env.encrypt"))
+    client = TestClient(create_app(deployment=load_hub(start=tmp_path)))
+    assert client.get(URL).json()["imports"][0]["active"] is True
+    assert upload(client).status_code == 409
+    assert client.delete(URL + "/imports/bundle").status_code == 200
+    assert upload(client, name="replacement").status_code == 200
+    assert (tmp_path / "local/imports/replacement/__init__.py").is_file()
+
+
+@pytest.mark.parametrize("name", ["missing", "%2E%2E", "bundle%2Fnested"])
+def test_remove_rejects_unknown_names_without_touching_imports(client, tmp_path, name):
+    assert upload(client).status_code == 200
+    assert client.delete(f"{URL}/imports/{name}").status_code in (404, 405)
+    assert (tmp_path / "local/imports/bundle/nested/__init__.py").is_file()
+    assert client.get(URL).json()["imports"][0]["name"] == "bundle"
+
+
+def test_remove_rejects_cross_origin_requests_and_queued_runs(client, tmp_path):
+    assert upload(client).status_code == 200
+    response = client.delete(
+        URL + "/imports/bundle", headers={"Origin": "https://elsewhere.example"}
+    )
+    assert response.status_code == 403
+    client.post("/projects", json={"name": "busy"})
+    client.post("/run/create", json={"project": "busy"})
+    assert client.delete(URL + "/imports/bundle").status_code == 409
+    assert (tmp_path / "local/imports/bundle/__init__.py").is_file()
+
+
 def test_dunder_all_supports_a_constructed_subclass_without_constructing_it_again(
     client,
 ):

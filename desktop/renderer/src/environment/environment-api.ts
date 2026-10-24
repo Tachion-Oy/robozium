@@ -131,6 +131,11 @@ export async function replaceEnvironmentFile(
 	return { loaded: fields.loaded }
 }
 
+/** Deletes an imported package's copy; its capabilities stay loaded until restart. */
+export async function removeEnvironmentImport(client: DesktopApiClient, name: string, signal: AbortSignal): Promise<void> {
+	await client.request(`/credentials/environment/imports/${encodeURIComponent(name)}`, { method: "DELETE", signal })
+}
+
 export async function resetEnvironment(client: DesktopApiClient, signal: AbortSignal): Promise<void> {
 	await client.request("/credentials/environment", { method: "DELETE", signal })
 }

@@ -60,7 +60,11 @@ export function EnvironmentPanel({ onSetupComplete }: EnvironmentPanelProps = {}
 							/>
 						)}
 					</EnvironmentVariableList>
-					<EnvironmentImportList imported={view?.imports ?? []} />
+					<EnvironmentImportList
+						imported={view?.imports ?? []}
+						disabled={!editable || editor !== null}
+						onRemove={environment.removeImport}
+					/>
 				</fieldset>
 			</div>
 			<EnvironmentSaveForm

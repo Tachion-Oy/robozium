@@ -14,7 +14,11 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from robozium.api.credentials import refresh_dependencies
 from robozium.api.environment_service import EnvironmentService
-from robozium.api.errors import EnvironmentConflictError, ProjectBusyError
+from robozium.api.errors import (
+    EnvironmentConflictError,
+    EnvironmentImportNotFoundError,
+    ProjectBusyError,
+)
 from robozium.api.models import (
     EnvironmentEdit,
     EnvironmentFileResult,
@@ -31,6 +35,7 @@ _REQUEST_LIMITS = {
     # The settings file plus its password, revision and multipart framing.
     "/credentials/environment/file": ("multipart/form-data", env.MAX_ENV_BYTES + 16 * 1024),
 }
+_IMPORTS_PATH = "/credentials/environment/imports/"
 
 
 @contextmanager
@@ -40,6 +45,8 @@ def _environment(request: Request) -> Generator[EnvironmentService]:
         yield request.app.state.environment
     except (EnvironmentConflictError, ProjectBusyError) as exc:
         raise HTTPException(409, str(exc)) from exc
+    except EnvironmentImportNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     except TimeoutExpired as exc:
@@ -101,6 +108,13 @@ def reset_environment(request: Request) -> dict[str, str]:
     return {"status": "reset"}
 
 
+@router.delete("/imports/{name}")
+def remove_import(name: str, request: Request) -> dict[str, str]:
+    with _environment(request) as environment:
+        environment.remove_import(name)
+    return {"status": "removed"}
+
+
 def _validate_write_headers(
     request: Request, content_type: str | None, limit: int, trusted_origin: str | None,
 ) -> None:
@@ -140,7 +154,10 @@ class EnvironmentRequestMiddleware:
         self.trusted_origin = trusted_origin
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope["path"] not in _REQUEST_LIMITS:
+        path = scope.get("path", "")
+        if scope["type"] != "http" or (
+            path not in _REQUEST_LIMITS and not path.startswith(_IMPORTS_PATH)
+        ):
             await self.app(scope, receive, send)
             return
 
@@ -155,7 +172,7 @@ class EnvironmentRequestMiddleware:
 
         request = Request(scope)
         content_type, limit = (
-            (None, 0) if scope["method"] == "DELETE" else _REQUEST_LIMITS[scope["path"]]
+            (None, 0) if scope["method"] == "DELETE" else _REQUEST_LIMITS.get(path, (None, 0))
         )
         size = 0
 

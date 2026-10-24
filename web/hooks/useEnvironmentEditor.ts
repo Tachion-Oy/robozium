@@ -125,6 +125,11 @@ export function useEnvironmentEditor(onSetupComplete?: () => Promise<void>) {
 		})
 		return true
 	}
+	const removeImport = async (name: string): Promise<boolean> => {
+		if (!await environment.removeImport(name)) return false
+		showNotificationToast({ tone: "success", title: "Removed", message: `Removed ${name}. Takes effect after restart.` })
+		return true
+	}
 	const save = async (password: string) => {
 		if (!await environment.save(password, currentEntries)) return
 		closeEditor()
@@ -156,7 +161,7 @@ export function useEnvironmentEditor(onSetupComplete?: () => Promise<void>) {
 		...environment,
 		editor, dirty, needsPassword,
 		variables: [...variables.values()],
-		openEditor, closeEditor, updateEditor, applyEditor, removeVariable, importPackage,
+		openEditor, closeEditor, updateEditor, applyEditor, removeVariable, importPackage, removeImport,
 		validateSave: () => !edited || validateEditor(),
 		save, reset,
 	}

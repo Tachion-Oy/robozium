@@ -45,7 +45,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `dictation/useDictation` | One recording and its transcription; App joins the transcript to the reply draft, so a recording outlives view switches | Transcribe |
 | `attachments/useReplyImages` | The displayed run's staged reply images, from selection to acceptance; one queue orders uploads, removal, clearing and the reply that sends them, and a reopened run restores them from the backend | List, upload, delete |
 | `environment/useEnvironmentDraft` | The saved settings, polled while the screen is visible, with this app's unsaved edits and the open editor on top; App passes it each write's outcome | Read |
-| `environment/useEnvironmentMutations` | One write to the saved settings at a time, and whether a restart is needed | Save, import, key file, reset |
+| `environment/useEnvironmentMutations` | One write to the saved settings at a time, and whether a restart is needed | Save, import, remove, key file, reset |
 | `dependencies/useDependencies` | The monitor's records, loading and load failure, and one Check Now at a time | Records read when the view opens, check |
 | `credentials/useCredentials` | The backend's secrets status (available, locked, removable) and whether first-start setup is required, which locks the HUD on the onboarding guide | Status read, unlock, remove |
 | `feedback/notices` | Notifications and their pause/dismiss lifetimes | None |
@@ -93,6 +93,10 @@ flowchart LR
 - **Direction.** `ui/` imports owners; owners and feature modules never import
   `ui/`. Shared `api/` imports no feature module. HUD projection consumes
   validated run data, while run reconciliation has no HUD dependency.
+- **Names.** A variable holding an owner is named after its hook:
+  `useProjectQuery` → `projectQuery`, `useEnvironmentDraft` →
+  `environmentDraft`. Where an owner is split, the reads keep the area's name
+  (`…Query`, `…Session`, `…Draft`) and the writes are `…Mutations`.
 - **Contracts.** Exported functions and hooks declare their return types, using
   named interfaces for structured results (`docs/code-style.md`).
 - **Endpoints.** Feature API modules own endpoint paths and payload validation.

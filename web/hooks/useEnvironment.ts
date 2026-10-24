@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { showErrorToast } from "@/app/components/feedback/ErrorToast"
-import { getEnvironment, importEnvironmentPackage, resetEnvironment, saveEnvironment } from "@/lib/robozium/client"
+import { getEnvironment, importEnvironmentPackage, removeEnvironmentImport, resetEnvironment, saveEnvironment } from "@/lib/robozium/client"
 import type { EnvironmentEntry, EnvironmentImportResult, EnvironmentView } from "@/lib/robozium/wire"
 
 export function sameEnvironmentEntries(left: EnvironmentEntry[], right: EnvironmentEntry[]): boolean {
@@ -18,7 +18,7 @@ export function sameEnvironmentEntries(left: EnvironmentEntry[], right: Environm
 export function useEnvironment(editing: boolean) {
 	const [view, setView] = useState<EnvironmentView | null>(null)
 	const [entries, setEntries] = useState<EnvironmentEntry[]>([])
-	const [operation, setOperation] = useState<"save" | "import" | "reset" | null>(null)
+	const [operation, setOperation] = useState<"save" | "import" | "remove" | "reset" | null>(null)
 	const pending = operation !== null
 	const [loadFailed, setLoadFailed] = useState(false)
 	const lastLoadError = useRef("")
@@ -98,6 +98,31 @@ export function useEnvironment(editing: boolean) {
 			if (mounted.current) setOperation(null)
 		}
 	}
+	const removeImport = async (name: string): Promise<boolean> => {
+		if (!editable || pendingRef.current) return false
+		pendingRef.current = true
+		saveVersion.current++
+		setOperation("remove")
+		try {
+			await removeEnvironmentImport(name)
+			if (!mounted.current) return false
+			setView(previous => previous && {
+				...previous,
+				imports: previous.imports.filter(item => item.name !== name),
+				suggestions: previous.suggestions.filter(item => item.source !== name),
+			})
+			return true
+		} catch (cause) {
+			if (mounted.current) showErrorToast({
+				title: "Remove failed",
+				message: cause instanceof Error ? cause.message : "Could not remove package",
+			})
+			return false
+		} finally {
+			pendingRef.current = false
+			if (mounted.current) setOperation(null)
+		}
+	}
 	const save = async (password: string, nextEntries = entries): Promise<boolean> => {
 		if (!view || !editable || pendingRef.current) return false
 		pendingRef.current = true
@@ -152,7 +177,7 @@ export function useEnvironment(editing: boolean) {
 			if (mounted.current) setOperation(null)
 		}
 	}
-	return { view, entries, editable, pending, loadFailed, change, save, importPackage, reset, canReset, saving: operation === "save",
+	return { view, entries, editable, pending, loadFailed, change, save, importPackage, removeImport, reset, canReset, saving: operation === "save",
 		retry: () => { lastLoadError.current = ""; setRefreshVersion(version => version + 1) },
 	}
 }
