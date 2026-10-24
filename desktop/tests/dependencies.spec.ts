@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test"
+import { expect, type ElectronApplication, type Page } from "@playwright/test"
 import { writeFile } from "node:fs/promises"
 import { test, json, view } from "./run-fixture"
 import { captureNative, setNativeViewport, startupDone } from "./native"
@@ -89,7 +89,8 @@ test("a cause is copied through the native clipboard and clears once the check r
 	expect(checks(backend)).toHaveLength(2)
 })
 
-test("Restart and Recreate run one backend operation at a time, report failures and reconnect", async ({ desktop: { app, page }, backend }) => {
+/** Restart and Recreate wait in main until the test finishes them. */
+async function holdBackendOperations(app: ElectronApplication) {
 	await app.evaluate(({ ipcMain }) => {
 		const calls: string[] = []
 		Reflect.set(globalThis, "backendCalls", calls)
@@ -101,8 +102,14 @@ test("Restart and Recreate run one backend operation at a time, report failures 
 			}))
 		}
 	})
-	const calls = () => app.evaluate(() => [...(Reflect.get(globalThis, "backendCalls") as string[])])
-	const finish = (error?: string) => app.evaluate((_electron, error) => (Reflect.get(globalThis, "finishBackend") as (error?: string) => void)(error), error)
+	return {
+		calls: () => app.evaluate(() => [...(Reflect.get(globalThis, "backendCalls") as string[])]),
+		finish: (error?: string) => app.evaluate((_electron, error) => (Reflect.get(globalThis, "finishBackend") as (error?: string) => void)(error), error),
+	}
+}
+
+test("Restart and Recreate run one backend operation at a time, report failures and reconnect", async ({ desktop: { app, page }, backend }) => {
+	const { calls, finish } = await holdBackendOperations(app)
 	const readiness = () => backend.requests.filter(request => request.path === "/ready").length
 	await openDependencies(page, backend, [dependency("executable:git")])
 	const controls = panel(page).getByLabel("Backend controls")
@@ -115,6 +122,12 @@ test("Restart and Recreate run one backend operation at a time, report failures 
 	await expect(page.locator(".startup[data-stage='loading']")).toBeVisible()
 	await expect(restart).toBeDisabled()
 	await expect(recreate).toBeDisabled()
+	// The covered HUD is inert: keyboard focus never reaches its controls.
+	await expect(page.locator(".backend-startup__app")).toHaveAttribute("inert", "")
+	for (let step = 0; step < 6; step++) {
+		await page.keyboard.press("Tab")
+		expect(await page.evaluate(() => Boolean(document.activeElement?.closest(".backend-startup__app")))).toBe(false)
+	}
 	const before = readiness()
 	await finish()
 	await startupDone(page)
@@ -129,6 +142,22 @@ test("Restart and Recreate run one backend operation at a time, report failures 
 	await startupDone(page)
 	await expect(page.getByRole("alert").filter({ hasText: "Backend operation failed" })).toContainText("A backend operation is already running.")
 	await expect(restart).toBeEnabled()
+})
+
+test("a reconnect that fails after a restart shows the error and Retry on the loading screen", async ({ desktop: { app, page }, backend }) => {
+	const { calls, finish } = await holdBackendOperations(app)
+	await openDependencies(page, backend, [dependency("executable:git")])
+	await panel(page).getByLabel("Backend controls").getByRole("button", { name: "Restart backend" }).click()
+	await expect.poll(calls).toEqual(["restart"])
+	backend.handlers.set("GET /ready", response => json(response, { detail: "Restarting" }, 503))
+	await finish()
+	const failure = page.locator(".startup .startup__failure")
+	await expect(failure.getByRole("alert")).toHaveText("Backend connection unavailable. Check the backend and retry.")
+	backend.handlers.set("GET /ready", response => json(response, { status: "ready" }))
+	await failure.getByRole("button", { name: "Retry", exact: true }).click()
+	await startupDone(page)
+	await expect(page.locator(".backend-startup__app")).not.toHaveAttribute("inert")
+	await expect(panel(page)).toBeVisible()
 })
 
 for (const theme of ["dark", "light"]) {

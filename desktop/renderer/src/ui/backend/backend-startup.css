@@ -2,3 +2,4 @@
 .backend-notice p { color: var(--term-red); overflow-wrap: anywhere; }
 .backend-notice .hud-button { min-height: 2rem; }
 .backend-startup__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem 1rem; }
+.backend-startup__app { display: contents; }

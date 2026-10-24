@@ -63,15 +63,21 @@ async function start(): Promise<void> {
 		}
 	}
 	let closing = false
+	let relaunch = false
 	/** Stop the backend, then exit; a restart starts again only after a clean stop. */
 	const quit = async (restart = false) => {
-		if (closing) return
+		if (closing) {
+			// Closing during a restart hides the window at once and exits without starting again.
+			if (!restart) { relaunch = false; window.hide() }
+			return
+		}
 		closing = true
+		relaunch = restart
 		// A restart keeps the window, which shows the startup screen until the app exits.
 		if (!restart) window.hide()
 		try {
 			await backend?.close()
-			if (restart) app.relaunch()
+			if (relaunch) app.relaunch()
 			app.exit(0)
 		} catch (error) { console.error("Backend shutdown failed:", error); app.exit(1) }
 	}

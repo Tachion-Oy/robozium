@@ -8,6 +8,7 @@ import { AgentActivityState } from "../run/run-view"
 import { MinimizedHudFrame } from "../hud/MinimizedHudFrame"
 import { TerminalBackdrop } from "../terminal/TerminalBackdrop"
 import { IntroStream, PlaceholderLog } from "../terminal/demo/DemoLog"
+import type { StartupScreenMode } from "../../backend/useStartupScreen"
 import "./startup.css"
 
 /** Why startup stopped, and the controls that continue it. */
@@ -18,7 +19,7 @@ export interface StartupFailure {
 
 export interface StartupScreenProps {
 	/** "intro" plays the launch animation; "loading" shows the loading HUD at once, as during a restart. */
-	mode: "intro" | "loading"
+	mode: StartupScreenMode
 	/** The backend is ready and the application beneath has painted. */
 	ready: boolean
 	/** Announced progress, such as the backend's startup step. */

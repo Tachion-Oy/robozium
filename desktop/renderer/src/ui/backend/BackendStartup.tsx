@@ -45,14 +45,18 @@ export function BackendStartup({ children }: { children: (notice: ReactNode, cli
 		<p role={status.state === "error" ? "alert" : "status"}>{status.message}</p>
 		<HudButton disabled={status.state !== "error"} onClick={retry}>Retry</HudButton>
 	</div>
-	const failure: StartupFailure | null = hasOpenedHud || status.state !== "error" ? null : {
+	// The screen shows failures while it covers the app, including a reconnect after a restart.
+	const failure: StartupFailure | null = status.state !== "error" || (hasOpenedHud && !screen.mode) ? null : {
 		message: status.message,
 		actions: startup.state === "error" && startup.action === "choose-hub-folder"
 			? <StartupHubFolder onRetry={retryStartup} />
 			: <HudButton onClick={retry}>Retry</HudButton>,
 	}
 	return <>
-		{(hasOpenedHud || status.state === "ready") && children(status.state === "ready" ? null : notice, startup.state === "ready" ? startup.client : null, status.state === "ready", backend)}
+		{/* The covered HUD stays mounted, but focus and assistive technology cannot reach it. */}
+		<div className="backend-startup__app" inert={screen.mode !== null}>
+			{(hasOpenedHud || status.state === "ready") && children(status.state === "ready" ? null : notice, startup.state === "ready" ? startup.client : null, status.state === "ready", backend)}
+		</div>
 		{screen.mode && <StartupScreen mode={screen.mode} ready={screen.ready} status={status.message} failure={failure} onFaded={screen.dismiss} />}
 	</>
 }
