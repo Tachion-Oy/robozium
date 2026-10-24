@@ -182,6 +182,15 @@ test("folder imports persist tools and suggestions and variable editing works in
 			await expect(panel.getByRole("button", { name: "Change OPENROUTER_API_KEY" })).toBeVisible()
 			await expect(panel.getByRole("button", { name: "Encrypt and save", exact: true })).toBeEnabled()
 		}
+
+		const imports = panel.getByRole("region", { name: "Tools & skills" })
+		await imports.getByRole("button", { name: "Remove source_package" }).click()
+		await imports.getByRole("button", { name: "Confirm removing source_package" }).click()
+		await expect(page.getByText("Removed source_package. Takes effect after restart.", { exact: true })).toBeVisible()
+		await expect(imports.getByText("No imports yet.")).toBeVisible()
+		await expect(panel.getByRole("button", { name: "Change IMPORTED_SETTING" })).toHaveCount(0)
+		await panel.getByLabel("Choose tool or skill folder").setInputFiles(folder)
+		await expect(imports.getByText("example tool", { exact: true })).toBeVisible()
 	} finally {
 		await fs.rm(path.join(process.env.ROBOZIUM_E2E_CONTROL_DIR!, "local/imports/source_package"), { recursive: true, force: true })
 		const state = await (await request.get("/api/credentials/environment")).json()

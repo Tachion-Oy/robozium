@@ -46,7 +46,8 @@ is optional. Robozium validates the package, copies it to
 example settings. The source folder is not linked. Restart to activate the copy,
 then select its tools or skills when launching a project.
 
-To update an import, replace its copy while Robozium is stopped, then restart.
+To update an import, select **Remove** next to it, import the new version,
+then restart. Removing deletes only the copy; its saved settings remain.
 Import only trusted packages. [Robozify](https://github.com/Tachion-Oy/robozify) offers email and timesheets.
 
 ## Hub files and permissions

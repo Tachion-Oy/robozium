@@ -9,11 +9,11 @@ import { withDeadline } from "../api/request"
 import { useClientLifetime } from "../api/useClientLifetime"
 import { showErrorToast, showNotificationToast } from "../feedback/notices"
 import {
-	getEnvironment, importEnvironment, IMPORT_TIMEOUT_MS, replaceEnvironmentFile, resetEnvironment, saveEnvironment,
+	getEnvironment, importEnvironment, IMPORT_TIMEOUT_MS, removeEnvironmentImport, replaceEnvironmentFile, resetEnvironment, saveEnvironment,
 	type EnvironmentEntry, type EnvironmentImportResult, type EnvironmentView,
 } from "./environment-api"
 
-type Operation = "save" | "import" | "file" | "reset"
+type Operation = "save" | "import" | "remove" | "file" | "reset"
 
 /** Read synchronously by the draft's polling, so no read started before a write is applied after it. */
 export interface EnvironmentWrites {
@@ -27,6 +27,7 @@ export interface EnvironmentOutcomes {
 	/** A save or key file replaced the saved settings; `next` is read after it. */
 	onReplaced: (next: EnvironmentView) => void
 	onImported: (result: EnvironmentImportResult) => void
+	onRemoved: (name: string) => void
 	onReset: () => void
 	/** Keys loaded without a restart: an adopted key file, or a save during setup. */
 	onKeysLoaded: () => void
@@ -34,10 +35,12 @@ export interface EnvironmentOutcomes {
 
 export interface EnvironmentMutations extends EnvironmentWrites {
 	saving: boolean
-	/** A save, import or reset applies only after Restart app. */
+	/** A save, import, removal or reset applies only after Restart app. */
 	restartRequired: boolean
 	save: (password: string, entries: EnvironmentEntry[], revision: string) => Promise<boolean>
 	importPackage: (files: File[]) => Promise<boolean>
+	/** Deletes an imported package's copy; its capabilities stay loaded until restart. */
+	removeImport: (name: string) => Promise<boolean>
 	/** Resolves to an error to show beside the key file, or null once it is in use. */
 	replaceFile: (file: File, password: string, revision: string) => Promise<string | null>
 	reset: () => Promise<boolean>
@@ -126,6 +129,15 @@ export function useEnvironmentMutations(
 		return true
 	}, failure("Import failed", "Could not import package"))
 
+	const removeImport = (name: string) => run("remove", false, async (client, signal) => {
+		await withDeadline(signal, requestSignal => removeEnvironmentImport(client, name, requestSignal))
+		if (signal.aborted) return false
+		outcomes.onRemoved(name)
+		setRestartRequired(true)
+		showNotificationToast({ tone: "success", title: "Removed", message: `Removed ${name}. Takes effect after restart.` })
+		return true
+	}, failure("Remove failed", "Could not remove package"))
+
 	const replaceFile = (file: File, password: string, revision: string) => run<string | null>("file", "", async (client, signal) => {
 		// Sent once; a wrong password or a conflict keeps the chosen file for another try.
 		const { loaded } = await withDeadline(signal, requestSignal =>
@@ -161,6 +173,6 @@ export function useEnvironmentMutations(
 		version: () => version.current,
 		saving: operation === "save",
 		restartRequired,
-		save, importPackage, replaceFile, reset,
+		save, importPackage, removeImport, replaceFile, reset,
 	}
 }

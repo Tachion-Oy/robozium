@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { EnvironmentPanel } from "@/app/components/hud/environment/EnvironmentPanel"
 import type { EnvironmentView } from "@/lib/robozium/wire"
 
-const mocks = vi.hoisted(() => ({ getEnvironment: vi.fn(), saveEnvironment: vi.fn(), resetEnvironment: vi.fn(), importEnvironmentPackage: vi.fn(), showErrorToast: vi.fn(), showNotificationToast: vi.fn() }))
+const mocks = vi.hoisted(() => ({ getEnvironment: vi.fn(), saveEnvironment: vi.fn(), resetEnvironment: vi.fn(), importEnvironmentPackage: vi.fn(), removeEnvironmentImport: vi.fn(), showErrorToast: vi.fn(), showNotificationToast: vi.fn() }))
 vi.mock("@/lib/robozium/client", () => mocks)
 vi.mock("@/app/components/feedback/ErrorToast", () => ({ showErrorToast: mocks.showErrorToast, showNotificationToast: mocks.showNotificationToast }))
 const view: EnvironmentView = {
@@ -392,6 +392,25 @@ it("preserves draft values and confirms every discovered capability", async () =
 	expect(screen.getByLabelText("Current value for HOST").textContent).toBe("my-host")
 	expect(screen.getAllByText("[email, send_mail]")).toHaveLength(2)
 	expect(mocks.showNotificationToast).toHaveBeenCalledWith(expect.objectContaining({ message: "Skill email, Tool send_mail found and imported. Available after restart." }))
+})
+
+it("removes an imported package after confirmation and keeps it when removal fails", async () => {
+	mocks.getEnvironment.mockResolvedValue({ ...view, imports: [imported], suggestions })
+	mocks.removeEnvironmentImport.mockRejectedValueOnce(new Error("Stop all runs first"))
+	render(<EnvironmentPanel />)
+	fireEvent.click(await screen.findByRole("button", { name: "Remove mail_package" }))
+	expect(mocks.removeEnvironmentImport).not.toHaveBeenCalled()
+	fireEvent.click(screen.getByRole("button", { name: "Confirm removing mail_package" }))
+	await waitFor(() => expect(mocks.showErrorToast).toHaveBeenCalledWith({ title: "Remove failed", message: "Stop all runs first" }))
+	expect(screen.getByText("email")).toBeTruthy()
+	mocks.removeEnvironmentImport.mockResolvedValueOnce(undefined)
+	mocks.getEnvironment.mockResolvedValue(view)
+	fireEvent.click(screen.getByRole("button", { name: "Remove mail_package" }))
+	fireEvent.click(screen.getByRole("button", { name: "Confirm removing mail_package" }))
+	await screen.findByText("No imports yet.")
+	expect(mocks.removeEnvironmentImport).toHaveBeenCalledWith("mail_package")
+	expect(screen.queryByLabelText("Current value for HOST")).toBeNull()
+	expect(mocks.showNotificationToast).toHaveBeenCalledWith({ tone: "success", title: "Removed", message: "Removed mail_package. Takes effect after restart." })
 })
 
 it("shows an import failure without success and retains the folder for retry", async () => {

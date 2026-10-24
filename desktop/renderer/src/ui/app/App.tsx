@@ -128,6 +128,7 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 	const environmentMutations = useEnvironmentMutations(client, setupRequired, {
 		onReplaced: next => environment.replaced(next),
 		onImported: result => environment.imported(result),
+		onRemoved: name => environment.removed(name),
 		onReset: () => environment.reset(),
 		// Keys that load without a restart end setup: refresh the status and return to Runs Overview.
 		onKeysLoaded: () => {

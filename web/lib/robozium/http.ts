@@ -95,7 +95,7 @@ export function passthroughResponse(
 	})
 }
 
-export async function proxyEnvironmentRequest(request: Request, path: "/credentials/environment" | "/credentials/environment/import") {
+export async function proxyEnvironmentRequest(request: Request, path: "/credentials/environment" | "/credentials/environment/import" | `/credentials/environment/imports/${string}`) {
 	const origin = request.headers.get("origin")
 	let sameOrigin = !origin
 	try { sameOrigin = !origin || new URL(origin).host === request.headers.get("host") } catch { /* Reject malformed origins. */ }

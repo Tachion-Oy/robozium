@@ -69,7 +69,11 @@ export function EnvironmentPanel({ environment, mutations, onRestart }: {
 							/>
 						)}
 					</EnvironmentVariableList>
-					<EnvironmentImportList imported={view?.imports ?? []} />
+					<EnvironmentImportList
+						imported={view?.imports ?? []}
+						disabled={!editable || editor !== null}
+						onRemove={mutations.removeImport}
+					/>
 				</fieldset>
 			</div>
 			<EnvironmentSaveForm
