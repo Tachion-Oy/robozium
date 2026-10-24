@@ -90,10 +90,14 @@ checks you could not run. Update affected documentation and explain migration
 steps for any intentional breaking changes. Exclude unrelated refactoring,
 formatting, dependency changes, cleanup, and speculative improvements.
 
-Add a short entry under `Unreleased` in [CHANGELOG.md](CHANGELOG.md) for
-user-visible changes. Documentation, tests, and internal cleanup generally do
-not need an entry unless a maintainer requests one. Leave version bumps, tags,
-and releases to maintainers. Wheel and source archive checks are internal
+Do not edit [CHANGELOG.md](CHANGELOG.md) in pull requests: parallel entries
+under one heading conflict. Describe user-visible changes in the pull request;
+maintainers write the changelog when they release. Leave version bumps, tags,
+and releases to maintainers.
+
+Keep a branch current by rebasing it onto `main` and pushing with
+`--force-with-lease`; do not merge `main` into it. Resolve conflicts in the
+commits that cause them, and keep new changes out of conflict resolution. Wheel and source archive checks are internal
 validation; they do not imply publishing Robozium to PyPI.
 
 ## Responsibility and review

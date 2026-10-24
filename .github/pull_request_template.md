@@ -12,6 +12,6 @@ require an issue. Explain any agreed change to the proposal's scope.
 **Full E2E must pass in CI before merging.**
 
 List relevant checks and their results, including checks not run. Mention
-documentation, changelog, or migration updates when applicable.
+documentation or migration updates when applicable.
 
 See [Contributing](https://github.com/Tachion-Oy/robozium/blob/main/CONTRIBUTING.md).
