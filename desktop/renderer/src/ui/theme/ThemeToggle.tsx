@@ -2,14 +2,13 @@
 // Adapted: the theme owner saves the choice natively; one window needs no cookie or channel.
 import { toggleTheme } from "../../theme/theme"
 
-export function ThemeToggle({ disabled = false }: { disabled?: boolean }) {
+export function ThemeToggle() {
 	return (
 		<button
 			type="button"
 			className="theme-toggle agent-hud__selector-trigger"
 			data-hud-ignore-dismiss
 			aria-label="Toggle color theme"
-			disabled={disabled}
 			onClick={() => {
 				void toggleTheme()
 			}}>

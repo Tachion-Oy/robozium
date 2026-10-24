@@ -559,7 +559,7 @@ describe("AgentHUD setup mode", () => {
 			/>,
 		)
 
-		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Toggle color theme" }).disabled).toBe(true)
+		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Toggle color theme" }).disabled).toBe(false)
 		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Runs Overview" }).disabled).toBe(false)
 
 		fireEvent.click(screen.getByRole("button", { name: "Start Here" }))

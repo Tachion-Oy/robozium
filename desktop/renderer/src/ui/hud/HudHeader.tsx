@@ -35,7 +35,7 @@ export function HudHeader({
 					.join(" ")}>
 			{modelSelector}
 			<div className="agent-hud__header-actions flex shrink-0 items-start gap-(--hud-actions-gap)">
-				<ThemeToggle disabled={presentation.locked} />
+				<ThemeToggle />
 				{secretsMenu}
 				<HudScreenSelector
 					screen={presentation.screen}
