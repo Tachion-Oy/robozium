@@ -41,6 +41,13 @@ export const test = base.extend<{ launchSwitches: string[]; desktop: { app: Elec
 			await use({ app, page })
 			expect(errors).toEqual([])
 		} finally {
+			if (app && testInfo.status !== testInfo.expectedStatus) {
+				const page = app.windows()[0]
+				// TEMPORARY diagnostic for the cold-start flake.
+				const state = page ? await Promise.race([describeWindow(app, page), new Promise(resolve => setTimeout(() => resolve("no answer"), 5000))]) : "no window"
+				const raf = page ? await Promise.race([framesDrawn(page), new Promise(resolve => setTimeout(() => resolve("no frame in 3s"), 3000))]) : null
+				console.log(`DIAG ${testInfo.title}\n${String(state)}\nframes: ${String(raf)}`)
+			}
 			try {
 				if (app && child?.exitCode === null && child.signalCode === null) {
 					await app.close()
