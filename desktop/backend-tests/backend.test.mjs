@@ -202,7 +202,8 @@ test("runtime preparation never creates a user's hub folder outside the runtime"
 test("Compose refuses an unspecified runtime instead of mounting the checkout", t => {
 	const root = fixture(t)
 	fs.writeFileSync(path.join(root, "empty.env"), "")
-	const result = compose(root)
+	// A hub alone leaves the runtime as the only missing folder, so Compose can name no other.
+	const result = compose(root, undefined, { ROBOZIUM_DESKTOP_HUB: path.join(root, "hub") })
 	assert.notEqual(result.status, 0)
 	assert.match(result.stderr, /Select an absolute desktop runtime directory/)
 })
