@@ -1,21 +1,39 @@
-const { mkdirSync, writeFileSync } = require("node:fs")
+const { existsSync, mkdirSync, writeFileSync } = require("node:fs")
 const path = require("node:path")
 const definition = require("./backend-layout.json")
 
-/** Resolve the same bind mounts that Compose reads, without touching runtime data.
- * @param {string} runtime
+/** The desktop's named locations; this layout file is the only place paths are written out. */
+const locations = definition["x-desktop"].locations
+
+/** Whether `child` is `parent` or lies within it.
+ * @param {string} child
+ * @param {string} parent
  */
-function resolveBackendLayout(runtime) {
+function isInside(child, parent) {
+	const relative = path.relative(parent, child)
+	return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
+}
+
+/** Resolve the same bind mounts that Compose reads, without touching runtime data.
+ * Without a hub folder, the runtime's own throwaway hub is used.
+ * @param {string} runtime
+ * @param {string} [hub]
+ */
+function resolveBackendLayout(runtime, hub = path.join(runtime, locations.isolatedHub)) {
 	if (!path.isAbsolute(runtime)) {
 		throw new Error("Select an absolute desktop runtime directory.")
 	}
-	const rootVariable = "${ROBOZIUM_DESKTOP_RUNTIME}"
+	if (!path.isAbsolute(hub)) {
+		throw new Error("Select an absolute hub folder.")
+	}
+	const roots = { ROBOZIUM_DESKTOP_RUNTIME: runtime, ROBOZIUM_DESKTOP_HUB: hub }
 	const mounts = definition.services.api.volumes.map(mount => {
-		if (mount.source !== rootVariable && !mount.source.startsWith(rootVariable + "/")) {
-			throw new Error("Desktop bind sources must use the configured runtime root.")
+		const match = /^\$\{(ROBOZIUM_DESKTOP_RUNTIME|ROBOZIUM_DESKTOP_HUB)(?::\?[^}]*)?\}(\/.*)?$/.exec(mount.source)
+		if (!match) {
+			throw new Error("Desktop bind sources must use the configured runtime or hub root.")
 		}
 		return {
-			source: path.join(runtime, mount.source.slice(rootVariable.length)),
+			source: path.join(roots[/** @type {keyof typeof roots} */ (match[1])], match[2] ?? ""),
 			destination: mount.target,
 			writable: !mount.read_only,
 		}
@@ -36,6 +54,8 @@ function resolveBackendLayout(runtime) {
 	directories.add(path.dirname(composeEnvironment))
 
 	return {
+		runtime,
+		hub: mountSource("/hub"),
 		mounts,
 		directories: [...directories],
 		composeEnvironment,
@@ -44,15 +64,19 @@ function resolveBackendLayout(runtime) {
 }
 
 /** Prepare bind sources and the desktop's Compose interpolation file.
- * The hub owns application directories and files within those mounts.
+ * The hub owns application directories and files within those mounts. Only a
+ * throwaway hub inside the runtime is created here; a user's hub folder must exist.
  * Shared by Electron and the standalone Node setup command.
  * @param {ReturnType<typeof resolveBackendLayout>} layout
  */
 function prepareBackendRuntime(layout) {
+	if (!isInside(layout.hub, layout.runtime) && !existsSync(layout.hub)) {
+		throw new Error(`Hub folder ${layout.hub} is missing.`)
+	}
 	for (const directory of layout.directories) {
 		mkdirSync(directory, { recursive: true, mode: 0o700 })
 	}
 	writeFileSync(layout.composeEnvironment, "# Controlled desktop interpolation only.\n", { mode: 0o600 })
 }
 
-module.exports = { resolveBackendLayout, prepareBackendRuntime }
+module.exports = { resolveBackendLayout, prepareBackendRuntime, isInside, locations }

@@ -65,7 +65,7 @@ for (const source of ["README.md", "src", "src/robozium/nested", "src/robozium/n
 function compose(root, runtime, overrides = {}) {
 	const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(COMPOSE_|ROBOZIUM_)/.test(name)))
 	return spawnSync("docker", ["compose", "--project-name", "desktop-config-test", "--env-file", path.join(root, "empty.env"), "--file", path.join(root, "desktop/compose.yaml"), "config", "--format", "json"], {
-		env: { ...env, ...(runtime ? { ROBOZIUM_DESKTOP_RUNTIME: runtime } : {}), ...overrides },
+		env: { ...env, ...(runtime ? { ROBOZIUM_DESKTOP_RUNTIME: runtime, ROBOZIUM_DESKTOP_HUB: path.join(runtime, "hub") } : {}), ...overrides },
 		// The first Compose call on a fresh runner can take well over 15 s; later ones take milliseconds.
 		cwd: root, encoding: "utf8", timeout: 90_000,
 	})
@@ -172,6 +172,31 @@ test("runtime preparation and Compose follow relocated paths from the shared lay
 		assert.equal(fs.statSync(mount.source).isDirectory(), true)
 		assert.equal(fs.statSync(mount.source).mode & 0o777, 0o700)
 	}
+})
+
+test("Compose refuses an unspecified hub folder instead of mounting a guess", t => {
+	const root = fixture(t)
+	const runtime = path.join(root, "runtime")
+	fs.mkdirSync(runtime)
+	fs.writeFileSync(path.join(root, "empty.env"), "")
+	const result = compose(root, runtime, { ROBOZIUM_DESKTOP_HUB: "" })
+	assert.notEqual(result.status, 0)
+	assert.match(result.stderr, /Select an absolute hub folder/)
+})
+
+test("runtime preparation never creates a user's hub folder outside the runtime", t => {
+	const root = fixture(t)
+	const runtime = path.join(root, "runtime")
+	const hub = path.join(root, "Robozium-Hub")
+	const prepare = () => execFileSync(process.execPath, [path.join(root, "desktop/scripts/prepare-runtime.mjs")], {
+		cwd: os.tmpdir(), encoding: "utf8", stdio: "pipe", env: { ...process.env, ROBOZIUM_DESKTOP_RUNTIME: runtime, ROBOZIUM_DESKTOP_HUB: hub },
+	})
+	assert.throws(prepare, /Hub folder .* is missing/)
+	assert.equal(fs.existsSync(hub), false)
+	fs.mkdirSync(hub)
+	prepare()
+	assert.deepEqual(fs.readdirSync(hub, { recursive: true }).sort(), ["readonly", "readonly/safe-scripts"])
+	assert.equal(fs.existsSync(path.join(runtime, "hub")), false, "the runtime keeps no hub of its own beside the user's")
 })
 
 test("Compose refuses an unspecified runtime instead of mounting the checkout", t => {

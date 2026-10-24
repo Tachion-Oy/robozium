@@ -22,6 +22,7 @@ test("desktop mock image starts independently and retains projects after restart
 	const inherited = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(COMPOSE_|ROBOZIUM_)/.test(name)))
 	const security = execFileSync("docker", ["info", "--format", "{{json .SecurityOptions}}"], { encoding: "utf8" })
 	const env = { ...inherited, ROBOZIUM_MODE: "mock", ROBOZIUM_DESKTOP_API_PORT: String(port), ROBOZIUM_DESKTOP_RUNTIME: runtime,
+		ROBOZIUM_DESKTOP_HUB: path.join(runtime, "hub"),
 		ROBOZIUM_API_USER: security.includes("rootless") ? "0:0" : `${process.getuid()}:${process.getgid()}` }
 	const args = ["compose", "--project-name", project, "--env-file", path.join(temporary, "empty.env"), "--file", path.join(temporary, "compose.yaml")]
 	const compose = (command, stdio = "pipe") => execFileSync("docker", [...args, ...command], { env, cwd: temporary, encoding: "utf8", stdio, timeout: 540_000 })

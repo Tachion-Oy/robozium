@@ -28,13 +28,21 @@ for the credential-free mock backend). Docker Engine with Compose v2.24 or newer
 is required at runtime; the first start builds the backend image, which needs
 internet access and can take several minutes.
 
-The installed app keeps everything in `~/.config/Robozium/` (under
-`$XDG_CONFIG_HOME` when that is set): settings, window
-size and theme, and per mode (`live/`, `mock/`) the hub, logs and saved
-environment, including `.env.encrypt`. Add provider keys once in
+Projects live in your hub folder, `~/Robozium-Hub` by default. **Environment →
+Hub folder** shows its full path, opens it, and changes it with the folder
+picker; a new folder applies after a restart. If the folder goes missing, the
+app stops at startup and asks you to reconnect it or choose another, rather than
+starting with an empty hub. The app never moves or deletes a hub folder.
+
+The app's own data stays in `~/.config/Robozium/` (under `$XDG_CONFIG_HOME`
+when that is set): settings, window size and theme, the recorded hub folder,
+and per mode (`live/`, `mock/`) logs and saved environment, including
+`.env.encrypt`. Checkouts and test profiles start with a throwaway hub inside
+their own data and can choose another folder the same way. Mock mode always keeps
+its own throwaway hub, so its fake projects never reach a real one. Add provider keys once in
 **Environment**; they survive updates and reinstalls. Install a newer build the
-same way. `sudo apt remove robozium-desktop` removes the app and keeps that
-folder; delete it to remove your data. The installed app and a checkout's
+same way. `sudo apt remove robozium-desktop` removes the app and keeps both
+folders. The installed app and a checkout's
 `npm --prefix desktop start` both use port 18001 in live mode, so close one
 before starting the other, or set `ROBOZIUM_DESKTOP_API_PORT` for the checkout.
 
@@ -366,8 +374,10 @@ and CI details.
 ## Code layout
 
 **Hard rule: do not hardcode filesystem locations in application code.** Resolve
-paths from configured profile/runtime roots. Define bind-mount paths and
-desktop-owned runtime file locations in the shared desktop layout configuration.
+paths from configured profile/runtime roots. Define bind-mount paths,
+desktop-owned runtime file locations, and the named locations in
+`x-desktop.locations` (profiles, backend resources, settings files, the default
+hub folder) in the shared desktop layout configuration, `src/backend-layout.json`.
 Use that definition for mount preparation, ownership validation, Docker logging,
 and Compose integration. Repeating paths such as `.runtime/local-deps` or
 `hub/readonly/safe-scripts` in controller or helper path lists is prohibited.

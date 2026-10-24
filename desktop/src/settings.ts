@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs"
 import path from "node:path"
+import { locations } from "./backend-layout.cjs"
 import type { AppTheme } from "./bridge"
 import { MAX_ZOOM, MIN_ZOOM, type Size } from "./window"
 
@@ -33,7 +34,7 @@ export function isZoom(value: unknown): value is number {
 }
 
 function settingsFile(profile: string): string {
-	return path.join(profile, "settings.json")
+	return path.join(profile, locations.settings)
 }
 
 /** Each preference falls back on its own; a missing or unreadable file opens with defaults. */

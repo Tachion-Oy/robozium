@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs"
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import net from "node:net"
@@ -20,7 +20,7 @@ function fixture(t, options = {}) {
 	writeFileSync(path.join(source, "build-id.json"), JSON.stringify({ id: hash }))
 	const settings = loadOrCreateBackendProfile(profile, "mock")
 	const state = { exists: false, running: false, cached: hash, ready: true, available: true, calls: [], ...options }
-	const layout = resolveBackendLayout(settings.runtime)
+	const layout = resolveBackendLayout(settings.runtime, options.hub)
 	const inspection = () => ({
 		labels: { "com.docker.compose.project": settings.project, "com.docker.compose.service": "api",
 			"fi.tachion.robozium.desktop.installation": settings.installation, "fi.tachion.robozium.desktop.port": String(settings.port) },
@@ -207,9 +207,9 @@ test("port probe detects a real occupied loopback listener", async t => {
 
 test("inherited Compose and Robozium overrides cannot change managed ownership", async t => {
 	const originals = { ...process.env }
-	Object.assign(process.env, { COMPOSE_PROJECT_NAME: "foreign", COMPOSE_FILE: "/foreign.yaml", ROBOZIUM_DESKTOP_RUNTIME: "/foreign", ROBOZIUM_MODE: "live" })
+	Object.assign(process.env, { COMPOSE_PROJECT_NAME: "foreign", COMPOSE_FILE: "/foreign.yaml", ROBOZIUM_DESKTOP_RUNTIME: "/foreign", ROBOZIUM_DESKTOP_HUB: "/foreign", ROBOZIUM_MODE: "live" })
 	t.after(() => {
-		for (const name of ["COMPOSE_PROJECT_NAME", "COMPOSE_FILE", "ROBOZIUM_DESKTOP_RUNTIME", "ROBOZIUM_MODE"]) {
+		for (const name of ["COMPOSE_PROJECT_NAME", "COMPOSE_FILE", "ROBOZIUM_DESKTOP_RUNTIME", "ROBOZIUM_DESKTOP_HUB", "ROBOZIUM_MODE"]) {
 			if (originals[name] === undefined) delete process.env[name]
 			else process.env[name] = originals[name]
 		}
@@ -220,9 +220,69 @@ test("inherited Compose and Robozium overrides cannot change managed ownership",
 	assert.equal(command.command.env.COMPOSE_PROJECT_NAME, undefined)
 	assert.equal(command.command.env.COMPOSE_FILE, undefined)
 	assert.equal(command.command.env.ROBOZIUM_DESKTOP_RUNTIME, settings.runtime)
+	assert.equal(command.command.env.ROBOZIUM_DESKTOP_HUB, path.join(settings.runtime, "hub"), "without a hub folder the runtime keeps its own hub")
 	assert.equal(command.command.env.ROBOZIUM_MODE, "mock")
 	assert.equal(command.args[command.args.indexOf("--project-name") + 1], settings.project)
 	assert.equal(command.args[command.args.indexOf("--env-file") + 1], path.join(settings.runtime, ".runtime/compose.env"))
+	await controller.close()
+})
+
+/** A recorded hub folder outside the profile, and the folder a container may still mount from before. */
+function userHub(t) {
+	const directory = mkdtempSync(path.join(tmpdir(), "robozium-user-hub-"))
+	t.after(() => rmSync(directory, { recursive: true, force: true }))
+	const hub = path.join(directory, "Robozium-Hub")
+	mkdirSync(hub)
+	const location = { file: path.join(directory, "hub-folder"), defaultFolder: path.join(directory, "unused default"), earlierFolder: path.join(directory, "earlier") }
+	writeFileSync(location.file, hub + "\n")
+	const previous = path.join(directory, "Previous Hub")
+	const onPrevious = value => {
+		for (const mount of value.mounts) if (mount.Source.startsWith(hub)) mount.Source = previous + mount.Source.slice(hub.length)
+	}
+	return { hub, location, previous, onPrevious }
+}
+
+test("mounts the user's hub folder and recreates a stopped container that still mounts a previous one", async t => {
+	const { hub, location, onPrevious } = userHub(t)
+	const { controller, state } = fixture(t, { exists: true, hub, controller: { hubFolder: location },
+		mutate: value => { if (!value.running) onPrevious(value) } })
+	await controller.start()
+	assert.equal(controller.snapshot().state, "ready")
+	assert.equal(controller.hubDirectory, hub)
+	const up = state.calls.find(call => call.args.includes("up"))
+	assert.equal(up.command.env.ROBOZIUM_DESKTOP_HUB, hub)
+	await controller.close()
+})
+
+test("recreates a container a crash left running on a previous hub folder", async t => {
+	const { hub, location, onPrevious } = userHub(t)
+	const { controller, state } = fixture(t, { exists: true, running: true, available: false, hub, controller: { hubFolder: location }, mutate: onPrevious })
+	await controller.start()
+	assert.equal(controller.snapshot().state, "ready")
+	assert.equal(state.calls.find(call => call.args.includes("up")).command.env.ROBOZIUM_DESKTOP_HUB, hub)
+	await controller.close()
+})
+
+for (const mismatch of ["destination", "readonly"]) test(`a hub mount's ${mismatch} is still checked`, async t => {
+	const { hub, location } = userHub(t)
+	const { controller, state } = fixture(t, { exists: true, hub, controller: { hubFolder: location }, mutate: value => {
+		const mount = value.mounts.find(mount => mount.Destination === "/hub")
+		if (mismatch === "destination") mount.Destination = "/elsewhere"
+		else mount.RW = false
+	} })
+	await assert.rejects(controller.start(), /ownership or mounts/)
+	await controller.close()
+	noMutation(state)
+})
+
+test("a missing hub folder stops startup before Docker and offers choosing another", async t => {
+	const { hub, location } = userHub(t)
+	rmSync(hub, { recursive: true })
+	const { controller, state } = fixture(t, { controller: { hubFolder: location } })
+	await assert.rejects(controller.start(), /missing/)
+	assert.equal(controller.snapshot().action, "choose-hub-folder")
+	assert.deepEqual(state.calls, [])
+	assert.equal(existsSync(hub), false, "a recorded hub folder is never recreated")
 	await controller.close()
 })
 
