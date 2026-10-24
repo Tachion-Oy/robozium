@@ -46,7 +46,7 @@ Reviewed against `origin/main` at `e1ba35b` (after #145).
 | 12 Projects overview with capability selector | Done | #105, #106 |
 | 13 Message log and theme persistence | Done | #123, #124, #127 |
 | 14 Replies | Done | #108 |
-| 15 Interrupt and cancel | Done | #110 |
+| 15 Interrupt and cancel | Done, including Interrupt on Send | #110 |
 | 16 Project deletion | Done (with the overview) | #106 |
 | 17 Reconnection | Done; recovery dropped | #112, #113 |
 | 18 Environment | Done | #116, #117 |
@@ -60,20 +60,19 @@ Reviewed against `origin/main` at `e1ba35b` (after #145).
 | 26 Onboarding | Done, with key-file adoption | #136, #137 |
 | 27 UI tweaks | Not started | — |
 | 28 Opening links | Done | #131 |
-| 29 Inline agent images | Not started (web #125) | — |
+| 29 Inline agent images | Done | #151 |
 
 **Order from here.** Related small steps share a PR so each CI run covers
 more ground; 200–400 hand-written lines is the ceiling, not the target.
 
 | # | PR | Contents |
 | --- | --- | --- |
-| 1 | Inline agent images | Step 29, from `web/` (#125) |
-| 2 | Interrupt on Send | Interrupt lights up as soon as a reply is sent (see the step 15 follow-up) |
-| 3 | UI tweaks | Step 27: light theme, stable selectors, no project title in Runs view, footer layout, octagon |
-| 4 | Splash and app logo | 21b and step 27's app identity: the logo goes on the splash, the window icon and the `.deb` icon |
-| 5 | Preview mode | Remove `--preview` or run it against the mock backend (see the step 11 follow-ups) |
-| 6 | Instance handling leftovers | Step 22: settings validation and independent test profiles |
-| 7 | macOS | Step 23 and the macOS half of 24; deferred |
+| 1 | Startup splash | 21b, keeping the current splash artwork |
+| 2 | UI tweaks | Step 27: light theme, stable selectors, no project title in Runs view, footer layout, octagon |
+| 3 | App logo | Step 27's app identity: the logo goes on the splash, the window icon and the `.deb` icon |
+| 4 | Preview mode | Remove `--preview` or run it against the mock backend (see the step 11 follow-ups) |
+| 5 | Instance handling leftovers | Step 22: settings validation and independent test profiles |
+| 6 | macOS | Step 23 and the macOS half of 24; deferred |
 
 ## Parity checklist
 
@@ -86,13 +85,12 @@ the PR that closes it.
 | Message log pane, toggle, `TerminalStream`/`renderContent`, `DemoLog` | E | Done (#124) | 13b |
 | Window grow/shrink for the log (side-by-side ≥1120px, stacked below; restore unless user-resized) | E (`message-log-window.cjs`) | Done (#127) | 13c |
 | Image attachments: paste, drop, picker, thumbnails, remove, retry, image-only replies | W | Done (#128) | 25 |
-| Agent images inline: compact previews, larger viewer, original-image link | W (#125) | Not shown inline; needs hub files in the window, as links do | 29 |
+| Agent images inline: compact previews, larger viewer, original-image link | W (#125) | Done (#151): hub images load from the backend; originals open outside the window | 29 |
 | Markdown and `<file src>` hub-file links, including sent images | W (new design for desktop) | Done (#131): web links open in the browser, hub files with their default application | 28 |
 | Dictation: Record, audio meter, `/transcribe`, microphone permission | E, W | Done (#131) | 21a |
 | Dependencies panel: sort, Check now, copy diagnostic | E, W | Done (#126) | 19 |
 | Backend restart/recreate (`BackendControls`) | E | Done (#126) | 19 |
 | Startup splash, handoff to the painted HUD, splash during restart | E | Plain `ui/backend/BackendStartup.tsx` | 21b |
-| Interrupt enabled as soon as a reply is sent | — | Waits for the next poll | Follow-up |
 | Window 1260×780 default, 640×420 minimum, 90% of work area maximum, size saved | E | Done; the 90% cap applies to sizes the app picks, not to manual resizing | 22 |
 | Zoom ±0.1 within 0.5–3, saved | E | Done | 22 |
 | Second-instance focus | E | Done | 22 |
@@ -224,16 +222,10 @@ kept the draft across restarts. Closing or restarting the app stops the backend
 and its runs, so there is no live run to reopen and only the draft would
 survive. It returns in one piece if runs ever survive a backend restart.
 
-**Follow-up found in step 15** (its own PR from `main`):
-
-- **Interrupt on Send.** After the user sends a reply, the agent is working
-  again, but Interrupt stays disabled until the next poll reports it. Enable
-  Interrupt as soon as the reply is acknowledged. Send may keep waiting for the
-  poll after a prompt arrives: the interval is a few seconds, shorter than
-  anyone takes to write a reply. Streaming prompt events to remove that
-  delay (#130) was tried and dropped as far too large for the gain. Check: a
-  native test in which Interrupt is enabled right after Send with the clock
-  paused.
+**Interrupt on Send** shipped with step 15 (#110): an acknowledged reply
+enables Interrupt at once, without waiting for a poll. Streaming prompt events
+to remove the remaining Send delay (#130) was tried and dropped as far too large
+for the gain.
 
 ## Milestone C — Remaining features (steps 18–21, 25–28)
 
