@@ -67,12 +67,11 @@ more ground; 200–400 hand-written lines is the ceiling, not the target.
 
 | # | PR | Contents |
 | --- | --- | --- |
-| 1 | Startup splash | 21b, keeping the current splash artwork |
-| 2 | UI tweaks | Step 27: light theme, stable selectors, no project title in Runs view, footer layout, octagon |
-| 3 | App logo | Step 27's app identity: the logo goes on the splash, the window icon and the `.deb` icon |
-| 4 | Preview mode | Remove `--preview` or run it against the mock backend (see the step 11 follow-ups) |
-| 5 | Instance handling leftovers | Step 22: settings validation and independent test profiles |
-| 6 | macOS | Step 23 and the macOS half of 24; deferred |
+| 1 | UI tweaks | Step 27: light theme, stable selectors, no project title in Runs view, footer layout, octagon |
+| 2 | App logo | Step 27's app identity: the logo goes on the splash, the window icon and the `.deb` icon |
+| 3 | Preview mode | Remove `--preview` or run it against the mock backend (see the step 11 follow-ups) |
+| 4 | Instance handling leftovers | Step 22: settings validation and independent test profiles |
+| 5 | macOS | Step 23 and the macOS half of 24; deferred |
 
 ## Parity checklist
 
