@@ -52,7 +52,7 @@ Reviewed against `origin/main` at `e1ba35b` (after #145).
 | 18 Environment | Done | #116, #117 |
 | 19 Dependencies | Done | #126 |
 | 20 Credentials and capabilities | Done | #106, #115 |
-| 21 Dictation and startup | Done | #131, this PR |
+| 21 Dictation and startup | Done | #131, #154 |
 | 22 Instance handling | Window size, zoom and second-instance focus done | #127 |
 | 23–24 Ship | Linux packaging done; macOS deferred | #129 |
 | Toasts (step 11 follow-up) | Done | #120 |
