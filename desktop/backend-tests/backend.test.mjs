@@ -66,8 +66,14 @@ function compose(root, runtime, overrides = {}) {
 	const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(COMPOSE_|ROBOZIUM_)/.test(name)))
 	return spawnSync("docker", ["compose", "--project-name", "desktop-config-test", "--env-file", path.join(root, "empty.env"), "--file", path.join(root, "desktop/compose.yaml"), "config", "--format", "json"], {
 		env: { ...env, ...(runtime ? { ROBOZIUM_DESKTOP_RUNTIME: runtime } : {}), ...overrides },
-		cwd: root, encoding: "utf8", timeout: 15_000,
+		// The first Compose call on a fresh runner can take well over 15 s; later ones take milliseconds.
+		cwd: root, encoding: "utf8", timeout: 90_000,
 	})
+}
+
+/** Name a timeout or spawn error instead of the bare exit status it causes. */
+function composeFailure(result) {
+	return result.error ? `docker compose failed: ${result.error.message}` : result.stderr || `docker compose exited ${result.status} (${result.signal ?? "no signal"})`
 }
 
 for (const [mode, port, user, overrides] of [
@@ -84,7 +90,7 @@ for (const [mode, port, user, overrides] of [
 		fs.writeFileSync(path.join(runtime, ".env.encrypt"), "OPENROUTER_API_KEY_ENCRYPTED=roboz:synthetic\nEXAMPLE_VALUE=encrypted-copy\n")
 		fs.writeFileSync(path.join(runtime, ".env"), "EXAMPLE_VALUE=plain-copy\nROBOZIUM_CONFIG=/wrong\nROBOZIUM_HUB_ROOT=/wrong\n")
 		const result = compose(root, runtime, overrides)
-		assert.equal(result.status, 0, result.stderr)
+		assert.equal(result.status, 0, composeFailure(result))
 		const { services } = JSON.parse(result.stdout)
 		assert.deepEqual(Object.keys(services), ["api"])
 		const api = services.api
@@ -156,7 +162,7 @@ test("runtime preparation and Compose follow relocated paths from the shared lay
 	assert.equal(layout.dockerLog, path.join(runtime, "diagnostics/engine.log"))
 	fs.writeFileSync(path.join(root, "empty.env"), "")
 	const result = compose(root, runtime)
-	assert.equal(result.status, 0, result.stderr)
+	assert.equal(result.status, 0, composeFailure(result))
 	const actualMounts = JSON.parse(result.stdout).services.api.volumes.map(mount => ({
 		source: mount.source, destination: mount.target, writable: !mount.read_only,
 	}))
