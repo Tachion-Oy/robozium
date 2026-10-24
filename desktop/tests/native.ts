@@ -36,6 +36,8 @@ export const test = base.extend<{ launchSwitches: string[]; desktop: { app: Elec
 			page.on("pageerror", error => errors.push(error.message))
 			await expect(page.locator(".agent-hud__box")).toBeVisible()
 			await expect(page.getByRole("button", { name: "Launch", exact: true })).toBeVisible()
+			// Actions wait for a stable element, which takes drawn frames.
+			await waitForDrawing(app, page)
 			await use({ app, page })
 			expect(errors).toEqual([])
 		} finally {
