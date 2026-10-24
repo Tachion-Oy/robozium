@@ -1,13 +1,12 @@
 // Open agent links through the desktop bridge; main validates every target.
+import { bridgeErrorMessage } from "../feedback/bridge-error"
 import { showErrorToast } from "../feedback/notices"
 
 async function report(open: () => Promise<void>) {
 	try {
 		await open()
 	} catch (error) {
-		// Electron prefixes IPC rejections; keep only main's own message.
-		const detail = error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, "") : null
-		showErrorToast({ title: "Could not open link", message: "The link could not be opened.", detail })
+		showErrorToast({ title: "Could not open link", message: "The link could not be opened.", detail: bridgeErrorMessage(error) })
 	}
 }
 

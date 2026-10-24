@@ -1,12 +1,14 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentPanel.tsx at 076b2c9.
 // Adapted: the draft and its writes arrive as props from App, so unsaved edits
 // survive leaving the screen, and App supplies the restart action. A key file
-// row adopts an existing .env.encrypt.
+// row adopts an existing .env.encrypt. The hub folder row shows and changes where projects live.
 import { type KeyboardEvent } from "react"
 import type { EnvironmentDraft } from "../../environment/useEnvironmentDraft"
 import type { EnvironmentMutations } from "../../environment/useEnvironmentMutations"
+import { hubRestartNeeded, type HubFolder } from "../../hub-folder/useHubFolder"
 import { HudButton } from "../hud/HudButton"
 import { EnvironmentFolderImport } from "./EnvironmentFolderImport"
+import { EnvironmentHubFolder } from "./EnvironmentHubFolder"
 import { EnvironmentKeyFileImport } from "./EnvironmentKeyFileImport"
 import { EnvironmentRestart } from "./EnvironmentRestart"
 import { EnvironmentImportList } from "./EnvironmentImportList"
@@ -14,9 +16,10 @@ import { EnvironmentSaveForm } from "./EnvironmentSaveForm"
 import { EnvironmentVariableEditor } from "./EnvironmentVariableEditor"
 import { EnvironmentVariableList } from "./EnvironmentVariableList"
 
-export function EnvironmentPanel({ draft, mutations, onRestart }: {
+export function EnvironmentPanel({ draft, mutations, hub, onRestart }: {
 	draft: EnvironmentDraft
 	mutations: EnvironmentMutations
+	hub: HubFolder
 	onRestart: () => Promise<void>
 }) {
 	const { view, editor, editable, loadFailed } = draft
@@ -41,6 +44,11 @@ export function EnvironmentPanel({ draft, mutations, onRestart }: {
 			</div>}
 			{view && !view.editable && <p role="status">Stop all runs and background work before editing.</p>}
 			<div className="agent-hud__table-scroll min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]">
+				<div className="flex min-w-0 flex-col gap-4 pe-3 pb-4">
+					<h3 className="agent-hud__capability-group-heading">Hub folder</h3>
+					{/* Opening stays available during runs; changing the folder waits for them. */}
+					<EnvironmentHubFolder hub={hub} disabled={!editable || editor !== null} />
+				</div>
 				<fieldset disabled={!editable} className="flex min-w-0 flex-col gap-4 pe-3">
 					<h3 className="agent-hud__capability-group-heading">Key file</h3>
 					<EnvironmentKeyFileImport
@@ -87,7 +95,7 @@ export function EnvironmentPanel({ draft, mutations, onRestart }: {
 				onSave={async password => view ? mutations.save(password, draft.currentEntries, view.revision) : false}
 				onReset={mutations.reset}
 			/>
-			<EnvironmentRestart required={mutations.restartRequired} importedPending={view?.imports.some(item => !item.active) ?? false}
+			<EnvironmentRestart required={mutations.restartRequired || hubRestartNeeded(hub)} importedPending={view?.imports.some(item => !item.active) ?? false}
 				dirty={draft.dirty || editor !== null} onRestart={onRestart} />
 			{view && view.overrides.length > 0 && <p>Manual .env overrides: {view.overrides.join(", ")}.</p>}
 		</section>

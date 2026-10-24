@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react"
 // Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentVariableList.tsx at 076b2c9.
-// Adapted: desktop import paths.
+// Adapted: desktop import paths. Startup settings (hub location, web port) belong to the
+// web launcher; the desktop's hub folder is chosen above, so their rows say they are unused.
 import type { EnvironmentVariable } from "../../environment/useEnvironmentDraft"
 import type { EnvironmentEntry } from "../../environment/environment-api"
 import { HudButton } from "../hud/HudButton"
@@ -36,6 +37,7 @@ function VariableRow({ variable, editing, disabled, onEdit, onDelete, children }
 					<span className="min-w-0 break-all">
 						{name}
 						{variable.sources.length > 0 && <span className="agent-hud__environment-value"> [{variable.sources.join(", ")}]</span>}
+						{variable.entry.startup && <span className="agent-hud__environment-value"> [not used by the desktop app]</span>}
 					</span>
 					<span aria-label={`Current value for ${name}`} className="agent-hud__environment-value min-w-0 break-all">
 						{currentValue(variable)}
