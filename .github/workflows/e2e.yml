@@ -2,6 +2,8 @@ name: Full E2E
 
 on:
   pull_request:
+    branches: [main]
+  merge_group:
   push:
     branches: [main]
   workflow_dispatch:
@@ -19,25 +21,30 @@ jobs:
     timeout-minutes: 5
     outputs:
       web: ${{ steps.scope.outputs.web }}
+      desktop: ${{ steps.scope.outputs.desktop }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 2
-      - name: Decide whether the web application is affected
+      - name: Decide whether the web and desktop applications are affected
         id: scope
         env:
           EVENT: ${{ github.event_name }}
         run: |
-          # A pull request touching only the desktop app and documentation skips
-          # the browser and package jobs. Pushes and manual runs keep them all.
-          # HEAD is the pull request's merge commit; its first parent is the base.
-          web=true
-          if [ "$EVENT" = pull_request ] &&
-            ! git diff --name-only HEAD^1 HEAD | grep -qvE '^(desktop/|docs/|CHANGELOG\.md$)'; then
-            web=false
+          # A pull request skips the jobs of an application it does not touch:
+          # desktop-only changes skip the web jobs, web-only changes skip the
+          # desktop jobs, and documentation alone skips both. Merge queues,
+          # pushes and manual runs keep them all. HEAD is the pull request's
+          # merge commit; its first parent is the base.
+          web=true desktop=true
+          if [ "$EVENT" = pull_request ]; then
+            changed=$(git diff --name-only HEAD^1 HEAD)
+            grep -qvE '^(desktop/|docs/|CHANGELOG\.md$)' <<< "$changed" || web=false
+            grep -qvE '^(web/|docs/|CHANGELOG\.md$)' <<< "$changed" || desktop=false
           fi
           echo "web=$web" >> "$GITHUB_OUTPUT"
+          echo "desktop=$desktop" >> "$GITHUB_OUTPUT"
 
   chromium:
     name: Chromium
@@ -86,6 +93,8 @@ jobs:
 
   docker:
     name: Docker onboarding and restart recovery
+    needs: scope
+    if: ${{ needs.scope.outputs.web == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -101,31 +110,6 @@ jobs:
           version: "0.12.10"
           python-version: "3.13"
           enable-cache: true
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "22.22.2"
-      - name: Check desktop backend isolation and restart recovery
-        run: |
-          npm --prefix desktop run test:backend
-          npm --prefix desktop run test:backend:docker
-      - name: Install Electron for backend lifecycle checks
-        run: |
-          npm --prefix desktop ci
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-0t64 libnss3 libasound2t64 libgbm1 xvfb
-          sudo chown root:root desktop/node_modules/electron/dist/chrome-sandbox
-          sudo chmod 4755 desktop/node_modules/electron/dist/chrome-sandbox
-      - name: Exercise native backend startup and shutdown
-        run: xvfb-run -a npm --prefix desktop run test:backend:electron
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ failure() }}
-        with:
-          name: electron-backend-reports
-          path: |
-            desktop/test-results/
-            desktop/playwright-report/
-          include-hidden-files: true
-          retention-days: 7
       - name: Check Compose configuration
         run: |
           uv sync --locked --dev
@@ -155,10 +139,54 @@ jobs:
         if: always()
         run: docker compose down --remove-orphans
 
+  desktop-backend:
+    name: Desktop backend lifecycle
+    needs: scope
+    if: ${{ needs.scope.outputs.desktop == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Check desktop backend isolation and restart recovery
+        run: |
+          npm --prefix desktop run test:backend
+          npm --prefix desktop run test:backend:docker
+      - name: Install Electron for backend lifecycle checks
+        run: |
+          npm --prefix desktop ci
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-0t64 libnss3 libasound2t64 libgbm1 xvfb
+          sudo chown root:root desktop/node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 desktop/node_modules/electron/dist/chrome-sandbox
+      - name: Exercise native backend startup and shutdown
+        run: xvfb-run -a npm --prefix desktop run test:backend:electron
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ failure() }}
+        with:
+          name: electron-backend-reports
+          path: |
+            desktop/test-results/
+            desktop/playwright-report/
+          include-hidden-files: true
+          retention-days: 7
+
   electron:
-    name: Electron scaffold
+    name: Electron scaffold (${{ matrix.shard }}/2)
+    needs: scope
+    if: ${{ needs.scope.outputs.desktop == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -184,11 +212,11 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p .artifacts/desktop
-          xvfb-run -a npm --prefix desktop run test:electron 2>&1 | tee .artifacts/desktop/electron-launch.log
+          xvfb-run -a npm --prefix desktop run test:electron -- --shard=${{ matrix.shard }}/2 2>&1 | tee .artifacts/desktop/electron-launch.log
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ failure() }}
         with:
-          name: electron-scaffold-reports
+          name: electron-scaffold-reports-${{ matrix.shard }}
           path: |
             .artifacts/desktop/electron-launch.log
             desktop/test-results/
@@ -199,26 +227,12 @@ jobs:
   full-e2e:
     name: Full E2E
     if: ${{ always() }}
-    needs: [scope, chromium, firefox, webkit, installation, runner, docker, electron]
+    needs: [scope, chromium, firefox, webkit, installation, runner, docker, desktop-backend, electron]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Require every Full E2E job to succeed
-        env:
-          REQUIRED_RESULTS: ${{ toJSON(needs) }}
-          WEB_AFFECTED: ${{ needs.scope.outputs.web }}
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-
-          results = json.loads(os.environ["REQUIRED_RESULTS"])
-          web_jobs = {"chromium", "firefox", "webkit", "installation", "runner"}
-          required = web_jobs | {"scope", "docker", "electron"}
-          # Web jobs may be skipped only when the scope job said so.
-          web_result = "success" if os.environ["WEB_AFFECTED"] == "true" else "skipped"
-          expected = {name: web_result if name in web_jobs else "success" for name in required}
-          actual = {name: job.get("result") for name, job in results.items()}
-          if actual != expected:
-              raise SystemExit(f"Required E2E jobs did not finish as expected: {actual}, expected {expected}")
-          PY
+      # A job is skipped only when the change scope says so; if the scope job
+      # itself fails or is cancelled, that result fails this check.
+      - name: Require every job to pass or be skipped by the change scope
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1

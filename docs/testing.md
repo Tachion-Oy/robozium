@@ -316,7 +316,8 @@ fixture's per-test log cannot capture that stage. For local launch debugging,
 use `DEBUG=pw:browser xvfb-run -a npm --prefix desktop run test:electron`.
 
 CI checks desktop lint, types, and compilation. Full E2E runs the native suite on
-Ubuntu with Chromium sandboxing enabled and requires the Electron job to pass.
+Ubuntu with Chromium sandboxing enabled, split across two Electron scaffold shards
+that must both pass.
 
 ## Desktop backend checks
 
@@ -464,17 +465,25 @@ checkout runs are unit-tested in `backend-tests/lifecycle/locations.test.mjs`.
 
 ## Full E2E policy
 
-**Full E2E must pass in CI before merging.** Its aggregate check requires all seven
-independent jobs to succeed: Chromium, Firefox, WebKit, installation, runner
-infrastructure, Docker onboarding with restart recovery, and the Electron
-scaffold. Failed, cancelled, missing, or skipped jobs fail the gate. Fork PRs use
-read-only permissions and credential-free mocks.
+**Full E2E must pass in CI before merging.** Its **Full E2E** check fails when
+any of its jobs fails or is cancelled: Chromium, Firefox, WebKit, installation,
+runner infrastructure, Docker onboarding with restart recovery, the desktop
+backend lifecycle, and the Electron scaffold in two shards. The `needs` list of
+that check in the [workflow](../.github/workflows/e2e.yml) is the only list of
+its jobs. Fork PRs use read-only permissions and credential-free mocks.
 
-The one exception is a pull request that changes only `desktop/`, `docs/` and
-`CHANGELOG.md`. The desktop app renders with Electron's own Chromium and does not
-use the web application, so the change-scope job skips the five browser and
-package jobs, and the gate requires them to be skipped. Docker and Electron
-still run. Pushes to `main` and manual dispatches always run every job.
+The change-scope job skips the jobs of an application a pull request does not
+touch. Changes only in `desktop/`, `docs/` and `CHANGELOG.md` skip the web jobs:
+the desktop app renders with Electron's own Chromium and does not use the web
+application. Changes only in `web/`, `docs/` and `CHANGELOG.md` skip the two
+desktop jobs, and documentation alone skips both. Only the change scope skips
+jobs, so a failed or cancelled change scope fails Full E2E. Merge queue runs,
+pushes to `main` and manual dispatches always run every job.
+
+Full E2E and the Linux package run only on pull requests into `main`. A pull
+request stacked on another branch runs CI alone, and gets the full run once it
+targets `main`: when it is updated after its parent merges, or in the merge
+queue.
 
 The [shared workflow](../.github/workflows/e2e-browser.yml) pins the Linux browser
 environment and installs locked dependencies. Browser jobs use the production
@@ -488,8 +497,8 @@ release with the existing suite before updating all three pins together.
 
 Chromium and Firefox have 15-minute browser runner deadlines and 25-minute job
 limits. WebKit has a 25-minute runner deadline and a 35-minute job limit.
-Installation and runner infrastructure have 25-minute job limits. Docker
-has a 15-minute job limit; Electron has a 10-minute job limit and no retries.
+Installation and runner infrastructure have 25-minute job limits. Docker and the desktop backend lifecycle have 15-minute job limits; each Electron
+shard has a 10-minute job limit and no retries.
 Browser jobs allow one retry and stop after three
 failed tests. Flaky tests fail. Playwright output streams to Actions; browser,
 backend, frontend, and technical logs remain in the diagnostic artifact.
@@ -547,9 +556,8 @@ using a temporary Docker configuration. Switching its default context must leave
 startup, retry, cancellation, and shutdown on the original daemon, with no
 requests to the second daemon or changes to the user's Docker configuration.
 
-Full E2E runs native lifecycle checks in the existing Docker job. The Electron
-preview job still uses a desktop-only checkout. All seven existing jobs remain
-required. Renderer tests also reject untrusted callers of the lifecycle and
+Full E2E runs native lifecycle checks in the desktop backend lifecycle job. The
+Electron scaffold job still uses a desktop-only checkout. Renderer tests also reject untrusted callers of the lifecycle and
 connection-address IPC methods. Separate native scenarios block initial renderer
 readiness and recover through Retry without Docker commands, and verify the
 selected-address CSP with actual desktop HTTP/SSE requests against a seeded run.
