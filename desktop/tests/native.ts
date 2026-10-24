@@ -15,7 +15,9 @@ export const preload = path.join(desktopRoot, "dist", locations.preload)
 export const test = base.extend<{ launchSwitches: string[]; desktop: { app: ElectronApplication; page: Page } }>({
 	/** Extra Chromium switches, such as a fake microphone. */
 	launchSwitches: [[], { option: true }],
-	desktop: async ({ playwright, launchSwitches }, use, testInfo) => {
+	// A cold runner can take most of a test's budget to launch; time that apart.
+	desktop: [async ({ playwright, launchSwitches }, use, testInfo) => {
+		const started = Date.now() // TEMPORARY timing
 		const directory = await mkdtemp(path.join(tmpdir(), "robozium-scaffold-"))
 		const logs: string[] = []
 		let app: ElectronApplication | undefined
@@ -36,8 +38,10 @@ export const test = base.extend<{ launchSwitches: string[]; desktop: { app: Elec
 			page.on("pageerror", error => errors.push(error.message))
 			await expect(page.locator(".agent-hud__box")).toBeVisible()
 			await expect(page.getByRole("button", { name: "Launch", exact: true })).toBeVisible()
+			console.log(`TIMING ${testInfo.title}: ready ${Date.now() - started}ms`) // TEMPORARY
 			// Actions wait for a stable element, which takes drawn frames.
 			await waitForDrawing(app, page)
+			console.log(`TIMING ${testInfo.title}: drawing ${Date.now() - started}ms`) // TEMPORARY
 			await use({ app, page })
 			expect(errors).toEqual([])
 		} finally {
@@ -62,7 +66,7 @@ export const test = base.extend<{ launchSwitches: string[]; desktop: { app: Elec
 				await rm(directory, { recursive: true, force: true })
 			}
 		}
-	},
+	}, { timeout: 60_000 }],
 })
 
 /** Close through the native window, as a user does, then start again on the same profile. */
