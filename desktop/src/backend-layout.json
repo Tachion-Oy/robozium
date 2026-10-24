@@ -30,7 +30,7 @@
           "required": false
         },
         {
-          "path": "${ROBOZIUM_DESKTOP_RUNTIME}/.env",
+          "path": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/.env",
           "required": false
         }
       ],
@@ -43,7 +43,7 @@
       "volumes": [
         {
           "type": "bind",
-          "source": "${ROBOZIUM_DESKTOP_RUNTIME}",
+          "source": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}",
           "target": "/configuration",
           "read_only": false,
           "bind": {
@@ -52,7 +52,7 @@
         },
         {
           "type": "bind",
-          "source": "${ROBOZIUM_DESKTOP_RUNTIME}/local",
+          "source": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/local",
           "target": "/app/local",
           "read_only": false,
           "bind": {
@@ -61,7 +61,7 @@
         },
         {
           "type": "bind",
-          "source": "${ROBOZIUM_DESKTOP_RUNTIME}/.runtime/local-deps",
+          "source": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/.runtime/local-deps",
           "target": "/app/.runtime/local-deps",
           "read_only": false,
           "bind": {
@@ -79,7 +79,7 @@
         },
         {
           "type": "bind",
-          "source": "${ROBOZIUM_DESKTOP_RUNTIME}/.runtime/logs",
+          "source": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/.runtime/logs",
           "target": "/logs",
           "read_only": false,
           "bind": {
@@ -88,7 +88,7 @@
         },
         {
           "type": "bind",
-          "source": "${ROBOZIUM_DESKTOP_RUNTIME}/.runtime/host-socket",
+          "source": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/.runtime/host-socket",
           "target": "/host-scripts",
           "read_only": true,
           "bind": {
@@ -97,7 +97,7 @@
         },
         {
           "type": "bind",
-          "source": "${ROBOZIUM_DESKTOP_HUB}/readonly/safe-scripts",
+          "source": "${ROBOZIUM_DESKTOP_HUB:?Select an absolute hub folder}/readonly/safe-scripts",
           "target": "/hub/readonly/safe-scripts",
           "read_only": true,
           "bind": {
