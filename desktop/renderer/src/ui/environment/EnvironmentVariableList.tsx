@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react"
 // Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentVariableList.tsx at 076b2c9.
 // Adapted: desktop import paths.
-import type { EnvironmentVariable } from "../../environment/useEnvironmentEditor"
+import type { EnvironmentVariable } from "../../environment/useEnvironmentDraft"
 import type { EnvironmentEntry } from "../../environment/environment-api"
 import { HudButton } from "../hud/HudButton"
 

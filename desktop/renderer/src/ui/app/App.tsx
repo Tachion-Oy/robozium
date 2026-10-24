@@ -24,7 +24,8 @@ import { HudButton } from "../HudButton"
 import { UnlockApiKeys } from "../hud/UnlockApiKeys"
 import { useCredentials } from "../../credentials/useCredentials"
 import { EnvironmentPanel } from "../environment/EnvironmentPanel"
-import { useEnvironmentEditor } from "../../environment/useEnvironmentEditor"
+import { useEnvironmentDraft } from "../../environment/useEnvironmentDraft"
+import { useEnvironmentMutations } from "../../environment/useEnvironmentMutations"
 import { DependencyPanel } from "../dependencies/DependencyPanel"
 import { useDependencies } from "../../dependencies/useDependencies"
 import { useRunSession } from "../../session/useRunSession"
@@ -119,7 +120,14 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 	const models = client ? backendModels : previewModels
 	const projects = useProjectQuery(client, screen === "projects", projectMutations)
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
-	const environment = useEnvironmentEditor(client, screen === "environment", credentials.refresh)
+	// Each write's outcome goes to the draft declared below; it runs only after both exist.
+	const environmentMutations = useEnvironmentMutations(client, {
+		onReplaced: next => environment.replaced(next),
+		onImported: result => environment.imported(result),
+		onReset: () => environment.reset(),
+		onKeysLoaded: credentials.refresh,
+	})
+	const environment = useEnvironmentDraft(client, screen === "environment", environmentMutations)
 	const dependencies = useDependencies(client, screen === "dependencies")
 	// A launch, a disconnection or an unconfirmed model change locks navigation.
 	const navigationPending = projectMutations.launching || !connected || models.pending
@@ -174,7 +182,7 @@ export function App({ connectionNotice, client = null, connected = true, onRecon
 				// Standalone preview has no dependency monitor; it shows the placeholder.
 				return placeholder()
 			case "environment":
-				if (client) return <EnvironmentPanel environment={environment} onRestart={() => window.robozium.restartApp()} />
+				if (client) return <EnvironmentPanel environment={environment} mutations={environmentMutations} onRestart={() => window.robozium.restartApp()} />
 				// Standalone preview has no backend settings; it shows the placeholder.
 				// falls through
 			default:

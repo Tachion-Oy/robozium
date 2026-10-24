@@ -1,5 +1,5 @@
 // Read and replace the runtime's saved settings and secrets (`.env.encrypt`).
-// useEnvironmentEditor owns the view and its edits; requests here have no local state.
+// useEnvironmentDraft owns the view and its edits, useEnvironmentMutations the writes; requests here have no local state.
 import { ApiError, type DesktopApiClient } from "../api/client"
 import { parseCapability, type CapabilityView } from "../capabilities/capabilities-api"
 

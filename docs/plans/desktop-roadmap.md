@@ -243,7 +243,7 @@ survive. It returns in one piece if runs ever survive a backend restart.
 
 | Step | Result | Check |
 | --- | --- | --- |
-| **18. Environment** | Environment panel (display, edit, import, reset) with its own API module and owner. Restart app with in-HUD unsaved-edit confirmation. Done: `environment/useEnvironmentEditor`, folder import and Restart app (`desktop:relaunch`). | Edits, imports, validation failures, persistence and restart against isolated mock data; captures match. |
+| **18. Environment** | Environment panel (display, edit, import, reset) with its own API module and owner. Restart app with in-HUD unsaved-edit confirmation. Done: `environment/useEnvironmentDraft` and `useEnvironmentMutations`, folder import and Restart app (`desktop:relaunch`). | Edits, imports, validation failures, persistence and restart against isolated mock data; captures match. |
 | **19. Dependencies** | Dependency panel and diagnostics. Restart/recreate backend through `backend-controller.ts`, limited to owned services. | Available/missing/error states and restart/recreate; captures match. |
 | **20. Credentials and capabilities** | `UnlockApiKeys` and the overview capability selector, through owners. Done: the selector in step 12, `UnlockApiKeys` through `credentials/useCredentials`. | Lock/unlock, failures and capability persistence; captures match. |
 | **21a. Dictation** | `useDictation` owner, audio meter and a transcription API module. Allow only `media` (audio) for the trusted main frame; every other permission stays refused. Enable Record. | Recording lifecycle and permission denial. |
