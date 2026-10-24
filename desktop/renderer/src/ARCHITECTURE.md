@@ -14,7 +14,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | --- | --- |
 | `ui/` | All rendered components and CSS: app composition, backend startup, the HUD frame, the overview and capability selector, and the run view. |
 | `app/` | The navigation reducer (screen and launch draft) and standalone preview data. |
-| `backend/` | IPC connection discovery and HTTP readiness hooks. |
+| `backend/` | IPC connection discovery and HTTP readiness hooks, and when the startup screen covers the app. |
 | `projects/` | Project requests and validation, the overview rows (query) and this app's cancel and delete requests (mutations), and the launch command. |
 | `capabilities/` | Capability catalogue and saved-selection requests, the selector's reads, and selection resolution. |
 | `models/` | Model requests and validation, and the acknowledged backend selection. |

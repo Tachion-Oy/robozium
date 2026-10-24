@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { test, catalogue, json } from "./selection-fixture"
-import { chooseModel, chooseView as view, modelTrigger } from "./native"
+import { chooseModel, chooseView as view, modelTrigger, reloadApp } from "./native"
 import { prepareRun, start } from "./run-fixture"
 
 const notices = (page: Page) => page.locator(".desktop-interim-content__notices")
@@ -71,7 +71,7 @@ test("reload cancels a pending model write and keeps the confirmed model", async
 	const model = modelTrigger(page)
 	await chooseModel(page, "Second model")
 	await expect.poll(() => backend.requests.filter(request => request.method === "POST").length).toBe(1)
-	await page.reload()
+	await reloadApp(page)
 	await expect.poll(() => closed).toBe(1)
 	await expect(model).toHaveAttribute("title", "First model")
 })
@@ -82,7 +82,7 @@ test("model read timeout and malformed acknowledgement preserve the confirmed ch
 	await backend.open()
 	await page.clock.install()
 	// Reload to put the initial catalogue deadline under the controlled clock.
-	await page.reload()
+	await reloadApp(page)
 	await expect(page.locator(".agent-hud__model-selector--loading")).toHaveText("Loading models")
 	await page.clock.fastForward(10_001)
 	await expect(page.getByRole("alert")).toContainText("Request timed out")

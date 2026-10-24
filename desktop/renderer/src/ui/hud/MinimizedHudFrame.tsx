@@ -1,5 +1,6 @@
+// Copied from robozium-electron/desktop/web/app/components/hud/MinimizedHudFrame.tsx at 076b2c9.
 import type { ReactNode } from "react"
-import type { AgentActivityState } from "@/lib/robozium/session/reducer"
+import type { AgentActivityState } from "../run/run-view"
 
 /** Shared minimized shell and activity mark for re-entry and desktop loading. */
 export function MinimizedHudFrame({ agentActivityState, heading, children }: {

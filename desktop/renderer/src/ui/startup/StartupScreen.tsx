@@ -1,93 +1,83 @@
-import { useCallback, useEffect, useState } from "react"
-import type { BackendStatus } from "../lib/desktop"
-import { AgentActivityState } from "../lib/robozium/session/reducer.types"
-import { HudButton } from "../app/components/hud/HudButton"
-import { MinimizedHudFrame } from "../app/components/hud/MinimizedHudFrame"
-import { TerminalBackdrop } from "../app/components/terminal/TerminalBackdrop"
-import { IntroStream, PlaceholderLog } from "../app/components/terminal/demo/DemoLog"
+// Copied from robozium-electron/desktop/web/startup/StartupScreen.tsx at 076b2c9.
+// Adapted: it covers the application inside the renderer, so its state arrives as
+// props from BackendStartup and its failure carries the startup's own actions. A
+// failure raises the loader so its message fits the smallest window, and reduced
+// motion requested during the introduction settles it.
+import { useEffect, useState, type ReactNode } from "react"
+import { AgentActivityState } from "../run/run-view"
+import { MinimizedHudFrame } from "../hud/MinimizedHudFrame"
+import { TerminalBackdrop } from "../terminal/TerminalBackdrop"
+import { IntroStream, PlaceholderLog } from "../terminal/demo/DemoLog"
+import type { StartupScreenMode } from "../../backend/useStartupScreen"
+import "./startup.css"
 
-export interface LauncherBridge {
-	status(): Promise<BackendStatus>
-	retry(): Promise<void>
-	visible(): Promise<void>
-	painted(): Promise<void>
-	handoff(): Promise<void>
-	faded(): Promise<void>
-	onReady(callback: () => void): () => void
+/** Why startup stopped, and the controls that continue it. */
+export interface StartupFailure {
+	message: string
+	actions: ReactNode
+}
+
+export interface StartupScreenProps {
+	/** "intro" plays the launch animation; "loading" shows the loading HUD at once, as during a restart. */
+	mode: StartupScreenMode
+	/** The backend is ready and the application beneath has painted. */
+	ready: boolean
+	failure: StartupFailure | null
+	/** The screen has faded out; the owner removes it. */
+	onFaded: () => void
 }
 
 // Equal sides and 135-degree interior angles; the cut is 100 / (2 + sqrt(2)).
 const octagonPoints = "29.289322,0 70.710678,0 100,29.289322 100,70.710678 70.710678,100 29.289322,100 0,70.710678 0,29.289322"
+// Removes the screen if its fade never reports an end.
+const FADE_FALLBACK_MS = 1000
+const reduceMotion = "(prefers-reduced-motion: reduce)"
 
-declare global {
-	interface Window { launcher: LauncherBridge }
-}
-
-/** Local presentation runs independently of Docker and the application document. */
-export function StartupScreen() {
-	const [skipIntro] = useState(() => new URL(location.href).searchParams.get("mode") === "loading")
-	const [reducedMotion] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches)
-	const [introDone, setIntroDone] = useState(skipIntro)
-	const [loadingStarted, setLoadingStarted] = useState(skipIntro)
-	const [ready, setReady] = useState(false)
-	const [failure, setFailure] = useState<string | null>(null)
+/** Local presentation runs independently of Docker and the application's data. */
+export function StartupScreen({ mode, ready, failure, onFaded }: StartupScreenProps): ReactNode {
+	const skipIntro = mode === "loading"
+	const [reducedMotion, setReducedMotion] = useState(() => matchMedia(reduceMotion).matches)
+	const [introDone, setIntroDone] = useState(skipIntro || reducedMotion)
+	const [loadingStarted, setLoadingStarted] = useState(skipIntro || reducedMotion)
 	const revealing = introDone && ready
-	const finishIntro = useCallback(() => {
+	const finishIntro = () => {
 		setIntroDone(true)
 		if (!ready) setLoadingStarted(true)
-	}, [ready])
-
-	useEffect(() => window.launcher.onReady(() => setReady(true)), [])
+	}
 
 	useEffect(() => {
-		let active = true
-		const update = async () => {
-			try {
-				const status = await window.launcher.status()
-				if (active) setFailure(status.state === "unavailable" ? status.message : null)
-			} catch { /* Closing the view cancels its outstanding IPC. */ }
+		// Asking for reduced motion during the introduction settles it at once.
+		const query = matchMedia(reduceMotion)
+		const change = () => {
+			if (!query.matches) return
+			setReducedMotion(true)
+			setIntroDone(true)
+			setLoadingStarted(true)
 		}
-		void update()
-		const timer = window.setInterval(() => { void update() }, 500)
-		return () => { active = false; window.clearInterval(timer) }
+		query.addEventListener("change", change)
+		return () => query.removeEventListener("change", change)
 	}, [])
 
 	useEffect(() => {
-		let active = true
-		void document.fonts.ready.then(async () => {
-			if (!active) return
-			await window.launcher.visible()
-			await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-			if (!active) return
-			await window.launcher.painted()
-			if (reducedMotion) {
-				setIntroDone(true)
-				setLoadingStarted(true)
-			}
-		})
-		return () => { active = false }
-	}, [reducedMotion])
-
-	useEffect(() => {
 		if (!revealing) return
-		void window.launcher.handoff().then(() => {
-			if (reducedMotion) void window.launcher.faded()
-		})
-	}, [revealing, reducedMotion])
+		if (reducedMotion) { onFaded(); return }
+		const timer = window.setTimeout(onFaded, FADE_FALLBACK_MS)
+		return () => window.clearTimeout(timer)
+	}, [revealing, reducedMotion, onFaded])
 
 	return (
 		<main
 			className={`startup${revealing ? " startup--revealing" : ""}`}
 			data-stage={revealing ? "handoff" : introDone ? "loading" : "intro"}
 			onTransitionEnd={event => {
-				if (revealing && event.target === event.currentTarget && event.propertyName === "opacity") void window.launcher.faded()
+				if (revealing && event.target === event.currentTarget && event.propertyName === "opacity") onFaded()
 			}}>
 			<TerminalBackdrop animateTitle={!skipIntro}>
 				{skipIntro || reducedMotion ? <PlaceholderLog /> : <IntroStream onIntroDone={finishIntro} />}
 			</TerminalBackdrop>
 			{loadingStarted && (
 				<div
-					className={`agent-hud agent-hud--landing startup__hud${skipIntro ? "" : " startup__hud--enter"}`}>
+					className={`agent-hud agent-hud--landing startup__hud${skipIntro ? "" : " startup__hud--enter"}${failure ? " startup__hud--failed" : ""}`}>
 					<div className="agent-hud__box">
 						<div className="startup__loading">
 							<MinimizedHudFrame
@@ -101,8 +91,8 @@ export function StartupScreen() {
 						</div>
 						{failure && (
 							<div className="startup__failure">
-								<p role="alert">{failure}</p>
-								<HudButton onClick={() => { setFailure(null); void window.launcher.retry() }}>Retry</HudButton>
+								<p role="alert">{failure.message}</p>
+								{failure.actions}
 							</div>
 						)}
 					</div>

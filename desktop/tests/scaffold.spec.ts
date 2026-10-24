@@ -2,7 +2,7 @@ import { _electron, expect, type Page } from "@playwright/test"
 import { once } from "node:events"
 import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { test, desktopRoot, launchArgs, documentUrl, preload, waitForPanelLayout, captureNative, chooseModel, chooseView, modelTrigger, setNativeViewport, viewTrigger } from "./native"
+import { test, desktopRoot, launchArgs, documentUrl, preload, waitForPanelLayout, captureNative, chooseModel, chooseView, modelTrigger, setNativeViewport, viewTrigger, reloadApp } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
 async function expectPanelGeometry(page: Page, layout: "top" | "equal" | "bottom") {
@@ -81,7 +81,7 @@ for (const theme of ["dark", "light"]) {
 	test(`divider buttons stay square with centered arrows in ${theme}`, async ({ desktop: { app, page } }) => {
 		for (const zoom of [1, 1.25]) {
 			await app.evaluate(({ BrowserWindow }, zoom) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(zoom), zoom)
-			await page.reload()
+			await reloadApp(page)
 			if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 			for (const state of ["idle", "top", "equal", "bottom"]) {
 				if (state === "top") await page.getByRole("button", { name: "Launch", exact: true }).click()
@@ -207,7 +207,7 @@ for (const theme of ["dark", "light"]) {
 		await chooseView(page, "Runs Overview")
 		await chooseView(page, "Current Run")
 		await expect(reply).toHaveValue(draft)
-		await page.reload()
+		await reloadApp(page)
 		await expect(page.getByRole("button", { name: "Launch", exact: true })).toBeVisible()
 		await page.getByRole("button", { name: "Launch", exact: true }).click()
 		await expect(reply).toHaveValue("")
@@ -258,7 +258,7 @@ test("exposes the version bridge when launched outside the checkout", async ({ d
 test("loads the built React script, stylesheet, and fonts through the local protocol", async ({ desktop: { page } }) => {
 	const fontResponse = page.waitForResponse(response =>
 		/^robozium:\/\/app\/assets\/source-code-pro-latin-400-normal-.+\.woff2$/.test(response.url()))
-	await page.reload()
+	await reloadApp(page)
 	expect((await fontResponse).ok()).toBe(true)
 	await expect(page.locator("script[src]")).toHaveAttribute("src", /^\/assets\/.+\.js$/)
 	await expect(page.locator('link[rel="stylesheet"]')).toHaveAttribute("href", /^\/assets\/.+\.css$/)
@@ -318,7 +318,7 @@ for (const theme of ["dark", "light"]) {
 			if (name === "Runs Overview") await expect(page.locator(".agent-hud__project-view")).toContainText("New Project")
 			else await expect(page.getByRole("region", { name, exact: true })).toContainText("This view is coming soon.")
 		}
-		await page.reload()
+		await reloadApp(page)
 		await expect(modelTrigger(page)).toHaveAccessibleName("Mock model")
 		await expect(viewTrigger(page)).toHaveAccessibleName("Runs Overview")
 		await expect(page.locator("html")).toHaveAttribute("data-theme", "dark")
