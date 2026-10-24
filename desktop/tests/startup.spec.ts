@@ -2,7 +2,7 @@ import { _electron, expect } from "@playwright/test"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { launchArgs, startupDone, test } from "./native"
+import { desktopRoot, launchArgs, startupDone, test } from "./native"
 
 const screen = ".startup"
 const launchButton = "button:text-is('Launch')"
@@ -72,4 +72,31 @@ test("while the backend starts, the loading screen announces its step", async ({
 	await expect(page.locator(`${screen} [role='status']`)).toHaveText("Checking Docker…")
 	await expect(page.locator(`${screen} .startup__status`)).toBeVisible()
 	await expect(page.locator(launchButton)).toHaveCount(0)
+})
+
+test("a development launch shows the splash at once and builds behind it", async () => {
+	test.setTimeout(120_000)
+	const directory = await mkdtemp(path.join(tmpdir(), "robozium-prepare-"))
+	try {
+		const app = await _electron.launch({
+			// The uncompiled entry, as `npm start` runs it.
+			args: [path.join(desktopRoot, "src/bootstrap.ts"), "--prepare", ...launchArgs.slice(1)],
+			chromiumSandbox: true,
+			cwd: directory,
+			env: { ...process.env, ROBOZIUM_DESKTOP_TEST_DATA: path.join(directory, "profile") },
+			timeout: 15_000,
+		})
+		try {
+			const page = await app.firstWindow()
+			const splash = page.locator(".splash__loader")
+			// The splash is up while preparation still runs.
+			await expect(splash.getByRole("status")).toHaveText(/Building Robozium…|Preparing the interface…/)
+			await expect(splash).toBeVisible()
+			await expect(page.locator(launchButton)).toBeVisible({ timeout: 90_000 })
+		} finally {
+			await app.close()
+		}
+	} finally {
+		await rm(directory, { recursive: true, force: true })
+	}
 })

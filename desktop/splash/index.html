@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Robozium</title>
+	<link rel="stylesheet" href="splash.css">
+	<script src="splash.js" type="module"></script>
+</head>
+<body>
+<main class="splash">
+	<h1 class="splash__title"><span class="sr-only">Robozium</span></h1>
+	<div class="splash__loader">
+		<span class="splash__loading-art" aria-hidden="true"></span>
+		<p id="status" class="splash__status" role="status">Starting Robozium…</p>
+	</div>
+	<div class="splash__failure" hidden>
+		<p id="failure" role="alert"></p>
+		<button id="retry" type="button">Retry</button>
+	</div>
+</main>
+</body>
+</html>

@@ -137,8 +137,9 @@ It cleans up its profiles and processes. Failure diagnostics are retained in
 
 `desktop/tests/startup.spec.ts` plays the launch animation and checks that it
 fades only over a drawn HUD, and that startup failures and progress show on the
-loading screen. Other native tests emulate reduced motion, which settles the
-animation at once (`skipIntro` in `desktop/tests/native.ts`).
+loading screen. It also starts the uncompiled entry as `npm start` does and
+checks that its splash shows while the app builds. Other native tests emulate
+reduced motion, which settles the animation at once (`skipIntro` in `desktop/tests/native.ts`).
 
 `desktop/tests/theme.spec.ts` checks that the chosen theme and native window
 background survive a restart without dropping other `settings.json` keys, that

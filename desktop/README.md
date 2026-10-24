@@ -94,7 +94,12 @@ from the header's **Secrets locked** menu after the app starts:
 cp /path/to/.env.encrypt ~/.local/share/robozium-desktop-dev/live/.env.encrypt
 ```
 
-The start command stages the allowlisted Python source. Main builds the API
+The start command opens the window at once with a splash, then stages the
+allowlisted Python source and builds the app behind it, showing each step; a
+failed step shows its error and **Retry**. Its entry, `src/bootstrap.ts`, runs
+uncompiled through Electron's type stripping; type checking stays with
+`npm run typecheck`. The installed app opens straight into the startup screen.
+Main builds the API
 image on first launch and waits for readiness. React then checks `/ready` through
 its HTTP client before showing the HUD. Meanwhile the startup screen plays the
 experiment's introduction, then a loading HUD; it fades into the HUD once the

@@ -1,0 +1,15 @@
+/* Shown while a development launch prepares the app; the app's own startup screen follows. */
+:root { color-scheme: dark; font-size: 75%; }
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #07080a; }
+.splash { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; gap: 1rem; padding: 2rem 10%; color: #9fe4ff; font: 14px/1.4 ui-monospace, monospace; background: linear-gradient(#40c8ff0a 0 2px, transparent 2px), linear-gradient(90deg, #40c8ff0a 0 2px, transparent 2px), #091426; background-size: 3.5rem 3.5rem; }
+.splash__title { width: min(45vw, 670px); height: 5rem; margin: 0; background: #c2ff3a; mask: url("robozium.svg") center / contain no-repeat; filter: drop-shadow(0 0 3px #c2ff3a) drop-shadow(0 0 12px #c2ff3acc); }
+.splash__loader { align-self: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; width: 190px; height: 190px; padding: 1.5rem; background: #00080fb3; border: 1px solid #40c8ff99; clip-path: polygon(29.289322% 0, 70.710678% 0, 100% 29.289322%, 100% 70.710678%, 70.710678% 100%, 29.289322% 100%, 0 70.710678%, 0 29.289322%); }
+.splash__loading-art { display: block; width: 142px; height: 16px; background: #c2ff3a; mask: url("loading.svg") center / contain no-repeat; }
+.splash__status { margin: 0; text-align: center; overflow-wrap: anywhere; }
+.splash__failure { display: flex; flex-direction: column; align-items: center; gap: 8px; max-height: 40vh; overflow: auto; text-align: center; overflow-wrap: anywhere; }
+.splash__failure[hidden] { display: none; }
+.splash__failure p { margin: 0; color: #ff6b62; }
+button { padding: 0.5rem 1rem; border: 1px solid #40c8ff; background: #091426; color: inherit; font: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid #9fe4ff; outline-offset: 3px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
