@@ -14,8 +14,9 @@ async function refusedCancel(page: Page, backend: Backend) {
 }
 
 async function freeze(page: Page) {
+	// The installed clock starts running, so pause ahead of the install time, never at it.
 	const now = new Date("2026-10-21T12:00:00Z")
-	await page.clock.install({ time: now })
+	await page.clock.install({ time: now.getTime() - 1000 })
 	await page.clock.pauseAt(now)
 }
 
