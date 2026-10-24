@@ -5,7 +5,7 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import { BackendController } from "../src/backend-controller"
 import { loadOrCreateBackendProfile } from "../src/backend-profile"
-import { resolveBackendLayout } from "../src/backend-layout.cjs"
+import { resolveBackendLayout } from "../src/backend-layout"
 import { findDocker, runCommand, type CommandOptions } from "../src/docker-command"
 
 async function checkedCommand(docker: string, args: string[], options: CommandOptions) {

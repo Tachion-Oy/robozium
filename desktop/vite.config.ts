@@ -1,10 +1,12 @@
-import { fileURLToPath } from "node:url"
+import path from "node:path"
+import tailwindcss from "@tailwindcss/postcss"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
 export default defineConfig({
-	root: fileURLToPath(new URL("./renderer", import.meta.url)),
+	root: path.join(import.meta.dirname, "renderer"),
 	plugins: [react()],
+	css: { postcss: { plugins: [tailwindcss()] } },
 	build: {
 		outDir: "../dist/renderer",
 		emptyOutDir: true,

@@ -1,15 +1,16 @@
 import assert from "node:assert/strict"
 import path from "node:path"
 import { test } from "node:test"
-import { desktopLocations, expandHome } from "../../dist/locations.js"
+import { desktopLocations, expandHome } from "../../src/locations.ts"
 
-const base = { appDirectory: "/repo/desktop/dist", resourcesPath: "/opt/Robozium/resources", userData: "/home/user/.config/Robozium", home: "/home/user", mode: "live", preview: false }
+const base = { appDirectory: "/repo/desktop/dist", resourcesPath: "/opt/Robozium/resources", userData: "/home/user/.config/Robozium", home: "/home/user", mode: "live" as const, preview: false }
 
 test("an installed app keeps its profile in the user's config directory and reads backend files from resources", () => {
 	assert.deepEqual(desktopLocations({ ...base, packaged: true }), {
 		profile: "/home/user/.config/Robozium",
 		source: "/opt/Robozium/resources/backend/stage",
 		compose: "/opt/Robozium/resources/backend/compose.yaml",
+		preload: "/repo/desktop/dist/preload.cjs",
 		hubFolder: {
 			file: "/home/user/.config/Robozium/hub-folder", defaultFolder: "/home/user/Robozium-Hub",
 			earlierFolder: "/home/user/.config/Robozium/live/hub",
@@ -40,7 +41,7 @@ test("every live launch can choose its hub; only an installed app defaults to ~/
 	assert.deepEqual(desktopLocations({ ...base, packaged: true, profileOverride: "/tests/profile" }).hubFolder, {
 		file: "/tests/profile/hub-folder", defaultFolder: "/tests/profile/live/hub", earlierFolder: null,
 	})
-	for (const inputs of [{ packaged: true, mode: "mock" }, { packaged: false, mode: "mock" }, { packaged: true, preview: true }]) {
+	for (const inputs of [{ packaged: true, mode: "mock" as const }, { packaged: false, mode: "mock" as const }, { packaged: true, preview: true }]) {
 		assert.equal(desktopLocations({ ...base, ...inputs }).hubFolder, null, JSON.stringify(inputs))
 	}
 })

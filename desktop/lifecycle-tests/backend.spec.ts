@@ -7,10 +7,10 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import { captureNative, chooseView, documentUrl, modelTrigger, setNativeViewport } from "../tests/native"
 import { expectFooterGeometry } from "../tests/footer-geometry"
-import { resolveBackendLayout } from "../src/backend-layout.cjs"
+import { resolveBackendLayout } from "../src/backend-layout"
 import { installTestClient } from "../tests/transport"
 
-const desktop = path.resolve(__dirname, "..")
+const desktop = path.resolve(import.meta.dirname, "..")
 const docker = execFileSync("which", ["docker"], { encoding: "utf8" }).trim()
 const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`
 // An 8×4 PNG.

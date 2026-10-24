@@ -14,7 +14,7 @@ markup; credentials follow in a later
 
 ## Install on Linux
 
-Build a Debian package from a checkout (Node.js 22.12 or newer and npm), then
+Build a Debian package from a checkout (Node.js 22.18 or newer and npm), then
 install it:
 
 ```sh
@@ -48,7 +48,7 @@ before starting the other, or set `ROBOZIUM_DESKTOP_API_PORT` for the checkout.
 
 ## Run on Linux
 
-Requires Linux Docker Engine with Compose v2.24 or newer, Node.js 22.12 or newer,
+Requires Linux Docker Engine with Compose v2.24 or newer, Node.js 22.18 or newer,
 and npm. From the repository root:
 
 ```sh
@@ -382,6 +382,16 @@ Use that definition for mount preparation, ownership validation, Docker logging,
 and Compose integration. Repeating paths such as `.runtime/local-deps` or
 `hub/readonly/safe-scripts` in controller or helper path lists is prohibited.
 
+All desktop code is TypeScript in ES modules. Node runs the main-process
+sources, scripts and backend tests directly, so `src`, `scripts` and
+`backend-tests` follow three rules that `tsc` enforces: only syntax Node can
+strip (no enums, namespaces or constructor parameter properties), `import type`
+for type-only imports, and relative imports that name their `.ts` file. The
+exception is the sandboxed preload, `src/preload.cts`: Electron requires it to be
+CommonJS, so `tsconfig.preload.json` compiles it on its own and Node never runs
+it directly. The renderer and Playwright tests are bundled or transpiled by Vite
+and Playwright, so their imports omit extensions.
+
 Desktop setup prepares the host folders Docker needs to mount, including the
 nested read-only safe-scripts mount. The hub owns its application structure and
 files within those mounts; desktop setup must not create or configure internal
@@ -401,9 +411,9 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   creates the installation identity and selects the mode's runtime and port.
 - `src/backend-layout.json` defines bind mounts and desktop-owned runtime file
   locations. Compose extends this configuration directly.
-- `src/backend-layout.cjs` resolves and prepares that layout for Electron and
-  `scripts/prepare-runtime.mjs`. TypeScript checks this shared Node module; the
-  standalone setup command can also run before installing desktop dependencies.
+- `src/backend-layout.ts` resolves and prepares that layout for Electron and
+  `scripts/prepare-runtime.ts`. Node runs it directly, so the standalone setup
+  command can also run before installing desktop dependencies.
 - `renderer/src/ui/main.tsx` mounts backend startup and the application. Renderer
   Folders, owners and dependency rules are described in
   [`renderer/src/ARCHITECTURE.md`](renderer/src/ARCHITECTURE.md).
@@ -444,7 +454,7 @@ The desktop Docker configuration runs the existing Python API in its own
 container. Electron normally manages startup and shutdown. The commands below
 are for manual diagnostics using a separate project and runtime. The browser's
 `./start` workflow is unchanged. These development commands require Linux Docker Engine with
-Compose v2.24 or newer and Node.js 22.12 or newer; npm dependencies, host Python,
+Compose v2.24 or newer and Node.js 22.18 or newer; npm dependencies, host Python,
 and `web/` are not needed to stage or run this backend.
 
 From the repository root, stage the public backend sources:
@@ -478,7 +488,7 @@ Then prepare that mode's runtime and define a command scoped to its project:
 ```sh
 export ROBOZIUM_DESKTOP_RUNTIME="$PWD/.artifacts/desktop/manual-data/$ROBOZIUM_MODE"
 export ROBOZIUM_API_USER="$(id -u):$(id -g)"
-ROBOZIUM_DESKTOP_COMPOSE_ENV="$(node desktop/scripts/prepare-runtime.mjs)"
+ROBOZIUM_DESKTOP_COMPOSE_ENV="$(node desktop/scripts/prepare-runtime.ts)"
 desktop_compose() {
   docker compose --project-name "robozium-desktop-manual-$ROBOZIUM_MODE" \
     --env-file "$ROBOZIUM_DESKTOP_COMPOSE_ENV" \

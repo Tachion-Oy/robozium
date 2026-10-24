@@ -4,30 +4,54 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import net from "node:net"
 import process from "node:process"
-import { test } from "node:test"
+import { test, type TestContext } from "node:test"
 import { setImmediate as tick } from "node:timers/promises"
-import { BackendController, portAvailable } from "../../dist/backend-controller.js"
-import { loadOrCreateBackendProfile } from "../../dist/backend-profile.js"
-import { resolveBackendLayout } from "../../dist/backend-layout.cjs"
+import { BackendController, portAvailable } from "../../src/backend-controller.ts"
+import { loadOrCreateBackendProfile } from "../../src/backend-profile.ts"
+import { resolveBackendLayout } from "../../src/backend-layout.ts"
+import type { CommandOptions } from "../../src/docker-command.ts"
+
+type ControllerOptions = ConstructorParameters<typeof BackendController>[0]
+interface Inspection {
+	labels: Record<string, string>
+	mounts: { Source: string; Destination: string; RW: boolean }[]
+	running: boolean
+}
+/** The fake Docker's state, and the overrides a test starts it with. */
+interface FakeDocker {
+	exists: boolean
+	running: boolean
+	cached: string
+	ready: boolean
+	available: boolean
+	calls: { args: string[]; command: CommandOptions }[]
+	restarts?: number
+	security?: string
+	version?: string
+	logs?: string
+	intercept?: (args: string[], command: CommandOptions) => Promise<string | void>
+	mutate?: (value: Inspection) => void
+}
+type FixtureOptions = Partial<FakeDocker> & { hub?: string; controller?: Partial<ControllerOptions> }
 
 const id = "a".repeat(64)
 const hash = "b".repeat(64)
-function fixture(t, options = {}) {
+function fixture(t: TestContext, options: FixtureOptions = {}) {
 	const directory = mkdtempSync(path.join(tmpdir(), "robozium-controller-"))
 	t.after(() => rmSync(directory, { recursive: true, force: true }))
 	const profile = path.join(directory, "profile"), source = path.join(directory, "source")
 	mkdirSync(source)
 	writeFileSync(path.join(source, "build-id.json"), JSON.stringify({ id: hash }))
 	const settings = loadOrCreateBackendProfile(profile, "mock")
-	const state = { exists: false, running: false, cached: hash, ready: true, available: true, calls: [], ...options }
+	const state: FakeDocker = { exists: false, running: false, cached: hash, ready: true, available: true, calls: [], ...options }
 	const layout = resolveBackendLayout(settings.runtime, options.hub)
-	const inspection = () => ({
+	const inspection = (): Inspection => ({
 		labels: { "com.docker.compose.project": settings.project, "com.docker.compose.service": "api",
 			"fi.tachion.robozium.desktop.installation": settings.installation, "fi.tachion.robozium.desktop.port": String(settings.port) },
 		mounts: layout.mounts.map(mount => ({ Source: mount.source, Destination: mount.destination, RW: mount.writable })),
 		running: state.running,
 	})
-	const run = async (executable, args, command) => {
+	const run = async (executable: string, args: string[], command: CommandOptions) => {
 		assert.equal(executable, "/test/docker")
 		command.signal.throwIfAborted()
 		state.calls.push({ args, command })
@@ -57,8 +81,8 @@ function fixture(t, options = {}) {
 		readinessTimeout: 30, pollInterval: 1, ...options.controller })
 	return { controller, state, settings, source, profile }
 }
-const commands = state => state.calls.map(call => call.args)
-const noMutation = state => assert.equal(commands(state).some(args => ["stop", "rm"].includes(args[0]) || args.includes("up") || args.includes("build")), false)
+const commands = (state: FakeDocker) => state.calls.map(call => call.args)
+const noMutation = (state: FakeDocker) => assert.equal(commands(state).some(args => ["stop", "rm"].includes(args[0]) || args.includes("up") || args.includes("build")), false)
 
 test("profile keeps one identity across modes and takes ports only from the override", t => {
 	const { profile, settings } = fixture(t)
@@ -92,7 +116,7 @@ for (const [name, setup, error] of [
 	["missing Compose", { intercept: async args => { if (args[1] === "version") throw new Error("missing plugin") } }, /Compose is unavailable/],
 	["unavailable daemon", { intercept: async args => { if (args[0] === "info") throw new Error("offline") } }, /Docker is unavailable/],
 	["occupied port", { available: false }, /already in use/],
-]) test(`${name} reports an actionable error and leaves containers alone`, async t => {
+] as [string, FixtureOptions, RegExp][]) test(`${name} reports an actionable error and leaves containers alone`, async t => {
 	const { controller, state } = fixture(t, setup)
 	await assert.rejects(controller.start(), error)
 	assert.equal(controller.snapshot().state, "error")
@@ -104,7 +128,7 @@ for (const mismatch of ["project", "service", "installation", "port", "mount", "
 	test(`rejects ${mismatch} ownership mismatch before changing resources`, async t => {
 		const { controller, state } = fixture(t, { exists: true, mutate: value => {
 			if (mismatch === "mount") value.mounts[0].Source = "/someone-else"
-			else if (mismatch === "readonly") value.mounts.at(-1).RW = true
+			else if (mismatch === "readonly") value.mounts.at(-1)!.RW = true
 			else value.labels[mismatch === "project" || mismatch === "service" ? `com.docker.compose.${mismatch}` : `fi.tachion.robozium.desktop.${mismatch}`] = "foreign"
 		} })
 		await assert.rejects(controller.start(), /ownership or mounts/)
@@ -128,7 +152,7 @@ test("reuses a matching image, attaches to its running API, and stops only verif
 	assert.equal(controller.close(), close)
 	await close
 	assert.deepEqual(commands(state).at(-1), ["stop", "--time", "30", id])
-	assert.equal(state.calls.at(-1).command.signal.aborted, false)
+	assert.equal(state.calls.at(-1)!.command.signal?.aborted, false)
 	assert.equal(readFileSync(path.join(settings.runtime, "hub/proof.txt"), "utf8"), "preserved")
 	await assert.rejects(controller.start(), /closing/)
 })
@@ -169,26 +193,26 @@ test("readiness failure preserves data and allows retry without rebuilding", asy
 })
 
 for (const phase of ["build", "up", "readiness"]) test(`closing during ${phase} cancels startup, waits, and uses a fresh cleanup signal`, async t => {
-	let reached
-	const started = new Promise(resolve => { reached = resolve })
+	let reached = () => {}
+	const started = new Promise<void>(resolve => { reached = resolve })
 	const { controller, state } = fixture(t, { cached: phase === "build" ? "" : hash,
 		intercept: async (args, command) => {
 			if (!args.includes(phase)) return
 			reached()
-			return new Promise((_resolve, reject) => command.signal.addEventListener("abort", () => {
+			return new Promise((_resolve, reject) => command.signal?.addEventListener("abort", () => {
 				state.exists = true // Compose may have created a container just before cancellation.
 				reject(new Error("cancelled"))
 			}, { once: true }))
 		}, controller: phase === "readiness" ? { fetch: async (_url, init) => {
 			reached()
-			return new Promise((_resolve, reject) => init.signal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true }))
+			return new Promise((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(new Error("cancelled")), { once: true }))
 		} } : {} })
 	const rejected = assert.rejects(controller.start(), /cancel|abort/i)
 	await started
 	await controller.close()
 	await rejected
-	assert.equal(commands(state).at(-1)[0], "stop")
-	assert.equal(state.calls.at(-1).command.signal.aborted, false)
+	assert.equal(commands(state).at(-1)![0], "stop")
+	assert.equal(state.calls.at(-1)!.command.signal?.aborted, false)
 })
 
 test("shutdown rechecks ownership and refuses to stop a replaced container", async t => {
@@ -201,9 +225,9 @@ test("shutdown rechecks ownership and refuses to stop a replaced container", asy
 
 test("port probe detects a real occupied loopback listener", async t => {
 	const server = net.createServer()
-	await new Promise(resolve => server.listen(0, "127.0.0.1", resolve))
+	await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve))
 	t.after(() => server.close())
-	assert.equal(await portAvailable(server.address().port), false)
+	assert.equal(await portAvailable((server.address() as net.AddressInfo).port), false)
 })
 
 test("inherited Compose and Robozium overrides cannot change managed ownership", async t => {
@@ -218,6 +242,7 @@ test("inherited Compose and Robozium overrides cannot change managed ownership",
 	const { controller, state, settings } = fixture(t)
 	await controller.start()
 	const command = state.calls.find(call => call.args.includes("up"))
+	assert.ok(command)
 	assert.equal(command.command.env.COMPOSE_PROJECT_NAME, undefined)
 	assert.equal(command.command.env.COMPOSE_FILE, undefined)
 	assert.equal(command.command.env.ROBOZIUM_DESKTOP_RUNTIME, settings.runtime)
@@ -231,13 +256,13 @@ test("inherited Compose and Robozium overrides cannot change managed ownership",
 test("a backend that exits during startup reports its own error instead of waiting for the timeout", async t => {
 	const { controller, state } = fixture(t, { ready: false, controller: { readinessTimeout: 60_000 },
 		logs: "Traceback (most recent call last):\n  File \"x\"\nValueError: Unexpected folders in sandbox root /hub: misplaced\n\nERROR:    Application startup failed. Exiting.\n" })
-	state.intercept = args => { if (args.includes("up")) { state.exists = true; state.running = false; return "" } }
+	state.intercept = async args => { if (args.includes("up")) { state.exists = true; state.running = false; return "" } }
 	await assert.rejects(controller.start(), /stopped during startup: ValueError: Unexpected folders in sandbox root \/hub: misplaced/)
 	await controller.close()
 })
 
 /** A recorded hub folder outside the profile, and the folder a container may still mount from before. */
-function userHub(t) {
+function userHub(t: TestContext) {
 	const directory = mkdtempSync(path.join(tmpdir(), "robozium-user-hub-"))
 	t.after(() => rmSync(directory, { recursive: true, force: true }))
 	const hub = path.join(directory, "Robozium-Hub")
@@ -245,7 +270,7 @@ function userHub(t) {
 	const location = { file: path.join(directory, "hub-folder"), defaultFolder: path.join(directory, "unused default"), earlierFolder: path.join(directory, "earlier") }
 	writeFileSync(location.file, hub + "\n")
 	const previous = path.join(directory, "Previous Hub")
-	const onPrevious = value => {
+	const onPrevious = (value: Inspection) => {
 		for (const mount of value.mounts) if (mount.Source.startsWith(hub)) mount.Source = previous + mount.Source.slice(hub.length)
 	}
 	return { hub, location, previous, onPrevious }
@@ -259,6 +284,7 @@ test("mounts the user's hub folder and recreates a stopped container that still 
 	assert.equal(controller.snapshot().state, "ready")
 	assert.equal(controller.hubDirectory, hub)
 	const up = state.calls.find(call => call.args.includes("up"))
+	assert.ok(up)
 	assert.equal(up.command.env.ROBOZIUM_DESKTOP_HUB, hub)
 	await controller.close()
 })
@@ -268,7 +294,7 @@ test("recreates a container a crash left running on a previous hub folder", asyn
 	const { controller, state } = fixture(t, { exists: true, running: true, available: false, hub, controller: { hubFolder: location }, mutate: onPrevious })
 	await controller.start()
 	assert.equal(controller.snapshot().state, "ready")
-	assert.equal(state.calls.find(call => call.args.includes("up")).command.env.ROBOZIUM_DESKTOP_HUB, hub)
+	assert.equal(state.calls.find(call => call.args.includes("up"))?.command.env.ROBOZIUM_DESKTOP_HUB, hub)
 	await controller.close()
 })
 
@@ -276,6 +302,7 @@ for (const mismatch of ["destination", "readonly"]) test(`a hub mount's ${mismat
 	const { hub, location } = userHub(t)
 	const { controller, state } = fixture(t, { exists: true, hub, controller: { hubFolder: location }, mutate: value => {
 		const mount = value.mounts.find(mount => mount.Destination === "/hub")
+		assert.ok(mount)
 		if (mismatch === "destination") mount.Destination = "/elsewhere"
 		else mount.RW = false
 	} })
@@ -295,7 +322,7 @@ test("a missing hub folder stops startup before Docker and offers choosing anoth
 	await controller.close()
 })
 
-function dockerEnvironment(t, overrides = {}) {
+function dockerEnvironment(t: TestContext, overrides: Record<string, string | undefined> = {}) {
 	for (const name of ["DOCKER_CONTEXT", "DOCKER_HOST", "DOCKER_CONFIG", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"]) {
 		const original = process.env[name]
 		t.after(() => {
@@ -341,17 +368,17 @@ for (const result of ["", "failure"]) test(`context resolution ${result || "empt
 	state.intercept = undefined
 	await controller.start()
 	await controller.close()
-	assert.equal(state.calls.at(-1).command.env.DOCKER_CONTEXT, "test-context")
+	assert.equal(state.calls.at(-1)!.command.env.DOCKER_CONTEXT, "test-context")
 })
 
-const managed = state => async args => {
+const managed = (state: FakeDocker) => async (args: string[]) => {
 	if (args.includes("restart")) { state.restarts = (state.restarts ?? 0) + 1; return "" }
 }
 
 for (const [operation, expected] of [
 	["restart", ["restart", "api"]],
 	["recreate", ["up", "--detach", "--no-build", "--force-recreate", "--no-deps", "api"]],
-]) test(`${operation} checks ownership, runs ${expected.join(" ")} and waits until ready`, async t => {
+] as ["restart" | "recreate", string[]][]) test(`${operation} checks ownership, runs ${expected.join(" ")} and waits until ready`, async t => {
 	const { controller, state, settings } = fixture(t)
 	state.intercept = managed(state)
 	await assert.rejects(controller[operation](), /Start the backend/)
@@ -369,7 +396,7 @@ for (const [operation, expected] of [
 })
 
 test("backend operations run one at a time and shutdown waits for them", async t => {
-	let release
+	let release = () => {}
 	const { controller, state } = fixture(t)
 	await controller.start()
 	state.intercept = async args => {
@@ -387,7 +414,7 @@ test("backend operations run one at a time and shutdown waits for them", async t
 	release()
 	await assert.rejects(restart, /cancel|abort/i)
 	await close
-	assert.equal(commands(state).at(-1)[0], "stop")
+	assert.equal(commands(state).at(-1)![0], "stop")
 	await assert.rejects(controller.restart(), /closing/)
 })
 

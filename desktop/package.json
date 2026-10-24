@@ -4,25 +4,25 @@
   "private": true,
   "description": "Robozium desktop application",
   "license": "Apache-2.0",
-  "type": "commonjs",
+  "type": "module",
   "main": "dist/main.js",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.18.0"
   },
   "scripts": {
     "postinstall": "install-electron",
-    "build": "npm run typecheck && tsc -p tsconfig.json && vite build",
+    "build": "npm run typecheck && node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.json && tsc -p tsconfig.preload.json && vite build",
     "start": "npm run backend:stage && npm run build && electron .",
     "start:preview": "npm run build && electron . --preview",
     "package:linux": "npm run backend:stage && npm run build && electron-builder --linux deb",
     "lint": "eslint .",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p renderer/tsconfig.json && tsc -p tsconfig.tests.json && tsc -p tsconfig.vite.json",
-    "backend:stage": "node scripts/stage-backend.mjs",
-    "test:backend": "node --test backend-tests/*.test.mjs",
-    "test:backend:lifecycle": "tsc -p tsconfig.json && node --test backend-tests/lifecycle/*.test.mjs",
-    "test:backend:electron": "npm run backend:stage && npm run build && node scripts/virtual-display.mjs playwright test --config playwright.lifecycle.config.ts",
-    "test:backend:docker": "node backend-tests/smoke.mjs",
-    "test:electron": "npm run build && node scripts/virtual-display.mjs playwright test"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.preload.json --noEmit && tsc -p renderer/tsconfig.json && tsc -p tsconfig.tests.json && tsc -p tsconfig.node.json",
+    "backend:stage": "node scripts/stage-backend.ts",
+    "test:backend": "node --test backend-tests/*.test.ts",
+    "test:backend:lifecycle": "node --test backend-tests/lifecycle/*.test.ts",
+    "test:backend:electron": "npm run backend:stage && npm run build && node scripts/virtual-display.ts playwright test --config playwright.lifecycle.config.ts",
+    "test:backend:docker": "node backend-tests/smoke.ts",
+    "test:electron": "npm run build && node scripts/virtual-display.ts playwright test"
   },
   "dependencies": {
     "@fontsource-variable/sixtyfour": "5.3.0",
@@ -48,6 +48,7 @@
     "electron": "44.7.0",
     "electron-builder": "26.15.3",
     "eslint": "9.39.4",
+    "jiti": "2.7.0",
     "tailwindcss": "4.2.2",
     "typescript": "5.9.3",
     "typescript-eslint": "8.59.0",

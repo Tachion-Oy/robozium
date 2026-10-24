@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { execFileSync } from "node:child_process"
+import { execFileSync, type StdioOptions } from "node:child_process"
 import { randomUUID } from "node:crypto"
 import fs from "node:fs"
 import net from "node:net"
@@ -7,8 +7,8 @@ import os from "node:os"
 import path from "node:path"
 import process from "node:process"
 import { test } from "node:test"
-import { stageBackend } from "../scripts/stage-backend.mjs"
-import layout from "../src/backend-layout.cjs"
+import { stageBackend } from "../scripts/stage-backend.ts"
+import * as layout from "../src/backend-layout.ts"
 
 test("desktop mock image starts independently and retains projects after restart and shutdown", { timeout: 600_000 }, async t => {
 	const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "desktop-docker-"))
@@ -16,16 +16,16 @@ test("desktop mock image starts independently and retains projects after restart
 	const runtime = path.join(temporary, "mock data")
 	const desktop = path.resolve(import.meta.dirname, "..")
 	const server = net.createServer()
-	await new Promise(resolve => server.listen(0, "127.0.0.1", resolve))
-	const port = server.address().port
-	await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+	await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve))
+	const port = (server.address() as net.AddressInfo).port
+	await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
 	const inherited = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(COMPOSE_|ROBOZIUM_)/.test(name)))
 	const security = execFileSync("docker", ["info", "--format", "{{json .SecurityOptions}}"], { encoding: "utf8" })
 	const env = { ...inherited, ROBOZIUM_MODE: "mock", ROBOZIUM_DESKTOP_API_PORT: String(port), ROBOZIUM_DESKTOP_RUNTIME: runtime,
 		ROBOZIUM_DESKTOP_HUB: path.join(runtime, "hub"),
-		ROBOZIUM_API_USER: security.includes("rootless") ? "0:0" : `${process.getuid()}:${process.getgid()}` }
+		ROBOZIUM_API_USER: security.includes("rootless") ? "0:0" : `${process.getuid!()}:${process.getgid!()}` }
 	const args = ["compose", "--project-name", project, "--env-file", path.join(temporary, "empty.env"), "--file", path.join(temporary, "compose.yaml")]
-	const compose = (command, stdio = "pipe") => execFileSync("docker", [...args, ...command], { env, cwd: temporary, encoding: "utf8", stdio, timeout: 540_000 })
+	const compose = (command: string[], stdio: StdioOptions = "pipe") => execFileSync("docker", [...args, ...command], { env, cwd: temporary, encoding: "utf8", stdio, timeout: 540_000 })
 	let cleaned = false
 	function cleanup() {
 		if (cleaned) return
@@ -57,7 +57,7 @@ test("desktop mock image starts independently and retains projects after restart
 	assert.deepEqual(fs.readdirSync(path.join(runtime, "local")), [])
 	assert.equal(fs.existsSync(path.join(runtime, "hub/projects")), false)
 
-	const request = async (route, options) => {
+	const request = async (route: string, options?: RequestInit) => {
 		const response = await globalThis.fetch(`http://127.0.0.1:${port}${route}`, { ...options, headers: { ...options?.headers, Origin: "robozium://app", Connection: "close" }, signal: globalThis.AbortSignal.timeout(10_000) })
 		assert.equal(response.status, 200, await response.clone().text())
 		return response.json()
@@ -85,7 +85,7 @@ test("desktop mock image starts independently and retains projects after restart
 		].join("; ")], { encoding: "utf8", timeout: 30_000 })
 		compose(["restart", "api"], "inherit")
 		compose(["up", "--wait", "--wait-timeout", "180"], "inherit")
-		assert.ok((await request("/projects")).some(item => item.slug === created.slug))
+		assert.ok((await request("/projects")).some((item: { slug: string }) => item.slug === created.slug))
 		assert.equal(fs.readFileSync(marker, "utf8"), "retained desktop data\n")
 		cleanup()
 		assert.equal(fs.readFileSync(marker, "utf8"), "retained desktop data\n")

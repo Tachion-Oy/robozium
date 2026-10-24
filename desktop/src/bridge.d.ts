@@ -1,3 +1,5 @@
+// The desktop bridge contract shared by main, preload and the renderer. It imports nothing,
+// so the renderer's browser type check never sees Node or Electron types.
 export interface BackendStatus {
 	state: "starting" | "ready" | "error"
 	message: string

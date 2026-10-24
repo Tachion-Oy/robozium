@@ -2,12 +2,12 @@ import { appendFileSync, readFileSync } from "node:fs"
 import net from "node:net"
 import path from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
-import type { BackendStatus } from "./bridge"
-import { loadOrCreateBackendProfile } from "./backend-profile"
-import { isInside, prepareBackendRuntime, resolveBackendLayout } from "./backend-layout.cjs"
-import { findDocker, runCommand, type CommandOptions } from "./docker-command"
-import { HubFolderError, resolveHubFolder } from "./hub-folder"
-import type { HubFolderLocation } from "./locations"
+import type { BackendStatus } from "./bridge.d.ts"
+import { loadOrCreateBackendProfile } from "./backend-profile.ts"
+import { isInside, prepareBackendRuntime, resolveBackendLayout } from "./backend-layout.ts"
+import { findDocker, runCommand, type CommandOptions } from "./docker-command.ts"
+import { HubFolderError, resolveHubFolder } from "./hub-folder.ts"
+import type { HubFolderLocation } from "./locations.ts"
 
 interface BackendOptions {
 	profile: string
@@ -72,8 +72,10 @@ export class BackendController {
 	/** Resolved at each launch, so a newly chosen hub folder applies on retry or restart. */
 	private launchedLayout?: ReturnType<typeof resolveBackendLayout>
 	private readonly run: typeof runCommand
+	private readonly options: BackendOptions
 
-	constructor(private readonly options: BackendOptions) {
+	constructor(options: BackendOptions) {
+		this.options = options
 		this.settings = loadOrCreateBackendProfile(options.profile, options.mode, options.port)
 		this.run = options.run ?? runCommand
 	}

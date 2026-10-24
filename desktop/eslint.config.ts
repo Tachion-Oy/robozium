@@ -6,11 +6,6 @@ export default ts.config(
 	js.configs.recommended,
 	ts.configs.recommended,
 	{
-		files: ["src/*.cjs"],
-		languageOptions: { globals: { require: "readonly", module: "readonly" } },
-		rules: { "@typescript-eslint/no-require-imports": "off" },
-	},
-	{
 		rules: {
 			"no-restricted-properties": [
 				"error",

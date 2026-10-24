@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs"
 import path from "node:path"
-import { locations } from "./backend-layout.cjs"
+import { locations } from "./backend-layout.ts"
 
 interface BackendProfile {
 	installation: string

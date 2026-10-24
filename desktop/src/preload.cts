@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron"
-import type { AppTheme, DesktopBridge } from "./bridge"
+import type { AppTheme, DesktopBridge } from "./bridge.d.ts"
 
 // Sandboxed preload can import Electron, but cannot require sibling modules.
 // Main passes the saved theme as an argument; a synchronous value avoids a first paint in dark.

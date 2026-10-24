@@ -1,5 +1,5 @@
 import process from "node:process"
-import layout from "../src/backend-layout.cjs"
+import * as layout from "../src/backend-layout.ts"
 
 const runtime = layout.resolveBackendLayout(process.env.ROBOZIUM_DESKTOP_RUNTIME ?? "", process.env.ROBOZIUM_DESKTOP_HUB || undefined)
 layout.prepareBackendRuntime(runtime)
