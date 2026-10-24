@@ -48,6 +48,7 @@ function fixture(t, options = {}) {
 		if (args.includes("build")) { state.cached = hash; return "" }
 		if (args.includes("up")) { state.exists = true; state.running = true; return "" }
 		if (args[0] === "stop") { state.running = false; return "" }
+		if (args[0] === "logs") return state.logs ?? ""
 		throw new Error(`Unexpected Docker command: ${args.join(" ")}`)
 	}
 	const controller = new BackendController({ profile, source, compose: path.join(directory, "compose.yaml"), mode: "mock",
@@ -224,6 +225,14 @@ test("inherited Compose and Robozium overrides cannot change managed ownership",
 	assert.equal(command.command.env.ROBOZIUM_MODE, "mock")
 	assert.equal(command.args[command.args.indexOf("--project-name") + 1], settings.project)
 	assert.equal(command.args[command.args.indexOf("--env-file") + 1], path.join(settings.runtime, ".runtime/compose.env"))
+	await controller.close()
+})
+
+test("a backend that exits during startup reports its own error instead of waiting for the timeout", async t => {
+	const { controller, state } = fixture(t, { ready: false, controller: { readinessTimeout: 60_000 },
+		logs: "Traceback (most recent call last):\n  File \"x\"\nValueError: Unexpected folders in sandbox root /hub: misplaced\n\nERROR:    Application startup failed. Exiting.\n" })
+	state.intercept = args => { if (args.includes("up")) { state.exists = true; state.running = false; return "" } }
+	await assert.rejects(controller.start(), /stopped during startup: ValueError: Unexpected folders in sandbox root \/hub: misplaced/)
 	await controller.close()
 })
 

@@ -383,12 +383,22 @@ export class BackendController {
 			} catch {
 				this.startupAbort.signal.throwIfAborted()
 			}
+			await this.failIfStopped()
 
 			await delay(this.options.pollInterval ?? 500, undefined, { signal: this.startupAbort.signal })
 		}
 		throw new Error("Backend readiness timed out. Check the desktop Docker log and retry; your data is preserved.")
 	}
 
+	/** A backend that exited during startup will never become ready; report its own error at once. */
+	private async failIfStopped(): Promise<void> {
+		const containers = await this.ownedContainers()
+		if (containers.length === 0 || containers.some(container => container.running)) return
+		const output = await this.command(["logs", "--tail", "40", containers[0].id])
+		const reason = output.split("\n").map(line => line.trim()).reverse()
+			.find(line => /^[A-Za-z.]*(Error|Exception)\b/.test(line))
+		throw new Error(`The backend stopped during startup${reason ? `: ${reason}` : ". Check the desktop Docker log"}. Your data is preserved.`)
+	}
 
 	private async stopBackend(): Promise<void> {
 		try {
