@@ -248,9 +248,11 @@ Step 27 checklist (append further small findings here):
   when a run ends and Current Run can no longer be reopened.
 - [ ] **Footer layout:** move the three small buttons to the right-hand side
   and add the message-log button slot (before 13b).
-- [x] **App identity:** the Robozium mark (`ui/branding/robozium-mark.ts`)
-  replaces the Anurati "A" in the HUD and loader indicators, and
-  `scripts/build-icon.ts` builds the `.deb`'s scalable app icon from it.
+- [x] **App identity:** the Robozium mark
+  (`renderer/public/branding/robozium-mark.svg`) replaces the Anurati "A" in the
+  HUD and loader indicators, and `scripts/build-icon.ts` builds the `.deb`'s
+  scalable app icon from the same file. Replacing that one SVG with any
+  single-colour SVG changes both.
 - [ ] **Octagon:** the button shape improvement on the reference selectors
   (see Presentation rules).
 

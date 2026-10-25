@@ -124,12 +124,15 @@
     box-shadow 180ms ease;
 }
 
-/* The mark scales with the indicator's font size; its glow follows the activity state.
-   Chained drop shadows compound, so each state keeps only its nearer glows. */
+/* The mark spans 81% of the indicator, leaving about the gap between its two
+   halves at the edges; its glow follows the activity state. Chained drop shadows
+   compound, so each state keeps only its nearer glows. The glow filters sit on the
+   mark and the mask on its ::before: a mask on the filtered element itself would
+   clip the glow. Any single-colour SVG fits the box. */
 .agent-hud__logo > .robozium-mark {
-  width: 0.694em;
-  height: 0.72em;
-  fill: currentColor;
+  display: block;
+  width: calc(var(--hud-logo-size) * 0.81);
+  height: calc(var(--hud-logo-size) * 0.81);
   filter:
     drop-shadow(0 0 4px color-mix(in oklab, var(--term-blue) clamp(0%, 85% * var(--tune-glow, 1), 100%), transparent))
     drop-shadow(0 0 12px color-mix(in oklab, var(--term-blue) clamp(0%, 55% * var(--tune-glow, 1), 100%), transparent));
@@ -209,6 +212,15 @@
   .agent-hud__logo[data-agent-state="working"] > .robozium-mark {
     animation: hud-agent-working-glow 1.15s ease-in-out infinite alternate;
   }
+}
+
+.agent-hud__logo > .robozium-mark::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  mask: url("/branding/robozium-mark.svg") center / contain no-repeat;
 }
 
 /* The brand mark, centred on top: the same seam-logo indicator at the same size,
@@ -830,7 +842,6 @@
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 52% * var(--tune-sheen, 1), 100%), transparent),
     0 1px 2px color-mix(in oklab, var(--hud-input-text) clamp(0%, 10% * var(--tune-shadow, 1), 100%), transparent);
   clip-path: none;
-  border-radius: 0.35rem;
 }
 :root[data-theme="light"]
   .agent-hud__logo[data-agent-state="awaiting-input"] {
@@ -839,7 +850,6 @@
     color-mix(in oklab, var(--term-green) clamp(0%, 78% * var(--tune-edge, 1), 100%), var(--hud-control-ink));
   filter: none;
   clip-path: none;
-  border-radius: 0.35rem;
   color: color-mix(in oklab, var(--term-green) clamp(0%, 88% * var(--tune-text, 1), 100%), var(--hud-control-ink));
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 52% * var(--tune-sheen, 1), 100%), transparent),
     0 0 0 0.16rem color-mix(in oklab, var(--term-green) clamp(0%, 30% * var(--tune-glow, 1), 100%), transparent),
@@ -924,7 +934,6 @@
     var(--term-green) clamp(0%, 42% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
-  border-radius: 0.42rem;
   background: color-mix(in oklab, var(--term-green) clamp(0%, 8% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 :root[data-theme="light"] .agent-hud__dictate[aria-pressed="true"] {
@@ -1018,7 +1027,6 @@
   border: 1px solid color-mix(in oklab, var(--hud-input-border) clamp(0%, 78% * var(--tune-line, 1), 100%), transparent);
   filter: none;
   clip-path: none;
-  border-radius: 0.35rem;
   color: color-mix(in oklab, var(--term-amber) clamp(0%, 84% * var(--tune-text, 1), 100%), var(--hud-input-text));
   border-color: color-mix(
     in oklab,
