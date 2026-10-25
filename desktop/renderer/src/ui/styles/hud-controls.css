@@ -8,13 +8,30 @@
   padding: 1.5rem;
   border: 1px solid var(--term-blue);
   background: linear-gradient(var(--hud-box-bg), var(--hud-box-bg)), var(--term-bg);
-  color: var(--hud-text);
-  font: inherit;
+  /* The dialog sits outside the HUD; take the settings views' text, as in Environment. */
+  color: var(--hud-input-text);
+  font-family: var(--font-agent-input);
+  font-size: 1.15rem;
   box-shadow: var(--term-glow-blue);
 }
 
 .agent-hud__password-dialog::backdrop {
   background: rgb(0 0 0 / 0.6);
+}
+
+/* Opening fades the dialog and its backdrop in; closing is immediate. */
+@media (prefers-reduced-motion: no-preference) {
+  .agent-hud__password-dialog[open],
+  .agent-hud__password-dialog[open]::backdrop {
+    transition: opacity 0.35s ease-out;
+  }
+
+  @starting-style {
+    .agent-hud__password-dialog[open],
+    .agent-hud__password-dialog[open]::backdrop {
+      opacity: 0;
+    }
+  }
 }
 
 .agent-hud__password-dialog [role="alert"] {
