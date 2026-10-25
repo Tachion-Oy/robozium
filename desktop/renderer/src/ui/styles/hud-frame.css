@@ -389,9 +389,9 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
  * Minimized HUD control
  *
  * The small octagon the HUD collapses into when dismissed during a run: the
- * brand "A" indicator plus an expand button (the only way back into the HUD).
+ * brand mark indicator plus an expand button (the only way back into the HUD).
  * It is vertically centred in the left gutter so it never sits on top of the
- * message text. Its "A" shares the expanded indicator's working and
+ * message text. Its mark shares the expanded indicator's working and
  * awaiting-input treatments.
  * ------------------------------------------------------------------------- */
 

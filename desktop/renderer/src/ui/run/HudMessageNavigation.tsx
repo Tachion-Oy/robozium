@@ -1,10 +1,11 @@
 // Copied from web/app/components/hud/run/HudMessageNavigation.tsx at 86ef5c1.
-// Adapted: types come from ./run-view.
+// Adapted: types come from ./run-view, and the Robozium mark replaces the "A".
 import type {
 	AgentActivityState,
 	HudMessageNavigationDirection,
 } from "./run-view"
 import { MessageWedge } from "./MessageWedge"
+import { RoboziumMark } from "../branding/RoboziumMark"
 
 export type HudMessageNavigationModel = {
 	agentActivityState: AgentActivityState
@@ -47,7 +48,7 @@ export function HudMessageNavigation({
 				className="agent-hud__logo agent-hud__logo--actions"
 				data-agent-state={agentActivityState}
 				aria-hidden="true">
-				A
+				<RoboziumMark />
 			</span>
 			<div className="agent-hud__message-nav-side">
 				<button

@@ -69,8 +69,7 @@ more ground; 200–400 hand-written lines is the ceiling, not the target.
 | # | PR | Contents |
 | --- | --- | --- |
 | 1 | UI tweaks | Step 27: light theme, stable selectors, no project title in Runs view, footer layout, octagon |
-| 2 | App logo | Step 27's app identity: the logo goes on the splash, the window icon and the `.deb` icon |
-| 3 | macOS | Step 23 and the macOS half of 24; deferred |
+| 2 | macOS | Step 23 and the macOS half of 24; deferred |
 
 ## Parity checklist
 
@@ -249,9 +248,9 @@ Step 27 checklist (append further small findings here):
   when a run ends and Current Run can no longer be reopened.
 - [ ] **Footer layout:** move the three small buttons to the right-hand side
   and add the message-log button slot (before 13b).
-- [ ] **App identity:** a favicon and app logo/icon distinct from the company
-  logo, used for the window icon and step 24's packaging icons. Ships with
-  the splash (21b), which shows it.
+- [x] **App identity:** the Robozium mark (`ui/branding/robozium-mark.ts`)
+  replaces the Anurati "A" in the HUD and loader indicators, and
+  `scripts/build-icon.ts` builds the `.deb`'s scalable app icon from it.
 - [ ] **Octagon:** the button shape improvement on the reference selectors
   (see Presentation rules).
 

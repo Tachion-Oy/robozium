@@ -147,25 +147,28 @@
   justify-content: center;
   width: var(--hud-logo-size);
   height: var(--hud-logo-size);
-  font-family: "Anurati Pro", var(--font-display);
-  font-weight: 400;
-  font-variation-settings: "SCAN" -40;
   font-size: var(--hud-logo-font-size);
   line-height: 1;
-  letter-spacing: 0;
   color: color-mix(in oklab, var(--term-blue) clamp(0%, 80% * var(--tune-text, 1), 100%), white);
   background: var(--hud-logo-bg);
   border: 0;
   border-radius: 50%;
   pointer-events: none;
   box-shadow: 0 0 9px color-mix(in oklab, var(--term-blue) clamp(0%, 52% * var(--tune-glow, 1), 100%), transparent);
-  text-shadow:
-    0 0 4px color-mix(in oklab, var(--term-blue) clamp(0%, 85% * var(--tune-glow, 1), 100%), transparent),
-    0 0 12px color-mix(in oklab, var(--term-blue) clamp(0%, 55% * var(--tune-glow, 1), 100%), transparent);
   transition:
     color 180ms ease,
-    text-shadow 180ms ease,
     box-shadow 180ms ease;
+}
+
+/* The mark scales with the indicator's font size; its glow follows the activity state.
+   Chained drop shadows compound, so each state keeps only its nearer glows. */
+.agent-hud__logo > .robozium-mark {
+  width: 0.694em;
+  height: 0.72em;
+  fill: currentColor;
+  filter:
+    drop-shadow(0 0 4px color-mix(in oklab, var(--term-blue) clamp(0%, 85% * var(--tune-glow, 1), 100%), transparent))
+    drop-shadow(0 0 12px color-mix(in oklab, var(--term-blue) clamp(0%, 55% * var(--tune-glow, 1), 100%), transparent));
 }
 
 .agent-hud__logo--actions {
@@ -181,13 +184,14 @@
 
 .agent-hud__logo[data-agent-state="awaiting-input"] {
   color: color-mix(in oklab, white clamp(0%, 84% * var(--tune-sheen, 1), 100%), var(--term-lime));
-  text-shadow:
-    0 0 2px color-mix(in oklab, white clamp(0%, 68% * var(--tune-sheen, 1), 100%), transparent),
-    0 0 6px color-mix(in oklab, white clamp(0%, 52% * var(--tune-sheen, 1), 100%), transparent),
-    0 0 12px color-mix(in oklab, var(--term-lime) clamp(0%, 80% * var(--tune-glow, 1), 100%), transparent),
-    0 0 30px color-mix(in oklab, var(--term-lime) clamp(0%, 68% * var(--tune-glow, 1), 100%), transparent),
-    0 0 60px color-mix(in oklab, var(--term-lime) clamp(0%, 48% * var(--tune-glow, 1), 100%), transparent);
   box-shadow: 0 0 9px color-mix(in oklab, var(--term-blue) clamp(0%, 52% * var(--tune-glow, 1), 100%), transparent);
+}
+
+.agent-hud__logo[data-agent-state="awaiting-input"] > .robozium-mark {
+  filter:
+    drop-shadow(0 0 2px color-mix(in oklab, white clamp(0%, 68% * var(--tune-sheen, 1), 100%), transparent))
+    drop-shadow(0 0 6px color-mix(in oklab, white clamp(0%, 52% * var(--tune-sheen, 1), 100%), transparent))
+    drop-shadow(0 0 12px color-mix(in oklab, var(--term-lime) clamp(0%, 80% * var(--tune-glow, 1), 100%), transparent));
 }
 
 /* While the agent works, both indicators pulse distinctly in the stream's
@@ -195,44 +199,55 @@
 
 .agent-hud__logo[data-agent-state="working"] {
   color: var(--term-amber);
-  text-shadow:
-    0 0 2px color-mix(in oklab, var(--term-amber) clamp(0%, 82% * var(--tune-glow, 1), 100%), transparent),
-    0 0 7px color-mix(in oklab, var(--term-amber) clamp(0%, 62% * var(--tune-glow, 1), 100%), transparent),
-    0 0 18px color-mix(in oklab, var(--term-amber) clamp(0%, 42% * var(--tune-glow, 1), 100%), transparent),
-    0 0 38px color-mix(in oklab, var(--term-amber) clamp(0%, 24% * var(--tune-glow, 1), 100%), transparent);
   box-shadow: 0 0 9px color-mix(in oklab, var(--term-amber) clamp(0%, 52% * var(--tune-glow, 1), 100%), transparent);
+}
+
+.agent-hud__logo[data-agent-state="working"] > .robozium-mark {
+  filter:
+    drop-shadow(0 0 2px color-mix(in oklab, var(--term-amber) clamp(0%, 82% * var(--tune-glow, 1), 100%), transparent))
+    drop-shadow(0 0 7px color-mix(in oklab, var(--term-amber) clamp(0%, 62% * var(--tune-glow, 1), 100%), transparent))
+    drop-shadow(0 0 18px color-mix(in oklab, var(--term-amber) clamp(0%, 42% * var(--tune-glow, 1), 100%), transparent));
 }
 
 @media (prefers-reduced-motion: no-preference) {
   @keyframes hud-agent-working-pulse {
     from {
       color: color-mix(in oklab, var(--term-amber) clamp(0%, 58% * var(--tune-text, 1), 100%), black);
-      text-shadow:
-        0 0 1px color-mix(in oklab, var(--term-amber) clamp(0%, 42% * var(--tune-glow, 1), 100%), transparent),
-        0 0 5px color-mix(in oklab, var(--term-amber) clamp(0%, 24% * var(--tune-glow, 1), 100%), transparent),
-        0 0 14px color-mix(in oklab, var(--term-amber) clamp(0%, 12% * var(--tune-glow, 1), 100%), transparent),
-        0 0 30px color-mix(in oklab, var(--term-amber) clamp(0%, 5% * var(--tune-glow, 1), 100%), transparent);
       box-shadow: 0 0 9px
         color-mix(in oklab, var(--term-amber) clamp(0%, 52% * var(--tune-glow, 1), 100%), transparent);
     }
     to {
       color: color-mix(in oklab, white clamp(0%, 22% * var(--tune-sheen, 1), 100%), var(--term-amber));
-      text-shadow:
-        0 0 2px color-mix(in oklab, white clamp(0%, 48% * var(--tune-sheen, 1), 100%), transparent),
-        0 0 8px color-mix(in oklab, var(--term-amber) clamp(0%, 92% * var(--tune-glow, 1), 100%), transparent),
-        0 0 22px color-mix(in oklab, var(--term-amber) clamp(0%, 70% * var(--tune-glow, 1), 100%), transparent),
-        0 0 48px color-mix(in oklab, var(--term-amber) clamp(0%, 46% * var(--tune-glow, 1), 100%), transparent);
       box-shadow: 0 0 9px
         color-mix(in oklab, var(--term-amber) clamp(0%, 52% * var(--tune-glow, 1), 100%), transparent);
+    }
+  }
+
+  @keyframes hud-agent-working-glow {
+    from {
+      filter:
+        drop-shadow(0 0 1px color-mix(in oklab, var(--term-amber) clamp(0%, 42% * var(--tune-glow, 1), 100%), transparent))
+        drop-shadow(0 0 5px color-mix(in oklab, var(--term-amber) clamp(0%, 24% * var(--tune-glow, 1), 100%), transparent))
+        drop-shadow(0 0 14px color-mix(in oklab, var(--term-amber) clamp(0%, 12% * var(--tune-glow, 1), 100%), transparent));
+    }
+    to {
+      filter:
+        drop-shadow(0 0 2px color-mix(in oklab, white clamp(0%, 48% * var(--tune-sheen, 1), 100%), transparent))
+        drop-shadow(0 0 8px color-mix(in oklab, var(--term-amber) clamp(0%, 92% * var(--tune-glow, 1), 100%), transparent))
+        drop-shadow(0 0 22px color-mix(in oklab, var(--term-amber) clamp(0%, 70% * var(--tune-glow, 1), 100%), transparent));
     }
   }
 
   .agent-hud__logo[data-agent-state="working"] {
     animation: hud-agent-working-pulse 1.15s ease-in-out infinite alternate;
   }
+
+  .agent-hud__logo[data-agent-state="working"] > .robozium-mark {
+    animation: hud-agent-working-glow 1.15s ease-in-out infinite alternate;
+  }
 }
 
-/* The brand "A", centred on top: the same seam-logo indicator at the same size,
+/* The brand mark, centred on top: the same seam-logo indicator at the same size,
    only flowed in the stack instead of absolutely positioned on a seam. Rest and
    pulse styling are inherited from .agent-hud__logo. */
 
@@ -799,7 +814,10 @@
 :root[data-theme="light"] .agent-hud__logo[data-agent-state="awaiting-input"] {
   color: var(--term-amber);
   box-shadow: none;
-  text-shadow: none;
+  animation: none;
+}
+:root[data-theme="light"] .agent-hud__logo > .robozium-mark {
+  filter: none;
   animation: none;
 }
 :root[data-theme="light"] .agent-hud__dictate:disabled,
@@ -847,7 +865,6 @@
   filter: none;
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 52% * var(--tune-sheen, 1), 100%), transparent),
     0 1px 2px color-mix(in oklab, var(--hud-input-text) clamp(0%, 10% * var(--tune-shadow, 1), 100%), transparent);
-  text-shadow: none;
   clip-path: none;
   border-radius: 0.35rem;
 }
@@ -857,7 +874,6 @@
   border: 1px solid
     color-mix(in oklab, var(--term-green) clamp(0%, 78% * var(--tune-edge, 1), 100%), var(--hud-control-ink));
   filter: none;
-  text-shadow: none;
   clip-path: none;
   border-radius: 0.35rem;
   color: color-mix(in oklab, var(--term-green) clamp(0%, 88% * var(--tune-text, 1), 100%), var(--hud-control-ink));
@@ -1037,7 +1053,6 @@
   background: color-mix(in oklab, var(--hud-box-bg) 86%, white 14%);
   border: 1px solid color-mix(in oklab, var(--hud-input-border) clamp(0%, 78% * var(--tune-line, 1), 100%), transparent);
   filter: none;
-  text-shadow: none;
   clip-path: none;
   border-radius: 0.35rem;
   color: color-mix(in oklab, var(--term-amber) clamp(0%, 84% * var(--tune-text, 1), 100%), var(--hud-input-text));

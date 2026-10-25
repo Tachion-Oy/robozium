@@ -348,6 +348,8 @@ export async function captureNative(app: ElectronApplication, page: Page, width:
 	// Leaving a hovered control starts its transitions; let them finish too.
 	await page.mouse.move(0, 0)
 	await waitForPanelLayout(page)
+	// A resize can leave parts of the surface unpainted; repaint all of it before capturing.
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.invalidate())
 	await page.evaluate(() => new Promise<void>(resolve =>
 		requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
 	// CDP screenshots crop at Electron zoom. Wait for the full native surface.

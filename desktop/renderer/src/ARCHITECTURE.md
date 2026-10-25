@@ -30,7 +30,6 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `feedback/` | Notifications any owner can raise. |
 | `theme/` | The document theme and saving it through the bridge. |
 | `api/` | Shared HTTP/SSE transport, request deadlines, client lifetimes and React request state. |
-| `assets/` | Bundled Anurati status-mark font. |
 
 ## Owners
 
