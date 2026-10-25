@@ -102,7 +102,6 @@ export function RunHud({
 					isRecording: dictation.isRecording,
 					audioLevel: dictation.audioLevel,
 					isTranscribing: dictation.isTranscribing,
-					available: dictation.available,
 					onToggle: dictation.toggle,
 				},
 				cancel,

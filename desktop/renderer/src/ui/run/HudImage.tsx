@@ -22,7 +22,7 @@ type ImageSelection = ResolvedImage & {
 }
 
 const ImageViewerContext = createContext<(image: ImageSelection) => void>(() => {})
-/** The backend address of a hub file; without one, as in the standalone preview, hub images are unavailable. */
+/** The backend address of a hub file; without a provider, hub images are unavailable. */
 export const HubFileUrlContext = createContext<((path: string) => string) | null>(null)
 // Linked images must not place a button (or a fallback link) inside an anchor.
 export const HudImageLinkContext = createContext(false)

@@ -67,7 +67,7 @@ function confirmed({ kind }: PendingMutation, status: ProjectStatus | undefined)
 }
 
 export function useProjectMutations(
-	client: DesktopApiClient | null,
+	client: DesktopApiClient,
 	{ onLaunched, onProjectCreated, onSecretsLocked }: LaunchCallbacks,
 ): ProjectMutations {
 	const [pending, setPending] = useState<ReadonlyMap<string, PendingMutation>>(() => new Map())
@@ -103,7 +103,6 @@ export function useProjectMutations(
 		const signal = lifetime()
 		let accepted = false
 		try {
-			if (!client) throw new Error("The backend is not connected.")
 			accepted = await withDeadline(signal, requestSignal => operation(client, requestSignal))
 			if (!accepted) showErrorToast({ title: notice.title, message: notice.message, detail: notice.refused })
 		} catch {
@@ -117,7 +116,7 @@ export function useProjectMutations(
 	}
 
 	const launch = async ({ project, name, selection: draftSelection }: LaunchDraft): Promise<boolean> => {
-		if (!client || activeLaunch.current) return false
+		if (activeLaunch.current) return false
 		const controller = new AbortController()
 		activeLaunch.current = controller
 		setLaunching(true)

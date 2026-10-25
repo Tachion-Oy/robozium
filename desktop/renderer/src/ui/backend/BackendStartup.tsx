@@ -23,8 +23,7 @@ export function BackendStartup() {
 	const { startup, retryStartup } = useBackendStartup()
 	const { status: readiness, retryConnection } = useBackendReadiness(startup.state === "ready" ? startup.client : null)
 	const [hasOpenedHud, setHasOpenedHud] = useState(false)
-	const status = startup.state !== "ready" ? startup
-		: startup.client === null ? { state: "ready", message: "Local preview" } : readiness
+	const status = startup.state !== "ready" ? startup : readiness
 	const screen = useStartupScreen(status.state === "ready", retryConnection)
 
 	useEffect(() => {
@@ -53,9 +52,10 @@ export function BackendStartup() {
 	return <>
 		{/* The covered HUD stays mounted, but focus and assistive technology cannot reach it. */}
 		<div className="backend-startup__app" inert={screen.mode !== null}>
-			{(hasOpenedHud || status.state === "ready") && <App
+			{/* Startup stays ready once reached, so the app always has its client. */}
+			{startup.state === "ready" && (hasOpenedHud || status.state === "ready") && <App
 				connectionNotice={status.state === "ready" ? null : notice}
-				client={startup.state === "ready" ? startup.client : null}
+				client={startup.client}
 				connected={status.state === "ready"}
 				backend={backend} />}
 		</div>

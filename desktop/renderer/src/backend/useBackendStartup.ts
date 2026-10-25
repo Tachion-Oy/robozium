@@ -4,7 +4,7 @@ import { DesktopApiClient } from "../api/client"
 
 type StartupState =
 	| { state: "starting" | "error"; message: string; action?: BackendStatus["action"] }
-	| { state: "ready"; client: DesktopApiClient | null }
+	| { state: "ready"; client: DesktopApiClient }
 
 /** Own Docker startup polling and discover the renderer's connection once ready. */
 export function useBackendStartup() {
@@ -32,8 +32,7 @@ export function useBackendStartup() {
 				}
 				const connection = await window.robozium.getBackendConnection()
 				if (!active) return
-				const client = connection === null ? null : new DesktopApiClient(connection.baseUrl)
-				setStartup({ state: "ready", client })
+				setStartup({ state: "ready", client: new DesktopApiClient(connection.baseUrl) })
 			} catch {
 				if (active) setStartup({ state: "error", message: "Could not read backend connection information. Restart Robozium." })
 			}

@@ -1,6 +1,6 @@
 // Copied from web/hooks/useDictation.ts at 2a0c183.
 // Adapted: clips go to the backend through the desktop client under a longer
-// deadline; without a client (standalone preview) Record is unavailable.
+// deadline.
 import { useEffect, useRef, useState } from "react"
 import { ApiError, type DesktopApiClient } from "../api/client"
 import { RequestTimeoutError, withDeadline } from "../api/request"
@@ -8,8 +8,6 @@ import { showErrorToast, showNotificationToast } from "../feedback/notices"
 import { TRANSCRIPTION_TIMEOUT_MS, transcribeAudio } from "./transcription-api"
 
 export type UseDictationResult = {
-	/** A backend is connected to transcribe the clip. */
-	available: boolean
 	/** Mic is open and capturing. */
 	isRecording: boolean
 	/** Normalized live microphone level while recording. */
@@ -21,7 +19,7 @@ export type UseDictationResult = {
 }
 
 type UseDictationOptions = {
-	client: DesktopApiClient | null
+	client: DesktopApiClient
 	/** Receives the transcript once recording stops and the round trip returns. */
 	onTranscript: (text: string) => void
 }
@@ -226,7 +224,6 @@ export function useDictation({
 	const cancelledRef = useRef(false)
 
 	async function transcribe(audio: Blob) {
-		if (!client) return
 		const controller = new AbortController()
 		abortControllerRef.current = controller
 		setIsTranscribing(true)
@@ -322,7 +319,7 @@ export function useDictation({
 	}, [])
 
 	function toggle() {
-		if (!client || isTranscribing) return
+		if (isTranscribing) return
 		if (isRecording) {
 			stopRecording(sessionRef.current)
 		} else {
@@ -330,5 +327,5 @@ export function useDictation({
 		}
 	}
 
-	return { available: Boolean(client), isRecording, audioLevel, isTranscribing, toggle }
+	return { isRecording, audioLevel, isTranscribing, toggle }
 }

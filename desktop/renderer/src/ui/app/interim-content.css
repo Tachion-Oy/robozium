@@ -1,6 +1,5 @@
 /* Interim styles for components that still precede the reference port: the
- * persistent connection/model/run notices, the placeholder views (steps 18
- * and 19) and the startup screen (step 21). Tokens
+ * persistent connection/model/run notices and the startup screen (step 21). Tokens
  * are scoped so they cannot leak into the reference frame and header. Delete
  * this file once those components use the reference stylesheets. */
 
@@ -47,13 +46,6 @@
 }
 
 .desktop-interim-content--notices { flex: none; }
-
-.desktop-interim-content__content {
-	display: grid;
-	flex: 1;
-	min-width: 0;
-	min-height: 0;
-}
 
 .desktop-interim-content p { margin: 0.75rem 0 0; }
 .desktop-interim-content__notices {

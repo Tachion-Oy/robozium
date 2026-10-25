@@ -48,7 +48,7 @@ export interface EnvironmentMutations extends EnvironmentWrites {
 
 /** During first-start setup (`setupRequired`) a save loads the keys at once, as an adopted key file does. */
 export function useEnvironmentMutations(
-	client: DesktopApiClient | null, setupRequired: boolean, outcomes: EnvironmentOutcomes,
+	client: DesktopApiClient, setupRequired: boolean, outcomes: EnvironmentOutcomes,
 ): EnvironmentMutations {
 	const [operation, setOperation] = useState<Operation | null>(null)
 	const [restartRequired, setRestartRequired] = useState(false)
@@ -68,7 +68,7 @@ export function useEnvironmentMutations(
 		write: (client: DesktopApiClient, signal: AbortSignal) => Promise<T>,
 		failed: (cause: unknown) => T,
 	): Promise<T> => {
-		if (!client || writing.current) return ignored
+		if (writing.current) return ignored
 		writing.current = true
 		version.current++
 		setOperation(kind)

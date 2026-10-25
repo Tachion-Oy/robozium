@@ -14,7 +14,7 @@ export interface ModelsState {
 	refresh: () => void
 }
 
-export function useModels(client: DesktopApiClient | null, connected: boolean, runId: string | null): ModelsState {
+export function useModels(client: DesktopApiClient, connected: boolean, runId: string | null): ModelsState {
 	const [selection, setSelection] = useState<ModelSelection>()
 	const [retryModel, setRetryModel] = useState<string | null>(null)
 	const request = useRequest()
@@ -24,7 +24,7 @@ export function useModels(client: DesktopApiClient | null, connected: boolean, r
 		setRetryModel(null)
 	}, [])
 	const refresh = useCallback(() => {
-		if (client && connected) void run(signal => getModelSelection(client, runId, signal), confirm)
+		if (connected) void run(signal => getModelSelection(client, runId, signal), confirm)
 	}, [client, connected, runId, run, confirm])
 	// Revalidate server state on recovery and when the selection's run changes.
 	useEffect(() => {
@@ -32,7 +32,7 @@ export function useModels(client: DesktopApiClient | null, connected: boolean, r
 		return cancel
 	}, [refresh, cancel])
 	const choose = (model: string) => {
-		if (!client || !connected || request.pending) return
+		if (!connected || request.pending) return
 		// A failed request can leave the displayed selection out of sync with the backend.
 		if (model === selection?.selected_model_id && retryModel === null && !request.error) return
 		void run(signal => {

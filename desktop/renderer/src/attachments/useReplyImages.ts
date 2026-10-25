@@ -2,8 +2,8 @@
 // Rewritten for desktop: React state holds what the composer shows, and one queue
 // per run sends the requests in order and reports through setState. Requests go
 // through the desktop client under a deadline and end with the queue; restored
-// previews load from the backend origin. Without a run (standalone preview) there
-// is nothing to upload or retry.
+// previews load from the backend origin. Without a run there is nothing to upload
+// or retry.
 import { useEffect, useRef, useState } from "react"
 import type { FileRejection } from "react-dropzone"
 import { ApiError, type DesktopApiClient } from "../api/client"
@@ -60,7 +60,7 @@ function rejectionReason({ file, errors }: FileRejection): string {
 }
 
 /** Own the images above HUD screens; navigation never deletes server attachments. */
-export function useReplyImages(client: DesktopApiClient | null, runId: string | null, ended = false): ReplyImagesModel {
+export function useReplyImages(client: DesktopApiClient, runId: string | null, ended = false): ReplyImagesModel {
 	const [state, setState] = useState<ReplyImagesState>(IDLE)
 	const queue = useRef<ImageQueue | null>(null)
 	// A queue per run. Leaving or ending the run drops local state; server attachments stay.
@@ -111,10 +111,10 @@ const pendingQueues = new Map<string, Promise<void>>()
  * because each step reads the current values after its await; `refresh` hands
  * React a new copy after every change.
  */
-function startImageQueue(client: DesktopApiClient | null, runId: string | null, setState: (state: ReplyImagesState) => void) {
+function startImageQueue(client: DesktopApiClient, runId: string | null, setState: (state: ReplyImagesState) => void) {
 	const requests = new AbortController()
 	const call = <T>(operation: (signal: AbortSignal) => Promise<T>) => withDeadline(requests.signal, operation)
-	const hasRun = Boolean(client && runId)
+	const hasRun = runId !== null
 	let active = true
 	let entries: Entry[] = []
 	/** The backend's pending images have been read. */
@@ -183,10 +183,10 @@ function startImageQueue(client: DesktopApiClient | null, runId: string | null, 
 
 	const adopt = (attachment: RunAttachment): Entry => ({
 		name: attachment.name, serverId: attachment.id, status: "ready", discard: clearing,
-		url: hubFileUrl(client!, attachment.path),
+		url: hubFileUrl(client, attachment.path),
 	})
 	const restore = async () => {
-		const pending = await call(signal => listRunAttachments(client!, runId!, signal))
+		const pending = await call(signal => listRunAttachments(client, runId!, signal))
 		if (!active) return
 		const ids = new Set(pending.map(({ id }) => id))
 		for (const entry of [...entries]) {
@@ -207,7 +207,7 @@ function startImageQueue(client: DesktopApiClient | null, runId: string | null, 
 		entry.status = "uploading"
 		refresh()
 		try {
-			const attachment = await call(signal => uploadRunAttachment(client!, runId!, entry.file!, entry.uploadId!, signal))
+			const attachment = await call(signal => uploadRunAttachment(client, runId!, entry.file!, entry.uploadId!, signal))
 			if (!active) return
 			entry.serverId = attachment.id
 			entry.status = "ready"
@@ -225,7 +225,7 @@ function startImageQueue(client: DesktopApiClient | null, runId: string | null, 
 		try {
 			if (needsSync) await restore()
 			if (!active) return
-			if (entry.serverId) await call(signal => deleteRunAttachments(client!, runId!, entry.serverId, signal))
+			if (entry.serverId) await call(signal => deleteRunAttachments(client, runId!, entry.serverId, signal))
 			if (active) forget(entry)
 		} catch (cause) {
 			if (!active) return
@@ -236,7 +236,7 @@ function startImageQueue(client: DesktopApiClient | null, runId: string | null, 
 	}
 	const clearAll = async () => {
 		try {
-			await call(signal => deleteRunAttachments(client!, runId!, undefined, signal))
+			await call(signal => deleteRunAttachments(client, runId!, undefined, signal))
 			if (!active) return
 			entries.forEach(entry => { if (entry.file) URL.revokeObjectURL(entry.url) })
 			entries = []

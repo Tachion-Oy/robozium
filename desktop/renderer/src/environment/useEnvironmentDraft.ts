@@ -80,7 +80,7 @@ export interface EnvironmentDraft {
 }
 
 /** Polls every two seconds while `visible`; edits outlive the screen. */
-export function useEnvironmentDraft(client: DesktopApiClient | null, visible: boolean, writes: EnvironmentWrites): EnvironmentDraft {
+export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, writes: EnvironmentWrites): EnvironmentDraft {
 	const [view, setView] = useState<EnvironmentView | null>(null)
 	/** The saved entries, with this app's unsaved changes applied. */
 	const [changedEntries, setChangedEntries] = useState<EnvironmentEntry[]>([])
@@ -96,7 +96,7 @@ export function useEnvironmentDraft(client: DesktopApiClient | null, visible: bo
 
 	useEffect(() => { editingRef.current = editor !== null }, [editor])
 	useEffect(() => {
-		if (!client || !visible) return
+		if (!visible) return
 		const controller = new AbortController()
 		const { isWriting, version: writeVersion } = writesRef.current
 		const refresh = async () => {

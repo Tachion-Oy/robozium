@@ -27,7 +27,7 @@ export function EnvironmentHubFolder({ hub, disabled }: { hub: HubFolder; disabl
 				<HudButton variant="warning" disabled={pending} onClick={hub.cancel}>Cancel</HudButton>
 			</div>}
 			{hubRestartNeeded(hub) && <p role="status">Restart the app to use this folder. Until then, the hub stays {status?.current}.</p>}
-			{status && !status.choosable && <p>Mock mode and previews keep a throwaway hub of their own, so no other hub folder can be used.</p>}
+			{status && !status.choosable && <p>Mock mode keeps a throwaway hub of its own, and a launch given a backend uses that backend's hub, so no other hub folder can be used.</p>}
 			{error && <p role="alert">{error}</p>}
 		</div>
 	)

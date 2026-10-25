@@ -21,7 +21,7 @@ export interface RunSessionState {
 }
 
 /** App-owned session survives view changes; opening another run only disposes local work. */
-export function useRunSession(client: DesktopApiClient | null): RunSessionState {
+export function useRunSession(client: DesktopApiClient): RunSessionState {
 	const [session, dispatch] = useReducer(reduceRunSession, null)
 	const dispose = useRef<(() => void) | null>(null)
 	const lifetime = useRef<AbortController | null>(null)
@@ -37,7 +37,6 @@ export function useRunSession(client: DesktopApiClient | null): RunSessionState 
 	}, [])
 	useEffect(() => stop, [client, stop])
 	const subscribe = (runId: string, project: string) => {
-		if (!client) return
 		stop()
 		const current = generation.current
 		lifetime.current = new AbortController()
@@ -51,7 +50,6 @@ export function useRunSession(client: DesktopApiClient | null): RunSessionState 
 		})
 	}
 	const open = (runId: string, project: string) => {
-		if (!client) return
 		dispatch({ type: "open", runId, project })
 		subscribe(runId, project)
 	}

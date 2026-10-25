@@ -17,7 +17,7 @@ export interface CapabilitiesState {
 	retry: () => void
 }
 
-export function useCapabilities(client: DesktopApiClient | null, project: string | null, active: boolean): CapabilitiesState {
+export function useCapabilities(client: DesktopApiClient, project: string | null, active: boolean): CapabilitiesState {
 	const [loaded, setLoaded] = useState<{
 		project: string | null
 		catalog: CapabilityView[]
@@ -26,7 +26,7 @@ export function useCapabilities(client: DesktopApiClient | null, project: string
 	const [error, setError] = useState<{ project: string | null; message: string } | null>(null)
 	const [attempt, setAttempt] = useState(0)
 	useEffect(() => {
-		if (!client || !active) return
+		if (!active) return
 		const controller = new AbortController()
 		const load = async () => {
 			try {
