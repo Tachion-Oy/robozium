@@ -1,6 +1,5 @@
 import { flushSync } from "react-dom"
 import { createRoot } from "react-dom/client"
-import { App } from "./app/App"
 import { BackendStartup } from "./backend/BackendStartup"
 import { ViewportBounds } from "./app/ViewportBounds"
 import { applyTheme } from "../theme/theme"
@@ -23,7 +22,7 @@ async function start(element: HTMLElement): Promise<void> {
 	await Promise.all(Array.from(document.fonts, loadFont))
 	flushSync(() => createRoot(element).render(<>
 		<ViewportBounds />
-		<BackendStartup>{(notice, client, connected, backend) => <App connectionNotice={notice} client={client} connected={connected} backend={backend} />}</BackendStartup>
+		<BackendStartup />
 	</>))
 	// A hidden window may draw no frames, so lay the render out at once. That requests the
 	// fonts it uses: Chromium may have replaced the faces loaded above, but their files are cached.

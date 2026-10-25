@@ -1,14 +1,14 @@
 // Cover the application with the startup screen until the backend is ready and the
 // HUD has drawn beneath it, then preserve the mounted app during outages.
 // Backend hooks own IPC discovery and HTTP health checks; this component presents their status.
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useState } from "react"
 import { useBackendStartup } from "../../backend/useBackendStartup"
 import { useBackendReadiness } from "../../backend/useBackendReadiness"
 import { useStartupScreen } from "../../backend/useStartupScreen"
+import { App } from "../app/App"
 import { StartupScreen, type StartupFailure } from "../startup/StartupScreen"
 import { StartupHubFolder } from "./StartupHubFolder"
 import { HudButton } from "../HudButton"
-import type { DesktopApiClient } from "../../api/client"
 import "./backend-startup.css"
 
 /** Backend operations that the startup screen covers while they run. */
@@ -19,7 +19,7 @@ export interface BackendOperations {
 	restartApp: () => Promise<void>
 }
 
-export function BackendStartup({ children }: { children: (notice: ReactNode, client: DesktopApiClient | null, connected: boolean, backend: BackendOperations) => ReactNode }) {
+export function BackendStartup() {
 	const { startup, retryStartup } = useBackendStartup()
 	const { status: readiness, retryConnection } = useBackendReadiness(startup.state === "ready" ? startup.client : null)
 	const [hasOpenedHud, setHasOpenedHud] = useState(false)
@@ -53,7 +53,11 @@ export function BackendStartup({ children }: { children: (notice: ReactNode, cli
 	return <>
 		{/* The covered HUD stays mounted, but focus and assistive technology cannot reach it. */}
 		<div className="backend-startup__app" inert={screen.mode !== null}>
-			{(hasOpenedHud || status.state === "ready") && children(status.state === "ready" ? null : notice, startup.state === "ready" ? startup.client : null, status.state === "ready", backend)}
+			{(hasOpenedHud || status.state === "ready") && <App
+				connectionNotice={status.state === "ready" ? null : notice}
+				client={startup.state === "ready" ? startup.client : null}
+				connected={status.state === "ready"}
+				backend={backend} />}
 		</div>
 		{screen.mode && <StartupScreen mode={screen.mode} ready={screen.ready} status={status.message} failure={failure} onFaded={screen.dismiss} />}
 	</>
