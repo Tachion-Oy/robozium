@@ -7,11 +7,11 @@ import { launchArgs, startupDone, test } from "./native"
 const screen = ".startup"
 const launchButton = "button:text-is('Launch')"
 
-test("the launch animation plays, then fades into the HUD already drawn beneath it", async () => {
+test("the launch animation plays, then fades into the HUD already drawn beneath it", async ({ fakeBackend }) => {
 	const directory = await mkdtemp(path.join(tmpdir(), "robozium-startup-"))
 	try {
 		const app = await _electron.launch({
-			args: launchArgs,
+			args: launchArgs(fakeBackend.url),
 			chromiumSandbox: true,
 			cwd: directory,
 			env: { ...process.env, ROBOZIUM_DESKTOP_TEST_DATA: path.join(directory, "profile") },
@@ -28,7 +28,7 @@ test("the launch animation plays, then fades into the HUD already drawn beneath 
 				else window.once("show", shown)
 			}))).toEqual({ intro: true, loading: 0 })
 			await expect(page.locator(`${screen}[data-stage='intro']`)).toBeVisible()
-			// The preview backend is ready at once, but the introduction finishes first.
+			// The test backend is ready at once, but the introduction finishes first.
 			await expect(page.locator(launchButton)).toHaveCount(1)
 			await expect(page.locator(`${screen} .startup__hud`)).toHaveCount(0)
 			// The fade starts only over a drawn application, so no blank frame shows between them.

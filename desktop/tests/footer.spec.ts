@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test"
 import type { Page } from "@playwright/test"
-import { test, captureNative, chooseModel, chooseView, documentUrl, preload, waitForPanelLayout, reloadApp } from "./native"
+import { test, captureNative, chooseModel, chooseView, documentUrl, preload, previewMessages, waitForPanelLayout, reloadApp } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
 // The reference renames a copy button to "... copied" while it confirms, so
@@ -8,7 +8,7 @@ import { expectFooterGeometry } from "./footer-geometry"
 const copyButtons = (page: Page) => page.locator(".agent-hud__copy-text:not(.agent-hud__clear-reply)")
 const copyReplyButton = (page: Page) => copyButtons(page).nth(0)
 const copyAgentButton = (page: Page) => copyButtons(page).nth(1)
-const agentText = (page: Page) => page.locator(".agent-hud__replyBox--agent pre")
+const agentText = (page: Page) => page.locator(".agent-hud__replyBox--agent .agent-hud__replyBox-scroll")
 
 test("fixture history navigates without wrapping and retains selection with draft and divider", async ({ desktop: { page } }) => {
 	const footer = page.locator(".agent-hud__actions")
@@ -23,9 +23,9 @@ test("fixture history navigates without wrapping and retains selection with draf
 	await expect(next).toBeDisabled()
 	await expect(latest).toBeDisabled()
 	await expect(page.locator(".agent-hud__logo--actions")).toHaveAttribute("data-agent-state", "awaiting-input")
-	for (const name of ["Cancel", "Interrupt", "Record", "Send"]) {
-		await expect(footer.getByRole("button", { name, exact: true })).toBeDisabled()
-	}
+	// The run awaits a reply: it can be cancelled or dictated to, and Send waits for a draft.
+	for (const name of ["Cancel", "Record"]) await expect(footer.getByRole("button", { name, exact: true })).toBeEnabled()
+	for (const name of ["Interrupt", "Send"]) await expect(footer.getByRole("button", { name, exact: true })).toBeDisabled()
 	await previous.press("Enter")
 	await expect(message).toContainText("Planning the next steps.")
 	await previous.press("Space")
@@ -54,8 +54,9 @@ test("fixture history navigates without wrapping and retains selection with draf
 	await expect(message).toContainText("Planning the next steps.")
 	await expect(reply).toHaveValue(" retained\n draft ")
 	await expect(page.getByRole("group", { name: "Panel divider: equal" })).toBeVisible()
+	// A reload keeps the backend's run but not the local draft or selection.
 	await reloadApp(page)
-	await page.getByRole("button", { name: "Launch", exact: true }).click()
+	await page.getByRole("button", { name: "Open preview", exact: true }).click()
 	await expect(message).toContainText("Mock run ready.")
 	await expect(reply).toHaveValue("")
 })
@@ -84,14 +85,15 @@ test("copy preserves exact text, expires feedback, clears stale feedback, and Cl
 	await reply.fill("changed")
 	await expect(copyReply).not.toHaveAttribute("data-copied")
 	await reply.fill(draft)
+	// The agent's message is copied as the backend sent it, not as rendered.
 	await copyAgent.click()
 	await expect(copyAgent).toHaveAttribute("data-copied", "true")
-	expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe(await agentText(page).textContent())
+	expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe(previewMessages[2])
 	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
 	await expect(copyAgent).not.toHaveAttribute("data-copied")
 	await copyAgent.click()
 	await expect(copyAgent).toHaveAttribute("data-copied", "true")
-	expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe(await agentText(page).textContent())
+	expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe(previewMessages[1])
 	await clear.press("Enter")
 	await expect(reply).toHaveValue("")
 	expect(await reply.evaluate(element => element === Reflect.get(window, "originalEditor"))).toBe(true)

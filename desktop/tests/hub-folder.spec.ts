@@ -43,9 +43,9 @@ async function openEnvironment(page: Page, backend: Backend) {
 	await expect(panel(page)).toBeVisible()
 }
 
-test("a preview keeps a hub of its own and offers no choice", async ({ desktop: { page }, backend }) => {
+test("a launch given a backend uses that backend's hub and offers no choice", async ({ desktop: { page }, backend }) => {
 	await openEnvironment(page, backend)
-	await expect(panel(page)).toContainText("Mock mode and previews keep a throwaway hub of their own, so no other hub folder can be used.")
+	await expect(panel(page)).toContainText("Mock mode keeps a throwaway hub of its own, and a launch given a backend uses that backend's hub, so no other hub folder can be used.")
 	await expect(panel(page).getByRole("button", { name: "Choose folder…" })).toHaveCount(0)
 	await expect(panel(page).getByRole("button", { name: "Open folder" })).toBeDisabled()
 })

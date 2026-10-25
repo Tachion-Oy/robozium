@@ -10,7 +10,7 @@ async function backgroundColor(app: ElectronApplication): Promise<string> {
 }
 
 
-test("the chosen theme and window background survive a restart, keeping other settings", async ({ desktop: { app, page } }) => {
+test("the chosen theme and window background survive a restart, keeping other settings", async ({ desktop: { app, page }, fakeBackend }) => {
 	const profile = await app.evaluate(({ app }) => app.getPath("userData"))
 	const settings = path.join(profile, "settings.json")
 	await writeFile(settings, JSON.stringify({ future: "kept", theme: "dark" }))
@@ -21,7 +21,7 @@ test("the chosen theme and window background survive a restart, keeping other se
 	await expect.poll(async () => JSON.parse(await readFile(settings, "utf8"))).toEqual({ future: "kept", theme: "light" })
 	expect(await backgroundColor(app)).toBe("#f3f0e7")
 
-	const reopened = await reopen(app, profile)
+	const reopened = await reopen(app, profile, fakeBackend.url)
 	try {
 		const window = await reopened.firstWindow()
 		await skipIntro(window)
@@ -32,7 +32,7 @@ test("the chosen theme and window background survive a restart, keeping other se
 	} finally { await reopened.close() }
 })
 
-test("an unreadable settings file opens dark and is never overwritten", async ({ desktop: { app, page } }) => {
+test("an unreadable settings file opens dark and is never overwritten", async ({ desktop: { app, page }, fakeBackend }) => {
 	const profile = await app.evaluate(({ app }) => app.getPath("userData"))
 	const settings = path.join(profile, "settings.json")
 	await writeFile(settings, "{")
@@ -43,7 +43,7 @@ test("an unreadable settings file opens dark and is never overwritten", async ({
 	await expect(page.getByText("Theme not saved")).toBeVisible()
 	expect(await readFile(settings, "utf8")).toBe("{")
 
-	const reopened = await reopen(app, profile)
+	const reopened = await reopen(app, profile, fakeBackend.url)
 	try {
 		const window = await reopened.firstWindow()
 		await skipIntro(window)

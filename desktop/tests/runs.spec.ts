@@ -592,8 +592,8 @@ test("agent Markdown renders sanitized and its links open outside the window", a
 	}
 	await expect.poll(() => app.evaluate(() => Reflect.get(globalThis, "openedLinks"))).toEqual(["https://example.invalid/page"])
 	await expect(agent.getByRole("link", { name: "the report", exact: true })).toHaveAttribute("href", "notes/report.txt")
-	// The standalone preview has no hub to open files from.
+	// A launch given a backend has no hub of its own to open files from.
 	await expect(page.getByRole("alert").filter({ hasText: "Could not open link" }))
-		.toContainText("The standalone preview has no hub files.")
+		.toContainText("This launch uses a backend it does not manage.")
 	expect(await page.title()).not.toBe("injected")
 })
