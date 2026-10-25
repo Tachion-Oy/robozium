@@ -33,12 +33,16 @@ export const test = base.extend<{ launchSwitches: string[]; desktop: { app: Elec
 			child.stdout?.on("data", chunk => logs.push(String(chunk)))
 			child.stderr?.on("data", chunk => logs.push(String(chunk)))
 			const page = await app.firstWindow()
+			// The app shows its window once the startup screen is rendered; focus follows it.
+			await expect.poll(() => app?.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isVisible())).toBe(true)
 			const errors: string[] = []
 			page.on("pageerror", error => errors.push(error.message))
+			// Actions wait for a stable element, and a reduced-motion change reaches the page
+			// only with its next rendering update, so both need drawn frames.
+			await waitForDrawing(app, page)
+			await skipIntro(page)
 			await expect(page.locator(".agent-hud__box")).toBeVisible()
 			await expect(page.getByRole("button", { name: "Launch", exact: true })).toBeVisible()
-			// Actions wait for a stable element, which takes drawn frames.
-			await waitForDrawing(app, page)
 			await use({ app, page })
 			expect(errors).toEqual([])
 		} finally {
@@ -58,6 +62,29 @@ export const test = base.extend<{ launchSwitches: string[]; desktop: { app: Elec
 		}
 	}, { timeout: 60_000 }],
 })
+
+/** The startup screen has handed the window over to the application. */
+export async function startupDone(page: Page) {
+	await expect(page.locator(".startup")).toHaveCount(0)
+}
+
+/**
+ * Reduced motion settles the launch animation, which startup.spec.ts covers
+ * itself. The emulation ends with the startup screen, since reduced motion also
+ * stills the HUD's own animations.
+ */
+export async function skipIntro(page: Page) {
+	await page.emulateMedia({ reducedMotion: "reduce" })
+	await startupDone(page)
+	await page.emulateMedia({ reducedMotion: null })
+}
+
+/** Reload the document, skipping the launch animation it plays again. */
+export async function reloadApp(page: Page) {
+	await page.emulateMedia({ reducedMotion: "reduce" })
+	await page.reload()
+	await skipIntro(page)
+}
 
 /** Close through the native window, as a user does, then start again on the same profile. */
 export async function reopen(app: ElectronApplication, profile: string): Promise<ElectronApplication> {

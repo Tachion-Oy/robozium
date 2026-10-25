@@ -2,7 +2,7 @@ import { createServer, type ServerResponse } from "node:http"
 import { once } from "node:events"
 import path from "node:path"
 import { expect } from "@playwright/test"
-import { test as native, desktopRoot } from "./native"
+import { test as native, desktopRoot, reloadApp } from "./native"
 
 export const catalogue = {
 	models: [{ model_id: "one", label: "First model" }, { model_id: "two", label: "Second model" }],
@@ -77,7 +77,7 @@ export const test = native.extend<{ backend: Backend }>({
 					const load = process.getBuiltinModule("module").createRequire(modulePath)
 					await load(modulePath).registerRendererProtocol(baseUrl)
 				}, { baseUrl: `http://127.0.0.1:${address.port}`, modulePath: path.join(desktopRoot, "dist/renderer-protocol.js") })
-				await page.reload()
+				await reloadApp(page)
 				if (awaitOverview) await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible()
 			} })
 		} finally {

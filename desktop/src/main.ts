@@ -16,6 +16,8 @@ protocol.registerSchemesAsPrivileged([
 
 app.setName("Robozium")
 const preview = process.argv.includes("--preview")
+// Shows the window even if the renderer never reports its first render.
+const PAINT_TIMEOUT_MS = 5000
 const mode = process.argv.includes("--mock") ? "mock" : "live"
 const { profile, source, compose, preload, hubFolder } = desktopLocations({
 	packaged: app.isPackaged, appDirectory: import.meta.dirname, resourcesPath: process.resourcesPath,
@@ -63,14 +65,21 @@ async function start(): Promise<void> {
 		}
 	}
 	let closing = false
+	let relaunch = false
 	/** Stop the backend, then exit; a restart starts again only after a clean stop. */
 	const quit = async (restart = false) => {
-		if (closing) return
+		if (closing) {
+			// Closing during a restart hides the window at once and exits without starting again.
+			if (!restart) { relaunch = false; window.hide() }
+			return
+		}
 		closing = true
-		window.hide()
+		relaunch = restart
+		// A restart keeps the window, which shows the startup screen until the app exits.
+		if (!restart) window.hide()
 		try {
 			await backend?.close()
-			if (restart) app.relaunch()
+			if (relaunch) app.relaunch()
 			app.exit(0)
 		} catch (error) { console.error("Backend shutdown failed:", error); app.exit(1) }
 	}
@@ -244,7 +253,17 @@ async function start(): Promise<void> {
 		const failure = await shell.openPath(folder)
 		if (failure) throw new Error(failure)
 	})
+	// The window shows once the startup screen is rendered in its fonts, so its first frame is
+	// the intro. A renderer that never reports it still shows the window.
+	const painted = new Promise<void>(resolve => {
+		ipcMain.handle("desktop:painted", event => {
+			requireTrustedDocument(event)
+			resolve()
+		})
+		setTimeout(resolve, PAINT_TIMEOUT_MS)
+	})
 	await window.loadURL(rendererUrl)
+	await painted
 	window.show()
 	void startBackend()
 }

@@ -14,6 +14,7 @@ const bridge: DesktopBridge = {
 	recreateBackend: () => ipcRenderer.invoke("desktop:recreate-backend"),
 	restartApp: () => ipcRenderer.invoke("desktop:relaunch"),
 	getVersion: () => ipcRenderer.invoke("desktop:version"),
+	painted: () => ipcRenderer.invoke("desktop:painted"),
 	writeClipboardText: text => ipcRenderer.invoke("desktop:write-clipboard-text", text),
 	getMessageLog: () => ipcRenderer.invoke("desktop:message-log"),
 	setMessageLog: open => ipcRenderer.invoke("desktop:set-message-log", open),

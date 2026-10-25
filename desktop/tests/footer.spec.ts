@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test"
 import type { Page } from "@playwright/test"
-import { test, captureNative, chooseModel, chooseView, documentUrl, preload, waitForPanelLayout } from "./native"
+import { test, captureNative, chooseModel, chooseView, documentUrl, preload, waitForPanelLayout, reloadApp } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
 // The reference renames a copy button to "... copied" while it confirms, so
@@ -54,7 +54,7 @@ test("fixture history navigates without wrapping and retains selection with draf
 	await expect(message).toContainText("Planning the next steps.")
 	await expect(reply).toHaveValue(" retained\n draft ")
 	await expect(page.getByRole("group", { name: "Panel divider: equal" })).toBeVisible()
-	await page.reload()
+	await reloadApp(page)
 	await page.getByRole("button", { name: "Launch", exact: true }).click()
 	await expect(message).toContainText("Mock run ready.")
 	await expect(reply).toHaveValue("")
