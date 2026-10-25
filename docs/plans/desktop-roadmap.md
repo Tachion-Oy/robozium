@@ -69,8 +69,7 @@ more ground; 200–400 hand-written lines is the ceiling, not the target.
 | # | PR | Contents |
 | --- | --- | --- |
 | 1 | UI tweaks | Step 27: light theme, stable selectors, no project title in Runs view, footer layout, octagon |
-| 2 | App logo | Step 27's app identity: the logo goes on the splash, the window icon and the `.deb` icon |
-| 3 | macOS | Step 23 and the macOS half of 24; deferred |
+| 2 | macOS | Step 23 and the macOS half of 24; deferred |
 
 ## Parity checklist
 
@@ -230,7 +229,7 @@ for the gain.
 | --- | --- | --- |
 | **18. Environment** | Environment panel (display, edit, import, reset) with its own API module and owner. Restart app with in-HUD unsaved-edit confirmation. Done: `environment/useEnvironmentDraft` and `useEnvironmentMutations`, folder import and Restart app (`desktop:relaunch`). | Edits, imports, validation failures, persistence and restart against isolated mock data; captures match. |
 | **19. Dependencies** | Dependency panel and diagnostics. Restart/recreate backend through `backend-controller.ts`, limited to owned services. | Available/missing/error states and restart/recreate; captures match. |
-| **20. Credentials and capabilities** | `UnlockApiKeys` and the overview capability selector, through owners. Done: the selector in step 12, `UnlockApiKeys` through `credentials/useCredentials`. | Lock/unlock, failures and capability persistence; captures match. |
+| **20. Credentials and capabilities** | `UnlockApiKeys` and the overview capability selector, through owners. Done: the selector in step 12; `UnlockApiKeys` is replaced by the password dialog that `credentials/useCredentials` opens. | Lock/unlock, failures and capability persistence; captures match. |
 | **21a. Dictation** | `useDictation` owner, audio meter and a transcription API module. Allow only `media` (audio) for the trusted main frame; every other permission stays refused. Enable Record. | Recording lifecycle and permission denial. |
 | **21b. Startup** | Done. The startup screen covers the app inside the renderer and fades once the backend is ready and the HUD has drawn beneath it; it also covers backend restart/recreate and Restart app. | Startup animation and handoff compared with the reference. |
 | **25. Image attachments** | From `web/`, not the experiment. **25a:** copy the newer `ReplyForm`, `ReplyEditor`, `useReplyImages` and `reply-images`; add an `api/attachments` module (`POST/GET/DELETE /run/{id}/files[/{attachmentId}]`, client `upload_id` for retries) and a per-run image queue owner. **25b:** paste, drop and picker via react-dropzone, previews (CSP `img-src` for `blob:` and the backend origin; check the `desktop_access` Host/Origin rules), remove, retry, image-only Send. The backend and RoboZ `read_images` need no change. | Native spec: paste an image, upload, send; the agent turn receives the file. Limits and rejections match `web/`. |
@@ -249,9 +248,9 @@ Step 27 checklist (append further small findings here):
   when a run ends and Current Run can no longer be reopened.
 - [ ] **Footer layout:** move the three small buttons to the right-hand side
   and add the message-log button slot (before 13b).
-- [ ] **App identity:** a favicon and app logo/icon distinct from the company
-  logo, used for the window icon and step 24's packaging icons. Ships with
-  the splash (21b), which shows it.
+- [x] **App identity:** the Robozium mark (`ui/branding/robozium-mark.ts`)
+  replaces the Anurati "A" in the HUD and loader indicators, and
+  `scripts/build-icon.ts` builds the `.deb`'s scalable app icon from it.
 - [ ] **Octagon:** the button shape improvement on the reference selectors
   (see Presentation rules).
 

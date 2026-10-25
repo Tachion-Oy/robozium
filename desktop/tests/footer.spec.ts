@@ -181,7 +181,7 @@ for (const theme of ["dark", "light"]) {
 		await page.getByRole("textbox", { name: "Reply text", exact: true }).fill("A local reply\nwith another line.")
 		await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
 		await page.evaluate(async () => { await document.fonts.ready })
-		expect(await page.evaluate(() => document.fonts.check('31px "Anurati Pro"'))).toBe(true)
+		await expect(page.locator(".agent-hud__logo--actions .robozium-mark")).toBeVisible()
 		await page.clock.install()
 		const copy = copyReplyButton(page)
 		await copy.click()

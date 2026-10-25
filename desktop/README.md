@@ -87,8 +87,8 @@ ROBOZIUM_DESKTOP_TEST_DATA=~/.local/share/robozium-desktop-dev npm --prefix desk
 
 The profile, its projects and its API image (port 18001) are shared by every
 worktree started this way. To keep the key encrypted instead, put an existing
-`.env.encrypt` in the profile's `live/` folder in place of `.env`, and unlock it
-from the header's **Secrets locked** menu after the app starts:
+`.env.encrypt` in the profile's `live/` folder in place of `.env`, and enter its
+password when the app asks for it after starting:
 
 ```sh
 cp /path/to/.env.encrypt ~/.local/share/robozium-desktop-dev/live/.env.encrypt
@@ -124,12 +124,12 @@ Main selects your host UID/GID for rootful Docker or `0:0` for rootless Docker.
 Provider configuration belongs in the selected runtime's `.env` or `.env.encrypt`;
 see the [credential guidance](../README.md#optional-encrypted-credentials).
 Keys and decryption remain in the Python backend. Startup opens the HUD
-after the renderer connects. When the runtime has a `.env.encrypt`, the header's
-**Secrets locked** menu unlocks it with its password, and **Remove secrets**
-locks it again; the menu is hidden when there are no encrypted secrets. The
-password goes only into the unlock request. A launch or reply refused because
-secrets are locked says so and points to the menu, which then shows the locked
-state.
+after the renderer connects. When the runtime's `.env.encrypt` is locked, a
+password dialog opens once the startup screen has faded; cancelling it leaves
+the HUD usable. A launch or reply while locked opens the dialog again and goes
+ahead once unlocked; cancelling shows **Secrets locked**. Every secrets password,
+including Environment saves and key files, is typed only in that dialog. The
+password goes only into the unlock request.
 
 Once connected, React checks readiness every five seconds with a three-second
 timeout. A connection failure stops polling and shows an accessible notice with
@@ -214,7 +214,7 @@ creates the run with it and the acknowledged default model; later model changes
 affect future runs. Each step has a ten-second deadline. A created project is
 remembered, so launching again from the selector does not create it twice, and
 no write is retried automatically. A failure shows a **Launch failed** alert (or
-**Secrets locked** when the backend reports locked credentials) and keeps the
+**Secrets locked** when the password dialog is cancelled) and keeps the
 selector draft. A timeout may still have prepared a backend run; check the
 backend before trying again. Launching another project replaces the local
 subscription without cancelling the previous backend run. The project label
@@ -334,8 +334,8 @@ at once, without a restart; otherwise they apply after **Restart app**.
 `env.example` or `.env.example`); each file is uploaded with its path inside the
 folder, its variables join the list, and it is available after a restart. Saved
 settings, imports and resets apply after **Restart app**, which stops the
-backend and starts the app again on Runs Overview; encrypted secrets are then
-unlocked from **Secrets locked**. With
+backend and starts the app again on Runs Overview, where the app asks for the
+password of encrypted secrets. With
 unsaved edits, Restart app first asks in the HUD whether to discard them.
 
 Both selectors reserve stable widths for their labels, so changing the model or

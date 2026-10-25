@@ -78,12 +78,11 @@ test("launch resolves saved capabilities, saves them, then creates the run with 
 })
 
 for (const [label, handler, alert] of [
-	["locked secrets", "POST /capabilities/existing-project", ["Secrets locked", "Unlock secrets before starting a run.", "Open the Secrets locked menu and enter your password."]],
 	["an invalid selection", "POST /capabilities/existing-project", ["Launch failed", "API request failed (422): Invalid capability selection"]],
 	["a malformed catalogue", "GET /capabilities", ["Launch failed", "The backend returned an invalid capability response."]],
 ] as const) {
 	test(`launch reports ${label} and never repeats a write`, async ({ desktop: { page }, backend }) => {
-		const status = label === "locked secrets" ? 423 : label === "an invalid selection" ? 422 : 200
+		const status = label === "an invalid selection" ? 422 : 200
 		const body = status === 200 ? [{ name: "", kind: "tool", selectable: true, loading: null }] : { detail: "Invalid capability selection" }
 		backend.handlers.set(handler, response => json(response, body, status))
 		await backend.open()

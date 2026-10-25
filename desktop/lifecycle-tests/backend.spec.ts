@@ -445,7 +445,7 @@ test("Cancel in the HUD cancels the run and returns to the overview", async ({ r
 	await closeWindow(app)
 })
 
-test("encrypted secrets are locked after a restart and unlock from the header", async ({ runtime }) => {
+test("encrypted secrets ask for their password after a restart and when launching", async ({ runtime }) => {
 	const { port } = runtime
 	const first = await launchConnected(runtime)
 	await test.step("Save a throwaway secret, encrypted with a test password", async () => {
@@ -460,23 +460,21 @@ test("encrypted secrets are locked after a restart and unlock from the header", 
 		await closeWindow(first.app)
 	})
 	const { app, page } = await launchConnected(runtime)
-	const secrets = page.getByRole("button", { name: /^Secrets (locked|unlocked)$/ })
-	await test.step("A launch is refused while the secrets are locked", async () => {
-		await expect(secrets).toHaveText("Secrets locked")
+	const unlock = page.getByRole("dialog", { name: "Unlock secrets" })
+	await test.step("The password is asked for at start, and a cancelled launch is refused", async () => {
+		await expect(unlock).toBeVisible()
+		await unlock.getByRole("button", { name: "Cancel" }).click()
 		await createAndLaunch(page, "Locked secrets")
-		await expect(page.getByRole("alert").filter({ hasText: "Secrets locked" })).toContainText("Open the Secrets locked menu")
-		await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Cancel", exact: true }).click()
+		await unlock.getByRole("button", { name: "Cancel" }).click()
+		await expect(page.getByRole("alert").filter({ hasText: "Secrets locked" })).toContainText("Unlock secrets before starting a run.")
 	})
-	await test.step("Unlock with the test password, then launch", async () => {
-		await secrets.click()
-		const menu = page.getByRole("dialog", { name: "Secrets" })
-		await menu.getByLabel("Secret password").fill("wrong password")
-		await menu.getByLabel("Secret password").press("Enter")
-		await expect(menu.getByRole("alert")).toHaveText("Could not unlock secrets. Check the password and try again.")
-		await menu.getByLabel("Secret password").fill("lifecycle-test-password")
-		await menu.getByLabel("Secret password").press("Enter")
-		await expect(secrets).toHaveText("Secrets unlocked")
-		await page.locator(".agent-hud__project-row", { hasText: "locked-secrets" }).getByRole("button", { name: "Launch", exact: true }).click()
+	await test.step("Launch again, unlock with the test password, and the run starts", async () => {
+		await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Launch", exact: true }).click()
+		await unlock.getByLabel("Password").fill("wrong password")
+		await unlock.getByLabel("Password").press("Enter")
+		await expect(unlock.getByRole("alert")).toHaveText("Could not unlock secrets. Check the password and try again.")
+		await unlock.getByLabel("Password").fill("lifecycle-test-password")
+		await unlock.getByLabel("Password").press("Enter")
 		await expect(page.getByRole("status", { name: "Run status" })).toContainText("locked-secrets")
 	})
 	await closeWindow(app)
@@ -515,7 +513,7 @@ test("a secret saved in Environment applies after Restart app and a reset remove
 		return launchConnected(runtime)
 	}
 	const save = (page: Page) => page.getByRole("form", { name: "Save environment settings" })
-	const secrets = (page: Page) => page.getByRole("button", { name: /^Secrets (locked|unlocked)$/ })
+	const unlock = (page: Page) => page.getByRole("dialog", { name: "Unlock secrets" })
 	let { app, page } = await launchConnected(runtime)
 	await test.step("Save a throwaway secret with a test password", async () => {
 		await chooseView(page, "Environment")
@@ -525,18 +523,18 @@ test("a secret saved in Environment applies after Restart app and a reset remove
 		await editor.getByLabel("Value for DESKTOP_RESTART_SECRET").fill("throwaway-value")
 		await editor.getByRole("checkbox", { name: "Secret" }).click()
 		await editor.getByRole("button", { name: "Apply" }).click()
-		await save(page).getByLabel("Encryption password", { exact: true }).fill("restart-test-password")
-		await save(page).getByLabel("Confirm encryption password").fill("restart-test-password")
 		await save(page).getByRole("button", { name: "Encrypt and save" }).click()
+		const prompt = page.getByRole("dialog", { name: "Encrypt and save" })
+		await prompt.getByLabel("Encryption password").fill("restart-test-password")
+		await prompt.getByLabel("Confirm password").fill("restart-test-password")
+		await prompt.getByRole("button", { name: "Encrypt and save" }).click()
 		await expect(page.getByRole("region", { name: "Environment settings" }).getByRole("status").filter({ hasText: "Restart to apply" })).toBeVisible()
 	})
 	await test.step("Restart app, then unlock and launch", async () => {
 		;({ app, page } = await restartApp(app, page))
-		await expect(secrets(page)).toHaveText("Secrets locked")
-		await secrets(page).click()
-		await page.getByRole("dialog", { name: "Secrets" }).getByLabel("Secret password").fill("restart-test-password")
-		await page.getByRole("dialog", { name: "Secrets" }).getByLabel("Secret password").press("Enter")
-		await expect(secrets(page)).toHaveText("Secrets unlocked")
+		await unlock(page).getByLabel("Password").fill("restart-test-password")
+		await unlock(page).getByLabel("Password").press("Enter")
+		await expect(unlock(page)).toHaveCount(0)
 		await createAndLaunch(page, "Restarted secrets")
 		await expect(page.getByRole("status", { name: "Run status" })).toContainText("restarted-secrets")
 		await chooseView(page, "Runs Overview")
@@ -549,8 +547,10 @@ test("a secret saved in Environment applies after Restart app and a reset remove
 		await save(page).getByRole("button", { name: "Yes, reset" }).click()
 		await expect(page.getByRole("status").filter({ hasText: "Environment reset" })).toBeVisible()
 		;({ app, page } = await restartApp(app, page))
-		await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible()
-		await expect(secrets(page)).toHaveCount(0)
+		// No password is asked for: the HUD under the startup screen stays usable.
+		await page.getByRole("button", { name: "New Project", exact: true }).click()
+		await expect(page.getByRole("form", { name: "Capability selector" })).toBeVisible()
+		await expect(unlock(page)).toHaveCount(0)
 	})
 	await closeWindow(app)
 })

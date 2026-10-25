@@ -57,6 +57,7 @@ export function BackendStartup() {
 				connectionNotice={status.state === "ready" ? null : notice}
 				client={startup.client}
 				connected={status.state === "ready"}
+				covered={screen.mode !== null}
 				backend={backend} />}
 		</div>
 		{screen.mode && <StartupScreen mode={screen.mode} ready={screen.ready} status={status.message} failure={failure} onFaded={screen.dismiss} />}

@@ -12,7 +12,7 @@ import { useClientLifetime } from "../api/useClientLifetime"
 import type { LaunchDraft } from "../app/hud-navigation"
 import { resolveCapabilitySelection } from "../capabilities/capabilities"
 import { getProjectSelection, listCapabilities, saveProjectSelection } from "../capabilities/capabilities-api"
-import { isSecretsLocked, showSecretsLocked } from "../credentials/locked"
+import { isSecretsLocked, promptAfterRefusal, showSecretsLocked, type SecretsGate } from "../credentials/locked"
 import { showErrorToast } from "../feedback/notices"
 import { createRun } from "../run/run-api"
 import { cancelProject, createProject, deleteProject } from "./projects-api"
@@ -50,8 +50,11 @@ export interface ProjectMutations {
 export interface LaunchCallbacks {
 	onLaunched: (runId: string, project: string) => void
 	onProjectCreated: (name: string, project: string) => void
-	onSecretsLocked: () => void
+	/** A launch asks for the password first when the secrets are locked. */
+	secrets: SecretsGate
 }
+
+const LOCKED_LAUNCH = "Unlock secrets before starting a run."
 
 interface WriteNotice {
 	title: string
@@ -68,7 +71,7 @@ function confirmed({ kind }: PendingMutation, status: ProjectStatus | undefined)
 
 export function useProjectMutations(
 	client: DesktopApiClient,
-	{ onLaunched, onProjectCreated, onSecretsLocked }: LaunchCallbacks,
+	{ onLaunched, onProjectCreated, secrets }: LaunchCallbacks,
 ): ProjectMutations {
 	const [pending, setPending] = useState<ReadonlyMap<string, PendingMutation>>(() => new Map())
 	const [revision, setRevision] = useState(0)
@@ -123,6 +126,10 @@ export function useProjectMutations(
 		setOpening(project)
 		const request = <T,>(operation: (signal: AbortSignal) => Promise<T>) => withDeadline(controller.signal, operation)
 		try {
+			if (!await secrets.ensureUnlocked()) {
+				if (!controller.signal.aborted) showSecretsLocked(LOCKED_LAUNCH)
+				return false
+			}
 			// Writes are never repeated automatically; a created project is reported
 			// at once so that launching again reuses it instead of creating another.
 			const slug = project ?? await request(signal => createProject(client, name.trim(), signal))
@@ -140,8 +147,7 @@ export function useProjectMutations(
 		} catch (error) {
 			if (controller.signal.aborted) return false
 			if (isSecretsLocked(error)) {
-				showSecretsLocked("Unlock secrets before starting a run.")
-				onSecretsLocked()
+				void promptAfterRefusal(secrets, LOCKED_LAUNCH)
 				return false
 			}
 			showErrorToast({

@@ -1,24 +1,33 @@
-// Own the backend's secrets status and the unlock and remove writes.
-// The menu keeps its own open state and password field; it receives this state as props.
+// Own the backend's secrets status, the unlock write and the request for a password.
+// The password dialog keeps its field; it receives this state as props.
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { useClientLifetime } from "../api/useClientLifetime"
-import { clearCredentials, getCredentialStatus, unlockCredentials, type CredentialStatus } from "./credentials-api"
+import { getCredentialStatus, unlockCredentials, type CredentialStatus } from "./credentials-api"
 
 export interface CredentialsState {
-	/** Null until the first read succeeds; the menu is hidden while unavailable. */
+	/** Null until the first read succeeds. */
 	status: CredentialStatus | null
-	pending: boolean
 	refresh: () => void
-	/** Resolves true once the backend unlocked; a failure is never retried. */
+	/** A password is requested: the unlock dialog is open. */
+	asking: boolean
+	/** Ask for the password; resolves true once the backend unlocked, false on cancel. */
+	prompt: () => Promise<boolean>
+	/** Resolves true at once unless the secrets are known to be locked; otherwise prompts. */
+	ensureUnlocked: () => Promise<boolean>
+	/** Resolves true once the backend unlocked and answers the prompt; a failure is never retried. */
 	unlock: (password: string) => Promise<boolean>
-	remove: () => Promise<boolean>
+	cancel: () => void
 }
 
-export function useCredentials(client: DesktopApiClient, connected: boolean): CredentialsState {
+/** `visible`: the HUD is shown, so locked secrets ask for their password once per client. */
+export function useCredentials(client: DesktopApiClient, connected: boolean, visible: boolean): CredentialsState {
 	const [status, setStatus] = useState<CredentialStatus | null>(null)
-	const [pending, setPending] = useState(false)
+	const [asking, setAsking] = useState(false)
+	const pending = useRef(false)
+	const waiting = useRef<((unlocked: boolean) => void)[]>([])
+	const askedAtStart = useRef(false)
 	const lifetime = useClientLifetime(client)
 	// A read that started before a write must not overwrite the write's result.
 	const version = useRef(0)
@@ -31,40 +40,56 @@ export function useCredentials(client: DesktopApiClient, connected: boolean): Cr
 				const next = await withDeadline(signal, requestSignal => getCredentialStatus(client, requestSignal))
 				if (!signal.aborted && started === version.current) setStatus(next)
 			} catch {
-				// Reads stay quiet, as in the reference; the menu keeps the last status.
+				// Reads stay quiet, as in the reference; the last status stays.
 			}
 		})()
 	}, [client, lifetime])
 
-	// A new client starts from an unknown status; an outage keeps the last one.
+	const answer = useCallback((unlocked: boolean) => {
+		setAsking(false)
+		for (const resolve of waiting.current.splice(0)) resolve(unlocked)
+	}, [])
+	const prompt = useCallback(() => {
+		setAsking(true)
+		return new Promise<boolean>(resolve => waiting.current.push(resolve))
+	}, [])
+
+	// A new client starts from an unknown status and ends the previous client's prompt.
 	useEffect(() => {
 		setStatus(null)
-		setPending(false)
-	}, [client])
+		askedAtStart.current = false
+		return () => answer(false)
+	}, [client, answer])
 	useEffect(() => {
 		if (connected) refresh()
 	}, [connected, refresh])
+	useEffect(() => {
+		if (!visible || !status?.locked || askedAtStart.current) return
+		askedAtStart.current = true
+		void prompt()
+	}, [visible, status?.locked, prompt])
 
-	const write = async (operation: (client: DesktopApiClient, signal: AbortSignal) => Promise<CredentialStatus>) => {
-		if (pending) return false
+	const unlock = async (password: string) => {
+		if (pending.current) return false
+		pending.current = true
 		version.current += 1
-		setPending(true)
 		const signal = lifetime()
 		try {
-			const next = await withDeadline(signal, requestSignal => operation(client, requestSignal))
+			const next = await withDeadline(signal, requestSignal => unlockCredentials(client, password, requestSignal))
 			if (signal.aborted) return false
 			setStatus(next)
+			answer(true)
 			return true
 		} catch {
 			return false
 		} finally {
-			if (!signal.aborted) setPending(false)
+			pending.current = false
 		}
 	}
 
 	return {
-		status, pending, refresh,
-		unlock: password => write((client, signal) => unlockCredentials(client, password, signal)),
-		remove: () => write(clearCredentials),
+		status, refresh, asking, prompt, unlock,
+		ensureUnlocked: () => status?.locked ? prompt() : Promise.resolve(true),
+		cancel: () => answer(false),
 	}
 }

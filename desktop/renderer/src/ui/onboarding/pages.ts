@@ -55,7 +55,7 @@ Add \`CEREBRAS_API_KEY\` or \`GROQ_API_KEY\` the same way if you have them.`,
 
 Enter a password, confirm it and choose **Encrypt and save**. Your keys are stored encrypted and work immediately; no restart needed.
 
-After a later restart, choose **Secrets locked** in the header and enter the password to unlock them. Keep the password somewhere safe outside the Robozium folder. If you forget it, **Reset environment** removes the saved settings so you can start again.`,
+After a later restart, the app asks for the password when it starts. Keep the password somewhere safe outside the Robozium folder. If you forget it, **Reset environment** removes the saved settings so you can start again.`,
 		illustration: { name: "secrets", alt: "A padlock protecting saved API keys" },
 	},
 	{

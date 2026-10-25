@@ -6,7 +6,6 @@ import { ApiError, type DesktopApiClient } from "../api/client"
 export interface CredentialStatus {
 	available: boolean
 	locked: boolean
-	removable: boolean
 	/** A live start with no saved settings or .env: provider actions wait for keys. */
 	setupRequired: boolean
 }
@@ -14,14 +13,13 @@ export interface CredentialStatus {
 function parseCredentialStatus(value: unknown): CredentialStatus {
 	if (!value || typeof value !== "object" || Array.isArray(value)
 		|| !("available" in value) || typeof value.available !== "boolean"
-		|| !("locked" in value) || typeof value.locked !== "boolean"
-		|| !("removable" in value) || typeof value.removable !== "boolean") {
+		|| !("locked" in value) || typeof value.locked !== "boolean") {
 		throw new ApiError("malformed", "The backend returned an invalid secrets status.")
 	}
 	// Older backends omit it; they never hold provider actions for setup.
 	const setupRequired = "setup_required" in value ? value.setup_required : false
 	if (typeof setupRequired !== "boolean") throw new ApiError("malformed", "The backend returned an invalid secrets status.")
-	return { available: value.available, locked: value.locked, removable: value.removable, setupRequired }
+	return { available: value.available, locked: value.locked, setupRequired }
 }
 
 export async function getCredentialStatus(client: DesktopApiClient, signal: AbortSignal): Promise<CredentialStatus> {
@@ -31,8 +29,4 @@ export async function getCredentialStatus(client: DesktopApiClient, signal: Abor
 /** The password goes only into this request body; callers never keep it. */
 export async function unlockCredentials(client: DesktopApiClient, password: string, signal: AbortSignal): Promise<CredentialStatus> {
 	return parseCredentialStatus(await client.request("/credentials/unlock", { method: "POST", json: { password }, signal }))
-}
-
-export async function clearCredentials(client: DesktopApiClient, signal: AbortSignal): Promise<CredentialStatus> {
-	return parseCredentialStatus(await client.request("/credentials/clear", { method: "POST", signal }))
 }

@@ -73,8 +73,6 @@ test("a dropped key file during setup unlocks the HUD without a restart", async 
 	await expect(startHere(page)).toHaveCount(0)
 	await expect(launchButton(page, "existing-project")).toBeEnabled()
 	await expect(modelSelector(page)).toBeEnabled()
-	// The header learned that keys are available.
-	await expect(page.getByRole("button", { name: "Secrets unlocked" })).toBeVisible()
 })
 
 test("the first save during setup loads the keys and unlocks the HUD", async ({ desktop: { page }, backend }) => {
@@ -93,9 +91,11 @@ test("the first save during setup loads the keys and unlocks the HUD", async ({ 
 	await editor.getByRole("checkbox", { name: "Secret" }).click()
 	await editor.getByRole("button", { name: "Apply" }).click()
 	const save = page.getByRole("form", { name: "Save environment settings" })
-	await save.getByLabel("Encryption password", { exact: true }).fill("pw")
-	await save.getByLabel("Confirm encryption password").fill("pw")
 	await save.getByRole("button", { name: "Encrypt and save" }).click()
+	const prompt = page.getByRole("dialog", { name: "Encrypt and save" })
+	await prompt.getByLabel("Encryption password").fill("pw")
+	await prompt.getByLabel("Confirm password").fill("pw")
+	await prompt.getByRole("button", { name: "Encrypt and save" }).click()
 	await expect(page.getByRole("status").filter({ hasText: "API keys saved" })).toContainText("Robozium is ready.")
 	await expect(newProject(page)).toBeVisible()
 	await expect(launchButton(page, "existing-project")).toBeEnabled()

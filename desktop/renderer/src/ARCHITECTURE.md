@@ -23,14 +23,13 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `hud/` | Message projection, history, display selection and layout logic. |
 | `dependencies/` | Dependency monitor records and Check Now requests and validation, and the view's owner. |
 | `environment/` | Saved settings and secrets requests and validation, the screen's owner and its editor state. |
-| `credentials/` | Secrets status, unlock and remove requests, and the locked-secrets notice. |
+| `credentials/` | Secrets status, the unlock request and password prompt, and the locked-secrets notice. |
 | `attachments/` | Image staging requests for a run's next reply, and the reply's image queue. |
 | `dictation/` | Microphone recording, the audio level, and transcription requests. |
 | `links/` | Opening agent links through the desktop bridge, and reporting failures. |
 | `feedback/` | Notifications any owner can raise. |
 | `theme/` | The document theme and saving it through the bridge. |
 | `api/` | Shared HTTP/SSE transport, request deadlines, client lifetimes and React request state. |
-| `assets/` | Bundled Anurati status-mark font. |
 
 ## Owners
 
@@ -47,7 +46,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `environment/useEnvironmentDraft` | The saved settings, polled while the screen is visible, with this app's unsaved edits and the open editor on top; App passes it each write's outcome | Read |
 | `environment/useEnvironmentMutations` | One write to the saved settings at a time, and whether a restart is needed | Save, import, remove, key file, reset |
 | `dependencies/useDependencies` | The monitor's records, loading and load failure, and one Check Now at a time | Records read when the view opens, check |
-| `credentials/useCredentials` | The backend's secrets status (available, locked, removable) and whether first-start setup is required, which locks the HUD on the onboarding guide | Status read, unlock, remove |
+| `credentials/useCredentials` | The backend's secrets status (available, locked), whether first-start setup is required, which locks the HUD on the onboarding guide, and the open password prompt | Status read, unlock |
 | `feedback/notices` | Notifications and their pause/dismiss lifetimes | None |
 | `theme/theme` | The document's theme, applied before first render from the bridge's saved value | Save through `setTheme` (IPC) |
 
