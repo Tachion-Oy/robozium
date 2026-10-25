@@ -115,10 +115,14 @@ review links, command accuracy, and Markdown rendering, then run
 
 ## Electron scaffold checks
 
-The [desktop preview](../desktop/README.md) runs independently of Docker and the
-browser application. Its native UI tests launch with `--preview` from outside
-the checkout using temporary Chromium profiles. Managed startup has a separate
-backend suite below:
+The [desktop app's](../desktop/README.md) native UI tests run independently of
+Docker and the browser application. Each test starts a fake HTTP backend
+(`fakeBackend` in `desktop/tests/native.ts`) and launches the app with
+`--backend-url` pointing at it, from outside the checkout with a temporary
+profile. The fake backend serves one `preview` project whose launch opens a run
+with three messages awaiting a reply, and three mock models; like the real
+backend, it keeps the chosen model. Managed startup has a separate backend suite
+below:
 
 ```sh
 npm --prefix desktop ci
@@ -154,12 +158,13 @@ window; header checks verify one ordered, centred row inside the window with
 ellipsized labels and full-name tooltips. Divider checks verify square buttons
 and centered, contained arrows in both themes and zoom levels, including
 disabled states. Selector scenarios cover pointer selection, keyboard option
-focus, Escape and outside dismissal, one open menu, and view placeholders. Choices survive theme/view changes and reset on reload;
-preview selector interactions make no HTTP requests. Mock-run checks start from Runs
-Overview, verify Current Run becomes available, and exercise returning to the
-same draft through the overview and view selector. They cover multiline editing,
-caret retention during resizing/theme/zoom changes, bounded divider movement,
-disabled limits, reset on reload, and independent scrolling
+focus, Escape and outside dismissal, one open menu, and each view's content. A
+model choice is one write that the backend keeps across a reload; the view
+resets. Mock-run checks start from Runs Overview, verify Current Run becomes
+available, and exercise returning to the same draft through the overview and
+view selector. They cover multiline editing, caret retention during
+resizing/theme/zoom changes, bounded divider movement, disabled limits, a reload
+that keeps the run but not the draft, and independent scrolling
 with a long draft. All three panel layouts run through the size/theme/zoom matrix
 with wrapping, containment, and document-overflow assertions. Native pixel samples
 in both themes verify opacity against an injected contrasting underlay.
@@ -208,7 +213,7 @@ and line/chunk boundaries, comments/multiline data, stream errors, early disposa
 and reader cleanup. Direct framing checks split decoded text at every boundary
 without involving JSON parsing or a stream reader. An open-stream regression
 dispatches CR-terminated events without another chunk or EOF and checks split
-CRLF handling. Preview remains local; its bridge returns no API address.
+CRLF handling.
 The shared client streams any supplied SSE path; the typed run-stream wrapper
 encodes its run ID, ignores unknown events and closes the HTTP response on early
 exit, abort or invalid consumed payloads.

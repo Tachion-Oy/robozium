@@ -35,7 +35,7 @@ application's CSS, which was tuned by hand over weeks.
 
 ## Status
 
-Reviewed against `origin/main` at `e1ba35b` (after #145).
+Reviewed against `origin/main` at `9429f89` (after #159).
 
 | Step | State | PRs |
 | --- | --- | --- |
@@ -53,9 +53,10 @@ Reviewed against `origin/main` at `e1ba35b` (after #145).
 | 19 Dependencies | Done | #126 |
 | 20 Credentials and capabilities | Done | #106, #115 |
 | 21 Dictation and startup | Done | #131, #159 |
-| 22 Instance handling | Window size, zoom and second-instance focus done | #127 |
+| 22 Instance handling | Done; every launch, including one given a backend, takes the single-instance lock | #127, #160 |
 | 23–24 Ship | Linux packaging done; macOS deferred | #129 |
 | Toasts (step 11 follow-up) | Done | #120 |
+| Preview mode (step 11 follow-up) | Removed; UI development and native tests connect to a backend with `--backend-url` | #160 |
 | 25 Image attachments | Done | #128 |
 | 26 Onboarding | Done, with key-file adoption | #136, #137 |
 | 27 UI tweaks | Not started | — |
@@ -69,9 +70,7 @@ more ground; 200–400 hand-written lines is the ceiling, not the target.
 | --- | --- | --- |
 | 1 | UI tweaks | Step 27: light theme, stable selectors, no project title in Runs view, footer layout, octagon |
 | 2 | App logo | Step 27's app identity: the logo goes on the splash, the window icon and the `.deb` icon |
-| 3 | Preview mode | Remove `--preview` or run it against the mock backend (see the step 11 follow-ups) |
-| 4 | Instance handling leftovers | Step 22: settings validation and independent test profiles |
-| 5 | macOS | Step 23 and the macOS half of 24; deferred |
+| 3 | macOS | Step 23 and the macOS half of 24; deferred |
 
 ## Parity checklist
 
@@ -134,8 +133,8 @@ the PR that closes it.
     module.
   - `useDesktopActionLayout` must re-place action buttons that mount later.
     The current desktop copy lost this, which is why button stacking breaks.
-- **No mock branches in production components.** Previews run against the mock
-  backend.
+- **No mock branches in production components.** UI development runs against
+  the mock backend through `--backend-url`.
 
 ## Visual check
 
@@ -179,11 +178,10 @@ Each step is one PR and is runnable: launch the app to see its result.
   and stylesheet in a top-centre stack without inline styles. Dismissal keeps the
   exit animation, and hovering pauses the five-second lifetime. Persistent errors
   and Retry controls remain in the notices row.
-- **Preview mode.** `npm run start:preview` opens the app without a backend:
-  `ui/app/App.tsx` and `app/preview.ts` substitute a local project, messages
-  and models, and Record is unavailable. Every connected feature carries a
-  "no client" branch for it. Remove the mode, or run it against the mock
-  backend, and delete those branches.
+- **Preview mode — removed.** `--preview` and its local project, messages and
+  models are gone, with every "no client" branch. `--backend-url=<url>`
+  connects to a backend the app does not manage, such as a mock backend
+  started by hand; native tests give it a fake HTTP backend.
 - **Opening links.** Promoted to step 28.
 
 ## Milestone B — Running work (steps 14–17)
@@ -261,7 +259,7 @@ Step 27 checklist (append further small findings here):
 
 | Step | Result |
 | --- | --- |
-| **22. Instance handling** | Duplicate-launch focus (`second-instance` handler), settings validation, independent test profiles. Window as in the experiment: 1260×780 default, 640×420 minimum, at most 90% of the screen work area, size saved. Zoom in steps of 0.1 between 0.5 and 3, saved, and applied to the splash too. |
+| **22. Instance handling** | Duplicate-launch focus (`second-instance` handler), settings validation, independent test profiles. Window as in the experiment: 1260×780 default, 640×420 minimum, at most 90% of the screen work area, size saved. Zoom in steps of 0.1 between 0.5 and 3, saved. |
 | **23. Portable backend runtime** | Remove the Linux-only assumptions so the same code runs on macOS (details below). |
 | **24. Packaging** | **Linux now:** one `electron-builder` configuration, built with `npm run package:linux`, producing a `.deb`. The installed app keeps its profile in Electron's `userData` (`~/.config/Robozium`), not next to a checkout, and ships the staged backend and Compose files as plain resources for Docker. A `v<version>` tag publishes it as a signed apt repository on GitHub Releases, so users install with `apt install` and upgrade with `apt upgrade` without losing their profile or hub. **macOS later:** a `.dmg` for arm64 and x64 from the same configuration (`npm run package:mac`), unsigned at first, with signing/notarization as an opt-in follow-up driven by environment variables. |
 

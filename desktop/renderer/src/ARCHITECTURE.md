@@ -13,7 +13,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | Folder | Responsibility |
 | --- | --- |
 | `ui/` | All rendered components and CSS: app composition, backend startup, the HUD frame, the overview and capability selector, and the run view. |
-| `app/` | The navigation reducer (screen and launch draft) and standalone preview data. |
+| `app/` | The navigation reducer (screen and launch draft). |
 | `backend/` | IPC connection discovery and HTTP readiness hooks, and when the startup screen covers the app. |
 | `projects/` | Project requests and validation, the overview rows (query) and this app's cancel and delete requests (mutations), and the launch command. |
 | `capabilities/` | Capability catalogue and saved-selection requests, the selector's reads, and selection resolution. |
@@ -53,7 +53,8 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 
 `ui/app/App.tsx` composes the owners and keeps navigation (`app/hud-navigation`:
 the screen and the selector's launch draft), the reply draft, divider layout and
-focus. Owners do not import each other; App passes results between them, as when
+focus. `ui/backend/BackendStartup` renders App only once startup has found the
+backend, so every owner receives a client. Owners do not import each other; App passes results between them, as when
 a launch hands its new run to `useRunSession.open`, the HUD's Cancel uses
 `useProjectMutations.cancel`, or the listing marks rows with pending writes. As in the reference, a run that ends or goes missing
 leaves Current Run for the overview (`resolveHudPresentation`).
