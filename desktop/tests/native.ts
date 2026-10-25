@@ -37,11 +37,12 @@ export const test = base.extend<{ launchSwitches: string[]; desktop: { app: Elec
 			await expect.poll(() => app?.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isVisible())).toBe(true)
 			const errors: string[] = []
 			page.on("pageerror", error => errors.push(error.message))
+			// Actions wait for a stable element, and a reduced-motion change reaches the page
+			// only with its next rendering update, so both need drawn frames.
+			await waitForDrawing(app, page)
 			await skipIntro(page)
 			await expect(page.locator(".agent-hud__box")).toBeVisible()
 			await expect(page.getByRole("button", { name: "Launch", exact: true })).toBeVisible()
-			// Actions wait for a stable element, which takes drawn frames.
-			await waitForDrawing(app, page)
 			await use({ app, page })
 			expect(errors).toEqual([])
 		} finally {
