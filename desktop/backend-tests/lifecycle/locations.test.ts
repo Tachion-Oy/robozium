@@ -3,7 +3,7 @@ import path from "node:path"
 import { test } from "node:test"
 import { desktopLocations, expandHome } from "../../src/locations.ts"
 
-const base = { appDirectory: "/repo/desktop/dist", resourcesPath: "/opt/Robozium/resources", userData: "/home/user/.config/Robozium", home: "/home/user", mode: "live" as const, preview: false }
+const base = { appDirectory: "/repo/desktop/dist", resourcesPath: "/opt/Robozium/resources", userData: "/home/user/.config/Robozium", home: "/home/user", mode: "live" as const }
 
 test("an installed app keeps its profile in the user's config directory and reads backend files from resources", () => {
 	assert.deepEqual(desktopLocations({ ...base, packaged: true }), {
@@ -16,7 +16,6 @@ test("an installed app keeps its profile in the user's config directory and read
 			earlierFolder: "/home/user/.config/Robozium/live/hub",
 		},
 	})
-	assert.equal(desktopLocations({ ...base, packaged: true, preview: true }).profile, "/home/user/.config/Robozium/preview")
 })
 
 test("a checkout keeps its own profile beside it and reads the staged backend from the checkout", () => {
@@ -24,7 +23,6 @@ test("a checkout keeps its own profile beside it and reads the staged backend fr
 	assert.deepEqual([checkout.profile, checkout.source, checkout.compose], [
 		"/repo/.artifacts/desktop/data", "/repo/desktop/.stage/backend", "/repo/desktop/compose.yaml",
 	])
-	assert.equal(desktopLocations({ ...base, packaged: false, preview: true }).profile, "/repo/.artifacts/desktop/scaffold")
 })
 
 test("an explicit profile wins in both, resolved to an absolute path", () => {
@@ -41,8 +39,8 @@ test("every live launch can choose its hub; only an installed app defaults to ~/
 	assert.deepEqual(desktopLocations({ ...base, packaged: true, profileOverride: "/tests/profile" }).hubFolder, {
 		file: "/tests/profile/hub-folder", defaultFolder: "/tests/profile/live/hub", earlierFolder: null,
 	})
-	for (const inputs of [{ packaged: true, mode: "mock" as const }, { packaged: false, mode: "mock" as const }, { packaged: true, preview: true }]) {
-		assert.equal(desktopLocations({ ...base, ...inputs }).hubFolder, null, JSON.stringify(inputs))
+	for (const packaged of [true, false]) {
+		assert.equal(desktopLocations({ ...base, packaged, mode: "mock" }).hubFolder, null, `packaged: ${packaged}`)
 	}
 })
 

@@ -13,7 +13,6 @@ interface LocationInputs {
 	/** The user's home directory, which a `~/` location starts from. */
 	home: string
 	mode: "live" | "mock"
-	preview: boolean
 	/** `ROBOZIUM_DESKTOP_TEST_DATA`: an explicit profile, as tests and shared dev profiles use. */
 	profileOverride?: string
 }
@@ -35,7 +34,7 @@ export interface DesktopLocations {
 	compose: string
 	/** The compiled sandboxed preload script, beside the main process. */
 	preload: string
-	/** Where a live launch records its chosen hub folder; null for mock mode and previews. */
+	/** Where a live launch records its chosen hub folder; null for mock mode. */
 	hubFolder: HubFolderLocation | null
 }
 
@@ -54,11 +53,8 @@ export function expandHome(location: string, home: string): string {
  * must never reach a real one.
  */
 export function desktopLocations(inputs: LocationInputs): DesktopLocations {
-	const { packaged, appDirectory, resourcesPath, userData, home, mode, preview, profileOverride } = inputs
-	const defaultProfile = packaged
-		? (preview ? path.join(userData, locations.installedPreviewProfile) : userData)
-		: path.join(appDirectory, preview ? locations.checkoutPreviewProfile : locations.checkoutProfile)
-	const profile = path.resolve(profileOverride ?? defaultProfile)
+	const { packaged, appDirectory, resourcesPath, userData, home, mode, profileOverride } = inputs
+	const profile = path.resolve(profileOverride ?? (packaged ? userData : path.join(appDirectory, locations.checkoutProfile)))
 	const backend = packaged ? path.join(resourcesPath, locations.installedBackend) : path.join(appDirectory, locations.checkoutBackend)
 	const installed = packaged && profileOverride === undefined
 	const runtimeHub = path.join(profile, mode, locations.isolatedHub)
@@ -67,7 +63,7 @@ export function desktopLocations(inputs: LocationInputs): DesktopLocations {
 		source: path.join(backend, packaged ? locations.installedSource : locations.checkoutSource),
 		compose: path.join(backend, locations.compose),
 		preload: path.join(appDirectory, locations.preload),
-		hubFolder: mode === "live" && !preview
+		hubFolder: mode === "live"
 			? {
 				file: path.join(profile, locations.hubFolder),
 				defaultFolder: installed ? expandHome(locations.defaultHub, home) : runtimeHub,

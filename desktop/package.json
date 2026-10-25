@@ -13,7 +13,6 @@
     "postinstall": "install-electron",
     "build": "npm run typecheck && node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.json && tsc -p tsconfig.preload.json && vite build",
     "start": "npm run backend:stage && npm run build && electron .",
-    "start:preview": "npm run build && electron . --preview",
     "package:linux": "npm run backend:stage && npm run build && electron-builder --linux deb",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.preload.json --noEmit && tsc -p renderer/tsconfig.json && tsc -p tsconfig.tests.json && tsc -p tsconfig.node.json",

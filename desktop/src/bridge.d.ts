@@ -13,7 +13,7 @@ export interface HubFolderStatus {
 	current: string | null
 	/** The folder the next launch uses: the chosen one, else the default; null when not choosable. */
 	selected: string | null
-	/** False for mock mode and previews, which keep a throwaway hub of their own. */
+	/** False for mock mode, which keeps a throwaway hub of its own, and for a launch given a backend. */
 	choosable: boolean
 }
 
@@ -27,7 +27,7 @@ export interface DesktopBridge {
 	readonly theme: AppTheme
 	/** Save the theme and match the native window background to it. */
 	setTheme(theme: AppTheme): Promise<void>
-	getBackendConnection(): Promise<{ baseUrl: string } | null>
+	getBackendConnection(): Promise<{ baseUrl: string }>
 	getBackendStatus(): Promise<BackendStatus>
 	retryBackend(): Promise<void>
 	/** Restart this installation's API container; resolves once it is ready again. */
