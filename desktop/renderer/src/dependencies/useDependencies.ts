@@ -15,7 +15,7 @@ export interface DependenciesState {
 }
 
 /** Reads the records each time the view becomes visible; a check is sent once per click. */
-export function useDependencies(client: DesktopApiClient | null, visible: boolean): DependenciesState {
+export function useDependencies(client: DesktopApiClient, visible: boolean): DependenciesState {
 	const [records, setRecords] = useState<DependencyRecord[]>([])
 	const [loading, setLoading] = useState(true)
 	const [loadFailed, setLoadFailed] = useState(false)
@@ -23,7 +23,7 @@ export function useDependencies(client: DesktopApiClient | null, visible: boolea
 	const lifetime = useClientLifetime(client)
 
 	useEffect(() => {
-		if (!client || !visible) return
+		if (!visible) return
 		const controller = new AbortController()
 		const load = async () => {
 			try {
@@ -49,7 +49,7 @@ export function useDependencies(client: DesktopApiClient | null, visible: boolea
 	}, [client])
 
 	const check = async () => {
-		if (!client || checking) return
+		if (checking) return
 		setChecking(true)
 		const signal = lifetime()
 		try {

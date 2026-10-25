@@ -40,7 +40,7 @@ export interface ProjectQueryState {
  * settles and after each write. A failed read keeps the last rows; rows survive
  * the overview being hidden.
  */
-export function useProjectQuery(client: DesktopApiClient | null, visible: boolean, writes: ProjectWrites): ProjectQueryState {
+export function useProjectQuery(client: DesktopApiClient, visible: boolean, writes: ProjectWrites): ProjectQueryState {
 	const [listed, setListed] = useState<ProjectRow[]>([])
 	const [isInitialLoading, setIsInitialLoading] = useState(true)
 	const [loaded, setLoaded] = useState(false)
@@ -53,7 +53,7 @@ export function useProjectQuery(client: DesktopApiClient | null, visible: boolea
 	const intervalMs = slugsOf(pending, "cancel").length > 0 ? CANCELLATION_POLL_INTERVAL_MS : DEFAULT_POLL_INTERVAL_MS
 
 	useEffect(() => {
-		if (!client || !visible) return
+		if (!visible) return
 		const controller = new AbortController()
 		let timeout: number | null = null
 		const poll = async () => {

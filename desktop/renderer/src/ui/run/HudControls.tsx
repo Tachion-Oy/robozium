@@ -16,7 +16,6 @@ export type HudDictationControls = {
 	isRecording: boolean
 	audioLevel?: number
 	isTranscribing: boolean
-	available?: boolean
 	onToggle: () => void
 }
 
@@ -131,7 +130,7 @@ export function HudControls({
 					type="button"
 					className="agent-hud__dictate"
 					onClick={dictation.onToggle}
-					disabled={locked || dictation.isTranscribing || dictation.available === false}
+					disabled={locked || dictation.isTranscribing}
 					data-dictation-state={dictationState}
 					aria-label={dictationAccessibleLabel}
 					title={dictation.isTranscribing ? dictationAccessibleLabel : undefined}

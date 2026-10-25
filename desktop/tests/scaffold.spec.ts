@@ -35,6 +35,13 @@ async function expectPanelGeometry(page: Page, layout: "top" | "equal" | "bottom
 }
 
 /** Wait for selector transitions to settle away from the pointer before measuring the header row. */
+/** The content each header view shows. */
+function viewContent(page: Page, name: string) {
+	if (name === "Runs Overview") return page.locator(".agent-hud__project-view")
+	if (name === "Dependencies") return page.locator(".agent-hud__status-view")
+	return page.getByRole("region", { name: "Environment settings", exact: true })
+}
+
 async function expectSettledHeaderRow(page: Page) {
 	await page.mouse.move(0, 0)
 	await expect.poll(() => headerRow(page)).toEqual({ ordered: true, centred: true, contained: true, readable: true })
@@ -84,7 +91,8 @@ for (const theme of ["dark", "light"]) {
 			await reloadApp(page)
 			if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 			for (const state of ["idle", "top", "equal", "bottom"]) {
-				if (state === "top") await page.getByRole("button", { name: "Launch", exact: true }).click()
+				// The backend keeps the first zoom's run, which the second opens again.
+				if (state === "top") await page.getByRole("button", { name: zoom === 1 ? "Launch" : "Open preview", exact: true }).click()
 				else if (state !== "idle") await page.getByRole("button", { name: "Move panel divider up" }).click()
 				const geometry = await page.getByRole("group", { name: /^Panel divider:/ }).getByRole("button")
 					.evaluateAll(buttons => buttons.map(button => {
@@ -111,6 +119,7 @@ for (const theme of ["dark", "light"]) {
 		await page.emulateMedia({ reducedMotion: "no-preference" })
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 		await page.getByRole("button", { name: "Launch", exact: true }).click()
+		await expect(page.locator(".agent-hud__panels")).toBeVisible()
 		const motion = await page.evaluate(async () => {
 			const panels = document.querySelector(".agent-hud__panels")!
 			const agent = panels.firstElementChild!
@@ -142,9 +151,7 @@ for (const theme of ["dark", "light"]) {
 		await expectPanelGeometry(page, "top")
 	})
 
-	test(`mock run preserves editing and divider state in ${theme}`, async ({ desktop: { app, page } }) => {
-		const requests: string[] = []
-		page.on("request", request => { if (/^https?:/.test(request.url())) requests.push(request.url()) })
+	test(`mock run preserves editing and divider state in ${theme}`, async ({ desktop: { app, page }, fakeBackend }) => {
 		const toggle = page.getByRole("button", { name: "Toggle color theme" })
 		const view = viewTrigger(page)
 		const up = page.getByRole("button", { name: "Move panel divider up" })
@@ -161,8 +168,7 @@ for (const theme of ["dark", "light"]) {
 		await expect(view).toHaveAccessibleName("Current Run")
 		await expect(page.locator(".agent-hud__replyBox--agent")).toContainText("Mock run ready.")
 		await reply.fill("First line")
-		// Enter submits (unavailable until replies arrive); Shift+Enter adds a line.
-		await reply.press("Enter")
+		// Shift+Enter adds a line; Enter would send the reply.
 		await reply.press("Shift+Enter")
 		await reply.pressSequentially("Last line")
 		const draft = "First line\nLast line"
@@ -207,12 +213,12 @@ for (const theme of ["dark", "light"]) {
 		await chooseView(page, "Runs Overview")
 		await chooseView(page, "Current Run")
 		await expect(reply).toHaveValue(draft)
+		// A reload keeps the backend's run but not the local draft or divider.
 		await reloadApp(page)
-		await expect(page.getByRole("button", { name: "Launch", exact: true })).toBeVisible()
-		await page.getByRole("button", { name: "Launch", exact: true }).click()
+		await page.getByRole("button", { name: "Open preview", exact: true }).click()
 		await expect(reply).toHaveValue("")
 		await expect(page.getByRole("group", { name: "Panel divider: top" })).toBeVisible()
-		expect(requests).toEqual([])
+		expect(fakeBackend.requests.filter(request => request.path.endsWith("/reply"))).toEqual([])
 	})
 
 	test(`mock panels scroll independently and wrap long drafts in ${theme}`, async ({ desktop: { app, page } }) => {
@@ -302,9 +308,7 @@ test("switches themes with the keyboard and mouse while retaining focus", async 
 })
 
 for (const theme of ["dark", "light"]) {
-	test(`selectors update local selections and view placeholders in ${theme}`, async ({ desktop: { page } }) => {
-		const requests: string[] = []
-		page.on("request", request => { if (/^https?:/.test(request.url())) requests.push(request.url()) })
+	test(`selectors choose the backend's model and switch views in ${theme}`, async ({ desktop: { page }, fakeBackend }) => {
 		const toggle = page.getByRole("button", { name: "Toggle color theme" })
 		if (theme === "light") await toggle.click()
 		await expect(page.locator(".agent-hud__project-view")).toContainText("New Project")
@@ -315,14 +319,15 @@ for (const theme of ["dark", "light"]) {
 			await chooseView(page, name)
 			await expect(viewTrigger(page)).toHaveAccessibleName(name)
 			await expect(page.getByRole("listbox")).toHaveCount(0)
-			if (name === "Runs Overview") await expect(page.locator(".agent-hud__project-view")).toContainText("New Project")
-			else await expect(page.getByRole("region", { name, exact: true })).toContainText("This view is coming soon.")
+			await expect(viewContent(page, name)).toBeVisible()
 		}
+		expect(fakeBackend.requests.filter(request => request.method === "POST").map(request => [request.path, request.body]))
+			.toEqual([["/models", { model_id: "mock-fast" }]])
+		// The backend keeps the chosen model; the view and theme start over.
 		await reloadApp(page)
-		await expect(modelTrigger(page)).toHaveAccessibleName("Mock model")
+		await expect(modelTrigger(page)).toHaveAccessibleName("Mock fast model")
 		await expect(viewTrigger(page)).toHaveAccessibleName("Runs Overview")
 		await expect(page.locator("html")).toHaveAttribute("data-theme", "dark")
-		expect(requests).toEqual([])
 	})
 
 	test(`selector keyboard navigation commits and cancels in ${theme}`, async ({ desktop: { page } }) => {
@@ -350,7 +355,7 @@ for (const theme of ["dark", "light"]) {
 		await expect(model).toHaveAccessibleName("Mock fast model")
 		await expect(page.getByRole("option", { selected: true })).toHaveCount(0)
 		await chooseView(page, "Environment")
-		await expect(page.getByRole("region", { name: "Environment" })).toBeVisible()
+		await expect(viewContent(page, "Environment")).toBeVisible()
 	})
 
 	test(`selectors dismiss without stealing outside focus in ${theme}`, async ({ desktop: { page } }) => {
@@ -461,9 +466,7 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 				await chooseModel(page, "Mock model")
 				for (const name of ["Runs Overview", "Dependencies", "Environment"]) {
 					await chooseView(page, name)
-					const view = name === "Runs Overview"
-						? page.locator(".agent-hud__project-view")
-						: page.getByRole("region", { name, exact: true })
+					const view = viewContent(page, name)
 					await expect(view).toBeVisible()
 					expect(await view.evaluate(element => {
 						const bounds = element.getBoundingClientRect()
@@ -567,13 +570,13 @@ test("blocks renderer navigation and popups", async ({ desktop: { app, page } })
 	expect(page.url()).toBe(documentUrl)
 })
 
-test("native close exits and the same profile can reopen", async ({ desktop: { app } }) => {
+test("native close exits and the same profile can reopen", async ({ desktop: { app }, fakeBackend }) => {
 	const profile = await app.evaluate(({ app }) => app.getPath("userData"))
 	const exited = once(app.process(), "exit")
 	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())
 	expect(await exited).toEqual([0, null])
 	const reopened = await _electron.launch({
-		args: launchArgs,
+		args: launchArgs(fakeBackend.url),
 		chromiumSandbox: true,
 		cwd: path.dirname(profile),
 		env: { ...process.env, ROBOZIUM_DESKTOP_TEST_DATA: profile },

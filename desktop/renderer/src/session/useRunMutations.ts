@@ -28,7 +28,7 @@ export interface RunMutations {
 	interrupt: () => Promise<void>
 }
 
-export function useRunMutations(client: DesktopApiClient | null, run: RunSessionState, onSecretsLocked: () => void): RunMutations {
+export function useRunMutations(client: DesktopApiClient, run: RunSessionState, onSecretsLocked: () => void): RunMutations {
 	const active = useRef<AbortController | null>(null)
 	const interruption = useRef<AbortController | null>(null)
 	const [replying, setReplying] = useState(false)
@@ -57,7 +57,7 @@ export function useRunMutations(client: DesktopApiClient | null, run: RunSession
 	const reply = async (content: string, images?: ReplyImages): Promise<ReplyResult> => {
 		const trimmed = content.trim()
 		const hasContent = Boolean(trimmed || images?.images.length)
-		if (!client || !session || !prompt || !scope || scope.aborted || !canReply || !hasContent || active.current) return "ignored"
+		if (!session || !prompt || !scope || scope.aborted || !canReply || !hasContent || active.current) return "ignored"
 		const controller = new AbortController()
 		active.current = controller
 		setReplying(true)
@@ -94,7 +94,7 @@ export function useRunMutations(client: DesktopApiClient | null, run: RunSession
 	}
 
 	const interrupt = async (): Promise<void> => {
-		if (!client || !session || !scope || scope.aborted || !canInterrupt || interruption.current) return
+		if (!session || !scope || scope.aborted || !canInterrupt || interruption.current) return
 		const controller = new AbortController()
 		interruption.current = controller
 		setInterrupting(true)

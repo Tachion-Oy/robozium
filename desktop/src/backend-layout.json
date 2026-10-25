@@ -7,8 +7,6 @@
     },
     "locations": {
       "checkoutProfile": "../../.artifacts/desktop/data",
-      "checkoutPreviewProfile": "../../.artifacts/desktop/scaffold",
-      "installedPreviewProfile": "preview",
       "installedBackend": "backend",
       "checkoutBackend": "..",
       "installedSource": "stage",

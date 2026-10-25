@@ -16,7 +16,7 @@ export interface CredentialsState {
 	remove: () => Promise<boolean>
 }
 
-export function useCredentials(client: DesktopApiClient | null, connected: boolean): CredentialsState {
+export function useCredentials(client: DesktopApiClient, connected: boolean): CredentialsState {
 	const [status, setStatus] = useState<CredentialStatus | null>(null)
 	const [pending, setPending] = useState(false)
 	const lifetime = useClientLifetime(client)
@@ -24,7 +24,6 @@ export function useCredentials(client: DesktopApiClient | null, connected: boole
 	const version = useRef(0)
 
 	const refresh = useCallback(() => {
-		if (!client) return
 		const started = version.current
 		const signal = lifetime()
 		void (async () => {
@@ -47,7 +46,7 @@ export function useCredentials(client: DesktopApiClient | null, connected: boole
 	}, [connected, refresh])
 
 	const write = async (operation: (client: DesktopApiClient, signal: AbortSignal) => Promise<CredentialStatus>) => {
-		if (!client || pending) return false
+		if (pending) return false
 		version.current += 1
 		setPending(true)
 		const signal = lifetime()

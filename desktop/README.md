@@ -136,7 +136,7 @@ timeout. A connection failure stops polling and shows an accessible notice with
 **Retry**. The HUD stays mounted, preserving your draft, model/view and history
 selection, divider position, and theme. Connection Retry checks the existing API
 and resumes polling when ready; it does not rebuild or restart Docker. Backend
-startup Retry still retries Docker setup. Preview makes no API requests.
+startup Retry still retries Docker setup.
 
 Main supplies the controller's selected loopback address through the trusted
 bridge and uses that same address in the bundled page's CSP. Application traffic
@@ -152,32 +152,42 @@ logs, use `docker logs --tail=200 <container>` with the API container from the
 unrecognized containers alone; inspect the project and mounts before retrying.
 Shutdown failures are reported on stderr and exit with a nonzero status.
 
-For UI development without Docker or the shared Python checkout:
+For UI development without Docker, start a backend yourself and give the app
+its address. The API accepts the app only when started with
+`ROBOZIUM_DESKTOP_API_PORT` set to its port:
 
 ```sh
-npm --prefix desktop run start:preview
+ROBOZIUM_DESKTOP_API_PORT=8000 ./scripts/dev.sh --mock
+cd desktop && npm run build && npx electron . --backend-url=http://127.0.0.1:8000
 ```
 
-Preview profiles stay in `.artifacts/desktop/scaffold/`. Close and restart either
-command to rebuild after source changes. `.artifacts/desktop/data/` is persistent
-user data; `desktop/.stage/` and `desktop/dist/` are regenerable build outputs.
+`--backend-url` takes `http://127.0.0.1:<port>` or `http://localhost:<port>`.
+The app then starts no Docker backend and leaves the backend's lifecycle and hub
+to whoever started it: startup Retry has nothing to retry, **Restart backend**,
+**Recreate backend** and opening hub files report that this launch uses a
+backend it does not manage, and the hub folder cannot be chosen. **Restart app**
+starts the app again with the same address. Such a launch uses the same profile,
+and the same single running instance, as an ordinary launch.
 
-The app starts in dark mode with Runs Overview selected. Connected mode loads
-the backend's default model; preview uses the local Mock model fixture. Tab moves
+Close and restart the app to rebuild after source changes.
+`.artifacts/desktop/data/` is persistent user data; `desktop/.stage/` and
+`desktop/dist/` are regenerable build outputs.
+
+The app starts in dark mode with Runs Overview selected and loads the backend's
+default model. Tab moves
 through the model selector, theme button, and view selector. Open a selector with
 a click, Enter, or Space; the selected option receives focus, arrows move between
 options, and Enter or a click chooses. Escape returns focus to the trigger, and
 clicking outside dismisses the menu without changing the choice. Only one menu
-opens at a time. View choices survive theme changes and reset on reload. Connected
-model choices change the displayed default only after backend acknowledgement.
+opens at a time. View choices survive theme changes and reset on reload. Model
+choices change the displayed default only after backend acknowledgement.
 Failures retain the last confirmed choice and show an alert; choosing the model
 again resubmits it. Opening the selector after a failure, or with an empty
 catalogue, reads the current backend state. Connection recovery reloads the model
 catalogue and selection without replaying writes or resetting drafts and local
 project selection.
-Preview model choices stay local and reset on reload.
 
-Connected Runs Overview lists every project with its backend status (running,
+Runs Overview lists every project with its backend status (running,
 waiting, cancelling, syncing or dormant) and start time. The list polls every
 three seconds while the overview is visible, and every 250ms while a
 cancellation is settling; a failed read keeps the last rows. Rows survive
@@ -228,9 +238,8 @@ and drafts. Completed, failed, cancelled and unknown runs stop polling and
 return to Runs Overview. Writes are never retried. Restoring the run after the
 app reopens is the next roadmap step.
 
-In standalone preview, the overview lists one local `preview` project whose
-**Launch** opens the latest local mock message above
-an empty reply editor. Shift+Enter inserts a newline. When the run awaits input,
+A launched run opens its latest message above an empty reply editor.
+Shift+Enter inserts a newline. When the run awaits input,
 Enter or **Send** sends the reply once; Send stays disabled while the agent
 works. An acknowledged reply clears the draft only if it was not edited while
 sending; a rejection, refusal or timeout shows **Reply failed**, keeps the draft
@@ -253,11 +262,9 @@ interruption, keeps its last progress visible in the streaming style until new
 output or a prompt replaces it. Live text scrolls downward; selecting another entry resets
 its scroll. At either end, unavailable directions are disabled. Empty history
 disables all arrows. The center mark shows whether the agent is working or
-awaiting input; assistive technology also reads the run status. Preview retains
-three local messages and its static awaiting-input mark; its replies are not
-sent and its Cancel and Interrupt stay disabled. Record remains disabled.
+awaiting input; assistive technology also reads the run status.
 
-Connected, **Interrupt** is available while the agent works without a prompt,
+**Interrupt** is available while the agent works without a prompt,
 from the moment a reply is accepted. It is sent once and pulses, under its own
 label, until the agent asks or stops; a refusal or failure shows **Interrupt
 failed** and offers it again. A pending **Cancel** pulses the same way. **Cancel**
@@ -303,7 +310,7 @@ this installation's API container; **Recreate backend** recreates it from the
 same image so it reads `.env` again. Both keep mounted data, check container
 ownership first, and run one at a time; the loading screen covers the HUD
 until it reconnects. **Restart app** shows it too, until the app closes.
-Standalone preview shows a placeholder, as it has no backend. Divider controls remain visible but disabled outside Current Run.
+Divider controls remain visible but disabled outside Current Run.
 
 **Environment** lists the runtime's saved settings and secrets, with the
 variables that the application and imported tools need. **Add variable** and
@@ -355,7 +362,7 @@ accent colour is mixed in at that kind of spot (fill, hover fill, edge, text,
 glow, sheen, shadow, neutral line); `1` is the current look. The base colours
 those knobs scale are in the block below it.
 
-To try values live, run `npm --prefix desktop run start:preview`, switch to
+To try values live, start the app as above, switch to
 Light, press Ctrl+Shift+I and edit the knobs on `:root[data-theme="light"]`
 in the Styles pane, then copy the values into the file. After editing the file,
 `npm --prefix desktop run build` and Ctrl+R reload the window.

@@ -1,6 +1,7 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme, protocol, screen, shell, type IpcMainInvokeEvent } from "electron"
 import { mkdirSync } from "node:fs"
 import { BackendController } from "./backend-controller.ts"
+import { backendUrl } from "./backend-url.ts"
 import { registerRendererProtocol, rendererUrl } from "./renderer-protocol.ts"
 import { MessageLogWindow } from "./message-log-window.ts"
 import { externalUrl, hubFilePath } from "./links.ts"
@@ -15,21 +16,24 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 app.setName("Robozium")
-const preview = process.argv.includes("--preview")
 // Shows the window even if the renderer never reports its first render.
 const PAINT_TIMEOUT_MS = 5000
+const UNMANAGED = "This launch uses a backend it does not manage."
 const mode = process.argv.includes("--mock") ? "mock" : "live"
-const { profile, source, compose, preload, hubFolder } = desktopLocations({
+const { profile, source, compose, preload, hubFolder: hubFolderLocation } = desktopLocations({
 	packaged: app.isPackaged, appDirectory: import.meta.dirname, resourcesPath: process.resourcesPath,
-	userData: app.getPath("userData"), home: app.getPath("home"), mode, preview,
+	userData: app.getPath("userData"), home: app.getPath("home"), mode,
 	profileOverride: process.env.ROBOZIUM_DESKTOP_TEST_DATA,
 })
 
 async function start(): Promise<void> {
+	// A launch given a backend connects to it and leaves its lifecycle and hub to whoever started it.
+	const givenBackend = backendUrl(process.argv)
+	const hubFolder = givenBackend === null ? hubFolderLocation : null
 	mkdirSync(profile, { recursive: true, mode: 0o700 })
 	app.setPath("userData", profile)
 	// A second process must not take over or stop the same installation's backend.
-	if (!preview && !app.requestSingleInstanceLock()) { app.exit(0); return }
+	if (!app.requestSingleInstanceLock()) { app.exit(0); return }
 	await app.whenReady()
 
 	const settings = readSettings(profile)
@@ -52,11 +56,16 @@ async function start(): Promise<void> {
 			nodeIntegration: false,
 		},
 	})
-	const backend = preview ? undefined : new BackendController({
-		profile, mode, port: process.env.ROBOZIUM_DESKTOP_API_PORT,
-		source, compose, hubFolder,
-	})
-	await registerRendererProtocol(backend?.connection().baseUrl)
+	let backend: BackendController | undefined
+	let connection: { baseUrl: string }
+	if (givenBackend === null) {
+		backend = new BackendController({
+			profile, mode, port: process.env.ROBOZIUM_DESKTOP_API_PORT,
+			source, compose, hubFolder,
+		})
+		connection = backend.connection()
+	} else connection = { baseUrl: givenBackend }
+	await registerRendererProtocol(connection.baseUrl)
 	const startBackend = async () => {
 		try {
 			await backend?.start()
@@ -154,11 +163,11 @@ async function start(): Promise<void> {
 	}
 	ipcMain.handle("desktop:backend-status", event => {
 		requireTrustedDocument(event)
-		return backend?.snapshot() ?? { state: "ready", message: "Local preview" }
+		return backend?.snapshot() ?? { state: "ready", message: "Connected" }
 	})
 	ipcMain.handle("desktop:backend-connection", event => {
 		requireTrustedDocument(event)
-		return backend?.connection() ?? null
+		return connection
 	})
 	ipcMain.handle("desktop:retry-backend", event => {
 		requireTrustedDocument(event)
@@ -166,7 +175,7 @@ async function start(): Promise<void> {
 	})
 	const manageBackend = (operation: "restart" | "recreate") => async (event: IpcMainInvokeEvent) => {
 		requireTrustedDocument(event)
-		if (!backend) throw new Error("Standalone preview has no backend to manage.")
+		if (!backend) throw new Error(UNMANAGED)
 		await (operation === "restart" ? backend.restart() : backend.recreate())
 	}
 	ipcMain.handle("desktop:restart-backend", manageBackend("restart"))
@@ -206,7 +215,7 @@ async function start(): Promise<void> {
 	})
 	ipcMain.handle("desktop:open-hub-file", async (event, file: unknown) => {
 		requireTrustedDocument(event)
-		if (!backend) throw new Error("The standalone preview has no hub files.")
+		if (!backend) throw new Error(UNMANAGED)
 		const failure = await shell.openPath(await hubFilePath(backend.hubDirectory, file))
 		if (failure) throw new Error(failure)
 	})
