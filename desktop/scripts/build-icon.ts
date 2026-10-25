@@ -12,8 +12,8 @@ const output = path.join(import.meta.dirname, "../dist/icon.svg")
 const blue = "#40c8ff"
 const markColor = "#74d4ff"
 const background = "#072c3a"
-// The mark's square box inside the 256-unit icon.
-const markSize = 161
+// The mark's square box: 81% of the circle, as in the HUD indicator.
+const markSize = 198
 
 const svg = readFileSync(source, "utf8").replace(/<\?xml[\s\S]*?\?>|<!DOCTYPE[\s\S]*?>|<!--[\s\S]*?-->/g, "")
 const root = /<svg\b([^>]*)>([\s\S]*)<\/svg>\s*$/.exec(svg.trim())

@@ -182,6 +182,17 @@ for (const theme of ["dark", "light"]) {
 		await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
 		await page.evaluate(async () => { await document.fonts.ready })
 		await expect(page.locator(".agent-hud__logo--actions .robozium-mark")).toBeVisible()
+		// The screenshot tolerance cannot see a mark this small, so check that its mask
+		// image loads under the renderer's CSP and has a size.
+		expect(await page.evaluate(async () => {
+			const mark = document.querySelector(".agent-hud__logo--actions .robozium-mark")!
+			const url = /url\("(.+)"\)/.exec(getComputedStyle(mark, "::before").maskImage)?.[1]
+			if (!url) return null
+			const image = new Image()
+			image.src = url
+			await image.decode()
+			return image.naturalWidth > 0 && image.naturalHeight > 0
+		})).toBe(true)
 		await page.clock.install()
 		const copy = copyReplyButton(page)
 		await copy.click()

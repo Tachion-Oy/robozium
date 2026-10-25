@@ -124,14 +124,15 @@
     box-shadow 180ms ease;
 }
 
-/* The mark scales with the indicator's font size; its glow follows the activity state.
-   Chained drop shadows compound, so each state keeps only its nearer glows. */
-/* The glow filters sit on the mark and the mask on its ::before: a mask on the
-   filtered element itself would clip the glow. Any single-colour SVG fits the box. */
+/* The mark spans 81% of the indicator, leaving about the gap between its two
+   halves at the edges; its glow follows the activity state. Chained drop shadows
+   compound, so each state keeps only its nearer glows. The glow filters sit on the
+   mark and the mask on its ::before: a mask on the filtered element itself would
+   clip the glow. Any single-colour SVG fits the box. */
 .agent-hud__logo > .robozium-mark {
   display: block;
-  width: 0.72em;
-  height: 0.72em;
+  width: calc(var(--hud-logo-size) * 0.81);
+  height: calc(var(--hud-logo-size) * 0.81);
   filter:
     drop-shadow(0 0 4px color-mix(in oklab, var(--term-blue) clamp(0%, 85% * var(--tune-glow, 1), 100%), transparent))
     drop-shadow(0 0 12px color-mix(in oklab, var(--term-blue) clamp(0%, 55% * var(--tune-glow, 1), 100%), transparent));
