@@ -19,7 +19,7 @@ import { useProjectQuery } from "../../projects/useProjectQuery"
 import { useProjectMutations } from "../../projects/useProjectMutations"
 import { useCapabilities } from "../../capabilities/useCapabilities"
 import { HudButton } from "../HudButton"
-import { UnlockApiKeys } from "../hud/UnlockApiKeys"
+import { PasswordDialog } from "../hud/PasswordDialog"
 import { useCredentials } from "../../credentials/useCredentials"
 import { EnvironmentPanel } from "../environment/EnvironmentPanel"
 import { useEnvironmentDraft } from "../../environment/useEnvironmentDraft"
@@ -45,23 +45,25 @@ interface AppProps {
 	connectionNotice: ReactNode
 	client: DesktopApiClient
 	connected: boolean
+	/** The startup screen covers the HUD. */
+	covered: boolean
 	/** Backend restarts, covered by the startup screen. */
 	backend: BackendOperations
 }
 
-export function App({ connectionNotice, client, connected, backend }: AppProps) {
+export function App({ connectionNotice, client, connected, covered, backend }: AppProps) {
 	const [navigation, navigate] = useReducer(reduceHudNavigation, null, initialHudNavigation)
 	const [focusRunEditor, setFocusRunEditor] = useState(false)
 	const runSession = useRunSession(client)
 	const messageLog = useMessageLog()
-	const credentials = useCredentials(client, connected)
+	const credentials = useCredentials(client, connected, !covered)
 	const showRun = () => { setFocusRunEditor(true); navigate({ type: "screen_selected", screen: "run" }) }
 	const projectMutations = useProjectMutations(client, {
 		onLaunched: (runId, project) => { runSession.open(runId, project); navigate({ type: "launch_closed" }); showRun() },
 		onProjectCreated: (name, project) => navigate({ type: "launch_created", name, project }),
-		onSecretsLocked: credentials.refresh,
+		secrets: credentials,
 	})
-	const runMutations = useRunMutations(client, runSession, credentials.refresh)
+	const runMutations = useRunMutations(client, runSession, credentials)
 	const session = runSession.session
 	const runEnded = Boolean(session?.run.synchronized && isTerminal(session.run.status))
 	// Above the screens, so switching views keeps the staged images.
@@ -167,11 +169,15 @@ export function App({ connectionNotice, client, connected, backend }: AppProps) 
 				layoutMode={layout} onLayoutModeChange={setLayout} messageLog={messageLog}
 				logPane={() => <MessageLog active={presentation.context === "active-run"} events={session?.run.events ?? noEvents} />}
 				header={<HudHeader presentation={presentation} onSelectScreen={selectScreen}
-					modelSelector={<ModelSelector models={models} disabled={presentation.locked || !connected || projectMutations.launching} />}
-					secretsMenu={<UnlockApiKeys credentials={credentials} />} />}>
+					modelSelector={<ModelSelector models={models} disabled={presentation.locked || !connected || projectMutations.launching} />} />}>
 				{noticesRow}
 				{renderContent()}
 			</AgentHud>
+			<PasswordDialog open={credentials.asking} title="Unlock secrets" label="Password" submitLabel="Unlock" pendingLabel="Unlocking…"
+				onSubmit={async password => await credentials.unlock(password) ? null : "Could not unlock secrets. Check the password and try again."}
+				onCancel={credentials.cancel}>
+				<p>Enter the password your secrets are encrypted with.</p>
+			</PasswordDialog>
 			<ToastViewport />
 		</>
 	)

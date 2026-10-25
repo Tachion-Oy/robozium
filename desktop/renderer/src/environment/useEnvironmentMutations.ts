@@ -111,7 +111,7 @@ export function useEnvironmentMutations(
 		setRestartRequired(true)
 		showNotificationToast({
 			tone: "success", title: "Settings saved",
-			message: "Use Restart app in Environment, then unlock with Secrets.",
+			message: "Use Restart app in Environment, then enter your password.",
 		})
 		return true
 	}, failure("Could not save settings", "Could not save settings"))
@@ -149,7 +149,7 @@ export function useEnvironmentMutations(
 		if (!loaded) setRestartRequired(true)
 		showNotificationToast(loaded
 			? { tone: "success", title: "Keys loaded", message: "Your key file is in use." }
-			: { tone: "success", title: "Key file saved", message: "Use Restart app in Environment, then unlock with Secrets." })
+			: { tone: "success", title: "Key file saved", message: "Use Restart app in Environment, then enter your password." })
 		if (loaded) outcomes.onKeysLoaded()
 		return null
 	}, cause => cause instanceof ApiError && cause.detail ? cause.detail

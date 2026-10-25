@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { showErrorToast } from "../feedback/notices"
-import { isSecretsLocked, showSecretsLocked } from "../credentials/locked"
+import { isSecretsLocked, promptAfterRefusal, showSecretsLocked, type SecretsGate } from "../credentials/locked"
 import { interruptRun, submitReply } from "../run/run-api"
 import { RunStatus } from "../run/run-contracts"
 import type { RunSessionState } from "./useRunSession"
@@ -28,7 +28,9 @@ export interface RunMutations {
 	interrupt: () => Promise<void>
 }
 
-export function useRunMutations(client: DesktopApiClient, run: RunSessionState, onSecretsLocked: () => void): RunMutations {
+const LOCKED_REPLY = "Unlock secrets before replying. Your draft has been kept."
+
+export function useRunMutations(client: DesktopApiClient, run: RunSessionState, secrets: SecretsGate): RunMutations {
 	const active = useRef<AbortController | null>(null)
 	const interruption = useRef<AbortController | null>(null)
 	const [replying, setReplying] = useState(false)
@@ -63,6 +65,11 @@ export function useRunMutations(client: DesktopApiClient, run: RunSessionState, 
 		setReplying(true)
 		const signal = AbortSignal.any([scope, controller.signal])
 		try {
+			if (!await secrets.ensureUnlocked()) {
+				if (signal.aborted) return "ignored"
+				showSecretsLocked(LOCKED_REPLY)
+				return "failed"
+			}
 			// Sent once per action; a failure keeps the draft and the next snapshot shows the outcome.
 			const send = async () => {
 				await withDeadline(signal, requestSignal => submitReply(client, session.run.runId, prompt.id, trimmed, requestSignal))
@@ -75,8 +82,7 @@ export function useRunMutations(client: DesktopApiClient, run: RunSessionState, 
 		} catch (error) {
 			if (signal.aborted) return "ignored"
 			if (isSecretsLocked(error)) {
-				showSecretsLocked("Unlock secrets before replying. Your draft has been kept.")
-				onSecretsLocked()
+				void promptAfterRefusal(secrets, LOCKED_REPLY)
 				return "failed"
 			}
 			showErrorToast({

@@ -1,87 +1,34 @@
 /* Shared HUD controls: base and light-theme presentation. */
 
-.agent-hud__model-selector.agent-hud__credential-selector {
-  --selector-accent: var(--term-red);
-  flex-shrink: 0;
-  width: min(15rem, 38vw);
-}
-
-.agent-hud__model-menu.agent-hud__credential-menu {
-  position: absolute;
-  top: calc(100% + 0.25rem);
-  right: 0;
-  left: auto;
-  width: max-content;
-  min-width: 100%;
-  font-family: var(--font-agent-input);
-  font-size: 1rem;
-  letter-spacing: 0.02em;
-}
-
-.agent-hud__credential-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.35rem;
-}
-
-.agent-hud__credential-form input {
-  grid-column: 1;
-  grid-row: 1;
-  min-width: 0;
-  width: 100%;
-  border: 1px solid color-mix(in oklab, var(--selector-accent) clamp(0%, 55% * var(--tune-edge, 1), 100%), var(--hud-input-border));
-  background: color-mix(in oklab, var(--selector-accent) clamp(0%, 5% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
-  color: color-mix(in oklab, var(--selector-accent) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
-  padding: 0.55rem 0.7rem;
+/* The password dialog: centred over the dimmed HUD, opaque in both themes. */
+.agent-hud__password-dialog {
+  /* The base reset zeroes margins; the top layer centres a dialog only with auto margins. */
+  margin: auto;
+  width: min(34rem, calc(100vw - 4rem));
+  padding: 1.5rem;
+  border: 1px solid var(--term-blue);
+  background: linear-gradient(var(--hud-box-bg), var(--hud-box-bg)), var(--term-bg);
+  color: var(--hud-text);
   font: inherit;
-  line-height: 1.2;
+  box-shadow: var(--term-glow-blue);
 }
 
-.agent-hud__credential-form input::placeholder {
-  color: color-mix(in oklab, var(--selector-accent) clamp(0%, 42% * var(--tune-text, 1), 100%), var(--hud-input-placeholder));
-  opacity: 1;
+.agent-hud__password-dialog::backdrop {
+  background: rgb(0 0 0 / 0.6);
 }
 
-.agent-hud__credential-menu .agent-hud__model-option {
-  font-size: inherit;
-  letter-spacing: inherit;
-}
-
-.agent-hud__credential-form .agent-hud__model-option {
-  grid-column: 2;
-  grid-row: 1;
-  width: auto;
-  padding-inline: 0.35rem;
-}
-
-.agent-hud__credential-form p {
-  grid-column: 1 / -1;
-  grid-row: 2;
-}
-
-.agent-hud__credential-menu p {
-  margin: 0;
-  padding: 0.35rem 0.7rem;
+.agent-hud__password-dialog [role="alert"] {
   color: var(--term-red);
-  font-family: var(--font-agent-input);
-  font-size: 0.85rem;
 }
 
-.agent-hud__credential-sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
+.agent-hud__password-dialog .agent-hud__project-input {
+  width: 100%;
+  font-size: inherit;
 }
 
-:root[data-theme="light"] .agent-hud__header-actions .agent-hud__credential-selector {
-  width: min(17rem, 38vw);
-}
-
-:root[data-theme="light"] .agent-hud__credential-form input {
-  color: var(--hud-control-ink);
+.agent-hud__password-dialog .agent-hud__project-input:focus-visible {
+  outline: 2px solid var(--term-blue);
+  outline-offset: 2px;
 }
 
 /* Base */

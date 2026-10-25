@@ -600,12 +600,11 @@ checks cover both themes at 1260×780 and 640×420, including 125% zoom. No prod
 demonstration controls are added; the test loads the actual transport source into
 its renderer through Playwright. A lifecycle scenario saves a throwaway secret
 with a test password through the environment API, reopens the app, checks that
-a launch is refused while **Secrets locked**, rejects a wrong password, unlocks
-from the header and launches. `desktop/tests/secrets.spec.ts` covers the hidden
-menu without encrypted secrets, unlocking with Enter or the button, a wrong
-password, the pending lock against Escape, Escape and outside-click closing,
-**Remove secrets** and its failure, and 423 launches and replies reading the
-status again.
+the password dialog opens after startup, cancels it, sees a launch ask again,
+rejects a wrong password, unlocks and launches. `desktop/tests/secrets.spec.ts`
+covers no dialog without locked secrets, the dialog after the startup screen, a
+wrong password, the pending lock against Escape, cancelled and unlocked launches
+and replies, and a 423 opening the dialog.
 
 `desktop/tests/dependencies.spec.ts` covers a failed load recovered by Check
 Now, the empty state, the availability count, sorting by status and ID in both

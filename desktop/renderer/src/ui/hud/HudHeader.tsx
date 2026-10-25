@@ -1,5 +1,5 @@
 // Copied from web/app/components/hud/HudHeader.tsx at a664db2.
-// Adapted: the model selector and the secrets menu are supplied by the caller.
+// Adapted: the model selector is supplied by the caller; secrets are unlocked in a dialog.
 // The setup lock follows web at af87bea.
 import type { ReactNode } from "react"
 import { ThemeToggle } from "../theme/ThemeToggle"
@@ -9,14 +9,12 @@ import type { HudPresentation, HudScreen } from "./hudPresentation"
 type HudHeaderProps = {
 	presentation: HudPresentation
 	modelSelector: ReactNode
-	secretsMenu: ReactNode
 	onSelectScreen: (screen: HudScreen) => void
 }
 
 export function HudHeader({
 	presentation,
 	modelSelector,
-	secretsMenu,
 	onSelectScreen,
 }: HudHeaderProps) {
 	return (
@@ -36,7 +34,6 @@ export function HudHeader({
 			{modelSelector}
 			<div className="agent-hud__header-actions flex shrink-0 items-start gap-(--hud-actions-gap)">
 				<ThemeToggle />
-				{secretsMenu}
 				<HudScreenSelector
 					screen={presentation.screen}
 					options={presentation.screenOptions}
