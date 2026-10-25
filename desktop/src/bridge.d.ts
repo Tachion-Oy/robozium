@@ -37,6 +37,8 @@ export interface DesktopBridge {
 	/** Stop the backend and start the app again, so saved settings take effect. */
 	restartApp(): Promise<void>
 	getVersion(): Promise<string>
+	/** The startup screen is rendered in its loaded fonts; the hidden window shows. */
+	painted(): Promise<void>
 	writeClipboardText(text: string): Promise<void>
 	/** Whether the message log is open; main keeps it across renderer reloads. */
 	getMessageLog(): Promise<{ open: boolean }>

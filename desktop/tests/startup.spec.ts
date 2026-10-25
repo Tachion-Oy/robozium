@@ -19,6 +19,14 @@ test("the launch animation plays, then fades into the HUD already drawn beneath 
 		})
 		try {
 			const page = await app.firstWindow()
+			// The window shows only once the intro is rendered, with no font still loading.
+			expect(await app.evaluate(({ BrowserWindow }) => new Promise(resolve => {
+				const window = BrowserWindow.getAllWindows()[0]
+				const shown = () => resolve(window.webContents.executeJavaScript(
+					"({ intro: document.querySelector(\".startup[data-stage='intro']\") !== null, loading: [...document.fonts].filter(face => face.status === 'loading').length })"))
+				if (window.isVisible()) shown()
+				else window.once("show", shown)
+			}))).toEqual({ intro: true, loading: 0 })
 			await expect(page.locator(`${screen}[data-stage='intro']`)).toBeVisible()
 			// The preview backend is ready at once, but the introduction finishes first.
 			await expect(page.locator(launchButton)).toHaveCount(1)

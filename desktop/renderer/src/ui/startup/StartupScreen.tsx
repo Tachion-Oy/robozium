@@ -22,6 +22,8 @@ export interface StartupScreenProps {
 	mode: StartupScreenMode
 	/** The backend is ready and the application beneath has painted. */
 	ready: boolean
+	/** The startup step, announced to assistive technology; the screen itself shows only the loader. */
+	status: string
 	failure: StartupFailure | null
 	/** The screen has faded out; the owner removes it. */
 	onFaded: () => void
@@ -34,7 +36,7 @@ const FADE_FALLBACK_MS = 1000
 const reduceMotion = "(prefers-reduced-motion: reduce)"
 
 /** Local presentation runs independently of Docker and the application's data. */
-export function StartupScreen({ mode, ready, failure, onFaded }: StartupScreenProps): ReactNode {
+export function StartupScreen({ mode, ready, status, failure, onFaded }: StartupScreenProps): ReactNode {
 	const skipIntro = mode === "loading"
 	const [reducedMotion, setReducedMotion] = useState(() => matchMedia(reduceMotion).matches)
 	const [introDone, setIntroDone] = useState(skipIntro || reducedMotion)
@@ -82,7 +84,7 @@ export function StartupScreen({ mode, ready, failure, onFaded }: StartupScreenPr
 						<div className="startup__loading">
 							<MinimizedHudFrame
 								agentActivityState={AgentActivityState.Working}
-								heading={<p className="startup__label" role="status"><span className="startup__loading-art" aria-hidden="true" /><span className="sr-only">Loading</span></p>}>
+								heading={<p className="startup__label" role="status"><span className="startup__loading-art" aria-hidden="true" /><span className="sr-only">{status}</span></p>}>
 								<svg className="startup__outline" viewBox="0 0 100 100" aria-hidden="true">
 									<polygon points={octagonPoints} strokeWidth="1" vectorEffect="non-scaling-stroke" />
 									<polygon points={octagonPoints} transform="translate(1.5 1.5) scale(0.97)" strokeWidth="1" vectorEffect="non-scaling-stroke" />

@@ -55,6 +55,6 @@ export function BackendStartup({ children }: { children: (notice: ReactNode, cli
 		<div className="backend-startup__app" inert={screen.mode !== null}>
 			{(hasOpenedHud || status.state === "ready") && children(status.state === "ready" ? null : notice, startup.state === "ready" ? startup.client : null, status.state === "ready", backend)}
 		</div>
-		{screen.mode && <StartupScreen mode={screen.mode} ready={screen.ready} failure={failure} onFaded={screen.dismiss} />}
+		{screen.mode && <StartupScreen mode={screen.mode} ready={screen.ready} status={status.message} failure={failure} onFaded={screen.dismiss} />}
 	</>
 }

@@ -33,6 +33,8 @@ export const test = base.extend<{ launchSwitches: string[]; desktop: { app: Elec
 			child.stdout?.on("data", chunk => logs.push(String(chunk)))
 			child.stderr?.on("data", chunk => logs.push(String(chunk)))
 			const page = await app.firstWindow()
+			// The app shows its window once the startup screen is rendered; focus follows it.
+			await expect.poll(() => app?.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isVisible())).toBe(true)
 			const errors: string[] = []
 			page.on("pageerror", error => errors.push(error.message))
 			await skipIntro(page)
