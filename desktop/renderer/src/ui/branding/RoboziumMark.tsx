@@ -1,11 +1,10 @@
 import type { ReactNode } from "react"
-import { markPath, markViewBox } from "./robozium-mark"
 
-/** The Robozium mark in the current text colour, so the activity styles colour it. */
+/**
+ * The Robozium mark in the current text colour, so the activity styles colour it.
+ * The shape is public/branding/robozium-mark.svg, drawn as a mask; replacing that
+ * file changes the mark here and in the app icon (scripts/build-icon.ts).
+ */
 export function RoboziumMark(): ReactNode {
-	return (
-		<svg className="robozium-mark" viewBox={markViewBox} aria-hidden="true" focusable="false">
-			<path d={markPath} />
-		</svg>
-	)
+	return <span className="robozium-mark" aria-hidden="true" />
 }

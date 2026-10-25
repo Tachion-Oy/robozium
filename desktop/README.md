@@ -28,6 +28,16 @@ for the credential-free mock backend). Docker Engine with Compose v2.24 or newer
 is required at runtime; the first start builds the backend image, which needs
 internet access and can take several minutes.
 
+The Robozium mark is one file, `renderer/public/branding/robozium-mark.svg`.
+Replace it with any single-colour SVG that has a `viewBox` (or a width and
+height) and rebuild: the HUD and loader indicators and the installed app icon
+all follow. Only its shape is used; the colours and glows come from the HUD.
+
+The Robozium mark is one file, `renderer/public/branding/robozium-mark.svg`.
+Replace it with any single-colour SVG that has a `viewBox` (or a width and
+height) and rebuild: the HUD and loader indicators and the installed app icon
+all follow. Only its shape is used; the colours and glows come from the HUD.
+
 Projects live in your hub folder, `~/Robozium-Hub` by default. **Environment →
 Hub folder** shows its full path, opens it, and changes it with the folder
 picker; a new folder applies after a restart. If the folder goes missing, the
