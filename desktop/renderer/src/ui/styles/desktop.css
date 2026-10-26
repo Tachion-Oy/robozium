@@ -133,6 +133,19 @@ html[data-desktop] .agent-hud__actions button > span:not(.agent-hud__dictate-met
   html[data-desktop] .agent-hud__row-action[aria-busy="true"] {
     animation: desktop-action-busy 0.9s ease-in-out infinite alternate;
   }
+  /* On the light background an opacity pulse alone is barely visible: add a blue ring. */
+  @keyframes desktop-action-busy-light {
+    from { opacity: 0.35; box-shadow: 0 0 0 0 transparent; }
+    to {
+      opacity: 1;
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--term-blue) 60%, transparent),
+        0 0 0.7rem color-mix(in oklab, var(--term-blue) 45%, transparent);
+    }
+  }
+  html[data-desktop][data-theme="light"] .agent-hud__actions button[aria-busy="true"],
+  html[data-desktop][data-theme="light"] .agent-hud__row-action[aria-busy="true"] {
+    animation: desktop-action-busy-light 0.7s ease-in-out infinite alternate;
+  }
 }
 html[data-desktop] .agent-hud__message-direction { margin-inline: 0; }
 /* Keep hover/focus feedback in colour and glow, without moving the hit target. */
@@ -307,6 +320,18 @@ html[data-desktop] .desktop-message-log .term-frame { position: relative; top: a
 /* A leading banner's own separation would add to that margin. */
 .desktop-message-log .term-log > div > :first-child { margin-top: 0; }
 .desktop-message-log .term-msg { overflow-wrap: anywhere; }
+/* Dark text punched out of a filled tag or badge keeps the CRT smudge of
+   terminal.css, toned down slightly so small glyphs stay legible. Outlined
+   script and system badges keep their own glowing text. */
+html[data-desktop]:not([data-theme="light"]) .desktop-message-log
+  :is(.term-msg:not([data-role="script"], [data-role="system"]) .term-msg-badge-label, .term-tag-label) {
+  -webkit-text-stroke: 0.7px color-mix(in oklab, var(--term-bg) 78%, var(--term-msg-color) 22%);
+  text-shadow:
+    0 0 1px color-mix(in oklab, var(--term-msg-color) 70%, transparent),
+    0 0 2.5px color-mix(in oklab, var(--term-msg-color) 42%, transparent),
+    0 0 5px color-mix(in oklab, var(--term-msg-color) 22%, transparent);
+  filter: blur(0.3px);
+}
 /* A typed command after the prompt, wrapping in a narrow pane. */
 .desktop-message-log .term-prompt-command { min-width: 0; margin-left: 0.5ch; overflow-wrap: anywhere; }
 .desktop-message-log .term-msg pre { max-width: 100%; overflow-x: auto; }

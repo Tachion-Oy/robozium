@@ -18,3 +18,12 @@
     0 0 0 2px color-mix(in oklab, var(--term-blue) clamp(0%, 35% * var(--tune-glow, 1), 100%), transparent),
     0 0 8px 3px color-mix(in oklab, var(--term-blue) clamp(0%, 30% * var(--tune-glow, 1), 100%), transparent);
 }
+
+/* A theme switch fades the old view out to the new theme's background, then the
+   new view in (theme/theme.ts); the view transition's pseudo-elements resolve
+   --term-bg in the new theme. */
+@keyframes theme-switch-out { to { opacity: 0; } }
+@keyframes theme-switch-in { from { opacity: 0; } }
+::view-transition { background: var(--term-bg); }
+::view-transition-old(root) { animation: theme-switch-out 180ms ease-in both; }
+::view-transition-new(root) { animation: theme-switch-in 240ms ease-out 180ms both; }

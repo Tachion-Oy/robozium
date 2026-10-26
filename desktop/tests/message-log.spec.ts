@@ -98,6 +98,27 @@ test("the toggle opens the reference placeholder before a run and the run's rows
 	await expect(page.locator(".desktop-workspace__panes")).not.toHaveAttribute("data-log-open")
 })
 
+test("closing the log hides it before the window shrinks back", async ({ desktop: { app, page } }) => {
+	await setNativeViewport(app, page, 900, 780, 1)
+	await toggle(page, "Show message log").click()
+	await expect(log(page)).toBeVisible()
+	await expect.poll(() => page.evaluate(() => innerWidth)).toBeGreaterThanOrEqual(1120)
+	// Sample every frame: no frame may show the log in the narrower window, where it docks below the HUD.
+	await page.evaluate(() => {
+		const docked: number[] = []
+		Reflect.set(window, "dockedFrames", docked)
+		const sample = () => {
+			if (innerWidth < 1120 && document.querySelector(".desktop-message-log")) docked.push(innerWidth)
+			requestAnimationFrame(sample)
+		}
+		requestAnimationFrame(sample)
+	})
+	await toggle(page, "Hide message log").click()
+	await expect.poll(() => page.evaluate(() => innerWidth)).toBe(900)
+	await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+	expect(await page.evaluate(() => Reflect.get(window, "dockedFrames") as number[])).toEqual([])
+})
+
 for (const theme of ["dark", "light"]) {
 	test(`the open log sits beside or below the HUD in ${theme}`, async ({ desktop: { app, page }, backend }, testInfo) => {
 		const run = prepareRun(backend)

@@ -10,10 +10,26 @@ export function applyTheme(theme: AppTheme): void {
 	document.documentElement.style.colorScheme = theme
 }
 
-/** Switch the theme now, then save it; a failed save keeps the switch for this session. */
+/** The latest switch's fade; a newer switch keeps the mark until its own fade ends. */
+let switching: ViewTransition | null = null
+
+/**
+ * Switch the theme now, then save it; a failed save keeps the switch for this session.
+ * The window fades through the new theme's background (theme-toggle.css): the old
+ * view stays frozen while the new theme lays out, so nothing jumps between spacings.
+ */
 export async function toggleTheme(): Promise<void> {
 	const theme: AppTheme = document.documentElement.dataset.theme === "light" ? "dark" : "light"
-	applyTheme(theme)
+	if (matchMedia("(prefers-reduced-motion: reduce)").matches) applyTheme(theme)
+	else {
+		// Marks the fade until it ends, for anything that must wait for the settled view.
+		const root = document.documentElement
+		const transition = document.startViewTransition(() => applyTheme(theme))
+		switching = transition
+		root.dataset.themeSwitching = ""
+		void transition.finished.finally(() => { if (switching === transition) delete root.dataset.themeSwitching })
+		await transition.updateCallbackDone
+	}
 	try {
 		await window.robozium.setTheme(theme)
 	} catch {

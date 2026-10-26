@@ -347,6 +347,8 @@ export async function setNativeViewport(app: ElectronApplication, page: Page, wi
 export async function captureNative(app: ElectronApplication, page: Page, width: number, height: number) {
 	// Leaving a hovered control starts its transitions; let them finish too.
 	await page.mouse.move(0, 0)
+	// A theme switch fades through a view transition; capture the settled view.
+	await expect(page.locator("html[data-theme-switching]")).toHaveCount(0)
 	await waitForPanelLayout(page)
 	// A resize can leave parts of the surface unpainted; repaint all of it before capturing.
 	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.invalidate())
