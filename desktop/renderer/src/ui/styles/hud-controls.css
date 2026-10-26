@@ -61,18 +61,27 @@
   pointer-events: none;
 }
 
-/* Each side stacks the one-step button above the jump, about as tall as the indicator. */
+/* Each side stacks the one-step button above the jump. */
 .agent-hud__message-nav-side {
   display: inline-grid;
   align-content: center;
   pointer-events: none;
 }
 
+/* The arrows sit close together and line up on the edge nearest the indicator. */
 .agent-hud__layout-direction.agent-hud__message-direction {
   width: 36px;
-  height: clamp(24px, calc(var(--hud-logo-size) / 2), 30px);
+  height: 18px;
   margin: 0;
   pointer-events: auto;
+}
+.agent-hud__message-nav-side:first-child .agent-hud__message-direction {
+  justify-items: end;
+  padding-inline-end: 6px;
+}
+.agent-hud__message-nav-side:last-child .agent-hud__message-direction {
+  justify-items: start;
+  padding-inline-start: 6px;
 }
 
 .agent-hud__layout-wedge.agent-hud__message-wedge {
@@ -712,7 +721,8 @@
   transform: rotate(180deg);
 }
 
-.agent-hud__layout-controls .agent-hud__layout-direction:not(:disabled):hover {
+.agent-hud__layout-controls .agent-hud__layout-direction:not(:disabled):hover,
+.agent-hud__edge-toggle:not(:disabled):hover {
   --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
   --btn-fill-strength: 24%;
 }
@@ -1158,33 +1168,35 @@
   width: 1.2rem;
   height: 1.2rem;
 }
+/* Light buttons carry their tone at rest strongly enough to tell green from amber;
+   hover strengthens it again. */
 :root[data-theme="light"] .agent-hud__dictate,
 :root[data-theme="light"] .agent-hud__image {
   --btn-tone: var(--term-green);
   --btn-edge: color-mix(
     in oklab,
-    var(--btn-tone) clamp(0%, 58% * var(--tune-edge, 1), 100%),
+    var(--btn-tone) clamp(0%, 75% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
-  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 12% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 22% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 :root[data-theme="light"] .agent-hud__cancel {
   --btn-tone: var(--term-amber);
   --btn-edge: color-mix(
     in oklab,
-    var(--btn-tone) clamp(0%, 60% * var(--tune-edge, 1), 100%),
+    var(--btn-tone) clamp(0%, 75% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
-  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 14% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 22% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 :root[data-theme="light"] .agent-hud__interrupt {
   --btn-tone: var(--term-red);
   --btn-edge: color-mix(
     in oklab,
-    var(--btn-tone) clamp(0%, 58% * var(--tune-edge, 1), 100%),
+    var(--btn-tone) clamp(0%, 75% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
-  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 13% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 22% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 :root[data-theme="light"] .agent-hud__expand,
 :root[data-theme="light"] .agent-hud__minimize,
@@ -1197,10 +1209,10 @@
   --btn-tone: var(--term-blue);
   --btn-edge: color-mix(
     in oklab,
-    var(--btn-tone) clamp(0%, 58% * var(--tune-edge, 1), 100%),
+    var(--btn-tone) clamp(0%, 75% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
-  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 13% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 22% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 :root[data-theme="light"] .agent-hud__send {
   --btn-tone: var(--term-green);
@@ -1216,15 +1228,16 @@
 :root[data-theme="light"] .agent-hud__copy-text:not(:disabled):hover,
 :root[data-theme="light"] .agent-hud__cancel:not(:disabled):hover,
 :root[data-theme="light"] .agent-hud__interrupt:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__edge-toggle:not(:disabled):hover,
 :root[data-theme="light"]
   .agent-hud__layout-controls
   .agent-hud__layout-direction:not(:disabled):hover {
-  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 12% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
+  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 30% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
   text-shadow: none;
   transform: translateY(-1px);
   border-color: color-mix(
     in oklab,
-    var(--btn-tone) clamp(0%, 72% * var(--tune-hover-edge, 1), 100%),
+    var(--btn-tone) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%),
     var(--hud-control-ink)
   );
   background:
@@ -1236,12 +1249,12 @@
     linear-gradient(
       180deg,
       color-mix(in oklab, white clamp(0%, 42% * var(--tune-sheen, 1), 100%), var(--btn-fill)),
-      color-mix(in oklab, var(--btn-tone) clamp(0%, 16% * var(--tune-hover-fill, 1), 100%), var(--btn-fill))
+      color-mix(in oklab, var(--btn-tone) clamp(0%, 26% * var(--tune-hover-fill, 1), 100%), var(--btn-fill))
     );
   color: var(--hud-control-ink);
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 76% * var(--tune-sheen, 1), 100%), transparent),
     0 0.28rem 0.48rem
-      color-mix(in oklab, var(--btn-tone) clamp(0%, 22% * var(--tune-hover-glow, 1), 100%), transparent);
+      color-mix(in oklab, var(--btn-tone) clamp(0%, 32% * var(--tune-hover-glow, 1), 100%), transparent);
   outline: none;
 }
 :root[data-theme="light"]
@@ -1251,7 +1264,7 @@
   transform: translateY(-1px);
   border-color: color-mix(
     in oklab,
-    var(--btn-tone) clamp(0%, 72% * var(--tune-hover-edge, 1), 100%),
+    var(--btn-tone) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%),
     var(--hud-control-ink)
   );
   background:
@@ -1263,12 +1276,12 @@
     linear-gradient(
       180deg,
       color-mix(in oklab, white clamp(0%, 42% * var(--tune-sheen, 1), 100%), var(--btn-fill)),
-      color-mix(in oklab, var(--btn-tone) clamp(0%, 16% * var(--tune-hover-fill, 1), 100%), var(--btn-fill))
+      color-mix(in oklab, var(--btn-tone) clamp(0%, 26% * var(--tune-hover-fill, 1), 100%), var(--btn-fill))
     );
   color: var(--hud-control-ink);
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 76% * var(--tune-sheen, 1), 100%), transparent),
     0 0.28rem 0.48rem
-      color-mix(in oklab, var(--btn-tone) clamp(0%, 22% * var(--tune-hover-glow, 1), 100%), transparent);
+      color-mix(in oklab, var(--btn-tone) clamp(0%, 32% * var(--tune-hover-glow, 1), 100%), transparent);
   outline: none;
 }
 :root[data-theme="light"] .agent-hud__expand:not(:disabled):hover,
@@ -1289,7 +1302,7 @@
   transform: translateY(-1px);
   border-color: color-mix(
     in oklab,
-    var(--btn-tone) clamp(0%, 72% * var(--tune-hover-edge, 1), 100%),
+    var(--btn-tone) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%),
     var(--hud-control-ink)
   );
   background:
@@ -1301,12 +1314,12 @@
     linear-gradient(
       180deg,
       color-mix(in oklab, white clamp(0%, 42% * var(--tune-sheen, 1), 100%), var(--btn-fill)),
-      color-mix(in oklab, var(--btn-tone) clamp(0%, 16% * var(--tune-hover-fill, 1), 100%), var(--btn-fill))
+      color-mix(in oklab, var(--btn-tone) clamp(0%, 26% * var(--tune-hover-fill, 1), 100%), var(--btn-fill))
     );
   color: var(--hud-control-ink);
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 76% * var(--tune-sheen, 1), 100%), transparent),
     0 0.28rem 0.48rem
-      color-mix(in oklab, var(--btn-tone) clamp(0%, 22% * var(--tune-hover-glow, 1), 100%), transparent);
+      color-mix(in oklab, var(--btn-tone) clamp(0%, 32% * var(--tune-hover-glow, 1), 100%), transparent);
   outline: none;
 }
 :root[data-theme="light"] .agent-hud__expand:not(:disabled):active,
@@ -1315,6 +1328,7 @@
 :root[data-theme="light"] .agent-hud__image:not(:disabled):active,
 :root[data-theme="light"] .agent-hud__cancel:not(:disabled):active,
 :root[data-theme="light"] .agent-hud__interrupt:not(:disabled):active,
+:root[data-theme="light"] .agent-hud__edge-toggle:not(:disabled):active,
 :root[data-theme="light"]
   .agent-hud__layout-controls
   .agent-hud__layout-direction:not(:disabled):active,

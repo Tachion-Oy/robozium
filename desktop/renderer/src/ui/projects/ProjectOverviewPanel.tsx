@@ -1,6 +1,7 @@
 // Copied from web/app/components/hud/projects/ProjectOverviewPanel.tsx at 5b06d82.
 // Adapted: import paths. The setup lock and Start Here follow web at af87bea (#121).
 // Rows are not buttons: Launch reads Open on a row with a run to open, Cancel is Stop.
+// A narrow row wraps its buttons onto a second line, starting at the left.
 import { useState } from "react"
 import {
 	isActiveRunStatus,
@@ -112,7 +113,7 @@ function RowActions({
 
 	return (
 		<span
-			className="agent-hud__row-actions shrink-0 flex justify-end gap-2">
+			className="agent-hud__row-actions flex gap-2">
 			{canOpen ? (
 				<HudButton
 					aria-label={`Open ${project.slug}`}
@@ -186,9 +187,9 @@ function ProjectRowItem({
 	const canOpen = isCurrent || (isActiveRunStatus(project.status) && project.runId !== null)
 
 	return (
-		<li className="agent-hud__project-row flex items-center gap-2" aria-current={isCurrent ? "true" : undefined}>
+		<li className="agent-hud__project-row flex flex-wrap items-center gap-2" aria-current={isCurrent ? "true" : undefined}>
 			<div
-				className={`agent-hud__project-summary flex-1 min-w-0 ${HUD_TEXT} text-[1.3rem] leading-tight tracking-[0.03em] py-1 pl-1`}>
+				className={`agent-hud__project-summary ${HUD_TEXT} text-[1.3rem] leading-tight tracking-[0.03em] py-1 pl-1`}>
 				<span className={`grid ${COLS} gap-3 items-baseline`}>
 					<span className={display.className}>{display.label}</span>
 					<span

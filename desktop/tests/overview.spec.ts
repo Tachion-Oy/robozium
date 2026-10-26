@@ -256,6 +256,18 @@ for (const theme of ["dark", "light"]) {
 			await expect(launchButton(page, longName)).toBeVisible()
 			expect(await page.evaluate(() => document.documentElement.scrollHeight === innerHeight
 				&& document.documentElement.scrollWidth === innerWidth)).toBe(true)
+			// The table never scrolls sideways: buttons that do not fit beside the summary
+			// wrap below it, starting at its left edge.
+			expect(await page.locator(".agent-hud__table-scroll").evaluate(scroller => {
+				const rows = [...scroller.querySelectorAll(".agent-hud__project-row")].map(row => ({
+					summary: row.querySelector(".agent-hud__project-summary")!.getBoundingClientRect(),
+					actions: row.querySelector(".agent-hud__row-actions")!.getBoundingClientRect(),
+				}))
+				const placed = rows.every(({ summary, actions }) => actions.top >= summary.bottom - 1
+					? Math.abs(actions.left - summary.left) < 1
+					: actions.left >= summary.right - 1)
+				return { fits: scroller.scrollWidth <= scroller.clientWidth, placed }
+			})).toEqual({ fits: true, placed: true })
 			const screenshot = testInfo.outputPath(`overview-${theme}-${width}-${zoom}.png`)
 			await writeFile(screenshot, (await captureNative(app, page, width, height))!)
 			await testInfo.attach(`overview-${theme}-${width}-${zoom}.png`, { path: screenshot, contentType: "image/png" })

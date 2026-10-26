@@ -27,6 +27,13 @@ test("fixture history navigates without wrapping and retains selection with draf
 		expect(step.y + step.height).toBeLessThanOrEqual(jump.y + 0.5)
 		expect(Math.abs(step.x - jump.x)).toBeLessThan(0.5)
 	}
+	// The arrows line up on the edge nearest the indicator, with a small gap between rows.
+	const wedges = await Promise.all([first, previous, next, latest].map(button =>
+		button.locator(".agent-hud__message-wedge").evaluate(wedge => wedge.getBoundingClientRect().toJSON() as DOMRect)))
+	const [firstWedge, previousWedge, nextWedge, latestWedge] = wedges
+	expect(Math.abs(previousWedge.right - firstWedge.right)).toBeLessThan(1.5)
+	expect(Math.abs(nextWedge.left - latestWedge.left)).toBeLessThan(1.5)
+	expect(firstWedge.top - previousWedge.bottom).toBeLessThan(9)
 	expect(Math.abs(plusBox.width - plusBox.height)).toBeLessThan(0.5)
 	await expect(next).toBeDisabled()
 	await expect(latest).toBeDisabled()

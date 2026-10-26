@@ -23,32 +23,49 @@ html[data-desktop] .agent-hud__header {
   flex-wrap: nowrap; align-items: center; gap: clamp(0.35rem, 1.5vw, 1.4rem);
 }
 /* The project badge stretches to the selectors' height. It is a label, not a
-   button: a framed, unblurred name, glowing in dark like the password dialog,
-   and bold on a flat frame in light. */
+   button: in dark a glowing blue octagon with dark, unblurred text, cut like the
+   buttons; in light a raised plate in the frame's own tones and bevel. */
 html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-edge {
   position: static; transform: none; display: flex; flex: 0 1 auto; align-self: stretch;
   min-width: 0; max-width: none;
 }
-html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-label { display: flex; min-width: 0; }
+html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-label {
+  display: flex; min-width: 0;
+  /* A clip removes box shadows, so the octagon glows through a filter on its parent. */
+  filter: drop-shadow(0 0 1.5px var(--term-blue))
+    drop-shadow(0 0 6px color-mix(in oklab, var(--term-blue) clamp(0%, 45% * var(--tune-glow, 1), 100%), transparent));
+}
 html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-label .term-msg-badge {
-  display: flex; align-self: stretch; align-items: center; min-width: 0; padding: 0 0.9rem;
+  --btn-cut: 0.5625rem;
+  display: flex; align-self: stretch; align-items: center; min-width: 0; padding: 0 1rem;
   font-family: var(--font-agent-input); font-size: 1.2rem; letter-spacing: 0.06em;
-  border: 1px solid var(--term-blue); border-radius: 0;
-  background: linear-gradient(var(--hud-box-bg), var(--hud-box-bg)), var(--term-bg);
-  box-shadow: var(--term-glow-blue);
+  border: 0; border-radius: 0; background: var(--term-blue); box-shadow: none;
+  clip-path: polygon(
+    var(--btn-cut) 0, calc(100% - var(--btn-cut)) 0, 100% var(--btn-cut), 100% calc(100% - var(--btn-cut)),
+    calc(100% - var(--btn-cut)) 100%, var(--btn-cut) 100%, 0 calc(100% - var(--btn-cut)), 0 var(--btn-cut)
+  );
 }
 html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-label .term-msg-badge-label {
-  color: color-mix(in oklab, var(--term-blue) 55%, white);
-  -webkit-text-stroke: 0; text-shadow: 0 0 6px color-mix(in oklab, var(--term-blue) 60%, transparent);
-  filter: none; will-change: auto;
+  color: color-mix(in oklab, var(--term-bg) 82%, var(--term-blue));
+  font-weight: 600; -webkit-text-stroke: 0; text-shadow: none; filter: none; will-change: auto;
 }
+html[data-desktop][data-theme="light"] .agent-hud__header .agent-hud__event-label { filter: none; }
 html[data-desktop][data-theme="light"] .agent-hud__header .agent-hud__event-label .term-msg-badge {
-  padding: 0 0.8rem; font-size: 1.05rem; letter-spacing: 0.08em;
-  border: 1.5px solid color-mix(in oklab, var(--term-blue) 55%, var(--hud-control-ink));
-  border-radius: 0.26rem; background: transparent; box-shadow: none;
+  padding: 0 0.9rem; font-size: 1.1rem; letter-spacing: 0.04em;
+  clip-path: none; border-radius: 0.42rem;
+  border: 1px solid color-mix(in oklab, var(--hud-input-border) clamp(0%, 78% * var(--tune-line, 1), 100%), transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, white clamp(0%, 46% * var(--tune-sheen, 1), 100%), var(--hud-input-bg)),
+    color-mix(in oklab, var(--hud-control-ink) clamp(0%, 5% * var(--tune-fill, 1), 100%), var(--hud-input-bg))
+  );
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 75% * var(--tune-sheen, 1), 100%), transparent),
+    inset 0 -2px 0 color-mix(in oklab, var(--hud-control-ink) clamp(0%, 10% * var(--tune-shadow, 1), 100%), transparent),
+    0 1px 1px color-mix(in oklab, var(--hud-control-ink) clamp(0%, 14% * var(--tune-shadow, 1), 100%), transparent),
+    0 0.22rem 0.5rem color-mix(in oklab, var(--hud-control-ink) clamp(0%, 10% * var(--tune-shadow, 1), 100%), transparent);
 }
 html[data-desktop][data-theme="light"] .agent-hud__header .agent-hud__event-label .term-msg-badge-label {
-  color: var(--hud-control-ink); font-weight: 700; text-shadow: none;
+  color: var(--hud-control-ink); font-weight: 600; text-transform: none; text-shadow: none;
 }
 html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-text {
   display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;

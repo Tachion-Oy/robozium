@@ -387,6 +387,23 @@ for (const theme of ["dark", "light"]) {
 	})
 }
 
+test("the theme and message log toggles react to hover in both themes", async ({ desktop: { page } }) => {
+	const look = (name: string) => page.getByRole("button", { name }).evaluate(button => {
+		const style = getComputedStyle(button), edge = getComputedStyle(button, "::before")
+		return [style.backgroundImage, style.borderColor, style.boxShadow, edge.backgroundColor].join("|")
+	})
+	for (const theme of ["dark", "light"]) {
+		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+		await expect(page.locator("html")).toHaveAttribute("data-theme", theme)
+		for (const name of ["Toggle color theme", "Show message log"]) {
+			await page.mouse.move(0, 0)
+			const resting = await look(name)
+			await page.getByRole("button", { name }).hover()
+			await expect.poll(() => look(name), { message: `${name} in ${theme}` }).not.toBe(resting)
+		}
+	}
+})
+
 test("native Ctrl shortcuts zoom both ways and reset with an open selector", async ({ desktop: { app, page } }) => {
 	await modelTrigger(page).click()
 	const selected = page.getByRole("option", { selected: true })

@@ -119,58 +119,76 @@ button.agent-hud__option:not(:disabled):hover {
   cursor: default;
 }
 
+/* Light row buttons carry their tone in the edge and fill, strongly enough to
+   tell apart at rest; hover strengthens it again. Labels keep the text ink. */
 :root[data-theme="light"] .agent-hud__row-tools {
-  color: color-mix(in oklab, var(--term-blue) clamp(0%, 72% * var(--tune-text, 1), 100%), var(--hud-input-text));
-  border-color: color-mix(in oklab, var(--term-blue) clamp(0%, 46% * var(--tune-edge, 1), 100%), var(--hud-input-border));
-  background: color-mix(in oklab, var(--term-blue) clamp(0%, 10% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  color: var(--hud-control-ink);
+  border-color: color-mix(in oklab, var(--term-blue) clamp(0%, 65% * var(--tune-edge, 1), 100%), var(--hud-input-border));
+  background: color-mix(in oklab, var(--term-blue) clamp(0%, 18% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 
 :root[data-theme="light"] .agent-hud__row-launch {
-  color: color-mix(in oklab, var(--term-green) clamp(0%, 72% * var(--tune-text, 1), 100%), var(--hud-input-text));
-  border-color: color-mix(in oklab, var(--term-green) clamp(0%, 46% * var(--tune-edge, 1), 100%), var(--hud-input-border));
-  background: color-mix(in oklab, var(--term-green) clamp(0%, 10% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  color: var(--hud-control-ink);
+  border-color: color-mix(in oklab, var(--term-green) clamp(0%, 65% * var(--tune-edge, 1), 100%), var(--hud-input-border));
+  background: color-mix(in oklab, var(--term-green) clamp(0%, 18% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 
 :root[data-theme="light"] .agent-hud__row-tools:not(:disabled):hover,
 :root[data-theme="light"] .agent-hud__row-tools:not(:disabled):focus-visible {
-  color: var(--term-blue);
+  color: var(--hud-control-ink);
   border-color: var(--term-blue);
-  background: color-mix(in oklab, var(--term-blue) clamp(0%, 22% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
+  background: color-mix(in oklab, var(--term-blue) clamp(0%, 30% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
   text-shadow: none;
 }
 
 :root[data-theme="light"] .agent-hud__row-launch:not(:disabled):hover,
 :root[data-theme="light"] .agent-hud__row-launch:not(:disabled):focus-visible {
-  color: var(--term-green);
+  color: var(--hud-control-ink);
   border-color: var(--term-green);
-  background: color-mix(in oklab, var(--term-green) clamp(0%, 22% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
+  background: color-mix(in oklab, var(--term-green) clamp(0%, 30% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
   text-shadow: none;
 }
 
 :root[data-theme="light"] .agent-hud__row-cancel {
-  color: color-mix(in oklab, var(--term-amber) clamp(0%, 72% * var(--tune-text, 1), 100%), var(--hud-input-text));
+  color: var(--hud-control-ink);
   border-color: color-mix(
     in oklab,
-    var(--term-amber) clamp(0%, 46% * var(--tune-edge, 1), 100%),
+    var(--term-amber) clamp(0%, 65% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
-  background: color-mix(in oklab, var(--term-amber) clamp(0%, 10% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  background: color-mix(in oklab, var(--term-amber) clamp(0%, 18% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 
 :root[data-theme="light"] .agent-hud__row-delete {
-  color: color-mix(in oklab, var(--term-red) clamp(0%, 72% * var(--tune-text, 1), 100%), var(--hud-input-text));
+  color: var(--hud-control-ink);
   border-color: color-mix(
     in oklab,
-    var(--term-red) clamp(0%, 44% * var(--tune-edge, 1), 100%),
+    var(--term-red) clamp(0%, 65% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
-  background: color-mix(in oklab, var(--term-red) clamp(0%, 9% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  background: color-mix(in oklab, var(--term-red) clamp(0%, 18% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 
 :root[data-theme="light"] .agent-hud__row-delete--confirm {
-  color: var(--term-red);
+  color: var(--hud-control-ink);
   border-color: var(--term-red);
   background: color-mix(in oklab, var(--term-red) clamp(0%, 24% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+}
+
+:root[data-theme="light"] .agent-hud__row-cancel:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__row-cancel:not(:disabled):focus-visible {
+  color: var(--hud-control-ink);
+  border-color: var(--term-amber);
+  background: color-mix(in oklab, var(--term-amber) clamp(0%, 30% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
+  text-shadow: none;
+}
+
+:root[data-theme="light"] .agent-hud__row-delete:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__row-delete:not(:disabled):focus-visible {
+  color: var(--hud-control-ink);
+  border-color: var(--term-red);
+  background: color-mix(in oklab, var(--term-red) clamp(0%, 26% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
+  text-shadow: none;
 }
 
 :root[data-theme="light"] .agent-hud__row-action {
@@ -200,7 +218,7 @@ button.agent-hud__option:not(:disabled):hover {
   filter: saturate(1.18);
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 70% * var(--tune-sheen, 1), 100%), transparent),
     0 0.22rem 0.42rem
-      color-mix(in oklab, currentColor clamp(0%, 18% * var(--tune-hover-glow, 1), 100%), transparent);
+      color-mix(in oklab, currentColor clamp(0%, 28% * var(--tune-hover-glow, 1), 100%), transparent);
   outline: none;
 }
 

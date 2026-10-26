@@ -14,7 +14,11 @@ export async function expectFooterGeometry(page: Page, advanceClock = false) {
 				const icon = button.querySelector("svg")
 				if (!icon) return []
 				const a = button.getBoundingClientRect(), b = icon.getBoundingClientRect()
-				return [Math.abs(a.x + a.width / 2 - b.x - b.width / 2) < 1
+				// The message arrows line up on the edge nearest the indicator instead.
+				const inside = button.classList.contains("agent-hud__message-direction")
+					? b.x >= a.x && b.right <= a.right
+					: Math.abs(a.x + a.width / 2 - b.x - b.width / 2) < 1
+				return [inside
 					&& Math.abs(a.y + a.height / 2 - b.y - b.height / 2) < 1
 					// Not collapsed: the image plus is as small as a capital letter (about 9 px at 1x).
 					&& b.width > 6 && b.height > 6]
