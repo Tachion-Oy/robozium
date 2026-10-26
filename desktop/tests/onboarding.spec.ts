@@ -68,7 +68,10 @@ test("a dropped key file during setup unlocks the HUD without a restart", async 
 	const prompt = page.getByRole("dialog", { name: "Use key file" })
 	await prompt.getByLabel("Key file password").fill("right")
 	await prompt.getByRole("button", { name: "Use key file" }).click()
-	// Setup ends: back on Runs Overview, unlocked, with no restart asked for.
+	// Setup ends unlocked, with no restart asked for. Environment never changes the screen.
+	await expect(page.getByRole("status").filter({ hasText: "Keys loaded" })).toBeVisible()
+	await expect(page.getByRole("region", { name: "Environment settings" })).toBeVisible()
+	await view(page, "Runs Overview")
 	await expect(newProject(page)).toBeVisible()
 	await expect(startHere(page)).toHaveCount(0)
 	await expect(launchButton(page, "existing-project")).toBeEnabled()
@@ -97,6 +100,8 @@ test("the first save during setup loads the keys and unlocks the HUD", async ({ 
 	await prompt.getByLabel("Confirm password").fill("pw")
 	await prompt.getByRole("button", { name: "Encrypt and save" }).click()
 	await expect(page.getByRole("status").filter({ hasText: "API keys saved" })).toContainText("Robozium is ready.")
+	await expect(region).toBeVisible()
+	await view(page, "Runs Overview")
 	await expect(newProject(page)).toBeVisible()
 	await expect(launchButton(page, "existing-project")).toBeEnabled()
 })

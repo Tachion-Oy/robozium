@@ -99,11 +99,8 @@ export function App({ connectionNotice, client, connected, covered, backend }: A
 		onImported: result => environmentDraft.imported(result),
 		onRemoved: name => environmentDraft.removed(name),
 		onReset: () => environmentDraft.reset(),
-		// Keys that load without a restart end setup: refresh the status and return to Runs Overview.
-		onKeysLoaded: () => {
-			credentials.refresh()
-			if (setupRequired) navigate({ type: "screen_selected", screen: "projects" })
-		},
+		// Keys that load without a restart end setup. A write in Environment never changes the screen.
+		onKeysLoaded: credentials.refresh,
 	})
 	const environmentDraft = useEnvironmentDraft(client, screen === "environment", environmentMutations)
 	const hubFolder = useHubFolder()

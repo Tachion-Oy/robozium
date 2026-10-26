@@ -25,7 +25,7 @@ export function EnvironmentRestart({ required, importedPending, dirty, onRestart
 		<HudButton variant="warning" onClick={() => setConfirming(false)}>Keep editing</HudButton>
 	</div>
 	return <div className="flex items-center gap-3">
-		<HudButton disabled={restarting} onClick={() => { if (dirty) setConfirming(true); else void restart() }}>
+		<HudButton pending={restarting} onClick={() => { if (dirty) setConfirming(true); else void restart() }}>
 			{restarting ? "Restarting…" : "Restart app"}
 		</HudButton>
 		{(required || importedPending) && <p role="status">Restart to apply your changes.</p>}

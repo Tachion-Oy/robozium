@@ -190,8 +190,8 @@ clipboard; the renderer's typed bridge provides no read operation.
 Footer geometry joins the full size/theme/zoom and three-divider-position
 matrix. Checks assert centered navigation, contained controls, centered icons,
 readable labels, and no document overflow. Resizing across wrap boundaries
-preserves helper focus, DOM identity, and visible copy feedback, and keeps
-Cancel and Send on the primary row whenever the copy controls are. Two
+preserves helper focus, DOM identity, and visible copy feedback in the
+right-edge column. Two
 additional footer screenshots show populated drafts and enabled helpers in both
 themes. A Markdown check confirms sanitized rendering and that links neither
 navigate nor open windows.
@@ -235,8 +235,8 @@ They cover status rows and per-status actions, three-second polling only while
 the overview is visible and through failed reads, New Project's single creation
 followed by the capability save and run creation, a failed launch keeping the
 selector draft and reusing the created project, Tools restoring saved choices,
-Escape and Cancel, inline capability load errors with Retry, opening active runs
-and returning to the current one, cancel and delete settling through listings
+Escape and Cancel, inline capability load errors with Retry, rows that are not
+buttons, Open on active runs and the current one, stop and delete settling through listings
 with their refusal and failure alerts, and long names in both themes at
 normal/narrow sizes and 125% zoom. `backend-ipc.spec.ts` checks that the CSP adds
 only `img-src 'self'` and that the overview's display art loads.
@@ -249,9 +249,9 @@ in-flight reply abandoned when another run opens, and Send staying unavailable
 while the agent works. The native lifecycle run test answers both mock prompts
 through the HUD and returns to the overview at completion.
 
-`desktop/tests/run-controls.spec.ts` covers Interrupt being offered only while
+`desktop/tests/run-controls.spec.ts` covers Cancel (interrupt) being offered only while
 the agent works and staying pending until a prompt appears, interrupt refusal,
-rejection and timeout without repeating the write, HUD Cancel and the overview
+rejection and timeout without repeating the write, HUD Stop and the overview
 row sharing one cancellation before the cancelled run returns to the overview, a
 failed HUD cancellation, and a completed run returning while keeping the draft.
 `runs.spec.ts` checks that failed, cancelled and missing runs return to the

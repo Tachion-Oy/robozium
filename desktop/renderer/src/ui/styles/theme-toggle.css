@@ -1,19 +1,20 @@
 /* The theme toggle heads the left edge, shaped as the message log toggle on the
-   right (.agent-hud__edge-toggle); it shows only a glowing dot. */
+   right (.agent-hud__edge-toggle); it shows only a glowing dot with a crisp core. */
 .theme-toggle__indicator {
-  width: 0.5rem;
-  height: 0.5rem;
+  width: 0.75rem;
+  height: 0.75rem;
   border-radius: 50%;
-  background: color-mix(in oklab, var(--term-blue) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
+  background: color-mix(in oklab, var(--term-blue) clamp(0%, 45% * var(--tune-text, 1), 100%), white);
   box-shadow:
-    0 0 3px color-mix(in oklab, var(--term-blue) clamp(0%, 90% * var(--tune-glow, 1), 100%), white),
-    0 0 8px color-mix(in oklab, var(--term-blue) clamp(0%, 80% * var(--tune-glow, 1), 100%), transparent),
-    0 0 14px color-mix(in oklab, var(--term-blue) clamp(0%, 45% * var(--tune-glow, 1), 100%), transparent);
+    0 0 0 1px color-mix(in oklab, var(--term-blue) clamp(0%, 80% * var(--tune-edge, 1), 100%), white),
+    0 0 6px 1px color-mix(in oklab, var(--term-blue) clamp(0%, 85% * var(--tune-glow, 1), 100%), transparent),
+    0 0 16px 3px color-mix(in oklab, var(--term-blue) clamp(0%, 45% * var(--tune-glow, 1), 100%), transparent);
 }
 
+/* Light: the dark ink of the other buttons' glyphs, inside a soft blue halo. */
 :root[data-theme="light"] .theme-toggle__indicator {
-  background: color-mix(in oklab, var(--term-blue) 75%, var(--hud-control-ink));
+  background: var(--hud-control-ink);
   box-shadow:
-    0 0 3px color-mix(in oklab, var(--term-blue) clamp(0%, 80% * var(--tune-glow, 1), 100%), transparent),
-    0 0 7px color-mix(in oklab, var(--term-blue) clamp(0%, 55% * var(--tune-glow, 1), 100%), transparent);
+    0 0 0 2px color-mix(in oklab, var(--term-blue) clamp(0%, 35% * var(--tune-glow, 1), 100%), transparent),
+    0 0 8px 3px color-mix(in oklab, var(--term-blue) clamp(0%, 30% * var(--tune-glow, 1), 100%), transparent);
 }

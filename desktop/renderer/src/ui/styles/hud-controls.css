@@ -61,21 +61,17 @@
   pointer-events: none;
 }
 
+/* Each side stacks the one-step button above the jump, about as tall as the indicator. */
 .agent-hud__message-nav-side {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.04rem;
+  display: inline-grid;
+  align-content: center;
   pointer-events: none;
 }
 
 .agent-hud__layout-direction.agent-hud__message-direction {
-  /* Slightly overlapping margins compact the pair without shrinking its 36px
-     hit targets or making it shorter than the centre status indicator. */
-  flex: 0 0 36px;
   width: 36px;
-  height: 36px;
-  margin-inline: -2px;
-  align-self: center;
+  height: clamp(24px, calc(var(--hud-logo-size) / 2), 30px);
+  margin: 0;
   pointer-events: auto;
 }
 
@@ -459,15 +455,17 @@
   gap: 0;
 }
 
-/* The image picker: a square plus in Record's green, as tall as a capital
-   letter of Record (0.65em in Source Code Pro). Its margins keep the row's text
-   height, so the button matches its neighbours. */
+/* The image picker: a square button with a plus in Record's green, as tall as a
+   capital letter of Record (0.65em in Source Code Pro). Its margins keep the
+   row's text height, so the button matches its neighbours; its width equals
+   that height. */
 .agent-hud__image {
   --btn-accent: var(--term-green);
   color: color-mix(in oklab, var(--term-green) clamp(0%, 65% * var(--tune-text, 1), 100%), white);
   display: inline-grid;
   place-items: center;
-  padding-inline: var(--hud-control-pad-y);
+  padding-inline: 0;
+  inline-size: calc(1em + 2 * var(--hud-control-pad-y));
 }
 
 .agent-hud__image-icon {

@@ -93,7 +93,7 @@ export function HudControls({
 						onClick={cancel.onTrigger}
 						disabled={locked || cancel.isPending || cancel.available === false}
 						aria-busy={cancel.isPending || undefined}>
-						<span>Cancel</span>
+						<span>Stop</span>
 					</button>
 				) : null}
 				{interrupt ? (
@@ -103,7 +103,7 @@ export function HudControls({
 						onClick={interrupt.onTrigger}
 						disabled={locked || interrupt.isPending || interrupt.available === false || cancel?.isPending}
 						aria-busy={interrupt.isPending || undefined}>
-						<span>Interrupt</span>
+						<span>Cancel</span>
 					</button>
 				) : null}
 			</div>

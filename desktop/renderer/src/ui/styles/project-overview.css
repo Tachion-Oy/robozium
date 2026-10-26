@@ -215,11 +215,6 @@
 
 /* Light theme */
 
-:root[data-theme="light"] .agent-hud__project-row > button:hover,
-:root[data-theme="light"] .agent-hud__project-row > button:focus-visible {
-  background: color-mix(in oklab, var(--term-blue) clamp(0%, 9% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
-  filter: none;
-}
 :root[data-theme="light"] .agent-hud__project-view [class*="text-shadow"] {
   text-shadow: none;
 }
@@ -298,7 +293,7 @@
 :root[data-theme="light"] .agent-hud__project-row + .agent-hud__project-row {
   margin-top: 0.62rem;
 }
-:root[data-theme="light"] .agent-hud__project-row > button {
+:root[data-theme="light"] .agent-hud__project-summary {
   padding: 0.48rem 0.55rem;
 }
 :root[data-theme="light"] .agent-hud__row-actions {

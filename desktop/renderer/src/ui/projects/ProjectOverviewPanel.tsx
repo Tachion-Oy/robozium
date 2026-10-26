@@ -1,5 +1,6 @@
 // Copied from web/app/components/hud/projects/ProjectOverviewPanel.tsx at 5b06d82.
 // Adapted: import paths. The setup lock and Start Here follow web at af87bea (#121).
+// Rows are not buttons: Launch reads Open on a row with a run to open, Cancel is Stop.
 import { useState } from "react"
 import {
 	isActiveRunStatus,
@@ -17,7 +18,7 @@ type ProjectOverviewPanelProps = {
 	/** API keys are missing: every row is disabled and only Start Here works. */
 	locked?: boolean
 	onStartHere?: () => void
-	onProjectClick: (project: ProjectRow) => void
+	onOpenProject: (project: ProjectRow) => void
 	onSelectCapabilities: (project: ProjectRow) => void
 	onLaunchProject: (project: ProjectRow) => void
 	onNewProject: () => void
@@ -63,7 +64,7 @@ function statusDisplay(status: ProjectStatus, locked: boolean): {
 			}
 		case ProjectStatus.Cancelling:
 			return {
-				label: "CANCELLING",
+				label: "STOPPING",
 				className:
 					"text-term-red [text-shadow:var(--term-glow-red)] opacity-80",
 			}
@@ -86,12 +87,16 @@ function statusDisplay(status: ProjectStatus, locked: boolean): {
 
 function RowActions({
 	project,
+	canOpen,
+	onOpenProject,
 	onSelectCapabilities,
 	onLaunchProject,
 	onCancelRun,
 	onDeleteProject,
 }: {
 	project: ProjectRow
+	canOpen: boolean
+	onOpenProject: (project: ProjectRow) => void
 	onSelectCapabilities: (project: ProjectRow) => void
 	onLaunchProject: (project: ProjectRow) => void
 	onCancelRun: (project: ProjectRow) => void
@@ -108,6 +113,21 @@ function RowActions({
 	return (
 		<span
 			className="agent-hud__row-actions shrink-0 flex justify-end gap-2">
+			{canOpen ? (
+				<HudButton
+					aria-label={`Open ${project.slug}`}
+					onClick={() => onOpenProject(project)}
+					variant="success">
+					Open
+				</HudButton>
+			) : (
+				<HudButton
+					disabled={!canLaunch}
+					onClick={() => onLaunchProject(project)}
+					variant="success">
+					Launch
+				</HudButton>
+			)}
 			<HudButton
 				disabled={!canLaunch}
 				onClick={() => onSelectCapabilities(project)}
@@ -115,16 +135,10 @@ function RowActions({
 				Tools
 			</HudButton>
 			<HudButton
-				disabled={!canLaunch}
-				onClick={() => onLaunchProject(project)}
-				variant="success">
-				Launch
-			</HudButton>
-			<HudButton
 				disabled={!canCancel}
 				onClick={() => onCancelRun(project)}
 				variant="warning">
-				Cancel
+				Stop
 			</HudButton>
 			{confirmingDelete && canDelete ? (
 				<HudButton
@@ -152,7 +166,7 @@ function ProjectRowItem({
 	project,
 	isCurrent,
 	locked,
-	onProjectClick,
+	onOpenProject,
 	onSelectCapabilities,
 	onLaunchProject,
 	onCancelRun,
@@ -161,31 +175,20 @@ function ProjectRowItem({
 	project: ProjectRow
 	isCurrent: boolean
 	locked: boolean
-	onProjectClick: (project: ProjectRow) => void
+	onOpenProject: (project: ProjectRow) => void
 	onSelectCapabilities: (project: ProjectRow) => void
 	onLaunchProject: (project: ProjectRow) => void
 	onCancelRun: (project: ProjectRow) => void
 	onDeleteProject: (project: ProjectRow) => void
 }) {
 	const display = statusDisplay(project.status, locked)
-	const canOpen =
-		!locked &&
-		(isActiveRunStatus(project.status) ||
-			project.status === ProjectStatus.Dormant)
+	// The current run, or another project's live run, opens; a dormant project launches.
+	const canOpen = isCurrent || (isActiveRunStatus(project.status) && project.runId !== null)
 
 	return (
-		<li className="agent-hud__project-row flex items-center gap-2">
-			<button
-				type="button"
-				aria-label={`${isCurrent ? "Return to" : "Open"} ${project.slug}`}
-				aria-current={isCurrent ? "true" : undefined}
-				disabled={!canOpen}
-				onClick={() => onProjectClick(project)}
-				className={`flex-1 min-w-0 text-left ${HUD_TEXT} text-[1.3rem] leading-tight tracking-[0.03em] rounded py-1 pl-1 transition-colors ${
-					canOpen
-						? "cursor-pointer hover:bg-[rgba(64,200,255,0.10)] hover:brightness-125 focus-visible:bg-[rgba(64,200,255,0.10)] focus-visible:brightness-125"
-						: "cursor-not-allowed"
-				}`}>
+		<li className="agent-hud__project-row flex items-center gap-2" aria-current={isCurrent ? "true" : undefined}>
+			<div
+				className={`agent-hud__project-summary flex-1 min-w-0 ${HUD_TEXT} text-[1.3rem] leading-tight tracking-[0.03em] py-1 pl-1`}>
 				<span className={`grid ${COLS} gap-3 items-baseline`}>
 					<span className={display.className}>{display.label}</span>
 					<span
@@ -200,9 +203,11 @@ function ProjectRowItem({
 							: ""}
 					</span>
 				</span>
-			</button>
+			</div>
 			<RowActions
 				project={project}
+				canOpen={canOpen && !locked}
+				onOpenProject={onOpenProject}
 				onSelectCapabilities={onSelectCapabilities}
 				onLaunchProject={onLaunchProject}
 				onCancelRun={onCancelRun}
@@ -216,7 +221,7 @@ function ProjectsTable({
 	projects,
 	currentRunId,
 	locked,
-	onProjectClick,
+	onOpenProject,
 	onSelectCapabilities,
 	onLaunchProject,
 	onCancelRun,
@@ -225,7 +230,7 @@ function ProjectsTable({
 	projects: ProjectRow[]
 	currentRunId: string | null
 	locked: boolean
-	onProjectClick: (project: ProjectRow) => void
+	onOpenProject: (project: ProjectRow) => void
 	onSelectCapabilities: (project: ProjectRow) => void
 	onLaunchProject: (project: ProjectRow) => void
 	onCancelRun: (project: ProjectRow) => void
@@ -252,7 +257,7 @@ function ProjectsTable({
 						project={project}
 						isCurrent={isCurrentRunRow(project, currentRunId)}
 						locked={locked}
-						onProjectClick={onProjectClick}
+						onOpenProject={onOpenProject}
 						onSelectCapabilities={onSelectCapabilities}
 						onLaunchProject={onLaunchProject}
 						onCancelRun={onCancelRun}
@@ -270,7 +275,7 @@ export function ProjectOverviewPanel({
 	navigationPending,
 	locked = false,
 	onStartHere,
-	onProjectClick,
+	onOpenProject,
 	onSelectCapabilities,
 	onLaunchProject,
 	onNewProject,
@@ -288,7 +293,7 @@ export function ProjectOverviewPanel({
 						projects={projects}
 						currentRunId={currentRunId}
 						locked={locked}
-						onProjectClick={onProjectClick}
+						onOpenProject={onOpenProject}
 						onSelectCapabilities={onSelectCapabilities}
 						onLaunchProject={onLaunchProject}
 						onCancelRun={onCancelRun}

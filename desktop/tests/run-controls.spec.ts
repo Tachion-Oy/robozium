@@ -17,7 +17,7 @@ async function expectBusy(button: Locator, label: string) {
 }
 const row = (page: Page, slug: string) => page.locator(".agent-hud__project-row", { hasText: slug })
 
-test("Interrupt is offered only while the agent works and stays pending until it asks", async ({ desktop: { page }, backend }) => {
+test("Cancel (interrupt) is offered only while the agent works and stays pending until it asks", async ({ desktop: { page }, backend }) => {
 	prepareRun(backend)
 	let current = snapshot()
 	backend.handlers.set("GET /run/run-one", response => json(response, current))
@@ -27,13 +27,13 @@ test("Interrupt is offered only while the agent works and stays pending until it
 	await start(page, backend)
 	await expect(interruptButton(page)).toBeEnabled()
 	await interruptButton(page).click()
-	await expectBusy(interruptButton(page), "Interrupt")
+	await expectBusy(interruptButton(page), "Cancel")
 	await expect(interruptButton(page)).toBeDisabled()
 	await expect(send(page)).toBeDisabled()
 	json(pending!, { ok: true })
 	// An accepted interruption stays pending while snapshots still show the agent working.
 	await page.clock.fastForward(2001)
-	await expectBusy(interruptButton(page), "Interrupt")
+	await expectBusy(interruptButton(page), "Cancel")
 	current = snapshot({ status: "awaiting_user_input", current_prompt_id: "p1", current_prompt: "Interrupted. What next?" })
 	await page.clock.fastForward(2001)
 	await expect(interruptButton(page)).not.toHaveAttribute("aria-busy")
@@ -43,7 +43,7 @@ test("Interrupt is offered only while the agent works and stays pending until it
 	expect(posts(backend, "/interrupt")).toHaveLength(1)
 })
 
-test("an accepted reply offers Interrupt at once, though snapshots still show the answered prompt", async ({ desktop: { page }, backend }) => {
+test("an accepted reply offers Cancel (interrupt) at once, though snapshots still show the answered prompt", async ({ desktop: { page }, backend }) => {
 	prepareRun(backend)
 	let current = snapshot({ status: "awaiting_user_input", current_prompt_id: "p1", current_prompt: "Continue?" })
 	backend.handlers.set("GET /run/run-one", response => json(response, current))
@@ -69,8 +69,8 @@ test("footer actions sit all beside the arrows or all below them, and a press ne
 	backend.handlers.set("POST /run/run-one/interrupt", () => {})
 	await start(page, backend)
 	await expect(interruptButton(page)).toBeEnabled()
-	// The actions join the first row near 860 px at 125%; sample where their labels differ.
-	const widths = Array.from({ length: 21 }, (_, step) => 760 + step * 10)
+	// The actions join the first row near 750 px at 125%; sample where their labels differ.
+	const widths = Array.from({ length: 21 }, (_, step) => 660 + step * 10)
 	const placements = async () => {
 		const result: Record<number, string[]> = {}
 		for (const width of widths) {
@@ -105,7 +105,7 @@ test("footer actions sit all beside the arrows or all below them, and a press ne
 	for (const actions of Object.values(resting)) expect(new Set(actions.map(action => action.split(":")[1])).size).toBe(1)
 	expect(new Set(Object.values(resting).map(actions => actions[0].split(":")[1]))).toEqual(new Set(["primary", "overflow"]))
 	await interruptButton(page).click()
-	await expectBusy(interruptButton(page), "Interrupt")
+	await expectBusy(interruptButton(page), "Cancel")
 	expect(await placements()).toEqual(resting)
 })
 
@@ -120,7 +120,7 @@ for (const failure of ["refusal", "rejection", "timeout"] as const) {
 		await start(page, backend)
 		await interruptButton(page).click()
 		if (failure === "timeout") await page.clock.fastForward(10_001)
-		await expect(alert(page, "Interrupt failed")).toContainText("Could not interrupt this run.")
+		await expect(alert(page, "Cancel failed")).toContainText("Could not cancel the agent's current work.")
 		await expect(interruptButton(page)).toBeEnabled()
 		await page.clock.fastForward(30_000)
 		expect(posts(backend, "/interrupt")).toHaveLength(1)
@@ -141,12 +141,12 @@ test("HUD Cancel and the row share one cancellation, then the cancelled run retu
 	await expect(runStatus(page)).toContainText("Awaiting input")
 	await replyBox(page).fill("Unsent draft")
 	await cancelButton(page).click()
-	await expectBusy(cancelButton(page), "Cancel")
+	await expectBusy(cancelButton(page), "Stop")
 	await expect(send(page)).toBeDisabled()
 	await view(page, "Runs Overview")
-	await expect(row(page, "existing-project")).toContainText("CANCELLING")
-	await expect(row(page, "existing-project").getByRole("button", { name: "Cancel", exact: true })).toBeDisabled()
-	await page.getByRole("button", { name: "Return to existing-project", exact: true }).click()
+	await expect(row(page, "existing-project")).toContainText("STOPPING")
+	await expect(row(page, "existing-project").getByRole("button", { name: "Stop", exact: true })).toBeDisabled()
+	await page.getByRole("button", { name: "Open existing-project", exact: true }).click()
 	json(pending!, { ok: true })
 	current = snapshot({ status: "cancelled" })
 	rows = [project("existing-project")]
@@ -161,8 +161,8 @@ test("a failed HUD cancellation is reported and Cancel is offered again", async 
 	backend.handlers.set("POST /projects/existing-project/cancel", response => json(response, { ok: false }))
 	await start(page, backend)
 	await cancelButton(page).click()
-	await expect(alert(page, "Cancellation failed").locator("p")).toHaveText(["Cancellation failed", 'Could not cancel "existing-project".', "The project is still active. Try again."])
-	await expect(cancelButton(page)).toHaveText("Cancel")
+	await expect(alert(page, "Stop failed").locator("p")).toHaveText(["Stop failed", 'Could not stop "existing-project".', "The project is still active. Try again."])
+	await expect(cancelButton(page)).toHaveText("Stop")
 	await expect(cancelButton(page)).toBeEnabled()
 	await expect(runStatus(page)).toContainText("Running")
 	expect(posts(backend, "/cancel")).toHaveLength(1)

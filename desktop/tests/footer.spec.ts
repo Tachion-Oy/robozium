@@ -20,12 +20,20 @@ test("fixture history navigates without wrapping and retains selection with draf
 	const next = page.getByRole("button", { name: "Next agent message", exact: true })
 	const latest = page.getByRole("button", { name: "Jump to latest agent message", exact: true })
 	await expect(message).toContainText("Mock run ready.")
+	// Each side stacks its one-step button above its jump; the image plus is square.
+	const [firstBox, previousBox, nextBox, latestBox, plusBox] = await Promise.all(
+		[first, previous, next, latest, page.getByRole("button", { name: "Add images" })].map(async button => (await button.boundingBox())!))
+	for (const [step, jump] of [[previousBox, firstBox], [nextBox, latestBox]]) {
+		expect(step.y + step.height).toBeLessThanOrEqual(jump.y + 0.5)
+		expect(Math.abs(step.x - jump.x)).toBeLessThan(0.5)
+	}
+	expect(Math.abs(plusBox.width - plusBox.height)).toBeLessThan(0.5)
 	await expect(next).toBeDisabled()
 	await expect(latest).toBeDisabled()
 	await expect(page.locator(".agent-hud__logo--actions")).toHaveAttribute("data-agent-state", "awaiting-input")
 	// The run awaits a reply: it can be cancelled or dictated to, and Send waits for a draft.
-	for (const name of ["Cancel", "Record"]) await expect(footer.getByRole("button", { name, exact: true })).toBeEnabled()
-	for (const name of ["Interrupt", "Send"]) await expect(footer.getByRole("button", { name, exact: true })).toBeDisabled()
+	for (const name of ["Stop", "Record"]) await expect(footer.getByRole("button", { name, exact: true })).toBeEnabled()
+	for (const name of ["Cancel", "Send"]) await expect(footer.getByRole("button", { name, exact: true })).toBeDisabled()
 	await previous.press("Enter")
 	await expect(message).toContainText("Planning the next steps.")
 	await previous.press("Space")
@@ -50,7 +58,7 @@ test("fixture history navigates without wrapping and retains selection with draf
 		await chooseView(page, name)
 		await expect(footer).toHaveCount(0)
 	}
-	await page.getByRole("button", { name: "Return to preview", exact: true }).click()
+	await page.getByRole("button", { name: "Open preview", exact: true }).click()
 	await expect(message).toContainText("Planning the next steps.")
 	await expect(reply).toHaveValue(" retained\n draft ")
 	await expect(page.getByRole("group", { name: "Panel divider: equal" })).toBeVisible()
@@ -201,9 +209,13 @@ for (const theme of ["dark", "light"]) {
 		await page.clock.pauseAt(await page.evaluate(() => Date.now()) + 50)
 		await copy.evaluate(element => Reflect.set(window, "originalCopy", element))
 		const placements = new Set<string>()
-		for (const width of [1260, 900, 760, 640, 760, 900, 1260]) {
+		// At 100% the footer keeps one row down to the narrowest window; 125% reaches the wrap.
+		const zoom = 1.25
+		const setZoom = (factor: number) => app.evaluate(({ BrowserWindow }, factor) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(factor), factor)
+		await setZoom(zoom)
+		for (const width of [1260, 900, 700, 640, 700, 900, 1260]) {
 			await app.evaluate(({ BrowserWindow }, width) => BrowserWindow.getAllWindows()[0].setContentSize(width, 780), width)
-			await expect.poll(() => page.evaluate(() => innerWidth)).toBe(width)
+			await expect.poll(() => page.evaluate(() => innerWidth)).toBe(width / zoom)
 			await expectFooterGeometry(page, true)
 			await expect(copy).toBeFocused()
 			await expect(copy).toHaveAttribute("data-copied", "true")
@@ -224,6 +236,8 @@ for (const theme of ["dark", "light"]) {
 			expect(edges).toBe(true)
 		}
 		expect([...placements].sort()).toEqual(["overflow", "primary"])
+		await setZoom(1)
+		await expect.poll(() => page.evaluate(() => innerWidth)).toBe(1260)
 		await page.clock.resume()
 		await copy.blur()
 		const full = await captureNative(app, page, 1260, 780)

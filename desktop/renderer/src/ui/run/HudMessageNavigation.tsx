@@ -1,5 +1,6 @@
 // Copied from web/app/components/hud/run/HudMessageNavigation.tsx at 86ef5c1.
-// Adapted: types come from ./run-view, and the Robozium mark replaces the "A".
+// Adapted: types come from ./run-view, the Robozium mark replaces the "A", and each
+// side stacks its one-step button above its jump.
 import type {
 	AgentActivityState,
 	HudMessageNavigationDirection,
@@ -27,6 +28,14 @@ export function HudMessageNavigation({
 				<button
 					type="button"
 					className="agent-hud__layout-direction agent-hud__message-direction"
+					onClick={() => onNavigate("previous")}
+					disabled={!enabled.previous}
+					aria-label="Previous agent message">
+					<MessageWedge direction="previous" />
+				</button>
+				<button
+					type="button"
+					className="agent-hud__layout-direction agent-hud__message-direction"
 					onClick={() => onNavigate("first")}
 					disabled={!enabled.first}
 					aria-label="Jump to first agent message">
@@ -34,14 +43,6 @@ export function HudMessageNavigation({
 						direction="previous"
 						jump
 					/>
-				</button>
-				<button
-					type="button"
-					className="agent-hud__layout-direction agent-hud__message-direction"
-					onClick={() => onNavigate("previous")}
-					disabled={!enabled.previous}
-					aria-label="Previous agent message">
-					<MessageWedge direction="previous" />
 				</button>
 			</div>
 			<span
@@ -59,17 +60,17 @@ export function HudMessageNavigation({
 					aria-label="Next agent message">
 					<MessageWedge direction="next" />
 				</button>
-					<button
-						type="button"
-						className="agent-hud__layout-direction agent-hud__message-direction"
-						onClick={() => onNavigate("latest")}
-						disabled={!enabled.latest}
-						aria-label="Jump to latest agent message">
-						<MessageWedge
-							direction="next"
-							jump
-						/>
-					</button>
+				<button
+					type="button"
+					className="agent-hud__layout-direction agent-hud__message-direction"
+					onClick={() => onNavigate("latest")}
+					disabled={!enabled.latest}
+					aria-label="Jump to latest agent message">
+					<MessageWedge
+						direction="next"
+						jump
+					/>
+				</button>
 			</div>
 		</div>
 	)

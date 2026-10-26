@@ -51,7 +51,7 @@ export function EnvironmentFolderImport({ disabled, onImport }: {
 			<HudButton disabled={disabled || pending} onClick={() => picker.current?.click()}>
 				Browse folder
 			</HudButton>
-			<HudButton type="submit" disabled={disabled || pending || files.length === 0}>
+			<HudButton type="submit" pending={pending} disabled={disabled || files.length === 0}>
 				{pending ? "Importing…" : "Import"}
 			</HudButton>
 		</form>

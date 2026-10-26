@@ -55,6 +55,8 @@ test("a pending unlock ignores Escape, and Escape cancels afterwards", async ({ 
 	await password(page).fill("secret")
 	await password(page).press("Enter")
 	await expect(dialog(page).getByRole("button", { name: "Unlocking…" })).toBeDisabled()
+	// The waiting button pulses until the outcome arrives.
+	await expect(dialog(page).getByRole("button", { name: "Unlocking…" })).toHaveAttribute("aria-busy", "true")
 	await page.keyboard.press("Escape")
 	await expect(dialog(page)).toBeVisible()
 	json(pending!, { detail: "Could not unlock secrets" }, 400)
