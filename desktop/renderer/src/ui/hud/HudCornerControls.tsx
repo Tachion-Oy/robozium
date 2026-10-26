@@ -1,4 +1,7 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/HudCornerControls.tsx at 076b2c9.
+// Adapted: the theme toggle heads the column, above the panel divider buttons.
+import { ThemeToggle } from "../theme/ThemeToggle"
+
 export type LayoutMode = "equal" | "top" | "bottom"
 export type LayoutDirection = "up" | "down"
 
@@ -37,6 +40,7 @@ export function HudCornerControls({
 		<div
 			className="agent-hud__corner-controls"
 			data-disabled={disabled || undefined}>
+			<ThemeToggle />
 			{showMinimize && <button
 				type="button"
 				className="agent-hud__minimize agent-hud__corner-control"

@@ -16,37 +16,33 @@ html[data-desktop] .agent-hud__mini { display: none; }
 .desktop-terminal { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
 .desktop-terminal .app-nav__brand { cursor: default; }
 
-/* Native client edges must not clip the project badge that straddles the web
-   HUD's outer border. Reserve a top band and keep the entire badge inside it. */
-html[data-desktop] .agent-hud__box:has(.agent-hud__event-edge) { --hud-pad-top: 3.25rem; }
-html[data-desktop][data-theme] .agent-hud__event-edge {
-  top: 0.75rem; left: var(--hud-pad-x); transform: none;
-  max-width: calc(100% - 2 * var(--hud-pad-x));
-}
-html[data-desktop][data-theme="light"] .agent-hud__event-edge {
-  top: var(--hud-corner-control-left); display: flex;
-}
-html[data-desktop][data-theme="light"] .agent-hud__event-label { display: flex; }
-
-/* Each top control shares the available row. Its full label remains available
-   through its accessible name and tooltip when the visible text is shortened. */
+/* One header row: the project badge where the row starts, the model and view
+   selectors together on the right. Each shares the available row; a full label
+   remains available through its accessible name and tooltip when shortened. */
 html[data-desktop] .agent-hud__header {
   flex-wrap: nowrap; align-items: center; gap: clamp(0.35rem, 1.5vw, 1.4rem);
 }
-html[data-desktop] .agent-hud__header-actions { display: contents; }
-html[data-desktop][data-theme] .agent-hud__header .agent-hud__model-selector,
-html[data-desktop][data-theme] .agent-hud__header .theme-toggle {
+html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-edge {
+  position: static; transform: none; display: flex; flex: 0 1 auto; min-width: 0; max-width: none;
+}
+html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-label { display: flex; min-width: 0; }
+/* A flex box takes the label's line height: as an inline block it added descender space below. */
+html[data-desktop][data-theme] .agent-hud__header .term-msg-badge { display: flex; align-items: center; min-width: 0; }
+html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-text {
+  display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+html[data-desktop] .agent-hud__header-actions {
+  flex: 0 1 auto; min-width: 0; margin-inline-start: auto; align-items: center; gap: inherit;
+}
+html[data-desktop][data-theme] .agent-hud__header .agent-hud__model-selector {
   flex: 0 1 auto; width: max-content; min-width: 0; max-width: 100%; margin: 0;
 }
-html[data-desktop][data-theme] .agent-hud__header > .agent-hud__model-selector { max-width: 40%; }
 html[data-desktop] .agent-hud__header .agent-hud__model-trigger {
   min-width: 0; width: 100%; height: 100%;
 }
-html[data-desktop] .agent-hud__header .agent-hud__model-trigger > span,
-html[data-desktop] .agent-hud__header .theme-toggle__label {
+html[data-desktop] .agent-hud__header .agent-hud__model-trigger > span {
   min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-html[data-desktop] .agent-hud__header .theme-toggle { justify-content: flex-start; }
 
 /* The first row reserves the geometric centre for all four arrows and the
    logo. When every action fits its side lanes they stay there; otherwise all
@@ -69,7 +65,6 @@ html[data-desktop] .agent-hud__actions [data-hud-action-placement="primary"] {
   position: absolute; left: var(--hud-action-left);
   top: var(--hud-action-top, 0px);
 }
-html[data-desktop] .agent-hud__copy-controls { height: var(--hud-copy-action-height, 2.8rem); align-self: flex-start; }
 html[data-desktop] .agent-hud__actions[data-hud-actions="below"] {
   flex-wrap: nowrap; padding-top: calc(var(--hud-primary-action-height, 36px) + 0.75rem);
 }
@@ -80,10 +75,8 @@ html[data-desktop] .agent-hud__actions [data-hud-action-placement="overflow"] { 
 /* Record keeps its fixed width and the image plus has no label to shorten; the other labels shrink. */
 html[data-desktop] .agent-hud__actions button[data-hud-action-placement="overflow"]:not(.agent-hud__dictate, .agent-hud__image) { min-width: 0; }
 html[data-desktop] .agent-hud__actions .agent-hud__image[data-hud-action-placement="overflow"] { flex-shrink: 0; }
-/* The copy icons never shrink; they start the right-hand group, as beside the navigation. */
-html[data-desktop] .agent-hud__actions .agent-hud__copy-controls[data-hud-action-placement="overflow"] {
-  flex-shrink: 0; margin-inline-start: auto;
-}
+/* The image plus starts the right-hand group, as beside the navigation. */
+html[data-desktop] .agent-hud__actions .agent-hud__image[data-hud-action-placement="overflow"] { margin-inline-start: auto; }
 /* Labels shorten with an ellipsis; Record's level meter keeps its own layout. */
 html[data-desktop] .agent-hud__actions button > span:not(.agent-hud__dictate-meter) {
   display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -208,10 +201,41 @@ html[data-theme="light"] .desktop-workspace .desktop-workspace__panes[data-log-o
     clip-path: inset(0 0 calc(-1 * var(--desktop-divider-shadow-reach)) 0);
   }
 }
-html[data-desktop] .desktop-message-log-toggle {
-  position: absolute; right: var(--hud-corner-control-left);
-  top: calc(50% - 1.5 * var(--hud-corner-control-size) - var(--hud-corner-control-gap));
-  z-index: 21;
+/* The right edge mirrors the left one: the message log toggle, taller than wide,
+   with the clear and copy buttons beneath it. Buttons that cannot act are disabled,
+   never hidden, as the panel divider buttons are. */
+html[data-desktop] .desktop-edge-controls {
+  position: absolute; right: var(--hud-corner-control-left); top: 50%; transform: translateY(-50%);
+  z-index: 21; display: flex; flex-direction: column; align-items: center; gap: var(--hud-corner-control-gap);
+}
+html[data-desktop] .desktop-edge-controls__copy { display: contents; }
+/* Both edges are headed by a toggle taller than wide: the message log on the right,
+   the theme on the left. */
+html[data-desktop][data-theme] .agent-hud__edge-toggle {
+  height: calc(1.6 * var(--hud-corner-control-size)); min-height: calc(1.6 * var(--hud-corner-control-size));
+}
+html[data-desktop][data-theme="dark"] .agent-hud__edge-toggle {
+  color: color-mix(in oklab, var(--term-blue) clamp(0%, 76% * var(--tune-text, 1), 100%), white);
+}
+.desktop-message-log-toggle__icon {
+  display: block; width: 0.95rem; height: 0.95rem; overflow: visible;
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: square;
+}
+/* While the log is open the toggle stays lit, as on hover. */
+html[data-desktop] .desktop-message-log-toggle[aria-expanded="true"] {
+  --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
+  --btn-fill-strength: 24%;
+}
+html[data-desktop][data-theme="light"] .desktop-message-log-toggle[aria-expanded="true"] {
+  --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 72% * var(--tune-hover-edge, 1), 100%), var(--hud-control-ink));
+  --btn-fill: color-mix(in oklab, var(--term-blue) clamp(0%, 24% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+}
+html[data-desktop] .desktop-edge-controls .agent-hud__copy-controls {
+  flex-direction: column; align-items: center; gap: var(--hud-corner-control-gap);
+}
+html[data-desktop][data-theme] .desktop-edge-controls .agent-hud__copy-text {
+  width: var(--hud-corner-control-size); height: var(--hud-corner-control-size);
+  min-width: var(--hud-corner-control-size); min-height: var(--hud-corner-control-size);
 }
 .desktop-message-log {
   position: relative; min-width: 0; min-height: 0; overflow: hidden;

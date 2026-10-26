@@ -165,10 +165,10 @@ export function App({ connectionNotice, client, connected, covered, backend }: A
 
 	return (
 		<>
-			<AgentHud presentation={presentation} projectSlug={session?.run.project ?? null}
+			<AgentHud presentation={presentation}
 				layoutMode={layout} onLayoutModeChange={setLayout} messageLog={messageLog}
 				logPane={() => <MessageLog active={presentation.context === "active-run"} events={session?.run.events ?? noEvents} />}
-				header={<HudHeader presentation={presentation} onSelectScreen={selectScreen}
+				header={<HudHeader presentation={presentation} projectSlug={session?.run.project ?? null} onSelectScreen={selectScreen}
 					modelSelector={<ModelSelector models={models} disabled={presentation.locked || !connected || projectMutations.launching} />} />}>
 				{noticesRow}
 				{renderContent()}

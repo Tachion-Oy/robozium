@@ -1,8 +1,9 @@
 // Copied from robozium-electron/desktop/web/hooks/useDesktopActionLayout.ts at 076b2c9.
-// Adapted: actions sit all beside the navigation or all on one row below it.
+// Adapted: actions sit all beside the navigation or all on one row below it. The copy
+// controls are not footer actions: they sit on the right edge (AgentHud).
 import { useLayoutEffect, useRef } from "react"
 
-const ACTION_SELECTOR = ".agent-hud__cancel, .agent-hud__interrupt, .agent-hud__copy-controls, .agent-hud__image, .agent-hud__dictate, .agent-hud__send"
+const ACTION_SELECTOR = ".agent-hud__cancel, .agent-hud__interrupt, .agent-hud__image, .agent-hud__dictate, .agent-hud__send"
 
 /** An action's untruncated width: labels clipped in the row below still count in full. */
 function naturalWidth(action: HTMLElement, scale: number) {
@@ -37,15 +38,13 @@ export function useDesktopActionLayout() {
 			const scale = root.getBoundingClientRect().width / width || 1
 			const available = Math.max(0, (width - navigation.getBoundingClientRect().width / scale) / 2 - gap)
 			const left = actions.filter(action => action.matches(".agent-hud__cancel, .agent-hud__interrupt"))
-			const right = actions.filter(action => action.matches(".agent-hud__copy-controls, .agent-hud__image, .agent-hud__dictate, .agent-hud__send"))
+			const right = actions.filter(action => action.matches(".agent-hud__image, .agent-hud__dictate, .agent-hud__send"))
 
 			const beside = laneWidth(left, gap, scale) <= available && laneWidth(right, gap, scale) <= available
 			root.dataset.hudActions = beside ? "beside" : "below"
 			const primary = new Set(beside ? actions : [])
-			const buttonHeight = Math.max(0, ...actions.filter(action => !action.matches(".agent-hud__copy-controls"))
-				.map(action => action.getBoundingClientRect().height / scale))
+			const buttonHeight = Math.max(0, ...actions.map(action => action.getBoundingClientRect().height / scale))
 			const height = Math.max(navigation.getBoundingClientRect().height / scale, buttonHeight)
-			root.style.setProperty("--hud-copy-action-height", `${buttonHeight}px`)
 			root.style.setProperty("--hud-primary-action-height", `${height}px`)
 			for (const action of actions) {
 				action.dataset.hudActionPlacement = primary.has(action) ? "primary" : "overflow"

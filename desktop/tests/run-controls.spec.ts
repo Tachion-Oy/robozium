@@ -69,8 +69,8 @@ test("footer actions sit all beside the arrows or all below them, and a press ne
 	backend.handlers.set("POST /run/run-one/interrupt", () => {})
 	await start(page, backend)
 	await expect(interruptButton(page)).toBeEnabled()
-	// The actions join the first row near 1180 px at 125%; sample where their labels differ.
-	const widths = Array.from({ length: 21 }, (_, step) => 1080 + step * 10)
+	// The actions join the first row near 860 px at 125%; sample where their labels differ.
+	const widths = Array.from({ length: 21 }, (_, step) => 760 + step * 10)
 	const placements = async () => {
 		const result: Record<number, string[]> = {}
 		for (const width of widths) {
@@ -83,8 +83,9 @@ test("footer actions sit all beside the arrows or all below them, and a press ne
 		}
 		return result
 	}
-	// Too narrow even for one row below: labels truncate instead of wrapping.
-	// The window stops at 640 px, so a higher zoom stands in for a narrower window.
+	// Below the arrows the actions keep one row; when even that is too narrow, labels
+	// truncate instead of wrapping. The window stops at 640 px, so a higher zoom stands
+	// in for a narrower window: at 160% labels truncate, at 125% they fit.
 	// Each step keeps whole CSS pixels at both the previous and the new zoom.
 	for (const zoom of [1.6, 1.25]) {
 		await setNativeViewport(app, page, 640, 480, zoom)
@@ -98,7 +99,7 @@ test("footer actions sit all beside the arrows or all below them, and a press ne
 				truncated: labels.some(label => label.scrollWidth > label.clientWidth && getComputedStyle(label).textOverflow === "ellipsis"),
 			}
 		})
-		expect(row).toEqual({ below: true, oneRow: true, truncated: true })
+		expect(row).toEqual({ below: true, oneRow: true, truncated: zoom === 1.6 })
 	}
 	const resting = await placements()
 	for (const actions of Object.values(resting)) expect(new Set(actions.map(action => action.split(":")[1])).size).toBe(1)

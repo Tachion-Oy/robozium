@@ -16,7 +16,8 @@ export async function expectFooterGeometry(page: Page, advanceClock = false) {
 				const a = button.getBoundingClientRect(), b = icon.getBoundingClientRect()
 				return [Math.abs(a.x + a.width / 2 - b.x - b.width / 2) < 1
 					&& Math.abs(a.y + a.height / 2 - b.y - b.height / 2) < 1
-					&& b.width > 10 && b.height > 10]
+					// Not collapsed: the image plus is as small as a capital letter (about 9 px at 1x).
+					&& b.width > 6 && b.height > 6]
 			})
 			return {
 				centered: Math.abs(navigation.x + navigation.width / 2 - innerWidth / 2) < 1,

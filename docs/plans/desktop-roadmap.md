@@ -240,14 +240,23 @@ for the gain.
 Step 27 checklist (append further small findings here):
 
 - [ ] **Light theme:** tune the colours and make them more pronounced.
-- [ ] **Project title in Runs view:** the label is misplaced there; the Runs
-  overview should not show a run's project title at all.
+- [x] **Project title in Runs view:** the project badge shows on Current Run
+  only.
 - [ ] **Stable selectors:** options in every selector (view, model) never
   disappear. Unavailable options stay listed with a dimmed, disabled style,
   so an open dropdown keeps its size when the backend changes, for example
   when a run ends and Current Run can no longer be reopened.
-- [ ] **Footer layout:** move the three small buttons to the right-hand side
-  and add the message-log button slot (before 13b).
+- [x] **Edges, header and footer:**
+  - **Right edge:** the message-log toggle (taller than wide, three bars) heads
+    a column with the clear and copy buttons beneath it.
+  - **Left edge:** the theme toggle (only its dot) heads a column with the
+    panel divider buttons.
+  - **Disabled, never hidden:** edge buttons that cannot act are disabled,
+    not hidden.
+  - **Header:** one row, with the project badge where the row starts and the
+    model and view selectors together on the right.
+  - **Footer:** without the copy buttons it stays on one row much longer.
+  - **Light Record:** it lost its dot and narrowed to 6rem.
 - [x] **App identity:** the Robozium mark
   (`renderer/public/branding/robozium-mark.svg`) replaces the Anurati "A" in the
   HUD and loader indicators, and `scripts/build-icon.ts` builds the `.deb`'s

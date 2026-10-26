@@ -4,10 +4,10 @@ import { test, captureNative, chooseModel, chooseView, documentUrl, preload, pre
 import { expectFooterGeometry } from "./footer-geometry"
 
 // The reference renames a copy button to "... copied" while it confirms, so
-// these locate the buttons by position: user reply first, agent output second.
+// these locate the buttons by position: agent output (top panel) first, user reply second.
 const copyButtons = (page: Page) => page.locator(".agent-hud__copy-text:not(.agent-hud__clear-reply)")
-const copyReplyButton = (page: Page) => copyButtons(page).nth(0)
-const copyAgentButton = (page: Page) => copyButtons(page).nth(1)
+const copyAgentButton = (page: Page) => copyButtons(page).nth(0)
+const copyReplyButton = (page: Page) => copyButtons(page).nth(1)
 const agentText = (page: Page) => page.locator(".agent-hud__replyBox--agent .agent-hud__replyBox-scroll")
 
 test("fixture history navigates without wrapping and retains selection with draft and divider", async ({ desktop: { page } }) => {
@@ -208,10 +208,17 @@ for (const theme of ["dark", "light"]) {
 			await expect(copy).toBeFocused()
 			await expect(copy).toHaveAttribute("data-copied", "true")
 			expect(await copy.evaluate(element => element === Reflect.get(window, "originalCopy"))).toBe(true)
-			placements.add(await page.locator(".agent-hud__copy-controls").getAttribute("data-hud-action-placement") ?? "")
+			placements.add(await page.locator(".agent-hud__image").getAttribute("data-hud-action-placement") ?? "")
+			// The copy buttons stay in the right edge's column, beneath the message log toggle.
+			expect(await page.locator(".desktop-edge-controls").evaluate(column => {
+				const toggle = column.querySelector(".desktop-message-log-toggle")!.getBoundingClientRect()
+				const copies = [...column.querySelectorAll(".agent-hud__copy-controls button")].map(button => button.getBoundingClientRect())
+				return copies.length === 3 && copies.every((rect, index) => rect.top >= (index ? copies[index - 1] : toggle).bottom
+					&& Math.abs(rect.x + rect.width / 2 - toggle.x - toggle.width / 2) < 1)
+			})).toBe(true)
 			const edges = await page.locator(".agent-hud__actions").evaluate(root => {
-				const helpers = root.querySelector<HTMLElement>(".agent-hud__copy-controls")!
-				return helpers.dataset.hudActionPlacement !== "primary" ||
+				const image = root.querySelector<HTMLElement>(".agent-hud__image")!
+				return image.dataset.hudActionPlacement !== "primary" ||
 					[".agent-hud__cancel", ".agent-hud__send"].every(selector => root.querySelector<HTMLElement>(selector)!.dataset.hudActionPlacement === "primary")
 			})
 			expect(edges).toBe(true)
