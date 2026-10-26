@@ -6,7 +6,7 @@ import path from "node:path"
 import { BackendController } from "../src/backend-controller"
 import { loadOrCreateBackendProfile } from "../src/backend-profile"
 import { resolveBackendLayout } from "../src/backend-layout"
-import { findDocker, runCommand, type CommandOptions } from "../src/docker-command"
+import { findExecutable, runCommand, type CommandOptions } from "../src/docker-command"
 
 async function checkedCommand(docker: string, args: string[], options: CommandOptions) {
 	let output = ""
@@ -27,7 +27,7 @@ for (const phase of ["ready", "retry", "cancel"] as const) {
 		const originals = Object.fromEntries(environment.map(name => [name, process.env[name]]))
 		for (const name of environment) delete process.env[name]
 		process.env.DOCKER_CONFIG = config
-		const docker = findDocker()!
+		const docker = findExecutable("docker")!
 		const cli = (args: string[]) => checkedCommand(docker, args, { cwd: directory, env: { ...process.env }, signal: AbortSignal.timeout(10_000) })
 		const daemons = ["context-a", "context-b"].map(name => {
 			const state = { running: false, exists: false, requests: [] as string[] }

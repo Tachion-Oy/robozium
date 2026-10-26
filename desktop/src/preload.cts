@@ -9,6 +9,7 @@ const bridge: DesktopBridge = {
 	setTheme: theme => ipcRenderer.invoke("desktop:set-theme", theme),
 	getBackendConnection: () => ipcRenderer.invoke("desktop:backend-connection"),
 	getBackendStatus: () => ipcRenderer.invoke("desktop:backend-status"),
+	getHostServices: () => ipcRenderer.invoke("desktop:host-services"),
 	retryBackend: () => ipcRenderer.invoke("desktop:retry-backend"),
 	restartBackend: () => ipcRenderer.invoke("desktop:restart-backend"),
 	recreateBackend: () => ipcRenderer.invoke("desktop:recreate-backend"),

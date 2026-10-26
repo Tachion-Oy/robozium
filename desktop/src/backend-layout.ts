@@ -11,6 +11,21 @@ export function isInside(child: string, parent: string): boolean {
 	return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
 }
 
+/** A program the desktop runs on the host beside the backend container, resolved for one runtime and hub. */
+export interface HostServiceLayout {
+	name: string
+	platforms: string[]
+	modes: string[]
+	/** How the backend reaches the service; `address` is a host path for `unix-socket`. */
+	endpoint: { type: string; address: string }
+	log: string
+	/** Records the running process, so a launch after a crash can stop what the crash left. */
+	pidFile: string
+	/** Absolute path inside the host environment. */
+	executable: string
+	arguments: string[]
+}
+
 /** Resolve the same bind mounts that Compose reads, without touching runtime data.
  * Without a hub folder, the runtime's own throwaway hub is used.
  */
@@ -42,10 +57,43 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 		return mount.source
 	}
 
+	/** The host path behind a container path, through the deepest mount that holds it. */
+	const hostPath = (containerPath: string) => {
+		const mount = mounts
+			.filter(mount => !path.posix.relative(mount.destination, containerPath).startsWith(".."))
+			.sort((left, right) => right.destination.length - left.destination.length)[0]
+		if (!mount) {
+			throw new Error(`Desktop layout references a path outside every mount: ${containerPath}`)
+		}
+		return path.join(mount.source, path.posix.relative(mount.destination, containerPath))
+	}
+
 	const desktop = definition["x-desktop"]
+	const containerEnvironment: Record<string, string> = definition.services.api.environment
+	const hostServices = Object.entries(desktop.hostServices.services).map(([name, service]): HostServiceLayout => {
+		const value = containerEnvironment[service.endpoint.variable]
+		if (service.endpoint.type !== "unix-socket" || !value) {
+			throw new Error(`Host service ${name} needs a unix-socket endpoint named in the API environment.`)
+		}
+		const endpoint = { type: service.endpoint.type, address: hostPath(value) }
+		return {
+			name,
+			platforms: service.platforms,
+			modes: service.modes,
+			endpoint,
+			log: path.join(mountSource(service.log.mount), service.log.filename),
+			pidFile: path.join(runtime, desktop.hostServices.processes, `${name}.pid`),
+			executable: path.join(runtime, desktop.hostServices.environment, service.executable),
+			arguments: service.arguments.map(argument => {
+				if (typeof argument === "string") return argument
+				return "hostPath" in argument && argument.hostPath ? hostPath(argument.hostPath) : endpoint.address
+			}),
+		}
+	})
 	const composeEnvironment = path.join(runtime, desktop.composeEnvironment)
 	const directories = new Set(mounts.map(mount => mount.source))
 	directories.add(path.dirname(composeEnvironment))
+	directories.add(path.join(runtime, desktop.hostServices.processes))
 
 	return {
 		runtime,
@@ -54,6 +102,11 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 		directories: [...directories],
 		composeEnvironment,
 		dockerLog: path.join(mountSource(desktop.dockerLog.mount), desktop.dockerLog.filename),
+		hostEnvironment: {
+			directory: path.join(runtime, desktop.hostServices.environment),
+			log: path.join(mountSource(desktop.hostServices.environmentLog.mount), desktop.hostServices.environmentLog.filename),
+		},
+		hostServices,
 	}
 }
 

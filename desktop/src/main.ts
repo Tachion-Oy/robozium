@@ -165,6 +165,10 @@ async function start(): Promise<void> {
 		requireTrustedDocument(event)
 		return backend?.snapshot() ?? { state: "ready", message: "Connected" }
 	})
+	ipcMain.handle("desktop:host-services", event => {
+		requireTrustedDocument(event)
+		return backend?.hostServiceStatus() ?? []
+	})
 	ipcMain.handle("desktop:backend-connection", event => {
 		requireTrustedDocument(event)
 		return connection
