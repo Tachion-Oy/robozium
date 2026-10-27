@@ -27,15 +27,11 @@ export async function toggleTheme(): Promise<void> {
 		const transition = document.startViewTransition(() => applyTheme(theme))
 		switching = transition
 		root.dataset.themeSwitching = ""
-		const settle = async () => {
-			try {
-				await transition.finished
-			} finally {
-				if (switching === transition) delete root.dataset.themeSwitching
-			}
+		try {
+			await transition.finished
+		} finally {
+			if (switching === transition) delete root.dataset.themeSwitching
 		}
-		void settle()
-		await transition.updateCallbackDone
 	}
 	try {
 		await window.robozium.setTheme(theme)
