@@ -3,7 +3,7 @@ import type { ServerResponse } from "node:http"
 import { writeFile } from "node:fs/promises"
 import { test, json, project, prepareRun, launchButton, runStatus, view, snapshot, expectOverview } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
-import { captureNative, setNativeViewport } from "./native"
+import { captureNative, inlineAlerts, setNativeViewport, toast } from "./native"
 
 const catalog = [
 	{ name: "base_tool", kind: "tool", selectable: false, loading: null },
@@ -131,15 +131,18 @@ test("Tools restores saved choices, and Escape or Cancel returns to the overview
 	expect(writes(backend)).toEqual([])
 })
 
-test("capability load failures show inline and recover through Retry", async ({ desktop: { page }, backend }) => {
+test("capability load failures show in a toast and recover through Retry", async ({ desktop: { page }, backend }) => {
 	backend.handlers.set("GET /capabilities", response => json(response, { detail: "Catalogue unavailable" }, 503))
 	await backend.open()
 	await page.getByRole("button", { name: "New Project", exact: true }).click()
 	await page.getByRole("textbox", { name: "Project name" }).fill("Later")
-	await expect(selector(page).getByRole("alert")).toContainText("Catalogue unavailable")
+	const failure = toast(page, "Could not load capabilities")
+	await expect(failure).toContainText("Catalogue unavailable")
+	await expect(inlineAlerts(page)).toHaveCount(0)
 	await expect(selector(page).getByRole("button", { name: "Launch", exact: true })).toBeDisabled()
 	backend.handlers.set("GET /capabilities", response => json(response, catalog))
-	await selector(page).getByRole("button", { name: "Retry", exact: true }).click()
+	await failure.getByRole("button", { name: "Retry", exact: true }).click()
+	await expect(failure).toHaveCount(0)
 	await expect(capability(page, "web search")).toBeVisible()
 	await expect(selector(page).getByRole("button", { name: "Launch", exact: true })).toBeEnabled()
 })
@@ -234,13 +237,15 @@ test("reopening Tools waits for fresh choices instead of offering the previous o
 	expect(writes(backend).filter(write => write.path === "/capabilities/existing-project")).toHaveLength(1)
 })
 
-test("a failed first listing reports the error with Retry instead of an empty hub", async ({ desktop: { page }, backend }) => {
+test("a failed first listing reports the error in a toast with Retry instead of an empty hub", async ({ desktop: { page }, backend }) => {
 	backend.handlers.set("GET /projects", response => json(response, { detail: "Storage unreadable" }, 500))
 	await backend.open({ awaitOverview: false })
-	await expect(page.getByRole("alert")).toContainText("Could not load projects: API request failed (500): Storage unreadable")
+	const failure = toast(page, "Could not load projects")
+	await expect(failure).toContainText("API request failed (500): Storage unreadable")
+	await expect(inlineAlerts(page)).toHaveCount(0)
 	await expect(page.getByText("No projects", { exact: true })).toHaveCount(0)
 	backend.handlers.set("GET /projects", response => json(response, [project("existing-project")]))
-	await page.getByRole("alert").getByRole("button", { name: "Retry", exact: true }).click()
+	await failure.getByRole("button", { name: "Retry", exact: true }).click()
 	await expect(launchButton(page, "existing-project")).toBeVisible()
 	await expect(page.getByRole("alert")).toHaveCount(0)
 })

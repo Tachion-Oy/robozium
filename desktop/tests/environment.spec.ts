@@ -3,7 +3,7 @@ import type { ServerResponse } from "node:http"
 import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { test, json, view } from "./run-fixture"
-import { captureNative, setNativeViewport } from "./native"
+import { captureNative, setNativeViewport, toast } from "./native"
 import type { Backend } from "./selection-fixture"
 
 type Entry = { name: string; value: string | null; secret: boolean; configured: boolean; overridden: boolean; startup: boolean }
@@ -25,14 +25,18 @@ async function openEnvironment(page: Page, backend: Backend) {
 	await expect(panel(page)).toBeVisible()
 }
 
-test("a failed load offers Retry, then the variables show with secrets masked", async ({ desktop: { page }, backend }) => {
+test("a failed load offers Retry in a toast, then the variables show with secrets masked", async ({ desktop: { page }, backend }) => {
 	backend.handlers.set("GET /credentials/environment", response => json(response, { detail: "Storage unavailable" }, 503))
 	await openEnvironment(page, backend)
-	await expect(alert(page, "Could not load settings")).toContainText("Storage unavailable")
+	const failure = toast(page, "Could not load settings")
+	await expect(failure).toContainText("Storage unavailable")
+	// The panel keeps its layout: no retry row appears under the lead line.
+	await expect(panel(page).getByRole("button", { name: "Retry" })).toHaveCount(0)
 	backend.handlers.set("GET /credentials/environment", response => json(response, environment({
 		entries: [entry("PLAIN_SETTING", "visible"), entry("API_KEY", null, true)], overrides: ["API_KEY"],
 	})))
-	await panel(page).getByRole("button", { name: "Retry" }).click()
+	await failure.getByRole("button", { name: "Retry" }).click()
+	await expect(failure).toHaveCount(0)
 	await expect(panel(page).getByLabel("Current value for PLAIN_SETTING")).toHaveText("visible")
 	await expect(panel(page).getByLabel("Current value for API_KEY")).toHaveText("●●●●●●●●")
 	await expect(panel(page)).toContainText("Manual .env overrides: API_KEY.")
@@ -41,7 +45,7 @@ test("a failed load offers Retry, then the variables show with secrets masked", 
 test("editing is unavailable while runs or background work are active", async ({ desktop: { page }, backend }) => {
 	backend.handlers.set("GET /credentials/environment", response => json(response, environment({ editable: false, entries: [entry("A", "1")] })))
 	await openEnvironment(page, backend)
-	await expect(panel(page).getByRole("status")).toHaveText("Stop all runs and background work before editing.")
+	await expect(toast(page, "Editing paused")).toContainText("Stop all runs and background work before editing.")
 	await expect(panel(page).getByRole("button", { name: "Add variable" })).toBeDisabled()
 	await expect(saveForm(page).getByRole("button", { name: "Reset environment" })).toBeDisabled()
 })
@@ -150,11 +154,13 @@ test("reset asks first, then deletes the saved settings once", async ({ desktop:
 	backend.handlers.set("DELETE /credentials/environment", response => { pending = response })
 	await openEnvironment(page, backend)
 	await saveForm(page).getByRole("button", { name: "Reset environment" }).click()
-	await expect(saveForm(page)).toContainText("Are you sure? This permanently deletes all saved settings and secrets.")
-	await saveForm(page).getByRole("button", { name: "Keep settings" }).click()
+	const confirm = toast(page, "Reset environment?")
+	await expect(confirm).toContainText("This permanently deletes all saved settings and secrets.")
+	await confirm.getByRole("button", { name: "Keep settings" }).click()
+	await expect(confirm).toHaveCount(0)
 	await saveForm(page).getByRole("button", { name: "Reset environment" }).click()
 	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
-	await saveForm(page).getByRole("button", { name: "Yes, reset" }).click()
+	await confirm.getByRole("button", { name: "Yes, reset" }).click()
 	await expect.poll(() => pending).toBeDefined()
 	json(pending!, { status: "reset" })
 	await expect(page.getByRole("status").filter({ hasText: "Environment reset" })).toBeVisible()
@@ -209,7 +215,7 @@ test("importing a folder uploads each file under its relative path and asks for 
 	json(pending!, { imported, suggestions: [{ name: "LOCAL_TOOL_KEY", value: "", secret: false, source: "local_tool" }] })
 	await expect(panel(page).getByRole("button", { name: "Import", exact: true })).not.toHaveAttribute("aria-busy")
 	await expect(page.getByRole("status").filter({ hasText: "Imported" })).toContainText("Tool local_tool found and imported. Available after restart.")
-	await expect(panel(page).getByRole("status").filter({ hasText: "Restart to apply your changes." })).toBeVisible()
+	await expect(toast(page, "Restart required")).toContainText("Restart to apply your changes.")
 	await expect(panel(page)).toContainText("Available on next start")
 	const uploads = backend.requests.filter(request => request.path === "/credentials/environment/import")
 	expect(uploads).toHaveLength(2)
@@ -238,7 +244,7 @@ test("removing an import asks for confirmation, keeps it on failure, and asks fo
 	await imports.getByRole("button", { name: "Confirm removing local_tool" }).click()
 	await expect(page.getByRole("status").filter({ hasText: "Removed" })).toContainText("Removed local_tool. Takes effect after restart.")
 	await expect(imports).toContainText("No imports yet.")
-	await expect(panel(page).getByRole("status").filter({ hasText: "Restart to apply your changes." })).toBeVisible()
+	await expect(toast(page, "Restart required")).toContainText("Restart to apply your changes.")
 	expect(backend.requests.filter(request => request.method === "DELETE" && request.path === "/credentials/environment/imports/local_tool")).toHaveLength(2)
 })
 
@@ -252,11 +258,12 @@ test("Restart app confirms unsaved edits in the HUD before restarting", async ({
 	await openEnvironment(page, backend)
 	await panel(page).getByRole("button", { name: "Delete A" }).click()
 	await panel(page).getByRole("button", { name: "Restart app" }).click()
-	await expect(panel(page).getByRole("alert")).toHaveText("Restart without saving your environment changes? Unsaved changes will be lost.")
-	await panel(page).getByRole("button", { name: "Keep editing" }).click()
+	const confirm = toast(page, "Unsaved changes")
+	await expect(confirm).toContainText("Restart without saving your environment changes? Unsaved changes will be lost.")
+	await confirm.getByRole("button", { name: "Keep editing" }).click()
 	expect(await relaunches()).toBe(0)
 	await panel(page).getByRole("button", { name: "Restart app" }).click()
-	await panel(page).getByRole("button", { name: "Restart", exact: true }).click()
+	await confirm.getByRole("button", { name: "Restart", exact: true }).click()
 	await expect.poll(relaunches).toBe(1)
 	await expect(panel(page).getByRole("button", { name: "Restarting…" })).toBeDisabled()
 	// The loading screen stays until the app exits; this stub never does.

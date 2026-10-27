@@ -111,7 +111,7 @@ introduction, then a loading HUD; it fades into the HUD once the
 backend is ready and the HUD has drawn beneath it. Reduced motion skips the
 introduction. The first build requires internet.
 Later launches reuse the image when the staged inputs match its build identifier.
-Startup failures show an explanation and **Retry** on the loading screen. Closing the window cancels
+Startup failures show an explanation and **Retry** in a toast over the loading screen. Closing the window cancels
 startup, waits for its Docker client to exit, and stops only the installation's
 verified API containers. Containers, images, credentials, and host data remain.
 A second managed launch using the same profile exits without changing its backend.
@@ -233,8 +233,10 @@ always identifies the captured run.
 Action notifications appear as top-centre toasts over the HUD in both themes.
 Errors are announced as alerts; warnings and successes are polite status messages.
 Each toast has **Dismiss**, expires after five seconds, and pauses while hovered.
-A repeated title replaces its earlier toast. Connection, model and run errors
-that need Retry remain in the persistent notices row.
+A repeated title replaces its earlier toast. Problems and statuses never take
+space in the HUD: a connection loss, a failed read, a model or run error, a
+required restart or a confirmation is a toast that stays until it is resolved,
+and carries its own actions, such as **Retry**, instead of **Dismiss**.
 
 Opening the event stream starts the prepared run. A snapshot is read immediately,
 then every two seconds after the previous read settles, with ten-second deadlines.
@@ -315,7 +317,9 @@ Runs Overview with no local session; it does not recover an existing run yet.
 **Dependencies** lists the backend's dependency monitor records: status, ID,
 redacted metadata, check time and failure reason, sortable by status or ID.
 **Check Now** probes every dependency again (up to about 20 seconds), and an
-unavailable dependency's diagnostic can be copied. **Restart backend** restarts
+unavailable dependency's diagnostic can be copied. **Environment** ends with one
+row of actions: **Save**, **Restart app**, **Restart backend**, **Recreate
+backend** and **Reset environment**. **Restart backend** restarts
 this installation's API container; **Recreate backend** recreates it from the
 same image so it reads `.env` again. Both keep mounted data, check container
 ownership first, and run one at a time; the loading screen covers the HUD
@@ -337,7 +341,7 @@ install or the web runtime, so keys are never typed again: drop the file on the
 row or choose **Browse file**, enter the password it was encrypted with, and
 choose **Use key file** (**Replace saved settings** when settings exist). The
 backend accepts the file only if that password opens its secrets; a wrong
-password shows in place and keeps the file. On a fresh live start the keys load
+password shows in the dialog and keeps the file. On a fresh live start the keys load
 at once, without a restart; otherwise they apply after **Restart app**.
 
 **Browse folder** imports a tool or skill folder (a Python package with an

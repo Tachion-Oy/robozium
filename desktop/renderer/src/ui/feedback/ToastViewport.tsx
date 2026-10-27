@@ -23,8 +23,9 @@ export function ToastViewport(): ReactElement {
 		viewport.current?.children[next]?.querySelector("button")?.focus()
 	}
 	return (
+		// Above the startup screen (z-index 10000), whose failures are toasts too.
 		<div ref={viewport} role="region" aria-label="Notifications"
-			className="pointer-events-none fixed inset-x-0 top-4 z-[9999] flex flex-col items-center gap-2"
+			className="pointer-events-none fixed inset-x-0 top-4 z-[10001] flex flex-col items-center gap-2"
 			onMouseEnter={pause} onMouseLeave={resume}
 			// Pointer dismissal keeps the editor focused; keyboard dismissal restores it.
 			onMouseDown={event => {

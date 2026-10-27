@@ -1,11 +1,12 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/dependencies/DependencyPanel.tsx at 076b2c9.
 // Adapted: records and Check Now come from the dependencies owner, the diagnostic is
 // copied through the native clipboard bridge, and cells wrap as in web/ at db6a20f.
-import { BackendControls } from "./BackendControls"
+// A failed read is a toast with Check now; the table area stays empty.
 import { Fragment, useMemo, useState } from "react"
 import type { DependencyRecord, DependencyStatus } from "../../dependencies/dependencies-api"
 import type { DependenciesState } from "../../dependencies/useDependencies"
 import { showErrorToast } from "../../feedback/notices"
+import { Toast } from "../feedback/Toast"
 import { DisplayArt } from "../branding/DisplayArt"
 
 type SortField = "dependency_id" | "status"
@@ -225,9 +226,8 @@ function DependencyTable({
 	)
 }
 
-export function DependencyPanel({ dependencies: state, onManageBackend }: {
+export function DependencyPanel({ dependencies: state }: {
 	dependencies: DependenciesState
-	onManageBackend: (operation: "restart" | "recreate") => Promise<void>
 }) {
 	const { records: dependencies, loading: isLoading, checking: isChecking, loadFailed } = state
 	const [sort, setSort] = useState<DependencySort>({
@@ -260,7 +260,8 @@ export function DependencyPanel({ dependencies: state, onManageBackend }: {
 
 	return (
 		<section className="agent-hud__status-view flex min-h-0 w-full flex-1 flex-col">
-			<BackendControls onManage={onManageBackend} />
+			{loadFailed && <Toast tone="error" title="Could not load dependencies" message="Unable to load dependency records."
+				actions={[{ label: "Check now", disabled: isChecking, onClick: state.check }]} />}
 			<div
 				className="agent-hud__replyBox min-h-0 flex-1 [--hud-reply-pad-block-start:1.25rem]
 			 [--hud-reply-pad-block-end:1.25rem] [--hud-reply-pad-inline:1.5rem]">
@@ -294,14 +295,7 @@ export function DependencyPanel({ dependencies: state, onManageBackend }: {
 							</p>
 						</div>
 					) : loadFailed ? (
-						<div
-							className="flex min-h-0 flex-1 items-center justify-center text-center text-term-red text-shadow-(--term-glow-red)"
-							role="alert">
-							<p className="text-xl uppercase tracking-widest">
-								Unable to load dependency records. Use Check Now
-								to retry.
-							</p>
-						</div>
+						<div className="min-h-0 flex-1" />
 					) : (
 						<DependencyTable
 							dependencies={sortedDependencies}

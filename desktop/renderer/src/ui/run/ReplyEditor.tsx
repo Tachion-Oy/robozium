@@ -2,11 +2,11 @@
 // Adapted: autoFocus focuses the reply when Current Run opens; restored previews
 // load from the backend with crossorigin; the composer is disabled only with its
 // editor, not whenever images cannot be added; no "Updating images…" notice
-// flashes beneath the reply.
+// flashes beneath the reply, and image failures are a toast with Retry images.
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEventHandler } from "react"
 import type { DropzoneState } from "react-dropzone"
 import type { ReplyImage, ReplyImagesModel } from "../../attachments/useReplyImages"
-import { HudButton } from "../HudButton"
+import { Toast } from "../feedback/Toast"
 
 type ReplyEditorProps = {
 	value: string
@@ -67,6 +67,8 @@ export function ReplyEditor({
 			className="agent-hud__replyBox agent-hud__replyBox--user"
 			data-drag-active={dropzone?.isDragActive || undefined}
 			aria-disabled={disabled || undefined}>
+			{images?.error && <Toast tone="error" title="Images" message={images.error}
+				actions={images.canRetry ? [{ label: "Retry images", onClick: images.onRetry }] : []} />}
 			{dropzone ? <input {...dropzone.getInputProps({ "aria-label": "Choose images" })} /> : null}
 			<div className="agent-hud__reply-text">
 				<textarea
@@ -83,8 +85,6 @@ export function ReplyEditor({
 					autoFocus={autoFocus}
 					placeholder="Type your reply..."
 				/>
-				{images?.error ? <p className="agent-hud__reply-notice" role="alert">{images.error}</p> : null}
-				{images?.canRetry ? <HudButton onClick={images.onRetry}>Retry images</HudButton> : null}
 			</div>
 			{images?.images.length ? (
 				<ul className="agent-hud__reply-images" aria-label="Image previews" ref={imageListRef} tabIndex={0}>

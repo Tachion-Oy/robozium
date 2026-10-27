@@ -1,6 +1,7 @@
 // Copied from robozium-electron/desktop/web/app/components/desktop/BackendControls.tsx at 076b2c9.
 // Adapted: the operation comes from the backend owner, which covers it with the
-// startup screen and restarts readiness polling afterwards.
+// startup screen and restarts readiness polling afterwards. The buttons sit in the
+// Environment action row beside Restart app.
 import { useState } from "react"
 import { showErrorToast } from "../../feedback/notices"
 import { HudButton } from "../hud/HudButton"
@@ -13,8 +14,8 @@ export function BackendControls({ onManage }: { onManage: (operation: "restart" 
 		catch (cause) { showErrorToast({ title: "Backend operation failed", message: cause instanceof Error ? cause.message : "Operation failed" }) }
 		finally { setBusy(false) }
 	}
-	return <div className="flex gap-3" aria-label="Backend controls">
-		<HudButton disabled={busy} onClick={() => void manage("restart")}>Restart backend</HudButton>
-		<HudButton disabled={busy} onClick={() => void manage("recreate")}>Recreate backend</HudButton>
+	return <div role="group" className="contents" aria-label="Backend controls">
+		<HudButton variant="warning" disabled={busy} onClick={() => void manage("restart")}>Restart backend</HudButton>
+		<HudButton variant="warning" disabled={busy} onClick={() => void manage("recreate")}>Recreate backend</HudButton>
 	</div>
 }

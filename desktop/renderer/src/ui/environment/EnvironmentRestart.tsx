@@ -1,8 +1,9 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentRestart.tsx at 076b2c9.
-// Adapted: the restart flag and the restart action arrive as props, and unsaved
-// edits are confirmed in the HUD instead of a native dialog.
+// Adapted: the restart flag and the restart action arrive as props; unsaved edits are
+// confirmed, and the restart reminder shown, in toasts, so the button never moves.
 import { useState } from "react"
 import { showErrorToast } from "../../feedback/notices"
+import { Toast } from "../feedback/Toast"
 import { HudButton } from "../hud/HudButton"
 
 export function EnvironmentRestart({ required, importedPending, dirty, onRestart }: {
@@ -19,15 +20,16 @@ export function EnvironmentRestart({ required, importedPending, dirty, onRestart
 			showErrorToast({ title: "Could not restart app", message: cause instanceof Error ? cause.message : "Restart failed" })
 		}
 	}
-	if (confirming) return <div className="flex flex-wrap items-center gap-3">
-		<p role="alert">Restart without saving your environment changes? Unsaved changes will be lost.</p>
-		<HudButton variant="danger-confirm" onClick={() => void restart()}>Restart</HudButton>
-		<HudButton variant="warning" onClick={() => setConfirming(false)}>Keep editing</HudButton>
-	</div>
-	return <div className="flex items-center gap-3">
-		<HudButton pending={restarting} onClick={() => { if (dirty) setConfirming(true); else void restart() }}>
+	const reminder = (required || importedPending) && !confirming && !restarting
+	return <>
+		<HudButton variant="warning" pending={restarting} disabled={confirming} onClick={() => { if (dirty) setConfirming(true); else void restart() }}>
 			{restarting ? "Restarting…" : "Restart app"}
 		</HudButton>
-		{(required || importedPending) && <p role="status">Restart to apply your changes.</p>}
-	</div>
+		{confirming && <Toast tone="warning" title="Unsaved changes"
+			message="Restart without saving your environment changes? Unsaved changes will be lost." actions={[
+				{ label: "Restart", onClick: restart },
+				{ label: "Keep editing", onClick: () => setConfirming(false) },
+			]} />}
+		{reminder && <Toast tone="info" title="Restart required" message="Restart to apply your changes." />}
+	</>
 }

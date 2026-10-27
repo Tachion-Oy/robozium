@@ -151,7 +151,9 @@
   );
 }
 
-.agent-error-toast__dismiss {
+:is(.agent-error-toast__dismiss, .agent-error-toast__action) {
+  /* At least the 24px pointer target size, even at small zooms. */
+  min-block-size: 24px;
   border: 1px solid
     color-mix(in oklab, var(--notification-toast-accent) 46%, transparent);
   background: color-mix(
@@ -178,7 +180,7 @@
     text-shadow 120ms ease;
 }
 
-.agent-error-toast__dismiss:hover {
+:is(.agent-error-toast__dismiss, .agent-error-toast__action):hover {
   color: color-mix(
     in oklab,
     var(--notification-toast-accent) 84%,
@@ -234,7 +236,7 @@
     text-shadow: none;
     opacity: 0.72
 }
-:root[data-theme="light"] .agent-error-toast__dismiss {
+:root[data-theme="light"] :is(.agent-error-toast__dismiss, .agent-error-toast__action) {
     border-color: color-mix(
     in oklab,
     var(--notification-toast-accent) 48%,

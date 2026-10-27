@@ -116,8 +116,14 @@ flowchart LR
 - **Errors.** Owners raise `showErrorToast` or `showNotificationToast` from
   `feedback/notices`; `ui/feedback/ToastViewport` renders the reference toasts
   without inline styles. The store owns tone, replacement, dismissal and hover
-  timing. Persistent connection, model and run errors keep their notices row
-  and Retry controls.
+  timing. A problem or status that lasts until it is resolved, such as a lost
+  connection, a failed read, a required restart or a confirmation, is rendered
+  as `<Toast>` (`ui/feedback/Toast`) under its condition, like any element. It
+  shows while rendered, updates in place as its props change, and carries
+  actions such as Retry beside Dismiss. A dismissed toast stays hidden until its
+  content changes or it is rendered again. It takes no space, so no notice
+  moves the layout. The
+  viewport sits in `BackendStartup`, above the startup screen and the HUD.
 
 ## The message log
 

@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test"
-import { documentUrl } from "./native"
+import { documentUrl, inlineAlerts, toast } from "./native"
 import { test, json, prepareRun, snapshot, start, view, replyBox } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
 
@@ -127,11 +127,11 @@ test("removing and clearing delete staged images; rejected files are explained",
 	await expect(replyBox(page)).toBeFocused()
 
 	await input.setInputFiles(imageFile("notes.txt", Buffer.from("text"), "text/plain"))
-	await expect(panel(page).getByRole("alert")).toHaveText("notes.txt: Use PNG, JPEG, WebP, or GIF images.")
+	await expect(toast(page, "Images")).toContainText("notes.txt: Use PNG, JPEG, WebP, or GIF images.")
 	await input.setInputFiles(imageFile("huge.png", Buffer.alloc(10 * 1024 * 1024 + 1)))
-	await expect(panel(page).getByRole("alert")).toHaveText("huge.png: Images must be 10 MiB or smaller.")
+	await expect(toast(page, "Images")).toContainText("huge.png: Images must be 10 MiB or smaller.")
 	await input.setInputFiles(["a", "b", "c", "d"].map(name => imageFile(`${name}.png`)))
-	await expect(panel(page).getByRole("alert")).toContainText("You can attach up to four images.")
+	await expect(toast(page, "Images")).toContainText("You can attach up to four images.")
 	await expect(previews(page)).toHaveCount(1)
 
 	await page.getByRole("button", { name: "Clear reply" }).click()
@@ -154,7 +154,8 @@ test("a failed upload keeps its preview, blocks Send and retries with the same u
 	await replyBox(page).fill("With an image")
 	await panel(page).getByLabel("Choose images").setInputFiles(imageFile("flaky.png"))
 	await expect(panel(page).getByRole("status").filter({ hasText: "Image update failed" })).toBeVisible()
-	await expect(panel(page).getByRole("alert")).toHaveText("API request failed (500): Storage unavailable")
+	await expect(toast(page, "Images")).toContainText("API request failed (500): Storage unavailable")
+	await expect(inlineAlerts(page)).toHaveCount(0)
 	await expect(send(page)).toBeDisabled()
 
 	await page.getByRole("button", { name: "Retry images" }).click()

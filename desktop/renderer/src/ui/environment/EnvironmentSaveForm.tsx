@@ -1,7 +1,10 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentSaveForm.tsx at 076b2c9.
 // Adapted: desktop import paths, the save reports whether it succeeded, and the
 // encryption password is entered in the password dialog instead of inline fields.
-import { useState, type SubmitEvent } from "react"
+// Reset is confirmed in a toast, so the buttons never move. Save, the restart
+// controls the panel passes in, and Reset share one row.
+import { useState, type ReactNode, type SubmitEvent } from "react"
+import { Toast } from "../feedback/Toast"
 import { HudButton } from "../hud/HudButton"
 import { PasswordDialog } from "../hud/PasswordDialog"
 
@@ -15,10 +18,11 @@ type EnvironmentSaveFormProps = {
 	onValidate: () => boolean
 	onSave: (password: string) => Promise<boolean>
 	onReset: () => Promise<boolean>
+	children?: ReactNode
 }
 
 export function EnvironmentSaveForm({
-	editable, dirty, pending, needsPassword, confirmPassword, canReset, onValidate, onSave, onReset,
+	editable, dirty, pending, needsPassword, confirmPassword, canReset, onValidate, onSave, onReset, children,
 }: EnvironmentSaveFormProps) {
 	const [asking, setAsking] = useState(false)
 	const [confirmingReset, setConfirmingReset] = useState(false)
@@ -55,23 +59,24 @@ export function EnvironmentSaveForm({
 				aria-label="Save environment settings"
 				className="agent-hud__environment-save flex shrink-0 flex-col gap-3 pt-4"
 				onSubmit={submit}>
-				{confirmingReset && <p>Are you sure? This permanently deletes all saved settings and secrets.</p>}
-				<div className="flex flex-wrap justify-between gap-3">
-					<div className="flex gap-3">
-						{confirmingReset ? <>
-							<HudButton variant="danger-confirm" pending={resetting} disabled={!canReset} onClick={() => void reset()}>Yes, reset</HudButton>
-							<HudButton variant="warning" disabled={!canReset || resetting} onClick={() => setConfirmingReset(false)}>Keep settings</HudButton>
-						</> : <HudButton variant="danger" disabled={!canReset} onClick={() => setConfirmingReset(true)}>Reset environment</HudButton>}
-					</div>
+				<div className="flex flex-wrap items-center gap-3">
 					<HudButton type="submit" variant="success" pending={pending} disabled={!canSave}>
 						{pending ? "Saving…" : label}
 					</HudButton>
+					{children}
+					<HudButton variant="danger" pending={resetting} disabled={!canReset || confirmingReset}
+						onClick={() => setConfirmingReset(true)}>Reset environment</HudButton>
 				</div>
 			</form>
 			<PasswordDialog open={asking} title="Encrypt and save" label="Encryption password" confirm={confirmPassword}
 				submitLabel="Encrypt and save" pendingLabel="Saving…" onSubmit={save} onCancel={() => setAsking(false)}>
 				<p>{confirmPassword ? "Choose a password to encrypt your secrets." : "Enter the password your secrets are encrypted with."}</p>
 			</PasswordDialog>
+			{confirmingReset && !resetting && <Toast tone="warning" title="Reset environment?"
+				message="This permanently deletes all saved settings and secrets." actions={[
+					{ label: "Yes, reset", disabled: !canReset, onClick: reset },
+					{ label: "Keep settings", onClick: () => setConfirmingReset(false) },
+				]} />}
 		</>
 	)
 }

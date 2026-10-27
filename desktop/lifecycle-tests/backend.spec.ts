@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import net from "node:net"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { captureNative, chooseView, documentUrl, modelTrigger, setNativeViewport } from "../tests/native"
+import { captureNative, chooseView, documentUrl, modelTrigger, setNativeViewport, toast } from "../tests/native"
 import { expectFooterGeometry } from "../tests/footer-geometry"
 import { resolveBackendLayout } from "../src/backend-layout"
 import { installTestClient } from "../tests/transport"
@@ -134,8 +134,8 @@ test("Docker startup failure presents an accessible retry that starts the backen
 	await writeFile(path.join(directory, "bin/docker"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${shellQuote(commands)}\nif [ "$1" = info ] && [ ! -f ${shellQuote(enabled)} ]; then exit 1; fi\nexec ${shellQuote(docker)} "$@"\n`, { mode: 0o700 })
 	const app = await runtime.launch()
 	const page = await app.firstWindow()
-	// The failure shows on the loading screen once the launch animation has played.
-	await expect(page.getByRole("alert")).toContainText("Docker is unavailable", { timeout: 15_000 })
+	// The failure shows in a toast over the loading screen once the launch animation has played.
+	await expect(toast(page, "Robozium could not start")).toContainText("Docker is unavailable", { timeout: 15_000 })
 	await expect(page.getByRole("button", { name: "New Project", exact: true })).toHaveCount(0)
 	await setNativeViewport(app, page, 640, 420, 1.25)
 	expect(await page.evaluate(() => document.documentElement.scrollHeight === innerHeight)).toBe(true)
@@ -163,7 +163,7 @@ test("initial renderer readiness times out, stops polling, and retries without D
 		if (!blocked) await route.continue()
 	})
 	await test.step("Abort the timed-out request and stop polling", async () => {
-		await expect(page.getByRole("alert")).toContainText("Backend connection unavailable", { timeout: 180_000 })
+		await expect(toast(page, "Backend")).toContainText("Backend connection unavailable", { timeout: 180_000 })
 		await expect(page.getByRole("button", { name: "New Project", exact: true })).toHaveCount(0)
 		await abortedReady
 		expect(readinessRequests).toBe(1)
@@ -238,10 +238,10 @@ test("an outage preserves the HUD, and after recovery the lost run returns to th
 	await test.step("Detect the outage and retry without restarting Docker", async () => {
 		// Stop this disposable backend externally; connection Retry must not restart it.
 		execFileSync(docker, ["stop", "--time", "5", container], { stdio: "pipe" })
-		await expect(page.locator(".backend-notice").getByRole("alert")).toContainText("Backend connection unavailable", { timeout: 12_000 })
+		await expect(toast(page, "Backend")).toContainText("Backend connection unavailable", { timeout: 12_000 })
 		const outageCommands = await readFile(commands, "utf8")
 		await page.getByRole("button", { name: "Retry", exact: true }).click()
-		await expect(page.locator(".backend-notice").getByRole("alert")).toContainText("Backend connection unavailable")
+		await expect(toast(page, "Backend")).toContainText("Backend connection unavailable")
 		expect(await readFile(commands, "utf8")).toBe(outageCommands)
 		// Run reads reconnect quietly while the backend is away; the HUD stays mounted.
 		await expect(reply).toHaveValue("retained across outage")
@@ -258,7 +258,7 @@ test("an outage preserves the HUD, and after recovery the lost run returns to th
 				await expectFooterGeometry(page)
 				const contentHeights = await page.locator(".agent-hud__replyBox-scroll, .agent-hud__replyBox textarea")
 					.evaluateAll(panels => panels.map(panel => panel.clientHeight))
-				const bounds = await page.locator(".backend-notice").evaluate(notice => {
+				const bounds = await toast(page, "Backend").evaluate(notice => {
 					const rect = notice.getBoundingClientRect()
 					return { contained: rect.x >= 0 && rect.right <= innerWidth && rect.y >= 0 && rect.bottom <= innerHeight,
 						noOverflow: document.documentElement.scrollHeight === innerHeight && document.documentElement.scrollWidth === innerWidth }
@@ -282,7 +282,7 @@ test("an outage preserves the HUD, and after recovery the lost run returns to th
 		}, { timeout: 30_000 }).toBe(200)
 		const previousModelReads = modelReads
 		await page.getByRole("button", { name: "Retry", exact: true }).click()
-		await expect(page.locator(".backend-notice")).toHaveCount(0)
+		await expect(toast(page, "Backend")).toHaveCount(0)
 		await expect.poll(() => modelReads).toBeGreaterThan(previousModelReads)
 		const row = page.locator(".agent-hud__project-row", { hasText: "outage-project" })
 		await expect(row).toContainText("DORMANT", { timeout: 15_000 })
@@ -529,7 +529,7 @@ test("a secret saved in Environment applies after Restart app and a reset remove
 		await prompt.getByLabel("Encryption password").fill("restart-test-password")
 		await prompt.getByLabel("Confirm password").fill("restart-test-password")
 		await prompt.getByRole("button", { name: "Encrypt and save" }).click()
-		await expect(page.getByRole("region", { name: "Environment settings" }).getByRole("status").filter({ hasText: "Restart to apply" })).toBeVisible()
+		await expect(toast(page, "Restart required")).toContainText("Restart to apply")
 	})
 	await test.step("Restart app, then unlock and launch", async () => {
 		;({ app, page } = await restartApp(app, page))
@@ -545,7 +545,7 @@ test("a secret saved in Environment applies after Restart app and a reset remove
 	await test.step("Reset the environment and restart without secrets", async () => {
 		await chooseView(page, "Environment")
 		await save(page).getByRole("button", { name: "Reset environment" }).click()
-		await save(page).getByRole("button", { name: "Yes, reset" }).click()
+		await toast(page, "Reset environment?").getByRole("button", { name: "Yes, reset" }).click()
 		await expect(page.getByRole("status").filter({ hasText: "Environment reset" })).toBeVisible()
 		;({ app, page } = await restartApp(app, page))
 		// No password is asked for: the HUD under the startup screen stays usable.

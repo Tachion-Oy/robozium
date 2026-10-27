@@ -1,5 +1,5 @@
 import type { ReactElement } from "react"
-import type { NotificationTone } from "../../feedback/notices"
+import type { NoticeAction, NotificationTone } from "../../feedback/notices"
 
 export { showNotificationToast, showErrorToast } from "../../feedback/notices"
 
@@ -9,6 +9,8 @@ type ErrorToastContentProps = {
 	detail?: string | null
 	tone?: NotificationTone
 	isVisible: boolean
+	/** Buttons that answer the toast, such as Retry. */
+	actions?: readonly NoticeAction[]
 	onDismiss?: () => void
 }
 
@@ -18,6 +20,7 @@ export function ErrorToastContent({
 	detail,
 	tone = "error",
 	isVisible,
+	actions,
 	onDismiss,
 }: ErrorToastContentProps): ReactElement {
 	return (
@@ -34,6 +37,21 @@ export function ErrorToastContent({
 				<p className="agent-error-toast__message">{message}</p>
 				{detail ? <p className="agent-error-toast__detail">{detail}</p> : null}
 			</div>
+			{actions?.map(action => (
+				<button
+					key={action.label}
+					type="button"
+					className="agent-error-toast__action shrink-0"
+					disabled={action.disabled}
+					data-hud-ignore-dismiss
+					onPointerDown={(event) => event.stopPropagation()}
+					onClick={(event) => {
+						event.stopPropagation()
+						action.onClick()
+					}}>
+					{action.label}
+				</button>
+			))}
 			{onDismiss ? (
 				<button
 					type="button"

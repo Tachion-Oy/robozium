@@ -1,10 +1,12 @@
 import { expect, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { test, catalogue, json } from "./selection-fixture"
-import { chooseModel, chooseView as view, modelTrigger, reloadApp } from "./native"
+import { chooseModel, chooseView as view, modelTrigger, reloadApp, toast } from "./native"
 import { prepareRun, start, launchButton } from "./run-fixture"
 
-const notices = (page: Page) => page.locator(".desktop-interim-content__notices")
+const notices = (page: Page) => toast(page, "Model unavailable")
+/** "Backend unavailable" once readiness fails, "Backend connection" while it retries. */
+const backendNotice = (page: Page) => toast(page, "Backend")
 
 test("model changes await acknowledgement, reject duplicate writes, and retry by choosing again", async ({ desktop: { page }, backend }) => {
 	let pending: ServerResponse | undefined
@@ -39,7 +41,7 @@ test("empty and malformed model catalogues stay accessible and recover through r
 	// Opening an empty selector re-reads the catalogue.
 	await model.click()
 	await expect(page.getByRole("listbox", { name: "Base model" })).toContainText("Models unavailable")
-	await expect(page.getByRole("alert")).toContainText("invalid selection response")
+	await expect(notices(page)).toContainText("invalid selection response")
 	await page.keyboard.press("Escape")
 	backend.handlers.set("GET /models", response => json(response, catalogue))
 	await model.click()
@@ -57,7 +59,7 @@ test("write deadlines retain the confirmed model without automatic retries", asy
 	await chooseModel(page, "Second model")
 	await expect.poll(() => backend.requests.filter(request => request.method === "POST").length).toBe(1)
 	await page.clock.fastForward(10_001)
-	await expect(notices(page).getByRole("alert")).toContainText("Request timed out")
+	await expect(notices(page)).toContainText("Request timed out")
 	await expect(model).toHaveAttribute("title", "First model")
 	await expect.poll(() => closed).toBe(1)
 	await page.clock.fastForward(30_000)
@@ -85,7 +87,7 @@ test("model read timeout and malformed acknowledgement preserve the confirmed ch
 	await reloadApp(page)
 	await expect(page.locator(".agent-hud__model-selector--loading")).toHaveText("Loading models")
 	await page.clock.fastForward(10_001)
-	await expect(page.getByRole("alert")).toContainText("Request timed out")
+	await expect(notices(page)).toContainText("Request timed out")
 	expect(read).toBeDefined()
 	backend.handlers.set("GET /models", response => json(response, catalogue))
 	const model = modelTrigger(page)
@@ -95,7 +97,7 @@ test("model read timeout and malformed acknowledgement preserve the confirmed ch
 	await page.keyboard.press("Escape")
 	backend.handlers.set("POST /models", response => json(response, { ...catalogue, selected_model_id: "unknown" }))
 	await chooseModel(page, "Second model")
-	await expect(page.getByRole("alert")).toContainText("invalid selection response")
+	await expect(notices(page)).toContainText("invalid selection response")
 	await expect(model).toHaveAttribute("title", "First model")
 })
 
@@ -112,7 +114,7 @@ for (const recovery of ["refresh", "reselect"] as const) {
 		await chooseModel(page, "Second model")
 		await expect.poll(() => selected).toBe("two")
 		await page.clock.fastForward(10_001)
-		await expect(notices(page).getByRole("alert")).toContainText("Request timed out")
+		await expect(notices(page)).toContainText("Request timed out")
 		await expect(model).toHaveAttribute("title", "First model")
 		if (recovery === "refresh") {
 			// Opening the selector after a failure reads the committed choice.
@@ -155,20 +157,20 @@ test("reconnect refreshes backend models while preserving the overview and cance
 	backend.handlers.set("GET /models", response => { obsolete = response; response.on("close", () => { closed = true }) })
 	backend.handlers.set("GET /ready", response => json(response, { detail: "Restarting" }, 503))
 	await page.clock.fastForward(5_001)
-	await expect(page.locator(".backend-notice").getByRole("alert")).toContainText("Backend connection unavailable")
+	await expect(backendNotice(page)).toContainText("Backend connection unavailable")
 	backend.handlers.set("GET /ready", response => json(response, { status: "ready" }))
-	await page.locator(".backend-notice").getByRole("button", { name: "Retry", exact: true }).click()
-	await expect(page.locator(".backend-notice")).toHaveCount(0)
+	await backendNotice(page).getByRole("button", { name: "Retry", exact: true }).click()
+	await expect(backendNotice(page)).toHaveCount(0)
 	await expect.poll(() => obsolete).toBeDefined()
 	backend.handlers.set("GET /ready", response => json(response, { detail: "Restarting" }, 503))
 	await page.clock.fastForward(5_001)
-	await expect(page.locator(".backend-notice").getByRole("alert")).toContainText("Backend connection unavailable")
+	await expect(backendNotice(page)).toContainText("Backend connection unavailable")
 	await expect.poll(() => closed).toBe(true)
 	selected = "one" // The restarted backend restores its configured default.
 	backend.handlers.set("GET /models", response => json(response, { ...catalogue, selected_model_id: selected }))
 	backend.handlers.set("GET /ready", response => json(response, { status: "ready" }))
-	await page.locator(".backend-notice").getByRole("button", { name: "Retry", exact: true }).click()
-	await expect(page.locator(".backend-notice")).toHaveCount(0)
+	await backendNotice(page).getByRole("button", { name: "Retry", exact: true }).click()
+	await expect(backendNotice(page)).toHaveCount(0)
 	await expect(model).toHaveAttribute("title", "First model")
 	json(obsolete!, { ...catalogue, selected_model_id: "two" })
 	const readinessCount = backend.requests.filter(request => request.path === "/ready").length
@@ -197,13 +199,13 @@ test("recovery reconciles a pending model write without replaying it", async ({ 
 	await expect.poll(() => selected).toBe("two")
 	backend.handlers.set("GET /ready", response => json(response, { detail: "Unavailable" }, 503))
 	await page.clock.fastForward(5_001)
-	await expect(page.locator(".backend-notice").getByRole("alert")).toContainText("Backend connection unavailable")
+	await expect(backendNotice(page)).toContainText("Backend connection unavailable")
 	await expect.poll(() => closed).toBe(true)
 	backend.handlers.set("GET /ready", response => json(response, { status: "ready" }))
 	backend.handlers.set("GET /models", response => json(response, { detail: "Not yet available" }, 503))
-	await page.locator(".backend-notice").getByRole("button", { name: "Retry", exact: true }).click()
-	await expect(page.locator(".backend-notice")).toHaveCount(0)
-	await expect(notices(page).getByRole("alert")).toContainText("Not yet available")
+	await backendNotice(page).getByRole("button", { name: "Retry", exact: true }).click()
+	await expect(backendNotice(page)).toHaveCount(0)
+	await expect(notices(page)).toContainText("Not yet available")
 	await expect(model).toHaveAttribute("title", "First model")
 	backend.handlers.set("GET /models", response => json(response, { ...catalogue, selected_model_id: selected }))
 	await model.click()
