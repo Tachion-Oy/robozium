@@ -19,7 +19,7 @@ function fixture(t: TestContext) {
 	for (const directory of ["desktop/scripts", "desktop/src", "src/robozium/nested", "private", "local/imports", ".runtime", ".artifacts"]) {
 		fs.mkdirSync(path.join(root, directory), { recursive: true })
 	}
-	for (const name of ["Dockerfile", ".dockerignore", "compose.yaml", "package.json", "scripts/stage-backend.ts", "scripts/prepare-runtime.ts", "src/backend-layout.json", "src/backend-layout.ts"]) {
+	for (const name of ["Dockerfile", ".dockerignore", "compose.yaml", "package.json", "scripts/stage-backend.ts", "scripts/prepare-runtime.ts", "src/backend-layout.json", "src/backend-layout.ts", "src/host-endpoints.ts"]) {
 		fs.copyFileSync(path.join(desktop, name), path.join(root, "desktop", name))
 	}
 	for (const name of ["hub.config.py", "pyproject.toml", "uv.lock", "README.md", "LICENSE", "CHANGELOG.md", "src/robozium/__init__.py", "src/robozium/nested/module.py"]) {

@@ -1,49 +1,11 @@
 import { spawn, type ChildProcess } from "node:child_process"
-import { closeSync, lstatSync, openSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs"
-import net from "node:net"
+import { closeSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { setTimeout as delay } from "node:timers/promises"
 import type { HostServiceStatus } from "./bridge.d.ts"
 import type { BackendLayout, HostServiceLayout } from "./backend-layout.ts"
 import { findExecutable, runCommand } from "./docker-command.ts"
+import { endpointType } from "./host-endpoints.ts"
 import { hostProcessEnvironment, prepareHostEnvironment } from "./host-environment.ts"
-
-/** How the supervisor reaches one kind of endpoint; another transport adds an entry to `endpointTypes`. */
-interface EndpointType {
-	/** Whether a service accepts connections at `address`. */
-	answers(address: string): Promise<boolean>
-	/** Remove what a stopped service left at `address`; false when a running service already answers there. */
-	clear(address: string): Promise<boolean>
-}
-
-function socketAnswers(address: string): Promise<boolean> {
-	return new Promise(resolve => {
-		const connection = net.createConnection(address)
-		connection.setTimeout(1000)
-		// Hang up without cutting off what the service sends first, so a probe is not a delivery failure.
-		connection.once("connect", () => { resolve(true); connection.resume().end() })
-		connection.once("timeout", () => { connection.destroy(); resolve(false) })
-		connection.once("error", () => resolve(false))
-	})
-}
-
-const endpointTypes: Record<string, EndpointType> = {
-	"unix-socket": {
-		answers: socketAnswers,
-		async clear(address) {
-			let entry
-			try {
-				entry = lstatSync(address)
-			} catch {
-				return true
-			}
-			if (!entry.isSocket()) throw new Error(`${address} is not a socket. Remove it, then retry.`)
-			if (await socketAnswers(address)) return false
-			// A crashed service leaves its socket behind, and services refuse to replace one.
-			unlinkSync(address)
-			return true
-		},
-	},
-}
 
 function alive(pid: number): boolean {
 	try {
@@ -57,13 +19,15 @@ function alive(pid: number): boolean {
 /** Stop a service an earlier launch started but never stopped, as after a crash of the app.
  * The recorded process is stopped only while it still runs this service's executable.
  */
-async function stopLeftover(service: HostServiceLayout, timeout: number): Promise<void> {
+async function stopLeftover(service: HostServiceLayout, timeout: number, signal: AbortSignal): Promise<void> {
 	let pid: number
 	try {
 		pid = Number(readFileSync(service.pidFile, "utf8"))
-		// Linux names each process's arguments here; a reused PID runs something else.
-		if (!readFileSync(`/proc/${pid}/cmdline`, "utf8").split("\0").includes(service.executable)) pid = 0
+		// A reused PID runs something else; `ps` reads a process's command line on Linux and macOS alike.
+		const command = await runCommand("ps", ["-o", "args=", "-p", String(pid)], { cwd: "/", env: process.env, signal })
+		if (!command.includes(service.executable)) pid = 0
 	} catch {
+		signal.throwIfAborted()
 		pid = 0
 	}
 	if (pid > 0) {
@@ -195,9 +159,8 @@ export class HostServices {
 	private async launch(entry: Supervised, signal: AbortSignal): Promise<void> {
 		const { service } = entry
 		try {
-			const endpoint = endpointTypes[service.endpoint.type]
-			if (!endpoint) throw new Error(`Unknown endpoint type ${service.endpoint.type}.`)
-			await stopLeftover(service, this.options.stopTimeout ?? 10_000)
+			const endpoint = endpointType(service.endpoint.type)
+			await stopLeftover(service, this.options.stopTimeout ?? 10_000, signal)
 			if (!(await endpoint.clear(service.endpoint.address))) {
 				throw new Error(`Another program is serving ${service.endpoint.address}. Stop it, then retry.`)
 			}

@@ -7,6 +7,7 @@ import path from "node:path"
 import { test, type TestContext } from "node:test"
 import { setTimeout as delay } from "node:timers/promises"
 import { resolveBackendLayout, type BackendLayout, type HostServiceLayout } from "../../src/backend-layout.ts"
+import { endpointType } from "../../src/host-endpoints.ts"
 import { HostServices } from "../../src/host-services.ts"
 
 // A stand-in service: it listens on its socket, then behaves as its mode says.
@@ -64,6 +65,10 @@ test("the layout declares safe scripts on the API's socket, the hub's scripts an
 		"scripts", "serve", "--socket", "/profile/live/.runtime/host-socket/scripts.sock",
 		"--scripts", "/home/user/Hub/readonly/safe-scripts", "--cwd", "/home/user/Hub",
 	])
+})
+
+test("an endpoint type the desktop does not know is refused by name", () => {
+	assert.throws(() => endpointType("named-pipe"), /Unknown host service endpoint type named-pipe/)
 })
 
 test("a declared service starts, answers, and stops with its socket removed", async t => {

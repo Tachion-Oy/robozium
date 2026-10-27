@@ -386,10 +386,11 @@ To add a service, declare it under `x-desktop.hostServices.services` in
 `src/backend-layout.json`: its platforms and modes, the program and arguments
 from the host environment, its log, and its endpoint. Arguments name hub or
 runtime folders by their container path (`{ "hostPath": "/hub" }`), and
-`{ "endpoint": "address" }` is the endpoint's host address. The `unix-socket`
-endpoint is the socket file named by an API environment variable; another
-transport, such as one for macOS, adds an endpoint type in
-`src/host-services.ts`.
+`{ "endpoint": "address" }` is the endpoint's host address. Each endpoint type
+in `src/host-endpoints.ts` turns its declaration into an address, probes it, and
+clears what a crashed service left there. The `unix-socket` type is a socket file
+named by an API environment variable; another transport, such as one for macOS,
+is another endpoint type, and the layout and supervisor stay as they are.
 
 ## Tuning the light theme
 
@@ -456,8 +457,9 @@ also owns its installation identity, Compose interpolation file, and Docker log.
 - `src/docker-command.ts` finds host programs and runs one Docker CLI command,
   handling its output, timeout, and cancellation.
 - `src/host-services.ts` starts, supervises, and stops the layout's
-  [host services](#host-services); `src/host-environment.ts` prepares the Python
-  environment they run from.
+  [host services](#host-services); `src/host-endpoints.ts` defines how each
+  endpoint type is addressed and probed; `src/host-environment.ts` prepares the
+  Python environment they run from.
 - `src/backend-profile.ts` exposes `loadOrCreateBackendProfile()`, which reads or
   creates the installation identity and selects the mode's runtime and port.
 - `src/backend-layout.json` defines bind mounts and desktop-owned runtime file

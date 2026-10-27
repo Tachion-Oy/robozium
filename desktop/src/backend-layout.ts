@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import definition from "./backend-layout.json" with { type: "json" }
+import { endpointType } from "./host-endpoints.ts"
 
 /** The desktop's named locations; this layout file is the only place paths are written out. */
 export const locations = definition["x-desktop"].locations
@@ -16,7 +17,7 @@ export interface HostServiceLayout {
 	name: string
 	platforms: string[]
 	modes: string[]
-	/** How the backend reaches the service; `address` is a host path for `unix-socket`. */
+	/** How the backend reaches the service; its endpoint type defines what `address` means. */
 	endpoint: { type: string; address: string }
 	log: string
 	/** Records the running process, so a launch after a crash can stop what the crash left. */
@@ -92,11 +93,13 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 	const desktop = definition["x-desktop"]
 	const containerEnvironment: Record<string, string> = definition.services.api.environment
 	const hostServices = Object.entries(desktop.hostServices.services).map(([name, service]): HostServiceLayout => {
-		const value = containerEnvironment[service.endpoint.variable]
-		if (service.endpoint.type !== "unix-socket" || !value) {
-			throw new Error(`Host service ${name} needs a unix-socket endpoint named in the API environment.`)
+		let address: string
+		try {
+			address = endpointType(service.endpoint.type).resolve(service.endpoint, { hostPath, containerEnvironment })
+		} catch (error) {
+			throw new Error(`Host service ${name}: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
 		}
-		const endpoint = { type: service.endpoint.type, address: hostPath(value) }
+		const endpoint = { type: service.endpoint.type, address }
 		return {
 			name,
 			platforms: service.platforms,
