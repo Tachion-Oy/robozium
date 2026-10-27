@@ -26,10 +26,31 @@ export interface HostServiceLayout {
 	arguments: string[]
 }
 
+/** One bind mount: the host folder Compose shares and where the container sees it. */
+export interface BackendMount {
+	source: string
+	destination: string
+	writable: boolean
+}
+
+/** Every host path one runtime and hub use, resolved from this layout file. */
+export interface BackendLayout {
+	runtime: string
+	hub: string
+	mounts: BackendMount[]
+	/** Folders a launch creates before Compose binds them. */
+	directories: string[]
+	composeEnvironment: string
+	dockerLog: string
+	/** The Python environment every host service runs from, and the log of building it. */
+	hostEnvironment: { directory: string; log: string }
+	hostServices: HostServiceLayout[]
+}
+
 /** Resolve the same bind mounts that Compose reads, without touching runtime data.
  * Without a hub folder, the runtime's own throwaway hub is used.
  */
-export function resolveBackendLayout(runtime: string, hub = path.join(runtime, locations.isolatedHub)) {
+export function resolveBackendLayout(runtime: string, hub = path.join(runtime, locations.isolatedHub)): BackendLayout {
 	if (!path.isAbsolute(runtime)) {
 		throw new Error("Select an absolute desktop runtime directory.")
 	}
@@ -37,7 +58,7 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 		throw new Error("Select an absolute hub folder.")
 	}
 	const roots = { ROBOZIUM_DESKTOP_RUNTIME: runtime, ROBOZIUM_DESKTOP_HUB: hub }
-	const mounts = definition.services.api.volumes.map(mount => {
+	const mounts = definition.services.api.volumes.map((mount): BackendMount => {
 		const match = /^\$\{(ROBOZIUM_DESKTOP_RUNTIME|ROBOZIUM_DESKTOP_HUB)(?::\?[^}]*)?\}(\/.*)?$/.exec(mount.source)
 		if (!match) {
 			throw new Error("Desktop bind sources must use the configured runtime or hub root.")
@@ -49,7 +70,7 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 		}
 	})
 
-	const mountSource = (destination: string) => {
+	const mountSource = (destination: string): string => {
 		const mount = mounts.find(mount => mount.destination === destination)
 		if (!mount) {
 			throw new Error(`Desktop layout references an unknown mount: ${destination}`)
@@ -58,7 +79,7 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 	}
 
 	/** The host path behind a container path, through the deepest mount that holds it. */
-	const hostPath = (containerPath: string) => {
+	const hostPath = (containerPath: string): string => {
 		const mount = mounts
 			.filter(mount => !path.posix.relative(mount.destination, containerPath).startsWith(".."))
 			.sort((left, right) => right.destination.length - left.destination.length)[0]
@@ -115,7 +136,7 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
  * throwaway hub inside the runtime is created here; a user's hub folder must exist.
  * Shared by Electron and the standalone Node setup command.
  */
-export function prepareBackendRuntime(layout: ReturnType<typeof resolveBackendLayout>): void {
+export function prepareBackendRuntime(layout: BackendLayout): void {
 	if (!isInside(layout.hub, layout.runtime) && !existsSync(layout.hub)) {
 		throw new Error(`Hub folder ${layout.hub} is missing.`)
 	}

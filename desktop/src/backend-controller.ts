@@ -4,7 +4,7 @@ import path from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
 import type { BackendStatus, HostServiceStatus } from "./bridge.d.ts"
 import { loadOrCreateBackendProfile } from "./backend-profile.ts"
-import { isInside, prepareBackendRuntime, resolveBackendLayout } from "./backend-layout.ts"
+import { isInside, prepareBackendRuntime, resolveBackendLayout, type BackendLayout } from "./backend-layout.ts"
 import { findExecutable, runCommand, type CommandOptions } from "./docker-command.ts"
 import { HostServices } from "./host-services.ts"
 import { HubFolderError, resolveHubFolder } from "./hub-folder.ts"
@@ -72,7 +72,7 @@ export class BackendController {
 	private targetPinned = false
 	private readonly settings: ReturnType<typeof loadOrCreateBackendProfile>
 	/** Resolved at each launch, so a newly chosen hub folder applies on retry or restart. */
-	private launchedLayout?: ReturnType<typeof resolveBackendLayout>
+	private launchedLayout?: BackendLayout
 	private readonly run: typeof runCommand
 	private readonly hostServices: HostServices
 	private readonly options: BackendOptions
@@ -97,7 +97,7 @@ export class BackendController {
 		return this.layout.hub
 	}
 
-	private get layout(): ReturnType<typeof resolveBackendLayout> {
+	private get layout(): BackendLayout {
 		if (!this.launchedLayout) throw new Error("The backend has not been launched.")
 		return this.launchedLayout
 	}

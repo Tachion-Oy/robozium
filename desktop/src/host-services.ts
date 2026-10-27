@@ -3,7 +3,7 @@ import { closeSync, lstatSync, openSync, readFileSync, rmSync, unlinkSync, write
 import net from "node:net"
 import { setTimeout as delay } from "node:timers/promises"
 import type { HostServiceStatus } from "./bridge.d.ts"
-import type { HostServiceLayout, resolveBackendLayout } from "./backend-layout.ts"
+import type { BackendLayout, HostServiceLayout } from "./backend-layout.ts"
 import { findExecutable, runCommand } from "./docker-command.ts"
 import { hostProcessEnvironment, prepareHostEnvironment } from "./host-environment.ts"
 
@@ -129,7 +129,7 @@ export class HostServices {
 	}
 
 	/** Replace any services from an earlier launch with this layout's. Throws only when `signal` aborts. */
-	async start(layout: ReturnType<typeof resolveBackendLayout>, mode: "live" | "mock", source: string, signal: AbortSignal): Promise<void> {
+	async start(layout: BackendLayout, mode: "live" | "mock", source: string, signal: AbortSignal): Promise<void> {
 		await this.stop()
 		this.lifetime = new AbortController()
 		const lifetime = this.lifetime.signal
@@ -141,7 +141,7 @@ export class HostServices {
 			: { name: service.name, state: "unsupported", message: "Not available on this operating system." })
 		if (supported.length === 0) return
 
-		const fail = (message: string) => {
+		const fail = (message: string): void => {
 			for (const service of supported) this.update(service.name, "failed", message)
 		}
 		const uv = (this.options.findUv ?? (() => findExecutable("uv")))()
@@ -214,7 +214,7 @@ export class HostServices {
 			entry.child = child
 			if (child.pid) writeFileSync(service.pidFile, String(child.pid), { mode: 0o600 })
 			entry.exited = new Promise(resolve => {
-				const exited = () => {
+				const exited = (): void => {
 					rmSync(service.pidFile, { force: true })
 					this.exited(entry, child)
 					resolve()

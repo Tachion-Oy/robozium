@@ -2,7 +2,7 @@
 // Adapted: records and Check Now come from the dependencies owner, the diagnostic is
 // copied through the native clipboard bridge, and cells wrap as in web/ at db6a20f.
 // A failed read is a toast with Check now; the table area stays empty.
-import { Fragment, useMemo, useState } from "react"
+import { Fragment, useMemo, useState, type ReactElement } from "react"
 import type { DependencyRecord, DependencyStatus } from "../../dependencies/dependencies-api"
 import type { DependenciesState } from "../../dependencies/useDependencies"
 import type { HostServiceStatus } from "../../../../src/bridge"
@@ -124,7 +124,7 @@ const hostServiceStyles: Record<HostServiceStatus["state"], { label: string; cla
 }
 
 /** Programs the desktop runs on this computer for backend tools; a failed one says why. */
-function HostServices({ services }: { services: HostServiceStatus[] }) {
+function HostServices({ services }: { services: HostServiceStatus[] }): ReactElement | null {
 	if (services.length === 0) return null
 	return (
 		<ul className="shrink-0 space-y-1" aria-label="Host services">

@@ -6,7 +6,7 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import { test, type TestContext } from "node:test"
 import { setTimeout as delay } from "node:timers/promises"
-import { resolveBackendLayout, type HostServiceLayout } from "../../src/backend-layout.ts"
+import { resolveBackendLayout, type BackendLayout, type HostServiceLayout } from "../../src/backend-layout.ts"
 import { HostServices } from "../../src/host-services.ts"
 
 // A stand-in service: it listens on its socket, then behaves as its mode says.
@@ -18,7 +18,16 @@ const server = net.createServer(connection => connection.end()).listen(address)
 process.on("SIGTERM", () => { if (mode !== "stubborn") server.close(() => process.exit(0)) })
 `
 
-function fixture(t: TestContext, mode = "serve") {
+interface Fixture {
+	layout: BackendLayout
+	service: HostServiceLayout
+	address: string
+	services: HostServices
+	/** The arguments of each environment sync the services asked for. */
+	syncs: string[][]
+}
+
+function fixture(t: TestContext, mode = "serve"): Fixture {
 	const directory = mkdtempSync(path.join(tmpdir(), "robozium-host-"))
 	t.after(() => rmSync(directory, { recursive: true, force: true }))
 	const runtime = path.join(directory, "runtime")
