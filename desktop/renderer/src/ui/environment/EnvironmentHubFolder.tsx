@@ -1,25 +1,20 @@
 // The hub folder in use, opened in the file manager or changed with the native folder dialog.
 // Laid out like EnvironmentFolderImport. The confirmation and failures are toasts,
 // so the row never grows; the restart it needs joins Restart required.
-import { usePersistentToast } from "../../feedback/notices"
+import { Toast } from "../feedback/Toast"
 import { hubFolderConfirmation, type HubFolder } from "../../hub-folder/useHubFolder"
 import { HudButton } from "../hud/HudButton"
 
 export function EnvironmentHubFolder({ hub, disabled }: { hub: HubFolder; disabled: boolean }) {
 	const { status, picked, pending, error } = hub
 	const folder = status?.selected ?? status?.current ?? ""
-	usePersistentToast("hub-folder-confirm", picked ? {
-		tone: "warning",
-		title: "Use this hub folder?",
-		message: hubFolderConfirmation(picked),
-		actions: [
-			{ label: "Use folder", disabled: pending, onClick: () => void hub.confirm() },
-			{ label: "Cancel", disabled: pending, onClick: hub.cancel },
-		],
-	} : null)
-	usePersistentToast("hub-folder-error", error ? { tone: "error", title: "Hub folder", message: error } : null)
 	return (
 		<div className="flex flex-col gap-3">
+			{picked && <Toast tone="warning" title="Use this hub folder?" message={hubFolderConfirmation(picked)} actions={[
+				{ label: "Use folder", disabled: pending, onClick: hub.confirm },
+				{ label: "Cancel", disabled: pending, onClick: hub.cancel },
+			]} />}
+			{error && <Toast tone="error" title="Hub folder" message={error} />}
 			<div className="flex flex-wrap gap-3">
 				<input
 					className="agent-hud__project-input min-w-0 flex-1"

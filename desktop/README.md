@@ -317,7 +317,9 @@ Runs Overview with no local session; it does not recover an existing run yet.
 **Dependencies** lists the backend's dependency monitor records: status, ID,
 redacted metadata, check time and failure reason, sortable by status or ID.
 **Check Now** probes every dependency again (up to about 20 seconds), and an
-unavailable dependency's diagnostic can be copied. **Restart backend** restarts
+unavailable dependency's diagnostic can be copied. **Environment** ends with one
+row of actions: **Save**, **Restart app**, **Restart backend**, **Recreate
+backend** and **Reset environment**. **Restart backend** restarts
 this installation's API container; **Recreate backend** recreates it from the
 same image so it reads `.env` again. Both keep mounted data, check container
 ownership first, and run one at a time; the loading screen covers the HUD

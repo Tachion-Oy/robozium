@@ -8,7 +8,7 @@ import { resolveCapabilitySelection } from "../../capabilities/capabilities"
 import type { LaunchDraft } from "../../app/hud-navigation"
 import type { CapabilitySelection, CapabilityView } from "../../capabilities/capabilities-api"
 import { CapabilityItem } from "../hud/CapabilityItem"
-import { usePersistentToast } from "../../feedback/notices"
+import { Toast } from "../feedback/Toast"
 
 type CapabilitySelectorProps = {
 	draft: LaunchDraft
@@ -35,12 +35,6 @@ export function CapabilitySelector({
 	const { catalog, initialSelection, error: loadError, retry } = capabilities
 	const currentSelection = draftSelection ?? initialSelection
 	const title = useRef<HTMLHeadingElement>(null)
-	usePersistentToast("capabilities", loadError ? {
-		tone: "error",
-		title: "Could not load capabilities",
-		message: loadError,
-		actions: [{ label: "Retry", onClick: retry }],
-	} : null)
 
 	useEffect(() => {
 		if (project !== null) title.current?.focus()
@@ -77,6 +71,7 @@ export function CapabilitySelector({
 				event.stopPropagation()
 				if (!disabled) onCancel()
 			}}>
+			{loadError && <Toast tone="error" title="Could not load capabilities" message={loadError} actions={[{ label: "Retry", onClick: retry }]} />}
 			<h2 ref={title} tabIndex={-1} className="text-center">
 				{project === null ? "New Project" : `Project: ${project}`}
 			</h2>
