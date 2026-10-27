@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test"
 import { test, json, view } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
+import { toast } from "./native"
 
 const environment = (overrides: Record<string, unknown> = {}) => ({
 	revision: "r1", entries: [] as unknown[], overrides: [], requires_password: false, editable: true,
@@ -10,7 +11,7 @@ const saved = { name: "OPENROUTER_API_KEY", value: null, secret: true, configure
 const keyFile = (page: Page) => page.getByRole("group", { name: "Key file" })
 const prompt = (page: Page) => page.getByRole("dialog")
 const uploads = (backend: Backend) => backend.requests.filter(request => request.path === "/credentials/environment/file")
-const restartNotice = (page: Page) => page.getByRole("status").filter({ hasText: "Restart to apply your changes." })
+const restartNotice = (page: Page) => toast(page, "Restart required")
 const content = "OPENROUTER_API_KEY_ENCRYPTED=roboz-encrypted:synthetic\n"
 
 async function openEnvironment(page: Page, backend: Backend) {

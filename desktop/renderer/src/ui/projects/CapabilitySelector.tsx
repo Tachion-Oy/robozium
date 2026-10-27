@@ -1,5 +1,6 @@
 // Copied from web/app/components/hud/projects/CapabilitySelector.tsx at 5b06d82.
-// Adapted: App owns the capability reads and passes their state in.
+// Adapted: App owns the capability reads and passes their state in; a failed read
+// is a toast with Retry, so the list never shifts.
 import { useEffect, useRef, type ComponentProps } from "react"
 import { DisplayArt } from "../branding/DisplayArt"
 import type { CapabilitiesState } from "../../capabilities/useCapabilities"
@@ -7,7 +8,7 @@ import { resolveCapabilitySelection } from "../../capabilities/capabilities"
 import type { LaunchDraft } from "../../app/hud-navigation"
 import type { CapabilitySelection, CapabilityView } from "../../capabilities/capabilities-api"
 import { CapabilityItem } from "../hud/CapabilityItem"
-import { HudButton } from "../hud/HudButton"
+import { usePersistentToast } from "../../feedback/notices"
 
 type CapabilitySelectorProps = {
 	draft: LaunchDraft
@@ -34,6 +35,12 @@ export function CapabilitySelector({
 	const { catalog, initialSelection, error: loadError, retry } = capabilities
 	const currentSelection = draftSelection ?? initialSelection
 	const title = useRef<HTMLHeadingElement>(null)
+	usePersistentToast("capabilities", loadError ? {
+		tone: "error",
+		title: "Could not load capabilities",
+		message: loadError,
+		actions: [{ label: "Retry", onClick: retry }],
+	} : null)
 
 	useEffect(() => {
 		if (project !== null) title.current?.focus()
@@ -94,16 +101,7 @@ export function CapabilitySelector({
 			</div>
 			<p>Choose agent capabilities for this launch.</p>
 			<div className="agent-hud__table-scroll agent-hud__capability-list space-y-6 p-2">
-				{loadError ? (
-					<div role="alert">
-						<p>{loadError}</p>
-						<HudButton
-							variant="info"
-								onClick={retry}>
-							Retry
-						</HudButton>
-					</div>
-				) : catalog === null ? (
+				{loadError ? null : catalog === null ? (
 					<p role="status">Loading capabilities…</p>
 				) : (
 					CAPABILITY_GROUPS.map((group) => {

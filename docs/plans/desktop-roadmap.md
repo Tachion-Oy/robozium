@@ -175,8 +175,9 @@ Each step is one PR and is runnable: launch the app to see its result.
 - **CSP-compatible toaster — done.** `feedback/notices` owns error, warning and
   success notifications; `ui/feedback/ToastViewport` renders the reference content
   and stylesheet in a top-centre stack without inline styles. Dismissal keeps the
-  exit animation, and hovering pauses the five-second lifetime. Persistent errors
-  and Retry controls remain in the notices row.
+  exit animation, and hovering pauses the five-second lifetime. Persistent errors,
+  statuses and confirmations are toasts too, with their own actions (Retry and the
+  like); nothing renders inline, so no notice moves the layout.
 - **Preview mode — removed.** `--preview` and its local project, messages and
   models are gone, with every "no client" branch. `--backend-url=<url>`
   connects to a backend the app does not manage, such as a mock backend

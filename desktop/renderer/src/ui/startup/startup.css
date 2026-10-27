@@ -5,7 +5,6 @@
 .startup__hud { --startup-loader-top: 50%; z-index: 70; }
 /* A failure keeps the loader centred unless the window is too short for its message
    and actions below it; then the loader rises only by the difference. */
-.startup__hud--failed { --startup-loader-top: max(calc(var(--startup-loader-size) / 2 + 12px), min(50%, calc(100% - var(--startup-loader-size) / 2 - 7rem))); }
 /* Loading and run surfaces let the terminal show through. The whole startup
    view fades into the painted app without changing the shell geometry. */
 html[data-desktop][data-theme="dark"] .startup__hud .agent-hud__box { background-color: rgb(var(--hud-shell-rgb) / 0.72); }
@@ -21,10 +20,6 @@ html[data-desktop] .startup__loading .agent-hud__mini-box { --mini-size: var(--s
 .startup__label { margin: 0; color: var(--term-lime); }
 .startup__loading-art { display: block; width: var(--startup-loading-art-width); height: 16px; background: currentColor; mask: url("/branding/loading.svg") center / contain no-repeat; }
 :root[data-theme="light"] .startup__label { color: var(--hud-input-text); }
-.startup__failure { position: absolute; top: calc(var(--startup-loader-top) + var(--startup-loader-size) / 2 + 12px); bottom: 12px; left: 10%; right: 10%; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; overflow-wrap: anywhere; font: 14px "Source Code Pro", monospace; color: var(--hud-input-text); z-index: 1; overflow: auto; }
-.startup__failure p { margin: 0; flex-shrink: 0; }
-.startup__failure button, .startup__failure .backend-startup__actions { flex-shrink: 0; }
-.startup__failure [role="alert"] { color: var(--term-red); }
 @media (prefers-reduced-motion: reduce) {
   .startup { transition: none; }
   .startup__hud--enter { animation: none; }

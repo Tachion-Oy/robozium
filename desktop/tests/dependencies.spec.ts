@@ -1,7 +1,7 @@
 import { expect, type ElectronApplication, type Page } from "@playwright/test"
 import { writeFile } from "node:fs/promises"
 import { test, json, view } from "./run-fixture"
-import { captureNative, setNativeViewport, startupDone } from "./native"
+import { captureNative, setNativeViewport, startupDone, toast } from "./native"
 import type { Backend } from "./selection-fixture"
 
 type Dependency = {
@@ -31,10 +31,12 @@ test("a failed load says so, and Check Now loads the records with their availabi
 	backend.handlers.set("GET /admin/dependencies", response => json(response, { detail: "Monitor unavailable" }, 503))
 	await backend.open()
 	await view(page, "Dependencies")
-	await expect(panel(page).getByRole("alert")).toHaveText("Unable to load dependency records. Use Check Now to retry.")
-	backend.handlers.set("POST /admin/dependencies/check", response => json(response, [dependency("executable:git"), failure]))
-	await checkNow(page).click()
+	// The failure is a toast with Check now; nothing appears inside the panel.
+	await expect(toast(page, "Could not load dependencies")).toContainText("Unable to load dependency records.")
 	await expect(panel(page).getByRole("alert")).toHaveCount(0)
+	backend.handlers.set("POST /admin/dependencies/check", response => json(response, [dependency("executable:git"), failure]))
+	await toast(page, "Could not load dependencies").getByRole("button", { name: "Check now" }).click()
+	await expect(toast(page, "Could not load dependencies")).toHaveCount(0)
 	await expect(panel(page).locator("p[aria-live]")).toHaveText("1 / 2 available")
 	await expect(panel(page).getByRole("cell", { name: "UNAVAILABLE", exact: true })).toBeVisible()
 	expect(checks(backend)).toHaveLength(1)
@@ -153,23 +155,24 @@ test("a slow restart keeps the loading screen, not the expected outage, even whe
 	await expect.poll(calls).toEqual(["restart"])
 	// The five-second poll fails while the operation runs.
 	await expect.poll(() => backend.requests.filter(request => request.path === "/ready").length, { timeout: 10_000 }).toBeGreaterThan(before)
-	await expect(page.locator(".backend-notice").getByRole("alert")).toHaveText("Backend connection unavailable. Check the backend and retry.")
+	// The outage is expected while the restart runs: no failure toast over the loader.
 	await expect(page.locator(".startup .agent-hud__mini-box")).toBeVisible()
-	await expect(page.locator(".startup .startup__failure")).toHaveCount(0)
+	await expect(toast(page, "Backend unavailable")).toHaveCount(0)
 	backend.handlers.set("GET /ready", response => json(response, { status: "ready" }))
 	await finish()
 	await startupDone(page)
 })
 
-test("a reconnect that fails after a restart shows the error and Retry on the loading screen", async ({ desktop: { app, page }, backend }) => {
+test("a reconnect that fails after a restart shows the error and Retry in a toast over the loading screen", async ({ desktop: { app, page }, backend }) => {
 	const { calls, finish } = await holdBackendOperations(app)
 	await openDependencies(page, backend, [dependency("executable:git")])
 	await panel(page).getByLabel("Backend controls").getByRole("button", { name: "Restart backend" }).click()
 	await expect.poll(calls).toEqual(["restart"])
 	backend.handlers.set("GET /ready", response => json(response, { detail: "Restarting" }, 503))
 	await finish()
-	const failure = page.locator(".startup .startup__failure")
-	await expect(failure.getByRole("alert")).toHaveText("Backend connection unavailable. Check the backend and retry.")
+	const failure = toast(page, "Backend unavailable")
+	await expect(failure).toContainText("Backend connection unavailable. Check the backend and retry.")
+	await expect(page.locator(".startup .agent-hud__mini-box")).toBeVisible()
 	backend.handlers.set("GET /ready", response => json(response, { status: "ready" }))
 	await failure.getByRole("button", { name: "Retry", exact: true }).click()
 	await startupDone(page)

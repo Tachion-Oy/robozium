@@ -2,11 +2,12 @@
 // Adapted: the draft and its writes arrive as props from App, so unsaved edits
 // survive leaving the screen, and App supplies the restart action. A key file
 // row adopts an existing .env.encrypt. The hub folder row shows and changes where projects live.
-import { type KeyboardEvent } from "react"
+// Loading, a failed read and a blocked edit are toasts, so the settings never shift.
+import { useEffect, useState, type KeyboardEvent } from "react"
+import { usePersistentToast } from "../../feedback/notices"
 import type { EnvironmentDraft } from "../../environment/useEnvironmentDraft"
 import type { EnvironmentMutations } from "../../environment/useEnvironmentMutations"
 import { hubRestartNeeded, type HubFolder } from "../../hub-folder/useHubFolder"
-import { HudButton } from "../hud/HudButton"
 import { EnvironmentFolderImport } from "./EnvironmentFolderImport"
 import { EnvironmentHubFolder } from "./EnvironmentHubFolder"
 import { EnvironmentKeyFileImport } from "./EnvironmentKeyFileImport"
@@ -22,7 +23,25 @@ export function EnvironmentPanel({ draft, mutations, hub, onRestart }: {
 	hub: HubFolder
 	onRestart: () => Promise<void>
 }) {
-	const { view, editor, editable, loadFailed } = draft
+	const { view, editor, editable, loadFailed, loadError } = draft
+	// A read that finishes quickly shows no loading toast at all.
+	const loading = !view && !loadFailed
+	const [slowLoad, setSlowLoad] = useState(false)
+	useEffect(() => {
+		if (!loading) { setSlowLoad(false); return }
+		const timer = window.setTimeout(() => setSlowLoad(true), 600)
+		return () => window.clearTimeout(timer)
+	}, [loading])
+	usePersistentToast("environment-loading", loading && slowLoad ? { tone: "info", title: "Environment", message: "Loading settings…" } : null)
+	usePersistentToast("environment-load", loadError === null ? null : {
+		tone: "error",
+		title: "Could not load settings",
+		message: loadError,
+		actions: [{ label: "Retry", onClick: draft.retry }],
+	})
+	usePersistentToast("environment-locked", view && !view.editable
+		? { tone: "info", title: "Editing paused", message: "Stop all runs and background work before editing." }
+		: null)
 
 	const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
 		if (event.key !== "Escape" || !editor) return
@@ -38,11 +57,6 @@ export function EnvironmentPanel({ draft, mutations, hub, onRestart }: {
 			onKeyDown={handleKeyDown}>
 			<h2 className="text-center">Environment</h2>
 			<p className="agent-hud__environment-lead">Choose settings and secrets.</p>
-			{!view && !loadFailed && <p role="status">Loading settings…</p>}
-			{loadFailed && <div className="flex items-center gap-3">
-				<HudButton onClick={draft.retry}>Retry</HudButton>
-			</div>}
-			{view && !view.editable && <p role="status">Stop all runs and background work before editing.</p>}
 			<div className="agent-hud__table-scroll min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]">
 				<div className="flex min-w-0 flex-col gap-4 pe-3 pb-4">
 					<h3 className="agent-hud__capability-group-heading">Hub folder</h3>

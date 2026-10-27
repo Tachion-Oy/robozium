@@ -1,7 +1,9 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentSaveForm.tsx at 076b2c9.
 // Adapted: desktop import paths, the save reports whether it succeeded, and the
 // encryption password is entered in the password dialog instead of inline fields.
+// Reset is confirmed in a toast, so the buttons never move.
 import { useState, type SubmitEvent } from "react"
+import { usePersistentToast } from "../../feedback/notices"
 import { HudButton } from "../hud/HudButton"
 import { PasswordDialog } from "../hud/PasswordDialog"
 
@@ -48,6 +50,16 @@ export function EnvironmentSaveForm({
 		}
 	}
 
+	usePersistentToast("environment-reset", confirmingReset && !resetting ? {
+		tone: "warning",
+		title: "Reset environment?",
+		message: "This permanently deletes all saved settings and secrets.",
+		actions: [
+			{ label: "Yes, reset", disabled: !canReset, onClick: () => void reset() },
+			{ label: "Keep settings", onClick: () => setConfirmingReset(false) },
+		],
+	} : null)
+
 	// The dialog's form sits beside this one; forms cannot nest.
 	return (
 		<>
@@ -55,14 +67,9 @@ export function EnvironmentSaveForm({
 				aria-label="Save environment settings"
 				className="agent-hud__environment-save flex shrink-0 flex-col gap-3 pt-4"
 				onSubmit={submit}>
-				{confirmingReset && <p>Are you sure? This permanently deletes all saved settings and secrets.</p>}
 				<div className="flex flex-wrap justify-between gap-3">
-					<div className="flex gap-3">
-						{confirmingReset ? <>
-							<HudButton variant="danger-confirm" pending={resetting} disabled={!canReset} onClick={() => void reset()}>Yes, reset</HudButton>
-							<HudButton variant="warning" disabled={!canReset || resetting} onClick={() => setConfirmingReset(false)}>Keep settings</HudButton>
-						</> : <HudButton variant="danger" disabled={!canReset} onClick={() => setConfirmingReset(true)}>Reset environment</HudButton>}
-					</div>
+					<HudButton variant="danger" pending={resetting} disabled={!canReset || confirmingReset}
+						onClick={() => setConfirmingReset(true)}>Reset environment</HudButton>
 					<HudButton type="submit" variant="success" pending={pending} disabled={!canSave}>
 						{pending ? "Saving…" : label}
 					</HudButton>
