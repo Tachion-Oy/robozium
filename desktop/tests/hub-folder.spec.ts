@@ -1,7 +1,7 @@
 import { expect, type ElectronApplication, type Page } from "@playwright/test"
 import { test, json, view } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
-import { startupDone } from "./native"
+import { startupDone, toast } from "./native"
 
 type Pick = { folder: string; needsConfirmation: boolean } | { refused: string } | null
 const environment = { revision: "r1", entries: [], overrides: [], requires_password: false, editable: true, suggestions: [], example_errors: [], imports: [] }
@@ -55,7 +55,7 @@ test("the hub folder shows in full and changes with the native picker after a re
 	await openEnvironment(page, backend)
 	await expect(hubInput(page)).toHaveValue("/home/user/Robozium-Hub")
 	await expect(panel(page).getByRole("button", { name: "Open folder" })).toBeEnabled()
-	await expect(panel(page).getByRole("status").filter({ hasText: "Restart to apply your changes." })).toHaveCount(0)
+	await expect(toast(page, "Restart required")).toHaveCount(0)
 
 	await pickNext(app, null)
 	await panel(page).getByRole("button", { name: "Choose folder…" }).click()
@@ -65,12 +65,10 @@ test("the hub folder shows in full and changes with the native picker after a re
 	await pickNext(app, { folder: "/home/user/Projects/Robozium-Hub", needsConfirmation: false })
 	await panel(page).getByRole("button", { name: "Choose folder…" }).click()
 	await expect(hubInput(page)).toHaveValue("/home/user/Projects/Robozium-Hub")
-	await expect(panel(page).getByRole("status").filter({ hasText: "Restart the app" }))
-		.toHaveText("Restart the app to use this folder. Until then, the hub stays /home/user/Robozium-Hub.")
-	// As after saving settings: a notification, and Restart app says it is needed.
+	// As after saving settings: a notification, and a toast says a restart is needed.
 	await expect(page.getByRole("status").filter({ hasText: "Hub folder chosen" }))
 		.toContainText("/home/user/Projects/Robozium-Hub takes effect after restart.")
-	await expect(panel(page).getByRole("status").filter({ hasText: "Restart to apply your changes." })).toBeVisible()
+	await expect(toast(page, "Restart required")).toContainText("Restart to apply your changes.")
 	expect(await used(app)).toEqual(["/home/user/Projects/Robozium-Hub"])
 })
 
@@ -80,24 +78,26 @@ test("a folder with files but no projects is used only after confirming", async 
 	await pickNext(app, { folder: "/home/user/Documents", needsConfirmation: true })
 	const choose = panel(page).getByRole("button", { name: "Choose folder…" })
 	await choose.click()
-	await expect(panel(page).getByRole("alert")).toHaveText("/home/user/Documents already has files but no Robozium projects. Use it as the hub folder anyway?")
+	const confirm = toast(page, "Use this hub folder?")
+	await expect(confirm).toContainText("/home/user/Documents already has files but no Robozium projects. Use it as the hub folder anyway?")
 	await expect(choose).toBeDisabled()
-	await panel(page).getByRole("button", { name: "Cancel" }).click()
+	await confirm.getByRole("button", { name: "Cancel" }).click()
+	await expect(confirm).toHaveCount(0)
 	expect(await used(app)).toEqual([])
 	await expect(hubInput(page)).toHaveValue("/home/user/Robozium-Hub")
 
 	await choose.click()
-	await panel(page).getByRole("button", { name: "Use folder" }).click()
+	await confirm.getByRole("button", { name: "Use folder" }).click()
 	await expect(hubInput(page)).toHaveValue("/home/user/Documents")
 	expect(await used(app)).toEqual(["/home/user/Documents"])
 })
 
-test("a refused folder explains why in place", async ({ desktop: { app, page }, backend }) => {
+test("a refused folder explains why in a toast", async ({ desktop: { app, page }, backend }) => {
 	await installedHub(app, "/home/user/Robozium-Hub", "/home/user/Robozium-Hub")
 	await openEnvironment(page, backend)
 	await pickNext(app, { refused: "Hub folder /tmp/hub is a temporary folder that is cleared on restart. Choose another folder." })
 	await panel(page).getByRole("button", { name: "Choose folder…" }).click()
-	await expect(panel(page).getByRole("alert")).toHaveText("Hub folder /tmp/hub is a temporary folder that is cleared on restart. Choose another folder.")
+	await expect(toast(page, "Hub folder")).toContainText("Hub folder /tmp/hub is a temporary folder that is cleared on restart. Choose another folder.")
 	await expect(hubInput(page)).toHaveValue("/home/user/Robozium-Hub")
 })
 
@@ -117,9 +117,10 @@ test("a missing hub folder stops startup, and choosing another retries", async (
 	// Reduced motion shows the loading screen, and its failure, at once.
 	await page.emulateMedia({ reducedMotion: "reduce" })
 	await page.reload()
-	await expect(page.getByRole("alert")).toHaveText("Hub folder /media/drive/Robozium-Hub is missing. Reconnect it or choose another folder.")
+	const failure = toast(page, "Hub folder unavailable")
+	await expect(failure).toContainText("Hub folder /media/drive/Robozium-Hub is missing. Reconnect it or choose another folder.")
 	await pickNext(app, { folder: "/home/user/Robozium-Hub", needsConfirmation: false })
-	await page.getByRole("button", { name: "Choose folder…" }).click()
+	await failure.getByRole("button", { name: "Choose folder…" }).click()
 	await startupDone(page)
 	await expect(page.locator(".agent-hud__box")).toBeVisible()
 	expect(await used(app)).toEqual(["/home/user/Robozium-Hub"])

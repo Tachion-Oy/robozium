@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test"
 import { writeFile } from "node:fs/promises"
-import { test, json, prepareRun, start, replyBox, launchButton, view } from "./run-fixture"
+import { test, json, prepareRun, start, replyBox, launchButton, view, project } from "./run-fixture"
 import { captureNative, setNativeViewport, waitForPanelLayout } from "./native"
 import type { Backend } from "./selection-fixture"
 
@@ -205,4 +205,29 @@ test("keyboard dismissal without an earlier focus moves to the next toast", asyn
 	await copy.getByRole("button", { name: "Dismiss error notification" }).focus()
 	await page.keyboard.press("Enter")
 	await expect(toast(page).getByRole("button", { name: "Dismiss error notification" })).toBeFocused()
+})
+
+test("a toast that waits for an answer stays, keeps one copy, and leaves with its action or Dismiss", async ({ desktop: { page }, backend }) => {
+	backend.handlers.set("GET /projects", response => json(response, { detail: "Storage unreadable" }, 500))
+	await page.clock.install()
+	await backend.open({ awaitOverview: false })
+	const failure = page.getByRole("region", { name: "Notifications" }).locator(".agent-error-toast--visible", { hasText: "Could not load projects" })
+	await expect(failure).toBeVisible()
+	// Timed toasts leave after five seconds; this one stays through later failed reads, once.
+	await page.clock.fastForward(12_000)
+	await expect(failure).toHaveCount(1)
+	await expect(failure).toBeVisible()
+	// Dismiss always remains, so a toast never traps the controls beneath it. A
+	// dismissed problem stays hidden while it is unchanged, and returns with the view.
+	await failure.getByRole("button", { name: /^Dismiss/ }).click()
+	await expect(failure).toHaveCount(0)
+	await page.clock.fastForward(6_000)
+	await expect(failure).toHaveCount(0)
+	await view(page, "Dependencies")
+	await view(page, "Runs Overview")
+	await expect(failure).toBeVisible()
+	backend.handlers.set("GET /projects", response => json(response, [project("existing-project")]))
+	await failure.getByRole("button", { name: "Retry", exact: true }).click()
+	await expect(failure).toHaveCount(0)
+	await expect(launchButton(page, "existing-project")).toBeVisible()
 })

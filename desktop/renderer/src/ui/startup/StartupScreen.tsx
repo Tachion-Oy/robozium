@@ -1,8 +1,7 @@
 // Copied from robozium-electron/desktop/web/startup/StartupScreen.tsx at 076b2c9.
 // Adapted: it covers the application inside the renderer, so its state arrives as
-// props from BackendStartup and its failure carries the startup's own actions. A
-// failure raises the loader so its message fits the smallest window, and reduced
-// motion requested during the introduction settles it.
+// props from BackendStartup. A failure shows as a toast over it, so the loader never
+// moves, and reduced motion requested during the introduction settles it.
 import { useEffect, useState, type ReactNode } from "react"
 import { AgentActivityState } from "../run/run-view"
 import { MinimizedHudFrame } from "../hud/MinimizedHudFrame"
@@ -11,12 +10,6 @@ import { IntroStream, PlaceholderLog } from "../terminal/demo/DemoLog"
 import type { StartupScreenMode } from "../../backend/useStartupScreen"
 import "./startup.css"
 
-/** Why startup stopped, and the controls that continue it. */
-export interface StartupFailure {
-	message: string
-	actions: ReactNode
-}
-
 export interface StartupScreenProps {
 	/** "intro" plays the launch animation; "loading" shows the loading HUD at once, as during a restart. */
 	mode: StartupScreenMode
@@ -24,7 +17,6 @@ export interface StartupScreenProps {
 	ready: boolean
 	/** The startup step, announced to assistive technology; the screen itself shows only the loader. */
 	status: string
-	failure: StartupFailure | null
 	/** The screen has faded out; the owner removes it. */
 	onFaded: () => void
 }
@@ -36,7 +28,7 @@ const FADE_FALLBACK_MS = 1000
 const reduceMotion = "(prefers-reduced-motion: reduce)"
 
 /** Local presentation runs independently of Docker and the application's data. */
-export function StartupScreen({ mode, ready, status, failure, onFaded }: StartupScreenProps): ReactNode {
+export function StartupScreen({ mode, ready, status, onFaded }: StartupScreenProps): ReactNode {
 	const skipIntro = mode === "loading"
 	const [reducedMotion, setReducedMotion] = useState(() => matchMedia(reduceMotion).matches)
 	const [introDone, setIntroDone] = useState(skipIntro || reducedMotion)
@@ -79,7 +71,7 @@ export function StartupScreen({ mode, ready, status, failure, onFaded }: Startup
 			</TerminalBackdrop>
 			{loadingStarted && (
 				<div
-					className={`agent-hud agent-hud--landing startup__hud${skipIntro ? "" : " startup__hud--enter"}${failure ? " startup__hud--failed" : ""}`}>
+					className={`agent-hud agent-hud--landing startup__hud${skipIntro ? "" : " startup__hud--enter"}`}>
 					<div className="agent-hud__box">
 						<div className="startup__loading">
 							<MinimizedHudFrame
@@ -91,12 +83,6 @@ export function StartupScreen({ mode, ready, status, failure, onFaded }: Startup
 								</svg>
 							</MinimizedHudFrame>
 						</div>
-						{failure && (
-							<div className="startup__failure">
-								<p role="alert">{failure.message}</p>
-								{failure.actions}
-							</div>
-						)}
 					</div>
 				</div>
 			)}

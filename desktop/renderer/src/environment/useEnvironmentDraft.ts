@@ -57,6 +57,8 @@ export interface EnvironmentDraft {
 	view: EnvironmentView | null
 	editable: boolean
 	loadFailed: boolean
+	/** Why the last read failed; the panel shows it in a toast with Retry. */
+	loadError: string | null
 	canReset: boolean
 	editor: Editor | null
 	/** The entries a save sends, including an open edit. */
@@ -86,7 +88,8 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 	const [changedEntries, setChangedEntries] = useState<EnvironmentEntry[]>([])
 	const [editor, setEditor] = useState<Editor | null>(null)
 	const [hiddenSuggestions, setHiddenSuggestions] = useState<Set<string>>(new Set())
-	const [loadFailed, setLoadFailed] = useState(false)
+	const [loadError, setLoadError] = useState<string | null>(null)
+	const loadFailed = loadError !== null
 	const lastLoadError = useRef("")
 	const [refreshVersion, setRefreshVersion] = useState(0)
 	const dirtyRef = useRef(false)
@@ -108,7 +111,7 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 				const preserve = dirtyRef.current || editingRef.current
 				setView(previous => preserve && previous ? { ...next, entries: previous.entries, revision: previous.revision } : next)
 				if (!preserve) setChangedEntries(next.entries)
-				setLoadFailed(false)
+				setLoadError(null)
 				const message = next.example_errors.join("\n")
 				if (message && lastLoadError.current !== message) {
 					showErrorToast({ title: "Could not read environment examples", message })
@@ -116,10 +119,7 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 				lastLoadError.current = message
 			} catch (cause) {
 				if (!controller.signal.aborted && version === writeVersion()) {
-					setLoadFailed(true)
-					const message = cause instanceof Error ? cause.message : "Could not load environment settings."
-					if (lastLoadError.current !== message) showErrorToast({ title: "Could not load settings", message })
-					lastLoadError.current = message
+					setLoadError(cause instanceof Error ? cause.message : "Could not load environment settings.")
 				}
 			}
 		}
@@ -134,7 +134,7 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 	useEffect(() => () => {
 		setView(null)
 		setChangedEntries([])
-		setLoadFailed(false)
+		setLoadError(null)
 		dirtyRef.current = false
 		lastLoadError.current = ""
 	}, [client])
@@ -218,7 +218,7 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 	}
 
 	return {
-		view, editable, loadFailed, canReset,
+		view, editable, loadFailed, loadError, canReset,
 		editor, currentEntries, dirty, needsPassword,
 		variables: [...variables.values()],
 		openEditor, closeEditor, updateEditor, applyEditor, removeVariable,
@@ -249,7 +249,7 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 			setView(null)
 			setChangedEntries([])
 			dirtyRef.current = false
-			setLoadFailed(false)
+			setLoadError(null)
 			lastLoadError.current = ""
 			closeEditor()
 			setHiddenSuggestions(new Set())

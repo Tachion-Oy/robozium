@@ -2,7 +2,7 @@ import { _electron, expect } from "@playwright/test"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { launchArgs, startupDone, test } from "./native"
+import { launchArgs, startupDone, test, toast } from "./native"
 
 const screen = ".startup"
 const launchButton = "button:text-is('Launch')"
@@ -44,7 +44,7 @@ test("the launch animation plays, then fades into the HUD already drawn beneath 
 	}
 })
 
-test("a failed start shows its reason and Retry on the loading screen", async ({ desktop: { app, page } }) => {
+test("a failed start shows its reason and Retry in a toast, leaving the loader in place", async ({ desktop: { app, page } }) => {
 	await app.evaluate(({ ipcMain }) => {
 		let status: object = { state: "error", message: "Docker is not running. Start Docker, then retry." }
 		Reflect.set(globalThis, "retries", 0)
@@ -58,9 +58,14 @@ test("a failed start shows its reason and Retry on the loading screen", async ({
 	// Reduced motion shows the loading screen at once.
 	await page.emulateMedia({ reducedMotion: "reduce" })
 	await page.reload()
-	const failure = page.locator(`${screen} .startup__failure`)
-	await expect(failure.getByRole("alert")).toHaveText("Docker is not running. Start Docker, then retry.")
+	const failure = toast(page, "Robozium could not start")
+	await expect(failure).toContainText("Docker is not running. Start Docker, then retry.")
 	await expect(page.locator(launchButton)).toHaveCount(0)
+	// The loader stays centred: the failure takes no space on the screen.
+	expect(await page.locator(`${screen} .startup__loading`).evaluate(loader => {
+		const rect = loader.getBoundingClientRect()
+		return Math.abs(rect.y + rect.height / 2 - innerHeight / 2) < 1
+	})).toBe(true)
 	await failure.getByRole("button", { name: "Retry", exact: true }).click()
 	await startupDone(page)
 	await expect(page.locator(launchButton)).toBeVisible()

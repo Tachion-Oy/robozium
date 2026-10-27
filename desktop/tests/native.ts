@@ -83,6 +83,12 @@ function previewHandlers(): Map<string, Handler> {
 			json(response, models())
 		}],
 		["GET /capabilities", response => json(response, [])],
+		// As the mock backend: an empty monitor and environment, so their views load.
+		["GET /admin/dependencies", response => json(response, [])],
+		["GET /credentials/environment", response => json(response, {
+			revision: "r1", entries: [], overrides: [], requires_password: false, editable: true,
+			suggestions: [], example_errors: [], imports: [],
+		})],
 		["POST /run/create", response => {
 			launched = true
 			json(response, { run_id: "preview-run" })
@@ -365,4 +371,15 @@ export async function captureNative(app: ElectronApplication, page: Page, width:
 		return capture.size
 	}).toEqual({ width, height })
 	return screenshot
+}
+
+/** Alerts inside the HUD, outside the notifications: there must be none, so nothing moves. */
+export function inlineAlerts(page: Page) {
+	return page.locator(".agent-hud [role=alert], .startup [role=alert]")
+}
+
+/** A notification toast, found by its title; problems and statuses never render inline. */
+export function toast(page: Page, title: string) {
+	return page.getByRole("region", { name: "Notifications" }).locator(".agent-error-toast--visible")
+		.filter({ has: page.locator(".agent-error-toast__title", { hasText: title }) })
 }

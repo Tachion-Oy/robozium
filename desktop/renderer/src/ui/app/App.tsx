@@ -1,8 +1,7 @@
 // Compose feature state into the reference HUD frame; keep navigation and draft ownership here.
-import { useMemo, useReducer, useState, type ReactNode } from "react"
+import { useMemo, useReducer, useState } from "react"
 import { RunHud } from "../run/RunHud"
 import { HubFileUrlContext } from "../run/HudImage"
-import { ToastViewport } from "../feedback/ToastViewport"
 import { AgentHud } from "../hud/AgentHud"
 import { MessageLog } from "../log/MessageLog"
 import { HudHeader } from "../hud/HudHeader"
@@ -18,7 +17,6 @@ import { useModels } from "../../models/useModels"
 import { useProjectQuery } from "../../projects/useProjectQuery"
 import { useProjectMutations } from "../../projects/useProjectMutations"
 import { useCapabilities } from "../../capabilities/useCapabilities"
-import { HudButton } from "../HudButton"
 import { PasswordDialog } from "../hud/PasswordDialog"
 import { useCredentials } from "../../credentials/useCredentials"
 import { EnvironmentPanel } from "../environment/EnvironmentPanel"
@@ -37,12 +35,11 @@ import { selectRunDisplay } from "../../session/session-reducer"
 import { isTerminal, RunStatus, type RunRecord } from "../../run/run-contracts"
 import { useMessageLog } from "../../log/useMessageLog"
 import type { BackendOperations } from "../backend/BackendStartup"
-import "./interim-content.css"
+import { usePersistentToast } from "../../feedback/notices"
 
 const noEvents: readonly RunRecord[] = []
 
 interface AppProps {
-	connectionNotice: ReactNode
 	client: DesktopApiClient
 	connected: boolean
 	/** The startup screen covers the HUD. */
@@ -51,7 +48,7 @@ interface AppProps {
 	backend: BackendOperations
 }
 
-export function App({ connectionNotice, client, connected, covered, backend }: AppProps) {
+export function App({ client, connected, covered, backend }: AppProps) {
 	const [navigation, navigate] = useReducer(reduceHudNavigation, null, initialHudNavigation)
 	const [focusRunEditor, setFocusRunEditor] = useState(false)
 	const runSession = useRunSession(client)
@@ -113,14 +110,14 @@ export function App({ connectionNotice, client, connected, covered, backend }: A
 	const cancelling = session !== null && (projectMutations.pending.has(session.run.project) || session.run.status === RunStatus.Cancelling)
 	const modelError = models.error
 	const runError = screen === "run" ? session?.run.error : ""
-	const notices = (connectionNotice || modelError || runError) &&
-		<div className="desktop-interim-content__notices">
-			{modelError && <p role="alert">{modelError}</p>}
-			{runError && <p role="alert">{runError}</p>}
-			{runError && <HudButton onClick={runSession.retry} disabled={!connected || projectMutations.launching}>Retry output</HudButton>}
-			{connectionNotice}
-		</div>
-	const noticesRow = notices && <div className="desktop-interim-content desktop-interim-content--notices">{notices}</div>
+	// Problems are toasts, never lines above the panels.
+	usePersistentToast("model", modelError ? { tone: "error", title: "Model unavailable", message: modelError } : null)
+	usePersistentToast("run-output", runError ? {
+		tone: "error",
+		title: "Run output unavailable",
+		message: runError,
+		actions: [{ label: "Retry output", disabled: !connected || projectMutations.launching, onClick: runSession.retry }],
+	} : null)
 
 	function renderContent() {
 		switch (screen) {
@@ -167,7 +164,6 @@ export function App({ connectionNotice, client, connected, covered, backend }: A
 				logPane={() => <MessageLog active={presentation.context === "active-run"} events={session?.run.events ?? noEvents} />}
 				header={<HudHeader presentation={presentation} projectSlug={session?.run.project ?? null} onSelectScreen={selectScreen}
 					modelSelector={<ModelSelector models={models} disabled={presentation.locked || !connected || projectMutations.launching} />} />}>
-				{noticesRow}
 				{renderContent()}
 			</AgentHud>
 			<PasswordDialog open={credentials.asking} title="Unlock secrets" label="Password" submitLabel="Unlock" pendingLabel="Unlocking…"
@@ -175,7 +171,6 @@ export function App({ connectionNotice, client, connected, covered, backend }: A
 				onCancel={credentials.cancel}>
 				<p>Enter the password your secrets are encrypted with.</p>
 			</PasswordDialog>
-			<ToastViewport />
 		</>
 	)
 }
