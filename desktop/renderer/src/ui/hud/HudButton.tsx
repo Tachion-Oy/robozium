@@ -12,13 +12,18 @@ const variants = {
 
 type HudButtonProps = ComponentPropsWithRef<"button"> & {
 	variant?: keyof typeof variants
+	/** Its action is in flight: the button is disabled and pulses until the outcome arrives. */
+	pending?: boolean
 }
 
-export function HudButton({ variant = "info", type = "button", className = "", ...props }: HudButtonProps) {
+// Adapted: the pending state.
+export function HudButton({ variant = "info", type = "button", className = "", pending = false, disabled, ...props }: HudButtonProps) {
 	return (
 		<button
 			{...props}
 			type={type}
+			disabled={disabled || pending}
+			aria-busy={pending || undefined}
 			className={`agent-hud__row-action ${variants[variant]} ${className}`.trim()}
 		/>
 	)

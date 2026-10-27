@@ -22,6 +22,7 @@ export function EnvironmentSaveForm({
 }: EnvironmentSaveFormProps) {
 	const [asking, setAsking] = useState(false)
 	const [confirmingReset, setConfirmingReset] = useState(false)
+	const [resetting, setResetting] = useState(false)
 	const label = needsPassword ? "Encrypt and save" : "Save"
 	const canSave = editable && dirty && !confirmingReset
 
@@ -37,9 +38,14 @@ export function EnvironmentSaveForm({
 		return null
 	}
 	const reset = async () => {
-		if (!canReset) return
-		await onReset()
-		setConfirmingReset(false)
+		if (!canReset || resetting) return
+		setResetting(true)
+		try {
+			await onReset()
+		} finally {
+			setResetting(false)
+			setConfirmingReset(false)
+		}
 	}
 
 	// The dialog's form sits beside this one; forms cannot nest.
@@ -53,11 +59,11 @@ export function EnvironmentSaveForm({
 				<div className="flex flex-wrap justify-between gap-3">
 					<div className="flex gap-3">
 						{confirmingReset ? <>
-							<HudButton variant="danger-confirm" disabled={!canReset} onClick={() => void reset()}>Yes, reset</HudButton>
-							<HudButton variant="warning" disabled={!canReset} onClick={() => setConfirmingReset(false)}>Keep settings</HudButton>
+							<HudButton variant="danger-confirm" pending={resetting} disabled={!canReset} onClick={() => void reset()}>Yes, reset</HudButton>
+							<HudButton variant="warning" disabled={!canReset || resetting} onClick={() => setConfirmingReset(false)}>Keep settings</HudButton>
 						</> : <HudButton variant="danger" disabled={!canReset} onClick={() => setConfirmingReset(true)}>Reset environment</HudButton>}
 					</div>
-					<HudButton type="submit" variant="success" disabled={!canSave}>
+					<HudButton type="submit" variant="success" pending={pending} disabled={!canSave}>
 						{pending ? "Saving…" : label}
 					</HudButton>
 				</div>

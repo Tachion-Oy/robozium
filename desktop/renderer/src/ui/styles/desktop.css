@@ -16,37 +16,72 @@ html[data-desktop] .agent-hud__mini { display: none; }
 .desktop-terminal { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
 .desktop-terminal .app-nav__brand { cursor: default; }
 
-/* Native client edges must not clip the project badge that straddles the web
-   HUD's outer border. Reserve a top band and keep the entire badge inside it. */
-html[data-desktop] .agent-hud__box:has(.agent-hud__event-edge) { --hud-pad-top: 3.25rem; }
-html[data-desktop][data-theme] .agent-hud__event-edge {
-  top: 0.75rem; left: var(--hud-pad-x); transform: none;
-  max-width: calc(100% - 2 * var(--hud-pad-x));
-}
-html[data-desktop][data-theme="light"] .agent-hud__event-edge {
-  top: var(--hud-corner-control-left); display: flex;
-}
-html[data-desktop][data-theme="light"] .agent-hud__event-label { display: flex; }
-
-/* Each top control shares the available row. Its full label remains available
-   through its accessible name and tooltip when the visible text is shortened. */
+/* One header row: the project badge where the row starts, the model and view
+   selectors together on the right. Each shares the available row; a full label
+   remains available through its accessible name and tooltip when shortened. */
 html[data-desktop] .agent-hud__header {
   flex-wrap: nowrap; align-items: center; gap: clamp(0.35rem, 1.5vw, 1.4rem);
 }
-html[data-desktop] .agent-hud__header-actions { display: contents; }
-html[data-desktop][data-theme] .agent-hud__header .agent-hud__model-selector,
-html[data-desktop][data-theme] .agent-hud__header .theme-toggle {
+/* The project badge stretches to the selectors' height. It is a label, not a
+   button: in dark a glowing blue octagon with dark, unblurred text, cut like the
+   buttons; in light a raised plate in the frame's own tones and bevel. */
+html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-edge {
+  position: static; transform: none; display: flex; flex: 0 1 auto; align-self: stretch;
+  min-width: 0; max-width: none;
+}
+html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-label {
+  display: flex; min-width: 0;
+  /* A clip removes box shadows, so the octagon glows through a filter on its parent. */
+  filter: drop-shadow(0 0 1.5px var(--term-blue))
+    drop-shadow(0 0 6px color-mix(in oklab, var(--term-blue) clamp(0%, 45% * var(--tune-glow, 1), 100%), transparent));
+}
+html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-label .term-msg-badge {
+  --btn-cut: 0.5625rem;
+  display: flex; align-self: stretch; align-items: center; min-width: 0; padding: 0 1rem;
+  font-family: var(--font-agent-input); font-size: 1.2rem; letter-spacing: 0.06em;
+  border: 0; border-radius: 0; background: var(--term-blue); box-shadow: none;
+  clip-path: polygon(
+    var(--btn-cut) 0, calc(100% - var(--btn-cut)) 0, 100% var(--btn-cut), 100% calc(100% - var(--btn-cut)),
+    calc(100% - var(--btn-cut)) 100%, var(--btn-cut) 100%, 0 calc(100% - var(--btn-cut)), 0 var(--btn-cut)
+  );
+}
+html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-label .term-msg-badge-label {
+  color: color-mix(in oklab, var(--term-bg) 82%, var(--term-blue));
+  font-weight: 600; -webkit-text-stroke: 0; text-shadow: none; filter: none; will-change: auto;
+}
+html[data-desktop][data-theme="light"] .agent-hud__header .agent-hud__event-label { filter: none; }
+html[data-desktop][data-theme="light"] .agent-hud__header .agent-hud__event-label .term-msg-badge {
+  padding: 0 0.9rem; font-size: 1.1rem; letter-spacing: 0.04em;
+  clip-path: none; border-radius: 0.42rem;
+  border: 1px solid color-mix(in oklab, var(--hud-input-border) clamp(0%, 78% * var(--tune-line, 1), 100%), transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, white clamp(0%, 46% * var(--tune-sheen, 1), 100%), var(--hud-input-bg)),
+    color-mix(in oklab, var(--hud-control-ink) clamp(0%, 5% * var(--tune-fill, 1), 100%), var(--hud-input-bg))
+  );
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 75% * var(--tune-sheen, 1), 100%), transparent),
+    inset 0 -2px 0 color-mix(in oklab, var(--hud-control-ink) clamp(0%, 10% * var(--tune-shadow, 1), 100%), transparent),
+    0 1px 1px color-mix(in oklab, var(--hud-control-ink) clamp(0%, 14% * var(--tune-shadow, 1), 100%), transparent),
+    0 0.22rem 0.5rem color-mix(in oklab, var(--hud-control-ink) clamp(0%, 10% * var(--tune-shadow, 1), 100%), transparent);
+}
+html[data-desktop][data-theme="light"] .agent-hud__header .agent-hud__event-label .term-msg-badge-label {
+  color: var(--hud-control-ink); font-weight: 600; text-transform: none; text-shadow: none;
+}
+html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-text {
+  display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+html[data-desktop] .agent-hud__header-actions {
+  flex: 0 1 auto; min-width: 0; margin-inline-start: auto; align-items: center; gap: inherit;
+}
+html[data-desktop][data-theme] .agent-hud__header .agent-hud__model-selector {
   flex: 0 1 auto; width: max-content; min-width: 0; max-width: 100%; margin: 0;
 }
-html[data-desktop][data-theme] .agent-hud__header > .agent-hud__model-selector { max-width: 40%; }
 html[data-desktop] .agent-hud__header .agent-hud__model-trigger {
   min-width: 0; width: 100%; height: 100%;
 }
-html[data-desktop] .agent-hud__header .agent-hud__model-trigger > span,
-html[data-desktop] .agent-hud__header .theme-toggle__label {
+html[data-desktop] .agent-hud__header .agent-hud__model-trigger > span {
   min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-html[data-desktop] .agent-hud__header .theme-toggle { justify-content: flex-start; }
 
 /* The first row reserves the geometric centre for all four arrows and the
    logo. When every action fits its side lanes they stay there; otherwise all
@@ -69,7 +104,6 @@ html[data-desktop] .agent-hud__actions [data-hud-action-placement="primary"] {
   position: absolute; left: var(--hud-action-left);
   top: var(--hud-action-top, 0px);
 }
-html[data-desktop] .agent-hud__copy-controls { height: var(--hud-copy-action-height, 2.8rem); align-self: flex-start; }
 html[data-desktop] .agent-hud__actions[data-hud-actions="below"] {
   flex-wrap: nowrap; padding-top: calc(var(--hud-primary-action-height, 36px) + 0.75rem);
 }
@@ -80,10 +114,14 @@ html[data-desktop] .agent-hud__actions [data-hud-action-placement="overflow"] { 
 /* Record keeps its fixed width and the image plus has no label to shorten; the other labels shrink. */
 html[data-desktop] .agent-hud__actions button[data-hud-action-placement="overflow"]:not(.agent-hud__dictate, .agent-hud__image) { min-width: 0; }
 html[data-desktop] .agent-hud__actions .agent-hud__image[data-hud-action-placement="overflow"] { flex-shrink: 0; }
-/* The copy icons never shrink; they start the right-hand group, as beside the navigation. */
-html[data-desktop] .agent-hud__actions .agent-hud__copy-controls[data-hud-action-placement="overflow"] {
-  flex-shrink: 0; margin-inline-start: auto;
+/* The image plus stays square in every placement. */
+html[data-desktop] .agent-hud__actions .agent-hud__image[data-hud-action-placement] { width: calc(1em + 2 * var(--hud-control-pad-y)); }
+/* Light footer buttons are at least 2.8rem tall (hud-controls.css). */
+html[data-desktop][data-theme="light"] .agent-hud__actions .agent-hud__image[data-hud-action-placement] {
+  width: max(2.8rem, calc(1em + 2 * var(--hud-control-pad-y)));
 }
+/* The image plus starts the right-hand group, as beside the navigation. */
+html[data-desktop] .agent-hud__actions .agent-hud__image[data-hud-action-placement="overflow"] { margin-inline-start: auto; }
 /* Labels shorten with an ellipsis; Record's level meter keeps its own layout. */
 html[data-desktop] .agent-hud__actions button > span:not(.agent-hud__dictate-meter) {
   display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -91,8 +129,22 @@ html[data-desktop] .agent-hud__actions button > span:not(.agent-hud__dictate-met
 /* A pending action keeps its label and pulses until its outcome arrives. */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes desktop-action-busy { from { opacity: 0.55; } to { opacity: 1; } }
-  html[data-desktop] .agent-hud__actions button[aria-busy="true"] {
+  html[data-desktop] .agent-hud__actions button[aria-busy="true"],
+  html[data-desktop] .agent-hud__row-action[aria-busy="true"] {
     animation: desktop-action-busy 0.9s ease-in-out infinite alternate;
+  }
+  /* On the light background an opacity pulse alone is barely visible: add a blue ring. */
+  @keyframes desktop-action-busy-light {
+    from { opacity: 0.35; box-shadow: 0 0 0 0 transparent; }
+    to {
+      opacity: 1;
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--term-blue) 60%, transparent),
+        0 0 0.7rem color-mix(in oklab, var(--term-blue) 45%, transparent);
+    }
+  }
+  html[data-desktop][data-theme="light"] .agent-hud__actions button[aria-busy="true"],
+  html[data-desktop][data-theme="light"] .agent-hud__row-action[aria-busy="true"] {
+    animation: desktop-action-busy-light 0.7s ease-in-out infinite alternate;
   }
 }
 html[data-desktop] .agent-hud__message-direction { margin-inline: 0; }
@@ -208,10 +260,41 @@ html[data-theme="light"] .desktop-workspace .desktop-workspace__panes[data-log-o
     clip-path: inset(0 0 calc(-1 * var(--desktop-divider-shadow-reach)) 0);
   }
 }
-html[data-desktop] .desktop-message-log-toggle {
-  position: absolute; right: var(--hud-corner-control-left);
-  top: calc(50% - 1.5 * var(--hud-corner-control-size) - var(--hud-corner-control-gap));
-  z-index: 21;
+/* The right edge mirrors the left one: the message log toggle, taller than wide,
+   with the clear and copy buttons beneath it. Buttons that cannot act are disabled,
+   never hidden, as the panel divider buttons are. */
+html[data-desktop] .desktop-edge-controls {
+  position: absolute; right: var(--hud-corner-control-left); top: 50%; transform: translateY(-50%);
+  z-index: 21; display: flex; flex-direction: column; align-items: center; gap: var(--hud-corner-control-gap);
+}
+html[data-desktop] .desktop-edge-controls__copy { display: contents; }
+/* Both edges are headed by a toggle taller than wide: the message log on the right,
+   the theme on the left. */
+html[data-desktop][data-theme] .agent-hud__edge-toggle {
+  height: calc(1.6 * var(--hud-corner-control-size)); min-height: calc(1.6 * var(--hud-corner-control-size));
+}
+html[data-desktop][data-theme="dark"] .agent-hud__edge-toggle {
+  color: color-mix(in oklab, var(--term-blue) clamp(0%, 76% * var(--tune-text, 1), 100%), white);
+}
+.desktop-message-log-toggle__icon {
+  display: block; width: 0.95rem; height: 0.95rem; overflow: visible;
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: square;
+}
+/* While the log is open the toggle stays lit, as on hover. */
+html[data-desktop] .desktop-message-log-toggle[aria-expanded="true"] {
+  --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
+  --btn-fill-strength: 24%;
+}
+html[data-desktop][data-theme="light"] .desktop-message-log-toggle[aria-expanded="true"] {
+  --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 72% * var(--tune-hover-edge, 1), 100%), var(--hud-control-ink));
+  --btn-fill: color-mix(in oklab, var(--term-blue) clamp(0%, 24% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+}
+html[data-desktop] .desktop-edge-controls .agent-hud__copy-controls {
+  flex-direction: column; align-items: center; gap: var(--hud-corner-control-gap);
+}
+html[data-desktop][data-theme] .desktop-edge-controls .agent-hud__copy-text {
+  width: var(--hud-corner-control-size); height: var(--hud-corner-control-size);
+  min-width: var(--hud-corner-control-size); min-height: var(--hud-corner-control-size);
 }
 .desktop-message-log {
   position: relative; min-width: 0; min-height: 0; overflow: hidden;
@@ -237,6 +320,18 @@ html[data-desktop] .desktop-message-log .term-frame { position: relative; top: a
 /* A leading banner's own separation would add to that margin. */
 .desktop-message-log .term-log > div > :first-child { margin-top: 0; }
 .desktop-message-log .term-msg { overflow-wrap: anywhere; }
+/* Dark text punched out of a filled tag or badge keeps the CRT smudge of
+   terminal.css, toned down slightly so small glyphs stay legible. Outlined
+   script and system badges keep their own glowing text. */
+html[data-desktop]:not([data-theme="light"]) .desktop-message-log
+  :is(.term-msg:not([data-role="script"], [data-role="system"]) .term-msg-badge-label, .term-tag-label) {
+  -webkit-text-stroke: 0.7px color-mix(in oklab, var(--term-bg) 78%, var(--term-msg-color) 22%);
+  text-shadow:
+    0 0 1px color-mix(in oklab, var(--term-msg-color) 70%, transparent),
+    0 0 2.5px color-mix(in oklab, var(--term-msg-color) 42%, transparent),
+    0 0 5px color-mix(in oklab, var(--term-msg-color) 22%, transparent);
+  filter: blur(0.3px);
+}
 /* A typed command after the prompt, wrapping in a narrow pane. */
 .desktop-message-log .term-prompt-command { min-width: 0; margin-left: 0.5ch; overflow-wrap: anywhere; }
 .desktop-message-log .term-msg pre { max-width: 100%; overflow-x: auto; }

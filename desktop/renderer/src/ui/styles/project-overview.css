@@ -144,12 +144,24 @@
   }
 }
 
-.agent-hud__projects-table {
-  min-width: 48rem;
+/* The summary takes the row's free space but never less than its narrowest
+   columns (8rem + 8rem + 5rem, two 0.75rem gaps and the 0.25rem inset); when the
+   buttons no longer fit beside it, they wrap below it, starting at the left, and
+   wrap among themselves when one line is too short. A window narrower still
+   clips the summary's last column inside the row; nothing scrolls sideways. A
+   min-content width would let the 8–16rem name column grow to its maximum. */
+.agent-hud__project-summary {
+  flex: 1 1 22.75rem;
+  min-width: min(22.75rem, 100%);
+  overflow: hidden;
 }
-
-.agent-hud__row-actions {
-  width: 21rem;
+.agent-hud__project-row .agent-hud__row-actions {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.agent-hud__table-header > span:first-child {
+  overflow: hidden;
 }
 
 .agent-hud__capability-selector,
@@ -215,11 +227,6 @@
 
 /* Light theme */
 
-:root[data-theme="light"] .agent-hud__project-row > button:hover,
-:root[data-theme="light"] .agent-hud__project-row > button:focus-visible {
-  background: color-mix(in oklab, var(--term-blue) clamp(0%, 9% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
-  filter: none;
-}
 :root[data-theme="light"] .agent-hud__project-view [class*="text-shadow"] {
   text-shadow: none;
 }
@@ -286,6 +293,15 @@
     0 0.35rem 0.8rem
       color-mix(in oklab, var(--hud-control-ink) clamp(0%, 10% * var(--tune-shadow, 1), 100%), transparent);
 }
+/* Environment and Dependencies sit on the HUD itself: an inner panel would leave
+   their inputs on a near-matching background. */
+:root[data-theme="light"] .agent-hud__project-view.agent-hud__settings-view {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
 :root[data-theme="light"] .agent-hud__project-row {
   min-height: 3.4rem;
   padding: 0.42rem 0.62rem;
@@ -298,10 +314,9 @@
 :root[data-theme="light"] .agent-hud__project-row + .agent-hud__project-row {
   margin-top: 0.62rem;
 }
-:root[data-theme="light"] .agent-hud__project-row > button {
+:root[data-theme="light"] .agent-hud__project-summary {
   padding: 0.48rem 0.55rem;
 }
 :root[data-theme="light"] .agent-hud__row-actions {
-  width: 26rem;
   gap: 0.72rem;
 }

@@ -1,7 +1,8 @@
 // Copied from web/app/components/hud/run/ReplyEditor.tsx at 2a0c183.
 // Adapted: autoFocus focuses the reply when Current Run opens; restored previews
 // load from the backend with crossorigin; the composer is disabled only with its
-// editor, not whenever images cannot be added.
+// editor, not whenever images cannot be added; no "Updating images…" notice
+// flashes beneath the reply.
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEventHandler } from "react"
 import type { DropzoneState } from "react-dropzone"
 import type { ReplyImage, ReplyImagesModel } from "../../attachments/useReplyImages"
@@ -82,11 +83,6 @@ export function ReplyEditor({
 					autoFocus={autoFocus}
 					placeholder="Type your reply..."
 				/>
-				{images?.isBusy ? (
-					<p id="reply-image-notice" className="agent-hud__reply-notice" role="status">
-						Updating images…
-					</p>
-				) : null}
 				{images?.error ? <p className="agent-hud__reply-notice" role="alert">{images.error}</p> : null}
 				{images?.canRetry ? <HudButton onClick={images.onRetry}>Retry images</HudButton> : null}
 			</div>

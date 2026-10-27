@@ -99,11 +99,8 @@ export function App({ connectionNotice, client, connected, covered, backend }: A
 		onImported: result => environmentDraft.imported(result),
 		onRemoved: name => environmentDraft.removed(name),
 		onReset: () => environmentDraft.reset(),
-		// Keys that load without a restart end setup: refresh the status and return to Runs Overview.
-		onKeysLoaded: () => {
-			credentials.refresh()
-			if (setupRequired) navigate({ type: "screen_selected", screen: "projects" })
-		},
+		// Keys that load without a restart end setup. A write in Environment never changes the screen.
+		onKeysLoaded: credentials.refresh,
 	})
 	const environmentDraft = useEnvironmentDraft(client, screen === "environment", environmentMutations)
 	const hubFolder = useHubFolder()
@@ -165,10 +162,10 @@ export function App({ connectionNotice, client, connected, covered, backend }: A
 
 	return (
 		<>
-			<AgentHud presentation={presentation} projectSlug={session?.run.project ?? null}
+			<AgentHud presentation={presentation}
 				layoutMode={layout} onLayoutModeChange={setLayout} messageLog={messageLog}
 				logPane={() => <MessageLog active={presentation.context === "active-run"} events={session?.run.events ?? noEvents} />}
-				header={<HudHeader presentation={presentation} onSelectScreen={selectScreen}
+				header={<HudHeader presentation={presentation} projectSlug={session?.run.project ?? null} onSelectScreen={selectScreen}
 					modelSelector={<ModelSelector models={models} disabled={presentation.locked || !connected || projectMutations.launching} />} />}>
 				{noticesRow}
 				{renderContent()}

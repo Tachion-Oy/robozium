@@ -91,7 +91,7 @@ export function PasswordDialog({ open, title, children, label, confirm = false, 
 				{error && <p role="alert">{error}</p>}
 				<div className="flex flex-wrap justify-end gap-3">
 					<HudButton variant="warning" disabled={pending} onClick={cancel}>Cancel</HudButton>
-					<HudButton type="submit" disabled={pending || !password || (confirm && !confirmation)}>{pending ? pendingLabel : submitLabel}</HudButton>
+					<HudButton type="submit" pending={pending} disabled={!password || (confirm && !confirmation)}>{pending ? pendingLabel : submitLabel}</HudButton>
 				</div>
 			</form>
 		</dialog>

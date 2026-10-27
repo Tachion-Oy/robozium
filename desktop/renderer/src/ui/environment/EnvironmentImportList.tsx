@@ -13,8 +13,14 @@ type EnvironmentImportListProps = {
 
 function ImportRow({ item, disabled, onRemove }: { item: EnvironmentImport, disabled: boolean, onRemove: (name: string) => Promise<boolean> }) {
 	const [confirming, setConfirming] = useState(false)
+	const [removing, setRemoving] = useState(false)
 	const remove = async () => {
-		if (!await onRemove(item.name)) setConfirming(false)
+		setRemoving(true)
+		try {
+			if (!await onRemove(item.name)) setConfirming(false)
+		} finally {
+			setRemoving(false)
+		}
 	}
 	return (
 		<li className="agent-hud__environment-row flex flex-col gap-2 py-2">
@@ -25,8 +31,8 @@ function ImportRow({ item, disabled, onRemove }: { item: EnvironmentImport, disa
 				</span>
 				<div className="flex gap-2">
 					{confirming ? <>
-						<HudButton variant="danger-confirm" aria-label={`Confirm removing ${item.name}`} disabled={disabled} onClick={() => void remove()}>Yes, remove</HudButton>
-						<HudButton variant="warning" onClick={() => setConfirming(false)}>Keep</HudButton>
+						<HudButton variant="danger-confirm" aria-label={`Confirm removing ${item.name}`} pending={removing} disabled={disabled} onClick={() => void remove()}>Yes, remove</HudButton>
+						<HudButton variant="warning" disabled={removing} onClick={() => setConfirming(false)}>Keep</HudButton>
 					</> : <HudButton variant="danger" aria-label={`Remove ${item.name}`} disabled={disabled} onClick={() => setConfirming(true)}>Remove</HudButton>}
 				</div>
 			</div>

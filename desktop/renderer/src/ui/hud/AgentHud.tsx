@@ -1,15 +1,22 @@
 // Frame markup copied from robozium-electron/desktop/web/app/components/hud/AgentHUD.tsx
 // (lines 178-243) at 076b2c9, in its desktop configuration: no intro, minimize or
 // resize handle. The caller supplies the message log pane and owns whether it is open.
-import type { ReactNode } from "react"
+// The right edge holds the message log toggle with the copy controls beneath it.
+import { createContext, useState, type ReactNode } from "react"
 import type { MessageLogState } from "../../log/useMessageLog"
+import { HudCopyControls } from "../run/HudCopyControls"
 import { HudCornerControls, moveLayoutMode, type LayoutMode } from "./HudCornerControls"
-import { HudProjectBadge } from "./HudProjectBadge"
+import { HudEdgeButton } from "./HudEdgeButton"
 import type { HudPresentation } from "./hudPresentation"
 
-export function AgentHud({ presentation, projectSlug, layoutMode, onLayoutModeChange, messageLog, logPane, header, children }: {
+// The right edge's copy controls element. The reply form renders its live copy controls
+// into it with a portal, because the form holds the displayed message and the draft.
+// Without a reply form AgentHud shows the same controls disabled, so the column never
+// changes shape.
+export const CopyControlsSlot = createContext<HTMLElement | null>(null)
+
+export function AgentHud({ presentation, layoutMode, onLayoutModeChange, messageLog, logPane, header, children }: {
 	presentation: HudPresentation
-	projectSlug: string | null
 	layoutMode: LayoutMode
 	onLayoutModeChange: (mode: LayoutMode) => void
 	messageLog: MessageLogState
@@ -18,6 +25,7 @@ export function AgentHud({ presentation, projectSlug, layoutMode, onLayoutModeCh
 	header: ReactNode
 	children: ReactNode
 }) {
+	const [copySlot, setCopySlot] = useState<HTMLElement | null>(null)
 	const isLanding = presentation.context === "landing"
 	const hudBoxClassName = `agent-hud__box${
 		presentation.headerVariant === "landing"
@@ -40,33 +48,34 @@ export function AgentHud({ presentation, projectSlug, layoutMode, onLayoutModeCh
 					aria-live="polite">
 					<div className={hudBoxClassName}>
 						<HudCornerControls
-							showMinimize={false}
 							disabled={!presentation.enableCornerControls}
 							layout={{
 								mode: layoutMode,
 								onMove: (direction) =>
 									onLayoutModeChange(moveLayoutMode(layoutMode, direction)),
-								onMinimize: () => {},
 							}}
 						/>
-						<button
-							type="button"
-							className="desktop-message-log-toggle agent-hud__corner-control"
-							aria-label={messageLog.open ? "Hide message log" : "Show message log"}
-							title={messageLog.open ? "Hide message log" : "Show message log"}
-							aria-expanded={messageLog.open}
-							aria-controls="desktop-message-log"
-							disabled={messageLog.pending}
-							onClick={messageLog.toggle}>
-							<svg className="agent-hud__size-icon" viewBox="0 0 20 20" aria-hidden="true">
-								<path d={messageLog.open ? "M12 5 7 10l5 5" : "M7 5l5 5-5 5"} />
-							</svg>
-						</button>
-						{presentation.showProjectBadge ? (
-							<HudProjectBadge projectSlug={projectSlug} />
-						) : null}
+						<div className="desktop-edge-controls">
+							<HudEdgeButton
+								variant="toggle"
+								className="desktop-message-log-toggle"
+								aria-label={messageLog.open ? "Hide message log" : "Show message log"}
+								title={messageLog.open ? "Hide message log" : "Show message log"}
+								aria-expanded={messageLog.open}
+								aria-controls="desktop-message-log"
+								disabled={messageLog.pending}
+								onClick={messageLog.toggle}>
+								<svg className="desktop-message-log-toggle__icon" viewBox="0 0 16 16" aria-hidden="true">
+									<path d="M3 4.5h10M3 8h10M3 11.5h10" />
+								</svg>
+							</HudEdgeButton>
+							<div ref={setCopySlot} className="desktop-edge-controls__copy" />
+							{presentation.screen !== "run" && (
+								<HudCopyControls agentMessage={null} replyDraft="" disabled onClearReply={() => {}} />
+							)}
+						</div>
 						{header}
-						{children}
+						<CopyControlsSlot value={copySlot}>{children}</CopyControlsSlot>
 					</div>
 				</div>
 				{messageLog.open && logPane()}

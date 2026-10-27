@@ -200,11 +200,14 @@ test("importing a folder uploads each file under its relative path and asks for 
 	await expect(panel(page).getByLabel("Selected tool or skill folder")).toHaveValue("local_tool")
 	const imported = { name: "local_tool", active: false, variables: ["LOCAL_TOOL_KEY"],
 		capabilities: [{ name: "local_tool", kind: "tool", selectable: true, loading: null }] }
-	backend.handlers.set("POST /credentials/environment/import", response => {
-		current = environment({ imports: [imported] })
-		json(response, { imported, suggestions: [{ name: "LOCAL_TOOL_KEY", value: "", secret: false, source: "local_tool" }] })
-	})
+	let pending: ServerResponse | undefined
+	backend.handlers.set("POST /credentials/environment/import", response => { pending = response })
 	await panel(page).getByRole("button", { name: "Import", exact: true }).click()
+	// The waiting button pulses until the outcome arrives.
+	await expect(panel(page).getByRole("button", { name: "Importing…" })).toHaveAttribute("aria-busy", "true")
+	current = environment({ imports: [imported] })
+	json(pending!, { imported, suggestions: [{ name: "LOCAL_TOOL_KEY", value: "", secret: false, source: "local_tool" }] })
+	await expect(panel(page).getByRole("button", { name: "Import", exact: true })).not.toHaveAttribute("aria-busy")
 	await expect(page.getByRole("status").filter({ hasText: "Imported" })).toContainText("Tool local_tool found and imported. Available after restart.")
 	await expect(panel(page).getByRole("status").filter({ hasText: "Restart to apply your changes." })).toBeVisible()
 	await expect(panel(page)).toContainText("Available on next start")

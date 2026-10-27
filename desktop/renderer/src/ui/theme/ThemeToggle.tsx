@@ -1,24 +1,22 @@
 // Copied from robozium-electron/desktop/web/app/components/theme/ThemeToggle.tsx at 076b2c9.
 // Adapted: the theme owner saves the choice natively; one window needs no cookie or channel.
+// The toggle is a left-edge button above the panel divider buttons, shaped as the
+// message log toggle on the right edge, showing only its dot.
 import { toggleTheme } from "../../theme/theme"
+import { HudEdgeButton } from "../hud/HudEdgeButton"
 
 export function ThemeToggle() {
 	return (
-		<button
-			type="button"
-			className="theme-toggle agent-hud__selector-trigger"
+		<HudEdgeButton
+			variant="toggle"
+			className="theme-toggle"
 			data-hud-ignore-dismiss
 			aria-label="Toggle color theme"
+			title="Toggle color theme"
 			onClick={() => {
 				void toggleTheme()
 			}}>
 			<span className="theme-toggle__indicator" aria-hidden="true" />
-			<span className="theme-toggle__label theme-toggle__label--light">
-				Light
-			</span>
-			<span className="theme-toggle__label theme-toggle__label--dark">
-				Dark
-			</span>
-		</button>
+		</HudEdgeButton>
 	)
 }

@@ -47,17 +47,26 @@ async function expectSettledHeaderRow(page: Page) {
 	await expect.poll(() => headerRow(page)).toEqual({ ordered: true, centred: true, contained: true, readable: true })
 }
 
-/** The reference header keeps its controls in one row inside the window and ellipsizes long labels. */
+/**
+ * The header is one row inside the window: the project badge (on Current Run) where
+ * the row starts, then the model and view selectors together on the right. Long
+ * labels ellipsize. The badge matches the selectors' height.
+ */
 async function headerRow(page: Page) {
 	return page.locator(".agent-hud__header").evaluate(header => {
-		const controls = [...header.querySelectorAll("button.agent-hud__selector-trigger")]
-			.map(control => control.getBoundingClientRect())
-		const labels = [...header.querySelectorAll<HTMLElement>(".agent-hud__model-trigger > span, .theme-toggle__label")]
+		const badge = header.querySelector(".agent-hud__event-edge")
+		const selectors = [...header.querySelectorAll("button.agent-hud__selector-trigger")]
+		const controls = [...badge ? [badge] : [], ...selectors].map(control => control.getBoundingClientRect())
+		const labels = [...header.querySelectorAll<HTMLElement>(".agent-hud__model-trigger > span, .agent-hud__event-text")]
 			.filter(label => label.getClientRects().length > 0)
 		const middle = (rect: DOMRect) => rect.y + rect.height / 2
+		const row = header.getBoundingClientRect()
 		return {
-			ordered: controls.length === 3 && controls.every((rect, index) => index === 0 || rect.x >= controls[index - 1].right),
-			centred: controls.every(rect => Math.abs(middle(rect) - middle(controls[0])) < 1),
+			ordered: selectors.length === 2 && controls.every((rect, index) => index === 0 || rect.x >= controls[index - 1].right)
+				&& Math.abs(controls.at(-1)!.right - row.right) < 1 && (!badge || Math.abs(controls[0].x - row.x) < 1),
+			// The badge is as tall as the selectors beside it.
+			centred: controls.every(rect => Math.abs(middle(rect) - middle(controls[0])) < 1
+				&& Math.abs(rect.height - controls.at(-1)!.height) < 1),
 			contained: controls.every(rect => rect.x >= 0 && rect.right <= innerWidth && rect.y >= 0)
 				&& document.documentElement.scrollWidth === innerWidth,
 			readable: labels.every(label => {
@@ -70,7 +79,7 @@ async function headerRow(page: Page) {
 }
 
 for (const theme of ["dark", "light"]) {
-	test(`header keeps model, theme and view in one row and truncates labels in ${theme}`, async ({ desktop: { app, page } }) => {
+	test(`header keeps the project, model and view in one row and truncates labels in ${theme}`, async ({ desktop: { app, page } }) => {
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 		await page.getByRole("button", { name: "Launch", exact: true }).click()
 		await page.evaluate(async () => { await document.fonts.ready })
@@ -203,7 +212,7 @@ for (const theme of ["dark", "light"]) {
 			await expect(down).toBeDisabled()
 			await expect(reply).toHaveCount(0)
 		}
-		await page.getByRole("button", { name: "Return to preview", exact: true }).click()
+		await page.getByRole("button", { name: "Open preview", exact: true }).click()
 		await expect(reply).toBeFocused()
 		await expect(reply).toHaveValue(draft)
 		await expect(page.getByRole("group", { name: "Panel divider: bottom" })).toBeVisible()
@@ -278,25 +287,24 @@ test("loads the built React script, stylesheet, and fonts through the local prot
 test("switches themes with the keyboard and mouse while retaining focus", async ({ desktop: { page } }) => {
 	const root = page.locator("html")
 	const toggle = page.getByRole("button", { name: "Toggle color theme" })
-	const shownLabel = () => toggle.locator(".theme-toggle__label").filter({ visible: true })
 	expect(await page.locator(".agent-hud__header button").evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label"))))
-		.toEqual(["Mock model", "Toggle color theme", "Runs Overview"])
+		.toEqual(["Mock model", "Runs Overview"])
+	// The toggle heads the left edge's column and shows only its dot.
+	await expect(page.locator(".agent-hud__corner-controls button").first()).toHaveAccessibleName("Toggle color theme")
+	await expect(toggle).toHaveText("")
 	await expect(root).toHaveAttribute("data-theme", "dark")
-	await expect(shownLabel()).toHaveText("Light")
-	// As in the reference, the message log toggle precedes the header.
-	await page.keyboard.press("Tab")
-	await expect(page.getByRole("button", { name: "Show message log", exact: true })).toBeFocused()
-	await page.keyboard.press("Tab")
-	await expect(modelTrigger(page)).toBeFocused()
+	// The left edge, then the right edge (its copy buttons are disabled here), then the header.
 	await page.keyboard.press("Tab")
 	await expect(toggle).toBeFocused()
 	await page.keyboard.press("Space")
 	await expect(root).toHaveAttribute("data-theme", "light")
 	await expect(root).toHaveCSS("color-scheme", "light")
-	await expect(shownLabel()).toHaveText("Dark")
 	await expect(toggle).toBeFocused()
 	await page.keyboard.press("Tab")
-	await expect(viewTrigger(page)).toBeFocused()
+	await expect(page.getByRole("button", { name: "Show message log", exact: true })).toBeFocused()
+	await page.keyboard.press("Tab")
+	await expect(modelTrigger(page)).toBeFocused()
+	await page.keyboard.press("Shift+Tab")
 	await page.keyboard.press("Shift+Tab")
 	await expect(toggle).toBeFocused()
 	await page.keyboard.press("Enter")
@@ -378,6 +386,23 @@ for (const theme of ["dark", "light"]) {
 		await expect(viewTrigger(page)).toHaveAccessibleName("Runs Overview")
 	})
 }
+
+test("the theme and message log toggles react to hover in both themes", async ({ desktop: { page } }) => {
+	const look = (name: string) => page.getByRole("button", { name }).evaluate(button => {
+		const style = getComputedStyle(button), edge = getComputedStyle(button, "::before")
+		return [style.backgroundImage, style.borderColor, style.boxShadow, edge.backgroundColor].join("|")
+	})
+	for (const theme of ["dark", "light"]) {
+		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+		await expect(page.locator("html")).toHaveAttribute("data-theme", theme)
+		for (const name of ["Toggle color theme", "Show message log"]) {
+			await page.mouse.move(0, 0)
+			const resting = await look(name)
+			await page.getByRole("button", { name }).hover()
+			await expect.poll(() => look(name), { message: `${name} in ${theme}` }).not.toBe(resting)
+		}
+	}
+})
 
 test("native Ctrl shortcuts zoom both ways and reset with an open selector", async ({ desktop: { app, page } }) => {
 	await modelTrigger(page).click()

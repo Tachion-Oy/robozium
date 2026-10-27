@@ -81,26 +81,10 @@
   max-width: min(28rem, calc(100vw - 4rem));
   padding: 0.35rem;
   border: 0;
-  /* Solid cardinal segments backstop clip-path rasterization at fractional
-     zoom. The clipped shell supplies the bevels; these 2px strips ensure a
-     following HUD panel can never visually erase a straight edge. */
-  background-color: transparent;
-  background-image:
-    linear-gradient(var(--menu-edge), var(--menu-edge)),
-    linear-gradient(var(--menu-edge), var(--menu-edge)),
-    linear-gradient(var(--menu-edge), var(--menu-edge)),
-    linear-gradient(var(--menu-edge), var(--menu-edge));
-  background-position:
-    top center,
-    bottom center,
-    left center,
-    right center;
-  background-size:
-    calc(100% - 2 * var(--menu-cut)) var(--menu-ring),
-    calc(100% - 2 * var(--menu-cut)) var(--menu-ring),
-    var(--menu-ring) calc(100% - 2 * var(--menu-cut)),
-    var(--menu-ring) calc(100% - 2 * var(--menu-cut));
-  background-repeat: no-repeat;
+  /* The ring is drawn once, by the clipped ::before, as on the buttons. Extra
+     strips along the straight edges doubled the translucent edge colour there,
+     so the bevels looked dimmer than the sides. */
+  background: transparent;
   box-shadow:
     0 0 18px color-mix(in oklab, var(--selector-accent) clamp(0%, 18% * var(--tune-glow, 1), 100%), transparent),
     inset 0 0 18px color-mix(in oklab, var(--selector-accent) clamp(0%, 7% * var(--tune-glow, 1), 100%), transparent);

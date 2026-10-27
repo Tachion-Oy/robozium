@@ -29,15 +29,18 @@ test("the overview shows backend statuses and polls every three seconds only whi
 	]
 	backend.handlers.set("GET /projects", response => json(response, rows))
 	await backend.open()
-	for (const [slug, label] of [["running", "RUNNING"], ["waiting", "WAITING"], ["cancelling", "CANCELLING"], ["syncing", "SYNCING"], ["dormant", "DORMANT"]]) {
+	for (const [slug, label] of [["running", "RUNNING"], ["waiting", "WAITING"], ["cancelling", "STOPPING"], ["syncing", "SYNCING"], ["dormant", "DORMANT"]]) {
 		await expect(row(page, `${slug}-project`)).toContainText(label)
 	}
 	await expect(row(page, "running-project")).toContainText("2m ago")
-	await expect(launchButton(page, "running-project")).toBeDisabled()
+	// A live run opens, a dormant project launches; Launch or Open comes first.
+	await expect(row(page, "running-project").getByRole("button")).toHaveText(["Open", "Tools", "Stop", "Delete"])
+	await expect(launchButton(page, "running-project")).toHaveCount(0)
+	await expect(row(page, "dormant-project").getByRole("button")).toHaveText(["Launch", "Tools", "Stop", "Delete"])
 	await expect(launchButton(page, "dormant-project")).toBeEnabled()
-	await expect(row(page, "running-project").getByRole("button", { name: "Cancel", exact: true })).toBeEnabled()
-	await expect(row(page, "syncing-project").getByRole("button", { name: "Cancel", exact: true })).toBeEnabled()
-	await expect(row(page, "dormant-project").getByRole("button", { name: "Cancel", exact: true })).toBeDisabled()
+	await expect(row(page, "running-project").getByRole("button", { name: "Stop", exact: true })).toBeEnabled()
+	await expect(row(page, "syncing-project").getByRole("button", { name: "Stop", exact: true })).toBeEnabled()
+	await expect(row(page, "dormant-project").getByRole("button", { name: "Stop", exact: true })).toBeDisabled()
 	await expect(row(page, "running-project").getByRole("button", { name: "Delete", exact: true })).toBeDisabled()
 	const before = listings(backend)
 	await page.clock.fastForward(3000)
@@ -121,9 +124,9 @@ test("Tools restores saved choices, and Escape or Cancel returns to the overview
 	await expect(page.getByRole("textbox", { name: "Project name" })).toHaveCount(0)
 	await page.keyboard.press("Escape")
 	await expect(selector(page)).toHaveCount(0)
-	await page.getByRole("button", { name: "Open existing-project", exact: true }).click()
-	await expect(selector(page).getByRole("heading", { name: "Project: existing-project" })).toBeVisible()
-	await selector(page).getByRole("button", { name: "Cancel", exact: true }).click()
+	// The row itself is not a button: clicking it does nothing.
+	await row(page, "existing-project").getByText("existing-project").click()
+	await expect(selector(page)).toHaveCount(0)
 	await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible()
 	expect(writes(backend)).toEqual([])
 })
@@ -141,7 +144,7 @@ test("capability load failures show inline and recover through Retry", async ({ 
 	await expect(selector(page).getByRole("button", { name: "Launch", exact: true })).toBeEnabled()
 })
 
-test("rows open active runs and return to the current run", async ({ desktop: { page }, backend }) => {
+test("Open opens active runs and returns to the current run", async ({ desktop: { page }, backend }) => {
 	backend.handlers.set("GET /projects", response => json(response, [
 		project("live-project", { status: "awaiting_user_input", run_id: "run-live" }), project("existing-project"),
 	]))
@@ -151,7 +154,7 @@ test("rows open active runs and return to the current run", async ({ desktop: { 
 	await expect(runStatus(page)).toContainText("live-project")
 	await expect.poll(() => live.streams.length).toBe(1)
 	await view(page, "Runs Overview")
-	await page.getByRole("button", { name: "Return to live-project", exact: true }).click()
+	await page.getByRole("button", { name: "Open live-project", exact: true }).click()
 	await expect(runStatus(page)).toContainText("live-project")
 	expect(live.streams).toHaveLength(1)
 	expect(writes(backend)).toEqual([])
@@ -162,14 +165,14 @@ test("cancel and delete settle through listings and report refused or failed wri
 	backend.handlers.set("GET /projects", response => json(response, rows))
 	backend.handlers.set("POST /projects/busy/cancel", response => json(response, { ok: false }))
 	await backend.open()
-	const cancel = row(page, "busy").getByRole("button", { name: "Cancel", exact: true })
+	const cancel = row(page, "busy").getByRole("button", { name: "Stop", exact: true })
 	await cancel.click()
 	const alert = (title: string) => page.getByRole("alert").filter({ hasText: title })
-	await expect(alert("Cancellation failed").locator("p")).toHaveText(["Cancellation failed", 'Could not cancel "busy".', "The project is still active. Try again."])
+	await expect(alert("Stop failed").locator("p")).toHaveText(["Stop failed", 'Could not stop "busy".', "The project is still active. Try again."])
 	await expect(row(page, "busy")).toContainText("RUNNING")
 	backend.handlers.set("POST /projects/busy/cancel", response => json(response, { ok: true }))
 	await cancel.click()
-	await expect(row(page, "busy")).toContainText("CANCELLING")
+	await expect(row(page, "busy")).toContainText("STOPPING")
 	rows = [project("busy"), project("old")]
 	await expect(row(page, "busy")).toContainText("DORMANT")
 	backend.handlers.set("DELETE /projects/old", response => json(response, { detail: "Project is busy" }, 409))
@@ -194,13 +197,13 @@ test("a cancellation keeps its row locked until the request settles, even if a l
 	backend.handlers.set("POST /projects/existing-project/cancel", response => { cancellation = response })
 	await backend.open()
 	await page.clock.install()
-	await row(page, "existing-project").getByRole("button", { name: "Cancel", exact: true }).click()
+	await row(page, "existing-project").getByRole("button", { name: "Stop", exact: true }).click()
 	await expect.poll(() => cancellation).toBeDefined()
 	rows = [project("existing-project")]
 	const before = listings(backend)
 	await page.clock.fastForward(1000)
 	await expect.poll(() => listings(backend)).toBeGreaterThan(before)
-	await expect(row(page, "existing-project")).toContainText("CANCELLING")
+	await expect(row(page, "existing-project")).toContainText("STOPPING")
 	await expect(launchButton(page, "existing-project")).toBeDisabled()
 	json(cancellation!, { ok: true })
 	await expect(row(page, "existing-project")).toContainText("DORMANT")
@@ -238,7 +241,7 @@ test("a failed first listing reports the error with Retry instead of an empty hu
 	await expect(page.getByText("No projects", { exact: true })).toHaveCount(0)
 	backend.handlers.set("GET /projects", response => json(response, [project("existing-project")]))
 	await page.getByRole("alert").getByRole("button", { name: "Retry", exact: true }).click()
-	await expect(page.getByRole("button", { name: "Open existing-project", exact: true })).toBeVisible()
+	await expect(launchButton(page, "existing-project")).toBeVisible()
 	await expect(page.getByRole("alert")).toHaveCount(0)
 })
 
@@ -250,9 +253,21 @@ for (const theme of ["dark", "light"]) {
 		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 		for (const [width, height, zoom] of [[1260, 780, 1], [640, 420, 1], [640, 420, 1.25]]) {
 			await setNativeViewport(app, page, width, height, zoom)
-			await expect(page.getByRole("button", { name: `Open ${longName}`, exact: true })).toBeVisible()
+			await expect(launchButton(page, longName)).toBeVisible()
 			expect(await page.evaluate(() => document.documentElement.scrollHeight === innerHeight
 				&& document.documentElement.scrollWidth === innerWidth)).toBe(true)
+			// The table never scrolls sideways: buttons that do not fit beside the summary
+			// wrap below it, starting at its left edge.
+			expect(await page.locator(".agent-hud__table-scroll").evaluate(scroller => {
+				const rows = [...scroller.querySelectorAll(".agent-hud__project-row")].map(row => ({
+					summary: row.querySelector(".agent-hud__project-summary")!.getBoundingClientRect(),
+					actions: row.querySelector(".agent-hud__row-actions")!.getBoundingClientRect(),
+				}))
+				const placed = rows.every(({ summary, actions }) => actions.top >= summary.bottom - 1
+					? Math.abs(actions.left - summary.left) < 1
+					: actions.left >= summary.right - 1)
+				return { fits: scroller.scrollWidth <= scroller.clientWidth, placed }
+			})).toEqual({ fits: true, placed: true })
 			const screenshot = testInfo.outputPath(`overview-${theme}-${width}-${zoom}.png`)
 			await writeFile(screenshot, (await captureNative(app, page, width, height))!)
 			await testInfo.attach(`overview-${theme}-${width}-${zoom}.png`, { path: screenshot, contentType: "image/png" })

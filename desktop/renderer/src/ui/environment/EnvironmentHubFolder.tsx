@@ -23,7 +23,7 @@ export function EnvironmentHubFolder({ hub, disabled }: { hub: HubFolder; disabl
 			</div>
 			{picked && <div className="flex flex-wrap items-center gap-3">
 				<p role="alert">{hubFolderConfirmation(picked)}</p>
-				<HudButton variant="danger-confirm" disabled={pending} onClick={() => void hub.confirm()}>Use folder</HudButton>
+				<HudButton variant="danger-confirm" pending={pending} onClick={() => void hub.confirm()}>Use folder</HudButton>
 				<HudButton variant="warning" disabled={pending} onClick={hub.cancel}>Cancel</HudButton>
 			</div>}
 			{hubRestartNeeded(hub) && <p role="status">Restart the app to use this folder. Until then, the hub stays {status?.current}.</p>}

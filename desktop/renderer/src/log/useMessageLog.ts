@@ -1,6 +1,7 @@
 // Adapted from robozium-electron/desktop/web/hooks/useMessageLog.ts at 076b2c9.
 // Main owns whether the message log is open, because opening it grows the window
 // and closing it restores the earlier size; the state survives renderer reloads.
+// Adapted: closing hides the log before the window shrinks.
 import { useCallback, useEffect, useRef, useState } from "react"
 import { showErrorToast } from "../feedback/notices"
 
@@ -44,9 +45,16 @@ export function useMessageLog(): MessageLogState {
 		setPending(true)
 		const change = async () => {
 			try {
+				// Closing shrinks the window: hide the log and let that frame paint first, or
+				// the narrower window briefly docks the still-open log below the HUD.
+				if (open) {
+					setOpen(false)
+					await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+				}
 				const state = await window.robozium.setMessageLog(!open)
 				setOpen(state.open)
 			} catch (cause) {
+				setOpen(open)
 				showErrorToast({ title: "Could not toggle message log", message: failureDetail(cause) })
 			} finally {
 				busy.current = false

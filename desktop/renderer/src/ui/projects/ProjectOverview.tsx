@@ -2,7 +2,8 @@
 // Adapted: the listing, the cancel and delete owner, the launch lock and run
 // opening arrive as props instead of the navigation store, router and client;
 // a launch already in flight refuses another. A first listing that fails is
-// reported with Retry instead of showing an empty hub.
+// reported with Retry instead of showing an empty hub. Only the row's Open
+// button opens a run; the row itself is not a button.
 import {
 	isActiveRunStatus,
 	isCurrentRunRow,
@@ -79,7 +80,7 @@ export function ProjectOverview({
 		await onLaunch({ project: project.slug, name: project.slug, selection: null })
 	}
 
-	const handleProjectClick = (project: ProjectRow) => {
+	const handleOpen = (project: ProjectRow) => {
 		if (navigationPending) return
 		if (isCurrentRunRow(project, currentRunId) && onCurrentProjectClick) {
 			onCurrentProjectClick()
@@ -87,14 +88,7 @@ export function ProjectOverview({
 		}
 		if (isActiveRunStatus(project.status) && project.runId) {
 			onOpenRun(project.runId, project.slug)
-			return
 		}
-		if (
-			project.status !== ProjectStatus.Dormant ||
-			project.runId !== null
-		)
-			return
-		openSelector(project.slug)
 	}
 
 	return (
@@ -104,7 +98,7 @@ export function ProjectOverview({
 			navigationPending={navigationPending}
 			locked={locked}
 			onStartHere={onStartHere}
-			onProjectClick={handleProjectClick}
+			onOpenProject={handleOpen}
 			onSelectCapabilities={(project) => openSelector(project.slug)}
 			onLaunchProject={handleLaunch}
 			onNewProject={() => openSelector(null)}

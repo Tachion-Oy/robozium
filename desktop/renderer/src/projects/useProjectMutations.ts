@@ -171,10 +171,10 @@ export function useProjectMutations(
 		isLaunching: () => activeLaunch.current !== null,
 		cancel: async slug => {
 			await send(slug, "cancel", (client, signal) => cancelProject(client, slug, signal), {
-				title: "Cancellation failed",
-				message: `Could not cancel "${slug}".`,
+				title: "Stop failed",
+				message: `Could not stop "${slug}".`,
 				refused: "The project is still active. Try again.",
-				failed: "The cancellation request failed. Try again.",
+				failed: "The stop request failed. Try again.",
 			})
 		},
 		remove: slug => send(slug, "delete", async (client, signal) => {

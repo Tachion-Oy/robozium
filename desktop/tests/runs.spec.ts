@@ -123,7 +123,7 @@ test("a project with an active run opens that run without launching", async ({ d
 		project("existing-project", { status: "running", run_id: "run-one", created_at: 1 }),
 	]))
 	await backend.open()
-	await expect(launchButton(page, "existing-project")).toBeDisabled()
+	await expect(launchButton(page, "existing-project")).toHaveCount(0)
 	await page.getByRole("button", { name: "Open existing-project", exact: true }).click()
 	await expect(runStatus(page)).toContainText("existing-project")
 	await expect.poll(() => run.streams.length).toBe(1)
@@ -210,7 +210,7 @@ test("view changes retain one session, project, history selection and draft; new
 	await page.getByRole("button", { name: "Previous agent message", exact: true }).click()
 	await page.getByRole("textbox", { name: "Reply text", exact: true }).fill("Keep my draft")
 	await view(page, "Environment"); await view(page, "Runs Overview")
-	await expect(page.getByRole("button", { name: "Open second-project", exact: true })).toBeVisible()
+	await expect(launchButton(page, "second-project")).toBeVisible()
 	await view(page, "Current Run")
 	await expect(output(page)).toHaveText("First")
 	await expect(runStatus(page)).toContainText("existing-project")
@@ -274,7 +274,7 @@ for (const status of ["failed", "cancelled", "queued", "cancelling"] as const) {
 			await expect.poll(() => run.closed).toBe(run.streams.length)
 			return
 		}
-		await expect(runStatus(page)).toContainText(status[0].toUpperCase() + status.slice(1))
+		await expect(runStatus(page)).toContainText(status === "cancelling" ? "Stopping" : "Queued")
 		await expect(output(page)).toHaveText("Kept output")
 	})
 }

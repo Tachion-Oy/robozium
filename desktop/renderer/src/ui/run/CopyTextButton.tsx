@@ -2,6 +2,7 @@
 // Adapted: writes through the native clipboard bridge.
 import { useEffect, useRef, useState } from "react"
 import { showErrorToast } from "../feedback/ErrorToast"
+import { HudEdgeButton } from "../hud/HudEdgeButton"
 
 export type CopyTextButtonProps = {
 	copyKey: string
@@ -51,9 +52,8 @@ export function CopyTextButton({
 	}
 
 	return (
-		<button
-			type="button"
-			className="agent-hud__copy-text"
+		<HudEdgeButton
+			variant="icon"
 			onClick={() => void handleCopy()}
 			disabled={disabled || !content}
 			data-copied={isCopied || undefined}
@@ -83,6 +83,6 @@ export function CopyTextButton({
 					<path d="M16 8V6.5A1.5 1.5 0 0 0 14.5 5h-9A1.5 1.5 0 0 0 4 6.5v9A1.5 1.5 0 0 0 5.5 17H8" />
 				</svg>
 			)}
-		</button>
+		</HudEdgeButton>
 	)
 }

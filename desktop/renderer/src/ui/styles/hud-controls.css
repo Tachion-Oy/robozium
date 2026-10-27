@@ -61,22 +61,27 @@
   pointer-events: none;
 }
 
+/* Each side stacks the one-step button above the jump. */
 .agent-hud__message-nav-side {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.04rem;
+  display: inline-grid;
+  align-content: center;
   pointer-events: none;
 }
 
+/* The arrows sit close together and line up on the edge nearest the indicator. */
 .agent-hud__layout-direction.agent-hud__message-direction {
-  /* Slightly overlapping margins compact the pair without shrinking its 36px
-     hit targets or making it shorter than the centre status indicator. */
-  flex: 0 0 36px;
   width: 36px;
-  height: 36px;
-  margin-inline: -2px;
-  align-self: center;
+  height: 18px;
+  margin: 0;
   pointer-events: auto;
+}
+.agent-hud__message-nav-side:first-child .agent-hud__message-direction {
+  justify-items: end;
+  padding-inline-end: 6px;
+}
+.agent-hud__message-nav-side:last-child .agent-hud__message-direction {
+  justify-items: start;
+  padding-inline-start: 6px;
 }
 
 .agent-hud__layout-wedge.agent-hud__message-wedge {
@@ -459,24 +464,28 @@
   gap: 0;
 }
 
-/* The image picker: a square plus in Record's green. The icon keeps the
-   row's text height, so the button matches its neighbours. */
+/* The image picker: a square button with a plus in Record's green, as tall as a
+   capital letter of Record (0.65em in Source Code Pro). Its margins keep the
+   row's text height, so the button matches its neighbours; its width equals
+   that height. */
 .agent-hud__image {
   --btn-accent: var(--term-green);
   color: color-mix(in oklab, var(--term-green) clamp(0%, 65% * var(--tune-text, 1), 100%), white);
   display: inline-grid;
   place-items: center;
-  padding-inline: var(--hud-control-pad-y);
+  padding-inline: 0;
+  inline-size: calc(1em + 2 * var(--hud-control-pad-y));
 }
 
 .agent-hud__image-icon {
-  width: 1.25em;
-  height: 1.25em;
-  margin-block: -0.125em;
+  width: 0.65em;
+  height: 0.65em;
+  margin-block: 0.175em;
   overflow: visible;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
+  /* The square caps reach the box's edges, so the plus spans the full 0.65em. */
+  stroke-width: 2.4;
   stroke-linecap: square;
 }
 
@@ -609,13 +618,11 @@
 /* Shell-level controls form a compact rail immediately above the visible
    resize face. Keeping them outside the action row leaves that row balanced. */
 
+/* The column is centred on the left edge: the theme toggle above the divider buttons. */
 .agent-hud__corner-controls {
   position: absolute;
-  top: calc(
-    50% - var(--hud-corner-control-size) -
-      var(--hud-corner-control-size) - var(--hud-corner-control-gap) -
-      var(--hud-corner-control-half-gap)
-  );
+  top: 50%;
+  transform: translateY(-50%);
   left: var(--hud-corner-control-left);
   bottom: auto;
   z-index: 21;
@@ -631,8 +638,9 @@
   filter: none;
 }
 
+/* Only the divider buttons follow the column's disabled state; the theme toggle stays usable. */
 .agent-hud__corner-controls[data-disabled]
-  .agent-hud__corner-control {
+  .agent-hud__layout-controls .agent-hud__corner-control {
   --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 30% * var(--tune-edge, 1), 100%), transparent);
   --btn-fill-strength: 5%;
   cursor: default;
@@ -713,7 +721,8 @@
   transform: rotate(180deg);
 }
 
-.agent-hud__layout-controls .agent-hud__layout-direction:not(:disabled):hover {
+.agent-hud__layout-controls .agent-hud__layout-direction:not(:disabled):hover,
+.agent-hud__edge-toggle:not(:disabled):hover {
   --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
   --btn-fill-strength: 24%;
 }
@@ -821,17 +830,11 @@
   color: var(--hud-input-text);
   text-shadow: none;
 }
-:root[data-theme="light"] .agent-hud__dictate > span::before {
-  content: "";
-  display: inline-block;
-  width: 0.68rem;
-  height: 0.68rem;
-  margin-right: 0.55rem;
-  border-radius: 50%;
-  vertical-align: -0.04rem;
-  background: var(--term-green);
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 34% * var(--tune-sheen, 1), 100%), transparent),
-    0 0 0 1px color-mix(in oklab, var(--term-green) clamp(0%, 68% * var(--tune-glow, 1), 100%), transparent);
+/* Light Record has no dot before its label, so it is narrower. */
+:root[data-theme="light"] .agent-hud__dictate {
+  inline-size: 6rem;
+  min-inline-size: 6rem;
+  max-inline-size: 6rem;
 }
 :root[data-theme="light"] .agent-hud__logo {
   animation: none;
@@ -940,16 +943,6 @@
   justify-content: center;
   gap: 0.62rem;
   padding-inline: 0.65rem;
-}
-:root[data-theme="light"]
-  .agent-hud__dictate[aria-pressed="true"]
-  > span::before {
-  content: none;
-}
-:root[data-theme="light"]
-  .agent-hud__dictate[data-dictation-state="transcribing"]
-  > span::before {
-  content: none;
 }
 :root[data-theme="light"] .agent-hud__dictate-meter {
   box-sizing: border-box;
@@ -1175,33 +1168,35 @@
   width: 1.2rem;
   height: 1.2rem;
 }
+/* Light buttons carry their tone at rest strongly enough to tell green from amber;
+   hover strengthens it again. */
 :root[data-theme="light"] .agent-hud__dictate,
 :root[data-theme="light"] .agent-hud__image {
   --btn-tone: var(--term-green);
   --btn-edge: color-mix(
     in oklab,
-    var(--btn-tone) clamp(0%, 58% * var(--tune-edge, 1), 100%),
+    var(--btn-tone) clamp(0%, 75% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
-  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 12% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 22% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 :root[data-theme="light"] .agent-hud__cancel {
   --btn-tone: var(--term-amber);
   --btn-edge: color-mix(
     in oklab,
-    var(--btn-tone) clamp(0%, 60% * var(--tune-edge, 1), 100%),
+    var(--btn-tone) clamp(0%, 75% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
-  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 14% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 22% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 :root[data-theme="light"] .agent-hud__interrupt {
   --btn-tone: var(--term-red);
   --btn-edge: color-mix(
     in oklab,
-    var(--btn-tone) clamp(0%, 58% * var(--tune-edge, 1), 100%),
+    var(--btn-tone) clamp(0%, 75% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
-  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 13% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 22% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 :root[data-theme="light"] .agent-hud__expand,
 :root[data-theme="light"] .agent-hud__minimize,
@@ -1214,10 +1209,10 @@
   --btn-tone: var(--term-blue);
   --btn-edge: color-mix(
     in oklab,
-    var(--btn-tone) clamp(0%, 58% * var(--tune-edge, 1), 100%),
+    var(--btn-tone) clamp(0%, 75% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
-  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 13% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 22% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 :root[data-theme="light"] .agent-hud__send {
   --btn-tone: var(--term-green);
@@ -1233,15 +1228,16 @@
 :root[data-theme="light"] .agent-hud__copy-text:not(:disabled):hover,
 :root[data-theme="light"] .agent-hud__cancel:not(:disabled):hover,
 :root[data-theme="light"] .agent-hud__interrupt:not(:disabled):hover,
+:root[data-theme="light"] .agent-hud__edge-toggle:not(:disabled):hover,
 :root[data-theme="light"]
   .agent-hud__layout-controls
   .agent-hud__layout-direction:not(:disabled):hover {
-  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 12% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
+  --btn-fill: color-mix(in oklab, var(--btn-tone) clamp(0%, 30% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
   text-shadow: none;
   transform: translateY(-1px);
   border-color: color-mix(
     in oklab,
-    var(--btn-tone) clamp(0%, 72% * var(--tune-hover-edge, 1), 100%),
+    var(--btn-tone) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%),
     var(--hud-control-ink)
   );
   background:
@@ -1253,12 +1249,12 @@
     linear-gradient(
       180deg,
       color-mix(in oklab, white clamp(0%, 42% * var(--tune-sheen, 1), 100%), var(--btn-fill)),
-      color-mix(in oklab, var(--btn-tone) clamp(0%, 16% * var(--tune-hover-fill, 1), 100%), var(--btn-fill))
+      color-mix(in oklab, var(--btn-tone) clamp(0%, 26% * var(--tune-hover-fill, 1), 100%), var(--btn-fill))
     );
   color: var(--hud-control-ink);
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 76% * var(--tune-sheen, 1), 100%), transparent),
     0 0.28rem 0.48rem
-      color-mix(in oklab, var(--btn-tone) clamp(0%, 22% * var(--tune-hover-glow, 1), 100%), transparent);
+      color-mix(in oklab, var(--btn-tone) clamp(0%, 32% * var(--tune-hover-glow, 1), 100%), transparent);
   outline: none;
 }
 :root[data-theme="light"]
@@ -1268,7 +1264,7 @@
   transform: translateY(-1px);
   border-color: color-mix(
     in oklab,
-    var(--btn-tone) clamp(0%, 72% * var(--tune-hover-edge, 1), 100%),
+    var(--btn-tone) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%),
     var(--hud-control-ink)
   );
   background:
@@ -1280,12 +1276,12 @@
     linear-gradient(
       180deg,
       color-mix(in oklab, white clamp(0%, 42% * var(--tune-sheen, 1), 100%), var(--btn-fill)),
-      color-mix(in oklab, var(--btn-tone) clamp(0%, 16% * var(--tune-hover-fill, 1), 100%), var(--btn-fill))
+      color-mix(in oklab, var(--btn-tone) clamp(0%, 26% * var(--tune-hover-fill, 1), 100%), var(--btn-fill))
     );
   color: var(--hud-control-ink);
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 76% * var(--tune-sheen, 1), 100%), transparent),
     0 0.28rem 0.48rem
-      color-mix(in oklab, var(--btn-tone) clamp(0%, 22% * var(--tune-hover-glow, 1), 100%), transparent);
+      color-mix(in oklab, var(--btn-tone) clamp(0%, 32% * var(--tune-hover-glow, 1), 100%), transparent);
   outline: none;
 }
 :root[data-theme="light"] .agent-hud__expand:not(:disabled):hover,
@@ -1306,7 +1302,7 @@
   transform: translateY(-1px);
   border-color: color-mix(
     in oklab,
-    var(--btn-tone) clamp(0%, 72% * var(--tune-hover-edge, 1), 100%),
+    var(--btn-tone) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%),
     var(--hud-control-ink)
   );
   background:
@@ -1318,12 +1314,12 @@
     linear-gradient(
       180deg,
       color-mix(in oklab, white clamp(0%, 42% * var(--tune-sheen, 1), 100%), var(--btn-fill)),
-      color-mix(in oklab, var(--btn-tone) clamp(0%, 16% * var(--tune-hover-fill, 1), 100%), var(--btn-fill))
+      color-mix(in oklab, var(--btn-tone) clamp(0%, 26% * var(--tune-hover-fill, 1), 100%), var(--btn-fill))
     );
   color: var(--hud-control-ink);
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 76% * var(--tune-sheen, 1), 100%), transparent),
     0 0.28rem 0.48rem
-      color-mix(in oklab, var(--btn-tone) clamp(0%, 22% * var(--tune-hover-glow, 1), 100%), transparent);
+      color-mix(in oklab, var(--btn-tone) clamp(0%, 32% * var(--tune-hover-glow, 1), 100%), transparent);
   outline: none;
 }
 :root[data-theme="light"] .agent-hud__expand:not(:disabled):active,
@@ -1332,6 +1328,7 @@
 :root[data-theme="light"] .agent-hud__image:not(:disabled):active,
 :root[data-theme="light"] .agent-hud__cancel:not(:disabled):active,
 :root[data-theme="light"] .agent-hud__interrupt:not(:disabled):active,
+:root[data-theme="light"] .agent-hud__edge-toggle:not(:disabled):active,
 :root[data-theme="light"]
   .agent-hud__layout-controls
   .agent-hud__layout-direction:not(:disabled):active,

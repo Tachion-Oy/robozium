@@ -2,7 +2,7 @@ import { expect, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { test, catalogue, json } from "./selection-fixture"
 import { chooseModel, chooseView as view, modelTrigger, reloadApp } from "./native"
-import { prepareRun, start } from "./run-fixture"
+import { prepareRun, start, launchButton } from "./run-fixture"
 
 const notices = (page: Page) => page.locator(".desktop-interim-content__notices")
 
@@ -178,7 +178,7 @@ test("reconnect refreshes backend models while preserving the overview and cance
 	expect(backend.requests.filter(request => request.method === "POST")).toHaveLength(1)
 	await expect(model).toHaveAttribute("title", "First model")
 	await view(page, "Runs Overview")
-	await expect(page.getByRole("button", { name: "Open existing-project", exact: true })).toBeVisible()
+	await expect(launchButton(page, "existing-project")).toBeVisible()
 })
 
 test("recovery reconciles a pending model write without replaying it", async ({ desktop: { page }, backend }) => {

@@ -1,5 +1,6 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/hudPresentation.ts at 076b2c9.
-// Adapted: a run that has ended is passed as runEnded instead of its RunHudPhase.
+// Adapted: a run that has ended is passed as runEnded instead of its RunHudPhase, and
+// the project badge shows on Current Run only.
 // The setup rules follow web/app/components/hud/hudPresentation.ts at af87bea.
 import type { HudScreen } from "../../app/hud-navigation"
 
@@ -88,7 +89,8 @@ export function resolveHudPresentation({
 		modelScope: context === "active-run" && screen !== "launch" ? "run" : "default",
 		headerVariant:
 			context === "landing" && screen !== "dependencies" && screen !== "environment" && screen !== "onboarding" ? "landing" : "row",
-		showProjectBadge: context === "active-run" && screen !== "launch" && !setupRequired,
+		// The project name labels the run on Current Run only; elsewhere it would look like the screen's subject.
+		showProjectBadge: context === "active-run" && screen === "run" && !setupRequired,
 		enableCornerControls: context === "active-run" && screen === "run" && !setupRequired,
 		locked: setupRequired,
 	}

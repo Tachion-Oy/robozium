@@ -329,7 +329,7 @@ test("closing and reopening preserves project data and reuses the backend image"
 	await expect(page.getByRole("alert")).toContainText("Project already exists")
 	await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue("Native lifecycle")
 	await page.getByRole("form", { name: "Capability selector" }).getByRole("button", { name: "Cancel", exact: true }).click()
-	await expect(page.getByRole("button", { name: /^(Open|Return to) native-lifecycle$/ })).toBeVisible()
+	await expect(page.getByRole("button", { name: "Open native-lifecycle", exact: true })).toBeVisible()
 	const proof = path.join(profile, "mock/hub/projects/native-lifecycle/proof.txt")
 	await writeFile(proof, "native data survives shutdown\n")
 	await test.step("Close the window and retain the mounted project files", async () => {
@@ -344,7 +344,8 @@ test("closing and reopening preserves project data and reuses the backend image"
 		await installTestClient(reopenedPage, `http://127.0.0.1:${port}`)
 		const projects = await reopenedPage.evaluate(async () => await window.testApi.request("/projects") as { slug: string }[])
 		expect(projects.some(item => item.slug === "native-lifecycle")).toBe(true)
-		await expect(reopenedPage.getByRole("button", { name: "Open native-lifecycle", exact: true })).toBeVisible()
+		// The run ended with the window: the project is dormant and launches again.
+		await expect(reopenedPage.locator(".agent-hud__project-row", { hasText: "native-lifecycle" }).getByRole("button", { name: "Launch", exact: true })).toBeVisible()
 		expect(execFileSync(docker, ["image", "inspect", "--format", "{{.Id}}", `${project}-api`], { encoding: "utf8" }).trim()).toBe(image)
 		expect((await readFile(commands, "utf8")).split("\n").filter(line => line.endsWith(" build api"))).toHaveLength(1)
 		await closeWindow(reopened)
@@ -538,7 +539,7 @@ test("a secret saved in Environment applies after Restart app and a reset remove
 		await createAndLaunch(page, "Restarted secrets")
 		await expect(page.getByRole("status", { name: "Run status" })).toContainText("restarted-secrets")
 		await chooseView(page, "Runs Overview")
-		await page.locator(".agent-hud__project-row", { hasText: "restarted-secrets" }).getByRole("button", { name: "Cancel", exact: true }).click()
+		await page.locator(".agent-hud__project-row", { hasText: "restarted-secrets" }).getByRole("button", { name: "Stop", exact: true }).click()
 		await expect(page.locator(".agent-hud__project-row", { hasText: "restarted-secrets" })).toContainText("DORMANT", { timeout: 30_000 })
 	})
 	await test.step("Reset the environment and restart without secrets", async () => {

@@ -2,7 +2,11 @@
 // Adapted: `available: false` shows an action disabled until its owner arrives;
 // a pending action is busy under its own label, which a span can truncate.
 // The image picker follows web/app/components/hud/run/HudControls.tsx at 2a0c183,
-// and the setup lock web at af87bea (#121).
+// and the setup lock web at af87bea (#121). The copy controls render into the
+// right edge's copy column (hud/AgentHud), not the footer.
+import { use } from "react"
+import { createPortal } from "react-dom"
+import { CopyControlsSlot } from "../hud/AgentHud"
 import { useDesktopActionLayout } from "./useDesktopActionLayout"
 import { AudioLevelMeter } from "./AudioLevelMeter"
 import type { AgentMessage } from "./AgentMessagePanel"
@@ -62,6 +66,7 @@ export function HudControls({
 	interrupt,
 }: HudControlsProps) {
 	const actionsRef = useDesktopActionLayout()
+	const copySlot = use(CopyControlsSlot)
 	const dictationLabel = dictation.isTranscribing
 		? "Text…"
 		: dictation.isRecording
@@ -88,7 +93,7 @@ export function HudControls({
 						onClick={cancel.onTrigger}
 						disabled={locked || cancel.isPending || cancel.available === false}
 						aria-busy={cancel.isPending || undefined}>
-						<span>Cancel</span>
+						<span>Stop</span>
 					</button>
 				) : null}
 				{interrupt ? (
@@ -98,7 +103,7 @@ export function HudControls({
 						onClick={interrupt.onTrigger}
 						disabled={locked || interrupt.isPending || interrupt.available === false || cancel?.isPending}
 						aria-busy={interrupt.isPending || undefined}>
-						<span>Interrupt</span>
+						<span>Cancel</span>
 					</button>
 				) : null}
 			</div>
@@ -106,13 +111,16 @@ export function HudControls({
 				<HudMessageNavigation {...navigation} />
 			</div>
 			<div className="agent-hud__actions-submit">
-				<HudCopyControls
-					agentMessage={agentMessage}
-					replyDraft={replyDraft}
-					hasImages={hasImages}
-					disabled={locked}
-					onClearReply={onClearReply}
-				/>
+				{copySlot && createPortal(
+					<HudCopyControls
+						agentMessage={agentMessage}
+						replyDraft={replyDraft}
+						hasImages={hasImages}
+						disabled={locked}
+						onClearReply={onClearReply}
+					/>,
+					copySlot,
+				)}
 				{onAddImages ? (
 					<button
 						type="button"
@@ -122,7 +130,7 @@ export function HudControls({
 						aria-label="Add images"
 						title="Add images (PNG, JPEG, WebP, GIF; up to four, 10 MiB each)">
 						<svg className="agent-hud__image-icon" viewBox="0 0 16 16" aria-hidden="true">
-							<path d="M8 1.5v13M1.5 8h13" />
+							<path d="M8 1.2v13.6M1.2 8h13.6" />
 						</svg>
 					</button>
 				) : null}
