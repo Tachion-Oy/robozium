@@ -6,7 +6,7 @@ import { useEffect, useState } from "react"
 import { useBackendStartup } from "../../backend/useBackendStartup"
 import { useBackendReadiness } from "../../backend/useBackendReadiness"
 import { useStartupScreen } from "../../backend/useStartupScreen"
-import { usePersistentToast } from "../../feedback/notices"
+import { Toast } from "../feedback/Toast"
 import { App } from "../app/App"
 import { ToastViewport } from "../feedback/ToastViewport"
 import { StartupScreen } from "../startup/StartupScreen"
@@ -33,7 +33,6 @@ export function BackendStartup() {
 		if (status.state === "ready") setHasOpenedHud(true)
 	}, [status.state])
 
-	const retry = startup.state === "error" ? retryStartup : retryConnection
 	const backend: BackendOperations = {
 		manage: operation => screen.cover(() => operation === "restart" ? window.robozium.restartBackend() : window.robozium.recreateBackend()),
 		restartApp: () => screen.cover(() => window.robozium.restartApp(), false),
@@ -42,15 +41,9 @@ export function BackendStartup() {
 	// or the app exits; a reconnect in progress shows only over the open HUD.
 	const expectedOutage = screen.mode !== null && screen.busy
 	const hubFolderFailure = startup.state === "error" && startup.action === "choose-hub-folder"
-	usePersistentToast("backend", status.state === "ready" || expectedOutage || hubFolderFailure ? null
-		: status.state === "error" ? {
-			tone: "error",
-			title: startup.state === "error" ? "Robozium could not start" : "Backend unavailable",
-			message: status.message,
-			actions: [{ label: "Retry", onClick: retry }],
-		}
-		: hasOpenedHud && screen.mode === null ? { tone: "warning", title: "Backend connection", message: status.message }
-		: null)
+	const startupFailed = startup.state === "error"
+	const failed = status.state === "error" && !expectedOutage && !hubFolderFailure
+	const reconnecting = status.state !== "ready" && status.state !== "error" && hasOpenedHud && screen.mode === null
 	return <>
 		{/* The covered HUD stays mounted, but focus and assistive technology cannot reach it. */}
 		<div className="backend-startup__app" inert={screen.mode !== null}>
@@ -63,6 +56,9 @@ export function BackendStartup() {
 		</div>
 		{screen.mode && <StartupScreen mode={screen.mode} ready={screen.ready} status={status.message} onFaded={screen.dismiss} />}
 		{hubFolderFailure && !expectedOutage && <StartupHubFolder message={status.message} onRetry={retryStartup} />}
+		{failed && <Toast tone="error" title={startupFailed ? "Robozium could not start" : "Backend unavailable"} message={status.message}
+			actions={[{ label: "Retry", onClick: startupFailed ? retryStartup : retryConnection }]} />}
+		{reconnecting && <Toast tone="warning" title="Backend connection" message={status.message} />}
 		<ToastViewport />
 	</>
 }

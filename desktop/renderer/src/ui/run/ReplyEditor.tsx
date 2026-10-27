@@ -6,7 +6,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEventHandler } from "react"
 import type { DropzoneState } from "react-dropzone"
 import type { ReplyImage, ReplyImagesModel } from "../../attachments/useReplyImages"
-import { usePersistentToast } from "../../feedback/notices"
+import { Toast } from "../feedback/Toast"
 
 type ReplyEditorProps = {
 	value: string
@@ -32,12 +32,6 @@ export function ReplyEditor({
 	const imageListRef = useRef<HTMLUListElement>(null)
 	const previousImagesRef = useRef<readonly ReplyImage[]>([])
 	const attachments = images?.images
-	usePersistentToast("reply-images", images?.error ? {
-		tone: "error",
-		title: "Images",
-		message: images.error,
-		actions: images.canRetry ? [{ label: "Retry images", onClick: images.onRetry }] : undefined,
-	} : null)
 
 	useLayoutEffect(() => {
 		const previous = previousImagesRef.current
@@ -73,6 +67,8 @@ export function ReplyEditor({
 			className="agent-hud__replyBox agent-hud__replyBox--user"
 			data-drag-active={dropzone?.isDragActive || undefined}
 			aria-disabled={disabled || undefined}>
+			{images?.error && <Toast tone="error" title="Images" message={images.error}
+				actions={images.canRetry ? [{ label: "Retry images", onClick: images.onRetry }] : []} />}
 			{dropzone ? <input {...dropzone.getInputProps({ "aria-label": "Choose images" })} /> : null}
 			<div className="agent-hud__reply-text">
 				<textarea

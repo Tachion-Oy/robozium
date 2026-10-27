@@ -13,7 +13,7 @@ import {
 import type { ProjectQueryState } from "../../projects/useProjectQuery"
 import type { ProjectMutations } from "../../projects/useProjectMutations"
 import type { LaunchDraft } from "../../app/hud-navigation"
-import { usePersistentToast } from "../../feedback/notices"
+import { Toast } from "../feedback/Toast"
 import { ProjectOverviewPanel } from "./ProjectOverviewPanel"
 
 type ProjectOverviewProps = {
@@ -44,12 +44,6 @@ export function ProjectOverview({
 	locked = false,
 	onStartHere,
 }: ProjectOverviewProps) {
-	usePersistentToast("projects", projects.loadError === null ? null : {
-		tone: "error",
-		title: "Could not load projects",
-		message: projects.loadError,
-		actions: [{ label: "Retry", onClick: projects.refresh }],
-	})
 	if (projects.isInitialLoading) {
 		return (
 			<div
@@ -65,7 +59,9 @@ export function ProjectOverview({
 		)
 	}
 	// The toast reports the failure; the view stays empty rather than claiming no projects.
-	if (projects.loadError !== null) return <div className="agent-hud__project-view agent-hud__overview-loading" />
+	if (projects.loadError !== null) return <div className="agent-hud__project-view agent-hud__overview-loading">
+		<Toast tone="error" title="Could not load projects" message={projects.loadError} actions={[{ label: "Retry", onClick: projects.refresh }]} />
+	</div>
 	const openSelector = (project: string | null) => {
 		if (!navigationPending) onSelectCapabilities(project)
 	}

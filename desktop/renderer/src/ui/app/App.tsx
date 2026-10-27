@@ -35,7 +35,7 @@ import { selectRunDisplay } from "../../session/session-reducer"
 import { isTerminal, RunStatus, type RunRecord } from "../../run/run-contracts"
 import { useMessageLog } from "../../log/useMessageLog"
 import type { BackendOperations } from "../backend/BackendStartup"
-import { usePersistentToast } from "../../feedback/notices"
+import { Toast } from "../feedback/Toast"
 
 const noEvents: readonly RunRecord[] = []
 
@@ -108,16 +108,7 @@ export function App({ client, connected, covered, backend }: AppProps) {
 	const openRun = (runId: string, project: string) => { runSession.open(runId, project); showRun() }
 	// The HUD and the overview rows share one cancellation per project.
 	const cancelling = session !== null && (projectMutations.pending.has(session.run.project) || session.run.status === RunStatus.Cancelling)
-	const modelError = models.error
 	const runError = screen === "run" ? session?.run.error : ""
-	// Problems are toasts, never lines above the panels.
-	usePersistentToast("model", modelError ? { tone: "error", title: "Model unavailable", message: modelError } : null)
-	usePersistentToast("run-output", runError ? {
-		tone: "error",
-		title: "Run output unavailable",
-		message: runError,
-		actions: [{ label: "Retry output", disabled: !connected || projectMutations.launching, onClick: runSession.retry }],
-	} : null)
 
 	function renderContent() {
 		switch (screen) {
@@ -151,9 +142,9 @@ export function App({ client, connected, covered, backend }: AppProps) {
 					onCancel={() => navigate({ type: "launch_closed" })}
 					onSubmit={selection => { if (navigation.launch) void projectMutations.launch({ ...navigation.launch, selection }) }} />
 			case "dependencies":
-				return <DependencyPanel dependencies={dependencies} onManageBackend={backend.manage} />
+				return <DependencyPanel dependencies={dependencies} />
 			case "environment":
-				return <EnvironmentPanel draft={environmentDraft} mutations={environmentMutations} hub={hubFolder} onRestart={backend.restartApp} />
+				return <EnvironmentPanel draft={environmentDraft} mutations={environmentMutations} hub={hubFolder} onRestart={backend.restartApp} onManageBackend={backend.manage} />
 		}
 	}
 
@@ -171,6 +162,10 @@ export function App({ client, connected, covered, backend }: AppProps) {
 				onCancel={credentials.cancel}>
 				<p>Enter the password your secrets are encrypted with.</p>
 			</PasswordDialog>
+			{/* Problems are toasts, never lines above the panels. */}
+			{models.error && <Toast tone="error" title="Model unavailable" message={models.error} />}
+			{runError && <Toast tone="error" title="Run output unavailable" message={runError}
+				actions={[{ label: "Retry output", disabled: !connected || projectMutations.launching, onClick: runSession.retry }]} />}
 		</>
 	)
 }

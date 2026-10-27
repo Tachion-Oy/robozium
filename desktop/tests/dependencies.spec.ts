@@ -18,6 +18,14 @@ const failure = dependency("network:diagnostic-test", {
 })
 const panel = (page: Page) => page.locator(".agent-hud__status-view")
 const checkNow = (page: Page) => panel(page).getByRole("button", { name: "Check Now", exact: true })
+// The backend controls sit in Environment's action row.
+const backendButton = (page: Page, name: string) =>
+	page.getByRole("region", { name: "Environment settings" }).getByLabel("Backend controls").getByRole("button", { name })
+async function openEnvironment(page: Page, backend: Backend) {
+	await backend.open()
+	await view(page, "Environment")
+	await expect(backendButton(page, "Restart backend")).toBeVisible()
+}
 const checks = (backend: Backend) => backend.requests.filter(request => request.method === "POST" && request.path === "/admin/dependencies/check")
 
 async function openDependencies(page: Page, backend: Backend, records: Dependency[] | (() => Dependency[])) {
@@ -113,10 +121,9 @@ async function holdBackendOperations(app: ElectronApplication) {
 test("Restart and Recreate run one backend operation at a time, report failures and reconnect", async ({ desktop: { app, page }, backend }) => {
 	const { calls, finish } = await holdBackendOperations(app)
 	const readiness = () => backend.requests.filter(request => request.path === "/ready").length
-	await openDependencies(page, backend, [dependency("executable:git")])
-	const controls = panel(page).getByLabel("Backend controls")
-	const restart = controls.getByRole("button", { name: "Restart backend" })
-	const recreate = controls.getByRole("button", { name: "Recreate backend" })
+	await openEnvironment(page, backend)
+	const restart = backendButton(page, "Restart backend")
+	const recreate = backendButton(page, "Recreate backend")
 
 	await restart.click()
 	await expect.poll(calls).toEqual(["restart"])
@@ -148,10 +155,10 @@ test("Restart and Recreate run one backend operation at a time, report failures 
 
 test("a slow restart keeps the loading screen, not the expected outage, even when readiness fails", async ({ desktop: { app, page }, backend }) => {
 	const { calls, finish } = await holdBackendOperations(app)
-	await openDependencies(page, backend, [dependency("executable:git")])
+	await openEnvironment(page, backend)
 	const before = backend.requests.filter(request => request.path === "/ready").length
 	backend.handlers.set("GET /ready", response => json(response, { detail: "Restarting" }, 503))
-	await panel(page).getByLabel("Backend controls").getByRole("button", { name: "Restart backend" }).click()
+	await backendButton(page, "Restart backend").click()
 	await expect.poll(calls).toEqual(["restart"])
 	// The five-second poll fails while the operation runs.
 	await expect.poll(() => backend.requests.filter(request => request.path === "/ready").length, { timeout: 10_000 }).toBeGreaterThan(before)
@@ -165,8 +172,8 @@ test("a slow restart keeps the loading screen, not the expected outage, even whe
 
 test("a reconnect that fails after a restart shows the error and Retry in a toast over the loading screen", async ({ desktop: { app, page }, backend }) => {
 	const { calls, finish } = await holdBackendOperations(app)
-	await openDependencies(page, backend, [dependency("executable:git")])
-	await panel(page).getByLabel("Backend controls").getByRole("button", { name: "Restart backend" }).click()
+	await openEnvironment(page, backend)
+	await backendButton(page, "Restart backend").click()
 	await expect.poll(calls).toEqual(["restart"])
 	backend.handlers.set("GET /ready", response => json(response, { detail: "Restarting" }, 503))
 	await finish()
@@ -177,7 +184,7 @@ test("a reconnect that fails after a restart shows the error and Retry in a toas
 	await failure.getByRole("button", { name: "Retry", exact: true }).click()
 	await startupDone(page)
 	await expect(page.locator(".backend-startup__app")).not.toHaveAttribute("inert")
-	await expect(panel(page)).toBeVisible()
+	await expect(backendButton(page, "Restart backend")).toBeVisible()
 })
 
 for (const theme of ["dark", "light"]) {
