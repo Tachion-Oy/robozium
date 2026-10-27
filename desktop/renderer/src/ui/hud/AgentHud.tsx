@@ -2,12 +2,18 @@
 // (lines 178-243) at 076b2c9, in its desktop configuration: no intro, minimize or
 // resize handle. The caller supplies the message log pane and owns whether it is open.
 // The right edge holds the message log toggle with the copy controls beneath it.
-import { useState, type ReactNode } from "react"
+import { createContext, useState, type ReactNode } from "react"
 import type { MessageLogState } from "../../log/useMessageLog"
 import { HudCopyControls } from "../run/HudCopyControls"
-import { CopyControlsSlot } from "./edge-controls"
 import { HudCornerControls, moveLayoutMode, type LayoutMode } from "./HudCornerControls"
+import { HudEdgeButton } from "./HudEdgeButton"
 import type { HudPresentation } from "./hudPresentation"
+
+// The right edge's copy controls element. The reply form renders its live copy controls
+// into it with a portal, because the form holds the displayed message and the draft.
+// Without a reply form AgentHud shows the same controls disabled, so the column never
+// changes shape.
+export const CopyControlsSlot = createContext<HTMLElement | null>(null)
 
 export function AgentHud({ presentation, layoutMode, onLayoutModeChange, messageLog, logPane, header, children }: {
 	presentation: HudPresentation
@@ -42,19 +48,17 @@ export function AgentHud({ presentation, layoutMode, onLayoutModeChange, message
 					aria-live="polite">
 					<div className={hudBoxClassName}>
 						<HudCornerControls
-							showMinimize={false}
 							disabled={!presentation.enableCornerControls}
 							layout={{
 								mode: layoutMode,
 								onMove: (direction) =>
 									onLayoutModeChange(moveLayoutMode(layoutMode, direction)),
-								onMinimize: () => {},
 							}}
 						/>
 						<div className="desktop-edge-controls">
-							<button
-								type="button"
-								className="desktop-message-log-toggle agent-hud__corner-control agent-hud__edge-toggle"
+							<HudEdgeButton
+								variant="toggle"
+								className="desktop-message-log-toggle"
 								aria-label={messageLog.open ? "Hide message log" : "Show message log"}
 								title={messageLog.open ? "Hide message log" : "Show message log"}
 								aria-expanded={messageLog.open}
@@ -64,7 +68,7 @@ export function AgentHud({ presentation, layoutMode, onLayoutModeChange, message
 								<svg className="desktop-message-log-toggle__icon" viewBox="0 0 16 16" aria-hidden="true">
 									<path d="M3 4.5h10M3 8h10M3 11.5h10" />
 								</svg>
-							</button>
+							</HudEdgeButton>
 							<div ref={setCopySlot} className="desktop-edge-controls__copy" />
 							{presentation.screen !== "run" && (
 								<HudCopyControls agentMessage={null} replyDraft="" disabled onClearReply={() => {}} />

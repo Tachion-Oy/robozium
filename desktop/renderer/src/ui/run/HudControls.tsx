@@ -3,10 +3,10 @@
 // a pending action is busy under its own label, which a span can truncate.
 // The image picker follows web/app/components/hud/run/HudControls.tsx at 2a0c183,
 // and the setup lock web at af87bea (#121). The copy controls render into the
-// right edge's slot (hud/edge-controls), not the footer.
+// right edge's copy column (hud/AgentHud), not the footer.
 import { use } from "react"
 import { createPortal } from "react-dom"
-import { CopyControlsSlot } from "../hud/edge-controls"
+import { CopyControlsSlot } from "../hud/AgentHud"
 import { useDesktopActionLayout } from "./useDesktopActionLayout"
 import { AudioLevelMeter } from "./AudioLevelMeter"
 import type { AgentMessage } from "./AgentMessagePanel"

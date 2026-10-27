@@ -1,6 +1,7 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/HudCornerControls.tsx at 076b2c9.
-// Adapted: the theme toggle heads the column, above the panel divider buttons.
+// Adapted: the theme toggle heads the column, above the panel divider buttons; no Minimize.
 import { ThemeToggle } from "../theme/ThemeToggle"
+import { HudEdgeButton } from "./HudEdgeButton"
 
 export type LayoutMode = "equal" | "top" | "bottom"
 export type LayoutDirection = "up" | "down"
@@ -24,44 +25,27 @@ export function moveLayoutMode(
 export type HudLayoutControls = {
 	mode: LayoutMode
 	onMove: (direction: LayoutDirection) => void
-	onMinimize: () => void
 }
 
 export function HudCornerControls({
 	layout,
 	disabled = false,
-	showMinimize = true,
 }: {
 	layout: HudLayoutControls
 	disabled?: boolean
-	showMinimize?: boolean
 }) {
 	return (
 		<div
 			className="agent-hud__corner-controls"
 			data-disabled={disabled || undefined}>
 			<ThemeToggle />
-			{showMinimize && <button
-				type="button"
-				className="agent-hud__minimize agent-hud__corner-control"
-				onClick={layout.onMinimize}
-				disabled={disabled}
-				aria-label="Minimize"
-				title="Minimize">
-				<svg
-					className="agent-hud__size-icon"
-					viewBox="0 0 20 20"
-					aria-hidden="true">
-					<path d="M3 8h5V3M17 8h-5V3M3 12h5v5M17 12h-5v5" />
-				</svg>
-			</button>}
 			<div
 				className="agent-hud__layout-controls"
 				role="group"
 				aria-label={`Panel divider: ${layout.mode}`}>
-				<button
-					type="button"
-					className="agent-hud__layout-direction agent-hud__corner-control"
+				<HudEdgeButton
+					variant="arrow"
+					className="agent-hud__corner-control"
 					onClick={() => layout.onMove("up")}
 					disabled={disabled || layout.mode === "bottom"}
 					aria-label="Move panel divider up">
@@ -71,10 +55,10 @@ export function HudCornerControls({
 						aria-hidden="true">
 						<path d="M8 1.25 14.75 12.75H1.25Z" />
 					</svg>
-				</button>
-				<button
-					type="button"
-					className="agent-hud__layout-direction agent-hud__corner-control"
+				</HudEdgeButton>
+				<HudEdgeButton
+					variant="arrow"
+					className="agent-hud__corner-control"
 					onClick={() => layout.onMove("down")}
 					disabled={disabled || layout.mode === "top"}
 					aria-label="Move panel divider down">
@@ -84,7 +68,7 @@ export function HudCornerControls({
 						aria-hidden="true">
 						<path d="M8 1.25 14.75 12.75H1.25Z" />
 					</svg>
-				</button>
+				</HudEdgeButton>
 			</div>
 		</div>
 	)

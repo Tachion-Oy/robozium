@@ -3,12 +3,13 @@
 // The toggle is a left-edge button above the panel divider buttons, shaped as the
 // message log toggle on the right edge, showing only its dot.
 import { toggleTheme } from "../../theme/theme"
+import { HudEdgeButton } from "../hud/HudEdgeButton"
 
 export function ThemeToggle() {
 	return (
-		<button
-			type="button"
-			className="theme-toggle agent-hud__corner-control agent-hud__edge-toggle"
+		<HudEdgeButton
+			variant="toggle"
+			className="theme-toggle"
 			data-hud-ignore-dismiss
 			aria-label="Toggle color theme"
 			title="Toggle color theme"
@@ -16,6 +17,6 @@ export function ThemeToggle() {
 				void toggleTheme()
 			}}>
 			<span className="theme-toggle__indicator" aria-hidden="true" />
-		</button>
+		</HudEdgeButton>
 	)
 }
