@@ -2,10 +2,11 @@ import { appendFileSync, readFileSync } from "node:fs"
 import net from "node:net"
 import path from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
-import type { BackendStatus } from "./bridge.d.ts"
+import type { BackendStatus, HostServiceStatus } from "./bridge.d.ts"
 import { loadOrCreateBackendProfile } from "./backend-profile.ts"
-import { isInside, prepareBackendRuntime, resolveBackendLayout } from "./backend-layout.ts"
-import { findDocker, runCommand, type CommandOptions } from "./docker-command.ts"
+import { isInside, prepareBackendRuntime, resolveBackendLayout, type BackendLayout } from "./backend-layout.ts"
+import { findExecutable, runCommand, type CommandOptions } from "./docker-command.ts"
+import { HostServices } from "./host-services.ts"
 import { HubFolderError, resolveHubFolder } from "./hub-folder.ts"
 import type { HubFolderLocation } from "./locations.ts"
 
@@ -18,9 +19,10 @@ interface BackendOptions {
 	mode: "live" | "mock"
 	port?: string
 	run?: typeof runCommand
-	findDocker?: typeof findDocker
+	findDocker?: () => string | undefined
 	fetch?: typeof fetch
 	checkPort?: typeof portAvailable
+	hostServices?: HostServices
 	readinessTimeout?: number
 	pollInterval?: number
 }
@@ -70,18 +72,24 @@ export class BackendController {
 	private targetPinned = false
 	private readonly settings: ReturnType<typeof loadOrCreateBackendProfile>
 	/** Resolved at each launch, so a newly chosen hub folder applies on retry or restart. */
-	private launchedLayout?: ReturnType<typeof resolveBackendLayout>
+	private launchedLayout?: BackendLayout
 	private readonly run: typeof runCommand
+	private readonly hostServices: HostServices
 	private readonly options: BackendOptions
 
 	constructor(options: BackendOptions) {
 		this.options = options
 		this.settings = loadOrCreateBackendProfile(options.profile, options.mode, options.port)
 		this.run = options.run ?? runCommand
+		this.hostServices = options.hostServices ?? new HostServices()
 	}
 
 	snapshot(): BackendStatus {
 		return { ...this.status }
+	}
+
+	hostServiceStatus(): HostServiceStatus[] {
+		return this.hostServices.status()
 	}
 
 	/** The host directory mounted as the backend's hub, where agents' files live. */
@@ -89,7 +97,7 @@ export class BackendController {
 		return this.layout.hub
 	}
 
-	private get layout(): ReturnType<typeof resolveBackendLayout> {
+	private get layout(): BackendLayout {
 		if (!this.launchedLayout) throw new Error("The backend has not been launched.")
 		return this.launchedLayout
 	}
@@ -203,6 +211,9 @@ export class BackendController {
 		}
 		await this.ensureImage(buildId, log)
 
+		// Started first, so the backend's first dependency check finds them.
+		this.status = { state: "starting", message: "Starting host services…" }
+		await this.hostServices.start(this.layout, this.options.mode, this.options.source, this.startupAbort.signal)
 		this.status = { state: "starting", message: "Starting the backend…" }
 		await this.compose(["up", "--detach", "--no-build", "api"], { timeout: 120_000, log })
 		await this.ownedContainers()
@@ -210,7 +221,7 @@ export class BackendController {
 	}
 
 	private async prepareDocker(): Promise<string> {
-		this.dockerExecutable = (this.options.findDocker ?? findDocker)() ?? ""
+		this.dockerExecutable = (this.options.findDocker ?? (() => findExecutable("docker")))() ?? ""
 		if (!this.dockerExecutable) {
 			throw new Error("Docker was not found. Install Docker with Compose, then retry.")
 		}
@@ -408,16 +419,21 @@ export class BackendController {
 		} catch {
 			// Failed or cancelled startup still needs ownership-checked cleanup.
 		}
-		if (!this.ownershipVerified) {
-			return
-		}
+		try {
+			if (!this.ownershipVerified) {
+				return
+			}
 
-		// Shutdown has its own deadline; startup's signal is already cancelled.
-		const cleanup = { signal: AbortSignal.timeout(45_000), timeout: 45_000 }
-		const containers = await this.ownedContainers(cleanup)
-		if (containers.length > 0) {
-			const ids = containers.map(container => container.id)
-			await this.command(["stop", "--time", "30", ...ids], cleanup)
+			// Shutdown has its own deadline; startup's signal is already cancelled.
+			const cleanup = { signal: AbortSignal.timeout(45_000), timeout: 45_000 }
+			const containers = await this.ownedContainers(cleanup)
+			if (containers.length > 0) {
+				const ids = containers.map(container => container.id)
+				await this.command(["stop", "--time", "30", ...ids], cleanup)
+			}
+		} finally {
+			// After the container, so no backend call is cut off mid-script.
+			await this.hostServices.stop()
 		}
 	}
 

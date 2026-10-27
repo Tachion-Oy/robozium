@@ -4,7 +4,8 @@ import { test, json, prepareRun, start, replyBox, launchButton, view, project } 
 import { captureNative, setNativeViewport, waitForPanelLayout } from "./native"
 import type { Backend } from "./selection-fixture"
 
-const toast = (page: Page) => page.getByRole("alert").filter({ hasText: "Stop failed" })
+// A leaving toast is hidden from assistive technology, but these checks follow it through its exit.
+const toast = (page: Page) => page.getByRole("alert", { includeHidden: true }).filter({ hasText: "Stop failed" })
 const cancel = (page: Page) => page.locator(".agent-hud__cancel")
 
 async function refusedCancel(page: Page, backend: Backend) {

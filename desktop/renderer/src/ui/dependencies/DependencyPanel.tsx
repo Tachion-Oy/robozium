@@ -2,9 +2,10 @@
 // Adapted: records and Check Now come from the dependencies owner, the diagnostic is
 // copied through the native clipboard bridge, and cells wrap as in web/ at db6a20f.
 // A failed read is a toast with Check now; the table area stays empty.
-import { Fragment, useMemo, useState } from "react"
+import { Fragment, useMemo, useState, type ReactElement } from "react"
 import type { DependencyRecord, DependencyStatus } from "../../dependencies/dependencies-api"
 import type { DependenciesState } from "../../dependencies/useDependencies"
+import type { HostServiceStatus } from "../../../../src/bridge"
 import { showErrorToast } from "../../feedback/notices"
 import { Toast } from "../feedback/Toast"
 import { DisplayArt } from "../branding/DisplayArt"
@@ -112,6 +113,32 @@ function DependencyDiagnostic({ dependency }: { dependency: DependencyRecord }) 
 				</div>
 			</td>
 		</tr>
+	)
+}
+
+const hostServiceStyles: Record<HostServiceStatus["state"], { label: string; className: string }> = {
+	running: statusStyles.available,
+	starting: statusStyles.pending,
+	failed: statusStyles.unavailable,
+	unsupported: { label: "UNSUPPORTED", className: "opacity-80" },
+}
+
+/** Programs the desktop runs on this computer for backend tools; a failed one says why. */
+function HostServices({ services }: { services: HostServiceStatus[] }): ReactElement | null {
+	if (services.length === 0) return null
+	return (
+		<ul className="shrink-0 space-y-1" aria-label="Host services">
+			{services.map(service => {
+				const style = hostServiceStyles[service.state]
+				return (
+					<li key={service.name} className="flex flex-wrap gap-x-3 wrap-anywhere">
+						<span className={`${style.className} whitespace-nowrap`}>{style.label}</span>
+						<code>host:{service.name}</code>
+						<span className="select-text opacity-80">{service.message}</span>
+					</li>
+				)
+			})}
+		</ul>
 	)
 }
 
@@ -286,6 +313,7 @@ export function DependencyPanel({ dependencies: state }: {
 							<DisplayArt name={isChecking ? "checking" : "check-now"} />
 						</button>
 					</div>
+					<HostServices services={state.hostServices} />
 					{isLoading ? (
 						<div
 							className="flex min-h-0 flex-1 items-center justify-center text-center"

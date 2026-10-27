@@ -1,5 +1,6 @@
 // The Dependencies view's records: loaded when the view opens, replaced by Check Now.
 import { useEffect, useState } from "react"
+import type { HostServiceStatus } from "../../../src/bridge"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { useClientLifetime } from "../api/useClientLifetime"
@@ -8,6 +9,8 @@ import { checkDependencies, CHECK_TIMEOUT_MS, listDependencies, type DependencyR
 
 export interface DependenciesState {
 	records: DependencyRecord[]
+	/** The desktop's own host services, read from main with the records. */
+	hostServices: HostServiceStatus[]
 	loading: boolean
 	loadFailed: boolean
 	checking: boolean
@@ -17,6 +20,7 @@ export interface DependenciesState {
 /** Reads the records each time the view becomes visible; a check is sent once per click. */
 export function useDependencies(client: DesktopApiClient, visible: boolean): DependenciesState {
 	const [records, setRecords] = useState<DependencyRecord[]>([])
+	const [hostServices, setHostServices] = useState<HostServiceStatus[]>([])
 	const [loading, setLoading] = useState(true)
 	const [loadFailed, setLoadFailed] = useState(false)
 	const [checking, setChecking] = useState(false)
@@ -27,9 +31,13 @@ export function useDependencies(client: DesktopApiClient, visible: boolean): Dep
 		const controller = new AbortController()
 		const load = async () => {
 			try {
-				const next = await withDeadline(controller.signal, signal => listDependencies(client, signal))
+				const [next, services] = await Promise.all([
+					withDeadline(controller.signal, signal => listDependencies(client, signal)),
+					window.robozium.getHostServices(),
+				])
 				if (controller.signal.aborted) return
 				setRecords(next)
+				setHostServices(services)
 				setLoadFailed(false)
 			} catch {
 				if (!controller.signal.aborted) setLoadFailed(true)
@@ -43,6 +51,7 @@ export function useDependencies(client: DesktopApiClient, visible: boolean): Dep
 	// A new client starts from its own records.
 	useEffect(() => () => {
 		setRecords([])
+		setHostServices([])
 		setLoading(true)
 		setLoadFailed(false)
 		setChecking(false)
@@ -53,9 +62,13 @@ export function useDependencies(client: DesktopApiClient, visible: boolean): Dep
 		setChecking(true)
 		const signal = lifetime()
 		try {
-			const next = await withDeadline(signal, requestSignal => checkDependencies(client, requestSignal), CHECK_TIMEOUT_MS)
+			const [next, services] = await Promise.all([
+				withDeadline(signal, requestSignal => checkDependencies(client, requestSignal), CHECK_TIMEOUT_MS),
+				window.robozium.getHostServices(),
+			])
 			if (signal.aborted) return
 			setRecords(next)
+			setHostServices(services)
 			setLoadFailed(false)
 		} catch (error) {
 			if (!signal.aborted) showErrorToast({
@@ -67,5 +80,5 @@ export function useDependencies(client: DesktopApiClient, visible: boolean): Dep
 			if (!signal.aborted) setChecking(false)
 		}
 	}
-	return { records, loading, loadFailed, checking, check }
+	return { records, hostServices, loading, loadFailed, checking, check }
 }

@@ -5,6 +5,38 @@
       "mount": "/logs",
       "filename": "docker.log"
     },
+    "hostServices": {
+      "environment": ".runtime/host-environment",
+      "processes": ".runtime/host-services",
+      "environmentLog": {
+        "mount": "/logs",
+        "filename": "host-environment.log"
+      },
+      "services": {
+        "safe-scripts": {
+          "platforms": ["linux"],
+          "modes": ["live"],
+          "endpoint": {
+            "type": "unix-socket",
+            "variable": "ROBOZIUM_HOST_SCRIPT_SOCKET"
+          },
+          "log": {
+            "mount": "/logs",
+            "filename": "safe-scripts.log"
+          },
+          "executable": "bin/roboz",
+          "arguments": [
+            "scripts", "serve",
+            "--socket", { "endpoint": "address" },
+            "--scripts", { "hostPath": "/hub/readonly/safe-scripts" },
+            "--cwd", { "hostPath": "/hub" },
+            "--timeout-s", "600",
+            "--allow-env", "HOME", "--allow-env", "USER", "--allow-env", "LOGNAME",
+            "--allow-env", "XDG_CONFIG_HOME", "--allow-env", "XDG_DATA_HOME", "--allow-env", "XDG_CACHE_HOME"
+          ]
+        }
+      }
+    },
     "locations": {
       "checkoutProfile": "../../.artifacts/desktop/data",
       "installedBackend": "backend",

@@ -5,7 +5,8 @@ import path from "node:path"
 
 const MAX_CAPTURED_OUTPUT_LENGTH = 1024 * 1024
 
-export function findDocker(): string | undefined {
+/** Find a host program on PATH or in the usual install locations a desktop launch's PATH may omit. */
+export function findExecutable(name: string): string | undefined {
 	const searchDirectories = [
 		...(process.env.PATH ?? "").split(path.delimiter),
 		"/usr/bin",
@@ -18,7 +19,7 @@ export function findDocker(): string | undefined {
 			continue
 		}
 
-		const executable = path.resolve(directory, "docker")
+		const executable = path.resolve(directory, name)
 		try {
 			accessSync(executable, constants.X_OK)
 			return executable

@@ -7,6 +7,13 @@ export interface BackendStatus {
 	action?: "choose-hub-folder"
 }
 
+/** A program the desktop runs on this computer for a backend tool, such as the safe-scripts service. */
+export interface HostServiceStatus {
+	name: string
+	state: "starting" | "running" | "failed" | "unsupported"
+	message: string
+}
+
 /** The hub folder this launch mounts and the one recorded for the next launch. */
 export interface HubFolderStatus {
 	/** The folder the running backend mounts; null before it launches. */
@@ -29,6 +36,8 @@ export interface DesktopBridge {
 	setTheme(theme: AppTheme): Promise<void>
 	getBackendConnection(): Promise<{ baseUrl: string }>
 	getBackendStatus(): Promise<BackendStatus>
+	/** The host services this launch runs beside the backend; empty when it runs none. */
+	getHostServices(): Promise<HostServiceStatus[]>
 	retryBackend(): Promise<void>
 	/** Restart this installation's API container; resolves once it is ready again. */
 	restartBackend(): Promise<void>

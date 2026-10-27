@@ -367,6 +367,31 @@ the screen is wide enough and stacked otherwise; closing it restores the
 earlier size unless you resized the window meanwhile. Launching the app again
 brings the open window to the front.
 
+## Host services
+
+Some backend tools call a program that runs on your computer rather than in
+Docker. The safe-scripts tool runs the hub's `readonly/safe-scripts` as you,
+with your own files and logins, which the Slack sweep needs. In live mode on
+Linux the app starts these programs before the backend and stops them after it.
+
+They need [`uv`](https://docs.astral.sh/uv/) on `PATH` or in `~/.local/bin`. The
+app installs their Python packages, pinned by the `host` group in `uv.lock`, into
+`<runtime>/.runtime/host-environment`. Each service logs to
+`<runtime>/.runtime/logs/<name>.log`. **Dependencies** lists each service with
+its state and, when one cannot run, the reason. A service that keeps exiting is
+restarted twice and then reported failed. After a crash, the next launch stops
+the service the crash left running.
+
+To add a service, declare it under `x-desktop.hostServices.services` in
+`src/backend-layout.json`: its platforms and modes, the program and arguments
+from the host environment, its log, and its endpoint. Arguments name hub or
+runtime folders by their container path (`{ "hostPath": "/hub" }`), and
+`{ "endpoint": "address" }` is the endpoint's host address. Each endpoint type
+in `src/host-endpoints.ts` turns its declaration into an address, probes it, and
+clears what a crashed service left there. The `unix-socket` type is a socket file
+named by an API environment variable; another transport, such as one for macOS,
+is another endpoint type, and the layout and supervisor stay as they are.
+
 ## Tuning the light theme
 
 The light theme's button, selector and runs-table colours are tuned in one
@@ -426,11 +451,15 @@ also owns its installation identity, Compose interpolation file, and Docker log.
   backend lifecycle. Native clipboard writes use `writeClipboardText(text)`,
   validating the window, main frame, document URL, and string payload. Browser clipboard permissions
   remain denied; the bridge exposes no clipboard-read operation. Backend IPC is
-  limited to `getBackendConnection()`, `getBackendStatus()`, and `retryBackend()` with the same trusted
+  limited to `getBackendConnection()`, `getBackendStatus()`, `getHostServices()`, and `retryBackend()` with the same trusted
   document checks; it exposes no shell or Docker command interface.
 - `src/backend-controller.ts` coordinates startup, readiness, retry, and shutdown.
-- `src/docker-command.ts` runs one Docker CLI command, handling its output,
-  timeout, and cancellation.
+- `src/docker-command.ts` finds host programs and runs one Docker CLI command,
+  handling its output, timeout, and cancellation.
+- `src/host-services.ts` starts, supervises, and stops the layout's
+  [host services](#host-services); `src/host-endpoints.ts` defines how each
+  endpoint type is addressed and probed; `src/host-environment.ts` prepares the
+  Python environment they run from.
 - `src/backend-profile.ts` exposes `loadOrCreateBackendProfile()`, which reads or
   creates the installation identity and selects the mode's runtime and port.
 - `src/backend-layout.json` defines bind mounts and desktop-owned runtime file

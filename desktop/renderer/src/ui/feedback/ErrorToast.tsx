@@ -27,6 +27,8 @@ export function ErrorToastContent({
 		<section
 			role={tone === "error" ? "alert" : "status"}
 			aria-live={tone === "error" ? "assertive" : "polite"}
+			// A leaving toast still fades out, but is no longer content.
+			aria-hidden={!isVisible}
 			className={`agent-error-toast agent-error-toast--${tone} pointer-events-auto flex w-[min(50rem,calc(100vw-2rem))] items-start gap-3 px-4 py-4 ${
 				isVisible
 					? " agent-error-toast--visible"
