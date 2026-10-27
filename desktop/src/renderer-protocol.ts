@@ -5,8 +5,9 @@ import { pathToFileURL } from "node:url"
 
 export const rendererUrl = "robozium://app/index.html"
 
-export async function registerRendererProtocol(baseUrl: string): Promise<void> {
-	const root = await realpath(path.join(import.meta.dirname, "renderer"))
+/** Serve `folder`, the built interface, at `robozium://app/`. */
+export async function registerRendererProtocol(baseUrl: string, folder: string): Promise<void> {
+	const root = await realpath(folder)
 	const csp = `default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' blob: ${baseUrl}; connect-src ${baseUrl}; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'`
 	protocol.handle("robozium", async request => {
 		if (request.method !== "GET") {
