@@ -41,46 +41,39 @@ GPT_OSS: Final = cerebras.configured().gpt_oss_120b
 MEMORY_ENDPOINT: Final = with_openrouter_policy(
     OPENROUTER.z_ai__glm_5_3, reasoning_effort="high"
 )
+# Labels tell users which models answer quickly and which reason longer for hard tasks.
+FAST_MODELS: Final = {
+    "GLM-5.3 FlashX": OPENROUTER.z_ai__glm_5_3_flashx,
+    "DeepSeek V4.1 Flash": OPENROUTER.deepseek__deepseek_v4_1_flash,
+    "Kimi K3": OPENROUTER.moonshotai__kimi_k3,
+    "Qwen3.8 Flash": OPENROUTER.qwen__qwen3_8_flash,
+    "MiniMax M3.1 Flash": OPENROUTER.minimax__minimax_m3_1_flash,
+}
+DEEP_REASONING_MODELS: Final = {
+    "DeepSeek V4 Pro": OPENROUTER.deepseek__deepseek_v4_pro_0813,
+    "Kimi K3.1 Pro": OPENROUTER.moonshotai__kimi_k3_1_pro,
+    "Qwen3.8 Max": OPENROUTER.qwen__qwen3_8_max_0902,
+    "Gemini 4 Argon": OPENROUTER.google__gemini_4_argon,
+    "Claude Sonnet 5.5": OPENROUTER.anthropic__claude_sonnet_5_5,
+    "GPT-6.1 Sol": OPENROUTER.openai__gpt_6_1_sol,
+    "Grok 4.7": OPENROUTER.x_ai__grok_4_7,
+}
 MODELS: Final = {
-    "GLM-5.3 · OpenRouter": GLM,
-    "GLM-5.3 Flash · OpenRouter": FLASH,
-    "GLM-5.3 FlashX · OpenRouter": with_openrouter_policy(
-        OPENROUTER.z_ai__glm_5_3_flashx, reasoning_effort="low"
-    ),
-    "DeepSeek V4.1 Flash · OpenRouter": with_openrouter_policy(
-        OPENROUTER.deepseek__deepseek_v4_1_flash, reasoning_effort="low"
-    ),
-    "DeepSeek V4 Pro · OpenRouter": with_openrouter_policy(
-        OPENROUTER.deepseek__deepseek_v4_pro_0813, reasoning_effort="low"
-    ),
-    "Kimi K3.1 Pro · OpenRouter": with_openrouter_policy(
-        OPENROUTER.moonshotai__kimi_k3_1_pro, reasoning_effort="low"
-    ),
-    "Kimi K3 · OpenRouter": with_openrouter_policy(
-        OPENROUTER.moonshotai__kimi_k3, reasoning_effort="low"
-    ),
-    "Qwen3.8 Max · OpenRouter": with_openrouter_policy(
-        OPENROUTER.qwen__qwen3_8_max_0902, reasoning_effort="low"
-    ),
-    "Qwen3.8 Flash · OpenRouter": with_openrouter_policy(
-        OPENROUTER.qwen__qwen3_8_flash, reasoning_effort="low"
-    ),
-    "MiniMax M3.1 Flash · OpenRouter": with_openrouter_policy(
-        OPENROUTER.minimax__minimax_m3_1_flash, reasoning_effort="low"
-    ),
-    "Gemini 4 Argon · OpenRouter": with_openrouter_policy(
-        OPENROUTER.google__gemini_4_argon, reasoning_effort="low"
-    ),
-    "Claude Sonnet 5.5 · OpenRouter": with_openrouter_policy(
-        OPENROUTER.anthropic__claude_sonnet_5_5, reasoning_effort="low"
-    ),
-    "GPT-6.1 Sol · OpenRouter": with_openrouter_policy(
-        OPENROUTER.openai__gpt_6_1_sol, reasoning_effort="low"
-    ),
-    "Grok 4.7 · OpenRouter": with_openrouter_policy(
-        OPENROUTER.x_ai__grok_4_7, reasoning_effort="low"
-    ),
-    "GPT-OSS-120B · Cerebras": GPT_OSS,
+    "GLM-5.3 · Fast · OpenRouter": GLM,
+    "GLM-5.3 Flash · Fast · OpenRouter": FLASH,
+    **{
+        f"{name} · Fast · OpenRouter": with_openrouter_policy(
+            endpoint, reasoning_effort="low"
+        )
+        for name, endpoint in FAST_MODELS.items()
+    },
+    "GPT-OSS-120B · Fast · Cerebras": GPT_OSS,
+    **{
+        f"{name} · Deep reasoning · OpenRouter": with_openrouter_policy(
+            endpoint, reasoning_effort="high"
+        )
+        for name, endpoint in DEEP_REASONING_MODELS.items()
+    },
 }
 DEFAULT_MODEL: Final = GLM
 SUBAGENTS: Final = ()

@@ -25,7 +25,8 @@ def test_configured_models_apply_per_use_request_policy(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-only")
     monkeypatch.setenv("CEREBRAS_API_KEY", "test-only")
     hub = load_hub()
-    endpoints = [endpoint for endpoint in hub.model_selector.models.values()]
+    models = hub.model_selector.models
+    endpoints = list(models.values())
     project = hub.project("policy-test")
     deployment = hub.configure_deployment(
         project.sandbox, project.slug, endpoint_getter=lambda: hub.settings.default_model
@@ -35,15 +36,19 @@ def test_configured_models_apply_per_use_request_policy(monkeypatch):
     routed = [endpoint for endpoint in endpoints if endpoint.api_name == "openrouter"]
     contexts = {spec.model_id: spec.max_context_tokens for spec in openrouter.models}
     assert len(routed) == len(contexts)
-    for endpoint in routed:
+    for label, endpoint in models.items():
+        if endpoint.api_name != "openrouter":
+            assert endpoint.extra_body is None
+            continue
+        effort = "high" if " · Deep reasoning · " in label else "low"
+        assert " · Fast · " in label or effort == "high"
         assert endpoint.max_context_tokens == contexts[endpoint.model_name]
         assert endpoint.extra_body == {
             "provider": {"sort": "throughput", "require_parameters": True},
-            "reasoning": {"effort": "low"},
+            "reasoning": {"effort": effort},
         }
     assert memory.extra_body["reasoning"] == {"effort": "high"}
     assert memory.client is endpoints[0].client
-    assert endpoints[-1].extra_body is None
     for endpoint in (*endpoints, memory):
         endpoint.client.close()
 
