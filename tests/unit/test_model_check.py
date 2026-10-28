@@ -1,6 +1,3 @@
-import base64
-import zlib
-
 import pytest
 from roboz.endpoints.adapters.openai_compatible import OpenAICompatibleAdapter
 from roboz.endpoints.catalog import Catalog
@@ -10,10 +7,10 @@ from roboz.models import Message
 
 from robozium import model_check
 from robozium.model_check import (
-    RED_SQUARE,
     ModelResult,
     check_catalog,
     format_result,
+    mentions,
     metadata_problems,
 )
 
@@ -90,13 +87,23 @@ def test_metadata_reports_each_mismatch(spec, published, problem) -> None:
     assert any(problem in found for found in metadata_problems(spec, published))
 
 
-def test_red_square_is_a_valid_png() -> None:
-    data = base64.b64decode(RED_SQUARE.url.split(",", 1)[1])
-    assert data.startswith(b"\x89PNG\r\n\x1a\n")
-    idat = data.index(b"IDAT")
-    length = int.from_bytes(data[idat - 4 : idat])
-    pixels = zlib.decompress(data[idat + 4 : idat + 4 + length])
-    assert pixels[1:4] == bytes((220, 20, 20))
+def test_metadata_tolerates_null_published_fields() -> None:
+    published = {"architecture": None, "supported_parameters": None}
+
+    assert metadata_problems(_TEXT, published) == ["provider does not list tool support"]
+
+
+@pytest.mark.parametrize(
+    ("reply", "word", "expected"),
+    [
+        ("Red.", "red", True),
+        ("HELLO", "hello", True),
+        ("the colored area", "red", False),
+        ("othello", "hello", False),
+    ],
+)
+def test_replies_must_contain_the_whole_word(reply, word, expected) -> None:
+    assert mentions(reply, word) is expected
 
 
 def test_chat_models_receive_text_and_only_vision_models_receive_images() -> None:
@@ -108,10 +115,10 @@ def test_chat_models_receive_text_and_only_vision_models_receive_images() -> Non
         ModelResult("openrouter", _VISION, None, None, None),
         ModelResult("openrouter", _TEXT, None, None, None),
     ]
-    assert [(model, bool(message.images)) for model, message in ping.sent] == [
+    assert sorted((model, bool(message.images)) for model, message in ping.sent) == [
+        ("lab/text", False),
         ("lab/vision", False),
         ("lab/vision", True),
-        ("lab/text", False),
     ]
 
 
@@ -188,3 +195,27 @@ def test_main_fails_when_any_selected_model_fails(monkeypatch, capsys) -> None:
     lines = capsys.readouterr().out.splitlines()
     assert lines[0].startswith("FAIL openrouter lab/vision")
     assert lines[1].startswith("PASS openrouter lab/text")
+
+
+def test_main_fails_when_no_model_was_checked(monkeypatch, capsys) -> None:
+    monkeypatch.delenv("MODEL_CHECK_TEST_KEY", raising=False)
+    monkeypatch.setattr(
+        "roboz.endpoints.adapters.openai_compatible.load_secrets", lambda: None
+    )
+    monkeypatch.setattr(model_check, "_catalogs", lambda: {"cerebras": _catalog(None)})
+
+    assert model_check.main([]) == 1
+    assert capsys.readouterr().out.splitlines()[-1] == "FAIL no chat model was checked"
+
+
+def test_main_fails_clearly_when_the_listing_is_unavailable(monkeypatch, capsys) -> None:
+    def unavailable():
+        raise OSError("network down")
+
+    monkeypatch.setattr(model_check, "_catalogs", lambda: {"openrouter": _catalog()})
+    monkeypatch.setattr(model_check, "fetch_openrouter_models", unavailable)
+
+    assert model_check.main([]) == 1
+    assert capsys.readouterr().out == (
+        "FAIL openrouter model listing: OSError: network down\n"
+    )

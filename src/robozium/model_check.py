@@ -9,11 +9,13 @@ Every request uses live provider credentials and a small output limit.
 import argparse
 import base64
 import json
+import re
 import struct
 import sys
 import urllib.request
 import zlib
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
@@ -28,8 +30,9 @@ from robozium.model_catalogue import providers
 OPENROUTER = "openrouter"
 OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
 # Reasoning models spend output tokens before replying; leave room for one word.
-MAX_OUTPUT_TOKENS = 256
-TIMEOUT_S = 60.0
+MAX_OUTPUT_TOKENS = 1024
+TIMEOUT_S = 45.0
+PARALLEL_MODELS = 8
 TEXT_PROMPT = "Reply with exactly one word: hello"
 IMAGE_PROMPT = "What colour is this square? Reply with one word."
 
@@ -80,8 +83,8 @@ class ModelResult:
 
 
 def mentions(reply: str, word: str) -> bool:
-    """Accept a reply that contains the expected word in any case."""
-    return word in reply.casefold()
+    """Accept a reply that contains the expected word, in any case, as a word."""
+    return re.search(rf"\b{re.escape(word)}\b", reply, re.IGNORECASE) is not None
 
 
 def metadata_problems(
@@ -91,7 +94,7 @@ def metadata_problems(
     if published is None:
         return ["not listed by the provider"]
     problems = []
-    inputs = published.get("architecture", {}).get("input_modalities", [])
+    inputs = (published.get("architecture") or {}).get("input_modalities") or []
     if spec.accepts_images != ("image" in inputs):
         problems.append(
             f"accepts_images is {spec.accepts_images}, provider inputs are {inputs}"
@@ -101,7 +104,7 @@ def metadata_problems(
         problems.append(
             f"max_context_tokens {spec.max_context_tokens} exceeds provider {context}"
         )
-    if "tools" not in published.get("supported_parameters", []):
+    if "tools" not in (published.get("supported_parameters") or []):
         problems.append("provider does not list tool support")
     return problems
 
@@ -114,7 +117,7 @@ def fetch_openrouter_models() -> dict[str, Mapping[str, Any]]:
 
 
 def _live_ping(endpoint: LLMEndpoint, message: Message) -> str:
-    reply, _ = call_llm_api(endpoint, [message], timeout_s=TIMEOUT_S, max_attempts=2)
+    reply, _ = call_llm_api(endpoint, [message], timeout_s=TIMEOUT_S, max_attempts=1)
     return reply
 
 
@@ -155,22 +158,17 @@ def check_catalog(
     required: bool,
     published: PublishedModels | None,
     ping: Ping,
-) -> Iterable[ModelResult]:
-    """Check each chat model; a provider without a key fails only when required."""
-    for attribute, spec in catalog.models_by_attribute.items():
-        if not isinstance(spec, ChatModelSpec):
-            continue
+) -> list[ModelResult]:
+    """Check chat models concurrently; a provider without a key fails only when required."""
+
+    def check(attribute: str, spec: ChatModelSpec) -> ModelResult:
         endpoint = _probe_endpoint(catalog, attribute)
         try:
             endpoint.materialize()
         except ValueError as error:
             if required:
-                yield ModelResult(catalog.api_name, spec, str(error), None, None)
-            else:
-                yield ModelResult(
-                    catalog.api_name, spec, None, None, None, skipped=str(error)
-                )
-            continue
+                return ModelResult(catalog.api_name, spec, str(error), None, None)
+            return ModelResult(catalog.api_name, spec, None, None, None, skipped=str(error))
         try:
             text, image = _check_endpoint(endpoint, spec, ping)
         finally:
@@ -178,7 +176,15 @@ def check_catalog(
         metadata = None
         if published is not None:
             metadata = "; ".join(metadata_problems(spec, published.get(spec.model_id)))
-        yield ModelResult(catalog.api_name, spec, text, image, metadata or None)
+        return ModelResult(catalog.api_name, spec, text, image, metadata or None)
+
+    chat = [
+        (attribute, spec)
+        for attribute, spec in catalog.models_by_attribute.items()
+        if isinstance(spec, ChatModelSpec)
+    ]
+    with ThreadPoolExecutor(PARALLEL_MODELS) as pool:
+        return list(pool.map(lambda item: check(*item), chat))
 
 
 def _status(failure: str | None, *, applies: bool = True) -> str:
@@ -220,8 +226,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     selected = args.provider or list(catalogs)
-    published = fetch_openrouter_models() if OPENROUTER in selected else None
+    published = None
+    if OPENROUTER in selected:
+        try:
+            published = fetch_openrouter_models()
+        except Exception as error:  # Without the listing, metadata cannot be judged.
+            print(f"FAIL {OPENROUTER} model listing: {type(error).__name__}: {error}")
+            return 1
     failed = False
+    checked = 0
     for name in selected:
         for result in check_catalog(
             catalogs[name],
@@ -230,7 +243,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             ping=_live_ping,
         ):
             print(format_result(result), flush=True)
+            checked += result.skipped is None
             failed |= result.skipped is None and not result.passed
+    if not checked:
+        print("FAIL no chat model was checked")
+        return 1
     return 1 if failed else 0
 
 
