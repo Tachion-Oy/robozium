@@ -1,6 +1,5 @@
 // Copied from web/app/components/hud/run/HudMessageNavigation.tsx at 86ef5c1.
-// Adapted: types come from ./run-view, the Robozium mark replaces the "A", and each
-// side stacks its one-step button above its jump.
+// Adapted: types come from ./run-view, and the Robozium mark replaces the "A".
 import type {
 	AgentActivityState,
 	HudMessageNavigationDirection,
@@ -29,14 +28,6 @@ export function HudMessageNavigation({
 				<HudEdgeButton
 					variant="arrow"
 					className="agent-hud__message-direction"
-					onClick={() => onNavigate("previous")}
-					disabled={!enabled.previous}
-					aria-label="Previous agent message">
-					<MessageWedge direction="previous" />
-				</HudEdgeButton>
-				<HudEdgeButton
-					variant="arrow"
-					className="agent-hud__message-direction"
 					onClick={() => onNavigate("first")}
 					disabled={!enabled.first}
 					aria-label="Jump to first agent message">
@@ -44,6 +35,14 @@ export function HudMessageNavigation({
 						direction="previous"
 						jump
 					/>
+				</HudEdgeButton>
+				<HudEdgeButton
+					variant="arrow"
+					className="agent-hud__message-direction"
+					onClick={() => onNavigate("previous")}
+					disabled={!enabled.previous}
+					aria-label="Previous agent message">
+					<MessageWedge direction="previous" />
 				</HudEdgeButton>
 			</div>
 			<span

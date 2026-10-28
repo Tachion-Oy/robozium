@@ -173,11 +173,6 @@
   line-height: 1;
   text-transform: uppercase;
   cursor: pointer;
-  transition:
-    color 120ms ease,
-    border-color 120ms ease,
-    background 120ms ease,
-    text-shadow 120ms ease;
 }
 
 :is(.agent-error-toast__dismiss, .agent-error-toast__action):hover {

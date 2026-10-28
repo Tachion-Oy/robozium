@@ -268,10 +268,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
     drop-shadow(0 0 1px color-mix(in oklab, var(--term-blue) clamp(0%, 58% * var(--tune-glow, 1), 100%), transparent))
     drop-shadow(0 0 6px color-mix(in oklab, var(--term-blue) clamp(0%, 28% * var(--tune-glow, 1), 100%), transparent));
   opacity: 0.72;
-  transition:
-    color 140ms ease,
-    filter 140ms ease,
-    opacity 140ms ease;
 }
 
 .agent-hud__resize-icon {
@@ -297,12 +293,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
     drop-shadow(0 0 2px color-mix(in oklab, var(--term-blue) clamp(0%, 78% * var(--tune-hover-glow, 1), 100%), transparent))
     drop-shadow(0 0 8px color-mix(in oklab, var(--term-blue) clamp(0%, 42% * var(--tune-hover-glow, 1), 100%), transparent));
   opacity: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .agent-hud__resize-wedge {
-    transition: none;
-  }
 }
 
 .agent-hud__box--landing {
@@ -571,6 +561,9 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* The clip box reaches below descenders (g, p, q) without changing the height. */
+  padding-block: 0.15em;
+  margin-block: -0.15em;
   vertical-align: bottom;
   animation: hud-text-swap 1s cubic-bezier(0.22, 1, 0.36, 1) both;
 }

@@ -1,21 +1,5 @@
-/*  Dependency table wrapping, from web/app/components/hud/hud-panels.css at db6a20f.
-    The run view's Markdown tables keep cells on one line and scroll; the
-    dependency table fills the panel and wraps long identifiers instead. */
-.agent-hud__status-view .agent-hud__markdown-table {
-  width: 100%;
-  min-width: 0;
-  table-layout: auto;
-}
-.agent-hud__status-view .agent-hud__markdown-table th,
-.agent-hud__status-view .agent-hud__markdown-table td {
-  /* Keep columns readable when their combined minimums require scrolling. */
-  min-width: 10ch;
-  vertical-align: top;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: normal;
-}
-/* Status labels and check times keep the reference's single line. */
+/* Markdown tables wrap their cells (hud-panels.css); status labels and check
+   times keep the reference's single line. */
 .agent-hud__status-view .agent-hud__markdown-table .whitespace-nowrap {
   white-space: nowrap;
 }

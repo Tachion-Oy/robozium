@@ -61,27 +61,21 @@
   pointer-events: none;
 }
 
-/* Each side stacks the one-step button above the jump. */
+/* One row: jump, step, indicator, step, jump. */
 .agent-hud__message-nav-side {
-  display: inline-grid;
-  align-content: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.04rem;
   pointer-events: none;
 }
 
-/* The arrows sit close together and line up on the edge nearest the indicator. */
 .agent-hud__layout-direction.agent-hud__message-direction {
+  /* Hit targets as tall as the centre status indicator. */
+  flex: 0 0 36px;
   width: 36px;
-  height: 18px;
+  height: 36px;
   margin: 0;
   pointer-events: auto;
-}
-.agent-hud__message-nav-side:first-child .agent-hud__message-direction {
-  justify-items: end;
-  padding-inline-end: 6px;
-}
-.agent-hud__message-nav-side:last-child .agent-hud__message-direction {
-  justify-items: start;
-  padding-inline-start: 6px;
 }
 
 .agent-hud__layout-wedge.agent-hud__message-wedge {
@@ -316,7 +310,6 @@
     0 var(--btn-cut)
   );
   background: var(--btn-edge);
-  transition: background 120ms ease;
 }
 
 .agent-hud__expand::after,
@@ -351,7 +344,6 @@
     var(--btn-surface);
   -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
-  transition: background 120ms ease;
 }
 
 .agent-hud__expand,
@@ -367,9 +359,6 @@
   letter-spacing: .02em;
   white-space: nowrap;
   cursor: pointer;
-  transition:
-    color 120ms ease,
-    box-shadow 120ms ease;
 }
 
 .agent-hud__expand:hover,
@@ -407,9 +396,6 @@
   padding: 0;
   color: color-mix(in oklab, var(--term-blue) clamp(0%, 76% * var(--tune-text, 1), 100%), white);
   cursor: pointer;
-  transition:
-    color 120ms ease,
-    filter 120ms ease;
 }
 
 .agent-hud__copy-text:not(:disabled):hover {
@@ -690,9 +676,6 @@
   background: transparent;
   color: color-mix(in oklab, var(--term-blue) clamp(0%, 76% * var(--tune-text, 1), 100%), white);
   cursor: pointer;
-  transition:
-    color 120ms ease,
-    box-shadow 120ms ease;
 }
 
 .agent-hud__layout-controls .agent-hud__layout-direction {
@@ -712,9 +695,6 @@
     0 0 4px color-mix(in oklab, var(--term-blue) clamp(0%, 72% * var(--tune-glow, 1), 100%), transparent)
   );
   opacity: 0.86;
-  transition:
-    filter 140ms ease,
-    opacity 140ms ease;
 }
 
 .agent-hud__layout-wedge--down {
@@ -769,9 +749,6 @@
   letter-spacing: 0.02em;
   white-space: nowrap;
   cursor: pointer;
-  transition:
-    color 120ms ease,
-    box-shadow 120ms ease;
 }
 
 .agent-hud__dictate:not(:disabled):hover,
@@ -891,12 +868,6 @@
     0 0.13rem 0.2rem
       color-mix(in oklab, var(--hud-control-ink) clamp(0%, 11% * var(--tune-shadow, 1), 100%), transparent);
   filter: none;
-  transition:
-    transform 110ms ease,
-    border-color 110ms ease,
-    background 110ms ease,
-    box-shadow 110ms ease,
-    color 110ms ease;
 }
 :root[data-theme="light"] .agent-hud__copy-text::before,
 :root[data-theme="light"] .agent-hud__copy-text::after {
@@ -1143,11 +1114,6 @@
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 68% * var(--tune-sheen, 1), 100%), transparent),
     0 0.13rem 0.2rem
       color-mix(in oklab, var(--hud-control-ink) clamp(0%, 11% * var(--tune-shadow, 1), 100%), transparent);
-  transition: transform 110ms ease,
-    border-color 110ms ease,
-    background 110ms ease,
-    box-shadow 110ms ease,
-    color 110ms ease;
 }
 :root[data-theme="light"] .agent-hud__corner-control,
 :root[data-theme="light"]

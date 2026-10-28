@@ -125,6 +125,8 @@ html[data-desktop] .agent-hud__actions .agent-hud__image[data-hud-action-placeme
 /* Labels shorten with an ellipsis; Record's level meter keeps its own layout. */
 html[data-desktop] .agent-hud__actions button > span:not(.agent-hud__dictate-meter) {
   display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  /* The clip box reaches below descenders (g, p, q) without changing the height. */
+  padding-block: 0.15em; margin-block: -0.15em;
 }
 /* A pending action keeps its label and pulses until its outcome arrives. */
 @media (prefers-reduced-motion: no-preference) {
@@ -147,7 +149,6 @@ html[data-desktop] .agent-hud__actions button > span:not(.agent-hud__dictate-met
     animation: desktop-action-busy-light 0.7s ease-in-out infinite alternate;
   }
 }
-html[data-desktop] .agent-hud__message-direction { margin-inline: 0; }
 /* Keep hover/focus feedback in colour and glow, without moving the hit target. */
 html[data-desktop][data-theme] .agent-hud__actions button,
 html[data-desktop][data-theme] .agent-hud__actions button:not(:disabled):is(:hover, :focus-visible, :active) {

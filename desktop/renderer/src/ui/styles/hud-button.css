@@ -10,15 +10,11 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
+  /* Every button is at least as wide as a six-letter label, so neighbouring rows
+     line up whichever label (Open or Launch) comes first. */
+  min-width: calc(6ch + 6 * 0.08em + 1.1rem + 2px);
   cursor: pointer;
   border-radius: 0.2rem;
-  transition:
-    color 120ms ease,
-    border-color 120ms ease,
-    background 120ms ease,
-    text-shadow 120ms ease;
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
 }
 
 .agent-hud__option {
@@ -198,11 +194,6 @@ button.agent-hud__option:not(:disabled):hover {
   min-width: 5.75rem;
   padding: 0.48rem 0.82rem;
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 58% * var(--tune-sheen, 1), 100%), transparent);
-  transition: transform 110ms ease,
-    border-color 110ms ease,
-    background 110ms ease,
-    box-shadow 110ms ease,
-    color 110ms ease;
 }
 
 /* Desktop: trim the uppercase label to its capitals and add the trimmed space
