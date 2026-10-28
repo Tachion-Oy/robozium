@@ -11,7 +11,6 @@ from deployment_support import BuiltAgents, configured_hub, deferred_deployment
 from fastapi.testclient import TestClient
 from roboz import Agent
 from roboz.deployment import DeployableAgent
-from roboz.endpoints.inventory import openrouter
 from roboz.models import AgentMode, Str
 from roboz.runtime.io import interact_with_user
 from roboz.runtime.persistence import RunStatus as AgentStatus
@@ -27,6 +26,7 @@ from robozium.api.run_manager import RunManager
 from robozium.api.state import RunStatus
 from robozium.api.wait_registry import WaitRegistry
 from robozium.hub.utils import load_hub
+from robozium.model_catalogue.providers import openrouter
 
 _TEST_ENDPOINT = openrouter.z_ai__glm_5_3
 

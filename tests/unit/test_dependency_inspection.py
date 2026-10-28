@@ -18,12 +18,12 @@ from roboz.dependencies import (
     ExternalDependencyKind,
 )
 from roboz.deployment import Capability, DeployableAgent, ToolLabel
-from roboz.endpoints.inventory import openrouter
 from roboz.models import AgentMode, Empty, Message
 from roboz.tooling.decorators import factory
 
 from robozium.api.app import create_app, mock_app
 from robozium.hub.utils import load_hub
+from robozium.model_catalogue.providers import openrouter
 
 _TEST_ORCHESTRATOR_ENDPOINT = openrouter.z_ai__glm_5_3
 
