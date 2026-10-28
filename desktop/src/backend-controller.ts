@@ -4,6 +4,7 @@ import path from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
 import type { BackendStatus, HostServiceStatus } from "./bridge.d.ts"
 import { loadOrCreateBackendProfile } from "./backend-profile.ts"
+import { BuildProgress } from "./build-progress.ts"
 import { isInside, prepareBackendRuntime, resolveBackendLayout, type BackendLayout } from "./backend-layout.ts"
 import { findExecutable, runCommand, type CommandOptions } from "./docker-command.ts"
 import { HostServices } from "./host-services.ts"
@@ -26,6 +27,10 @@ interface BackendOptions {
 	readinessTimeout?: number
 	pollInterval?: number
 }
+
+// After an image build, the build fills this share of the startup progress bar;
+// starting host services and the backend fill the rest.
+const BUILD_SHARE = 0.9
 
 interface ContainerInspection {
 	labels: Record<string, string>
@@ -209,12 +214,12 @@ export class BackendController {
 		const log = (output: string) => {
 			appendFileSync(this.layout.dockerLog, output, { mode: 0o600 })
 		}
-		await this.ensureImage(buildId, log)
+		const built = await this.ensureImage(buildId, log)
 
 		// Started first, so the backend's first dependency check finds them.
-		this.status = { state: "starting", message: "Starting host services…" }
+		this.status = { state: "starting", message: "Starting host services…", ...built && { progress: 0.93 } }
 		await this.hostServices.start(this.layout, this.options.mode, this.options.source, this.startupAbort.signal)
-		this.status = { state: "starting", message: "Starting the backend…" }
+		this.status = { state: "starting", message: "Starting the backend…", ...built && { progress: 0.96 } }
 		await this.compose(["up", "--detach", "--no-build", "api"], { timeout: 120_000, log })
 		await this.ownedContainers()
 		await this.waitUntilReady()
@@ -354,7 +359,8 @@ export class BackendController {
 		}
 	}
 
-	private async ensureImage(buildId: string, log: (output: string) => void): Promise<void> {
+	/** Build the backend image unless this build is already cached; reports whether it built. */
+	private async ensureImage(buildId: string, log: (output: string) => void): Promise<boolean> {
 		let cached = false
 		try {
 			const cachedBuildId = await this.command([
@@ -367,13 +373,26 @@ export class BackendController {
 			this.startupAbort.signal.throwIfAborted()
 		}
 
-		if (!cached) {
-			this.status = {
-				state: "starting",
-				message: "Building the backend. The first launch requires internet and can take several minutes…",
-			}
-			await this.compose(["build", "api"], { timeout: 1800_000, log })
+		if (cached) {
+			return false
 		}
+
+		const progress = new BuildProgress(readFileSync(path.join(this.options.source, "Dockerfile"), "utf8"))
+		const updating = (fraction: number): BackendStatus => ({
+			state: "starting",
+			message: "Building the backend. The first launch requires internet and can take several minutes…",
+			stage: "updating",
+			progress: BUILD_SHARE * fraction,
+		})
+		this.status = updating(0)
+		await this.compose(["build", "api"], {
+			timeout: 1800_000,
+			log: output => {
+				log(output)
+				this.status = updating(progress.push(output))
+			},
+		})
+		return true
 	}
 
 	private async waitUntilReady(): Promise<void> {
