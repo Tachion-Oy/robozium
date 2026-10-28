@@ -490,6 +490,21 @@ using the committed public key, runs the upgrade check from the previous release
 and attaches the repository files to the GitHub Release. Users' apt sources point
 at `releases/latest/download`.
 
+## Live model check
+
+The [model check workflow](../.github/workflows/model-check.yml) runs on each
+`v*` tag and on manual dispatch, never on pull requests. It runs
+`uv run python -m robozium.model_check --provider openrouter` with the
+`OPENROUTER_API_KEY` secret. Every chat model in the project catalogue
+(`src/robozium/model_catalogue/models.json`) must reply to a one-word text
+prompt and, when it accepts images, name the colour of a small red square.
+OpenRouter models must also match OpenRouter's published image support,
+context limit and tool support. Output is capped at a few hundred tokens per
+request. Without `--provider`, providers whose key is missing are skipped.
+
+To change models, edit `models.json`, run `uv run roboz inventory generate`,
+and commit both files.
+
 ## Full E2E policy
 
 **Full E2E must pass in CI before merging.** Its **Full E2E** check fails when
