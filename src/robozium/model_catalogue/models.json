@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "providers": {
+    "openrouter": {
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "timeout_s": 60.0,
+      "stream": true,
+      "models": {
+        "z_ai__glm_5_3": {
+          "model_id": "z-ai/glm-5.3",
+          "max_context_tokens": 1310720,
+          "accepts_images": false,
+          "endpoint_type": "llm"
+        },
+        "z_ai__glm_5_3_flash": {
+          "model_id": "z-ai/glm-5.3-flash",
+          "max_context_tokens": 1310720,
+          "accepts_images": true,
+          "endpoint_type": "llm"
+        }
+      }
+    },
+    "cerebras": {
+      "base_url": "https://api.cerebras.ai/v1",
+      "api_key_env": "CEREBRAS_API_KEY",
+      "timeout_s": 60.0,
+      "stream": true,
+      "models": {
+        "gpt_oss_120b": {
+          "model_id": "gpt-oss-120b",
+          "max_context_tokens": 131072,
+          "accepts_images": false,
+          "endpoint_type": "llm"
+        }
+      }
+    },
+    "groq": {
+      "base_url": "https://api.groq.com/openai/v1",
+      "api_key_env": "GROQ_API_KEY",
+      "timeout_s": 60.0,
+      "stream": true,
+      "models": {
+        "whisper_large_v3_turbo": {
+          "model_id": "whisper-large-v3-turbo",
+          "endpoint_type": "transcription"
+        }
+      }
+    }
+  }
+}
