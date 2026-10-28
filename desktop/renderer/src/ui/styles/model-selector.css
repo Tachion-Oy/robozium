@@ -54,6 +54,19 @@
   margin-block: -0.15em;
 }
 
+/* A model's speed tier, drawn in the label's colour at its cap height. */
+.agent-hud__model-tier {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.2em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .agent-hud__model-caret {
   flex: 0 0 auto;
   width: 0.8rem;

@@ -30,6 +30,8 @@ type SelectorDropdownProps<Value extends string> = {
 	busy?: boolean
 	variant?: "model" | "view"
 	emptyContent?: ReactNode
+	/** Draws a label, such as a model's tier as an icon; plain text by default. */
+	renderLabel?: (label: string) => ReactNode
 }
 
 function moveOptionFocus(
@@ -61,6 +63,7 @@ export function SelectorDropdown<Value extends string>({
 	busy = false,
 	variant = "model",
 	emptyContent = null,
+	renderLabel = label => label,
 }: SelectorDropdownProps<Value>) {
 	const listboxId = useId()
 	const rootRef = useRef<HTMLDivElement>(null)
@@ -148,7 +151,7 @@ export function SelectorDropdown<Value extends string>({
 			className={`agent-hud__model-selector agent-hud__model-selector--ready${isViewSelector ? " agent-hud__view-selector" : ""}`}>
 			<SelectorTrigger
 				ref={triggerRef}
-				label={triggerLabel}
+				label={renderLabel(triggerLabel)}
 				open={isOpen}
 				className={isViewSelector ? "agent-hud__view-trigger" : ""}
 				disabled={disabled}
@@ -188,7 +191,7 @@ export function SelectorDropdown<Value extends string>({
 								className="agent-hud__model-option"
 								disabled={option.disabled}
 								onClick={() => selectOption(option.value)}>
-								<span>{option.label}</span>
+								<span>{renderLabel(option.label)}</span>
 								{option.value === value ? (
 									<span aria-hidden="true">●</span>
 								) : null}
