@@ -266,25 +266,16 @@ def _write_snapshot_memory_artifacts(project: Project) -> None:
 
 
 def test_models_get_and_post_update_process_selection(tmp_path: Path) -> None:
-    application = create_app(deployment=load_hub(start=tmp_path))
+    hub = load_hub(start=tmp_path)
+    application = create_app(deployment=hub)
     client = TestClient(application)
 
     initial = client.get("/models")
     assert initial.status_code == 200
     assert initial.json() == {
         "models": [
-            {
-                "model_id": "model:openrouter:z-ai/glm-5.3",
-                "label": "GLM-5.3 · OpenRouter",
-            },
-            {
-                "model_id": "model:openrouter:z-ai/glm-5.3-flash",
-                "label": "GLM-5.3 Flash · OpenRouter",
-            },
-            {
-                "model_id": "model:cerebras:gpt-oss-120b",
-                "label": "GPT-OSS-120B · Cerebras",
-            },
+            {"model_id": endpoint.dependency_id, "label": label}
+            for label, endpoint in hub.settings.models.items()
         ],
         "selected_model_id": "model:openrouter:z-ai/glm-5.3",
     }

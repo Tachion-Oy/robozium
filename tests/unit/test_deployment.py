@@ -8,7 +8,6 @@ from threading import Thread
 import pytest
 from deployment_support import configured_deployment, configured_hub, foreground_agent
 from roboz.deployment import Capability, DeployableAgent, ToolLabel
-from roboz.endpoints.inventory import cerebras, openrouter
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
 from roboz.models import AgentMode
 from roboz.shed.agents.orchestrator import ORCHESTRATOR_PROMPT
@@ -19,28 +18,37 @@ from roboz.tools import stop
 from robozium.api.projects import Project
 from robozium.hub.skills import robozium as robozium_skill
 from robozium.hub.utils import load_hub
+from robozium.model_catalogue.providers import cerebras, openrouter
 
 
 def test_configured_models_apply_per_use_request_policy(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-only")
     monkeypatch.setenv("CEREBRAS_API_KEY", "test-only")
     hub = load_hub()
-    endpoints = [endpoint for endpoint in hub.model_selector.models.values()]
+    models = hub.model_selector.models
+    endpoints = list(models.values())
     project = hub.project("policy-test")
     deployment = hub.configure_deployment(
         project.sandbox, project.slug, endpoint_getter=lambda: hub.settings.default_model
     ).build()
     memory = deployment[1][0].agent_endpoint
     assert all(isinstance(endpoint, LLMEndpoint) for endpoint in endpoints)
-    for endpoint in endpoints[:2]:
-        assert endpoint.max_context_tokens == 1_310_720
+    routed = [endpoint for endpoint in endpoints if endpoint.api_name == "openrouter"]
+    contexts = {spec.model_id: spec.max_context_tokens for spec in openrouter.models}
+    assert len(routed) == len(contexts)
+    for label, endpoint in models.items():
+        if endpoint.api_name != "openrouter":
+            assert endpoint.extra_body is None
+            continue
+        effort = "high" if " · Deep reasoning · " in label else "low"
+        assert " · Fast · " in label or effort == "high"
+        assert endpoint.max_context_tokens == contexts[endpoint.model_name]
         assert endpoint.extra_body == {
             "provider": {"sort": "throughput", "require_parameters": True},
-            "reasoning": {"effort": "low"},
+            "reasoning": {"effort": effort},
         }
     assert memory.extra_body["reasoning"] == {"effort": "high"}
     assert memory.client is endpoints[0].client
-    assert endpoints[2].extra_body is None
     for endpoint in (*endpoints, memory):
         endpoint.client.close()
 

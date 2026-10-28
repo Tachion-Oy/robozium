@@ -4,7 +4,6 @@ from pathlib import Path
 
 from config_support import write_config
 from deployment_support import configured_hub
-from roboz.endpoints.inventory import openrouter
 from roboz.llm import MockLLMEndpoint, MockProviderError
 from roboz.models import AgentMode, Str
 from roboz.shed.identifiers import (
@@ -26,6 +25,7 @@ from robozium.mock.agents import (
     mock_deployment,
     stream_sync_mock_deployment,
 )
+from robozium.model_catalogue.providers import openrouter
 
 
 def _endpoint_getter():
