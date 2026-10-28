@@ -13,13 +13,61 @@ _ROBOZ_ENDPOINTS_INVENTORY = {'schema_version': 1,
                               'timeout_s': 60.0,
                               'stream': True,
                               'models': {'z_ai__glm_5_3': {'model_id': 'z-ai/glm-5.3',
-                                                           'max_context_tokens': 1310720,
+                                                           'max_context_tokens': 1048576,
                                                            'accepts_images': False,
                                                            'endpoint_type': 'llm'},
                                          'z_ai__glm_5_3_flash': {'model_id': 'z-ai/glm-5.3-flash',
-                                                                 'max_context_tokens': 1310720,
+                                                                 'max_context_tokens': 1048576,
                                                                  'accepts_images': True,
-                                                                 'endpoint_type': 'llm'}}},
+                                                                 'endpoint_type': 'llm'},
+                                         'z_ai__glm_5_3_flashx': {'model_id': 'z-ai/glm-5.3-flashx',
+                                                                  'max_context_tokens': 1048576,
+                                                                  'accepts_images': True,
+                                                                  'endpoint_type': 'llm'},
+                                         'deepseek__deepseek_v4_1_flash': {'model_id': 'deepseek/deepseek-v4.1-flash',
+                                                                           'max_context_tokens': 1048576,
+                                                                           'accepts_images': True,
+                                                                           'endpoint_type': 'llm'},
+                                         'deepseek__deepseek_v4_pro_0813': {'model_id': 'deepseek/deepseek-v4-pro-0813',
+                                                                            'max_context_tokens': 1048576,
+                                                                            'accepts_images': False,
+                                                                            'endpoint_type': 'llm'},
+                                         'moonshotai__kimi_k3_1_pro': {'model_id': 'moonshotai/kimi-k3.1-pro',
+                                                                       'max_context_tokens': 1048576,
+                                                                       'accepts_images': True,
+                                                                       'endpoint_type': 'llm'},
+                                         'moonshotai__kimi_k3': {'model_id': 'moonshotai/kimi-k3',
+                                                                 'max_context_tokens': 1048576,
+                                                                 'accepts_images': True,
+                                                                 'endpoint_type': 'llm'},
+                                         'qwen__qwen3_8_max_0902': {'model_id': 'qwen/qwen3.8-max-0902',
+                                                                    'max_context_tokens': 1000000,
+                                                                    'accepts_images': True,
+                                                                    'endpoint_type': 'llm'},
+                                         'qwen__qwen3_8_flash': {'model_id': 'qwen/qwen3.8-flash',
+                                                                 'max_context_tokens': 1000000,
+                                                                 'accepts_images': True,
+                                                                 'endpoint_type': 'llm'},
+                                         'minimax__minimax_m3_1_flash': {'model_id': 'minimax/minimax-m3.1-flash',
+                                                                         'max_context_tokens': 1048576,
+                                                                         'accepts_images': True,
+                                                                         'endpoint_type': 'llm'},
+                                         'google__gemini_4_argon': {'model_id': 'google/gemini-4-argon',
+                                                                    'max_context_tokens': 1048576,
+                                                                    'accepts_images': True,
+                                                                    'endpoint_type': 'llm'},
+                                         'anthropic__claude_sonnet_5_5': {'model_id': 'anthropic/claude-sonnet-5.5',
+                                                                          'max_context_tokens': 1000000,
+                                                                          'accepts_images': True,
+                                                                          'endpoint_type': 'llm'},
+                                         'openai__gpt_6_1_sol': {'model_id': 'openai/gpt-6.1-sol',
+                                                                 'max_context_tokens': 1050000,
+                                                                 'accepts_images': True,
+                                                                 'endpoint_type': 'llm'},
+                                         'x_ai__grok_4_7': {'model_id': 'x-ai/grok-4.7',
+                                                            'max_context_tokens': 500000,
+                                                            'accepts_images': True,
+                                                            'endpoint_type': 'llm'}}},
                'cerebras': {'base_url': 'https://api.cerebras.ai/v1',
                             'api_key_env': 'CEREBRAS_API_KEY',
                             'timeout_s': 60.0,
@@ -43,6 +91,18 @@ if _TYPE_CHECKING:
     class _openrouter_Catalog(_Catalog[_ChatModelSpec]):
         z_ai__glm_5_3: _LLMEndpoint
         z_ai__glm_5_3_flash: _LLMEndpoint
+        z_ai__glm_5_3_flashx: _LLMEndpoint
+        deepseek__deepseek_v4_1_flash: _LLMEndpoint
+        deepseek__deepseek_v4_pro_0813: _LLMEndpoint
+        moonshotai__kimi_k3_1_pro: _LLMEndpoint
+        moonshotai__kimi_k3: _LLMEndpoint
+        qwen__qwen3_8_max_0902: _LLMEndpoint
+        qwen__qwen3_8_flash: _LLMEndpoint
+        minimax__minimax_m3_1_flash: _LLMEndpoint
+        google__gemini_4_argon: _LLMEndpoint
+        anthropic__claude_sonnet_5_5: _LLMEndpoint
+        openai__gpt_6_1_sol: _LLMEndpoint
+        x_ai__grok_4_7: _LLMEndpoint
 
     openrouter: _openrouter_Catalog
 
