@@ -18,6 +18,8 @@ async function openEnvironment(page: Page, backend: Backend) {
 	await backend.open()
 	await view(page, "Environment")
 	await expect(page.getByRole("region", { name: "Environment settings" })).toBeVisible()
+	// The chooser accepts a file only once settings have loaded, as Browse shows.
+	await expect(keyFile(page).getByRole("button", { name: "Browse file" })).toBeEnabled()
 }
 
 test("a dropped key file with its password loads the keys at once; a wrong password stays in place", async ({ desktop: { page }, backend }) => {

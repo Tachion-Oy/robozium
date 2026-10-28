@@ -63,6 +63,8 @@ test("a dropped key file during setup unlocks the HUD without a restart", async 
 	await backend.open({ awaitOverview: false })
 	await expect(startHere(page)).toBeVisible()
 	await view(page, "Environment")
+	// The chooser accepts a file only once settings have loaded, as Browse shows.
+	await expect(page.getByRole("group", { name: "Key file" }).getByRole("button", { name: "Browse file" })).toBeEnabled()
 	await page.getByRole("group", { name: "Key file" }).getByLabel("Choose key file")
 		.setInputFiles({ name: ".env.encrypt", mimeType: "text/plain", buffer: Buffer.from("A_ENCRYPTED=roboz:x\n") })
 	const prompt = page.getByRole("dialog", { name: "Use key file" })
