@@ -430,6 +430,24 @@ test("provider retries discard abandoned text while keeping completed history an
 	await expect(page.getByRole("textbox", { name: "Reply text", exact: true })).toHaveValue("Keep this draft")
 })
 
+test("images omitted for the selected model are announced once, when they happen", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	const text = "Images are omitted for text because it cannot read them. Your conversation text is still available."
+	const omitted = { type: "runtime_event", sequence: 2, payload: {
+		category: "llm", kind: "images_omitted", level: "info", message: text, agent_name: "orchestrator", data: { endpoint: "test", model: "text" },
+	} }
+	// A notice already in history when the run opens is past; it is not announced again.
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ message_trace: [message(1, "Earlier"), omitted] })))
+	await start(page, backend)
+	await expect(output(page)).toHaveText("Earlier")
+	const notice = page.getByRole("status").filter({ hasText: "Images omitted" })
+	await expect(notice).toHaveCount(0)
+	await expect.poll(() => run.streams.length).toBe(1)
+	emit(run.streams[0], { ...omitted, sequence: 3 })
+	await expect(notice.locator("p")).toHaveText(["Images omitted", text, "test/text"])
+	await expect(output(page)).toHaveText("Earlier")
+})
+
 test("active prompts stay visible before later notifications and latest navigation returns to the prompt", async ({ desktop: { page }, backend }) => {
 	const run = prepareRun(backend)
 	const history = [message(1, "Earlier"), message(2, "Continue?"), message(3, "Background")]

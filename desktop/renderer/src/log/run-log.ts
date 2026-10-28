@@ -97,6 +97,7 @@ export function selectLogItems(events: readonly RunRecord[]): StreamLogItem[] {
 				items.push(lifecycleItem(event))
 				break
 			case RunEventType.LlmRetry:
+			case RunEventType.ImagesOmitted:
 				break
 		}
 	}

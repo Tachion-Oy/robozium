@@ -95,11 +95,22 @@ export function parseRunEvent(value: unknown): RunFrame | null {
 		}
 		case RunEventType.RuntimeEvent: {
 			const payload = readObject(event.payload)
-			if (payload.category !== RuntimeEventCategory.Llm || payload.kind !== RuntimeEventKind.Retrying) return null
+			if (payload.category !== RuntimeEventCategory.Llm) return null
+			if (payload.kind === RuntimeEventKind.Retrying) {
+				return {
+					type: RunEventType.LlmRetry,
+					sequence: readSequence(event.sequence),
+					agent: readIdentifier(payload.agent_name),
+				}
+			}
+			if (payload.kind !== RuntimeEventKind.ImagesOmitted || payload.level !== "info") return null
+			// As in web/lib/robozium/session/notification-format.ts, the model is shown only when both names are present.
+			const data = payload.data == null ? {} : readObject(payload.data)
 			return {
-				type: RunEventType.LlmRetry,
+				type: RunEventType.ImagesOmitted,
 				sequence: readSequence(event.sequence),
-				agent: readIdentifier(payload.agent_name),
+				message: readString(payload.message),
+				model: typeof data.endpoint === "string" && typeof data.model === "string" ? `${data.endpoint}/${data.model}` : null,
 			}
 		}
 		default:

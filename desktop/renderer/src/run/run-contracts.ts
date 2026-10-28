@@ -8,6 +8,8 @@ export const RunEventType = {
 	RuntimeEvent: "runtime_event",
 	// Desktop control event normalized from an LLM retry runtime event.
 	LlmRetry: "llm_retry",
+	// Desktop control event normalized from an LLM runtime notice that images were not sent.
+	ImagesOmitted: "images_omitted",
 } as const
 
 export const MessageRole = {
@@ -16,7 +18,7 @@ export const MessageRole = {
 export type MessageRole = typeof MessageRole[keyof typeof MessageRole]
 
 export const RuntimeEventCategory = { Llm: "llm" } as const
-export const RuntimeEventKind = { Retrying: "retrying" } as const
+export const RuntimeEventKind = { Retrying: "retrying", ImagesOmitted: "images_omitted" } as const
 export const MessageKind = { UserNotification: "user_notification" } as const
 export const AgentAction = { PromptUser: "prompt_user" } as const
 
@@ -51,6 +53,8 @@ export type RunFrame = { sequence: number } & (
 	| { type: typeof RunEventType.Message; id: string | null; role: MessageRole; content: string; kind: string | null }
 	| { type: typeof RunEventType.MessageDelta; id: string; delta: string; chunk: number; agent: string }
 	| { type: typeof RunEventType.LlmRetry; agent: string }
+	/** `model` is "endpoint/model" when the backend names both. */
+	| { type: typeof RunEventType.ImagesOmitted; message: string; model: string | null }
 	| { type: typeof RunEventType.ScriptOutput; content: string }
 	| {
 		type: typeof RunEventType.RunLifecycle

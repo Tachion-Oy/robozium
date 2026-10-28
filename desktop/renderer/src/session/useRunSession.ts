@@ -4,8 +4,8 @@
 // writes to the displayed run belong to useRunMutations, bound to this hook's scope.
 import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
-import { showErrorToast } from "../feedback/notices"
-import { RunStatus } from "../run/run-contracts"
+import { showErrorToast, showNotificationToast } from "../feedback/notices"
+import { RunEventType, RunStatus } from "../run/run-contracts"
 import { watchRun } from "../run/run-updates"
 import { reduceRunSession, type RunSession } from "./session-reducer"
 
@@ -46,6 +46,10 @@ export function useRunSession(client: DesktopApiClient): RunSessionState {
 			dispatch(action)
 			if (action.type === "snapshot" && action.view.status === RunStatus.Failed) {
 				showErrorToast({ title: "Run failed", message: `Could not run "${project}".`, detail: action.view.error })
+			}
+			// Live frames only: snapshots replay history, which would repeat past notices.
+			if (action.type === "frame" && action.frame.type === RunEventType.ImagesOmitted) {
+				showNotificationToast({ title: "Images omitted", message: action.frame.message, detail: action.frame.model, tone: "info" })
 			}
 		})
 	}
