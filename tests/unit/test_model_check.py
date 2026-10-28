@@ -1,17 +1,17 @@
 import pytest
 from roboz.endpoints.adapters.openai_compatible import OpenAICompatibleAdapter
 from roboz.endpoints.catalog import Catalog
-from roboz.endpoints.specs import ChatModelSpec, TranscriptionModelSpec
-from roboz.llm import LLMEndpoint
+from roboz.endpoints.specs import ChatModelSpec
+from roboz.llm import LLMEndpoint, with_openrouter_policy
 from roboz.models import Message
 
-from robozium import model_check
-from robozium.model_check import (
+from scripts import model_check
+from scripts.model_check import (
     ModelResult,
-    check_catalog,
     format_result,
     mentions,
     metadata_problems,
+    run_checks,
 )
 
 _VISION = ChatModelSpec("lab/vision", 1_000, accepts_images=True)
@@ -38,26 +38,38 @@ def _catalog(api_key: str | None = "test-only", api_name: str = "openrouter"):
             api_key_env="MODEL_CHECK_TEST_KEY",
             api_key=api_key,
         ),
-        models={
-            "vision": _VISION,
-            "text": _TEXT,
-            "whisper": TranscriptionModelSpec("lab/whisper"),
-        },
+        models={"vision": _VISION, "text": _TEXT},
     )
+
+
+def _models(catalog=None) -> dict[str, LLMEndpoint]:
+    catalog = catalog or _catalog()
+    return {
+        "Vision · Fast": with_openrouter_policy(catalog.vision, reasoning_effort="low"),
+        "Text · Deep reasoning": with_openrouter_policy(
+            catalog.text, reasoning_effort="high"
+        ),
+    }
 
 
 class _Replies:
     def __init__(self, **replies: str) -> None:
         self.replies = replies
-        self.sent: list[tuple[str, Message]] = []
+        self.sent: list[tuple[str, Message, dict]] = []
 
     def __call__(self, endpoint: LLMEndpoint, message: Message) -> str:
-        self.sent.append((endpoint.model_name, message))
-        kind = "image" if message.images else "text"
-        reply = self.replies[kind]
+        self.sent.append((endpoint.model_name, message, dict(endpoint.extra_body or {})))
+        reply = self.replies["image" if message.images else "text"]
         if reply == "raise":
             raise RuntimeError("provider unavailable")
         return reply
+
+
+def _without_key(monkeypatch) -> None:
+    monkeypatch.delenv("MODEL_CHECK_TEST_KEY", raising=False)
+    monkeypatch.setattr(
+        "roboz.endpoints.adapters.openai_compatible.load_secrets", lambda: None
+    )
 
 
 def test_metadata_matches_published_capabilities() -> None:
@@ -81,16 +93,15 @@ def test_metadata_matches_published_capabilities() -> None:
             {**_PUBLISHED["lab/text"], "supported_parameters": ["max_tokens"]},
             "provider does not list tool support",
         ),
+        (
+            _TEXT,
+            {"architecture": None, "supported_parameters": None},
+            "provider does not list tool support",
+        ),
     ],
 )
 def test_metadata_reports_each_mismatch(spec, published, problem) -> None:
     assert any(problem in found for found in metadata_problems(spec, published))
-
-
-def test_metadata_tolerates_null_published_fields() -> None:
-    published = {"architecture": None, "supported_parameters": None}
-
-    assert metadata_problems(_TEXT, published) == ["provider does not list tool support"]
 
 
 @pytest.mark.parametrize(
@@ -106,48 +117,33 @@ def test_replies_must_contain_the_whole_word(reply, word, expected) -> None:
     assert mentions(reply, word) is expected
 
 
-def test_chat_models_receive_text_and_only_vision_models_receive_images() -> None:
+def test_models_are_probed_with_their_configured_effort_and_a_limit() -> None:
     ping = _Replies(text="Hello!", image="Red.")
 
-    results = list(check_catalog(_catalog(), required=True, published=_PUBLISHED, ping=ping))
+    results = run_checks(_models(), required=True, published=_PUBLISHED, ping=ping)
 
-    assert results == [
-        ModelResult("openrouter", _VISION, None, None, None),
-        ModelResult("openrouter", _TEXT, None, None, None),
+    assert [(result.label, result.passed) for result in results] == [
+        ("Vision · Fast", True),
+        ("Text · Deep reasoning", True),
     ]
-    assert sorted((model, bool(message.images)) for model, message in ping.sent) == [
-        ("lab/text", False),
-        ("lab/vision", False),
-        ("lab/vision", True),
-    ]
-
-
-def test_probe_requests_are_bounded_and_use_the_openrouter_policy() -> None:
-    seen: list[LLMEndpoint] = []
-
-    def ping(endpoint: LLMEndpoint, message: Message) -> str:
-        seen.append(endpoint)
-        return "hello red"
-
-    list(check_catalog(_catalog(), required=True, published=None, ping=ping))
-    list(
-        check_catalog(
-            _catalog(api_name="cerebras"), required=True, published=None, ping=ping
-        )
+    sent = sorted(
+        (model, bool(message.images), body["reasoning"]["effort"], body["max_tokens"])
+        for model, message, body in ping.sent
     )
-
-    routed, local = seen[0].extra_body, seen[-1].extra_body
-    assert routed is not None and local is not None
-    assert routed["max_tokens"] == model_check.MAX_OUTPUT_TOKENS
-    assert routed["reasoning"] == {"effort": "low"}
-    assert local == {"max_tokens": model_check.MAX_OUTPUT_TOKENS}
+    limit = model_check.MAX_OUTPUT_TOKENS
+    assert sent == [
+        ("lab/text", False, "high", limit),
+        ("lab/vision", False, "low", limit),
+        ("lab/vision", True, "low", limit),
+    ]
+    assert all(body["provider"]["require_parameters"] for _, _, body in ping.sent)
 
 
 def test_wrong_replies_errors_and_metadata_fail_without_stopping() -> None:
     ping = _Replies(text="raise", image="It is blue.")
     published = {"lab/vision": _PUBLISHED["lab/text"]}
 
-    vision, text = check_catalog(_catalog(), required=True, published=published, ping=ping)
+    vision, text = run_checks(_models(), required=True, published=published, ping=ping)
 
     assert vision.text == "RuntimeError: provider unavailable"
     assert vision.image == "unexpected reply 'It is blue.'"
@@ -157,52 +153,70 @@ def test_wrong_replies_errors_and_metadata_fail_without_stopping() -> None:
 
 
 def test_missing_key_skips_unless_the_provider_is_required(monkeypatch) -> None:
-    monkeypatch.delenv("MODEL_CHECK_TEST_KEY", raising=False)
-    monkeypatch.setattr(
-        "roboz.endpoints.adapters.openai_compatible.load_secrets", lambda: None
-    )
+    _without_key(monkeypatch)
     ping = _Replies(text="hello", image="red")
+    models = _models(_catalog(None))
 
-    optional = list(check_catalog(_catalog(None), required=False, published=None, ping=ping))
-    required = list(check_catalog(_catalog(None), required=True, published=None, ping=ping))
+    optional = run_checks(models, required=False, published=None, ping=ping)
+    required = run_checks(models, required=True, published=None, ping=ping)
 
-    assert all(result.skipped and "MODEL_CHECK_TEST_KEY" in result.skipped for result in optional)
-    assert all(result.text and not result.passed for result in required)
+    assert all(r.skipped and "MODEL_CHECK_TEST_KEY" in str(r.unavailable) for r in optional)
+    assert all(not r.skipped and not r.passed and r.text is None for r in required)
+    assert format_result(required[0]).startswith(
+        "FAIL openrouter lab/vision [Vision · Fast]: Set MODEL_CHECK_TEST_KEY"
+    )
     assert ping.sent == []
 
 
+def test_an_unexpected_setup_error_fails_only_that_model(monkeypatch) -> None:
+    def broken(*_args, **_kwargs):
+        raise RuntimeError("bad settings")
+
+    monkeypatch.setattr(model_check, "check_model", broken)
+
+    results = run_checks(_models(), required=False, published=None, ping=_Replies())
+
+    assert [result.unavailable for result in results] == ["RuntimeError: bad settings"] * 2
+    assert not any(result.skipped or result.passed for result in results)
+
+
 def test_result_lines_show_each_check() -> None:
-    passed = ModelResult("openrouter", _TEXT, None, None, None)
-    failed = ModelResult("cerebras", _VISION, None, "unexpected reply 'blue'", None)
-    skipped = ModelResult("groq", _TEXT, None, None, None, skipped="Set KEY")
+    models = _models()
+    vision, text = models["Vision · Fast"], models["Text · Deep reasoning"]
+    local = _catalog(api_name="cerebras").text
 
-    assert format_result(passed) == (
-        "PASS openrouter lab/text | text ok | image - | metadata ok"
+    assert format_result(ModelResult("Text · Deep reasoning", text)) == (
+        "PASS openrouter lab/text [Text · Deep reasoning]"
+        " | text ok | image - | metadata ok"
     )
-    assert format_result(failed) == (
-        "FAIL cerebras lab/vision | text ok"
-        " | image FAIL (unexpected reply 'blue') | metadata -"
+    assert format_result(ModelResult("Local", local, text="unexpected reply ''")) == (
+        "FAIL cerebras lab/text [Local] | text FAIL (unexpected reply '')"
+        " | image - | metadata -"
     )
-    assert format_result(skipped) == "SKIP groq lab/text: Set KEY"
+    assert format_result(
+        ModelResult("Vision · Fast", vision, unavailable="Set KEY", required=False)
+    ) == "SKIP openrouter lab/vision [Vision · Fast]: Set KEY"
 
 
-def test_main_fails_when_any_selected_model_fails(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(model_check, "_catalogs", lambda: {"openrouter": _catalog()})
+def test_main_checks_the_memory_model_and_fails_on_any_failure(monkeypatch, capsys) -> None:
+    models = {**_models(), model_check.MEMORY_LABEL: _models()["Text · Deep reasoning"]}
+    monkeypatch.setattr(model_check, "configured_models", lambda: models)
     monkeypatch.setattr(model_check, "fetch_openrouter_models", lambda: _PUBLISHED)
     monkeypatch.setattr(model_check, "_live_ping", _Replies(text="hello", image="blue"))
 
     assert model_check.main(["--provider", "openrouter"]) == 1
     lines = capsys.readouterr().out.splitlines()
-    assert lines[0].startswith("FAIL openrouter lab/vision")
-    assert lines[1].startswith("PASS openrouter lab/text")
+    assert [line.split(" | ")[0] for line in lines] == [
+        "FAIL openrouter lab/vision [Vision · Fast]",
+        "PASS openrouter lab/text [Text · Deep reasoning]",
+        "PASS openrouter lab/text [Memory]",
+    ]
 
 
 def test_main_fails_when_no_model_was_checked(monkeypatch, capsys) -> None:
-    monkeypatch.delenv("MODEL_CHECK_TEST_KEY", raising=False)
-    monkeypatch.setattr(
-        "roboz.endpoints.adapters.openai_compatible.load_secrets", lambda: None
-    )
-    monkeypatch.setattr(model_check, "_catalogs", lambda: {"cerebras": _catalog(None)})
+    _without_key(monkeypatch)
+    monkeypatch.setattr(model_check, "configured_models", lambda: _models(_catalog(None)))
+    monkeypatch.setattr(model_check, "fetch_openrouter_models", lambda: _PUBLISHED)
 
     assert model_check.main([]) == 1
     assert capsys.readouterr().out.splitlines()[-1] == "FAIL no chat model was checked"
@@ -212,7 +226,7 @@ def test_main_fails_clearly_when_the_listing_is_unavailable(monkeypatch, capsys)
     def unavailable():
         raise OSError("network down")
 
-    monkeypatch.setattr(model_check, "_catalogs", lambda: {"openrouter": _catalog()})
+    monkeypatch.setattr(model_check, "configured_models", _models)
     monkeypatch.setattr(model_check, "fetch_openrouter_models", unavailable)
 
     assert model_check.main([]) == 1

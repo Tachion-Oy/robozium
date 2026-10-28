@@ -3,6 +3,7 @@
   "include": [
     "src",
     "hub.config.py",
+    "scripts/model_check.py",
     "tests/container/check_local_capabilities.py",
     "tests/support"
   ],

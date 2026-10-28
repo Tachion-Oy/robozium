@@ -31,4 +31,4 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           uv sync --locked
-          uv run python -m robozium.model_check --provider openrouter
+          uv run python scripts/model_check.py --provider openrouter

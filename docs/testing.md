@@ -494,13 +494,14 @@ at `releases/latest/download`.
 
 The [model check workflow](../.github/workflows/model-check.yml) runs on each
 `v*` tag and on manual dispatch, never on pull requests. It runs
-`uv run python -m robozium.model_check --provider openrouter` with the
-`OPENROUTER_API_KEY` secret. Every chat model in the project catalogue
-(`src/robozium/model_catalogue/models.json`) must reply to a one-word text
-prompt and, when it accepts images, name the colour of a small red square.
-OpenRouter models must also match OpenRouter's published image support,
-context limit and tool support. Output is capped at a few hundred tokens per
-request. Without `--provider`, providers whose key is missing are skipped.
+`uv run python scripts/model_check.py --provider openrouter` with the
+`OPENROUTER_API_KEY` secret. Every model the application can select, and the
+memory model, is sent with its configured request options, including reasoning
+effort. Each must reply to a one-word text prompt and, when it accepts images,
+name the colour of a small red square. OpenRouter models must also match
+OpenRouter's published image support, context limit and tool support. Output
+is capped at 1024 tokens per request. Without `--provider`, providers whose
+key is missing are skipped.
 
 To change models, edit `models.json`, run `uv run roboz inventory generate`,
 and commit both files.
