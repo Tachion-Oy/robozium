@@ -1,5 +1,5 @@
 // Write the app icon from the Robozium mark: the HUD indicator's waiting-for-reply look,
-// the near-white mark on its dark round background with a lime glow, a little softer
+// the near-white mark and ring on its dark round background with a lime glow, a little softer
 // than the indicator's. The .deb installs it as the scalable icon of the app's desktop
 // entry. The mark is read from the same SVG the HUD draws, and tinted by its shape
 // alone, so any single-colour SVG works.
@@ -9,9 +9,8 @@ import path from "node:path"
 const source = path.join(import.meta.dirname, "../renderer/public/branding/robozium-mark.svg")
 const output = path.join(import.meta.dirname, "../dist/icon.svg")
 
-// The dark theme's --term-blue and --term-lime, and the oklab mixes of the awaiting-input
-// indicator: its mark (84% white in lime) and its background (35% blue in black).
-const blue = "#40c8ff"
+// The dark theme's --term-lime, and the oklab mixes of the awaiting-input indicator: its
+// mark (84% white in lime), which also draws the ring, and its background (35% blue in black).
 const lime = "#c2ff3a"
 const markColor = "#f5ffe7"
 const background = "#072c3a"
@@ -38,7 +37,7 @@ const icon = `<svg xmlns="http://www.w3.org/2000/svg"${namespaces} viewBox="-128
 <feComposite in2="far" operator="in" result="glow"/>
 <feMerge><feMergeNode in="glow"/><feMergeNode in="sheen"/><feMergeNode in="mark"/></feMerge>
 </filter></defs>
-<circle r="122" fill="${background}" stroke="${blue}" stroke-opacity="0.5" stroke-width="4"/>
+<circle r="122" fill="${background}" stroke="${markColor}" stroke-opacity="0.5" stroke-width="4"/>
 <g filter="url(#robozium-icon-glow)"><svg x="${-markSize / 2}" y="${-markSize / 2}" width="${markSize}" height="${markSize}" viewBox="${viewBox}">${content}</svg></g>
 </svg>
 `
