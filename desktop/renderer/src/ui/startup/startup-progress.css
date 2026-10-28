@@ -1,18 +1,19 @@
 /* Copied from desktop/renderer/src/ui/styles/hud-controls.css at e1dc07f.
-   Adapted: the Record level meter, widened across the loader under its label and
-   a little taller, with its brightness steps spread over twenty segments. It sits
-   in the gap between the label and the mark, so showing it moves nothing. */
+   Adapted: the Record level meter, widened under the loader label and a little
+   taller. It takes the label's colour, and its unlit segments form a faint track
+   that shows how much remains. It sits in the gap between the label and the mark,
+   so showing it moves nothing. */
 .startup__progress {
   --startup-progress-height: 0.62rem;
   position: absolute;
-  top: calc(100% + (var(--startup-label-gap) - var(--startup-progress-height)) / 2);
+  top: calc(100% + var(--startup-progress-offset));
   left: 50%;
   transform: translateX(-50%);
   box-sizing: border-box;
   display: flex;
   align-items: stretch;
   gap: 0.16rem;
-  width: calc(var(--startup-loader-size) - 1.5rem);
+  width: var(--startup-progress-width);
   height: var(--startup-progress-height);
   border: 0;
   background: transparent;
@@ -22,27 +23,19 @@
 .startup__progress-segment {
   flex: 1 1 0;
   min-width: 0;
-  background: transparent;
+  background: color-mix(in oklab, var(--startup-ink) 16%, transparent);
   box-shadow: none;
 }
 
 .startup__progress-segment[data-active] {
-  background: color-mix(in oklab, var(--term-green) clamp(0%, 72% * var(--tune-fill, 1), 100%), white);
-  box-shadow: 0 0 5px color-mix(in oklab, var(--term-green) clamp(0%, 72% * var(--tune-glow, 1), 100%), transparent);
-}
-
-.startup__progress-segment[data-active]:nth-child(n + 11) {
-  background: color-mix(in oklab, var(--term-green) clamp(0%, 84% * var(--tune-fill, 1), 100%), white);
-}
-
-.startup__progress-segment[data-active]:nth-child(n + 18) {
-  background: color-mix(in oklab, var(--term-green) clamp(0%, 94% * var(--tune-fill, 1), 100%), white);
+  background: var(--startup-ink);
+  box-shadow: 0 0 5px color-mix(in oklab, var(--startup-ink) clamp(0%, 60% * var(--tune-glow, 1), 100%), transparent);
 }
 
 .startup__progress[data-empty]
   .startup__progress-segment:first-child {
-  background: color-mix(in oklab, var(--term-green) clamp(0%, 72% * var(--tune-fill, 1), 100%), white);
-  box-shadow: 0 0 5px color-mix(in oklab, var(--term-green) clamp(0%, 72% * var(--tune-glow, 1), 100%), transparent);
+  background: var(--startup-ink);
+  box-shadow: 0 0 5px color-mix(in oklab, var(--startup-ink) clamp(0%, 60% * var(--tune-glow, 1), 100%), transparent);
   opacity: 0.72;
 }
 
@@ -56,25 +49,24 @@
 
 :root[data-theme="light"] .startup__progress {
   --startup-progress-height: 1.15rem;
-  align-items: stretch;
   gap: 0.14rem;
   padding: 0.24rem 0.28rem;
   border: 1px solid
-    color-mix(in oklab, var(--term-green) clamp(0%, 36% * var(--tune-edge, 1), 100%), var(--hud-input-border));
+    color-mix(in oklab, var(--startup-ink) clamp(0%, 36% * var(--tune-edge, 1), 100%), var(--hud-input-border));
   border-radius: 0.22rem;
-  background: color-mix(in oklab, var(--term-green) clamp(0%, 10% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  background: var(--hud-input-bg);
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 55% * var(--tune-sheen, 1), 100%), transparent),
-    inset 0 0 0 1px color-mix(in oklab, var(--term-green) clamp(0%, 12% * var(--tune-glow, 1), 100%), transparent);
+    inset 0 0 0 1px color-mix(in oklab, var(--startup-ink) clamp(0%, 8% * var(--tune-glow, 1), 100%), transparent);
 }
 :root[data-theme="light"] .startup__progress-segment {
   border-radius: 0.04rem;
-  background: color-mix(in oklab, var(--term-green) clamp(0%, 15% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  background: color-mix(in oklab, var(--startup-ink) 14%, var(--hud-input-bg));
 }
 :root[data-theme="light"]
   .startup__progress-segment[data-active],
 :root[data-theme="light"]
   .startup__progress[data-empty]
   .startup__progress-segment:first-child {
-  background: color-mix(in oklab, var(--term-green) clamp(0%, 82% * var(--tune-text, 1), 100%), var(--hud-control-ink));
+  background: var(--startup-ink);
   box-shadow: none;
 }

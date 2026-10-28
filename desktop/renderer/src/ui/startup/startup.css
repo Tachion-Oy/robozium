@@ -1,6 +1,6 @@
 /* Adapted: the screen covers the application inside the renderer, so it is fixed
    above every HUD layer, toasts included. */
-.startup { --startup-loading-art-width: 142px; --startup-label-gap: 30px; --startup-loader-size: calc(var(--startup-loading-art-width) + 3rem); position: fixed; inset: 0; z-index: 10000; background: var(--term-bg); opacity: 1; transition: opacity var(--intro-hud-box-fade) ease; }
+.startup { --startup-loading-art-width: 142px; --startup-label-gap: 46px; --startup-progress-offset: 14px; --startup-progress-width: 166px; --startup-loader-size: calc(var(--startup-loading-art-width) + 4.5rem); position: fixed; inset: 0; z-index: 10000; background: var(--term-bg); opacity: 1; transition: opacity var(--intro-hud-box-fade) ease; }
 .startup--revealing { opacity: 0; }
 .startup__hud { --startup-loader-top: 50%; z-index: 70; }
 /* A failure keeps the loader centred unless the window is too short for its message
@@ -13,20 +13,22 @@ html[data-desktop][data-theme="light"] .startup__hud .agent-hud__box::before { o
 .startup__hud--enter { animation: startup-hud-in var(--intro-hud-box-fade) ease both; }
 @keyframes startup-hud-in { from { opacity: 0; } to { opacity: 1; } }
 .startup__loading { position: absolute; top: var(--startup-loader-top); left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 18px; z-index: 1; }
-html[data-desktop] .startup__loading .agent-hud__mini-box { --mini-size: var(--startup-loader-size); width: var(--mini-size); height: var(--mini-size); min-height: 0; gap: var(--startup-label-gap); }
+/* The padding lowers the label and mark, away from the octagon's upper cuts. */
+html[data-desktop] .startup__loading .agent-hud__mini-box { --mini-size: var(--startup-loader-size); width: var(--mini-size); height: var(--mini-size); min-height: 0; gap: var(--startup-label-gap); box-sizing: border-box; padding-top: 1.25rem; }
 .startup__loading .agent-hud__mini-box::after { content: none; }
 .startup__outline { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; fill: none; stroke: var(--mini-edge); z-index: -1; filter: drop-shadow(0 0 6px rgba(64, 200, 255, 0.38)) drop-shadow(0 0 16px rgba(64, 200, 255, 0.16)); }
 :root[data-theme="light"] .startup__outline { display: none; }
 .startup__heading { position: relative; }
 /* Both words share one cell at the same letter height; only their opacity changes. */
-.startup__label { margin: 0; color: var(--term-lime); display: grid; justify-items: center; }
+.startup__loading { --startup-ink: var(--term-lime); }
+:root[data-theme="light"] .startup__loading { --startup-ink: var(--hud-input-text); }
+.startup__label { margin: 0; color: var(--startup-ink); display: grid; justify-items: center; }
 .startup__loading-art, .startup__updating-art { grid-area: 1 / 1; display: block; height: 16px; background: currentColor; transition: opacity 400ms ease; }
 .startup__loading-art { width: var(--startup-loading-art-width); mask: url("/branding/loading.svg") center / contain no-repeat; }
 /* Wide enough that the word keeps the 16px height; the viewBox is 7223 by 734. */
 .startup__updating-art { width: 158px; mask: url("/branding/updating.svg") center / contain no-repeat; opacity: 0; }
 .startup__label[data-updating] .startup__loading-art { opacity: 0; }
 .startup__label[data-updating] .startup__updating-art { opacity: 1; }
-:root[data-theme="light"] .startup__label { color: var(--hud-input-text); }
 @media (prefers-reduced-motion: reduce) {
   .startup { transition: none; }
   .startup__hud--enter { animation: none; }
