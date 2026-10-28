@@ -1,10 +1,12 @@
 """Ping every configured chat model and compare it with published model data.
 
 Run ``uv run python scripts/model_check.py``. Each model the application can
-select, and the memory model, receives one short text prompt and, when it
-accepts images, one tiny image. Requests carry the application's own request
-options, including reasoning effort, plus an output limit. OpenRouter models
-are also compared with OpenRouter's public model listing.
+select receives the orchestrator's real system prompt and a short greeting,
+and must answer with a valid tool call. The memory model receives one short
+text prompt. Models that accept images also receive one tiny image. Requests
+carry the application's own request options, including reasoning effort, plus
+an output limit. OpenRouter models are also compared with OpenRouter's public
+model listing.
 """
 
 import argparse
@@ -13,16 +15,23 @@ import json
 import re
 import struct
 import sys
+import tempfile
 import urllib.request
 import zlib
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from functools import cache
+from pathlib import Path
+from threading import Lock
 from typing import Any
 
+from roboz.agent import Agent
 from roboz.endpoints.specs import ChatModelSpec
-from roboz.llm import LLMEndpoint, call_llm_api, with_request_options
+from roboz.exceptions import LLMOutputFormatError
+from roboz.llm import LLMEndpoint, call_llm_api, get_completion, with_request_options
 from roboz.models import Image, Message, Role
+from roboz.shed.sandbox import Sandbox
 
 from robozium.hub.utils import load_hub
 
@@ -34,9 +43,15 @@ MAX_OUTPUT_TOKENS = 1024
 TIMEOUT_S = 45.0
 PARALLEL_MODELS = 8
 TEXT_PROMPT = "Reply with exactly one word: hello"
+AGENT_GREETING = "hi"
 IMAGE_PROMPT = "What colour is this square? Reply with one word."
+CHECK_PROJECT = "model-check"
 
-type Ping = Callable[[LLMEndpoint, Message], str]
+type Ping = Callable[[LLMEndpoint, list[Message]], str]
+type BuildAgent = Callable[[LLMEndpoint], Agent]
+
+_hub = cache(load_hub)
+_build_lock = Lock()
 type PublishedModels = Mapping[str, Mapping[str, Any]]
 
 
@@ -133,30 +148,63 @@ def fetch_openrouter_models() -> dict[str, Mapping[str, Any]]:
     return {model["id"]: model for model in data}
 
 
-def _live_ping(endpoint: LLMEndpoint, message: Message) -> str:
-    reply, _ = call_llm_api(endpoint, [message], timeout_s=TIMEOUT_S, max_attempts=1)
+def _live_ping(endpoint: LLMEndpoint, messages: list[Message]) -> str:
+    reply, _ = call_llm_api(endpoint, messages, timeout_s=TIMEOUT_S, max_attempts=1)
     return reply
+
+
+def is_tool_call(reply: str, agent: Agent) -> bool:
+    """Judge a reply with the application's own parser, without repair attempts."""
+    try:
+        get_completion(
+            messages=[Message(role=Role.USER, content=AGENT_GREETING)],
+            call_llm_api=lambda _: (reply, {}),
+            active_tools=list(agent.active_tools.values()),
+            tries=1,
+        )
+    except LLMOutputFormatError:
+        return False
+    return True
 
 
 def _failure(error: Exception) -> str:
     return f"{type(error).__name__}: {error}"
 
 
-def _probes(endpoint: LLMEndpoint, ping: Ping) -> tuple[str | None, str | None]:
-    """Return text and image failures for one reachable endpoint."""
+def _probes(
+    endpoint: LLMEndpoint, ping: Ping, agent: Agent | None
+) -> tuple[str | None, str | None]:
+    """Return text and image failures for one reachable endpoint.
 
-    def probe(message: Message, word: str) -> str | None:
+    With an agent, the text probe sends its full system prompt and a greeting,
+    as the application's first turn does, and expects a valid tool call.
+    """
+
+    def probe(messages: list[Message], accept: Callable[[str], bool]) -> str | None:
         try:
-            reply = ping(endpoint, message)
+            reply = ping(endpoint, messages)
         except Exception as error:  # Report every provider failure, then continue.
             return _failure(error)
-        return None if mentions(reply, word) else f"unexpected reply {reply[:80]!r}"
+        return None if accept(reply) else f"unexpected reply {reply[:80]!r}"
 
-    text = probe(Message(role=Role.USER, content=TEXT_PROMPT), "hello")
+    if agent is None:
+        text = probe(
+            [Message(role=Role.USER, content=TEXT_PROMPT)],
+            lambda reply: mentions(reply, "hello"),
+        )
+    else:
+        text = probe(
+            [
+                Message(role=Role.SYSTEM, content=agent.full_system_prompt),
+                Message(role=Role.USER, content=AGENT_GREETING),
+            ],
+            lambda reply: is_tool_call(reply, agent),
+        )
     if not endpoint.accepts_images:
         return text, None
     image = probe(
-        Message(role=Role.USER, content=IMAGE_PROMPT, images=[RED_SQUARE]), "red"
+        [Message(role=Role.USER, content=IMAGE_PROMPT, images=[RED_SQUARE])],
+        lambda reply: mentions(reply, "red"),
     )
     return text, image
 
@@ -168,8 +216,13 @@ def check_model(
     required: bool,
     published: PublishedModels | None,
     ping: Ping,
+    build_agent: BuildAgent | None = None,
 ) -> ModelResult:
-    """Probe one model with its configured request options and a small output limit."""
+    """Probe one model with its configured request options and a small output limit.
+
+    ``build_agent`` supplies the agent whose system prompt the model receives;
+    without it, the model gets a plain one-word prompt.
+    """
     endpoint = with_request_options(
         configured,
         extra_body={**(configured.extra_body or {}), "max_tokens": MAX_OUTPUT_TOKENS},
@@ -180,7 +233,8 @@ def check_model(
         return ModelResult(label, endpoint, unavailable=str(error), required=required)
     except Exception as error:  # Any other setup error is a failure, never a skip.
         return ModelResult(label, endpoint, unavailable=_failure(error))
-    text, image = _probes(endpoint, ping)
+    agent = None if build_agent is None else build_agent(configured)
+    text, image = _probes(endpoint, ping, agent)
     metadata = None
     if published is not None and endpoint.api_name == OPENROUTER:
         spec = ChatModelSpec(
@@ -215,7 +269,7 @@ def format_result(result: ModelResult) -> str:
 
 def configured_models() -> dict[str, LLMEndpoint]:
     """Return every live chat model the application uses, by dropdown label."""
-    settings = load_hub().settings
+    settings = _hub().settings
     models = {**settings.models, MEMORY_LABEL: settings.memory_endpoint}
     return {
         label: endpoint
@@ -224,20 +278,42 @@ def configured_models() -> dict[str, LLMEndpoint]:
     }
 
 
+def build_orchestrator(endpoint: LLMEndpoint) -> Agent:
+    """Build the application's orchestrator for one model in a throwaway project."""
+    with _build_lock, tempfile.TemporaryDirectory(prefix="model-check-") as hub_dir:
+        root, _ = (
+            _hub()
+            .configure_deployment(
+                Sandbox(Path(hub_dir)), CHECK_PROJECT, endpoint_getter=lambda: endpoint
+            )
+            .build()
+        )
+    return root
+
+
 def run_checks(
     models: Mapping[str, LLMEndpoint],
     *,
     required: bool,
     published: PublishedModels | None,
     ping: Ping,
+    build_agent: BuildAgent | None = None,
 ) -> list[ModelResult]:
-    """Probe models concurrently and return results in configuration order."""
+    """Probe models concurrently and return results in configuration order.
+
+    Every model except the memory model is probed through ``build_agent``.
+    """
 
     def check(item: tuple[str, LLMEndpoint]) -> ModelResult:
         label, endpoint = item
         try:
             return check_model(
-                label, endpoint, required=required, published=published, ping=ping
+                label,
+                endpoint,
+                required=required,
+                published=published,
+                ping=ping,
+                build_agent=None if label == MEMORY_LABEL else build_agent,
             )
         except Exception as error:  # One model's defect must not hide the others.
             return ModelResult(label, endpoint, unavailable=_failure(error))
@@ -279,6 +355,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             required=args.provider is not None,
             published=published,
             ping=_live_ping,
+            build_agent=build_orchestrator,
         )
     finally:
         # Configured models may share one client, so close each once, after all probes.

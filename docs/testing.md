@@ -497,8 +497,11 @@ The [model check workflow](../.github/workflows/model-check.yml) runs on each
 `uv run python scripts/model_check.py --provider openrouter` with the
 `OPENROUTER_API_KEY` secret. Every model the application can select, and the
 memory model, is sent with its configured request options, including reasoning
-effort. Each must reply to a one-word text prompt and, when it accepts images,
-name the colour of a small red square. OpenRouter models must also match
+effort. Each selectable model receives the orchestrator's full system prompt,
+built from the application's own deployment, with the greeting `hi`, and must
+answer with a tool call the application can parse. A provider refusal of that
+prompt fails the check. The memory model must reply to a one-word text prompt.
+Models that accept images must also name the colour of a small red square. OpenRouter models must also match
 OpenRouter's published image support, context limit and tool support. Output
 is capped at 1024 tokens per request. Without `--provider`, providers whose
 key is missing are skipped.
