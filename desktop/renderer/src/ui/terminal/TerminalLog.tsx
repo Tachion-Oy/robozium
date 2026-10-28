@@ -11,6 +11,9 @@ type TerminalLogProps = {
 	scrollable?: boolean
 }
 
+/** How long a newly appended row takes to slide the tail up into place. */
+const SLIDE_MS = 220
+
 /**
  * Terminal-style log.
  *
@@ -24,6 +27,9 @@ type TerminalLogProps = {
  * so the tail stays visible under `overflow-hidden` and stays pinned under
  * `overflow-y-auto` with no scroll scripting.
  *
+ * Growth at the pinned tail slides in instead of jumping a whole row: the
+ * column starts where it was and eases up into place on the compositor.
+ *
  * The box (the scroll container) is capped at `max-w-360` — the inner
  * column's `max-w-336` plus `px-12` on both sides — so its scrollbar hugs
  * the message column instead of sitting at the viewport edge.
@@ -35,31 +41,68 @@ export function TerminalLog({
 	scrollable = false,
 }: TerminalLogProps) {
 	const boxRef = useRef<HTMLDivElement>(null)
-	const lastScrollHeight = useRef(0)
+	const lastHeight = useRef(0)
 
 	useLayoutEffect(() => {
 		const box = boxRef.current
 		if (!box) return
-		const content = box.firstElementChild ?? box
+		const content = (box.firstElementChild ?? box) as HTMLElement
+		const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)")
+		// The row being read while scrolled up, and where it sat on screen.
+		let anchor: { row: Element; top: number } | null = null
+		let slide: Animation | null = null
+
+		const rememberAnchor = () => {
+			anchor = null
+			if (!scrollable || box.scrollTop >= 0) return
+			// Reading position is fixed; a running slide would move it.
+			slide?.finish()
+			const top = box.getBoundingClientRect().top
+			for (const row of content.children) {
+				const rect = row.getBoundingClientRect()
+				if (rect.bottom > top) {
+					anchor = { row, top: rect.top }
+					return
+				}
+			}
+		}
+
 		const preserveScrollPosition = () => {
-			const nextScrollHeight = box.scrollHeight
-			const grown = nextScrollHeight - lastScrollHeight.current
-			lastScrollHeight.current = nextScrollHeight
-			if (!scrollable) {
-				box.scrollTop = 0
+			// Layout height: a running slide's transform must not count as growth.
+			const height = content.offsetHeight
+			const grown = height - lastHeight.current
+			const mounted = lastHeight.current > 0
+			lastHeight.current = height
+			if (!scrollable) box.scrollTop = 0
+			// Scrolled up: rows above and below the view change height (appends,
+			// offscreen rows laying out for the first time); keep the row being
+			// read where it is.
+			if (anchor?.row.isConnected) {
+				box.scrollTop += anchor.row.getBoundingClientRect().top - anchor.top
+				rememberAnchor()
 				return
 			}
-			// Scrolled up: offsets are bottom-relative in column-reverse, so
-			// growth at the tail would drag the view along; hold the reading
-			// position by keeping the distance from the top constant.
-			if (grown > 0 && box.scrollTop < 0) box.scrollTop -= grown
+			if (grown <= 0 || !mounted || reducedMotion.matches) return
+			// Continue from wherever a running slide has got to.
+			const offset = slide?.playState === "running"
+				? new DOMMatrixReadOnly(getComputedStyle(content).transform).m42
+				: 0
+			slide?.cancel()
+			slide = content.animate(
+				[{ transform: `translateY(${offset + grown}px)` }, { transform: "none" }],
+				{ duration: SLIDE_MS, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+			)
 		}
 
 		preserveScrollPosition()
-		if (!("ResizeObserver" in window)) return
-		const observer = new ResizeObserver(preserveScrollPosition)
-		observer.observe(content)
-		return () => observer.disconnect()
+		box.addEventListener("scroll", rememberAnchor, { passive: true })
+		const observer = "ResizeObserver" in window ? new ResizeObserver(preserveScrollPosition) : null
+		observer?.observe(content)
+		return () => {
+			observer?.disconnect()
+			box.removeEventListener("scroll", rememberAnchor)
+			slide?.cancel()
+		}
 	}, [scrollable])
 
 	const logClasses = [
