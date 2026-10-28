@@ -113,8 +113,16 @@ def metadata_problems(
         problems.append(
             f"max_context_tokens {spec.max_context_tokens} exceeds provider {context}"
         )
-    if "tools" not in (published.get("supported_parameters") or []):
+    parameters = published.get("supported_parameters") or []
+    if "tools" not in parameters:
         problems.append("provider does not list tool support")
+    # Requests carry temperature unless the catalogue opts out; with
+    # require_parameters, a model whose providers reject it cannot be routed.
+    if spec.accepts_temperature != ("temperature" in parameters):
+        problems.append(
+            f"accepts_temperature is {spec.accepts_temperature},"
+            f" provider {'lists' if 'temperature' in parameters else 'omits'} temperature"
+        )
     return problems
 
 
@@ -176,7 +184,10 @@ def check_model(
     metadata = None
     if published is not None and endpoint.api_name == OPENROUTER:
         spec = ChatModelSpec(
-            endpoint.model_name, endpoint.max_context_tokens, endpoint.accepts_images
+            endpoint.model_name,
+            endpoint.max_context_tokens,
+            endpoint.accepts_images,
+            endpoint.accepts_temperature,
         )
         metadata = "; ".join(metadata_problems(spec, published.get(endpoint.model_name)))
     return ModelResult(label, endpoint, text, image, metadata or None)
