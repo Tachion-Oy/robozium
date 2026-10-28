@@ -2,6 +2,54 @@
 
 ## Unreleased
 
+## 0.2.1 - 2026-10-28
+
+- Fix Kimi K3.1 Pro, Claude Sonnet 5.5 and GPT-6.1 Sol, which failed every
+  request in 0.2.0 with "No endpoints found that can handle the requested
+  parameters". None of their OpenRouter providers accept `temperature`, so
+  their catalogue entries now set `accepts_temperature: false` and requests
+  leave it out.
+- Update RoboZ to 0.14.0, which adds `accepts_temperature` and sends at most the
+  latest eight images in each vision-model request.
+- The model check also compares `accepts_temperature` with OpenRouter's
+  published parameters, so this mismatch fails before any model is called.
+
+## 0.2.0 - 2026-10-28
+
+- Own the model catalogue in `src/robozium/model_catalogue/models.json`, edited
+  as JSON and generated into `providers.py` with `roboz inventory generate`.
+  Correct the GLM-5.3 context limits to 1,048,576 tokens.
+- Add twelve OpenRouter models. The model menu labels each one **Fast** (low
+  reasoning effort: GLM-5.3 FlashX, DeepSeek V4.1 Flash, Kimi K3, Qwen3.8
+  Flash, MiniMax M3.1 Flash) or **Deep reasoning** (high effort, for hard
+  tasks: DeepSeek V4 Pro, Kimi K3.1 Pro, Qwen3.8 Max, Gemini 4 Argon, Claude
+  Sonnet 5.5, GPT-6.1 Sol, Grok 4.7). GLM-5.3, GLM-5.3 Flash and GPT-OSS-120B
+  are labelled Fast.
+- Add a live model check, `uv run python scripts/model_check.py`, run by the
+  Model check workflow on each `v*` tag and on manual dispatch. Every
+  selectable model and the memory model must answer a text prompt and, when
+  image-capable, name the colour of a small image, and must match OpenRouter's
+  published image support, context limit and tool support.
+- The API reports the installed package version instead of a second
+  hard-coded copy.
+- Show problems, statuses and confirmations in the desktop app as toasts, never
+  as lines that move the layout. Toasts that need an answer carry their action,
+  such as **Retry**.
+- Run host services beside the desktop backend on Linux, starting with safe
+  scripts, so the safe-scripts dependency is available in the desktop app.
+- Ask for the secrets password only in one modal dialog: at startup with locked
+  secrets, before a launch or reply that needs them, and when encrypting. The
+  header's secrets menu is gone; **Reset environment** still deletes them.
+- Build the Robozium mark from one SVG, used by the HUD indicator, the startup
+  loader and the app icon, and switch to the striped mark.
+- Tidy the desktop HUD: a single header row, the project badge only on Current
+  Run, and the small controls at the edges.
+- Remove the desktop preview mode. To work on the UI without Docker, start a
+  backend and pass `--backend-url=http://127.0.0.1:<port>`.
+- Name the built interface folder once, in `backend-layout.json`.
+
+## 0.1.0 - 2026-10-25
+
 - Explain dictation that cannot run yet instead of reporting a failure. Without
   a transcription key the API answers 409 naming the provider ("Dictation needs
   an API key for groq. Add it under Environment, then record again."), and
