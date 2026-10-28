@@ -104,7 +104,7 @@ export function parseRunEvent(value: unknown): RunFrame | null {
 				}
 			}
 			if (payload.kind !== RuntimeEventKind.ImagesOmitted || payload.level !== "info") return null
-			// As in web/lib/robozium/session/notification-format.ts, the model is shown only when both names are present.
+			// A model name alone is ambiguous across providers, so name it only with its endpoint.
 			const data = payload.data == null ? {} : readObject(payload.data)
 			return {
 				type: RunEventType.ImagesOmitted,
