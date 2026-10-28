@@ -34,6 +34,8 @@ export interface DesktopLocations {
 	compose: string
 	/** The compiled sandboxed preload script, beside the main process. */
 	preload: string
+	/** The built interface the window loads, beside the main process. */
+	renderer: string
 	/** Where a live launch records its chosen hub folder; null for mock mode. */
 	hubFolder: HubFolderLocation | null
 }
@@ -63,6 +65,7 @@ export function desktopLocations(inputs: LocationInputs): DesktopLocations {
 		source: path.join(backend, packaged ? locations.installedSource : locations.checkoutSource),
 		compose: path.join(backend, locations.compose),
 		preload: path.join(appDirectory, locations.preload),
+		renderer: path.join(appDirectory, locations.renderer),
 		hubFolder: mode === "live"
 			? {
 				file: path.join(profile, locations.hubFolder),

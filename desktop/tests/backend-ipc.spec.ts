@@ -29,6 +29,8 @@ for (const method of ["getBackendStatus", "getHostServices", "getBackendConnecti
 			} finally { other.destroy() }
 		}, { documentUrl, preload, method })).toBe("denied")
 		await app.evaluate(async ({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].loadURL("data:text/html,untrusted"))
+		// Main sees the load finish before the page's new document is ready for script.
+		await page.waitForURL("data:text/html,untrusted")
 		expect(await page.evaluate(async method => {
 			try {
 				await window.robozium[method]()

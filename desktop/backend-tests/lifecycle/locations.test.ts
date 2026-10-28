@@ -11,6 +11,7 @@ test("an installed app keeps its profile in the user's config directory and read
 		source: "/opt/Robozium/resources/backend/stage",
 		compose: "/opt/Robozium/resources/backend/compose.yaml",
 		preload: "/repo/desktop/dist/preload.cjs",
+		renderer: "/repo/desktop/dist/renderer",
 		hubFolder: {
 			file: "/home/user/.config/Robozium/hub-folder", defaultFolder: "/home/user/Robozium-Hub",
 			earlierFolder: "/home/user/.config/Robozium/live/hub",
