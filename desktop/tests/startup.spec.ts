@@ -71,3 +71,43 @@ test("a failed start shows its reason and Retry in a toast, leaving the loader i
 	await expect(page.locator(launchButton)).toBeVisible()
 	expect(await app.evaluate(() => Reflect.get(globalThis, "retries"))).toBe(1)
 })
+
+test("a rebuild reads Updating with a progress bar, then fades to Loading without moving the label", async ({ desktop: { app, page } }) => {
+	await app.evaluate(({ ipcMain }) => {
+		Reflect.set(globalThis, "status", { state: "starting", message: "Building the backend…", stage: "updating", progress: 0.45 })
+		ipcMain.removeHandler("desktop:backend-status")
+		ipcMain.handle("desktop:backend-status", () => Reflect.get(globalThis, "status"))
+	})
+	await page.emulateMedia({ reducedMotion: "reduce" })
+	await page.reload()
+	const label = page.locator(`${screen} .startup__label`)
+	const bar = page.getByRole("progressbar", { name: "Updating" })
+	await expect(label).toHaveAttribute("data-updating")
+	await expect(bar).toHaveAttribute("aria-valuenow", "45")
+	await expect(bar.locator(".startup__progress-segment[data-active]")).toHaveCount(9)
+	const place = () => label.evaluate(element => JSON.stringify(element.getBoundingClientRect()))
+	const updatingPlace = await place()
+
+	await app.evaluate(() => Reflect.set(globalThis, "status", { state: "starting", message: "Starting the backend…", progress: 0.96 }))
+	await expect(label).not.toHaveAttribute("data-updating")
+	await expect(bar).toHaveAttribute("aria-valuenow", "96")
+	expect(await place()).toBe(updatingPlace)
+
+	await app.evaluate(() => Reflect.set(globalThis, "status", { state: "ready", message: "Backend ready" }))
+	await startupDone(page)
+})
+
+test("a start without a rebuild shows neither Updating nor a progress bar", async ({ desktop: { app, page } }) => {
+	await app.evaluate(({ ipcMain }) => {
+		Reflect.set(globalThis, "status", { state: "starting", message: "Starting the backend…" })
+		ipcMain.removeHandler("desktop:backend-status")
+		ipcMain.handle("desktop:backend-status", () => Reflect.get(globalThis, "status"))
+	})
+	await page.emulateMedia({ reducedMotion: "reduce" })
+	await page.reload()
+	await expect(page.locator(`${screen} .startup__label`)).toBeVisible()
+	await expect(page.locator(`${screen} .startup__label`)).not.toHaveAttribute("data-updating")
+	await expect(page.getByRole("progressbar")).toHaveCount(0)
+	await app.evaluate(() => Reflect.set(globalThis, "status", { state: "ready", message: "Backend ready" }))
+	await startupDone(page)
+})

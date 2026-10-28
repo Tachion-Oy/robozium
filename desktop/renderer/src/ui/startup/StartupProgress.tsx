@@ -1,25 +1,34 @@
 // Copied from desktop/renderer/src/ui/run/AudioLevelMeter.tsx at e1dc07f.
-const AUDIO_LEVEL_SEGMENTS = 6
+// Adapted: the segments show how far a startup that rebuilds the backend has come.
+import type { ReactNode } from "react"
+import "./startup-progress.css"
 
-type AudioLevelMeterProps = {
-	level: number
+const PROGRESS_SEGMENTS = 20
+
+export interface StartupProgressProps {
+	/** 0–1 through the startup. */
+	fraction: number
 }
 
-export function AudioLevelMeter({ level }: AudioLevelMeterProps) {
-	const normalizedLevel = Number.isFinite(level)
-		? Math.min(1, Math.max(0, level))
+export function StartupProgress({ fraction }: StartupProgressProps): ReactNode {
+	const normalizedFraction = Number.isFinite(fraction)
+		? Math.min(1, Math.max(0, fraction))
 		: 0
-	const activeSegments = Math.ceil(normalizedLevel * AUDIO_LEVEL_SEGMENTS)
+	const activeSegments = Math.floor(normalizedFraction * PROGRESS_SEGMENTS)
 
 	return (
 		<span
-			className="agent-hud__dictate-meter"
-			data-silent={activeSegments === 0 || undefined}
-			aria-hidden="true">
-			{Array.from({ length: AUDIO_LEVEL_SEGMENTS }, (_, index) => (
+			className="startup__progress"
+			role="progressbar"
+			aria-label="Updating"
+			aria-valuemin={0}
+			aria-valuemax={100}
+			aria-valuenow={Math.round(normalizedFraction * 100)}
+			data-empty={activeSegments === 0 || undefined}>
+			{Array.from({ length: PROGRESS_SEGMENTS }, (_, index) => (
 				<span
 					key={index}
-					className="agent-hud__dictate-meter-segment"
+					className="startup__progress-segment"
 					data-active={index < activeSegments || undefined}
 				/>
 			))}

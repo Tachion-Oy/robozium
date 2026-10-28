@@ -1,63 +1,64 @@
-/* Copied from desktop/renderer/src/ui/styles/hud-controls.css at e1dc07f. */
-.agent-hud__dictate-meter {
-  position: static;
-  transform: none;
-  display: inline-flex;
+/* Copied from desktop/renderer/src/ui/styles/hud-controls.css at e1dc07f.
+   Adapted: the Record level meter, widened across the loader under its label and
+   a little taller, with its brightness steps spread over twenty segments. It sits
+   in the gap between the label and the mark, so showing it moves nothing. */
+.startup__progress {
+  --startup-progress-height: 0.62rem;
+  position: absolute;
+  top: calc(100% + (var(--startup-label-gap) - var(--startup-progress-height)) / 2);
+  left: 50%;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  display: flex;
   align-items: stretch;
-  gap: 0.13rem;
-  width: 2rem;
-  height: 0.48rem;
+  gap: 0.16rem;
+  width: calc(var(--startup-loader-size) - 1.5rem);
+  height: var(--startup-progress-height);
   border: 0;
   background: transparent;
   pointer-events: none;
 }
 
-.agent-hud__dictate-meter-segment {
+.startup__progress-segment {
   flex: 1 1 0;
   min-width: 0;
   background: transparent;
   box-shadow: none;
 }
 
-.agent-hud__dictate-meter-segment[data-active] {
+.startup__progress-segment[data-active] {
   background: color-mix(in oklab, var(--term-green) clamp(0%, 72% * var(--tune-fill, 1), 100%), white);
   box-shadow: 0 0 5px color-mix(in oklab, var(--term-green) clamp(0%, 72% * var(--tune-glow, 1), 100%), transparent);
 }
 
-.agent-hud__dictate-meter-segment[data-active]:nth-child(n + 4) {
+.startup__progress-segment[data-active]:nth-child(n + 11) {
   background: color-mix(in oklab, var(--term-green) clamp(0%, 84% * var(--tune-fill, 1), 100%), white);
 }
 
-.agent-hud__dictate-meter-segment[data-active]:nth-child(n + 6) {
+.startup__progress-segment[data-active]:nth-child(n + 18) {
   background: color-mix(in oklab, var(--term-green) clamp(0%, 94% * var(--tune-fill, 1), 100%), white);
 }
 
-.agent-hud__dictate-meter[data-silent]
-  .agent-hud__dictate-meter-segment:first-child {
+.startup__progress[data-empty]
+  .startup__progress-segment:first-child {
   background: color-mix(in oklab, var(--term-green) clamp(0%, 72% * var(--tune-fill, 1), 100%), white);
   box-shadow: 0 0 5px color-mix(in oklab, var(--term-green) clamp(0%, 72% * var(--tune-glow, 1), 100%), transparent);
   opacity: 0.72;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .agent-hud__dictate-meter[data-silent]
-    .agent-hud__dictate-meter-segment:first-child {
+  /* The keyframes are the Record meter's, in hud-controls.css. */
+  .startup__progress[data-empty]
+    .startup__progress-segment:first-child {
     animation: hud-recording-silent-blink 0.9s ease-in-out infinite alternate;
-  }
-
-  @keyframes hud-recording-silent-blink {
-    from { opacity: 0.18; }
-    to { opacity: 1; }
   }
 }
 
-:root[data-theme="light"] .agent-hud__dictate-meter {
-  box-sizing: border-box;
+:root[data-theme="light"] .startup__progress {
+  --startup-progress-height: 1.15rem;
   align-items: stretch;
-  width: 2.15rem;
-  height: 1rem;
-  gap: 0.12rem;
-  padding: 0.2rem 0.22rem;
+  gap: 0.14rem;
+  padding: 0.24rem 0.28rem;
   border: 1px solid
     color-mix(in oklab, var(--term-green) clamp(0%, 36% * var(--tune-edge, 1), 100%), var(--hud-input-border));
   border-radius: 0.22rem;
@@ -65,15 +66,15 @@
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 55% * var(--tune-sheen, 1), 100%), transparent),
     inset 0 0 0 1px color-mix(in oklab, var(--term-green) clamp(0%, 12% * var(--tune-glow, 1), 100%), transparent);
 }
-:root[data-theme="light"] .agent-hud__dictate-meter-segment {
+:root[data-theme="light"] .startup__progress-segment {
   border-radius: 0.04rem;
   background: color-mix(in oklab, var(--term-green) clamp(0%, 15% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 :root[data-theme="light"]
-  .agent-hud__dictate-meter-segment[data-active],
+  .startup__progress-segment[data-active],
 :root[data-theme="light"]
-  .agent-hud__dictate-meter[data-silent]
-  .agent-hud__dictate-meter-segment:first-child {
+  .startup__progress[data-empty]
+  .startup__progress-segment:first-child {
   background: color-mix(in oklab, var(--term-green) clamp(0%, 82% * var(--tune-text, 1), 100%), var(--hud-control-ink));
   box-shadow: none;
 }

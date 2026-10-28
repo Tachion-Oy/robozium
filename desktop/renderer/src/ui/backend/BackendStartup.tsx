@@ -26,6 +26,7 @@ export function BackendStartup() {
 	const { status: readiness, retryConnection } = useBackendReadiness(startup.state === "ready" ? startup.client : null)
 	const [hasOpenedHud, setHasOpenedHud] = useState(false)
 	const status = startup.state !== "ready" ? startup : readiness
+	const starting = startup.state !== "ready" ? startup : null
 	const screen = useStartupScreen(status.state === "ready", retryConnection)
 
 	useEffect(() => {
@@ -54,7 +55,13 @@ export function BackendStartup() {
 				covered={screen.mode !== null}
 				backend={backend} />}
 		</div>
-		{screen.mode && <StartupScreen mode={screen.mode} ready={screen.ready} status={status.message} onFaded={screen.dismiss} />}
+		{screen.mode && <StartupScreen
+			mode={screen.mode}
+			ready={screen.ready}
+			status={status.message}
+			updating={starting?.stage === "updating"}
+			progress={starting?.progress}
+			onFaded={screen.dismiss} />}
 		{hubFolderFailure && !expectedOutage && <StartupHubFolder message={status.message} onRetry={retryStartup} />}
 		{failed && <Toast tone="error" title={startupFailed ? "Robozium could not start" : "Backend unavailable"} message={status.message}
 			actions={[{ label: "Retry", onClick: startupFailed ? retryStartup : retryConnection }]} />}
