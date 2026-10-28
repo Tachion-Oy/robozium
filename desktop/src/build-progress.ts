@@ -54,7 +54,8 @@ function planSteps(dockerfile: string): Map<string, Step> {
 }
 
 const stepLine = /^#(\d+) \[(?:[\w.-]+ )*?([\w.-]+) (\d+)\/\d+\] (.+)$/
-const exportLine = /^#(\d+) (?:\[[^\]]*\] )?exporting to image$/
+// The docker driver exports in one step; a container builder exports, then imports.
+const exportLine = /^#(\d+) (?:\[[^\]]*\] )?(?:exporting to (?:docker )?image(?: format)?|importing to docker)$/
 const finishLine = /^#(\d+) (?:DONE \S+|CACHED)$/
 const outputLine = /^#(\d+) [\d.]+ (.*)$/
 
