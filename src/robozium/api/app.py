@@ -5,6 +5,7 @@ import logging
 import queue
 import tempfile
 from dataclasses import replace
+from importlib.metadata import version
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response, UploadFile
@@ -134,7 +135,7 @@ def create_app(*, deployment: Hub, require_credentials: bool = False) -> FastAPI
     projects = ProjectService(deployment, manager)
     app = ApiApplication(
         title=deployment.settings.name,
-        version="0.1.0",
+        version=version("robozium"),
         lifespan=application_lifespan(
             deployment=deployment,
             manager=manager,
