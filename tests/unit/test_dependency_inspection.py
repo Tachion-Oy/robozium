@@ -109,6 +109,17 @@ def _inspect(hub, slug):
     )
 
 
+def _settled_record(client: TestClient, dependency_id: str) -> dict:
+    """Wait until the startup check has recorded a result for this dependency."""
+    deadline = time.monotonic() + 2
+    record = client.get(f"/admin/dependencies/{dependency_id}").json()
+    while record["status"] == "pending":
+        assert time.monotonic() < deadline
+        time.sleep(0.01)
+        record = client.get(f"/admin/dependencies/{dependency_id}").json()
+    return record
+
+
 def test_standard_deployment_discovers_tools_and_every_selectable_model() -> None:
     deployment = load_hub()
     project = deployment.project("inspection")
@@ -213,12 +224,7 @@ def test_api_reads_cached_state_and_dependency_failure_does_not_affect_ready(
         deployment=_deployment_with_check(tmp_path, "missing", checker),
     )
     with TestClient(application) as client:
-        deadline = time.monotonic() + 2
-        record = client.get("/admin/dependencies").json()[0]
-        while record["status"] == "pending":
-            assert time.monotonic() < deadline
-            time.sleep(0.01)
-            record = client.get("/admin/dependencies").json()[0]
+        record = _settled_record(client, "executable:missing")
         initial_calls = calls
         checked_at = record["checked_at"]
         for _ in range(3):
@@ -251,12 +257,7 @@ def test_api_active_check_runs_checkers_and_returns_updated_cached_records(
         deployment=_deployment_with_check(tmp_path, "sometimes", checker),
     )
     with TestClient(application) as client:
-        deadline = time.monotonic() + 2
-        cached = client.get("/admin/dependencies").json()[0]
-        while cached["status"] == "pending":
-            assert time.monotonic() < deadline
-            time.sleep(0.01)
-            cached = client.get("/admin/dependencies").json()[0]
+        cached = _settled_record(client, "executable:sometimes")
 
         response = client.post("/admin/dependencies/check")
 
@@ -310,6 +311,8 @@ def test_standalone_resource_is_monitored_without_an_agent_tool(tmp_path):
     standalone = Standalone("standalone")
     hub = configured_hub(hub, additional_dependencies=(standalone, standalone))
     with TestClient(create_app(deployment=hub)) as client:
+        # A check requested while the startup check runs returns its pending record.
+        _settled_record(client, standalone.dependency_id)
         records = client.post("/admin/dependencies/check").json()
         found = [r for r in records if r["dependency_id"] == standalone.dependency_id]
         assert len(found) == 1

@@ -201,6 +201,8 @@ test("importing a folder uploads each file under its relative path and asks for 
 	backend.handlers.set("POST /credentials/environment/import", response => json(response, { detail: "An imported folder named local_tool already exists" }, 409))
 	await openEnvironment(page, backend)
 	const picker = panel(page).getByLabel("Choose tool or skill folder")
+	// The chooser accepts a folder only once settings have loaded, as Browse shows.
+	await expect(panel(page).getByRole("button", { name: "Browse folder" })).toBeEnabled()
 	await picker.setInputFiles(folder)
 	await expect(alert(page, "Import failed")).toContainText("already exists")
 	await expect(panel(page).getByLabel("Selected tool or skill folder")).toHaveValue("local_tool")
