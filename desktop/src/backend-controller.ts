@@ -377,7 +377,13 @@ export class BackendController {
 			return false
 		}
 
-		const progress = new BuildProgress(readFileSync(path.join(this.options.source, "Dockerfile"), "utf8"))
+		let dockerfile = ""
+		try {
+			dockerfile = readFileSync(path.join(this.options.source, "Dockerfile"), "utf8")
+		} catch {
+			// Progress then weighs steps as BuildKit announces them; the build reports a missing file itself.
+		}
+		const progress = new BuildProgress(dockerfile)
 		const updating = (fraction: number): BackendStatus => ({
 			state: "starting",
 			message: "Building the backend. The first launch requires internet and can take several minutes…",
