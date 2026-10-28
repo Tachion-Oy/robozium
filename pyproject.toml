@@ -1,12 +1,12 @@
 [project]
 name = "robozium"
-version = "0.2.0"
+version = "0.2.1"
 description = "Robozium: a project agent application built on Roboz"
 readme = "README.md"
 requires-python = ">=3.13"
 license = "Apache-2.0"
 dependencies = [
-  "roboz==0.14.0a1",
+  "roboz==0.14.0",
   "fastapi>=0.135.0",
   "python-multipart>=0.0.20",
   "pillow>=12.0.0",

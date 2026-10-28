@@ -20,12 +20,12 @@ _PUBLISHED = {
     "lab/vision": {
         "architecture": {"input_modalities": ["text", "image"]},
         "context_length": 1_000,
-        "supported_parameters": ["tools", "max_tokens"],
+        "supported_parameters": ["tools", "max_tokens", "temperature"],
     },
     "lab/text": {
         "architecture": {"input_modalities": ["text"]},
         "context_length": 2_000,
-        "supported_parameters": ["tools"],
+        "supported_parameters": ["tools", "temperature"],
     },
 }
 
@@ -75,6 +75,8 @@ def _without_key(monkeypatch) -> None:
 def test_metadata_matches_published_capabilities() -> None:
     assert metadata_problems(_VISION, _PUBLISHED["lab/vision"]) == []
     assert metadata_problems(_TEXT, _PUBLISHED["lab/text"]) == []
+    reasoning = ChatModelSpec("lab/text", 1_000, accepts_temperature=False)
+    assert metadata_problems(reasoning, {**_PUBLISHED["lab/text"], "supported_parameters": ["tools"]}) == []
 
 
 @pytest.mark.parametrize(
@@ -97,6 +99,16 @@ def test_metadata_matches_published_capabilities() -> None:
             _TEXT,
             {"architecture": None, "supported_parameters": None},
             "provider does not list tool support",
+        ),
+        (
+            _TEXT,
+            {**_PUBLISHED["lab/text"], "supported_parameters": ["tools"]},
+            "accepts_temperature is True, provider omits temperature",
+        ),
+        (
+            ChatModelSpec("lab/text", 1_000, accepts_temperature=False),
+            _PUBLISHED["lab/text"],
+            "accepts_temperature is False, provider lists temperature",
         ),
     ],
 )
