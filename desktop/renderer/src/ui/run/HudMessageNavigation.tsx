@@ -5,7 +5,7 @@ import type {
 	HudMessageNavigationDirection,
 } from "./run-view"
 import { MessageWedge } from "./MessageWedge"
-import { RoboziumMark } from "../branding/RoboziumMark"
+import { AgentIndicator } from "../branding/RoboziumMark"
 import { HudEdgeButton } from "../hud/HudEdgeButton"
 
 export type HudMessageNavigationModel = {
@@ -45,12 +45,7 @@ export function HudMessageNavigation({
 					<MessageWedge direction="previous" />
 				</HudEdgeButton>
 			</div>
-			<span
-				className="agent-hud__logo agent-hud__logo--actions"
-				data-agent-state={agentActivityState}
-				aria-hidden="true">
-				<RoboziumMark />
-			</span>
+			<AgentIndicator className="agent-hud__logo--actions" agentActivityState={agentActivityState} />
 			<div className="agent-hud__message-nav-side">
 				<HudEdgeButton
 					variant="arrow"
