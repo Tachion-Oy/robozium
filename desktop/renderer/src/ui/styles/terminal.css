@@ -349,9 +349,9 @@
 
 /* Inner label span -- only reason this exists is so we can apply a real
    Gaussian blur to the glyphs without blurring the badge box + halo. The
-   inline-block keeps the filter from collapsing, and `will-change: filter`
-   nudges browsers into doing the composite on the GPU so we don't pay a
-   layout cost per row.
+   inline-block keeps the filter from collapsing. No `will-change`: a GPU
+   layer per label exhausts the tile budget in a long log, and unrasterized
+   labels then paint blank while scrolling.
    Color is a dark tint of the role instead of pure `--term-bg` so the
    cutout reads as dim phosphor rather than vector ink, and the text-shadow
    lets same-color bleed leak back into the blurred edges. */
@@ -370,7 +370,6 @@
   /* Cranked intentionally so the softening is obvious -- dial down to
      taste. 0.45px was imperceptible, 2px is over-the-top. Adjust from here. */
   filter: blur(0.5px);
-  will-change: filter;
 }
 
 /* Script + system: same outer size as a filled pill; ring drawn inset so it
@@ -392,7 +391,6 @@
   -webkit-text-stroke: 0;
   text-shadow: var(--term-msg-glow);
   filter: none;
-  will-change: auto;
 }
 
 /* ---------------------------------------------------------------------------

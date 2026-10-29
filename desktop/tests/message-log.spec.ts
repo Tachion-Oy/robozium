@@ -141,3 +141,51 @@ for (const theme of ["dark", "light"]) {
 		}
 	})
 }
+
+test("a message arriving at the tail slides the log up instead of jumping", async ({ desktop: { app, page }, backend }) => {
+	const run = prepareRun(backend)
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	await setNativeViewport(app, page, 1260, 780, 1)
+	await toggle(page, "Show message log").click()
+	for (let i = 1; i <= 30; i++) emit(run.streams[0], message(i, `Row ${i}`))
+	await expect(log(page)).toContainText("Row 30")
+	const column = log(page).locator(".term-log > div")
+	await expect.poll(() => column.evaluate(element => element.getAnimations().length)).toBe(0)
+	// Sample the column's offset every frame while the row arrives.
+	await column.evaluate(element => {
+		const offsets: number[] = []
+		Reflect.set(window, "columnOffsets", offsets)
+		const sample = () => {
+			offsets.push(new DOMMatrixReadOnly(getComputedStyle(element).transform).m42)
+			if (offsets.length < 120) requestAnimationFrame(sample)
+		}
+		requestAnimationFrame(sample)
+	})
+	emit(run.streams[0], message(31, "Newest row"))
+	await expect(log(page)).toContainText("Newest row")
+	await expect.poll(() => column.evaluate(element => element.getAnimations().length)).toBe(0)
+	// It started lower and eased up into place.
+	expect(Math.max(...await page.evaluate(() => Reflect.get(window, "columnOffsets") as number[]))).toBeGreaterThan(0)
+	expect(await log(page).locator(".term-log").evaluate(box => box.scrollTop)).toBe(0)
+})
+
+test("scrolled up, the row being read stays put while messages arrive", async ({ desktop: { app, page }, backend }) => {
+	const run = prepareRun(backend)
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	await setNativeViewport(app, page, 1260, 780, 1)
+	await toggle(page, "Show message log").click()
+	for (let i = 1; i <= 80; i++) emit(run.streams[0], wire("user", JSON.stringify({ caller: "status", value: `Row ${i}` }), i))
+	await expect(log(page)).toContainText("Row 80")
+	// One GPU layer per label exhausts the tile budget in a long log, and labels then paint blank.
+	expect(await log(page).locator(".term-tag-label").first().evaluate(label => getComputedStyle(label).willChange)).toBe("auto")
+	const scroller = log(page).locator(".term-log")
+	await scroller.evaluate(box => { box.scrollTop = -(box.scrollHeight - box.clientHeight) / 2 })
+	const row = log(page).locator(".term-msg", { hasText: "Row 40" })
+	await row.scrollIntoViewIfNeeded()
+	const before = (await row.boundingBox())!.y
+	for (let i = 81; i <= 90; i++) emit(run.streams[0], wire("user", JSON.stringify({ caller: "status", value: `Row ${i}` }), i))
+	await expect(log(page)).toContainText("Row 90")
+	await expect.poll(async () => Math.abs((await row.boundingBox())!.y - before)).toBeLessThanOrEqual(1)
+})

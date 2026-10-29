@@ -47,7 +47,7 @@ html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-label .term-
 }
 html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-label .term-msg-badge-label {
   color: color-mix(in oklab, var(--term-bg) 82%, var(--term-blue));
-  font-weight: 600; -webkit-text-stroke: 0; text-shadow: none; filter: none; will-change: auto;
+  font-weight: 600; -webkit-text-stroke: 0; text-shadow: none; filter: none;
 }
 html[data-desktop][data-theme="light"] .agent-hud__header .agent-hud__event-label { filter: none; }
 html[data-desktop][data-theme="light"] .agent-hud__header .agent-hud__event-label .term-msg-badge {
@@ -321,6 +321,11 @@ html[data-desktop] .desktop-message-log .term-frame { position: relative; top: a
 /* A leading banner's own separation would add to that margin. */
 .desktop-message-log .term-log > div > :first-child { margin-top: 0; }
 .desktop-message-log .term-msg { overflow-wrap: anywhere; }
+/* Offscreen rows skip painting their glow, the log's main scroll cost. The
+   clip margin keeps the widest bloom (badge glow) of visible rows unclipped. */
+.desktop-message-log .term-log > div > * {
+  content-visibility: auto; contain-intrinsic-size: auto 4rem; overflow-clip-margin: 1.5rem;
+}
 /* Dark text punched out of a filled tag or badge keeps the CRT smudge of
    terminal.css, toned down slightly so small glyphs stay legible. Outlined
    script and system badges keep their own glowing text. */
