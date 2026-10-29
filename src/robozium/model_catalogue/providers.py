@@ -67,11 +67,6 @@ _ROBOZ_ENDPOINTS_INVENTORY = {'schema_version': 1,
                                                                     'accepts_images': True,
                                                                     'accepts_temperature': True,
                                                                     'endpoint_type': 'llm'},
-                                         'anthropic__claude_sonnet_5_5': {'model_id': 'anthropic/claude-sonnet-5.5',
-                                                                          'max_context_tokens': 1000000,
-                                                                          'accepts_images': True,
-                                                                          'accepts_temperature': False,
-                                                                          'endpoint_type': 'llm'},
                                          'openai__gpt_6_1_sol': {'model_id': 'openai/gpt-6.1-sol',
                                                                  'max_context_tokens': 1050000,
                                                                  'accepts_images': True,
@@ -115,7 +110,6 @@ if _TYPE_CHECKING:
         qwen__qwen3_8_flash: _LLMEndpoint
         minimax__minimax_m3_1_flash: _LLMEndpoint
         google__gemini_4_argon: _LLMEndpoint
-        anthropic__claude_sonnet_5_5: _LLMEndpoint
         openai__gpt_6_1_sol: _LLMEndpoint
         x_ai__grok_4_7: _LLMEndpoint
 

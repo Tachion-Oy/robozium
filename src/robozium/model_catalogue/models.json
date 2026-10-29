@@ -84,13 +84,6 @@
           "accepts_temperature": true,
           "endpoint_type": "llm"
         },
-        "anthropic__claude_sonnet_5_5": {
-          "model_id": "anthropic/claude-sonnet-5.5",
-          "max_context_tokens": 1000000,
-          "accepts_images": true,
-          "accepts_temperature": false,
-          "endpoint_type": "llm"
-        },
         "openai__gpt_6_1_sol": {
           "model_id": "openai/gpt-6.1-sol",
           "max_context_tokens": 1050000,
