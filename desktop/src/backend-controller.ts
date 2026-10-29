@@ -28,9 +28,9 @@ interface BackendOptions {
 	pollInterval?: number
 }
 
-// After an image build, the build fills this share of the startup progress bar;
-// starting host services and the backend fill the rest.
-const BUILD_SHARE = 0.9
+// Where a startup that builds the image sits on the progress bar. The build fills it up
+// to `built`; the renderer fills the rest as the screen fades on ready.
+const STARTUP_PROGRESS = { built: 0.9, hostServices: 0.93, backend: 0.96 }
 
 interface ContainerInspection {
 	labels: Record<string, string>
@@ -217,9 +217,9 @@ export class BackendController {
 		const built = await this.ensureImage(buildId, log)
 
 		// Started first, so the backend's first dependency check finds them.
-		this.status = { state: "starting", message: "Starting host services…", ...built && { progress: 0.93 } }
+		this.status = { state: "starting", message: "Starting host services…", ...built && { progress: STARTUP_PROGRESS.hostServices } }
 		await this.hostServices.start(this.layout, this.options.mode, this.options.source, this.startupAbort.signal)
-		this.status = { state: "starting", message: "Starting the backend…", ...built && { progress: 0.96 } }
+		this.status = { state: "starting", message: "Starting the backend…", ...built && { progress: STARTUP_PROGRESS.backend } }
 		await this.compose(["up", "--detach", "--no-build", "api"], { timeout: 120_000, log })
 		await this.ownedContainers()
 		await this.waitUntilReady()
@@ -362,6 +362,8 @@ export class BackendController {
 	/** Build the backend image unless this build is already cached; reports whether it built. */
 	private async ensureImage(buildId: string, log: (output: string) => void): Promise<boolean> {
 		let cached = false
+		// An image from another build means an update; none at all means a first launch.
+		let updating = false
 		try {
 			const cachedBuildId = await this.command([
 				"image", "inspect", "--format",
@@ -369,6 +371,7 @@ export class BackendController {
 				`${this.settings.project}-api`,
 			])
 			cached = cachedBuildId.trim() === buildId
+			updating = !cached
 		} catch {
 			this.startupAbort.signal.throwIfAborted()
 		}
@@ -384,18 +387,20 @@ export class BackendController {
 			// Progress then weighs steps as BuildKit announces them; the build reports a missing file itself.
 		}
 		const progress = new BuildProgress(dockerfile)
-		const updating = (fraction: number): BackendStatus => ({
+		const building = (fraction: number): BackendStatus => ({
 			state: "starting",
-			message: "Building the backend. The first launch requires internet and can take several minutes…",
-			stage: "updating",
-			progress: BUILD_SHARE * fraction,
+			...updating
+				? { message: "Updating the backend…", stage: "updating" as const }
+				: { message: "Building the backend. The first launch requires internet and can take several minutes…" },
+			progress: STARTUP_PROGRESS.built * fraction,
 		})
-		this.status = updating(0)
+		this.status = building(0)
 		await this.compose(["build", "api"], {
 			timeout: 1800_000,
 			log: output => {
 				log(output)
-				this.status = updating(progress.push(output))
+				// Output flushed after shutdown aborted startup must not overwrite its status.
+				if (!this.startupAbort.signal.aborted) this.status = building(progress.push(output))
 			},
 		})
 		return true

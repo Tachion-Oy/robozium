@@ -39,9 +39,10 @@ export function StartupScreen({ mode, ready, status, updating, progress, onFaded
 	const [introDone, setIntroDone] = useState(skipIntro || reducedMotion)
 	const [loadingStarted, setLoadingStarted] = useState(skipIntro || reducedMotion)
 	const revealing = introDone && ready
-	// Once shown, the bar holds its value between statuses and fills as the screen fades.
+	// The bar follows each status until ready, then holds and fills as the screen fades.
+	// A status without progress, such as a failure or a retry that builds nothing, clears it.
 	const [lastProgress, setLastProgress] = useState<number>()
-	if (progress !== undefined && progress !== lastProgress) setLastProgress(progress)
+	if (!ready && progress !== lastProgress) setLastProgress(progress)
 	const shownProgress = lastProgress === undefined ? undefined : ready ? 1 : lastProgress
 	const finishIntro = () => {
 		setIntroDone(true)
@@ -91,7 +92,7 @@ export function StartupScreen({ mode, ready, status, updating, progress, onFaded
 										<span className="startup__updating-art" aria-hidden="true" />
 										<span className="sr-only">{status}</span>
 									</p>
-									{shownProgress !== undefined && <StartupProgress fraction={shownProgress} />}
+									{shownProgress !== undefined && <StartupProgress fraction={shownProgress} label={updating ? "Updating" : "Loading"} />}
 								</div>}>
 								<svg className="startup__outline" viewBox="0 0 100 100" aria-hidden="true">
 									<polygon points={octagonPoints} strokeWidth="1" vectorEffect="non-scaling-stroke" />

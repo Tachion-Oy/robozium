@@ -8,9 +8,11 @@ const PROGRESS_SEGMENTS = 20
 export interface StartupProgressProps {
 	/** 0–1 through the startup. */
 	fraction: number
+	/** The word the loader shows, which names the bar. */
+	label: string
 }
 
-export function StartupProgress({ fraction }: StartupProgressProps): ReactNode {
+export function StartupProgress({ fraction, label }: StartupProgressProps): ReactNode {
 	const normalizedFraction = Number.isFinite(fraction)
 		? Math.min(1, Math.max(0, fraction))
 		: 0
@@ -20,7 +22,7 @@ export function StartupProgress({ fraction }: StartupProgressProps): ReactNode {
 		<span
 			className="startup__progress"
 			role="progressbar"
-			aria-label="Updating"
+			aria-label={label}
 			aria-valuemin={0}
 			aria-valuemax={100}
 			aria-valuenow={Math.round(normalizedFraction * 100)}

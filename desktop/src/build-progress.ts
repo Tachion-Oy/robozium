@@ -3,7 +3,8 @@
 // `#11 [api 3/6] RUN …`, write output as `#11 4.603 …`, and end with `#11 DONE 75.6s`
 // or `#11 CACHED`. The Dockerfile gives every step's weight before BuildKit announces
 // it. The package installation takes most of a fresh build, so its step advances with
-// apt's own download, unpack and set-up counts.
+// apt's own download, unpack and set-up counts. A base image pull advances with its
+// layers' downloaded bytes and extractions.
 
 interface Step {
 	weight: number
@@ -11,6 +12,8 @@ interface Step {
 	done: number
 	/** apt's package counts, for the step that installs packages; null until apt plans. */
 	apt?: { total: number; fetched: number; installed: number } | null
+	/** The base image's layers by digest, for a FROM step; empty while the image is local. */
+	layers?: Map<string, { size: number; fetched: number; extracted: boolean }>
 }
 
 // Shares measured in a fresh build: the package step took 75 s of about 90 s, the
@@ -19,11 +22,15 @@ const PACKAGES_WEIGHT = 30
 const RUN_WEIGHT = 2
 const EXPORT_WEIGHT = 3
 const QUICK_WEIGHT = 0.3
+// Not measured: the slim Python base is about 45 MB, roughly 15 s on a typical
+// connection. A FROM step takes this weight only once it starts pulling.
+const PULL_WEIGHT = 6
 
 const installsPackages = (instruction: string) => /^RUN\b.*\bapt-get install\b/.test(instruction)
 
 function plannedStep(instruction: string): Step {
 	if (installsPackages(instruction)) return { weight: PACKAGES_WEIGHT, done: 0, apt: null }
+	if (/^FROM\s/i.test(instruction)) return { weight: QUICK_WEIGHT, done: 0, layers: new Map() }
 	return { weight: instruction.startsWith("RUN ") ? RUN_WEIGHT : QUICK_WEIGHT, done: 0 }
 }
 
@@ -58,6 +65,10 @@ const stepLine = /^#(\d+) \[(?:[\w.-]+ )*?([\w.-]+) (\d+)\/\d+\] (.+)$/
 const exportLine = /^#(\d+) (?:\[[^\]]*\] )?(?:exporting to (?:docker )?image(?: format)?|importing to docker)$/
 const finishLine = /^#(\d+) (?:DONE \S+|CACHED)$/
 const outputLine = /^#(\d+) [\d.]+ (.*)$/
+const layerLine = /^#(\d+) sha256:(\w+) ([\d.]+) ?([kMG]?B) \/ ([\d.]+) ?([kMG]?B)\b/
+const extractedLine = /^#(\d+) extracting sha256:(\w+) [\d.]+s done$/
+const unitBytes: Record<string, number> = { B: 1, kB: 1e3, MB: 1e6, GB: 1e9 }
+const SMALL_BLOB_BYTES = 100e3
 
 /** Feed raw build output in arbitrary chunks; `fraction` only rises, from 0 to 1. */
 export class BuildProgress {
@@ -101,6 +112,12 @@ export class BuildProgress {
 			if (finishedStep) finishedStep.done = 1
 			return
 		}
+		const layer = layerLine.exec(line) ?? extractedLine.exec(line)
+		const pullStep = layer && this.vertices.get(layer[1])
+		if (pullStep?.layers) {
+			this.readLayer(pullStep, layer!)
+			return
+		}
 		const output = outputLine.exec(line)
 		const outputStep = output && this.vertices.get(output[1])
 		if (outputStep && outputStep.apt !== undefined) this.readApt(outputStep, output[2])
@@ -122,6 +139,32 @@ export class BuildProgress {
 		const { total, fetched, installed } = step.apt
 		if (total === 0) return
 		const share = 0.06 + 0.07 * Math.min(1, fetched / total) + 0.87 * Math.min(1, installed / (2 * total))
+		step.done = Math.max(step.done, Math.min(0.99, share))
+	}
+
+	private readLayer(step: Step, [, , digest, fetched, fetchedUnit, size, sizeUnit]: RegExpExecArray): void {
+		const layers = step.layers!
+		if (size === undefined) {
+			const known = layers.get(digest)
+			if (known) known.extracted = true
+		} else {
+			const bytes = Number(size) * unitBytes[sizeUnit]
+			// The manifest and config arrive first, already done; counting them would fill the step before any layer.
+			if (bytes < SMALL_BLOB_BYTES) return
+			step.weight = PULL_WEIGHT
+			layers.set(digest, { size: bytes, fetched: Number(fetched) * unitBytes[fetchedUnit], extracted: layers.get(digest)?.extracted ?? false })
+		}
+		// Downloading takes most of a pull; extracting the layers the rest.
+		let fetchedBytes = 0
+		let extractedBytes = 0
+		let totalBytes = 0
+		for (const each of layers.values()) {
+			fetchedBytes += each.fetched
+			totalBytes += each.size
+			if (each.extracted) extractedBytes += each.size
+		}
+		if (totalBytes === 0) return
+		const share = 0.7 * fetchedBytes / totalBytes + 0.3 * extractedBytes / totalBytes
 		step.done = Math.max(step.done, Math.min(0.99, share))
 	}
 

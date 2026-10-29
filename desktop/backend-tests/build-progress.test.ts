@@ -81,3 +81,26 @@ test("a cached build ends full", () => {
 	progress.push(`${output.join("\n")}\n`)
 	assert.equal(progress.fraction, 1)
 })
+
+test("pulling the base image advances with its layers", () => {
+	const progress = new BuildProgress(dockerfile)
+	const pull = [
+		"#8 [python-deps 1/6] FROM docker.io/library/python:3.13-slim-bookworm@sha256:1234",
+		"#8 resolve docker.io/library/python:3.13-slim-bookworm@sha256:1234 0.0s done",
+		"#8 sha256:aaaa 0B / 28.23MB 0.2s",
+		"#8 sha256:bbbb 0B / 12.40MB 0.2s",
+		"#8 sha256:aaaa 14.68MB / 28.23MB 1.4s",
+		"#8 sha256:aaaa 28.23MB / 28.23MB 2.7s done",
+		"#8 sha256:bbbb 12.40MB / 12.40MB 2.9s done",
+		"#8 extracting sha256:aaaa 1.1s done",
+		"#8 extracting sha256:bbbb 0.6s done",
+		"#8 DONE 4.6s",
+	]
+	const fractions = pull.map(line => progress.push(`${line}\n`))
+	const atLine = (text: string) => fractions[pull.findIndex(line => line.includes(text))]
+	assert.ok(atLine("14.68MB") > atLine("0B / 12.40MB"))
+	assert.ok(atLine("extracting sha256:bbbb") > atLine("12.40MB / 12.40MB"))
+	// The pull is a visible share of a fresh build, unlike a FROM that finds the image local.
+	assert.ok(atLine("extracting sha256:bbbb") > 0.05)
+	assert.ok(fractions.every((fraction, index) => index === 0 || fraction >= fractions[index - 1]))
+})
