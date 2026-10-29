@@ -5,6 +5,10 @@ export interface BackendStatus {
 	message: string
 	/** The failure is the hub folder's: the user can choose another one, then retry. */
 	action?: "choose-hub-folder"
+	/** The backend image is being rebuilt, as after an update. */
+	stage?: "updating"
+	/** 0–1 through a startup that rebuilds the image; absent when no build ran. */
+	progress?: number
 }
 
 /** A program the desktop runs on this computer for a backend tool, such as the safe-scripts service. */

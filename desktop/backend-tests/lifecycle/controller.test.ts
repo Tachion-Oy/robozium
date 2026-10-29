@@ -10,6 +10,7 @@ import { BackendController, portAvailable } from "../../src/backend-controller.t
 import { loadOrCreateBackendProfile } from "../../src/backend-profile.ts"
 import { resolveBackendLayout } from "../../src/backend-layout.ts"
 import type { CommandOptions } from "../../src/docker-command.ts"
+import type { BackendStatus } from "../../src/bridge.d.ts"
 
 type ControllerOptions = ConstructorParameters<typeof BackendController>[0]
 interface Inspection {
@@ -190,6 +191,46 @@ test("readiness failure preserves data and allows retry without rebuilding", asy
 	assert.equal(commands(state).some(args => args.includes("build")), false)
 	await controller.close()
 	assert.equal(readFileSync(path.join(settings.runtime, "hub/proof.txt"), "utf8"), "retained after failure")
+})
+
+for (const [image, stage] of [["old-source-hash", "updating"], [undefined, undefined]] as const) test(`a build ${stage ? "after an update reads Updating" : "on a first launch does not read Updating"}`, async t => {
+	const statuses: BackendStatus[] = []
+	const { controller } = fixture(t, { cached: "",
+		intercept: async (args, command) => {
+			if (args[0] === "image") {
+				if (image === undefined) throw new Error("No such image")
+				return image
+			}
+			if (!args.includes("build")) return
+			command.log?.("#8 [api 1/6] FROM docker.io/library/python:3.13-slim-bookworm\n#8 DONE 0.1s\n")
+			statuses.push(controller.snapshot())
+		} })
+	await controller.start()
+	assert.equal(statuses.length, 1)
+	assert.equal(statuses[0].stage, stage)
+	assert.ok(statuses[0].progress! > 0 && statuses[0].progress! < 1)
+	await controller.close()
+})
+
+test("build output flushed after shutdown aborts startup leaves the status alone", async t => {
+	let reached = () => {}
+	const started = new Promise<void>(resolve => { reached = resolve })
+	let flush = () => {}
+	const { controller } = fixture(t, { cached: "",
+		intercept: async (args, command) => {
+			if (!args.includes("build")) return
+			flush = () => command.log?.("#8 [api 1/6] FROM docker.io/library/python:3.13-slim-bookworm\n#8 DONE 0.1s\n")
+			reached()
+			return new Promise((_resolve, reject) => command.signal?.addEventListener("abort", () => reject(new Error("cancelled")), { once: true }))
+		} })
+	const rejected = assert.rejects(controller.start(), /cancel/)
+	await started
+	const before = controller.snapshot()
+	const closed = controller.close()
+	flush()
+	await closed
+	await rejected
+	assert.deepEqual(controller.snapshot(), before)
 })
 
 for (const phase of ["build", "up", "readiness"]) test(`closing during ${phase} cancels startup, waits, and uses a fresh cleanup signal`, async t => {
