@@ -430,6 +430,25 @@ test("provider retries discard abandoned text while keeping completed history an
 	await expect(page.getByRole("textbox", { name: "Reply text", exact: true })).toHaveValue("Keep this draft")
 })
 
+test("an agent error never reaches the HUD; the next attempt's stream replaces the failed one", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	const stream = run.streams[0]
+	emit(stream, message(1, "Earlier"))
+	emit(stream, delta(2, "Broken attempt", 0, "attempt-1"))
+	await expect(output(page)).toHaveText("Broken attempt")
+	emit(stream, { type: "message", sequence: 3, message_id: "error", payload: { role: "error", content: "Unparsable JSON", message_kind: null } })
+	emit(stream, delta(4, "Fixed", 0, "attempt-2"))
+	await expect(output(page)).toHaveText("Fixed")
+	emit(stream, message(5, "Fixed response", "attempt-2"))
+	await expect(output(page)).toHaveText("Fixed response")
+	const previous = page.getByRole("button", { name: "Previous agent message", exact: true })
+	await previous.click()
+	await expect(output(page)).toHaveText("Earlier")
+	await expect(previous).toBeDisabled()
+})
+
 test("active prompts stay visible before later notifications and latest navigation returns to the prompt", async ({ desktop: { page }, backend }) => {
 	const run = prepareRun(backend)
 	const history = [message(1, "Earlier"), message(2, "Continue?"), message(3, "Background")]
