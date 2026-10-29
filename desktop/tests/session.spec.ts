@@ -97,9 +97,9 @@ for (const source of ["SSE", "snapshot"] as const) {
 		]
 		const state = source === "SSE" ? receive(session(), ...events) : snapshot(session(), { frames: events })
 		expect(state.hud.view.messages.map(item => item.text)).toEqual([
-			"First continued", "Second", "Continue?", "Problem", literal, "Third",
+			"First continued", "Second", "Continue?", literal, "Third",
 		])
-		expect(selectRunDisplay(state)).toMatchObject({ text: "Third", count: 6, streaming: true })
+		expect(selectRunDisplay(state)).toMatchObject({ text: "Third", count: 5, streaming: true })
 	})
 }
 

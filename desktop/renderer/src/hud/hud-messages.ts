@@ -40,7 +40,6 @@ function promptText(content: string): string | null {
 
 // Adapted from web/lib/robozium/{stream,streaming-text}.ts at 673d361.
 export function messageText(event: MessageEvent): string | null {
-	if (event.role === MessageRole.Error) return event.content
 	if (event.role !== MessageRole.Assistant) return null
 	if (event.kind === MessageKind.UserNotification) return event.content
 	return promptText(event.content)
