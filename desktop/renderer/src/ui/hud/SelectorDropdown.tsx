@@ -1,11 +1,13 @@
 // Copied from robozium-electron/desktop/web/app/components/hud/SelectorDropdown.tsx at 076b2c9.
 // Adapted: the empty catch carries a comment for the desktop lint rules; the
-// trigger markup lives in SelectorTrigger.
+// trigger markup lives in SelectorTrigger; the menu opens leftward from the trigger's
+// right edge and scrolls its options within the room left in the window.
 import {
 	type KeyboardEvent as ReactKeyboardEvent,
 	type ReactNode,
 	useEffect,
 	useId,
+	useLayoutEffect,
 	useRef,
 	useState,
 } from "react"
@@ -28,6 +30,8 @@ type SelectorDropdownProps<Value extends string> = {
 	busy?: boolean
 	variant?: "model" | "view"
 	emptyContent?: ReactNode
+	/** Draws a label, such as a model's tier as an icon; plain text by default. */
+	renderLabel?: (label: string) => ReactNode
 }
 
 function moveOptionFocus(
@@ -59,6 +63,7 @@ export function SelectorDropdown<Value extends string>({
 	busy = false,
 	variant = "model",
 	emptyContent = null,
+	renderLabel = label => label,
 }: SelectorDropdownProps<Value>) {
 	const listboxId = useId()
 	const rootRef = useRef<HTMLDivElement>(null)
@@ -86,6 +91,22 @@ export function SelectorDropdown<Value extends string>({
 			document.removeEventListener("pointerdown", closeOnOutsidePointer)
 			document.removeEventListener("keydown", closeOnEscape, true)
 		}
+	}, [isOpen])
+
+	// The menu may use the window from its left edge to the trigger's right edge, and
+	// from the trigger's bottom edge down, so it never overflows the window.
+	useLayoutEffect(() => {
+		const menu = menuRef.current
+		const trigger = triggerRef.current
+		if (!isOpen || !menu || !trigger) return
+		const fit = () => {
+			const { right, bottom } = trigger.getBoundingClientRect()
+			menu.style.setProperty("--menu-room-inline", `${right}px`)
+			menu.style.setProperty("--menu-room-block", `${window.innerHeight - bottom}px`)
+		}
+		fit()
+		window.addEventListener("resize", fit)
+		return () => window.removeEventListener("resize", fit)
 	}, [isOpen])
 
 	useEffect(() => {
@@ -130,7 +151,7 @@ export function SelectorDropdown<Value extends string>({
 			className={`agent-hud__model-selector agent-hud__model-selector--ready${isViewSelector ? " agent-hud__view-selector" : ""}`}>
 			<SelectorTrigger
 				ref={triggerRef}
-				label={triggerLabel}
+				label={renderLabel(triggerLabel)}
 				open={isOpen}
 				className={isViewSelector ? "agent-hud__view-trigger" : ""}
 				disabled={disabled}
@@ -145,7 +166,7 @@ export function SelectorDropdown<Value extends string>({
 				<div
 					ref={menuRef}
 					id={listboxId}
-					className={`agent-hud__model-menu${isViewSelector ? " agent-hud__view-menu" : ""}`}
+					className="agent-hud__model-menu"
 					role="listbox"
 					aria-label={listboxLabel}
 					onKeyDown={(event) => {
@@ -160,22 +181,24 @@ export function SelectorDropdown<Value extends string>({
 							event.key === "ArrowDown" ? 1 : -1,
 						)
 					}}>
-					{options.map((option) => (
-						<button
-							key={option.value}
-							type="button"
-							role="option"
-							aria-selected={option.value === value}
-							className="agent-hud__model-option"
-							disabled={option.disabled}
-							onClick={() => selectOption(option.value)}>
-							<span>{option.label}</span>
-							{option.value === value ? (
-								<span aria-hidden="true">●</span>
-							) : null}
-						</button>
-					))}
-					{options.length === 0 ? emptyContent : null}
+					<div className="agent-hud__model-options">
+						{options.map((option) => (
+							<button
+								key={option.value}
+								type="button"
+								role="option"
+								aria-selected={option.value === value}
+								className="agent-hud__model-option"
+								disabled={option.disabled}
+								onClick={() => selectOption(option.value)}>
+								<span>{renderLabel(option.label)}</span>
+								{option.value === value ? (
+									<span aria-hidden="true">●</span>
+								) : null}
+							</button>
+						))}
+						{options.length === 0 ? emptyContent : null}
+					</div>
 				</div>
 			) : null}
 		</div>

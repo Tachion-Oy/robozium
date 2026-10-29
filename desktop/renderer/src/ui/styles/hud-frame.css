@@ -268,10 +268,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
     drop-shadow(0 0 1px color-mix(in oklab, var(--term-blue) clamp(0%, 58% * var(--tune-glow, 1), 100%), transparent))
     drop-shadow(0 0 6px color-mix(in oklab, var(--term-blue) clamp(0%, 28% * var(--tune-glow, 1), 100%), transparent));
   opacity: 0.72;
-  transition:
-    color 140ms ease,
-    filter 140ms ease,
-    opacity 140ms ease;
 }
 
 .agent-hud__resize-icon {
@@ -299,21 +295,16 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   opacity: 1;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .agent-hud__resize-wedge {
-    transition: none;
-  }
-}
-
 .agent-hud__box--landing {
   justify-content: flex-start;
 }
 
-/* Model selection and view mode share the HUD's top edge. */
+/* Model selection and view mode share the HUD's top edge. Its open menus cover
+   the edge control columns (z-index 21). */
 
 .agent-hud__header {
   position: relative;
-  z-index: 20;
+  z-index: 22;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -571,6 +562,9 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* The clip box reaches below descenders (g, p, q) without changing the height. */
+  padding-block: 0.15em;
+  margin-block: -0.15em;
   vertical-align: bottom;
   animation: hud-text-swap 1s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -626,6 +620,11 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
 }
 :root[data-theme="light"] .agent-hud__header--row {
   margin-bottom: 0.85rem;
+}
+/* The overview's table keeps a clear gap from the selectors above it. */
+:root[data-theme="light"] .agent-hud__header--landing,
+:root[data-theme="light"] .agent-hud__header--runs-overview {
+  margin-bottom: 3rem;
 }
 :root[data-theme="light"] .agent-hud__event-edge {
   max-width: calc(100% - 4.5rem);

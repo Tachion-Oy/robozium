@@ -1,5 +1,5 @@
 /* Shared model/view dropdown surface. Each selector supplies its signature
-   accent; the HUD view variant also anchors its menu to the top-right. */
+   accent; both menus hang from the trigger's right edge. */
 .agent-hud__model-selector {
   --selector-accent: var(--term-green);
   position: relative;
@@ -49,6 +49,22 @@
 .agent-hud__model-trigger > span {
   overflow: hidden;
   text-overflow: ellipsis;
+  /* The clip box reaches below descenders (g, p, q) without changing the height. */
+  padding-block: 0.15em;
+  margin-block: -0.15em;
+}
+
+/* A model's speed tier, drawn in the label's colour at its cap height. */
+.agent-hud__model-tier {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.2em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .agent-hud__model-caret {
@@ -69,16 +85,21 @@
   --menu-cut: 0.5rem;
   --menu-ring: 2px;
   --menu-edge: color-mix(in oklab, var(--selector-accent) clamp(0%, 62% * var(--tune-edge, 1), 100%), transparent);
+  --menu-offset: 0.5rem;
+  --menu-gutter: 1rem;
   position: absolute;
-  top: calc(100% + 0.5rem);
-  left: 0;
+  top: calc(100% + var(--menu-offset));
+  right: 0;
   z-index: 40;
   isolation: isolate;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
   width: max-content;
   min-width: 100%;
-  max-width: min(28rem, calc(100vw - 4rem));
+  /* SelectorDropdown measures the room the window leaves beside and below the trigger. */
+  max-width: calc(var(--menu-room-inline, 100vw) - var(--menu-gutter));
+  max-height: calc(var(--menu-room-block, 100vh) - var(--menu-offset) - var(--menu-gutter));
   padding: 0.35rem;
   border: 0;
   /* The ring is drawn once, by the clipped ::before, as on the buttons. Extra
@@ -88,11 +109,6 @@
   box-shadow:
     0 0 18px color-mix(in oklab, var(--selector-accent) clamp(0%, 18% * var(--tune-glow, 1), 100%), transparent),
     inset 0 0 18px color-mix(in oklab, var(--selector-accent) clamp(0%, 7% * var(--tune-glow, 1), 100%), transparent);
-}
-
-.agent-hud__view-menu {
-  right: 0;
-  left: auto;
 }
 
 .agent-hud__model-menu::before,
@@ -142,6 +158,14 @@
   z-index: 1;
 }
 
+/* The options scroll inside the ring, which stays put. */
+.agent-hud__model-options {
+  display: grid;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .agent-hud__model-option {
   display: flex;
   align-items: center;
@@ -155,7 +179,8 @@
   font-family: var(--font-agent-input);
   line-height: 1.2;
   text-align: left;
-  white-space: nowrap;
+  /* A label wider than the window's room wraps; the selected dot stays beside it. */
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
 
@@ -296,11 +321,6 @@
     inset 0 -0.16rem 0 color-mix(in oklab, var(--btn-tone) clamp(0%, 68% * var(--tune-glow, 1), 100%), transparent),
     0 0.13rem 0.2rem
       color-mix(in oklab, var(--hud-control-ink) clamp(0%, 11% * var(--tune-shadow, 1), 100%), transparent);
-    transition: transform 110ms ease,
-    border-color 110ms ease,
-    background 110ms ease,
-    box-shadow 110ms ease,
-    color 110ms ease
 }
 :root[data-theme="light"] .agent-hud__model-trigger::before,
 :root[data-theme="light"] .agent-hud__model-trigger::after {

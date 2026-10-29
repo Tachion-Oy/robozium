@@ -2,7 +2,8 @@
 // Adapted: autoFocus focuses the reply when Current Run opens; restored previews
 // load from the backend with crossorigin; the composer is disabled only with its
 // editor, not whenever images cannot be added; no "Updating images…" notice
-// flashes beneath the reply, and image failures are a toast with Retry images.
+// flashes beneath the reply, and image failures are a toast with Retry images; the
+// placeholder says "Enter", since a reply is typed or dictated.
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEventHandler } from "react"
 import type { DropzoneState } from "react-dropzone"
 import type { ReplyImage, ReplyImagesModel } from "../../attachments/useReplyImages"
@@ -83,7 +84,7 @@ export function ReplyEditor({
 					onKeyDown={handleKeyDown}
 					disabled={disabled}
 					autoFocus={autoFocus}
-					placeholder="Type your reply..."
+					placeholder="Enter your reply..."
 				/>
 			</div>
 			{images?.images.length ? (

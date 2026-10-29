@@ -254,7 +254,6 @@
   .term-log--scrollable
   .term-msg--interactive {
   border-radius: 0.2rem;
-  transition: background-color 140ms ease-out;
 }
 
 :root[data-theme="dark"]

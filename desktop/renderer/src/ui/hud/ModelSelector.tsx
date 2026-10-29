@@ -1,6 +1,8 @@
 // Markup copied from robozium-electron/desktop/web/app/components/hud/ModelSelector.tsx
-// at 076b2c9. Adapted: useModels owns the selection, requests and acknowledgements.
+// at 076b2c9. Adapted: useModels owns the selection, requests and acknowledgements,
+// and ModelLabel draws the speed tier as an icon.
 import type { ModelsState } from "../../models/useModels"
+import { ModelLabel } from "./ModelLabel"
 import { SelectorDropdown } from "./SelectorDropdown"
 
 export function ModelSelectorLoading() {
@@ -37,6 +39,7 @@ export function ModelSelector({ models, disabled = false }: {
 			}))}
 			triggerLabel={selected?.label ?? "Model"}
 			listboxLabel="Base model"
+			renderLabel={(label) => <ModelLabel label={label} />}
 			disabled={disabled}
 			onOpen={() => {
 				// As in the reference, plus after a failed request or an empty catalogue,

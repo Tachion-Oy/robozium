@@ -21,11 +21,6 @@
 
 .app-nav__cta.agent-hud__start {
   font-size: 1.55rem;
-  transition:
-    color 140ms ease,
-    background-color 140ms ease,
-    border-color 140ms ease,
-    box-shadow 140ms ease;
 }
 
 .app-nav__cta.agent-hud__start:not(:disabled):hover,
@@ -55,7 +50,7 @@
 }
 
 .agent-hud__project-view {
-  animation: hud-view-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: hud-view-in 150ms cubic-bezier(0.22, 1, 0.36, 1) both;
   transform-origin: center;
 }
 

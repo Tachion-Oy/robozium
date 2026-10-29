@@ -1,9 +1,9 @@
 // The reference header trigger, written out in SelectorDropdown.tsx and
 // UnlockApiKeys.tsx at 076b2c9: a label and a caret that turns while open.
-import type { ComponentPropsWithRef } from "react"
+import type { ComponentPropsWithRef, ReactNode } from "react"
 
 type SelectorTriggerProps = Omit<ComponentPropsWithRef<"button">, "children" | "aria-expanded"> & {
-	label: string
+	label: ReactNode
 	open: boolean
 }
 

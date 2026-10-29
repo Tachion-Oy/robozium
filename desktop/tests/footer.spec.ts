@@ -20,20 +20,18 @@ test("fixture history navigates without wrapping and retains selection with draf
 	const next = page.getByRole("button", { name: "Next agent message", exact: true })
 	const latest = page.getByRole("button", { name: "Jump to latest agent message", exact: true })
 	await expect(message).toContainText("Mock run ready.")
-	// Each side stacks its one-step button above its jump; the image plus is square.
-	const [firstBox, previousBox, nextBox, latestBox, plusBox] = await Promise.all(
-		[first, previous, next, latest, page.getByRole("button", { name: "Add images" })].map(async button => (await button.boundingBox())!))
-	for (const [step, jump] of [[previousBox, firstBox], [nextBox, latestBox]]) {
-		expect(step.y + step.height).toBeLessThanOrEqual(jump.y + 0.5)
-		expect(Math.abs(step.x - jump.x)).toBeLessThan(0.5)
+	// One row: jump, step, indicator, step, jump, each as tall as the indicator; the image plus is square.
+	const indicator = page.locator(".agent-hud__logo--actions")
+	const [firstBox, previousBox, markBox, nextBox, latestBox, plusBox] = await Promise.all(
+		[first, previous, indicator, next, latest, page.getByRole("button", { name: "Add images" })].map(async button => (await button.boundingBox())!))
+	const row = [firstBox, previousBox, markBox, nextBox, latestBox]
+	for (const [left, right] of row.slice(0, -1).map((box, index) => [box, row[index + 1]])) {
+		expect(left.x + left.width).toBeLessThanOrEqual(right.x + 0.5)
 	}
-	// The arrows line up on the edge nearest the indicator, with a small gap between rows.
-	const wedges = await Promise.all([first, previous, next, latest].map(button =>
-		button.locator(".agent-hud__message-wedge").evaluate(wedge => wedge.getBoundingClientRect().toJSON() as DOMRect)))
-	const [firstWedge, previousWedge, nextWedge, latestWedge] = wedges
-	expect(Math.abs(previousWedge.right - firstWedge.right)).toBeLessThan(1.5)
-	expect(Math.abs(nextWedge.left - latestWedge.left)).toBeLessThan(1.5)
-	expect(firstWedge.top - previousWedge.bottom).toBeLessThan(9)
+	for (const box of row) {
+		expect(Math.abs(box.y + box.height / 2 - (markBox.y + markBox.height / 2))).toBeLessThan(0.5)
+		expect(box.height).toBeGreaterThanOrEqual(markBox.height - 0.5)
+	}
 	expect(Math.abs(plusBox.width - plusBox.height)).toBeLessThan(0.5)
 	await expect(next).toBeDisabled()
 	await expect(latest).toBeDisabled()
