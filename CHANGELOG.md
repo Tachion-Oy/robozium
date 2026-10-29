@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## 0.2.2 - 2026-10-30
+
+- Show **Updating** and a progress bar on the desktop loader while the backend
+  image rebuilds after an update. The bar follows the build's Dockerfile steps
+  and apt's package counts, then the label fades to **Loading**. A first launch
+  keeps its first-launch message, and starts without a build show neither.
+- Stop the desktop working pulse from repainting every frame. It now fades a
+  static copy of the mark with opacity only, which ends the white flashes from
+  i915 GPU hangs on Intel graphics in power-saver mode.
+- Keep agent error messages, such as a reply the backend could not parse, out of
+  the desktop HUD. They stay in the message log, and the next attempt's stream
+  replaces the failed one, as on the web.
+- Scroll the desktop message log smoothly: a row arriving at the tail slides in,
+  and while scrolled up the row being read stays in place.
+- Desktop visual tweaks: Markdown tables wrap within the panel, overview row
+  buttons line up, the model and view menus fit the window and scroll inside
+  themselves, and hover feedback is instant. Model labels draw Fast and Deep
+  reasoning as icons, and the app icon takes the indicator's colours.
+- The live model check sends each selectable model the orchestrator's full
+  system prompt and requires a tool call the application accepts, so a model
+  whose content filter refuses that prompt fails the check.
+
 ## 0.2.1 - 2026-10-28
 
 - Fix Kimi K3.1 Pro, Claude Sonnet 5.5 and GPT-6.1 Sol, which failed every
