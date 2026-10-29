@@ -1,9 +1,11 @@
 import pytest
+from roboz.agent import Agent
 from roboz.endpoints.adapters.openai_compatible import OpenAICompatibleAdapter
 from roboz.endpoints.catalog import Catalog
 from roboz.endpoints.specs import ChatModelSpec
-from roboz.llm import LLMEndpoint, with_openrouter_policy
-from roboz.models import Message
+from roboz.llm import LLMEndpoint, MockLLMEndpoint, with_openrouter_policy
+from roboz.models import Message, Role
+from roboz.tools import stop
 
 from scripts import model_check
 from scripts.model_check import (
@@ -52,12 +54,27 @@ def _models(catalog=None) -> dict[str, LLMEndpoint]:
     }
 
 
+_TOOL_CALL = '{"action": "stop", "rationale": "greeted", "value": "Hi"}'
+
+
+def _agent(endpoint: LLMEndpoint) -> Agent:
+    return Agent(
+        name="probe",
+        tools=[stop],
+        system_prompt=f"Orchestrate on {endpoint.model_name}.",
+        agent_endpoint=MockLLMEndpoint([]),
+    )
+
+
 class _Replies:
     def __init__(self, **replies: str) -> None:
         self.replies = replies
         self.sent: list[tuple[str, Message, dict]] = []
+        self.conversations: list[list[Message]] = []
 
-    def __call__(self, endpoint: LLMEndpoint, message: Message) -> str:
+    def __call__(self, endpoint: LLMEndpoint, messages: list[Message]) -> str:
+        self.conversations.append(messages)
+        message = messages[-1]
         self.sent.append((endpoint.model_name, message, dict(endpoint.extra_body or {})))
         reply = self.replies["image" if message.images else "text"]
         if reply == "raise":
@@ -210,11 +227,61 @@ def test_result_lines_show_each_check() -> None:
     ) == "SKIP openrouter lab/vision [Vision · Fast]: Set KEY"
 
 
+def test_chat_models_get_the_agent_system_prompt_and_must_call_a_tool() -> None:
+    models = {**_models(), model_check.MEMORY_LABEL: _models()["Text · Deep reasoning"]}
+    ping = _Replies(text=_TOOL_CALL, image="red")
+    built: dict[str, Agent] = {}
+
+    def build_agent(endpoint: LLMEndpoint) -> Agent:
+        built[endpoint.model_name] = _agent(endpoint)
+        return built[endpoint.model_name]
+
+    vision, text, memory = run_checks(
+        models, required=True, published=None, ping=ping, build_agent=build_agent
+    )
+
+    assert vision.passed and text.passed
+    assert memory.text == f"unexpected reply {_TOOL_CALL!r}"
+    assert sorted(built) == ["lab/text", "lab/vision"]
+    agent_conversations = sorted(
+        tuple(message.content for message in conversation)
+        for conversation in ping.conversations
+        if conversation[0].role == Role.SYSTEM
+    )
+    assert agent_conversations == sorted(
+        (agent.full_system_prompt, model_check.AGENT_GREETING)
+        for agent in built.values()
+    )
+
+@pytest.mark.parametrize(
+    "reply", ["", "hello", '{"rationale": "no action"}', '{"action": "missing", "rationale": "x"}']
+)
+def test_agent_probe_fails_without_a_valid_tool_call(reply) -> None:
+    (result,) = run_checks(
+        {"Text": _models()["Text · Deep reasoning"]},
+        required=True,
+        published=None,
+        ping=_Replies(text=reply),
+        build_agent=_agent,
+    )
+
+    assert result.text == f"unexpected reply {reply!r}"
+
+
 def test_main_checks_the_memory_model_and_fails_on_any_failure(monkeypatch, capsys) -> None:
     models = {**_models(), model_check.MEMORY_LABEL: _models()["Text · Deep reasoning"]}
     monkeypatch.setattr(model_check, "configured_models", lambda: models)
     monkeypatch.setattr(model_check, "fetch_openrouter_models", lambda: _PUBLISHED)
-    monkeypatch.setattr(model_check, "_live_ping", _Replies(text="hello", image="blue"))
+    monkeypatch.setattr(model_check, "build_orchestrator", _agent)
+    monkeypatch.setattr(
+        model_check,
+        "_live_ping",
+        lambda endpoint, messages: (
+            "blue" if messages[-1].images
+            else _TOOL_CALL if messages[0].role == Role.SYSTEM
+            else "hello"
+        ),
+    )
 
     assert model_check.main(["--provider", "openrouter"]) == 1
     lines = capsys.readouterr().out.splitlines()
@@ -245,3 +312,12 @@ def test_main_fails_clearly_when_the_listing_is_unavailable(monkeypatch, capsys)
     assert capsys.readouterr().out == (
         "FAIL openrouter model listing: OSError: network down\n"
     )
+
+
+def test_the_orchestrator_prompt_comes_from_the_application_deployment() -> None:
+    from roboz.shed.agents.orchestrator import ORCHESTRATOR_PROMPT
+
+    agent = model_check.build_orchestrator(_models()["Text · Deep reasoning"])
+
+    assert agent.full_system_prompt.startswith(ORCHESTRATOR_PROMPT)
+    assert "# Instructions on Tool Usage" in agent.full_system_prompt
