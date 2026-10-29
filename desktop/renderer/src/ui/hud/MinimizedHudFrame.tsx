@@ -2,7 +2,7 @@
 // Adapted: the Robozium mark replaces the "A".
 import type { ReactNode } from "react"
 import type { AgentActivityState } from "../run/run-view"
-import { RoboziumMark } from "../branding/RoboziumMark"
+import { AgentIndicator } from "../branding/RoboziumMark"
 
 /** Shared minimized shell and activity mark for re-entry and desktop loading. */
 export function MinimizedHudFrame({ agentActivityState, heading, children }: {
@@ -13,12 +13,7 @@ export function MinimizedHudFrame({ agentActivityState, heading, children }: {
 	return (
 		<div className="agent-hud__mini-box">
 			{heading}
-			<span
-				className="agent-hud__logo agent-hud__logo--mini"
-				data-agent-state={agentActivityState ?? undefined}
-				aria-hidden="true">
-				<RoboziumMark />
-			</span>
+			<AgentIndicator className="agent-hud__logo--mini" agentActivityState={agentActivityState} />
 			{children}
 		</div>
 	)

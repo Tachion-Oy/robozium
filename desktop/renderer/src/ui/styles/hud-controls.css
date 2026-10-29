@@ -140,7 +140,10 @@
 .agent-hud__logo--actions {
   --hud-logo-size: 36px;
   --hud-logo-font-size: 31px;
-  position: static;
+  /* Relative only to hold the pulse layer, without the seam offsets, so it is
+     laid out as if static. */
+  position: relative;
+  inset: auto;
   flex: 0 0 auto;
   transform: none;
 }
@@ -175,45 +178,66 @@
     drop-shadow(0 0 18px color-mix(in oklab, var(--term-amber) clamp(0%, 42% * var(--tune-glow, 1), 100%), transparent));
 }
 
+/* The pulse fades between two finished layers: the indicator shows the dim end,
+   and the pulse layer above it the bright end. Only opacity animates, so the GPU
+   blends both layers without repainting their masks, filters or shadows; on
+   Intel GPUs, repainting those every frame caused GPU hangs during long runs. */
+
+.agent-hud__logo-pulse {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.agent-hud__logo-pulse > .robozium-mark {
+  display: block;
+  width: calc(var(--hud-logo-size) * 0.81);
+  height: calc(var(--hud-logo-size) * 0.81);
+}
+
 @media (prefers-reduced-motion: no-preference) {
-  @keyframes hud-agent-working-pulse {
-    from {
-      color: color-mix(in oklab, var(--term-amber) clamp(0%, 58% * var(--tune-text, 1), 100%), black);
-      box-shadow: 0 0 9px
-        color-mix(in oklab, var(--term-amber) clamp(0%, 52% * var(--tune-glow, 1), 100%), transparent);
-    }
-    to {
-      color: color-mix(in oklab, white clamp(0%, 22% * var(--tune-sheen, 1), 100%), var(--term-amber));
-      box-shadow: 0 0 9px
-        color-mix(in oklab, var(--term-amber) clamp(0%, 52% * var(--tune-glow, 1), 100%), transparent);
-    }
+  @keyframes hud-agent-working-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
-  @keyframes hud-agent-working-glow {
-    from {
-      filter:
-        drop-shadow(0 0 1px color-mix(in oklab, var(--term-amber) clamp(0%, 42% * var(--tune-glow, 1), 100%), transparent))
-        drop-shadow(0 0 5px color-mix(in oklab, var(--term-amber) clamp(0%, 24% * var(--tune-glow, 1), 100%), transparent))
-        drop-shadow(0 0 14px color-mix(in oklab, var(--term-amber) clamp(0%, 12% * var(--tune-glow, 1), 100%), transparent));
-    }
-    to {
-      filter:
-        drop-shadow(0 0 2px color-mix(in oklab, white clamp(0%, 48% * var(--tune-sheen, 1), 100%), transparent))
-        drop-shadow(0 0 8px color-mix(in oklab, var(--term-amber) clamp(0%, 92% * var(--tune-glow, 1), 100%), transparent))
-        drop-shadow(0 0 22px color-mix(in oklab, var(--term-amber) clamp(0%, 70% * var(--tune-glow, 1), 100%), transparent));
-    }
+  @keyframes hud-agent-working-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
   }
 
   .agent-hud__logo[data-agent-state="working"] {
-    animation: hud-agent-working-pulse 1.15s ease-in-out infinite alternate;
+    color: color-mix(in oklab, var(--term-amber) clamp(0%, 58% * var(--tune-text, 1), 100%), black);
   }
 
   .agent-hud__logo[data-agent-state="working"] > .robozium-mark {
-    animation: hud-agent-working-glow 1.15s ease-in-out infinite alternate;
+    filter:
+      drop-shadow(0 0 1px color-mix(in oklab, var(--term-amber) clamp(0%, 42% * var(--tune-glow, 1), 100%), transparent))
+      drop-shadow(0 0 5px color-mix(in oklab, var(--term-amber) clamp(0%, 24% * var(--tune-glow, 1), 100%), transparent))
+      drop-shadow(0 0 14px color-mix(in oklab, var(--term-amber) clamp(0%, 12% * var(--tune-glow, 1), 100%), transparent));
+    animation: hud-agent-working-fade-out 1.15s ease-in-out infinite alternate;
+  }
+
+  .agent-hud__logo[data-agent-state="working"] > .agent-hud__logo-pulse {
+    display: flex;
+    color: color-mix(in oklab, white clamp(0%, 22% * var(--tune-sheen, 1), 100%), var(--term-amber));
+    animation: hud-agent-working-fade-in 1.15s ease-in-out infinite alternate;
+  }
+
+  .agent-hud__logo-pulse > .robozium-mark {
+    filter:
+      drop-shadow(0 0 2px color-mix(in oklab, white clamp(0%, 48% * var(--tune-sheen, 1), 100%), transparent))
+      drop-shadow(0 0 8px color-mix(in oklab, var(--term-amber) clamp(0%, 92% * var(--tune-glow, 1), 100%), transparent))
+      drop-shadow(0 0 22px color-mix(in oklab, var(--term-amber) clamp(0%, 70% * var(--tune-glow, 1), 100%), transparent));
   }
 }
 
-.agent-hud__logo > .robozium-mark::before {
+.agent-hud__logo > .robozium-mark::before,
+.agent-hud__logo-pulse > .robozium-mark::before {
   content: "";
   display: block;
   width: 100%;
@@ -227,7 +251,8 @@
    pulse styling are inherited from .agent-hud__logo. */
 
 .agent-hud__logo--mini {
-  position: static;
+  position: relative;
+  inset: auto;
   transform: none;
 }
 
@@ -1000,33 +1025,45 @@
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 52% * var(--tune-sheen, 1), 100%), transparent),
     0 0.18rem 0.55rem
       color-mix(in oklab, var(--term-amber) clamp(0%, 18% * var(--tune-glow, 1), 100%), transparent);
-  animation: hud-light-agent-working-invert 1.15s ease-in-out infinite alternate;
 }
-@keyframes hud-light-agent-working-invert {
-  from {
+/* The light pulse fades from the inverted amber indicator to the light one. The
+   light end is the indicator itself, with its outer ring and shadow on ::after
+   so they fade out under the inverted layer. */
+:root[data-theme="light"] .agent-hud__logo-pulse > .robozium-mark {
+  filter: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-theme="light"]
+    .agent-hud__logo[data-agent-state="working"] {
+    color: color-mix(in oklab, var(--term-amber) clamp(0%, 86% * var(--tune-text, 1), 100%), var(--hud-control-ink));
+    background: color-mix(in oklab, var(--hud-input-bg) 94%, white 6%);
+    border-color: color-mix(in oklab, var(--term-amber) clamp(0%, 46% * var(--tune-edge, 1), 100%), var(--hud-input-border));
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 55% * var(--tune-sheen, 1), 100%), transparent);
+  }
+  :root[data-theme="light"]
+    .agent-hud__logo[data-agent-state="working"]::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    box-shadow:
+      0 0 0 0.16rem color-mix(in oklab, var(--term-amber) clamp(0%, 13% * var(--tune-glow, 1), 100%), transparent),
+      0 0.2rem 0.7rem
+        color-mix(in oklab, var(--term-amber) clamp(0%, 18% * var(--tune-glow, 1), 100%), transparent);
+    pointer-events: none;
+    animation: hud-agent-working-fade-in 1.15s ease-in-out infinite alternate;
+  }
+  :root[data-theme="light"]
+    .agent-hud__logo[data-agent-state="working"] > .agent-hud__logo-pulse {
+    inset: -1px;
     color: color-mix(in oklab, white clamp(0%, 92% * var(--tune-sheen, 1), 100%), var(--term-amber));
     background: color-mix(in oklab, var(--term-amber) clamp(0%, 82% * var(--tune-text, 1), 100%), var(--hud-control-ink));
-    border-color: color-mix(in oklab, var(--term-amber) clamp(0%, 70% * var(--tune-edge, 1), 100%), var(--hud-control-ink));
+    border: 1px solid color-mix(in oklab, var(--term-amber) clamp(0%, 70% * var(--tune-edge, 1), 100%), var(--hud-control-ink));
     box-shadow:
       inset 0 1px 0 color-mix(in oklab, white clamp(0%, 35% * var(--tune-sheen, 1), 100%), transparent),
       0 0.18rem 0.55rem
         color-mix(in oklab, var(--term-amber) clamp(0%, 22% * var(--tune-glow, 1), 100%), transparent);
-  }
-  to {
-    color: color-mix(in oklab, var(--term-amber) clamp(0%, 86% * var(--tune-text, 1), 100%), var(--hud-control-ink));
-    background: color-mix(in oklab, var(--hud-input-bg) 94%, white 6%);
-    border-color: color-mix(in oklab, var(--term-amber) clamp(0%, 46% * var(--tune-edge, 1), 100%), var(--hud-input-border));
-    box-shadow:
-      inset 0 1px 0 color-mix(in oklab, white clamp(0%, 55% * var(--tune-sheen, 1), 100%), transparent),
-      0 0 0 0.16rem color-mix(in oklab, var(--term-amber) clamp(0%, 13% * var(--tune-glow, 1), 100%), transparent),
-      0 0.2rem 0.7rem
-        color-mix(in oklab, var(--term-amber) clamp(0%, 18% * var(--tune-glow, 1), 100%), transparent);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  :root[data-theme="light"]
-    .agent-hud__logo[data-agent-state="working"] {
-    animation: none;
+    animation: hud-agent-working-fade-out 1.15s ease-in-out infinite alternate;
   }
 }
 :root[data-theme="light"] .agent-hud__expand::before,
