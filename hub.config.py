@@ -54,7 +54,6 @@ DEEP_REASONING_MODELS: Final = {
     "Kimi K3.1 Pro": OPENROUTER.moonshotai__kimi_k3_1_pro,
     "Qwen3.8 Max": OPENROUTER.qwen__qwen3_8_max_0902,
     "Gemini 4 Argon": OPENROUTER.google__gemini_4_argon,
-    "Claude Sonnet 5.5": OPENROUTER.anthropic__claude_sonnet_5_5,
     "GPT-6.1 Sol": OPENROUTER.openai__gpt_6_1_sol,
     "Grok 4.7": OPENROUTER.x_ai__grok_4_7,
 }

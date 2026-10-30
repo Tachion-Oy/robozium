@@ -67,7 +67,9 @@ def _agent(endpoint: LLMEndpoint) -> Agent:
 
 
 class _Replies:
-    def __init__(self, **replies: str) -> None:
+    """Answer each probe kind with one reply, or with a list consumed in order."""
+
+    def __init__(self, **replies: str | list[str]) -> None:
         self.replies = replies
         self.sent: list[tuple[str, Message, dict]] = []
         self.conversations: list[list[Message]] = []
@@ -77,6 +79,8 @@ class _Replies:
         message = messages[-1]
         self.sent.append((endpoint.model_name, message, dict(endpoint.extra_body or {})))
         reply = self.replies["image" if message.images else "text"]
+        if isinstance(reply, list):
+            reply = reply.pop(0) if len(reply) > 1 else reply[0]
         if reply == "raise":
             raise RuntimeError("provider unavailable")
         return reply
@@ -179,6 +183,24 @@ def test_wrong_replies_errors_and_metadata_fail_without_stopping() -> None:
     assert vision.metadata is not None and "accepts_images is True" in vision.metadata
     assert text.metadata == "not listed by the provider"
     assert not vision.passed and not text.passed
+    attempts = model_check.PROBE_ATTEMPTS
+    probes = sorted(bool(m.images) for model, m, _ in ping.sent if model == "lab/vision")
+    assert probes == [False] * attempts + [True] * attempts
+
+
+@pytest.mark.parametrize("first", ["raise", "", "Goodbye."])
+def test_a_probe_passes_when_a_retry_succeeds(first) -> None:
+    ping = _Replies(text=[first, "Hello!"], image="Red.")
+
+    (result,) = run_checks(
+        {"Text": _models()["Text · Deep reasoning"]},
+        required=True,
+        published=None,
+        ping=ping,
+    )
+
+    assert result.passed
+    assert len(ping.sent) == 2
 
 
 def test_missing_key_skips_unless_the_provider_is_required(monkeypatch) -> None:
