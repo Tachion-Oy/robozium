@@ -67,6 +67,14 @@ export function App({ client, connected, covered, backend }: AppProps) {
 	const replyImages = useReplyImages(client, session?.run.runId ?? null, runEnded)
 	const fileUrl = useMemo(() => (path: string) => hubFileUrl(client, path), [client])
 	const [draft, setDraft] = useState("")
+	// Like the images, the text belongs to one live run: opening another run or
+	// ending this one empties it, so old text never resurfaces in a later run.
+	const draftRun = runEnded ? null : session?.run.runId ?? null
+	const [draftOwner, setDraftOwner] = useState(draftRun)
+	if (draftOwner !== draftRun) {
+		setDraftOwner(draftRun)
+		setDraft("")
+	}
 	// As in the reference, a transcript joins the draft after a space.
 	const dictation = useDictation({ client, onTranscript: text =>
 		setDraft(current => current.trim() ? `${current.trimEnd()} ${text}` : text) })

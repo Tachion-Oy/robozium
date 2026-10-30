@@ -140,7 +140,7 @@ for (const failure of ["rejection", "refusal", "timeout"] as const) {
 	})
 }
 
-test("opening another run aborts a pending reply and ignores its late answer", async ({ desktop: { page }, backend }) => {
+test("opening another run aborts a pending reply, empties the reply box and ignores the late answer", async ({ desktop: { page }, backend }) => {
 	const previous = prepareRun(backend)
 	backend.handlers.set("GET /projects", response => json(response, [project("existing-project"), project("next-project")]))
 	backend.handlers.set("GET /run/run-one", response => json(response, waiting()))
@@ -151,7 +151,7 @@ test("opening another run aborts a pending reply and ignores its late answer", a
 		response.on("close", () => { aborted = true })
 	})
 	await start(page, backend)
-	await replyBox(page).fill("Keep across runs")
+	await replyBox(page).fill("Earlier run's reply")
 	await send(page).click()
 	await expect.poll(() => pending).toBeDefined()
 	prepareRun(backend, "next-run", "next-project")
@@ -159,10 +159,12 @@ test("opening another run aborts a pending reply and ignores its late answer", a
 	await view(page, "Runs Overview")
 	await launchButton(page, "next-project").click()
 	await expect(output(page)).toHaveText("Question p2")
+	await expect(replyBox(page)).toHaveValue("")
 	await expect.poll(() => aborted).toBe(true)
 	await expect.poll(() => previous.closed).toBe(previous.streams.length)
+	await replyBox(page).fill("Next run's reply")
 	json(pending!, { ok: true })
-	await expect(replyBox(page)).toHaveValue("Keep across runs")
+	await expect(replyBox(page)).toHaveValue("Next run's reply")
 	await expect(send(page)).toBeEnabled()
 	await expect(runStatus(page)).toContainText("next-project")
 	await expect(page.getByRole("alert")).toHaveCount(0)

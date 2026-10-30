@@ -127,6 +127,14 @@ test("Tools restores saved choices, and Escape or Cancel returns to the overview
 	// The row itself is not a button: clicking it does nothing.
 	await row(page, "existing-project").getByText("existing-project").click()
 	await expect(selector(page)).toHaveCount(0)
+	// Hovering the row, its buttons included, only tints it; the arrow cursor says it is not clickable.
+	const background = () => row(page, "existing-project").evaluate(element => getComputedStyle(element).backgroundColor)
+	await page.mouse.move(0, 0)
+	const resting = await background()
+	await row(page, "existing-project").getByRole("button", { name: "Tools", exact: true }).hover()
+	await expect.poll(background).not.toBe(resting)
+	await row(page, "existing-project").getByText("existing-project").hover()
+	await expect(row(page, "existing-project").getByText("existing-project")).toHaveCSS("cursor", "default")
 	await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible()
 	expect(writes(backend)).toEqual([])
 })
