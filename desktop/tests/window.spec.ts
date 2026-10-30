@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test"
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { LOG_SIDE_WIDTH, LOG_STACK_HEIGHT, MessageLogWindow, logWindowSize } from "../src/message-log-window"
+import { HUD_MIN_WIDTH, LOG_MIN_WIDTH, LOG_SIDE_WIDTH, LOG_STACK_HEIGHT, MessageLogWindow, logWindowSize } from "../src/message-log-window"
 import { readSettings, saveSettings } from "../src/settings"
 import { boundedSize, nextZoom, windowLimits, zoomShortcut, type ZoomInput } from "../src/window"
 
@@ -24,37 +24,46 @@ function fixture(area = { x: 0, y: 0, width: 1920, height: 1080 }) {
 	return { window, dock, zoom: (value: number) => { zoom = value } }
 }
 
-test("opening grows only enough for readable panes and closing restores the original size", () => {
+test("opening adds the log beside the HUD and closing restores the original size", () => {
 	const { dock, window } = fixture()
 	dock.setOpen(true)
-	expect(window.getContentSize()).toEqual([1120, 650])
+	expect(window.getContentSize(), "The log takes its 2fr share beside the 3fr HUD").toEqual([1500, 650])
 	expect(dock.savedSize(), "Temporary expansion is not persisted").toEqual({ width: 900, height: 650 })
 	expect(window.getBounds().x + window.getBounds().width).toBeLessThanOrEqual(1920)
 	dock.setOpen(false)
 	expect(window.getContentSize()).toEqual([900, 650])
 })
 
-test("an already sufficient window remains unchanged", () => {
+test("a narrow HUD gains at least the log's minimum width", () => {
+	const { dock, window } = fixture()
+	window.setContentSize(660, 650)
+	dock.setOpen(true)
+	expect(window.getContentSize()).toEqual([660 + LOG_MIN_WIDTH, 650])
+})
+
+test("a wide window grows only to the work area's limit and closing restores it", () => {
 	const { dock, window } = fixture()
 	window.setContentSize(1260, 780)
 	dock.setOpen(true)
+	expect(window.getContentSize()).toEqual([1728, 780])
+	dock.setOpen(false)
 	expect(window.getContentSize()).toEqual([1260, 780])
 })
 
-test("manual resizing while open retains and persists the user's size", () => {
+test("after manual resizing while open, closing keeps the HUD's column, which is also persisted", () => {
 	const { dock, window } = fixture()
 	dock.setOpen(true)
 	window.setContentSize(1300, 720)
-	expect(dock.savedSize()).toEqual({ width: 1300, height: 720 })
+	expect(dock.savedSize()).toEqual({ width: 780, height: 720 })
 	dock.setOpen(false)
-	expect(window.getContentSize()).toEqual([1300, 720])
+	expect(window.getContentSize()).toEqual([780, 720])
 })
 
 test("zoom increases physical requirements without changing text size", () => {
 	const { dock, window, zoom } = fixture()
 	zoom(1.25)
 	dock.setOpen(true)
-	expect(window.getContentSize()).toEqual([1400, 650])
+	expect(window.getContentSize()).toEqual([1500, 650])
 	zoom(1.5)
 	dock.expand()
 	expect(window.getContentSize()).toEqual([1680, 650])
@@ -87,7 +96,7 @@ test("repeated toggles are idempotent and invalid IPC payloads cannot resize the
 
 test("the log's window minima match the desktop.css pane layout", async () => {
 	const css = await readFile(path.join(import.meta.dirname, "../renderer/src/ui/styles/desktop.css"), "utf8")
-	expect(css).toContain("grid-template-columns: minmax(640px, 3fr) minmax(480px, 2fr)")
+	expect(css).toContain(`grid-template-columns: minmax(${HUD_MIN_WIDTH}px, 3fr) minmax(${LOG_MIN_WIDTH}px, 2fr)`)
 	expect(css).toContain(`@container desktop-workspace (width < ${LOG_SIDE_WIDTH}px)`)
 	expect(css).toContain("grid-template-rows: minmax(336px, 3fr) minmax(224px, 2fr)")
 	expect(css).toContain(`min-height: ${LOG_STACK_HEIGHT}px`)

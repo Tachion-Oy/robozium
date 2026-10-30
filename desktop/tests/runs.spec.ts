@@ -200,7 +200,7 @@ test("snapshots alone update prompts and terminal status, with serialized two-se
 	expect(reads).toHaveLength(3)
 })
 
-test("view changes retain one session, project, history selection and draft; new runs dispose obsolete reads", async ({ desktop: { page }, backend }) => {
+test("view changes retain one session, project, history selection and draft; a new run starts with an empty reply and disposes obsolete reads", async ({ desktop: { page }, backend }) => {
 	const first = prepareRun(backend)
 	backend.handlers.set("GET /projects", response => json(response, [project("existing-project"), project("second-project")]))
 	await start(page, backend)
@@ -230,7 +230,7 @@ test("view changes retain one session, project, history selection and draft; new
 	emit(second.streams[0], message(1, "New run"))
 	await expect(output(page)).toHaveText("New run")
 	await expect(runStatus(page)).toContainText("second-project")
-	await expect(page.getByRole("textbox", { name: "Reply text", exact: true })).toHaveValue("Keep my draft")
+	await expect(page.getByRole("textbox", { name: "Reply text", exact: true })).toHaveValue("")
 	expect(backend.requests.filter(request => request.path.includes("cancel"))).toHaveLength(0)
 	await page.goto("about:blank")
 	await expect.poll(() => second.closed).toBe(1)
