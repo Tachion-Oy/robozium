@@ -45,6 +45,39 @@ test("opening the log adds it beside the HUD and closing detaches it, keeping th
 	await expect.poll(() => hudWidth(page)).toBe(column)
 })
 
+test("the HUD and its header controls keep their place on every frame while the log opens and closes", async ({ desktop: { app, page } }) => {
+	await resize(app, 660, 650)
+	await expect.poll(() => contentSize(app)).toEqual([660, 650])
+	// Each animation frame records the HUD's width and the view menu's position.
+	const record = () => page.evaluate(() => {
+		const frames: string[] = []
+		Object.assign(window, { hudFrames: frames })
+		const tick = () => {
+			const menu = document.querySelector(".agent-hud__view-trigger")!.getBoundingClientRect()
+			frames.push(`${Math.round(document.querySelector(".agent-hud")!.getBoundingClientRect().width)}@${Math.round(menu.x)}`)
+			if (frames.length < 90) requestAnimationFrame(tick)
+		}
+		requestAnimationFrame(tick)
+	})
+	const recorded = () => page.evaluate(() => (window as unknown as { hudFrames: string[] }).hudFrames.length)
+	const frames = () => page.evaluate(() => [...new Set((window as unknown as { hudFrames: string[] }).hudFrames)])
+	await record()
+	await expect.poll(recorded).toBeGreaterThanOrEqual(90)
+	const [before] = await frames()
+	expect(before.startsWith("660@")).toBe(true)
+	await record()
+	await page.getByRole("button", { name: "Show message log", exact: true }).click()
+	await expect.poll(() => contentSize(app)).toEqual([1140, 650])
+	await expect(page.getByRole("region", { name: "Message log" })).toBeVisible()
+	await expect.poll(recorded).toBeGreaterThanOrEqual(90)
+	expect(await frames()).toEqual([before])
+	await record()
+	await page.getByRole("button", { name: "Hide message log", exact: true }).click()
+	await expect.poll(() => contentSize(app)).toEqual([660, 650])
+	await expect.poll(recorded).toBeGreaterThanOrEqual(90)
+	expect(await frames()).toEqual([before])
+})
+
 test("the log stays open across a renderer reload, since main owns it", async ({ desktop: { app, page } }) => {
 	await page.getByRole("button", { name: "Show message log", exact: true }).click()
 	await expect(page.getByRole("region", { name: "Message log" })).toBeVisible()

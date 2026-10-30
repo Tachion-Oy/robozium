@@ -201,6 +201,11 @@ html[data-desktop] .desktop-workspace .agent-hud__box {
 .desktop-workspace__panes[data-log-open] {
   grid-template-columns: minmax(640px, 3fr) minmax(480px, 2fr);
 }
+/* While the window resizes for the log, the HUD keeps its measured width instead of
+   briefly filling the window around the change. */
+.desktop-workspace__panes[data-log-resizing] > .agent-hud {
+  justify-self: start; width: min(100%, var(--desktop-hud-width));
+}
 /* Contain the existing HUD halo so it cannot become a divider over the log. */
 .desktop-workspace__panes[data-log-open] > .agent-hud {
   grid-column: 1; grid-row: 1; overflow: clip;
