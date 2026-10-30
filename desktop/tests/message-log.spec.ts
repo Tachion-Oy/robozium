@@ -152,21 +152,22 @@ test("a message arriving at the tail slides the log up instead of jumping", asyn
 	await expect(log(page)).toContainText("Row 30")
 	const column = log(page).locator(".term-log > div")
 	await expect.poll(() => column.evaluate(element => element.getAnimations().length)).toBe(0)
-	// Sample the column's offset every frame while the row arrives.
+	// Sample the column's offset every frame, however late the row arrives.
 	await column.evaluate(element => {
 		const offsets: number[] = []
 		Reflect.set(window, "columnOffsets", offsets)
 		const sample = () => {
 			offsets.push(new DOMMatrixReadOnly(getComputedStyle(element).transform).m42)
-			if (offsets.length < 120) requestAnimationFrame(sample)
+			requestAnimationFrame(sample)
 		}
 		requestAnimationFrame(sample)
 	})
 	emit(run.streams[0], message(31, "Newest row"))
 	await expect(log(page)).toContainText("Newest row")
-	await expect.poll(() => column.evaluate(element => element.getAnimations().length)).toBe(0)
 	// It started lower and eased up into place.
-	expect(Math.max(...await page.evaluate(() => Reflect.get(window, "columnOffsets") as number[]))).toBeGreaterThan(0)
+	await expect.poll(async () => Math.max(...await page.evaluate(() => Reflect.get(window, "columnOffsets") as number[]))).toBeGreaterThan(0)
+	await expect.poll(() => column.evaluate(element => element.getAnimations().length)).toBe(0)
+	await expect.poll(() => column.evaluate(element => new DOMMatrixReadOnly(getComputedStyle(element).transform).m42)).toBe(0)
 	expect(await log(page).locator(".term-log").evaluate(box => box.scrollTop)).toBe(0)
 })
 
