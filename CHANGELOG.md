@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.2.3 - 2026-10-30
+
+- Remove Claude Sonnet 5.5 from the deep reasoning models and the model
+  catalogue. Its content filter refuses every request that carries the
+  orchestrator's system prompt, so it answered with an empty reply and the run
+  failed.
+- The live model check tries each text and image probe up to three times and
+  fails a model only when every attempt does, so one stray reply, such as the
+  empty image reply from DeepSeek V4.1 Flash in the 0.2.2 check, no longer fails
+  it.
+
 ## 0.2.2 - 2026-10-30
 
 - Show **Updating** and a progress bar on the desktop loader while the backend
