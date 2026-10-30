@@ -152,19 +152,21 @@ test("a message arriving at the tail slides the log up instead of jumping", asyn
 	await expect(log(page)).toContainText("Row 30")
 	const column = log(page).locator(".term-log > div")
 	await expect.poll(() => column.evaluate(element => element.getAnimations().length)).toBe(0)
-	// Sample the column's offset every frame while the row arrives.
+	// Sample the column's offset every frame until the row has arrived and settled.
 	await column.evaluate(element => {
 		const offsets: number[] = []
 		Reflect.set(window, "columnOffsets", offsets)
+		Reflect.set(window, "sampling", true)
 		const sample = () => {
 			offsets.push(new DOMMatrixReadOnly(getComputedStyle(element).transform).m42)
-			if (offsets.length < 120) requestAnimationFrame(sample)
+			if (Reflect.get(window, "sampling")) requestAnimationFrame(sample)
 		}
 		requestAnimationFrame(sample)
 	})
 	emit(run.streams[0], message(31, "Newest row"))
 	await expect(log(page)).toContainText("Newest row")
 	await expect.poll(() => column.evaluate(element => element.getAnimations().length)).toBe(0)
+	await page.evaluate(() => Reflect.set(window, "sampling", false))
 	// It started lower and eased up into place.
 	expect(Math.max(...await page.evaluate(() => Reflect.get(window, "columnOffsets") as number[]))).toBeGreaterThan(0)
 	expect(await log(page).locator(".term-log").evaluate(box => box.scrollTop)).toBe(0)
