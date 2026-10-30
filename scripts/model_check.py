@@ -3,7 +3,8 @@
 Run ``uv run python scripts/model_check.py``. Each model the application can
 select receives the orchestrator's real system prompt and a short greeting,
 and must answer with a valid tool call. The memory model receives one short
-text prompt. Models that accept images also receive one tiny image. Requests
+text prompt. Models that accept images also receive one tiny image. Each probe
+is tried up to three times and passes on the first accepted reply. Requests
 carry the application's own request options, including reasoning effort, plus
 an output limit. OpenRouter models are also compared with OpenRouter's public
 model listing.
@@ -41,6 +42,8 @@ MEMORY_LABEL = "Memory"
 # Reasoning models spend output tokens before replying; leave room for one word.
 MAX_OUTPUT_TOKENS = 1024
 TIMEOUT_S = 45.0
+# Replies are stochastic; a model fails a probe only when every attempt does.
+PROBE_ATTEMPTS = 3
 PARALLEL_MODELS = 8
 TEXT_PROMPT = "Reply with exactly one word: hello"
 AGENT_GREETING = "hi"
@@ -181,11 +184,17 @@ def _probes(
     """
 
     def probe(messages: list[Message], accept: Callable[[str], bool]) -> str | None:
-        try:
-            reply = ping(endpoint, messages)
-        except Exception as error:  # Report every provider failure, then continue.
-            return _failure(error)
-        return None if accept(reply) else f"unexpected reply {reply[:80]!r}"
+        failure = None
+        for _ in range(PROBE_ATTEMPTS):
+            try:
+                reply = ping(endpoint, messages)
+            except Exception as error:  # Report every provider failure, then continue.
+                failure = _failure(error)
+                continue
+            if accept(reply):
+                return None
+            failure = f"unexpected reply {reply[:80]!r}"
+        return failure
 
     if agent is None:
         text = probe(
