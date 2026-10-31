@@ -1,10 +1,10 @@
 {
   "x-desktop": {
-    "composeEnvironment": ".runtime/compose.env",
-    "dockerLog": {
+    "containerLog": {
       "mount": "/logs",
-      "filename": "docker.log"
+      "filename": "container.log"
     },
+    "containerEnvironment": ".runtime/container.env",
     "hostServices": {
       "environment": ".runtime/host-environment",
       "processes": ".runtime/host-services",
@@ -43,7 +43,6 @@
       "checkoutBackend": "..",
       "installedSource": "stage",
       "checkoutSource": ".stage/backend",
-      "compose": "compose.yaml",
       "preload": "preload.cjs",
       "renderer": "renderer",
       "settings": "settings.json",
@@ -56,6 +55,7 @@
   },
   "services": {
     "api": {
+      "build": { "target": "api" },
       "env_file": [
         {
           "path": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/.env.encrypt",
@@ -67,6 +67,7 @@
         }
       ],
       "environment": {
+        "ROBOZIUM_CONFIG": "/app/hub.config.py",
         "ROBOZIUM_HUB_ROOT": "/hub",
         "ROBOZIUM_LOG_DIR": "/logs",
         "ROBOZIUM_ENCRYPTED_ENV_PATH": "/configuration/.env.encrypt",
@@ -136,7 +137,9 @@
             "create_host_path": false
           }
         }
-      ]
+      ],
+      "command": ["uvicorn", "robozium.api.app:{mode}_app", "--factory", "--host", "{address}", "--port", "{port}", "--workers", "1"],
+      "stop_grace_period": 30
     }
   }
 }

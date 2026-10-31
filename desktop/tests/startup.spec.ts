@@ -46,7 +46,7 @@ test("the launch animation plays, then fades into the HUD already drawn beneath 
 
 test("a failed start shows its reason and Retry in a toast, leaving the loader in place", async ({ desktop: { app, page } }) => {
 	await app.evaluate(({ ipcMain }) => {
-		let status: object = { state: "error", message: "Docker is not running. Start Docker, then retry." }
+		let status: object = { state: "error", message: 'Podman is unavailable. Run "podman info" in a terminal to see why, then retry.' }
 		Reflect.set(globalThis, "retries", 0)
 		for (const channel of ["backend-status", "retry-backend"]) ipcMain.removeHandler(`desktop:${channel}`)
 		ipcMain.handle("desktop:backend-status", () => status)
@@ -59,7 +59,7 @@ test("a failed start shows its reason and Retry in a toast, leaving the loader i
 	await page.emulateMedia({ reducedMotion: "reduce" })
 	await page.reload()
 	const failure = toast(page, "Robozium could not start")
-	await expect(failure).toContainText("Docker is not running. Start Docker, then retry.")
+	await expect(failure).toContainText('Podman is unavailable. Run "podman info" in a terminal to see why, then retry.')
 	await expect(page.locator(launchButton)).toHaveCount(0)
 	// The loader stays centred: the failure takes no space on the screen.
 	expect(await page.locator(`${screen} .startup__loading`).evaluate(loader => {

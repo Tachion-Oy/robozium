@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync } from "node:fs"
 import path from "node:path"
 import definition from "./backend-layout.json" with { type: "json" }
 import { endpointType } from "./host-endpoints.ts"
@@ -27,7 +27,7 @@ export interface HostServiceLayout {
 	arguments: string[]
 }
 
-/** One bind mount: the host folder Compose shares and where the container sees it. */
+/** One bind mount: the host folder the container shares and where the container sees it. */
 export interface BackendMount {
 	source: string
 	destination: string
@@ -39,16 +39,20 @@ export interface BackendLayout {
 	runtime: string
 	hub: string
 	mounts: BackendMount[]
-	/** Folders a launch creates before Compose binds them. */
+	/** Folders a launch creates before the container binds them. */
 	directories: string[]
-	composeEnvironment: string
-	dockerLog: string
+	/** Optional dotenv files the backend's environment is read from; later files override earlier ones. */
+	environmentFiles: string[]
+	/** Build and start diagnostics from the container engine. */
+	containerLog: string
+	/** A private file an engine may hand the backend's variables over in, while it starts the container. */
+	containerEnvironment: string
 	/** The Python environment every host service runs from, and the log of building it. */
 	hostEnvironment: { directory: string; log: string }
 	hostServices: HostServiceLayout[]
 }
 
-/** Resolve the same bind mounts that Compose reads, without touching runtime data.
+/** Resolve the backend container's bind mounts and files, without touching runtime data.
  * Without a hub folder, the runtime's own throwaway hub is used.
  */
 export function resolveBackendLayout(runtime: string, hub = path.join(runtime, locations.isolatedHub)): BackendLayout {
@@ -59,17 +63,18 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 		throw new Error("Select an absolute hub folder.")
 	}
 	const roots = { ROBOZIUM_DESKTOP_RUNTIME: runtime, ROBOZIUM_DESKTOP_HUB: hub }
-	const mounts = definition.services.api.volumes.map((mount): BackendMount => {
-		const match = /^\$\{(ROBOZIUM_DESKTOP_RUNTIME|ROBOZIUM_DESKTOP_HUB)(?::\?[^}]*)?\}(\/.*)?$/.exec(mount.source)
+	const resolve = (location: string): string => {
+		const match = /^\$\{(ROBOZIUM_DESKTOP_RUNTIME|ROBOZIUM_DESKTOP_HUB)(?::\?[^}]*)?\}(\/.*)?$/.exec(location)
 		if (!match) {
-			throw new Error("Desktop bind sources must use the configured runtime or hub root.")
+			throw new Error("Desktop backend files must lie in the configured runtime or hub folder.")
 		}
-		return {
-			source: path.join(roots[match[1] as keyof typeof roots], match[2] ?? ""),
-			destination: mount.target,
-			writable: !mount.read_only,
-		}
-	})
+		return path.join(roots[match[1] as keyof typeof roots], match[2] ?? "")
+	}
+	const mounts = definition.services.api.volumes.map((mount): BackendMount => ({
+		source: resolve(mount.source),
+		destination: mount.target,
+		writable: !mount.read_only,
+	}))
 
 	const mountSource = (destination: string): string => {
 		const mount = mounts.find(mount => mount.destination === destination)
@@ -114,9 +119,8 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 			}),
 		}
 	})
-	const composeEnvironment = path.join(runtime, desktop.composeEnvironment)
 	const directories = new Set(mounts.map(mount => mount.source))
-	directories.add(path.dirname(composeEnvironment))
+	directories.add(path.dirname(path.join(runtime, desktop.containerEnvironment)))
 	directories.add(path.join(runtime, desktop.hostServices.processes))
 
 	return {
@@ -124,8 +128,9 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 		hub: mountSource("/hub"),
 		mounts,
 		directories: [...directories],
-		composeEnvironment,
-		dockerLog: path.join(mountSource(desktop.dockerLog.mount), desktop.dockerLog.filename),
+		environmentFiles: definition.services.api.env_file.map(file => resolve(file.path)),
+		containerLog: path.join(mountSource(desktop.containerLog.mount), desktop.containerLog.filename),
+		containerEnvironment: path.join(runtime, desktop.containerEnvironment),
 		hostEnvironment: {
 			directory: path.join(runtime, desktop.hostServices.environment),
 			log: path.join(mountSource(desktop.hostServices.environmentLog.mount), desktop.hostServices.environmentLog.filename),
@@ -134,10 +139,9 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 	}
 }
 
-/** Prepare bind sources and the desktop's Compose interpolation file.
+/** Prepare bind sources.
  * The hub owns application directories and files within those mounts. Only a
  * throwaway hub inside the runtime is created here; a user's hub folder must exist.
- * Shared by Electron and the standalone Node setup command.
  */
 export function prepareBackendRuntime(layout: BackendLayout): void {
 	if (!isInside(layout.hub, layout.runtime) && !existsSync(layout.hub)) {
@@ -146,5 +150,4 @@ export function prepareBackendRuntime(layout: BackendLayout): void {
 	for (const directory of layout.directories) {
 		mkdirSync(directory, { recursive: true, mode: 0o700 })
 	}
-	writeFileSync(layout.composeEnvironment, "# Controlled desktop interpolation only.\n", { mode: 0o600 })
 }

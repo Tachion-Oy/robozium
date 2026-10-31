@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs"
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, statSync, writeFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import net from "node:net"
@@ -11,6 +11,7 @@ import { loadOrCreateBackendProfile } from "../../src/backend-profile.ts"
 import { resolveBackendLayout } from "../../src/backend-layout.ts"
 import type { CommandOptions } from "../../src/host-command.ts"
 import type { BackendStatus } from "../../src/bridge.d.ts"
+import { PodmanEngine } from "../../src/podman-engine.ts"
 
 type ControllerOptions = ConstructorParameters<typeof BackendController>[0]
 interface Inspection {
@@ -18,22 +19,24 @@ interface Inspection {
 	mounts: { Source: string; Destination: string; RW: boolean }[]
 	running: boolean
 }
-/** The fake Docker's state, and the overrides a test starts it with. */
-interface FakeDocker {
+/** The fake Podman's state, and the overrides a test starts it with. */
+interface FakePodman {
 	exists: boolean
 	running: boolean
 	cached: string
 	ready: boolean
 	available: boolean
 	calls: { args: string[]; command: CommandOptions }[]
+	/** The environment file's lines as the last `podman run` read them. */
+	environment?: string
 	restarts?: number
-	security?: string
-	version?: string
+	info?: unknown
 	logs?: string
 	intercept?: (args: string[], command: CommandOptions) => Promise<string | void>
 	mutate?: (value: Inspection) => void
 }
-type FixtureOptions = Partial<FakeDocker> & { hub?: string; controller?: Partial<ControllerOptions> }
+type FixtureOptions = Partial<FakePodman> & { hub?: string; findPodman?: () => string | undefined; controller?: Partial<ControllerOptions> }
+const rootless = { host: { security: { rootless: true }, idMappings: { uidmap: [{ size: 1 }, { size: 65536 }] } } }
 
 const id = "a".repeat(64)
 /** The first steps of a Podman build, as its plain output announces them. */
@@ -46,46 +49,56 @@ function fixture(t: TestContext, options: FixtureOptions = {}) {
 	mkdirSync(source)
 	writeFileSync(path.join(source, "build-id.json"), JSON.stringify({ id: hash }))
 	const settings = loadOrCreateBackendProfile(profile, "mock")
-	const state: FakeDocker = { exists: false, running: false, cached: hash, ready: true, available: true, calls: [], ...options }
+	const state: FakePodman = { exists: false, running: false, cached: hash, ready: true, available: true, calls: [], ...options }
 	const layout = resolveBackendLayout(settings.runtime, options.hub)
 	const inspection = (): Inspection => ({
-		labels: { "com.docker.compose.project": settings.project, "com.docker.compose.service": "api",
+		labels: { "fi.tachion.robozium.desktop.project": settings.project, "fi.tachion.robozium.desktop.build": hash,
 			"fi.tachion.robozium.desktop.installation": settings.installation, "fi.tachion.robozium.desktop.port": String(settings.port) },
 		mounts: layout.mounts.map(mount => ({ Source: mount.source, Destination: mount.destination, RW: mount.writable })),
 		running: state.running,
 	})
 	const run = async (executable: string, args: string[], command: CommandOptions) => {
-		assert.equal(executable, "/test/docker")
+		assert.equal(executable, "/test/podman")
 		command.signal.throwIfAborted()
 		state.calls.push({ args, command })
 		if (state.intercept) {
 			const result = await state.intercept(args, command)
 			if (result !== undefined) return result
 		}
-		if (args[0] === "context") return "test-context"
-		if (args[0] === "info") return state.security ?? '["name=seccomp"]'
-		if (args[1] === "version") return state.version ?? "2.35.1"
+		if (args[0] === "info") return JSON.stringify(state.info ?? rootless)
 		if (args[0] === "ps") return state.exists ? id : ""
-		if (args[0] === "inspect") {
+		if (args[0] === "container" && args[1] === "inspect") {
 			const value = inspection()
 			state.mutate?.(value)
 			return JSON.stringify(value)
 		}
-		if (args[0] === "image") return state.cached
-		if (args.includes("build")) { state.cached = hash; return "" }
-		if (args.includes("up")) { state.exists = true; state.running = true; return "" }
+		if (args[0] === "image") {
+			if (!state.cached) throw new Error("No such image")
+			return state.cached
+		}
+		if (args[0] === "build") { state.cached = hash; return "" }
+		if (args[0] === "run") {
+			const file = args[args.indexOf("--env-file") + 1]
+			assert.equal(statSync(file).mode & 0o777, 0o600)
+			state.environment = readFileSync(file, "utf8")
+			state.exists = true
+			state.running = true
+			return ""
+		}
 		if (args[0] === "stop") { state.running = false; return "" }
+		if (args[0] === "rm") { state.exists = false; return "" }
 		if (args[0] === "logs") return state.logs ?? ""
-		throw new Error(`Unexpected Docker command: ${args.join(" ")}`)
+		throw new Error(`Unexpected Podman command: ${args.join(" ")}`)
 	}
-	const controller = new BackendController({ profile, source, compose: path.join(directory, "compose.yaml"), mode: "mock",
-		run, findDocker: () => "/test/docker", checkPort: async () => state.available,
+	const engine = new PodmanEngine({ run, findPodman: options.findPodman ?? (() => "/test/podman") })
+	const controller = new BackendController({ profile, source, mode: "mock", engine, checkPort: async () => state.available,
 		fetch: async url => { assert.equal(url, "http://127.0.0.1:18000/ready"); return new globalThis.Response(JSON.stringify({ status: state.ready ? "ready" : "starting" })) },
 		readinessTimeout: 30, pollInterval: 1, ...options.controller })
 	return { controller, state, settings, source, profile }
 }
-const commands = (state: FakeDocker) => state.calls.map(call => call.args)
-const noMutation = (state: FakeDocker) => assert.equal(commands(state).some(args => ["stop", "rm"].includes(args[0]) || args.includes("up") || args.includes("build")), false)
+const commands = (state: FakePodman) => state.calls.map(call => call.args)
+const noMutation = (state: FakePodman) => assert.equal(commands(state).some(args => ["stop", "rm", "run", "build", "restart"].includes(args[0])), false)
+const runCall = (state: FakePodman) => state.calls.find(call => call.args[0] === "run")
 
 test("profile keeps one identity across modes and takes ports only from the override", t => {
 	const { profile, settings } = fixture(t)
@@ -114,10 +127,8 @@ test("settings.json is UI preferences only and never configures the backend", t 
 })
 
 for (const [name, setup, error] of [
-	["missing Docker", { controller: { findDocker: () => undefined } }, /Docker was not found/],
-	["old Compose", { version: "2.23.0" }, /v2.24/],
-	["missing Compose", { intercept: async args => { if (args[1] === "version") throw new Error("missing plugin") } }, /Compose is unavailable/],
-	["unavailable daemon", { intercept: async args => { if (args[0] === "info") throw new Error("offline") } }, /Docker is unavailable/],
+	["missing Podman", { findPodman: () => undefined }, /Podman was not found/],
+	["unavailable Podman", { intercept: async args => { if (args[0] === "info") throw new Error("broken storage") } }, /Podman is unavailable/],
 	["occupied port", { available: false }, /already in use/],
 ] as [string, FixtureOptions, RegExp][]) test(`${name} reports an actionable error and leaves containers alone`, async t => {
 	const { controller, state } = fixture(t, setup)
@@ -127,12 +138,12 @@ for (const [name, setup, error] of [
 	noMutation(state)
 })
 
-for (const mismatch of ["project", "service", "installation", "port", "mount", "readonly"]) {
+for (const mismatch of ["project", "installation", "port", "mount", "readonly"]) {
 	test(`rejects ${mismatch} ownership mismatch before changing resources`, async t => {
 		const { controller, state } = fixture(t, { exists: true, mutate: value => {
 			if (mismatch === "mount") value.mounts[0].Source = "/someone-else"
 			else if (mismatch === "readonly") value.mounts.at(-1)!.RW = true
-			else value.labels[mismatch === "project" || mismatch === "service" ? `com.docker.compose.${mismatch}` : `fi.tachion.robozium.desktop.${mismatch}`] = "foreign"
+			else value.labels[`fi.tachion.robozium.desktop.${mismatch}`] = "foreign"
 		} })
 		await assert.rejects(controller.start(), /ownership or mounts/)
 		await controller.close()
@@ -146,7 +157,7 @@ test("reuses a matching image, attaches to its running API, and stops only verif
 	assert.equal(controller.start(), pending)
 	await pending
 	assert.deepEqual(controller.snapshot(), { state: "ready", message: "Backend ready" })
-	assert.equal(commands(state).some(args => args.includes("build")), false)
+	assert.equal(commands(state).some(args => ["build", "run", "rm"].includes(args[0])), false)
 	const count = state.calls.length
 	await controller.start()
 	assert.equal(state.calls.length, count)
@@ -161,14 +172,11 @@ test("reuses a matching image, attaches to its running API, and stops only verif
 })
 
 for (const cached of ["", "old-source-hash"]) test(`builds when the cached image identifier is ${cached || "absent"}`, async t => {
-	const { controller, state } = fixture(t, { cached, security: '["name=rootless"]' })
+	const { controller, state, settings, source } = fixture(t, { cached })
 	await controller.start()
-	const build = state.calls.find(call => call.args.includes("build"))
-	assert.ok(build)
-	assert.equal(build.command.env.ROBOZIUM_API_USER, "0:0")
-	assert.equal(build.command.env.ROBOZIUM_DESKTOP_BUILD_ID, hash)
-	assert.equal(build.command.env.ROBOZIUM_MODE, "mock")
-	assert.ok(commands(state).findIndex(args => args.includes("build")) < commands(state).findIndex(args => args.includes("up")))
+	const build = commands(state).find(args => args[0] === "build")
+	assert.deepEqual(build, ["build", "--target", "api", "--tag", `localhost/${settings.project}-api`, "--build-arg", `ROBOZIUM_DESKTOP_BUILD_ID=${hash}`, source])
+	assert.ok(commands(state).findIndex(args => args[0] === "build") < commands(state).findIndex(args => args[0] === "run"))
 	await controller.close()
 })
 
@@ -190,7 +198,7 @@ test("readiness failure preserves data and allows retry without rebuilding", asy
 	state.ready = true
 	await controller.start()
 	assert.equal(controller.snapshot().state, "ready")
-	assert.equal(commands(state).some(args => args.includes("build")), false)
+	assert.equal(commands(state).some(args => args[0] === "build"), false)
 	await controller.close()
 	assert.equal(readFileSync(path.join(settings.runtime, "hub/proof.txt"), "utf8"), "retained after failure")
 })
@@ -203,7 +211,7 @@ for (const [image, stage] of [["old-source-hash", "updating"], [undefined, undef
 				if (image === undefined) throw new Error("No such image")
 				return image
 			}
-			if (!args.includes("build")) return
+			if (args[0] !== "build") return
 			command.log?.(BUILD_START)
 			statuses.push(controller.snapshot())
 		} })
@@ -220,7 +228,7 @@ test("build output flushed after shutdown aborts startup leaves the status alone
 	let flush = () => {}
 	const { controller } = fixture(t, { cached: "",
 		intercept: async (args, command) => {
-			if (!args.includes("build")) return
+			if (args[0] !== "build") return
 			flush = () => command.log?.(BUILD_START)
 			reached()
 			return new Promise((_resolve, reject) => command.signal?.addEventListener("abort", () => reject(new Error("cancelled")), { once: true }))
@@ -235,15 +243,15 @@ test("build output flushed after shutdown aborts startup leaves the status alone
 	assert.deepEqual(controller.snapshot(), before)
 })
 
-for (const phase of ["build", "up", "readiness"]) test(`closing during ${phase} cancels startup, waits, and uses a fresh cleanup signal`, async t => {
+for (const phase of ["build", "run", "readiness"]) test(`closing during ${phase} cancels startup, waits, and uses a fresh cleanup signal`, async t => {
 	let reached = () => {}
 	const started = new Promise<void>(resolve => { reached = resolve })
 	const { controller, state } = fixture(t, { cached: phase === "build" ? "" : hash,
 		intercept: async (args, command) => {
-			if (!args.includes(phase)) return
+			if (args[0] !== phase) return
 			reached()
 			return new Promise((_resolve, reject) => command.signal?.addEventListener("abort", () => {
-				state.exists = true // Compose may have created a container just before cancellation.
+				state.exists = true // Podman may have created a container just before cancellation.
 				reject(new Error("cancelled"))
 			}, { once: true }))
 		}, controller: phase === "readiness" ? { fetch: async (_url, init) => {
@@ -273,33 +281,68 @@ test("port probe detects a real occupied loopback listener", async t => {
 	assert.equal(await portAvailable((server.address() as net.AddressInfo).port), false)
 })
 
-test("inherited Compose and Robozium overrides cannot change managed ownership", async t => {
-	const originals = { ...process.env }
-	Object.assign(process.env, { COMPOSE_PROJECT_NAME: "foreign", COMPOSE_FILE: "/foreign.yaml", ROBOZIUM_DESKTOP_RUNTIME: "/foreign", ROBOZIUM_DESKTOP_HUB: "/foreign", ROBOZIUM_MODE: "live" })
+test("inherited Robozium settings cannot change ownership, mounts or mode", async t => {
+	const names = ["ROBOZIUM_DESKTOP_RUNTIME", "ROBOZIUM_DESKTOP_HUB", "ROBOZIUM_MODE"]
+	const originals = Object.fromEntries(names.map(name => [name, process.env[name]]))
+	Object.assign(process.env, { ROBOZIUM_DESKTOP_RUNTIME: "/foreign", ROBOZIUM_DESKTOP_HUB: "/foreign", ROBOZIUM_MODE: "live" })
 	t.after(() => {
-		for (const name of ["COMPOSE_PROJECT_NAME", "COMPOSE_FILE", "ROBOZIUM_DESKTOP_RUNTIME", "ROBOZIUM_DESKTOP_HUB", "ROBOZIUM_MODE"]) {
+		for (const name of names) {
 			if (originals[name] === undefined) delete process.env[name]
 			else process.env[name] = originals[name]
 		}
 	})
 	const { controller, state, settings } = fixture(t)
 	await controller.start()
-	const command = state.calls.find(call => call.args.includes("up"))
-	assert.ok(command)
-	assert.equal(command.command.env.COMPOSE_PROJECT_NAME, undefined)
-	assert.equal(command.command.env.COMPOSE_FILE, undefined)
-	assert.equal(command.command.env.ROBOZIUM_DESKTOP_RUNTIME, settings.runtime)
-	assert.equal(command.command.env.ROBOZIUM_DESKTOP_HUB, path.join(settings.runtime, "hub"), "without a hub folder the runtime keeps its own hub")
-	assert.equal(command.command.env.ROBOZIUM_MODE, "mock")
-	assert.equal(command.args[command.args.indexOf("--project-name") + 1], settings.project)
-	assert.equal(command.args[command.args.indexOf("--env-file") + 1], path.join(settings.runtime, ".runtime/compose.env"))
+	const run = runCall(state)
+	assert.ok(run)
+	assert.equal(run.args[run.args.indexOf("--name") + 1], `${settings.project}-api`)
+	assert.ok(run.args.includes(`fi.tachion.robozium.desktop.project=${settings.project}`))
+	assert.ok(run.args.includes(`${path.join(settings.runtime, "hub")}:/hub`), "without a hub folder the runtime keeps its own hub")
+	assert.deepEqual(run.args.slice(run.args.indexOf(`localhost/${settings.project}-api`) + 1),
+		["uvicorn", "robozium.api.app:mock_app", "--factory", "--host", "127.0.0.1", "--port", "18000", "--workers", "1"])
+	assert.match(state.environment ?? "", /^ROBOZIUM_MODE=mock$/m)
+	await controller.close()
+})
+
+test("environment files reach the backend through a private file in order, below the layout's own values", async t => {
+	const { controller, state, settings } = fixture(t)
+	mkdirSync(settings.runtime, { recursive: true })
+	writeFileSync(path.join(settings.runtime, ".env.encrypt"), "OPENROUTER_API_KEY_ENCRYPTED=roboz:synthetic\nEXAMPLE_VALUE=encrypted-copy\n")
+	writeFileSync(path.join(settings.runtime, ".env"), "EXAMPLE_VALUE='plain copy'\nROBOZIUM_HUB_ROOT=/wrong\nROBOZIUM_DESKTOP_API_PORT=9999\n")
+	await controller.start()
+	const run = runCall(state)!
+	const environment = Object.fromEntries((state.environment ?? "").trim().split("\n").map(line => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1)]))
+	assert.equal(environment.EXAMPLE_VALUE, "plain copy")
+	assert.equal(environment.OPENROUTER_API_KEY_ENCRYPTED, "roboz:synthetic")
+	assert.equal(environment.ROBOZIUM_HUB_ROOT, "/hub")
+	assert.equal(environment.ROBOZIUM_DESKTOP_API_PORT, "18000")
+	assert.equal(environment.ROBOZIUM_CONFIG, "/app/hub.config.py")
+	assert.equal(environment.ROBOZIUM_ENCRYPTED_ENV_PATH, "/configuration/.env.encrypt")
+	assert.equal(run.args.some(arg => arg.includes("synthetic") || arg.includes("plain copy")), false, "values stay off the command line")
+	await controller.close()
+})
+
+test("a multi-line environment value stops startup before any container change", async t => {
+	const { controller, state, settings } = fixture(t)
+	mkdirSync(settings.runtime, { recursive: true })
+	writeFileSync(path.join(settings.runtime, ".env"), 'CERTIFICATE="line one\nline two"\n')
+	await assert.rejects(controller.start(), /CERTIFICATE spans several lines/)
+	assert.equal(commands(state).some(args => args[0] === "run"), false)
+	await controller.close()
+})
+
+test("a stopped container is replaced, so the backend reads its environment again", async t => {
+	const { controller, state } = fixture(t, { exists: true })
+	await controller.start()
+	const started = commands(state).map(args => args[0]).filter(name => ["stop", "rm", "run"].includes(name))
+	assert.deepEqual(started, ["rm", "run"])
 	await controller.close()
 })
 
 test("a backend that exits during startup reports its own error instead of waiting for the timeout", async t => {
 	const { controller, state } = fixture(t, { ready: false, controller: { readinessTimeout: 60_000 },
 		logs: "Traceback (most recent call last):\n  File \"x\"\nValueError: Unexpected folders in sandbox root /hub: misplaced\n\nERROR:    Application startup failed. Exiting.\n" })
-	state.intercept = async args => { if (args.includes("up")) { state.exists = true; state.running = false; return "" } }
+	state.intercept = async args => { if (args[0] === "run") { state.exists = true; state.running = false; return "" } }
 	await assert.rejects(controller.start(), /stopped during startup: ValueError: Unexpected folders in sandbox root \/hub: misplaced/)
 	await controller.close()
 })
@@ -326,9 +369,7 @@ test("mounts the user's hub folder and recreates a stopped container that still 
 	await controller.start()
 	assert.equal(controller.snapshot().state, "ready")
 	assert.equal(controller.hubDirectory, hub)
-	const up = state.calls.find(call => call.args.includes("up"))
-	assert.ok(up)
-	assert.equal(up.command.env.ROBOZIUM_DESKTOP_HUB, hub)
+	assert.ok(runCall(state)?.args.includes(`${hub}:/hub`))
 	await controller.close()
 })
 
@@ -337,7 +378,8 @@ test("recreates a container a crash left running on a previous hub folder", asyn
 	const { controller, state } = fixture(t, { exists: true, running: true, available: false, hub, controller: { hubFolder: location }, mutate: onPrevious })
 	await controller.start()
 	assert.equal(controller.snapshot().state, "ready")
-	assert.equal(state.calls.find(call => call.args.includes("up"))?.command.env.ROBOZIUM_DESKTOP_HUB, hub)
+	assert.ok(runCall(state)?.args.includes(`${hub}:/hub`))
+	assert.deepEqual(commands(state).filter(args => ["stop", "rm"].includes(args[0])).map(args => args[0]), ["stop", "rm"], "the old container is replaced")
 	await controller.close()
 })
 
@@ -354,7 +396,7 @@ for (const mismatch of ["destination", "readonly"]) test(`a hub mount's ${mismat
 	noMutation(state)
 })
 
-test("a missing hub folder stops startup before Docker and offers choosing another", async t => {
+test("a missing hub folder stops startup before Podman and offers choosing another", async t => {
 	const { hub, location } = userHub(t)
 	rmSync(hub, { recursive: true })
 	const { controller, state } = fixture(t, { controller: { hubFolder: location } })
@@ -365,64 +407,15 @@ test("a missing hub folder stops startup before Docker and offers choosing anoth
 	await controller.close()
 })
 
-function dockerEnvironment(t: TestContext, overrides: Record<string, string | undefined> = {}) {
-	for (const name of ["DOCKER_CONTEXT", "DOCKER_HOST", "DOCKER_CONFIG", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"]) {
-		const original = process.env[name]
-		t.after(() => {
-			if (original === undefined) delete process.env[name]
-			else process.env[name] = original
-		})
-		if (overrides[name] === undefined) delete process.env[name]
-		else process.env[name] = overrides[name]
-	}
-}
-
-for (const explicit of [
-	{ DOCKER_CONTEXT: "chosen-context" },
-	{ DOCKER_HOST: "tcp://chosen-host:2376", DOCKER_TLS_VERIFY: "1", DOCKER_CERT_PATH: "/test/certificates" },
-	{ DOCKER_CONTEXT: "chosen-context", DOCKER_HOST: "tcp://ignored-host:2376" },
-]) test(`explicit Docker target survives retry and shutdown: ${Object.keys(explicit).join(", ")}`, async t => {
-	const original = { DOCKER_CONFIG: "/test/docker-config", ...explicit }
-	dockerEnvironment(t, original)
-	const { controller, state } = fixture(t, { ready: false })
-	await assert.rejects(controller.start(), /readiness timed out/)
-	process.env.DOCKER_CONTEXT = "different-context"
-	process.env.DOCKER_HOST = "tcp://different-host:2376"
-	process.env.DOCKER_CONFIG = "/different/config"
-	state.ready = true
-	await controller.start()
-	await controller.close()
-	assert.equal(commands(state).some(args => args[0] === "context"), false)
-	for (const { command } of state.calls) {
-		for (const [name, value] of Object.entries(original)) assert.equal(command.env[name], value)
-		if (!explicit.DOCKER_CONTEXT) assert.equal(command.env.DOCKER_CONTEXT, undefined)
-	}
-})
-
-for (const result of ["", "failure"]) test(`context resolution ${result || "empty output"} fails before mutation and can retry`, async t => {
-	dockerEnvironment(t)
-	const { controller, state } = fixture(t, { intercept: async args => {
-		if (args[0] !== "context") return
-		if (result === "failure") throw new Error("context lookup failed")
-		return "\n"
-	} })
-	await assert.rejects(controller.start(), /Could not resolve Docker's context/)
-	noMutation(state)
-	state.intercept = undefined
-	await controller.start()
-	await controller.close()
-	assert.equal(state.calls.at(-1)!.command.env.DOCKER_CONTEXT, "test-context")
-})
-
-const managed = (state: FakeDocker) => async (args: string[]) => {
-	if (args.includes("restart")) { state.restarts = (state.restarts ?? 0) + 1; return "" }
+const managed = (state: FakePodman) => async (args: string[]) => {
+	if (args[0] === "restart") { state.restarts = (state.restarts ?? 0) + 1; return "" }
 }
 
 for (const [operation, expected] of [
-	["restart", ["restart", "api"]],
-	["recreate", ["up", "--detach", "--no-build", "--force-recreate", "--no-deps", "api"]],
-] as ["restart" | "recreate", string[]][]) test(`${operation} checks ownership, runs ${expected.join(" ")} and waits until ready`, async t => {
-	const { controller, state, settings } = fixture(t)
+	["restart", [["restart", "--time", "30", id]]],
+	["recreate", [["stop", "--time", "30", id], ["rm", id], ["run"]]],
+] as ["restart" | "recreate", string[][]][]) test(`${operation} checks ownership, runs ${expected.map(args => args[0]).join(", ")} and waits until ready`, async t => {
+	const { controller, state } = fixture(t)
 	state.intercept = managed(state)
 	await assert.rejects(controller[operation](), /Start the backend/)
 	await controller.start()
@@ -431,9 +424,8 @@ for (const [operation, expected] of [
 	assert.equal(controller.snapshot().state, "starting")
 	await pending
 	const calls = commands(state).slice(count)
-	assert.deepEqual(calls.map(args => args[0]), ["ps", "inspect", "compose"])
-	assert.deepEqual(calls[2].slice(-expected.length), expected)
-	assert.equal(calls[2][calls[2].indexOf("--project-name") + 1], settings.project)
+	assert.deepEqual(calls.slice(0, 2).map(args => args.slice(0, 2)), [["ps", "--all"], ["container", "inspect"]])
+	assert.deepEqual(calls.slice(2).map((args, index) => args.slice(0, expected[index].length)), expected)
 	assert.deepEqual(controller.snapshot(), { state: "ready", message: "Backend ready" })
 	await controller.close()
 })
@@ -443,7 +435,7 @@ test("backend operations run one at a time and shutdown waits for them", async t
 	const { controller, state } = fixture(t)
 	await controller.start()
 	state.intercept = async args => {
-		if (args.includes("restart")) return new Promise(resolve => { release = () => resolve("") })
+		if (args[0] === "restart") return new Promise(resolve => { release = () => resolve("") })
 	}
 	const restart = controller.restart()
 	await assert.rejects(controller.recreate(), /already running/)
@@ -469,7 +461,7 @@ test("a replaced container stops an operation before any change, and a failure c
 	await assert.rejects(controller.recreate(), /ownership/)
 	assert.equal(controller.snapshot().state, "error")
 	assert.equal(state.restarts, undefined)
-	assert.equal(commands(state).filter(args => args.includes("--force-recreate")).length, 0)
+	assert.equal(commands(state).filter(args => args[0] === "run").length, 1, "only startup ran a container")
 	state.mutate = undefined
 	await assert.rejects(controller.restart(), /Start the backend/)
 	await controller.start()

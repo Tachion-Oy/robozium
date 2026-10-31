@@ -6,21 +6,21 @@ import type { BackendStatus, HostServiceStatus } from "./bridge.d.ts"
 import { loadOrCreateBackendProfile } from "./backend-profile.ts"
 import { BuildProgress } from "./build-progress.ts"
 import { isInside, prepareBackendRuntime, resolveBackendLayout, type BackendLayout } from "./backend-layout.ts"
-import { findExecutable, runCommand, type CommandOptions } from "./host-command.ts"
+import { backendBuildTarget, backendCommand, backendEnvironment, backendStopTimeoutSeconds, type BackendContainer, type ContainerEngine, type ContainerInspection, type EngineCall } from "./container-engine.ts"
 import { HostServices } from "./host-services.ts"
 import { HubFolderError, resolveHubFolder } from "./hub-folder.ts"
 import type { HubFolderLocation } from "./locations.ts"
+import { PodmanEngine } from "./podman-engine.ts"
 
 interface BackendOptions {
 	profile: string
 	source: string
-	compose: string
 	/** The user's hub folder; without one, the runtime keeps a throwaway hub. */
 	hubFolder?: HubFolderLocation | null
 	mode: "live" | "mock"
 	port?: string
-	run?: typeof runCommand
-	findDocker?: () => string | undefined
+	/** The container engine; this platform's own by default. */
+	engine?: ContainerEngine
 	fetch?: typeof fetch
 	checkPort?: typeof portAvailable
 	hostServices?: HostServices
@@ -32,19 +32,19 @@ interface BackendOptions {
 // to `built`; the renderer fills the rest as the screen fades on ready.
 const STARTUP_PROGRESS = { built: 0.9, hostServices: 0.93, backend: 0.96 }
 
-interface ContainerInspection {
-	labels: Record<string, string>
-	running: boolean
-	mounts: {
-		Source: string
-		Destination: string
-		RW: boolean
-	}[]
+const LABELS = {
+	project: "fi.tachion.robozium.desktop.project",
+	installation: "fi.tachion.robozium.desktop.installation",
+	port: "fi.tachion.robozium.desktop.port",
+	/** The staged backend's build identifier, on both the image and the container. */
+	build: "fi.tachion.robozium.desktop.build",
 }
 
 interface OwnedContainer {
 	id: string
 	running: boolean
+	/** Built from the current image with the current mounts, so it can be kept as it is. */
+	current: boolean
 }
 
 export function portAvailable(port: number): Promise<boolean> {
@@ -65,27 +65,26 @@ export function portAvailable(port: number): Promise<boolean> {
 
 /** API-only adaptation of the ownership and cancellation boundaries in experiment 076b2c9. */
 export class BackendController {
-	private status: BackendStatus = { state: "starting", message: "Checking Docker…" }
+	private status: BackendStatus = { state: "starting", message: "Checking the container engine…" }
 	/** Startup, restart or recreate; only one runs at a time and shutdown waits for it. */
 	private pendingStartup?: Promise<void>
 	private pendingShutdown?: Promise<void>
 	private startupAbort = new AbortController()
 	private closing = false
 	private ownershipVerified = false
-	private dockerExecutable = ""
-	private environment: NodeJS.ProcessEnv = {}
-	private targetPinned = false
 	private readonly settings: ReturnType<typeof loadOrCreateBackendProfile>
 	/** Resolved at each launch, so a newly chosen hub folder applies on retry or restart. */
 	private launchedLayout?: BackendLayout
-	private readonly run: typeof runCommand
+	/** The staged backend's build identifier, read at each launch. */
+	private buildId = ""
+	private readonly engine: ContainerEngine
 	private readonly hostServices: HostServices
 	private readonly options: BackendOptions
 
 	constructor(options: BackendOptions) {
 		this.options = options
 		this.settings = loadOrCreateBackendProfile(options.profile, options.mode, options.port)
-		this.run = options.run ?? runCommand
+		this.engine = options.engine ?? new PodmanEngine()
 		this.hostServices = options.hostServices ?? new HostServices()
 	}
 
@@ -123,7 +122,7 @@ export class BackendController {
 		}
 
 		this.startupAbort = new AbortController()
-		this.status = { state: "starting", message: "Checking Docker…" }
+		this.status = { state: "starting", message: `Checking ${this.engine.name}…` }
 		this.pendingStartup = this.withStatus(() => this.launch())
 
 		return this.pendingStartup
@@ -131,15 +130,21 @@ export class BackendController {
 
 	/** Restart the API container; it keeps the environment it was created with. */
 	restart(): Promise<void> {
-		return this.manage("Restarting the backend…", ["restart", "api"])
+		return this.manage("Restarting the backend…", async containers => {
+			if (containers.length !== 1) throw new Error("The backend container is missing. Restart the app.")
+			await this.engine.restart(containers[0].id, backendStopTimeoutSeconds, this.call({ timeout: 120_000, log: this.log }))
+		})
 	}
 
 	/** Recreate the API container from the same image, so it reads `.env` again. Mounted data is kept. */
 	recreate(): Promise<void> {
-		return this.manage("Recreating the backend…", ["up", "--detach", "--no-build", "--force-recreate", "--no-deps", "api"])
+		return this.manage("Recreating the backend…", async containers => {
+			await this.removeContainers(containers)
+			await this.runContainer()
+		})
 	}
 
-	private manage(message: string, args: string[]): Promise<void> {
+	private manage(message: string, operation: (containers: OwnedContainer[]) => Promise<void>): Promise<void> {
 		if (this.closing) {
 			return Promise.reject(new Error("Robozium is closing."))
 		}
@@ -151,12 +156,8 @@ export class BackendController {
 		}
 		this.status = { state: "starting", message }
 		this.pendingStartup = this.withStatus(async () => {
-			const log = (output: string) => {
-				appendFileSync(this.layout.dockerLog, output, { mode: 0o600 })
-			}
 			// Throws before any change when a container is not this installation's.
-			await this.ownedContainers()
-			await this.compose(args, { timeout: 120_000, log })
+			await operation(await this.ownedContainers())
 			await this.waitUntilReady()
 		})
 		return this.pendingStartup
@@ -192,92 +193,49 @@ export class BackendController {
 		const hub = this.options.hubFolder ? resolveHubFolder(this.options.hubFolder, path.dirname(runtime)) : undefined
 		this.launchedLayout = resolveBackendLayout(runtime, hub)
 		prepareBackendRuntime(this.layout)
-		const securityOptions = await this.prepareDocker()
-		const buildId = this.readBuildId()
-		const { port, installation } = this.settings
-
-		Object.assign(this.environment, {
-			ROBOZIUM_DESKTOP_SOURCE: this.options.source,
-			ROBOZIUM_DESKTOP_RUNTIME: runtime,
-			ROBOZIUM_DESKTOP_HUB: this.layout.hub,
-			ROBOZIUM_DESKTOP_BUILD_ID: buildId,
-			ROBOZIUM_DESKTOP_INSTALLATION: installation,
-			ROBOZIUM_DESKTOP_API_PORT: String(port),
-			ROBOZIUM_MODE: this.options.mode,
-			ROBOZIUM_API_USER: securityOptions.includes("rootless")
-				? "0:0"
-				: `${process.getuid?.() ?? 10001}:${process.getgid?.() ?? 10001}`,
-		})
+		await this.engine.prepare(this.call())
+		this.buildId = this.readBuildId()
 
 		await this.verifyRuntimeOwnership()
-
-		const log = (output: string) => {
-			appendFileSync(this.layout.dockerLog, output, { mode: 0o600 })
-		}
-		const built = await this.ensureImage(buildId, log)
+		const built = await this.ensureImage()
 
 		// Started first, so the backend's first dependency check finds them.
 		this.status = { state: "starting", message: "Starting host services…", ...built && { progress: STARTUP_PROGRESS.hostServices } }
 		await this.hostServices.start(this.layout, this.options.mode, this.options.source, this.startupAbort.signal)
 		this.status = { state: "starting", message: "Starting the backend…", ...built && { progress: STARTUP_PROGRESS.backend } }
-		await this.compose(["up", "--detach", "--no-build", "api"], { timeout: 120_000, log })
+		const containers = await this.ownedContainers()
+		// A running container from this image and these mounts is kept, such as one a crash left behind.
+		if (!(containers.length === 1 && containers[0].running && containers[0].current)) {
+			await this.removeContainers(containers)
+			await this.runContainer()
+		}
 		await this.ownedContainers()
 		await this.waitUntilReady()
 	}
 
-	private async prepareDocker(): Promise<string> {
-		this.dockerExecutable = (this.options.findDocker ?? (() => findExecutable("docker")))() ?? ""
-		if (!this.dockerExecutable) {
-			throw new Error("Docker was not found. Install Docker with Compose, then retry.")
+	/** Create and start this installation's API container from the current image and layout. */
+	private async runContainer(): Promise<void> {
+		const { project, installation, port } = this.settings
+		const container: BackendContainer = {
+			name: `${project}-api`,
+			image: `${project}-api`,
+			labels: { [LABELS.project]: project, [LABELS.installation]: installation, [LABELS.port]: String(port), [LABELS.build]: this.buildId },
+			mounts: this.layout.mounts,
+			environment: backendEnvironment(this.layout, this.options.mode, port),
+			environmentFile: this.layout.containerEnvironment,
+			command: backendCommand(this.options.mode, port),
+			port,
+			stopTimeoutSeconds: backendStopTimeoutSeconds,
 		}
-		await this.pinDockerTarget()
-
-		let versionText: string
-		try {
-			versionText = await this.command(["compose", "version", "--short"])
-		} catch {
-			throw new Error("Docker Compose is unavailable. Install Compose v2.24 or newer, then retry.")
-		}
-
-		const version = versionText.trim().match(/^v?(\d+)\.(\d+)/)
-		const major = Number(version?.[1] ?? 0)
-		const minor = Number(version?.[2] ?? 0)
-		if (major < 2 || (major === 2 && minor < 24)) {
-			throw new Error("Docker Compose v2.24 or newer is required.")
-		}
-
-		try {
-			return await this.command(["info", "--format", "{{json .SecurityOptions}}"])
-		} catch {
-			throw new Error("Docker is unavailable. Start Docker and ensure your account can access it, then retry.")
-		}
+		await this.engine.run(container, this.call({ timeout: 120_000, log: this.log }))
 	}
 
-	private async pinDockerTarget(): Promise<void> {
-		if (this.targetPinned) {
-			return
-		}
-
-		this.environment = Object.fromEntries(
-			Object.entries(process.env).filter(([name]) => !/^(COMPOSE_|ROBOZIUM_)/.test(name)),
-		)
-
-		// Explicit host/context settings retain Docker's own precedence and TLS configuration.
-		if (!this.environment.DOCKER_HOST && !this.environment.DOCKER_CONTEXT) {
-			try {
-				const context = (await this.command(["context", "show"])).trim()
-				if (!context) {
-					throw new Error("Empty Docker context.")
-				}
-				this.environment.DOCKER_CONTEXT = context
-			} catch {
-				this.startupAbort.signal.throwIfAborted()
-				throw new Error("Could not resolve Docker's context. Check Docker configuration and retry.")
-			}
-		}
-
-		// Reuse this environment for retries and shutdown, even after `docker context use`.
-		this.targetPinned = true
+	/** Stop and remove containers whose ownership was verified. */
+	private async removeContainers(containers: OwnedContainer[]): Promise<void> {
+		if (containers.length === 0) return
+		const running = containers.filter(container => container.running).map(container => container.id)
+		if (running.length > 0) await this.engine.stop(running, backendStopTimeoutSeconds, this.call({ timeout: 60_000 }))
+		await this.engine.remove(containers.map(container => container.id), this.call())
 	}
 
 	private readBuildId(): string {
@@ -309,76 +267,60 @@ export class BackendController {
 		this.ownershipVerified = true
 	}
 
-	private async ownedContainers(overrides: Partial<CommandOptions> = {}): Promise<OwnedContainer[]> {
-		const output = await this.command([
-			"ps", "--all", "--quiet",
-			"--filter", `label=com.docker.compose.project=${this.settings.project}`,
-		], overrides)
-		const ids = output.trim() ? output.trim().split(/\s+/) : []
+	private async ownedContainers(overrides: Partial<EngineCall> = {}): Promise<OwnedContainer[]> {
+		const ids = await this.engine.list(LABELS.project, this.settings.project, this.call(overrides))
 		const containers: OwnedContainer[] = []
 
 		for (const id of ids) {
 			if (!/^[a-f0-9]{12,64}$/.test(id)) {
-				throw new Error("Invalid Docker container identity.")
+				throw new Error("Invalid container identity.")
 			}
 
-			const inspectionFormat = '{"labels":{{json .Config.Labels}},"mounts":{{json .Mounts}},"running":{{.State.Running}}}'
-			const inspection = await this.command(["inspect", "--format", inspectionFormat, id], overrides)
-			const container: ContainerInspection = JSON.parse(inspection)
-			this.validateOwnership(container)
-			containers.push({ id, running: container.running })
+			const container = await this.engine.inspect(id, this.call(overrides))
+			containers.push({ id, running: container.running, current: this.validateOwnership(container) })
 		}
 		return containers
 	}
 
-	private validateOwnership(container: ContainerInspection): void {
+	/** Throws unless the container is this installation's; reports whether it matches the current build and mounts. */
+	private validateOwnership(container: ContainerInspection): boolean {
 		const { project, installation, port } = this.settings
 		const expectedLabels = {
-			"com.docker.compose.project": project,
-			"com.docker.compose.service": "api",
-			"fi.tachion.robozium.desktop.installation": installation,
-			"fi.tachion.robozium.desktop.port": String(port),
+			[LABELS.project]: project,
+			[LABELS.installation]: installation,
+			[LABELS.port]: String(port),
 		}
 		const labelsMatch = Object.entries(expectedLabels).every(([label, expected]) => {
 			return container.labels?.[label] === expected
 		})
 		// The hub mounts may come from any hub folder this installation used before, such as
 		// a container left running by a crash after a new folder was chosen. The labels prove
-		// ownership, and `compose up` recreates the container with the current folder.
+		// ownership, and startup recreates the container with the current folder.
 		const mountsMatch = this.layout.mounts.every(expected => {
 			const anyHubSource = isInside(expected.source, this.layout.hub)
-			return container.mounts?.some(mount => {
-				return mount.Destination === expected.destination
-					&& (anyHubSource || mount.Source === expected.source)
-					&& mount.RW === expected.writable
+			return container.mounts.some(mount => {
+				return mount.destination === expected.destination
+					&& (anyHubSource || mount.source === expected.source)
+					&& mount.writable === expected.writable
 			})
 		})
 
 		if (!labelsMatch || !mountsMatch) {
 			throw new Error("Container ownership or mounts do not match this desktop installation. No containers were changed.")
 		}
+		return container.labels[LABELS.build] === this.buildId
+			&& this.layout.mounts.every(expected => container.mounts.some(mount => mount.destination === expected.destination && mount.source === expected.source))
 	}
 
 	/** Build the backend image unless this build is already cached; reports whether it built. */
-	private async ensureImage(buildId: string, log: (output: string) => void): Promise<boolean> {
-		let cached = false
-		// An image from another build means an update; none at all means a first launch.
-		let updating = false
-		try {
-			const cachedBuildId = await this.command([
-				"image", "inspect", "--format",
-				'{{index .Config.Labels "fi.tachion.robozium.desktop.build"}}',
-				`${this.settings.project}-api`,
-			])
-			cached = cachedBuildId.trim() === buildId
-			updating = !cached
-		} catch {
-			this.startupAbort.signal.throwIfAborted()
-		}
-
-		if (cached) {
+	private async ensureImage(): Promise<boolean> {
+		const image = `${this.settings.project}-api`
+		const cachedBuildId = await this.engine.imageLabel(image, LABELS.build, this.call())
+		if (cachedBuildId === this.buildId) {
 			return false
 		}
+		// An image from another build means an update; none at all means a first launch.
+		const updating = cachedBuildId !== undefined
 
 		let dockerfile = ""
 		try {
@@ -395,14 +337,19 @@ export class BackendController {
 			progress: STARTUP_PROGRESS.built * fraction,
 		})
 		this.status = building(0)
-		await this.compose(["build", "api"], {
+		await this.engine.build({
+			image,
+			context: this.options.source,
+			target: backendBuildTarget,
+			buildArguments: { ROBOZIUM_DESKTOP_BUILD_ID: this.buildId },
+		}, this.call({
 			timeout: 1800_000,
 			log: output => {
-				log(output)
+				this.log(output)
 				// Output flushed after shutdown aborted startup must not overwrite its status.
 				if (!this.startupAbort.signal.aborted) this.status = building(progress.push(output))
 			},
-		})
+		}))
 		return true
 	}
 
@@ -437,7 +384,7 @@ export class BackendController {
 	private async failIfStopped(): Promise<void> {
 		const containers = await this.ownedContainers()
 		if (containers.length === 0 || containers.some(container => container.running)) return
-		const output = await this.command(["logs", "--tail", "40", containers[0].id])
+		const output = await this.engine.logs(containers[0].id, 40, this.call())
 		const reason = output.split("\n").map(line => line.trim()).reverse()
 			.find(line => /^[A-Za-z.]*(Error|Exception)\b/.test(line))
 		throw new Error(`The backend stopped during startup${reason ? `: ${reason}` : ". Check the desktop container log"}. Your data is preserved.`)
@@ -459,7 +406,7 @@ export class BackendController {
 			const containers = await this.ownedContainers(cleanup)
 			if (containers.length > 0) {
 				const ids = containers.map(container => container.id)
-				await this.command(["stop", "--time", "30", ...ids], cleanup)
+				await this.engine.stop(ids, backendStopTimeoutSeconds, this.call(cleanup))
 			}
 		} finally {
 			// After the container, so no backend call is cut off mid-script.
@@ -467,22 +414,12 @@ export class BackendController {
 		}
 	}
 
-	private command(args: string[], overrides: Partial<CommandOptions> = {}): Promise<string> {
-		return this.run(this.dockerExecutable, args, {
-			cwd: this.settings.runtime,
-			env: this.environment,
-			signal: this.startupAbort.signal,
-			...overrides,
-		})
+	/** Startup's cancellation unless overridden, as shutdown does with its own deadline. */
+	private call(overrides: Partial<EngineCall> = {}): EngineCall {
+		return { signal: this.startupAbort.signal, ...overrides }
 	}
 
-	private compose(args: string[], overrides: Partial<CommandOptions> = {}): Promise<string> {
-		return this.command([
-			"compose",
-			"--project-name", this.settings.project,
-			"--env-file", this.layout.composeEnvironment,
-			"--file", this.options.compose,
-			...args,
-		], overrides)
+	private readonly log = (output: string) => {
+		appendFileSync(this.layout.containerLog, output, { mode: 0o600 })
 	}
 }
