@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.2.4 - 2026-10-31
+
+- Opening the desktop message log adds it beside the HUD instead of taking
+  width from the HUD, and closing it gives that width back. The HUD's
+  contents, including the header menus, no longer shift while the window
+  resizes. A window resized while the log is open closes to its HUD column,
+  and the app remembers that size for the next start.
+- Hovering a Runs overview row highlights the whole row again.
+- Reply text belongs to one run: opening another run or ending the current
+  one clears it, so old typed or dictated text no longer reappears in a later
+  run.
+
 ## 0.2.3 - 2026-10-30
 
 - Remove Claude Sonnet 5.5 from the deep reasoning models and the model
