@@ -5,6 +5,11 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      reword_rationale:
+        description: "Experiment: reword the rationale field in the installed roboz prompt"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -31,4 +36,16 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           uv sync --locked
+          if [ "${{ inputs.reword_rationale }}" = "true" ]; then
+            uv run python - <<'PY'
+          import pathlib, roboz.tooling._prompts as m
+          p = pathlib.Path(m.__file__)
+          old = "A string explaining your thought process i.e. your internal monologue for why you are taking the chosen action."
+          new = "A short statement of the reason behind the chosen action."
+          s = p.read_text()
+          assert old in s, "rationale wording not found"
+          p.write_text(s.replace(old, new))
+          print("Reworded rationale:", new)
+          PY
+          fi
           uv run python scripts/model_check.py --provider openrouter
