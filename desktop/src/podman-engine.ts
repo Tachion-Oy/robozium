@@ -7,13 +7,10 @@ interface PodmanOptions {
 	findPodman?: () => string | undefined
 }
 
-/** The UID the image's own user has; Podman must map it for the image's files to unpack. */
-const IMAGE_USER_ID = 10001
-
 interface PodmanInfo {
 	host?: {
 		security?: { rootless?: boolean }
-		idMappings?: { uidmap?: { size?: number }[] | null } | null
+		idMappings?: { uidmap?: { size?: number }[] | null; gidmap?: { size?: number }[] | null } | null
 	}
 }
 
@@ -59,10 +56,11 @@ export class PodmanEngine implements ContainerEngine {
 		if (info.host?.security?.rootless !== true) {
 			throw new Error("Podman runs as root here. Start Robozium as your own user, not as root.")
 		}
-		const mapped = (info.host.idMappings?.uidmap ?? []).reduce((total, range) => total + (range.size ?? 0), 0)
-		if (mapped <= IMAGE_USER_ID) {
+		// Beyond the user's own ID, the image's own user needs a subordinate user and group ID to unpack.
+		const mapped = (ranges?: { size?: number }[] | null) => (ranges ?? []).reduce((total, range) => total + (range.size ?? 0), 0)
+		if (Math.min(mapped(info.host.idMappings?.uidmap), mapped(info.host.idMappings?.gidmap)) <= 1) {
 			throw new Error(
-				"Podman has no subordinate user IDs for your account. Run " +
+				"Podman has no subordinate user and group IDs for your account. Run " +
 				'"sudo usermod --add-subuids 100000-165535 --add-subgids 100000-165535 $USER" and "podman system migrate", then retry.',
 			)
 		}
