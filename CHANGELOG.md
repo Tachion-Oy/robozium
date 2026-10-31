@@ -8,9 +8,6 @@
   timestamp, so agents know the current time and how much time has passed.
   Content-filter refusals ask you to choose another model instead of failing
   after repeated output repairs.
-- Conversation logs use RoboZ's new log format. The Librarian skips logs
-  written by earlier versions, so those conversations get no new snapshots;
-  existing snapshots stay.
 - The README explains how to install Docker before Robozium.
 
 ## 0.3.0 - 2026-10-31
