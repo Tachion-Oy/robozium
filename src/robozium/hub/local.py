@@ -209,7 +209,7 @@ def _install_requirements(config_dir: Path, requirements: list[Path]) -> Path:
 
 
 def _dependency_cache(config_dir: Path) -> Path:
-    # Native development and Docker must not share installed binary packages.
+    # Native development and the container must not share installed binary packages.
     environment = sha256(str(Path(sys.prefix).resolve()).encode()).hexdigest()[:8]
     key = f"{sys.implementation.cache_tag}-{get_platform()}-{environment}"
     return config_dir / ".runtime" / "local-deps" / key

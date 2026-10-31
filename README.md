@@ -35,7 +35,6 @@ your own tools and skills as the agent's capabilities.
 - [How it works](#how-it-works)
 - [What is it for?](#what-is-it-for)
 - [Install on Debian and Ubuntu](#install-on-debian-and-ubuntu)
-  - [Install Docker](#install-docker)
   - [Install Robozium](#install-robozium)
   - [Optional encrypted credentials](#optional-encrypted-credentials)
 - [Hub files and permissions](#hub-files-and-permissions)
@@ -51,7 +50,8 @@ your own tools and skills as the agent's capabilities.
 ## How it works
 
 Robozium is an Electron app with a React Head-Up Display (HUD). It runs its
-Python API in Docker on your machine, listening only on loopback.
+Python API in a rootless Podman container on your machine, listening only on
+loopback.
 
 Creating or restarting a project launches an orchestrator agent and a background
 librarian agent, with [scoped tool permissions](#hub-files-and-permissions) for
@@ -81,35 +81,10 @@ skills.
 
 ## Install on Debian and Ubuntu
 
-The app needs an x86-64 (amd64) machine and Docker Engine with the Compose
-plugin v2.24 or newer. Neither Ubuntu nor Debian installs Docker by default.
-
-### Install Docker
-
-If `docker compose version` already prints v2.24 or newer, skip this step.
-Otherwise remove the distribution's older Docker packages, then install Docker
-from its own apt repository ([Docker's guide](https://docs.docker.com/engine/install/ubuntu/)):
-
-```sh
-for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do sudo apt remove -y "$pkg"; done
-sudo apt update && sudo apt install ca-certificates curl
-sudo install -m 0755 -d /etc/apt/keyrings
-. /etc/os-release
-sudo curl -fsSL "https://download.docker.com/linux/$ID/gpg" -o /etc/apt/keyrings/docker.asc
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/$ID ${UBUNTU_CODENAME:-$VERSION_CODENAME} stable" \
-  | sudo tee /etc/apt/sources.list.d/docker.list
-sudo apt update && sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-```
-
-Robozium runs Docker as your user, so add yourself to the `docker` group, then
-log out and back in. Members of this group have root-equivalent access to the
-machine ([details](https://docs.docker.com/engine/install/linux-postinstall/)).
-
-```sh
-sudo usermod -aG docker "$USER"
-```
-
-After logging back in, `docker compose version` should print v2.24 or newer.
+The app needs an x86-64 (amd64) machine running Ubuntu 22.04 or newer, or
+Debian 12 or newer. It runs its backend in a rootless
+[Podman](https://podman.io/) container as your own user: no daemon, no
+`docker` group and no root access. apt installs Podman with the app.
 
 ### Install Robozium
 
@@ -130,6 +105,15 @@ mock backend that needs no keys. The first start builds the backend image, which
 needs internet access and can take several minutes. The first live start locks
 the HUD. **Start Here** walks you through adding provider keys in the
 **Environment** panel, and saving them unlocks the HUD without a restart.
+
+Versions up to 0.3.0 ran the backend in Docker. After an upgrade, the app builds
+its image with Podman and keeps your projects and keys. If you no longer need
+Docker for anything else, you can remove the old Robozium containers and images:
+
+```sh
+docker ps -aq --filter label=fi.tachion.robozium.desktop.installation | xargs -r docker rm -f
+docker images --format '{{.Repository}}' | grep '^robozium-desktop-' | xargs -r docker rmi
+```
 
 The default configuration offers OpenRouter and Cerebras models. The
 librarian's memory model also uses OpenRouter. Voice input uses Groq Whisper and
@@ -256,8 +240,8 @@ fixes may go directly to a PR; substantive changes need an approved issue first.
 Read [Contributing](CONTRIBUTING.md) for setup, proposal approval, and the PR
 flow.
 
-To run the app from a checkout, [install Docker](#install-docker), Node.js
-22.18 or newer, and npm, then run:
+To run the app from a checkout, install Podman (`sudo apt install podman uidmap
+catatonit`), Node.js 22.18 or newer, and npm, then run:
 
 ```sh
 npm --prefix desktop ci
@@ -280,7 +264,7 @@ for checks. Full E2E must pass in CI before merging.
 | `src/robozium/api` | HTTP routes, runs, prompts, SSE events, credentials, and dependency health. |
 | `src/robozium/mock` | Scripted agent and model behavior for demos and tests. |
 | `src/robozium/model_catalogue` | Provider model catalogue offered in the HUD. |
-| `hub.config.py`, `desktop/Dockerfile`, `desktop/compose.yaml` | Application choices and the backend container. |
+| `hub.config.py`, `desktop/Dockerfile`, `desktop/src/backend-layout.json` | Application choices and the backend container. |
 | `tests`, `desktop/tests`, `scripts` | Backend checks, desktop suites, and helpers. |
 
 ## Troubleshooting

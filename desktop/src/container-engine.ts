@@ -71,13 +71,13 @@ export interface ContainerEngine {
  * port. The backend reads the saved settings and the manual `.env` itself.
  */
 export function backendEnvironment(mode: "live" | "mock", port: number): Record<string, string> {
-	return { ...definition.services.api.environment, ROBOZIUM_MODE: mode, ROBOZIUM_DESKTOP_API_PORT: String(port) }
+	return { ...definition.backend.environment, ROBOZIUM_MODE: mode, ROBOZIUM_DESKTOP_API_PORT: String(port) }
 }
 
 /** The backend command for this mode and port; the engine fills in the listening address. */
 export function backendCommand(mode: "live" | "mock", port: number): string[] {
-	return definition.services.api.command.map(part => part.replace("{mode}", mode).replace("{port}", String(port)))
+	return definition.backend.command.map(part => part.replace("{mode}", mode).replace("{port}", String(port)))
 }
 
-export const backendStopTimeoutSeconds = definition.services.api.stop_grace_period
-export const backendBuildTarget = definition.services.api.build.target
+export const backendStopTimeoutSeconds = definition.backend.stopTimeoutSeconds
+export const backendBuildTarget = definition.backend.build.target

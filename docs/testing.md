@@ -21,8 +21,7 @@ npm --prefix desktop ci
 ```
 
 The normal tests use scripted endpoints and temporary data, with no provider
-keys or live services. Desktop backend checks need Linux Docker Engine with
-Compose v2.24 or newer.
+keys or live services. Desktop backend checks need rootless Podman on Linux.
 
 ## What each part checks
 
@@ -36,7 +35,7 @@ code have different responsibilities:
 | `tests/integration/` | Fresh Python package installations and their backend behavior | Explicit pytest command; Full E2E |
 | `tests/support/` | Shared process helpers for the installation checks | Used by tests |
 | `desktop/tests/` | Native Electron startup, bundled resources, IPC isolation, navigation, and shutdown | Desktop command; Full E2E |
-| `desktop/backend-tests/` | Backend staging, Compose configuration, Docker smoke and lifecycle | Desktop commands; CI and Full E2E |
+| `desktop/backend-tests/` | Backend staging, layout, container smoke and lifecycle | Desktop commands; CI and Full E2E |
 
 Unit tests include such behavior as project paths, run state transitions, and
 mock-agent response handling. Repository configuration checks also live here.
@@ -55,7 +54,7 @@ repository's existing `.venv`. They install the built application and run from
 outside the repository's source directory, so missing packaged files cannot be
 silently supplied by source imports. This verifies a fresh Python package
 installation. The desktop backend checks separately verify building and
-starting the API in Docker.
+starting the API in Podman.
 
 ## PR checks
 
@@ -88,7 +87,7 @@ review links, command accuracy, and Markdown rendering, then run
 ## Electron scaffold checks
 
 The [desktop app's](../desktop/README.md) native UI tests run independently of
-Docker. Each test starts a fake HTTP backend
+the container engine. Each test starts a fake HTTP backend
 (`fakeBackend` in `desktop/tests/native.ts`) and launches the app with
 `--backend-url` pointing at it, from outside the checkout with a temporary
 profile. The fake backend serves one `preview` project whose launch opens a run
@@ -268,7 +267,7 @@ timing threshold. Run those checks alone with
 timers: completion cleanup, cancellation reasons, custom/default deadlines and
 late responses. API tests also validate run event normalization and status/role
 contracts against literal wire fixtures.
-The Docker native suite creates/selects a project through the UI, starts it,
+The container native suite creates/selects a project through the UI, starts it,
 observes both mock prompts, and verifies completed history. Its test helper submits
 required replies over HTTP; desktop Send remains disabled in this increment.
 
@@ -305,11 +304,12 @@ that must both pass.
 
 ## Desktop backend checks
 
-With Linux Docker Engine/Compose and Node.js 22.18 or newer:
+With rootless Podman (`sudo apt install podman uidmap catatonit`) and Node.js
+22.18 or newer:
 
 ```sh
 npm --prefix desktop run test:backend
-npm --prefix desktop run test:backend:docker
+npm --prefix desktop run test:backend:container
 ```
 
 These dependency-free checks live under `desktop/backend-tests/` and run in the
@@ -320,19 +320,19 @@ package metadata.
 
 Staging checks cover the public allowlist, synthetic private-file exclusion,
 symlink rejection, stale-output replacement, and stable build identifiers that
-change when staged content changes. Compose checks cover default
-live mode, explicit mock mode, port/user overrides, credential-file precedence,
-optional credentials, required runtime selection, bind paths/permissions,
-readiness, loopback binding, and a single worker.
+change when staged content changes. Layout checks cover bind paths and
+read-only mounts, environment files, relocated paths, and required runtime and
+hub selection.
 
-The Docker smoke test builds an API-only image, checks non-root execution and
-synthetic credential exclusion from the image, creates a project through the
-existing mock API, and verifies data after restart and shutdown. It uses a
-unique project, temporary runtime, and dynamically selected loopback port; live
-provider calls are never needed. On failure it prints the exact project's API
-logs, then removes its test containers/image without `--volumes`. On success it verifies
-host-data preservation before deleting the temporary runtime. Manual startup and
-data locations are documented in the [desktop README](../desktop/README.md#manual-desktop-backend-linux).
+The container smoke test runs the desktop's own controller and Podman engine: it
+builds an API-only image, checks the image's non-root user and synthetic
+credential exclusion, creates a project through the existing mock API, checks
+that its files belong to the user running the test, and verifies data after
+restart, recreate and shutdown. It uses a unique profile and dynamically
+selected loopback port; live provider calls are never needed. On failure it
+prints the container log, then removes its test containers and untags its image, keeping the layers as build cache. On success it verifies
+host-data preservation before deleting the temporary runtime. Container options and
+data locations are documented in the [desktop README](../desktop/README.md#backend-diagnostics-linux).
 
 ## Installation checks
 
@@ -420,7 +420,7 @@ Installation has a 25-minute job limit. The desktop backend lifecycle has a
 15-minute job limit; each Electron shard has a 10-minute job limit and no
 retries. Flaky tests fail.
 
-For local Docker reproduction, use a dedicated test checkout/project rather than
+For local container reproduction, use a dedicated test checkout/project rather than
 an existing user deployment; the workflow defines setup and cleanup.
 
 ## Desktop backend lifecycle checks
@@ -433,19 +433,21 @@ npm --prefix desktop run test:backend:electron
 ```
 
 The lifecycle unit suite runs Electron main's sources directly and exercises the
-controller with scripted Docker/HTTP boundaries and real temporary files. It
-checks discovery failure, Compose/daemon requirements, installation identity and
-legacy settings, image reuse/rebuild, occupied ports, label/mount ownership,
-readiness failure and retry, cancellation during build/start/readiness, and
-shutdown ownership rechecks.
-Docker target tests preserve explicit context/host/TLS settings across retries
-and reject failed or empty context resolution before changing containers.
+controller with scripted Podman/HTTP boundaries and real temporary files. It
+checks discovery failure, rootless and subordinate-ID requirements, installation
+identity and legacy settings, image reuse/rebuild, occupied ports, label/mount
+ownership, readiness failure and retry, cancellation during build/run/readiness,
+and shutdown ownership rechecks. It also checks the exact container options
+(host network, container root as the user, no capabilities, no pulls), that
+environment files reach the container in order through a private file that is
+removed once it starts, never the command line, and that remote Podman settings
+and Electron's `disabled:` session bus are ignored.
 Process tests execute disposable Node children to check bounded output, argument
 isolation, timeout, forced cancellation, and safe failures. These checks run in CI.
 
 The native backend suite stages real shared Python inputs and launches sandboxed
 Electron on an isolated display with a temporary profile and unused loopback port.
-Focused scenarios exercise a Docker-unavailable alert and Retry, duplicate-launch
+Focused scenarios exercise a Podman-unavailable alert and Retry, duplicate-launch
 ownership, and cancellation during a blocked build. A persistence scenario creates
 and launches a project through the capability selector, exercises the
 duplicate-name error, closes the native window, and verifies stopped containers
@@ -459,15 +461,11 @@ Controlled delayed-resize and late-zoom-reset regressions keep native window
 synchronization from silently returning captures to 100% zoom.
 Cleanup validates the exact temporary installation before removing its containers,
 image tag, and test directory; it never uses `--volumes` or a user's hub.
-The same suite also drives the real Docker CLI against two simulated daemons
-using a temporary Docker configuration. Switching its default context must leave
-startup, retry, cancellation, and shutdown on the original daemon, with no
-requests to the second daemon or changes to the user's Docker configuration.
 
 Full E2E runs native lifecycle checks in the desktop backend lifecycle job. The
 Electron scaffold job still uses a desktop-only checkout. Renderer tests also reject untrusted callers of the lifecycle and
 connection-address IPC methods. Separate native scenarios block initial renderer
-readiness and recover through Retry without Docker commands, and verify the
+readiness and recover through Retry without Podman commands, and verify the
 selected-address CSP with actual desktop HTTP/SSE requests against a seeded run.
 The outage scenario stops only its disposable container. While it is down, the
 mounted HUD keeps its editor identity, reply draft, output selection and divider
@@ -494,7 +492,7 @@ their IPC channels one at a time, reporting failures and restarting readiness
 polling. Long identifiers, metadata and diagnostics stay inside their cells in
 both themes at 1260×780 and at 640×420 with 125% zoom; captures are attached.
 Lifecycle tests check that restart and recreate verify ownership before
-running their exact Compose commands, run one at a time, make shutdown wait,
+running their exact Podman commands, run one at a time, make shutdown wait,
 and leave a replaced container untouched.
 
 `desktop/tests/environment.spec.ts` covers a failed load with Retry and masked
@@ -518,10 +516,9 @@ limits/storage/busy gates, and locked provider actions.
 The existing Environment and credential suites remain in the default Python run.
 
 Desktop layout coverage also relocates log and local-extension directories in an
-isolated copy of `desktop/src/backend-layout.json`, runs the standalone runtime
-preparation command, and compares its paths and permissions with Docker Compose's
-resolved bind mounts. It checks that preparation leaves local package directories
+isolated copy of `desktop/src/backend-layout.json`, prepares the runtime from
+it, and checks the resolved bind mounts' paths and permissions. It checks that preparation leaves local package directories
 empty and creates only the separately mounted read-only folder inside the hub.
-The Docker smoke test starts with those mount sources and verifies that the API
+The container smoke test starts with those mount sources and verifies that the API
 creates a project which survives restart and shutdown. These checks cover the
 boundary between desktop mount preparation and hub-owned application storage.

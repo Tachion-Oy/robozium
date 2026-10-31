@@ -391,7 +391,7 @@ def test_reset_forgets_cached_secrets_and_accepts_a_new_password(
     )
     ciphertext = dotenv_values(tmp_path / ".env.encrypt")[name + "_ENCRYPTED"]
     monkeypatch.setenv(name + "_ENCRYPTED", ciphertext)
-    # Compose also passes ciphertext into the process at startup.
+    # The desktop also passes ciphertext into the process at startup.
     restarted = TestClient(create_app(deployment=load_hub(start=tmp_path)))
     if unlocked:
         assert (

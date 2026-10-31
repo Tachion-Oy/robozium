@@ -4,7 +4,7 @@ import definition from "./backend-layout.json" with { type: "json" }
 import { endpointType } from "./host-endpoints.ts"
 
 /** The desktop's named locations; this layout file is the only place paths are written out. */
-export const locations = definition["x-desktop"].locations
+export const locations = definition.desktop.locations
 
 /** Whether `child` is `parent` or lies within it. */
 export function isInside(child: string, parent: string): boolean {
@@ -60,18 +60,17 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 	if (!path.isAbsolute(hub)) {
 		throw new Error("Select an absolute hub folder.")
 	}
-	const roots = { ROBOZIUM_DESKTOP_RUNTIME: runtime, ROBOZIUM_DESKTOP_HUB: hub }
-	const resolve = (location: string): string => {
-		const match = /^\$\{(ROBOZIUM_DESKTOP_RUNTIME|ROBOZIUM_DESKTOP_HUB)(?::\?[^}]*)?\}(\/.*)?$/.exec(location)
-		if (!match) {
+	const roots = { runtime, hub }
+	const resolve = (location: { root: string; path: string }): string => {
+		if (location.root !== "runtime" && location.root !== "hub") {
 			throw new Error("Desktop backend files must lie in the configured runtime or hub folder.")
 		}
-		return path.join(roots[match[1] as keyof typeof roots], match[2] ?? "")
+		return path.join(roots[location.root], location.path)
 	}
-	const mounts = definition.services.api.volumes.map((mount): BackendMount => ({
-		source: resolve(mount.source),
+	const mounts = definition.backend.mounts.map((mount): BackendMount => ({
+		source: resolve(mount),
 		destination: mount.target,
-		writable: !mount.read_only,
+		writable: !mount.readOnly,
 	}))
 
 	const mountSource = (destination: string): string => {
@@ -93,8 +92,8 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 		return path.join(mount.source, path.posix.relative(mount.destination, containerPath))
 	}
 
-	const desktop = definition["x-desktop"]
-	const containerEnvironment: Record<string, string> = definition.services.api.environment
+	const desktop = definition.desktop
+	const containerEnvironment: Record<string, string> = definition.backend.environment
 	const hostServices = Object.entries(desktop.hostServices.services).map(([name, service]): HostServiceLayout => {
 		let address: string
 		try {
