@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.3.1 - 2026-11-01
+
+- Update RoboZ to 0.15.0. Tool results now carry their producer and a local
+  timestamp, so agents know the current time and how much time has passed.
+  Content-filter refusals ask you to choose another model instead of failing
+  after repeated output repairs.
+- The README explains how to install Docker before Robozium.
+
 ## 0.3.0 - 2026-10-31
 
 - The desktop app is now the only Robozium app. The browser HUD, the
