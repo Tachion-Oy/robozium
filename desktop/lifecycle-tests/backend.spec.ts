@@ -11,7 +11,7 @@ import { resolveBackendLayout } from "../src/backend-layout"
 import { installTestClient } from "../tests/transport"
 
 const desktop = path.resolve(import.meta.dirname, "..")
-const docker = execFileSync("which", ["docker"], { encoding: "utf8" }).trim()
+const podman = execFileSync("which", ["podman"], { encoding: "utf8" }).trim()
 const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`
 // An 8×4 PNG.
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAECAIAAAA8r+mnAAAAEUlEQVR4nGNQOJCAFTFQTwIAyM0oAY5QpvwAAAAASUVORK5CYII=", "base64")
@@ -38,7 +38,7 @@ const test = base.extend<{ runtime: Runtime }>({
 		try {
 			await mkdir(path.join(directory, "bin"))
 			await writeFile(commands, "")
-			await writeFile(path.join(directory, "bin/docker"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${shellQuote(commands)}\nexec ${shellQuote(docker)} "$@"\n`, { mode: 0o700 })
+			await writeFile(path.join(directory, "bin/podman"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${shellQuote(commands)}\nexec ${shellQuote(podman)} "$@"\n`, { mode: 0o700 })
 			await use({ directory, profile, port, commands, launch: async (mode = "mock") => {
 				const app = await playwright._electron.launch({
 					args: [desktop, ...(mode === "mock" ? ["--mock"] : []), "--ozone-platform=x11", "--force-device-scale-factor=1"],
@@ -73,26 +73,27 @@ const test = base.extend<{ runtime: Runtime }>({
 					expect(installation).toMatch(/^[a-f0-9]{12}$/)
 					for (const mode of ["mock", "live"]) {
 						const project = `robozium-desktop-${installation}-${mode}`
-						const ids = execFileSync(docker, ["ps", "-aq", "--filter", `label=com.docker.compose.project=${project}`], { encoding: "utf8" }).trim().split(/\s+/).filter(Boolean)
+						const ids = execFileSync(podman, ["ps", "-aq", "--filter", `label=fi.tachion.robozium.desktop.project=${project}`], { encoding: "utf8" }).trim().split(/\s+/).filter(Boolean)
 						for (const id of ids) {
-							expect(execFileSync(docker, ["inspect", "--format", '{{index .Config.Labels "fi.tachion.robozium.desktop.installation"}}', id], { encoding: "utf8" }).trim()).toBe(installation)
-							const logs = spawnSync(docker, ["logs", id], { encoding: "utf8", timeout: 15_000 })
+							expect(execFileSync(podman, ["inspect", "--format", '{{index .Config.Labels "fi.tachion.robozium.desktop.installation"}}', id], { encoding: "utf8" }).trim()).toBe(installation)
+							const logs = spawnSync(podman, ["logs", id], { encoding: "utf8", timeout: 15_000 })
 							await testInfo.attach(`api-${id}.log`, { body: logs.stdout + logs.stderr, contentType: "text/plain" })
-							execFileSync(docker, ["rm", "--force", id], { stdio: "pipe" })
+							execFileSync(podman, ["rm", "--force", id], { stdio: "pipe" })
 						}
 						try {
-							execFileSync(docker, ["image", "rm", `${project}-api`], { stdio: "pipe" })
+							// Untagging keeps the layers, which Podman would delete with the image, for the next test's build cache.
+							execFileSync(podman, ["untag", `localhost/${project}-api`], { stdio: "pipe" })
 						} catch {
 							// Startup may not have built an image in this mode.
 						}
 					}
 					let buildLog = ""
 					try {
-						buildLog = await readFile(resolveBackendLayout(path.join(profile, "mock")).dockerLog, "utf8")
+						buildLog = await readFile(resolveBackendLayout(path.join(profile, "mock")).containerLog, "utf8")
 					} catch {
-						// Startup may fail before a Docker log exists.
+						// Startup may fail before a container log exists.
 					}
-					await testInfo.attach("docker.log", { body: buildLog, contentType: "text/plain" })
+					await testInfo.attach("container.log", { body: buildLog, contentType: "text/plain" })
 				} finally {
 					await rm(directory, { recursive: true, force: true })
 				}
@@ -124,18 +125,18 @@ async function createAndLaunch(page: Page, name: string) {
 async function ownedBackend(profile: string) {
 	const installation = (await readFile(path.join(profile, "backend-installation-id"), "utf8")).trim()
 	const project = `robozium-desktop-${installation}-mock`
-	const container = execFileSync(docker, ["ps", "-aq", "--filter", `label=com.docker.compose.project=${project}`], { encoding: "utf8" }).trim()
+	const container = execFileSync(podman, ["ps", "-aq", "--filter", `label=fi.tachion.robozium.desktop.project=${project}`], { encoding: "utf8" }).trim()
 	return { project, container }
 }
 
-test("Docker startup failure presents an accessible retry that starts the backend", async ({ runtime }, testInfo) => {
+test("Podman startup failure presents an accessible retry that starts the backend", async ({ runtime }, testInfo) => {
 	const { directory, commands } = runtime
 	const enabled = path.join(directory, "enabled")
-	await writeFile(path.join(directory, "bin/docker"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${shellQuote(commands)}\nif [ "$1" = info ] && [ ! -f ${shellQuote(enabled)} ]; then exit 1; fi\nexec ${shellQuote(docker)} "$@"\n`, { mode: 0o700 })
+	await writeFile(path.join(directory, "bin/podman"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${shellQuote(commands)}\nif [ "$1" = info ] && [ ! -f ${shellQuote(enabled)} ]; then exit 1; fi\nexec ${shellQuote(podman)} "$@"\n`, { mode: 0o700 })
 	const app = await runtime.launch()
 	const page = await app.firstWindow()
 	// The failure shows in a toast over the loading screen once the launch animation has played.
-	await expect(toast(page, "Robozium could not start")).toContainText("Docker is unavailable", { timeout: 15_000 })
+	await expect(toast(page, "Robozium could not start")).toContainText("Podman is unavailable", { timeout: 15_000 })
 	await expect(page.getByRole("button", { name: "New Project", exact: true })).toHaveCount(0)
 	await setNativeViewport(app, page, 640, 420, 1.25)
 	expect(await page.evaluate(() => document.documentElement.scrollHeight === innerHeight)).toBe(true)
@@ -151,7 +152,7 @@ test("Docker startup failure presents an accessible retry that starts the backen
 	await expect(page.getByRole("button", { name: "New Project", exact: true })).toBeVisible({ timeout: 180_000 })
 })
 
-test("initial renderer readiness times out, stops polling, and retries without Docker", async ({ runtime }) => {
+test("initial renderer readiness times out, stops polling, and retries without Podman", async ({ runtime }) => {
 	const { port, commands } = runtime
 	const app = await runtime.launch()
 	const page = await app.firstWindow()
@@ -172,7 +173,7 @@ test("initial renderer readiness times out, stops polling, and retries without D
 		await page.clock.fastForward(20_000)
 		expect(readinessRequests).toBe(1)
 	})
-	await test.step("Retry the connection without issuing Docker commands", async () => {
+	await test.step("Retry the connection without issuing Podman commands", async () => {
 		const commandsBeforeRetry = await readFile(commands, "utf8")
 		blocked = false
 		await page.getByRole("button", { name: "Retry", exact: true }).click()
@@ -236,9 +237,9 @@ test("an outage preserves the HUD, and after recovery the lost run returns to th
 	await model.click()
 	await page.getByRole("listbox", { name: "Base model" }).getByRole("option").last().click()
 	const chosenModel = await model.getAttribute("title")
-	await test.step("Detect the outage and retry without restarting Docker", async () => {
+	await test.step("Detect the outage and retry without restarting Podman", async () => {
 		// Stop this disposable backend externally; connection Retry must not restart it.
-		execFileSync(docker, ["stop", "--time", "5", container], { stdio: "pipe" })
+		execFileSync(podman, ["stop", "--time", "5", container], { stdio: "pipe" })
 		await expect(toast(page, "Backend")).toContainText("Backend connection unavailable", { timeout: 12_000 })
 		const outageCommands = await readFile(commands, "utf8")
 		await page.getByRole("button", { name: "Retry", exact: true }).click()
@@ -273,7 +274,7 @@ test("an outage preserves the HUD, and after recovery the lost run returns to th
 		}
 	})
 	await test.step("Recover: settings are kept and the run the restart lost returns to the overview", async () => {
-		execFileSync(docker, ["start", container], { stdio: "pipe" })
+		execFileSync(podman, ["start", container], { stdio: "pipe" })
 		await expect.poll(async () => {
 			try {
 				return (await fetch(`http://127.0.0.1:${port}/ready`, { headers: { Origin: "robozium://app" } })).status
@@ -314,14 +315,14 @@ test("a duplicate launch focuses the first window and cannot stop its backend", 
 	})
 	await expect.poll(() => app.evaluate(() => Reflect.get(globalThis, "focusRequests"))).toBe(1)
 	expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(true)
-	expect(execFileSync(docker, ["inspect", "--format", "{{.State.Running}}", container], { encoding: "utf8" }).trim()).toBe("true")
+	expect(execFileSync(podman, ["inspect", "--format", "{{.State.Running}}", container], { encoding: "utf8" }).trim()).toBe("true")
 })
 
 test("closing and reopening preserves project data and reuses the backend image", async ({ runtime }) => {
 	const { profile, commands, port } = runtime
 	const { app, page } = await launchConnected(runtime)
 	const { project, container } = await ownedBackend(profile)
-	const image = execFileSync(docker, ["image", "inspect", "--format", "{{.Id}}", `${project}-api`], { encoding: "utf8" }).trim()
+	const image = execFileSync(podman, ["image", "inspect", "--format", "{{.Id}}", `localhost/${project}-api`], { encoding: "utf8" }).trim()
 	await createAndLaunch(page, "Native lifecycle")
 	await expect(page.getByRole("status", { name: "Run status" })).toContainText("native-lifecycle")
 	await chooseView(page, "Runs Overview")
@@ -335,7 +336,7 @@ test("closing and reopening preserves project data and reuses the backend image"
 	await writeFile(proof, "native data survives shutdown\n")
 	await test.step("Close the window and retain the mounted project files", async () => {
 		await closeWindow(app)
-		expect(execFileSync(docker, ["inspect", "--format", "{{.State.Running}}", container], { encoding: "utf8" }).trim()).toBe("false")
+		expect(execFileSync(podman, ["inspect", "--format", "{{.State.Running}}", container], { encoding: "utf8" }).trim()).toBe("false")
 		expect(await readFile(proof, "utf8")).toBe("native data survives shutdown\n")
 	})
 	await test.step("Reopen the installation and reuse its project and image", async () => {
@@ -347,8 +348,8 @@ test("closing and reopening preserves project data and reuses the backend image"
 		expect(projects.some(item => item.slug === "native-lifecycle")).toBe(true)
 		// The run ended with the window: the project is dormant and launches again.
 		await expect(reopenedPage.locator(".agent-hud__project-row", { hasText: "native-lifecycle" }).getByRole("button", { name: "Launch", exact: true })).toBeVisible()
-		expect(execFileSync(docker, ["image", "inspect", "--format", "{{.Id}}", `${project}-api`], { encoding: "utf8" }).trim()).toBe(image)
-		expect((await readFile(commands, "utf8")).split("\n").filter(line => line.endsWith(" build api"))).toHaveLength(1)
+		expect(execFileSync(podman, ["image", "inspect", "--format", "{{.Id}}", `localhost/${project}-api`], { encoding: "utf8" }).trim()).toBe(image)
+		expect((await readFile(commands, "utf8")).split("\n").filter(line => line.startsWith("build "))).toHaveLength(1)
 		await closeWindow(reopened)
 		expect(await readFile(proof, "utf8")).toBe("native data survives shutdown\n")
 	})
@@ -356,7 +357,7 @@ test("closing and reopening preserves project data and reuses the backend image"
 
 test("closing the native window cancels an in-progress build client", async ({ runtime }) => {
 	const marker = path.join(runtime.directory, "build-pid")
-	await writeFile(path.join(runtime.directory, "bin/docker"), `#!/bin/sh\ncase "$*" in\n  *" build api") echo $$ > ${shellQuote(marker)}; exec sleep 120;;\nesac\nexec ${shellQuote(docker)} "$@"\n`, { mode: 0o700 })
+	await writeFile(path.join(runtime.directory, "bin/podman"), `#!/bin/sh\ncase "$1" in\n  build) echo $$ > ${shellQuote(marker)}; exec sleep 120;;\nesac\nexec ${shellQuote(podman)} "$@"\n`, { mode: 0o700 })
 	const app = await runtime.launch()
 	const page = await app.firstWindow()
 	await expect(page.getByRole("status")).toContainText("Building the backend", { timeout: 15_000 })

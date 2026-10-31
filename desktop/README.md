@@ -24,9 +24,9 @@ sudo apt install ./desktop/release/robozium-desktop_*_amd64.deb
 ```
 
 Start **Robozium** from the application menu, or run `robozium` (add `--mock`
-for the credential-free mock backend). Docker Engine with Compose v2.24 or newer
-is required at runtime; the first start builds the backend image, which needs
-internet access and can take several minutes.
+for the credential-free mock backend). apt installs rootless Podman with the
+app; the first start builds the backend image, which needs internet access and
+can take several minutes.
 
 The Robozium mark is one file, `renderer/public/branding/robozium-mark.svg`.
 Replace it with any single-colour SVG that has a `viewBox` (or a width and
@@ -58,8 +58,8 @@ before starting the other, or set `ROBOZIUM_DESKTOP_API_PORT` for the checkout.
 
 ## Run on Linux
 
-Requires Linux Docker Engine with Compose v2.24 or newer, Node.js 22.18 or newer,
-and npm. From the repository root:
+Requires rootless Podman (`sudo apt install podman uidmap catatonit`), Node.js
+22.18 or newer, and npm. From the repository root:
 
 ```sh
 npm --prefix desktop ci
@@ -112,17 +112,16 @@ backend is ready and the HUD has drawn beneath it. Reduced motion skips the
 introduction. The first build requires internet.
 Later launches reuse the image when the staged inputs match its build identifier.
 Startup failures show an explanation and **Retry** in a toast over the loading screen. Closing the window cancels
-startup, waits for its Docker client to exit, and stops only the installation's
+startup, waits for its Podman command to exit, and stops only the installation's
 verified API containers. Containers, images, credentials, and host data remain.
 A second managed launch using the same profile exits without changing its backend.
-Docker's target is selected once at startup and retained for Retry and shutdown,
-even if another terminal changes the current context. Explicit `DOCKER_CONTEXT`
-and `DOCKER_HOST` settings retain Docker's normal precedence and TLS settings.
-Restart the app to select a different target.
+The app always uses this machine's own rootless Podman; it ignores
+`CONTAINER_HOST` and `CONTAINER_CONNECTION`, so a remote Podman never receives
+the hub's mounts.
 
 Managed app data lives in `.artifacts/desktop/data/`, with separate `live/` and
 `mock/` runtime directories. The installation identifier in
-`backend-installation-id` scopes Docker project ownership. `settings.json` holds
+`backend-installation-id` scopes container ownership. `settings.json` holds
 only UI preferences (theme, window size, zoom); the backend is configured by the
 repository's `hub.config.py` and the runtime's `.env`.
 Defaults are live **18001** and mock **18000**.
@@ -130,7 +129,6 @@ Set `ROBOZIUM_DESKTOP_API_PORT` to an unused port to override that mode's port.
 Stop the app before changing a port; existing containers with different ownership,
 ports, or mounts are rejected. Do not share a hub between managed and manual runs.
 
-Main selects your host UID/GID for rootful Docker or `0:0` for rootless Docker.
 Provider configuration belongs in the selected runtime's `.env` or `.env.encrypt`;
 see the [credential guidance](../README.md#optional-encrypted-credentials).
 Keys and decryption remain in the Python backend. Startup opens the HUD
@@ -145,8 +143,8 @@ Once connected, React checks readiness every five seconds with a three-second
 timeout. A connection failure stops polling and shows an accessible notice with
 **Retry**. The HUD stays mounted, preserving your draft, model/view and history
 selection, divider position, and theme. Connection Retry checks the existing API
-and resumes polling when ready; it does not rebuild or restart Docker. Backend
-startup Retry still retries Docker setup.
+and resumes polling when ready; it does not rebuild or restart the container.
+Backend startup Retry still retries the container setup.
 
 Main supplies the controller's selected loopback address through the trusted
 bridge and uses that same address in the bundled page's CSP. Application traffic
@@ -155,13 +153,13 @@ exact `robozium://app` origin and selected `127.0.0.1:port` Host, while retainin
 originless native CLI/health checks. It rejects other origins/hosts and originless
 browser requests carrying Fetch Metadata before invoking endpoints. No credentials or tokens enter the bridge.
 
-Build/start diagnostics append to the mode's `.runtime/logs/docker.log`. For API
-logs, use `docker logs --tail=200 <container>` with the API container from the
-`robozium-desktop-<installation-id>-<mode>` project. Ownership failures leave
+Build/start diagnostics append to the mode's `.runtime/logs/container.log`. For
+API logs, use `podman logs --tail=200 <container>` with the API container
+`robozium-desktop-<installation-id>-<mode>-api`. Ownership failures leave
 unrecognized containers alone; inspect the project and mounts before retrying.
 Shutdown failures are reported on stderr and exit with a nonzero status.
 
-For UI development without Docker, start a backend yourself and give the app
+For UI development without a container, start a backend yourself and give the app
 its address. The API accepts the app only when started with
 `ROBOZIUM_DESKTOP_API_PORT` set to its port:
 
@@ -173,7 +171,7 @@ cd desktop && npm run build && npx electron . --backend-url=http://127.0.0.1:800
 ```
 
 `--backend-url` takes `http://127.0.0.1:<port>` or `http://localhost:<port>`.
-The app then starts no Docker backend and leaves the backend's lifecycle and hub
+The app then starts no container and leaves the backend's lifecycle and hub
 to whoever started it: startup Retry has nothing to retry, **Restart backend**,
 **Recreate backend** and opening hub files report that this launch uses a
 backend it does not manage, and the hub folder cannot be chosen. **Restart app**
@@ -371,7 +369,7 @@ brings the open window to the front.
 ## Host services
 
 Some backend tools call a program that runs on your computer rather than in
-Docker. The safe-scripts tool runs the hub's `readonly/safe-scripts` as you,
+the container. The safe-scripts tool runs the hub's `readonly/safe-scripts` as you,
 with your own files and logins, which the Slack sweep needs. In live mode on
 Linux the app starts these programs before the backend and stops them after it.
 
@@ -383,7 +381,7 @@ its state and, when one cannot run, the reason. A service that keeps exiting is
 restarted twice and then reported failed. After a crash, the next launch stops
 the service the crash left running.
 
-To add a service, declare it under `x-desktop.hostServices.services` in
+To add a service, declare it under `desktop.hostServices.services` in
 `src/backend-layout.json`: its platforms and modes, the program and arguments
 from the host environment, its log, and its endpoint. Arguments name hub or
 runtime folders by their container path (`{ "hostPath": "/hub" }`), and
@@ -426,10 +424,10 @@ and CI details.
 **Hard rule: do not hardcode filesystem locations in application code.** Resolve
 paths from configured profile/runtime roots. Define bind-mount paths,
 desktop-owned runtime file locations, and the named locations in
-`x-desktop.locations` (profiles, backend resources, settings files, the default
+`desktop.locations` (profiles, backend resources, settings files, the default
 hub folder) in the shared desktop layout configuration, `src/backend-layout.json`.
-Use that definition for mount preparation, ownership validation, Docker logging,
-and Compose integration. Repeating paths such as `.runtime/local-deps` or
+Use that definition for mount preparation, ownership validation, container
+logging, and the container's options. Repeating paths such as `.runtime/local-deps` or
 `hub/readonly/safe-scripts` in controller or helper path lists is prohibited.
 
 All desktop code is TypeScript in ES modules. Node runs the main-process
@@ -442,21 +440,24 @@ CommonJS, so `tsconfig.preload.json` compiles it on its own and Node never runs
 it directly. The renderer and Playwright tests are bundled or transpiled by Vite
 and Playwright, so their imports omit extensions.
 
-Desktop setup prepares the host folders Docker needs to mount, including the
+Desktop setup prepares the host folders the container mounts, including the
 nested read-only safe-scripts mount. The hub owns its application structure and
 files within those mounts; desktop setup must not create or configure internal
 directories such as `local/tools`, `local/skills`, or `local/imports`. The desktop
-also owns its installation identity, Compose interpolation file, and Docker log.
+also owns its installation identity and container log.
 
 - `src/` contains Electron main, preload, and the typed bridge. Main owns
   backend lifecycle. Native clipboard writes use `writeClipboardText(text)`,
   validating the window, main frame, document URL, and string payload. Browser clipboard permissions
   remain denied; the bridge exposes no clipboard-read operation. Backend IPC is
   limited to `getBackendConnection()`, `getBackendStatus()`, `getHostServices()`, and `retryBackend()` with the same trusted
-  document checks; it exposes no shell or Docker command interface.
+  document checks; it exposes no shell or container command interface.
 - `src/backend-controller.ts` coordinates startup, readiness, retry, and shutdown.
-- `src/docker-command.ts` finds host programs and runs one Docker CLI command,
-  handling its output, timeout, and cancellation.
+- `src/container-engine.ts` describes the backend container independently of the
+  engine that runs it, and the operations the controller needs from an engine.
+  `src/podman-engine.ts` provides them with rootless Podman on Linux.
+- `src/host-command.ts` finds host programs and runs one command, handling its
+  input, output, timeout, and cancellation.
 - `src/host-services.ts` starts, supervises, and stops the layout's
   [host services](#host-services); `src/host-endpoints.ts` defines how each
   endpoint type is addressed and probed; `src/host-environment.ts` prepares the
@@ -464,10 +465,8 @@ also owns its installation identity, Compose interpolation file, and Docker log.
 - `src/backend-profile.ts` exposes `loadOrCreateBackendProfile()`, which reads or
   creates the installation identity and selects the mode's runtime and port.
 - `src/backend-layout.json` defines bind mounts and desktop-owned runtime file
-  locations. Compose extends this configuration directly.
-- `src/backend-layout.ts` resolves and prepares that layout for Electron and
-  `scripts/prepare-runtime.ts`. Node runs it directly, so the standalone setup
-  command can also run before installing desktop dependencies.
+  locations, and the backend container's environment and command.
+- `src/backend-layout.ts` resolves and prepares that layout's host paths.
 - `renderer/src/ui/main.tsx` mounts backend startup and the application. Renderer
   Folders, owners and dependency rules are described in
   [`renderer/src/ARCHITECTURE.md`](renderer/src/ARCHITECTURE.md).
@@ -502,99 +501,64 @@ also owns its installation identity, Compose interpolation file, and Docker log.
 Keep new components in the corresponding `ui/` feature folder with their styles
 beside them; keep hooks and state in the TypeScript feature folders.
 
-## Manual desktop backend (Linux)
+## Backend diagnostics (Linux)
 
-The desktop Docker configuration runs the existing Python API in its own
-container. Electron normally manages startup and shutdown. The commands below
-are for manual diagnostics using a separate project and runtime. These development commands require Linux Docker Engine with
-Compose v2.24 or newer and Node.js 22.18 or newer; npm dependencies and host Python
-are not needed to stage or run this backend.
+The app runs the existing Python API in a rootless Podman container, as the user
+who starts it. Podman needs no daemon and no privileged group; container root is
+your own account, so files the backend writes to the hub stay yours. The API
+uses your network, listens only on `127.0.0.1`, and runs one worker. The
+container has no capabilities, cannot gain privileges, and never pulls images:
+the app builds its own from the staged sources.
 
-From the repository root, stage the public backend sources:
+`npm --prefix desktop run backend:stage` regenerates `desktop/.stage/backend/`
+from an explicit allowlist. It includes locked Python dependencies, the
+Dockerfile, and the existing Python application. Symlinks are rejected.
+Credentials, private imports, hubs, frontend files, and caches are excluded.
+The image retains the existing Linux CLI tools, and its own user is UID/GID 10001.
 
-```sh
-npm --prefix desktop run backend:stage
-```
+`src/backend-layout.json` describes the container: its mounts, environment
+files and values, and command. The layout says what the backend needs, not how
+an engine provides it; `src/podman-engine.ts` turns it into Podman commands. At
+each start the app reads the runtime's `.env.encrypt` and then `.env`, with
+plaintext entries overriding matching encrypted ones, and passes them to Podman
+in `.runtime/container.env`, readable only by you and removed as soon as the
+container starts, so no value appears on a command line. Backend paths and
+the selected mode and port always win. Keys and decryption remain the Python
+backend's responsibility; the desktop only sends the unlock password to the
+backend. A changed `.env` applies after **Recreate backend** or a restart of
+the app.
 
-This regenerates `desktop/.stage/backend/` from an explicit allowlist. It includes
-locked Python dependencies, desktop-owned Docker/config files, and the existing
-Python application. Symlinks are rejected. Credentials, private imports, hubs,
-frontend files, and caches are excluded. The image retains the existing Linux
-CLI tools and runs as UID/GID 10001 by default.
-
-Select live mode (the Compose default):
-
-```sh
-export ROBOZIUM_MODE=live
-export ROBOZIUM_DESKTOP_API_PORT=18001
-```
-
-For credential-free mock mode, use these two lines instead:
-
-```sh
-export ROBOZIUM_MODE=mock
-export ROBOZIUM_DESKTOP_API_PORT=18000
-```
-
-Then prepare that mode's runtime and define a command scoped to its project:
+Every container and image the app creates carries labels with its installation
+and mode. To see them and the API's own log:
 
 ```sh
-export ROBOZIUM_DESKTOP_RUNTIME="$PWD/.artifacts/desktop/manual-data/$ROBOZIUM_MODE"
-export ROBOZIUM_API_USER="$(id -u):$(id -g)"
-ROBOZIUM_DESKTOP_COMPOSE_ENV="$(node desktop/scripts/prepare-runtime.ts)"
-desktop_compose() {
-  docker compose --project-name "robozium-desktop-manual-$ROBOZIUM_MODE" \
-    --env-file "$ROBOZIUM_DESKTOP_COMPOSE_ENV" \
-    --file "$PWD/desktop/compose.yaml" "$@"
-}
+podman ps --all --filter label=fi.tachion.robozium.desktop.installation
+podman logs --tail=200 <container>
+podman images --filter reference='robozium-desktop-*'
 ```
 
-For **rootless Docker**, set `export ROBOZIUM_API_USER=0:0` before starting;
-container root maps to your host account. Rootful Docker uses the host UID/GID
-above so bind-mounted data remains writable. You may choose another absolute
-runtime directory and unused API port before preparing/starting the runtime.
-Compose requires an explicit runtime and existing bind sources. Use one API
-process per hub directory.
-
-For live mode, supply provider settings in the selected runtime's `.env` or
-`.env.encrypt`, following the repository's [credential guidance](../README.md#optional-encrypted-credentials).
-Compose loads `.env.encrypt` first and `.env` second; plaintext entries override
-matching encrypted-file entries. The empty `--env-file` above prevents automatic
-checkout `.env` interpolation. Backend paths and the selected mode/port are set
-explicitly in Compose. Keys and decryption remain the Python backend's
-responsibility; the desktop only sends the unlock password to the backend.
-
-```sh
-desktop_compose up --build --wait --wait-timeout 180
-curl --fail "http://127.0.0.1:$ROBOZIUM_DESKTOP_API_PORT/ready"
-desktop_compose ps
-desktop_compose logs --tail=200 api
-# Stop this mode's container, retaining its data and built image:
-desktop_compose down --remove-orphans
-```
-
-The API uses host networking, listens only on `127.0.0.1`, and runs one worker.
-Its runtime contains the hub, credentials, local packages, dependency cache,
-and logs; Docker stores images separately. The socket and safe-script mounts
-are read-only. Host-helper process management remains deferred. Manual
-`.artifacts/desktop/manual-data/` and managed `.artifacts/desktop/data/` contain
-persistent data, not disposable build output. Live and mock directories remain separate, and shutdown does not delete
-either. Restage and rebuild after changing backend source or desktop config.
+The runtime contains the hub, credentials, local packages, dependency cache, and
+logs; Podman stores images separately under `~/.local/share/containers`. The
+socket and safe-script mounts are read-only. Managed `.artifacts/desktop/data/`
+contains persistent data, not disposable build output. Live and mock directories
+remain separate, and shutdown deletes neither. Restage after changing backend
+source or desktop config; the next start rebuilds the image.
 
 Backend validation runs separately from the native UI suite:
 
 ```sh
 npm --prefix desktop run test:backend
-npm --prefix desktop run test:backend:docker
+npm --prefix desktop run test:backend:container
 npm --prefix desktop run test:backend:lifecycle
 npm --prefix desktop run test:backend:electron
 ```
 
-The first command checks staging and Compose with synthetic inputs. The second
-builds the real image and checks mock readiness and restart persistence using
-a temporary runtime, unused loopback port, and unique Compose project. It removes
-only its own test containers/image and temporary data, including after failures.
+The first command checks staging and the layout with synthetic inputs. The
+second builds the real image with the app's own controller and checks mock
+readiness and persistence across restart and recreate, using a temporary
+profile and unused loopback port. It removes only its own test containers,
+image and temporary data, including after failures.
 
 Lifecycle unit tests cover ownership, errors, cancellation, and process cleanup.
 The native backend suite verifies retry, first build/image reuse, close/reopen
-persistence, and cancellation against isolated mock Docker resources.
+persistence, and cancellation against isolated mock Podman resources.

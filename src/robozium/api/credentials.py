@@ -33,7 +33,7 @@ class LoadedCredentials:
 
     def __init__(self, path: Path = DEFAULT_ENCRYPTED_ENV_PATH) -> None:
         self.path = _encrypted_path(path)
-        # Set at startup, when Compose reads environment files; the first save clears it.
+        # Set at startup, when the desktop passes environment files in; the first save clears it.
         self.setup_required = False
         self.lock = threading.RLock()
         self.keys: dict[str, bytes] = {}

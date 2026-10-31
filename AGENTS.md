@@ -3,7 +3,7 @@
 ## User onboarding
 
 - The Electron app in `desktop/` is the only Robozium app. It runs the Python
-  API in Docker; Debian and Ubuntu users install it with apt (see the
+  API in a rootless Podman container; Debian and Ubuntu users install it with apt (see the
   [README](README.md)). RoboZ supplies Shed and Endpoints from the version
   pinned in `uv.lock`.
 - From a checkout, run `npm --prefix desktop start -- --mock` for
@@ -17,9 +17,9 @@
   and the coding agent's shell environment. The user unlocks keys in the HUD.
 - Do not read, print, or decrypt credentials for ordinary repository
   inspection. Encryption protects stored files, not decrypted credentials
-  accessible through a running API process or Docker administration.
+  accessible through a running API process or Podman administration.
 - Diagnose with the commands in the
-  [desktop README](desktop/README.md#manual-desktop-backend-linux).
+  [desktop README](desktop/README.md#backend-diagnostics-linux).
 - The hub folder (`~/Robozium-Hub` by default) holds user projects. Never delete
   or move it without explicit authorization.
 
@@ -43,5 +43,5 @@
 - Inspect the working tree and preserve user changes. Do not create issues or
   PRs, bump versions, tag, or publish unless requested. At handoff, state what
   changed and which checks passed, failed, or were not run.
-- Keep backend runtime behavior in `desktop/compose.yaml`, `desktop/Dockerfile`, and executable code rather than duplicating it in agent instructions.
+- Keep backend runtime behavior in `desktop/src/backend-layout.json`, `desktop/Dockerfile`, and executable code rather than duplicating it in agent instructions.
 - The API must remain single-worker per hub directory. Keep the API listener restricted to host loopback.

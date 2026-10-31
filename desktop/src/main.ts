@@ -20,7 +20,7 @@ app.setName("Robozium")
 const PAINT_TIMEOUT_MS = 5000
 const UNMANAGED = "This launch uses a backend it does not manage."
 const mode = process.argv.includes("--mock") ? "mock" : "live"
-const { profile, source, compose, preload, renderer, hubFolder: hubFolderLocation } = desktopLocations({
+const { profile, source, preload, renderer, hubFolder: hubFolderLocation } = desktopLocations({
 	packaged: app.isPackaged, appDirectory: import.meta.dirname, resourcesPath: process.resourcesPath,
 	userData: app.getPath("userData"), home: app.getPath("home"), mode,
 	profileOverride: process.env.ROBOZIUM_DESKTOP_TEST_DATA,
@@ -61,7 +61,7 @@ async function start(): Promise<void> {
 	if (givenBackend === null) {
 		backend = new BackendController({
 			profile, mode, port: process.env.ROBOZIUM_DESKTOP_API_PORT,
-			source, compose, hubFolder,
+			source, hubFolder,
 		})
 		connection = backend.connection()
 	} else connection = { baseUrl: givenBackend }

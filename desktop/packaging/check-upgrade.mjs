@@ -1,7 +1,8 @@
 // Install OLD_DEB, add user data, upgrade to NEW_DEB, and require the data to
 // survive: the installation identity, a project in the default hub and an
 // encrypted secret that still unlocks with its password. Runs the live app
-// under Xvfb with a fresh home; no provider keys are needed. Needs sudo and Docker.
+// under Xvfb with a fresh home; no provider keys are needed. Needs sudo, and Docker
+// for releases from before Podman.
 //
 //   node desktop/packaging/check-upgrade.mjs OLD_DEB NEW_DEB
 import { execFileSync, spawn } from "node:child_process"
@@ -13,7 +14,7 @@ import process from "node:process"
 import { setTimeout as sleep } from "node:timers/promises"
 
 const readJson = file => JSON.parse(readFileSync(path.join(import.meta.dirname, "..", file), "utf8"))
-const { locations } = readJson("src/backend-layout.json")["x-desktop"]
+const { locations } = readJson("src/backend-layout.json").desktop
 const { build } = readJson("package.json")
 
 const [oldDeb, newDeb] = process.argv.slice(2).map(file => path.resolve(file))
@@ -31,8 +32,8 @@ const password = "upgrade-check-password"
 let app = null
 
 function install(deb) {
-	// dpkg -i installs exactly this file, even over the same version.
-	execFileSync("sudo", ["dpkg", "-i", deb], { stdio: "inherit" })
+	// apt installs exactly this file with its dependencies, even over the same version.
+	execFileSync("sudo", ["apt-get", "install", "-y", "--reinstall", "--allow-downgrades", deb], { stdio: "inherit" })
 }
 
 async function request(route, body) {

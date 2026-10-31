@@ -1,10 +1,10 @@
-// Estimates how far a backend image build has come from BuildKit's plain output, which
-// Compose writes when its output is not a terminal. Steps announce themselves as
-// `#11 [api 3/6] RUN …`, write output as `#11 4.603 …`, and end with `#11 DONE 75.6s`
-// or `#11 CACHED`. The Dockerfile gives every step's weight before BuildKit announces
-// it. The package installation takes most of a fresh build, so its step advances with
-// apt's own download, unpack and set-up counts. A base image pull advances with its
-// layers' downloaded bytes and extractions.
+// Estimates how far a backend image build has come from Podman's plain build output.
+// Each step announces itself as `[2/2] STEP 4/14: RUN …`, writes its output as plain
+// lines, and ends when the next step, `[2/2] COMMIT …` or a `--> <id>` line follows;
+// `Successfully tagged …` ends the build. The Dockerfile gives every step's weight
+// before Podman announces it. The package installation takes most of a fresh build,
+// so its step advances with apt's own download, unpack and set-up counts. A base image
+// pull advances as its layers finish copying.
 
 interface Step {
 	weight: number
@@ -12,8 +12,8 @@ interface Step {
 	done: number
 	/** apt's package counts, for the step that installs packages; null until apt plans. */
 	apt?: { total: number; fetched: number; installed: number } | null
-	/** The base image's layers by digest, for a FROM step; empty while the image is local. */
-	layers?: Map<string, { size: number; fetched: number; extracted: boolean }>
+	/** The base image's layers by digest, and whether each has finished; empty while the image is local. */
+	layers?: Map<string, boolean>
 }
 
 // Shares measured in a fresh build: the package step took 75 s of about 90 s, the
@@ -22,6 +22,8 @@ const PACKAGES_WEIGHT = 30
 const RUN_WEIGHT = 2
 const EXPORT_WEIGHT = 3
 const QUICK_WEIGHT = 0.3
+// Instructions such as ENV or LABEL only record settings.
+const SETTING_WEIGHT = 0.05
 // Not measured: the slim Python base is about 45 MB, roughly 15 s on a typical
 // connection. A FROM step takes this weight only once it starts pulling.
 const PULL_WEIGHT = 6
@@ -31,51 +33,43 @@ const installsPackages = (instruction: string) => /^RUN\b.*\bapt-get install\b/.
 function plannedStep(instruction: string): Step {
 	if (installsPackages(instruction)) return { weight: PACKAGES_WEIGHT, done: 0, apt: null }
 	if (/^FROM\s/i.test(instruction)) return { weight: QUICK_WEIGHT, done: 0, layers: new Map() }
-	return { weight: instruction.startsWith("RUN ") ? RUN_WEIGHT : QUICK_WEIGHT, done: 0 }
+	if (/^RUN\s/i.test(instruction)) return { weight: RUN_WEIGHT, done: 0 }
+	if (/^(COPY|ADD|WORKDIR)\s/i.test(instruction)) return { weight: QUICK_WEIGHT, done: 0 }
+	return { weight: SETTING_WEIGHT, done: 0 }
 }
 
-/**
- * Each stage's build steps, keyed as BuildKit numbers them: `stage/index`. Stages that
- * begin with the same instructions share those steps, as BuildKit runs them once.
- */
+/** Each stage's build steps, keyed as Podman numbers them: `stage/step`, both from 1. */
 function planSteps(dockerfile: string): Map<string, Step> {
 	const steps = new Map<string, Step>()
-	const byPrefix = new Map<string, Step>()
-	let stage = ""
-	let prefix: string[] = []
+	let stage = 0
+	let index = 0
 	// Continuation lines join into their instruction, so a long RUN reads as one.
-	for (const instruction of dockerfile.replace(/\\\r?\n/g, " ").split(/\r?\n/)) {
-		const from = /^FROM\s+(\S+)(?:\s+AS\s+([\w.-]+))?/i.exec(instruction)
-		if (from) {
-			stage = from[2] ?? ""
-			prefix = []
+	for (const line of dockerfile.replace(/\\\r?\n/g, " ").split(/\r?\n/)) {
+		const instruction = line.trim()
+		if (!instruction || instruction.startsWith("#")) continue
+		if (/^FROM\s/i.test(instruction)) {
+			stage++
+			index = 0
 		}
-		if (!/^(FROM|RUN|COPY|ADD|WORKDIR)\s/i.test(instruction)) continue
-		prefix.push(from ? `FROM ${from[1]}` : instruction)
-		const key = prefix.join("\n")
-		const step = byPrefix.get(key) ?? plannedStep(instruction)
-		byPrefix.set(key, step)
-		steps.set(`${stage}/${prefix.length}`, step)
+		if (stage === 0) continue
+		index++
+		steps.set(`${stage}/${index}`, plannedStep(instruction))
 	}
 	return steps
 }
 
-const stepLine = /^#(\d+) \[(?:[\w.-]+ )*?([\w.-]+) (\d+)\/\d+\] (.+)$/
-// The docker driver exports in one step; a container builder exports, then imports.
-const exportLine = /^#(\d+) (?:\[[^\]]*\] )?(?:exporting to (?:docker )?image(?: format)?|importing to docker)$/
-const finishLine = /^#(\d+) (?:DONE \S+|CACHED)$/
-const outputLine = /^#(\d+) [\d.]+ (.*)$/
-const layerLine = /^#(\d+) sha256:(\w+) ([\d.]+) ?([kMG]?B) \/ ([\d.]+) ?([kMG]?B)\b/
-const extractedLine = /^#(\d+) extracting sha256:(\w+) [\d.]+s done$/
-const unitBytes: Record<string, number> = { B: 1, kB: 1e3, MB: 1e6, GB: 1e9 }
-const SMALL_BLOB_BYTES = 100e3
+const stepLine = /^\[(\d+)\/\d+\] STEP (\d+)\/\d+: (.+)$/
+const commitLine = /^\[\d+\/\d+\] COMMIT\b/
+const finishLine = /^--> [0-9a-f]+$/
+const blobLine = /^Copying blob (?:sha256:)?([0-9a-f]+)/
+const doneLine = /^Successfully tagged /
 
 /** Feed raw build output in arbitrary chunks; `fraction` only rises, from 0 to 1. */
 export class BuildProgress {
 	private partial = ""
 	private readonly steps: Map<string, Step>
-	private readonly vertices = new Map<string, Step>()
 	private readonly exporting: Step = { weight: EXPORT_WEIGHT, done: 0 }
+	private current?: Step
 	fraction = 0
 
 	constructor(dockerfile: string) {
@@ -93,34 +87,34 @@ export class BuildProgress {
 	private read(line: string): void {
 		const step = stepLine.exec(line)
 		if (step) {
-			const [, vertex, stage, index, instruction] = step
+			const [, stage, index, instruction] = step
 			const key = `${stage}/${index}`
 			// A step the Dockerfile did not plan still counts once announced.
 			const known = this.steps.get(key) ?? plannedStep(instruction)
 			this.steps.set(key, known)
-			this.vertices.set(vertex, known)
+			this.begin(known)
 			return
 		}
-		const exporting = exportLine.exec(line)
-		if (exporting) {
-			this.vertices.set(exporting[1], this.exporting)
+		if (commitLine.test(line)) {
+			this.begin(this.exporting)
 			return
 		}
-		const finished = finishLine.exec(line)
-		if (finished) {
-			const finishedStep = this.vertices.get(finished[1])
-			if (finishedStep) finishedStep.done = 1
+		if (finishLine.test(line) || doneLine.test(line)) {
+			if (this.current) this.current.done = 1
 			return
 		}
-		const layer = layerLine.exec(line) ?? extractedLine.exec(line)
-		const pullStep = layer && this.vertices.get(layer[1])
-		if (pullStep?.layers) {
-			this.readLayer(pullStep, layer!)
+		const blob = blobLine.exec(line)
+		if (blob && this.current?.layers) {
+			this.readLayer(this.current, blob[1])
 			return
 		}
-		const output = outputLine.exec(line)
-		const outputStep = output && this.vertices.get(output[1])
-		if (outputStep && outputStep.apt !== undefined) this.readApt(outputStep, output[2])
+		if (this.current?.apt !== undefined) this.readApt(this.current, line)
+	}
+
+	/** A step's start ends the one before it. */
+	private begin(step: Step): void {
+		if (this.current) this.current.done = 1
+		this.current = step
 	}
 
 	private readApt(step: Step, text: string): void {
@@ -142,36 +136,19 @@ export class BuildProgress {
 		step.done = Math.max(step.done, Math.min(0.99, share))
 	}
 
-	private readLayer(step: Step, [, , digest, fetched, fetchedUnit, size, sizeUnit]: RegExpExecArray): void {
+	/** Without a terminal, Podman names each layer once as it starts copying and again once it is done. */
+	private readLayer(step: Step, digest: string): void {
 		const layers = step.layers!
-		if (size === undefined) {
-			const known = layers.get(digest)
-			if (known) known.extracted = true
-		} else {
-			const bytes = Number(size) * unitBytes[sizeUnit]
-			// The manifest and config arrive first, already done; counting them would fill the step before any layer.
-			if (bytes < SMALL_BLOB_BYTES) return
-			step.weight = PULL_WEIGHT
-			layers.set(digest, { size: bytes, fetched: Number(fetched) * unitBytes[fetchedUnit], extracted: layers.get(digest)?.extracted ?? false })
-		}
-		// Downloading takes most of a pull; extracting the layers the rest.
-		let fetchedBytes = 0
-		let extractedBytes = 0
-		let totalBytes = 0
-		for (const each of layers.values()) {
-			fetchedBytes += each.fetched
-			totalBytes += each.size
-			if (each.extracted) extractedBytes += each.size
-		}
-		if (totalBytes === 0) return
-		const share = 0.7 * fetchedBytes / totalBytes + 0.3 * extractedBytes / totalBytes
-		step.done = Math.max(step.done, Math.min(0.99, share))
+		step.weight = PULL_WEIGHT
+		layers.set(digest, layers.has(digest))
+		const finished = [...layers.values()].filter(Boolean).length
+		step.done = Math.max(step.done, Math.min(0.99, 0.1 + 0.9 * finished / layers.size))
 	}
 
 	private estimate(): number {
 		let total = this.exporting.weight
 		let done = this.exporting.weight * this.exporting.done
-		for (const step of new Set(this.steps.values())) {
+		for (const step of this.steps.values()) {
 			total += step.weight
 			done += step.weight * step.done
 		}

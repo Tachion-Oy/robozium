@@ -46,8 +46,9 @@ Push your branch to your own `origin`, then open a PR against
 create a branch here and follow the same PR process. Keep personal configuration,
 credentials, and hub data out of the PR.
 
-Install uv, Python 3.13 or newer, Node.js 22.18 or newer, npm, and Docker Engine
-with Compose v2.24 or newer. CI uses Python 3.13 and Node.js 22. From the
+Install uv, Python 3.13 or newer, Node.js 22.18 or newer, npm, and rootless
+Podman (`sudo apt install podman uidmap catatonit`). CI uses Python 3.13 and
+Node.js 22. From the
 repository root:
 
 ```sh
@@ -57,7 +58,7 @@ npm --prefix desktop start -- --mock
 ```
 
 Mock mode needs no provider keys. The [desktop README](desktop/README.md)
-covers live mode, a backend without Docker, and diagnostics.
+covers live mode, a backend without a container, and diagnostics.
 
 Before changing code, read [Code style](docs/code-style.md) and
 [Testing practices](docs/testing-practices.md). Shared framework or Shed behavior
@@ -117,7 +118,7 @@ Issue approval and submission do not create an obligation to merge.
 
 [Open an issue](https://github.com/Tachion-Oy/robozium/issues) with a minimal
 reproduction, expected and actual behavior, commit or version, operating system,
-and mock/live mode. Include Docker/Compose versions, and Python and Node.js
+and mock/live mode. Include the Podman version, and Python and Node.js
 versions when running from a checkout. Remove credentials and
 private project data from logs and examples.
 

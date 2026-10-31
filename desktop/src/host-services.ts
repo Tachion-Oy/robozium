@@ -3,7 +3,7 @@ import { closeSync, openSync, readFileSync, rmSync, writeFileSync } from "node:f
 import { setTimeout as delay } from "node:timers/promises"
 import type { HostServiceStatus } from "./bridge.d.ts"
 import type { BackendLayout, HostServiceLayout } from "./backend-layout.ts"
-import { findExecutable, runCommand } from "./docker-command.ts"
+import { findExecutable, runCommand } from "./host-command.ts"
 import { endpointType } from "./host-endpoints.ts"
 import { hostProcessEnvironment, prepareHostEnvironment } from "./host-environment.ts"
 
