@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
+import path from "node:path"
 import process from "node:process"
 import { runCommand } from "../../src/host-command.ts"
 
@@ -13,7 +14,8 @@ test("command output is bounded, stderr stays out of JSON, and arguments never e
 })
 
 test("failed and missing commands return safe messages", async () => {
-	await assert.rejects(runCommand(process.execPath, ["-e", 'console.error("private detail"); process.exit(7)'], options()), /node failed/)
+	await assert.rejects(runCommand(process.execPath, ["-e", 'console.error("private detail"); process.exit(7)'], options()),
+		{ message: `${path.basename(process.execPath)} failed. Check the desktop container log and retry.` })
 	await assert.rejects(runCommand("/does-not-exist/podman", [], options()), /Could not execute podman/)
 })
 
