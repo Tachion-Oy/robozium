@@ -48,13 +48,14 @@ test("opening the log adds it beside the HUD and closing detaches it, keeping th
 test("the HUD and its header controls keep their place on every frame while the log opens and closes", async ({ desktop: { app, page } }) => {
 	await resize(app, 660, 650)
 	await expect.poll(() => contentSize(app)).toEqual([660, 650])
-	// Each animation frame records the HUD's width and the view menu's position.
+	// Each animation frame records the HUD's width and both header menus' positions.
 	const record = () => page.evaluate(() => {
 		const frames: string[] = []
 		Object.assign(window, { hudFrames: frames })
+		const x = (selector: string) => Math.round(document.querySelector(selector)!.getBoundingClientRect().x)
 		const tick = () => {
-			const menu = document.querySelector(".agent-hud__view-trigger")!.getBoundingClientRect()
-			frames.push(`${Math.round(document.querySelector(".agent-hud")!.getBoundingClientRect().width)}@${Math.round(menu.x)}`)
+			const hud = Math.round(document.querySelector(".agent-hud")!.getBoundingClientRect().width)
+			frames.push(`${hud}@${x(".agent-hud__model-trigger:not(.agent-hud__view-trigger)")},${x(".agent-hud__view-trigger")}`)
 			if (frames.length < 90) requestAnimationFrame(tick)
 		}
 		requestAnimationFrame(tick)

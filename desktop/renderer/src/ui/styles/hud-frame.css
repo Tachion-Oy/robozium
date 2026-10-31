@@ -722,7 +722,7 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
 }
 :root[data-theme="light"] .agent-hud__event-text {
   animation: none;
-  max-width: min(32rem, 54vw);
+  max-width: min(32rem, 54cqw);
 }
 :root[data-theme="light"] .agent-hud__box::before {
   content: "";

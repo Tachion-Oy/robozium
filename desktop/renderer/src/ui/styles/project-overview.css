@@ -30,7 +30,7 @@
 }
 
 .agent-hud__project-input {
-  width: min(28rem, 52vw);
+  width: min(28rem, 52cqw);
   border: 1px solid var(--hud-input-border);
   background: var(--hud-input-bg);
   color: var(--hud-input-text);

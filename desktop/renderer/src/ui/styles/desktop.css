@@ -20,7 +20,7 @@ html[data-desktop] .agent-hud__mini { display: none; }
    selectors together on the right. Each shares the available row; a full label
    remains available through its accessible name and tooltip when shortened. */
 html[data-desktop] .agent-hud__header {
-  flex-wrap: nowrap; align-items: center; gap: clamp(0.35rem, 1.5vw, 1.4rem);
+  flex-wrap: nowrap; align-items: center; gap: clamp(0.35rem, 1.5cqw, 1.4rem);
 }
 /* The project badge stretches to the selectors' height. It is a label, not a
    button: in dark a glowing blue octagon with dark, unblurred text, cut like the
