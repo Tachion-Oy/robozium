@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## 0.3.0 - 2026-10-31
+
+- The desktop app is now the only Robozium app. The browser HUD, the
+  `./start` and `start.cmd` Docker launcher, and the root Compose setup are
+  removed. On Debian and Ubuntu, install the desktop app from the signed apt
+  repository described in the README. Projects in an existing hub folder carry
+  over: choose that folder in **Environment → Hub folder**.
+- Opening the desktop message log adds it beside the HUD instead of taking
+  width from the HUD, and closing it gives that width back. The HUD's
+  contents, including the header menus, no longer shift while the window
+  resizes. A window resized while the log is open closes to its HUD column,
+  and the app remembers that size for the next start.
+- Hovering a Runs overview row highlights the whole row again.
+- Reply text belongs to one run: opening another run or ending the current
+  one clears it, so old typed or dictated text no longer reappears in a later
+  run.
+- The README is illustrated again, with desktop screenshots and the hub
+  permissions diagram, and covers the desktop app only.
+
 ## 0.2.3 - 2026-10-30
 
 - Remove Claude Sonnet 5.5 from the deep reasoning models and the model
