@@ -1,5 +1,4 @@
-// Copied from web/lib/robozium/view-model.ts at db6a20f.
-// Adapted: lifecycle kinds come from the desktop run contracts, which use const objects.
+// Lifecycle kinds come from the desktop run contracts, which use const objects.
 import type { LifecycleStatus, RunLifecycleKind } from "../run/run-contracts"
 import type { ParsedMessageContent } from "./normalize"
 

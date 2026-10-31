@@ -74,8 +74,8 @@ npm --prefix desktop start -- --mock
 
 ### First start in live mode
 
-Without saved settings or a `.env`, a live start locks the HUD as the web HUD
-does: Runs Overview shows **Start Here** instead of **New Project**, project
+Without saved settings or a `.env`, a live start locks the HUD: Runs
+Overview shows **Start Here** instead of **New Project**, project
 rows, the model selector and run controls are disabled, and the view menu leads
 only to Environment. **Start Here** opens a guide paged with the message arrows.
 Its first step: drop an existing `.env.encrypt` on **Key file** in Environment
@@ -124,7 +124,7 @@ Managed app data lives in `.artifacts/desktop/data/`, with separate `live/` and
 `mock/` runtime directories. The installation identifier in
 `backend-installation-id` scopes Docker project ownership. `settings.json` holds
 only UI preferences (theme, window size, zoom); the backend is configured by the
-repository's `hub.config.py` and the runtime's `.env`, as in the web runtime.
+repository's `hub.config.py` and the runtime's `.env`.
 Defaults are live **18001** and mock **18000**.
 Set `ROBOZIUM_DESKTOP_API_PORT` to an unused port to override that mode's port.
 Stop the app before changing a port; existing containers with different ownership,
@@ -153,8 +153,7 @@ bridge and uses that same address in the bundled page's CSP. Application traffic
 uses HTTP/SSE directly. With the desktop API port configured, Python accepts the
 exact `robozium://app` origin and selected `127.0.0.1:port` Host, while retaining
 originless native CLI/health checks. It rejects other origins/hosts and originless
-browser requests carrying Fetch Metadata before invoking endpoints. Browser
-deployment behavior is unchanged. No credentials or tokens enter the bridge.
+browser requests carrying Fetch Metadata before invoking endpoints. No credentials or tokens enter the bridge.
 
 Build/start diagnostics append to the mode's `.runtime/logs/docker.log`. For API
 logs, use `docker logs --tail=200 <container>` with the API container from the
@@ -167,7 +166,9 @@ its address. The API accepts the app only when started with
 `ROBOZIUM_DESKTOP_API_PORT` set to its port:
 
 ```sh
-ROBOZIUM_DESKTOP_API_PORT=8000 ./scripts/dev.sh --mock
+ROBOZIUM_DESKTOP_API_PORT=8000 ROBOZIUM_HUB_ROOT=.runtime/dev-mock-hub \
+  ROBOZIUM_LOG_DIR=.runtime/dev-mock-logs \
+  uv run uvicorn robozium.api.app:mock_app --factory --reload --host 127.0.0.1 --port 8000
 cd desktop && npm run build && npx electron . --backend-url=http://127.0.0.1:8000
 ```
 
@@ -337,7 +338,7 @@ Editing is unavailable while runs or background work are active. Unsaved edits
 survive leaving the screen.
 
 **Key file** adopts an existing `.env.encrypt`, for example from another
-install or the web runtime, so keys are never typed again: drop the file on the
+install, so keys are never typed again: drop the file on the
 row or choose **Browse file**, enter the password it was encrypted with, and
 choose **Use key file** (**Replace saved settings** when settings exist). The
 backend accepts the file only if that password opens its secrets; a wrong
@@ -505,10 +506,9 @@ beside them; keep hooks and state in the TypeScript feature folders.
 
 The desktop Docker configuration runs the existing Python API in its own
 container. Electron normally manages startup and shutdown. The commands below
-are for manual diagnostics using a separate project and runtime. The browser's
-`./start` workflow is unchanged. These development commands require Linux Docker Engine with
-Compose v2.24 or newer and Node.js 22.18 or newer; npm dependencies, host Python,
-and `web/` are not needed to stage or run this backend.
+are for manual diagnostics using a separate project and runtime. These development commands require Linux Docker Engine with
+Compose v2.24 or newer and Node.js 22.18 or newer; npm dependencies and host Python
+are not needed to stage or run this backend.
 
 From the repository root, stage the public backend sources:
 

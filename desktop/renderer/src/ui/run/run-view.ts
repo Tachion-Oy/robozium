@@ -1,4 +1,4 @@
-// Run view types the reference imports from the web session store.
+// Run view types shared by the run HUD components.
 
 export const AgentActivityState = {
 	Working: "working",

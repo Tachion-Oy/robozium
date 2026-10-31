@@ -1,5 +1,4 @@
-// Copied from web/lib/robozium/hud-images.ts at 2a0c183.
-// Adapted: a hub image keeps its hub-relative path, which the backend serves
+// A hub image keeps its hub-relative path, which the backend serves
 // and main opens; there is no app-relative proxy. Hub path rules are shared
 // with file links.
 import { hasControlCharacter, joinHubPath } from "./hub-path"

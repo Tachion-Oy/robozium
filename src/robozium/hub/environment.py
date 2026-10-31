@@ -1,20 +1,15 @@
-"""Environment-variable names, editor limits, and startup policy."""
+"""Environment-variable names, editor limits, and controlled settings."""
 
 from typing import Final
 
 MODE: Final = "ROBOZIUM_MODE"
 CONFIG: Final = "ROBOZIUM_CONFIG"
-WEB_PORT: Final = "ROBOZIUM_WEB_PORT"
 HUB_ROOT: Final = "ROBOZIUM_HUB_ROOT"
 ENCRYPTED_ENV_PATH: Final = "ROBOZIUM_ENCRYPTED_ENV_PATH"
 HOST_SCRIPT_SOCKET: Final = "ROBOZIUM_HOST_SCRIPT_SOCKET"
 LOG_DIR: Final = "ROBOZIUM_LOG_DIR"
-HOST_HUB_DIR: Final = "ROBOZIUM_HOST_HUB_DIR"
-HOST_LOG_DIR: Final = "ROBOZIUM_HOST_LOG_DIR"
-HOST_SOCKET_DIR: Final = "ROBOZIUM_HOST_SOCKET_DIR"
 API_USER: Final = "ROBOZIUM_API_USER"
 ENV_PASSWORD: Final = "ROBOZ_ENV_PASSWORD"
-COMPOSE_PROJECT_NAME: Final = "COMPOSE_PROJECT_NAME"
 STREAM_MOCK_DELAY_S: Final = "ROBOZIUM_STREAM_MOCK_DELAY_S"
 STREAM_MOCK_START_DELAY_S: Final = "ROBOZIUM_STREAM_MOCK_START_DELAY_S"
 
@@ -23,22 +18,16 @@ MAX_PACKAGE_BYTES: Final = 32 * 1024 * 1024
 MAX_UNLOCK_BODY_BYTES: Final = 4096
 MAX_PASSWORD_CHARS: Final = 1024
 
-# These editable values are consumed before the API can unlock secrets.
-STARTUP_NAMES: Final = frozenset({WEB_PORT, HUB_ROOT})
-
-# Supplied by the launcher or runtime; never editable through the HUD.
+# Supplied by the desktop runtime; never editable through the HUD.
 CONTROLLED_NAMES: Final = frozenset(
     {
         MODE,
         CONFIG,
+        HUB_ROOT,
         ENCRYPTED_ENV_PATH,
         HOST_SCRIPT_SOCKET,
         LOG_DIR,
-        HOST_HUB_DIR,
-        HOST_LOG_DIR,
-        HOST_SOCKET_DIR,
         ENV_PASSWORD,
-        COMPOSE_PROJECT_NAME,
         API_USER,
     }
 )

@@ -6,9 +6,9 @@ import { test, json, view } from "./run-fixture"
 import { captureNative, setNativeViewport, toast } from "./native"
 import type { Backend } from "./selection-fixture"
 
-type Entry = { name: string; value: string | null; secret: boolean; configured: boolean; overridden: boolean; startup: boolean }
+type Entry = { name: string; value: string | null; secret: boolean; configured: boolean; overridden: boolean }
 const entry = (name: string, value: string | null, secret = false): Entry =>
-	({ name, value, secret, configured: true, overridden: false, startup: false })
+	({ name, value, secret, configured: true, overridden: false })
 const environment = (overrides: Record<string, unknown> = {}) => ({
 	revision: "r1", entries: [] as Entry[], overrides: [], requires_password: false, editable: true,
 	suggestions: [], example_errors: [], imports: [], ...overrides,

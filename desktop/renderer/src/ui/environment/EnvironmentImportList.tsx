@@ -1,5 +1,4 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentImportList.tsx at 076b2c9.
-// Adapted: desktop import paths; each package has a Remove button, as in web/.
+// Each package has a Remove button.
 import { useState } from "react"
 import type { EnvironmentImport } from "../../environment/environment-api"
 import { CapabilityItem } from "../hud/CapabilityItem"

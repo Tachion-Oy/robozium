@@ -1,4 +1,4 @@
-"""Desktop requests are rejected before API effects; browser mode is unchanged."""
+"""Desktop requests are rejected before API effects; no policy applies without a desktop port."""
 
 import pytest
 from config_support import write_config
@@ -135,7 +135,7 @@ def test_desktop_does_not_bypass_locked_credentials(client, tmp_path, monkeypatc
         assert response.headers["access-control-allow-origin"] == ORIGIN
 
 
-def test_browser_mode_has_no_desktop_policy(tmp_path, monkeypatch):
+def test_app_without_desktop_port_has_no_desktop_policy(tmp_path, monkeypatch):
     monkeypatch.delenv("ROBOZIUM_DESKTOP_API_PORT", raising=False)
     write_config(tmp_path)
     client = TestClient(create_app(deployment=load_hub(start=tmp_path)))

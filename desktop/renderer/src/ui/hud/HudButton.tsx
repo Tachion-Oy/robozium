@@ -1,4 +1,3 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/HudButton.tsx at 076b2c9.
 import type { ComponentPropsWithRef } from "react"
 
 const variants = {

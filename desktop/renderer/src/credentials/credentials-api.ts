@@ -2,7 +2,6 @@
 // useCredentials owns the status; requests here have no local state.
 import { ApiError, type DesktopApiClient } from "../api/client"
 
-// Contract from web/lib/robozium/wire.ts at af87bea.
 export interface CredentialStatus {
 	available: boolean
 	locked: boolean

@@ -1,5 +1,4 @@
-// Copied from robozium-electron/desktop/web/app/components/terminal/demo/DemoLog.tsx at 076b2c9.
-// Adapted: the placeholder's prompt can carry a typed command.
+// The placeholder's prompt can carry a typed command.
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import {
 	StreamLogItemKind,

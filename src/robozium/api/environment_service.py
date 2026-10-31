@@ -142,8 +142,6 @@ class EnvironmentService:
             base = name.removesuffix(ENCRYPTED_SUFFIX)
             if base in env.CONTROLLED_NAMES:
                 raise ValueError("This setting is controlled by the application")
-            if name != base and base in env.STARTUP_NAMES:
-                raise ValueError("Startup settings must remain unencrypted")
         decrypt_env_values(stored, password=password)
         with self._projects.stopped_runs():
             original = self._read_text(self._path)
@@ -263,7 +261,6 @@ class EnvironmentService:
                 value=None if secret else value,
                 secret=secret,
                 overridden=name in overrides,
-                startup=name in env.STARTUP_NAMES,
             )
         return list(entries.values())
 
@@ -306,7 +303,7 @@ class EnvironmentService:
                 EnvironmentSuggestion(
                     name=name,
                     value=value or "",
-                    secret=secret and name not in env.STARTUP_NAMES,
+                    secret=secret,
                     source=source,
                 )
             )
@@ -332,8 +329,6 @@ class EnvironmentService:
                 raise ValueError("Variable names must be unique")
             if entry.name in env.CONTROLLED_NAMES:
                 raise ValueError("This setting is controlled by the application")
-            if entry.secret and entry.name in env.STARTUP_NAMES:
-                raise ValueError("Startup settings must remain unencrypted")
             if (
                 entry.value is None
                 and not entry.secret
@@ -341,13 +336,6 @@ class EnvironmentService:
             ):
                 raise ValueError("Enter a replacement value to make a secret public")
             value = entry.value if entry.value is not None else previous.get(entry.name)
-            if entry.name == env.WEB_PORT and (
-                not value
-                or not value.isascii()
-                or not value.isdecimal()
-                or not 1 <= int(value) <= 65535
-            ):
-                raise ValueError("Web port must be an integer between 1 and 65535")
             values[entry.name] = value
         return values
 
@@ -372,7 +360,7 @@ class EnvironmentService:
     def _upload_paths(
         files: Sequence[tuple[str, BinaryIO]],
     ) -> tuple[str, dict[PurePosixPath, BinaryIO]]:
-        """Validate the entire browser file tree before creating any directories."""
+        """Validate the entire uploaded file tree before creating any directories."""
         paths: dict[PurePosixPath, BinaryIO] = {}
         for filename, stream in files:
             parts = filename.split("/")

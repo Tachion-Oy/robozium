@@ -1,5 +1,3 @@
-// Copied from web/app/components/hud/projects/ProjectOverviewPanel.tsx at 5b06d82.
-// Adapted: import paths. The setup lock and Start Here follow web at af87bea (#121).
 // Rows are not buttons: Launch reads Open on a row with a run to open, Cancel is Stop.
 // A narrow row wraps its buttons onto a second line, starting at the left.
 import { useState } from "react"

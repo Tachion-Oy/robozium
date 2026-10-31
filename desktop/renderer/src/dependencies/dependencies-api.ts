@@ -2,7 +2,7 @@
 // useDependencies owns the view's state; requests here have no local state.
 import { ApiError, type DesktopApiClient } from "../api/client"
 
-// Contract from web/lib/robozium/wire.ts at 076b2c9; kinds and reasons stay open for new values.
+// Kinds and reasons stay open for new values.
 export type DependencyStatus = "pending" | "available" | "unavailable"
 export interface DependencyRecord {
 	dependency_id: string

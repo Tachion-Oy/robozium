@@ -46,18 +46,18 @@ Push your branch to your own `origin`, then open a PR against
 create a branch here and follow the same PR process. Keep personal configuration,
 credentials, and hub data out of the PR.
 
-Install uv, Python 3.13 or newer, Node.js, and npm. CI uses Python 3.13 and
-Node.js 22. From the repository root:
+Install uv, Python 3.13 or newer, Node.js 22.18 or newer, npm, and Docker Engine
+with Compose v2.24 or newer. CI uses Python 3.13 and Node.js 22. From the
+repository root:
 
 ```sh
 uv sync --locked --dev
-npm --prefix web ci
+npm --prefix desktop ci
+npm --prefix desktop start -- --mock
 ```
 
-Use `./start --mock` or `start.cmd --mock` to try the Docker application without
-provider keys. Linux contributors can run `./scripts/dev.sh --mock` for native
-development. See the [README](README.md#development-and-contributions) for ports
-and the development launcher's separate hub storage.
+Mock mode needs no provider keys. The [desktop README](desktop/README.md)
+covers live mode, a backend without Docker, and diagnostics.
 
 Before changing code, read [Code style](docs/code-style.md) and
 [Testing practices](docs/testing-practices.md). Shared framework or Shed behavior
@@ -70,12 +70,12 @@ Run checks relevant to the change and include focused tests for changed behavior
 The [testing guide](docs/testing.md) gives the exact local commands, coverage gate,
 and Full E2E policy. At minimum, check whitespace with `git diff --check`.
 
-The required **CI** check covers Python and frontend tests, lint, and types.
+The required **CI** check covers Python tests, lint, and types, and desktop lint, types, and build.
 **Full E2E must pass in CI before merging.** Local E2E is optional for development
 and debugging. Documentation-only changes need link and command review.
 
 For approved Python dependency changes, run `uv lock` and review the lockfile.
-For approved frontend dependency changes, include the reviewed npm lockfile.
+For approved desktop dependency changes, include the reviewed npm lockfile.
 Do not include incidental dependency updates in an unrelated PR.
 
 ## Opening a pull request
@@ -117,8 +117,8 @@ Issue approval and submission do not create an obligation to merge.
 
 [Open an issue](https://github.com/Tachion-Oy/robozium/issues) with a minimal
 reproduction, expected and actual behavior, commit or version, operating system,
-and mock/live mode. Include Docker/Compose versions for deployment problems, or
-Python and Node.js versions for native development. Remove credentials and
+and mock/live mode. Include Docker/Compose versions, and Python and Node.js
+versions when running from a checkout. Remove credentials and
 private project data from logs and examples.
 
 ## Repository protection

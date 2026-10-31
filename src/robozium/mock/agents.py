@@ -36,7 +36,7 @@ from robozium.hub import environment as env
 
 # Per-chunk pause (seconds) the streaming mock inserts between message deltas so
 # the live stream is actually visible in the HUD. Override with
-# ``ROBOZIUM_STREAM_MOCK_DELAY_S``. Only the streaming mock uses this; the e2e
+# ``ROBOZIUM_STREAM_MOCK_DELAY_S``. Only the streaming mock uses this;
 # ``mock_app`` never paces, so its timing is unchanged.
 DEFAULT_STREAM_MOCK_DELAY_S = 0.1
 
@@ -46,21 +46,15 @@ DEFAULT_STREAM_MOCK_DELAY_S = 0.1
 # filling in. Override with ``ROBOZIUM_STREAM_MOCK_START_DELAY_S``.
 DEFAULT_STREAM_MOCK_START_DELAY_S = 4.0
 MOCK_SCENARIO_MARKER = ".mock-scenario"
-MOCK_SCENARIO_HELD_FIRST_MESSAGE = "held-first-message"
 MOCK_SCENARIO_LLM_ERROR = "llm-error"
 MOCK_SCENARIO_USER_NOTIFICATION = "user-notification"
-MOCK_FIRST_MESSAGE_HOLD_MARKER = ".mock-first-message-hold"
-MOCK_FIRST_MESSAGE_HOLD_MAX_S = 30.0
 
-# These opt-in markers hold the snapshot endpoint for cancellation tests or only
-# the memory endpoint for finalization tests. They are absent on the normal path.
+# These opt-in markers hold the snapshot endpoint for cancellation tests. They
+# are absent on the normal path.
 LIBRARIAN_HOLD_MARKER = ".librarian-hold"
-LIBRARIAN_CONSOLIDATION_HOLD_MARKER = ".librarian-consolidation-hold"
 LIBRARIAN_CANCEL_HOLD_MARKER = ".librarian-cancel-hold"
-# Generous ceiling so a leaked marker can't wedge the shared e2e backend, while
-# leaving ample headroom for a loaded browser to run every syncing-phase
-# assertion before the test releases the hold. The normal path always releases
-# explicitly, so this only bites on a stuck test.
+# Generous ceiling so a leaked marker can't wedge a shared test backend. The
+# normal path always releases explicitly, so this only bites on a stuck test.
 LIBRARIAN_HOLD_MAX_S = 120.0
 LIBRARIAN_HOLD_POLL_S = 0.05
 ScriptedMockResponse = dict[str, object] | Exception
@@ -135,14 +129,14 @@ def _mock_orchestrator_error_responses() -> list[ScriptedMockResponse]:
 
     Selected when the project's ``.mock-scenario`` marker is ``llm-error`` to
     exercise the error-toast pipeline without a live LLM provider. The
-    ``prompt_user`` step keeps timing deterministic — it waits for the browser
+    ``prompt_user`` step keeps timing deterministic — it waits for the client
     to attach its SSE stream and reply before the next scripted item raises a
     provider-like auth failure while the stream is open.
     """
     return [
         {
             "action": "prompt_user",
-            "rationale": "wait for the browser before failing the next call",
+            "rationale": "wait for the client before failing the next call",
             "value": "About to simulate an LLM failure. Reply to continue.",
         },
         MockProviderError("Invalid API key", status_code=401),
@@ -159,21 +153,6 @@ def _mock_scenario(project: Project) -> str | None:
     if not marker.exists():
         return None
     return marker.read_text(encoding="utf-8").strip() or None
-
-
-def _held_first_message_sink(hold_marker: Path) -> EventSink:
-    """Hold a mock run at its first message until an E2E test releases it."""
-    first_delta = True
-
-    def sink(event: PipeEvent) -> None:
-        nonlocal first_delta
-        if first_delta and isinstance(event, MessageDeltaEvent):
-            first_delta = False
-            deadline = time.monotonic() + MOCK_FIRST_MESSAGE_HOLD_MAX_S
-            while hold_marker.exists() and time.monotonic() < deadline:
-                time.sleep(0.05)
-
-    return sink
 
 
 def _mock_recipe(
@@ -242,7 +221,7 @@ def _mock_recipe(
                 ),
                 ArtifactRetention(max_log_files=4),
                 MaintenanceCadence(seconds=1),
-                _LibrarianHold(project, snapshot_endpoint, memory_endpoint),
+                _LibrarianHold(project, snapshot_endpoint),
             ),
         )
         background.set_agent_endpoint(preset.agent_endpoint)
@@ -359,24 +338,18 @@ def mock_deployment(
     # The bundle hands the librarian's pipe to the manager so cancel_project can
     # reach it — same wiring as the application's production deployment.
     # Without it, cancelling a SYNCING project is a no-op in the mock app.
-    scenario_sinks: tuple[EventSink, ...] = ()
-    if scenario == MOCK_SCENARIO_HELD_FIRST_MESSAGE:
-        scenario_sinks = (
-            _held_first_message_sink(project.root / MOCK_FIRST_MESSAGE_HOLD_MARKER),
-        )
     return _mock_recipe(
         project,
         responses=responses,
         with_librarian=True,
         notification=notification,
         prepare_artifact=True,
-        event_sinks=scenario_sinks,
     )
 
 
 # Long, agent-flavoured prose used only by the streaming mock so the live HUD
-# stream lasts a few seconds (~10x the terse e2e responses). It is never used by
-# ``mock_app``, so e2e's exact-text assertions are unaffected.
+# stream lasts a few seconds (~10x the terse mock responses). It is never used by
+# ``mock_app``, so tests' exact-text assertions are unaffected.
 _STREAM_MOCK_RATIONALE = (
     "I'm taking a moment to think through this out loud so the stream has "
     "something substantial to render. First I consider what the user is most "
@@ -501,7 +474,7 @@ def _paced_event_sinks() -> tuple[EventSink, ...]:
     # The pace sink must run BEFORE the manager's stream sink: the pipe dispatches
     # to sinks in registration order, so sleeping here delays when each delta is
     # pushed to the SSE queue. Placed last, the first delta would already have
-    # reached the browser before the pause — text would appear, then freeze.
+    # reached the client before the pause — text would appear, then freeze.
     return (
         _streaming_pace_sink(
             _stream_mock_delay_seconds(), _stream_mock_start_delay_seconds()
@@ -527,7 +500,7 @@ def stream_mock_deployment(
     """Local-viewing mock: streams visibly and persists nothing.
 
     The host supplies a temporary shared workspace; conversation logs stay there and the librarian is omitted, so
-    nothing lands in the real hub data. Used only by ``stream_mock_app``; the e2e
+    nothing lands in the real hub data. Used only by ``stream_mock_app``;
     ``mock_app`` is untouched.
     """
     del endpoint_getter
@@ -642,7 +615,6 @@ def prepare_mock_artifact(input: Empty, messages: list[Message], ctx: Project) -
 class _LibrarianHold(Capability):
     project: Project
     snapshot_endpoint: MockLLMEndpoint
-    memory_endpoint: MockLLMEndpoint
 
     def __post_init__(self) -> None:
         super().__init__(label=ToolLabel("librarian_hold"))
@@ -652,17 +624,12 @@ class _LibrarianHold(Capability):
         return {}
 
     def build(self, agent: DeployableAgent, pipe: EventPipe) -> tuple[()]:
-        """Bind independent snapshot and consolidation test holds."""
+        """Bind the snapshot test hold."""
         del agent
         _holdable_endpoint(
             self.snapshot_endpoint,
             hold_marker=self.project.root / LIBRARIAN_HOLD_MARKER,
             cancel_hold_marker=self.project.root / LIBRARIAN_CANCEL_HOLD_MARKER,
-            is_cancelled=lambda: pipe.cancelled,
-        )
-        _holdable_endpoint(
-            self.memory_endpoint,
-            hold_marker=self.project.root / LIBRARIAN_CONSOLIDATION_HOLD_MARKER,
             is_cancelled=lambda: pipe.cancelled,
         )
         return ()

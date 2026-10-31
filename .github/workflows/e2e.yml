@@ -20,87 +20,33 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
-      web: ${{ steps.scope.outputs.web }}
-      desktop: ${{ steps.scope.outputs.desktop }}
+      code: ${{ steps.scope.outputs.code }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 2
-      - name: Decide whether the web and desktop applications are affected
+      - name: Decide whether the application is affected
         id: scope
         env:
           EVENT: ${{ github.event_name }}
         run: |
-          # A pull request skips the jobs of an application it does not touch:
-          # desktop-only changes skip the web jobs, web-only changes skip the
-          # desktop jobs, and documentation alone skips both. Merge queues,
-          # pushes and manual runs keep them all. HEAD is the pull request's
-          # merge commit; its first parent is the base.
-          web=true desktop=true
+          # A pull request that changes only documentation skips the checks.
+          # Merge queues, pushes and manual runs keep them all. HEAD is the pull
+          # request's merge commit; its first parent is the base.
+          code=true
           if [ "$EVENT" = pull_request ]; then
             changed=$(git diff --name-only HEAD^1 HEAD)
-            grep -qvE '^(desktop/|docs/|CHANGELOG\.md$)' <<< "$changed" || web=false
-            grep -qvE '^(web/|docs/|CHANGELOG\.md$)' <<< "$changed" || desktop=false
+            grep -qvE '^(docs/|CHANGELOG\.md$)' <<< "$changed" || code=false
           fi
-          echo "web=$web" >> "$GITHUB_OUTPUT"
-          echo "desktop=$desktop" >> "$GITHUB_OUTPUT"
-
-  chromium:
-    name: Chromium
-    needs: scope
-    if: ${{ needs.scope.outputs.web == 'true' }}
-    uses: ./.github/workflows/e2e-browser.yml
-    with:
-      task: suite
-      browser: chromium
-
-  firefox:
-    name: Firefox
-    needs: scope
-    if: ${{ needs.scope.outputs.web == 'true' }}
-    uses: ./.github/workflows/e2e-browser.yml
-    with:
-      task: suite
-      browser: firefox
-
-  webkit:
-    name: WebKit
-    needs: scope
-    if: ${{ needs.scope.outputs.web == 'true' }}
-    uses: ./.github/workflows/e2e-browser.yml
-    with:
-      task: suite
-      browser: webkit
-      deadline: 1500
-      job_timeout: 35
+          echo "code=$code" >> "$GITHUB_OUTPUT"
 
   installation:
     name: Installation
     needs: scope
-    if: ${{ needs.scope.outputs.web == 'true' }}
-    uses: ./.github/workflows/e2e-browser.yml
-    with:
-      task: installation
-
-  runner:
-    name: Runner infrastructure
-    needs: scope
-    if: ${{ needs.scope.outputs.web == 'true' }}
-    uses: ./.github/workflows/e2e-browser.yml
-    with:
-      task: runner
-
-  docker:
-    name: Docker onboarding and restart recovery
-    needs: scope
-    if: ${{ needs.scope.outputs.web == 'true' }}
+    if: ${{ needs.scope.outputs.code == 'true' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    env:
-      COMPOSE_PROJECT_NAME: robozium-ci
-      ROBOZIUM_MODE: mock
-      ROBOZIUM_WEB_PORT: "6971"
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -108,41 +54,26 @@ jobs:
       - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
         with:
           version: "0.12.10"
-          python-version: "3.13"
+          python-version: "3.13.3"
           enable-cache: true
-      - name: Check Compose configuration
+      - name: Check wheel and source archive
         run: |
           uv sync --locked --dev
-          uv run pytest tests/infrastructure/test_runtime_compose.py --no-cov -q
-      - name: Docker onboarding and restart recovery
-        id: containers
-        run: |
-          echo "ROBOZIUM_API_USER=$(id -u):$(id -g)" >> "$GITHUB_ENV"
-          export ROBOZIUM_API_USER="$(id -u):$(id -g)"
-          mkdir -p .runtime/mock-hub/readonly/safe-scripts .runtime/mock-logs .runtime/mock-socket .runtime/local-deps local
-          uv run --locked roboz tool init
-          uv run --locked roboz skill init
-          uv run --locked roboz tool init --path local/tools/customer_quotes
-          uv run --locked roboz skill init --path local/skills/customer_guide
-          docker compose up --build --wait
-          docker compose exec -T api python - < tests/container/check_local_capabilities.py
-          docker compose exec -T api python - < tests/container/check_file_cli.py
-          docker compose run --build --rm verify
-          docker compose restart api
-          docker compose up --wait --wait-timeout 120
-          docker compose exec -T api python - < tests/container/check_local_capabilities.py
-          docker compose run --rm -e ROBOZIUM_CONTAINER_PHASE=persistence verify
-      - name: Container logs
-        if: ${{ failure() && steps.containers.outcome == 'failure' }}
-        run: docker compose logs --no-color
-      - name: Remove disposable containers
-        if: always()
-        run: docker compose down --remove-orphans
+          uv build --no-sources --out-dir .artifacts/distributions
+          uv run twine check .artifacts/distributions/*
+          ROBOZIUM_DIST_DIR=.artifacts/distributions uv run pytest tests/integration --no-cov -q
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ failure() }}
+        with:
+          name: installation-reports
+          path: .artifacts/distribution-reports/
+          if-no-files-found: ignore
+          retention-days: 7
 
   desktop-backend:
     name: Desktop backend lifecycle
     needs: scope
-    if: ${{ needs.scope.outputs.desktop == 'true' }}
+    if: ${{ needs.scope.outputs.code == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -180,7 +111,7 @@ jobs:
   electron:
     name: Electron scaffold (${{ matrix.shard }}/2)
     needs: scope
-    if: ${{ needs.scope.outputs.desktop == 'true' }}
+    if: ${{ needs.scope.outputs.code == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     strategy:
@@ -227,7 +158,7 @@ jobs:
   full-e2e:
     name: Full E2E
     if: ${{ always() }}
-    needs: [scope, chromium, firefox, webkit, installation, runner, docker, desktop-backend, electron]
+    needs: [scope, installation, desktop-backend, electron]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

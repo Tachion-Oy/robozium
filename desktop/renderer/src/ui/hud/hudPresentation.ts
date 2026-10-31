@@ -1,7 +1,5 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/hudPresentation.ts at 076b2c9.
-// Adapted: a run that has ended is passed as runEnded instead of its RunHudPhase, and
+// A run that has ended is passed as runEnded instead of its RunHudPhase, and
 // the project badge shows on Current Run only.
-// The setup rules follow web/app/components/hud/hudPresentation.ts at af87bea.
 import type { HudScreen } from "../../app/hud-navigation"
 
 export type { HudScreen }

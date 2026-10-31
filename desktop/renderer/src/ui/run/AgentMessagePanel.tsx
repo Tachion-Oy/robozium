@@ -1,7 +1,5 @@
-// Copied from web/app/components/hud/run/AgentMessagePanel.tsx at 86ef5c1.
-// Adapted: content types come from the desktop HUD view. The illustration
-// follows web at af87bea, named by a class because the renderer CSP forbids
-// inline styles. Inline images follow web at 2a0c183; their viewer sits outside
+// Content types come from the desktop HUD view. The illustration is named by a
+// class because the renderer CSP forbids inline styles. The inline image viewer sits outside
 // the per-message Markdown so a new message does not close it, and the scroll
 // area takes focus back when the viewer's trigger is gone.
 import { useEffect, useRef } from "react"

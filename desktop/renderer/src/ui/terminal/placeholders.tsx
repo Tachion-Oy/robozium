@@ -1,4 +1,3 @@
-// Copied from robozium-electron/desktop/web/app/components/terminal/placeholders.tsx at 076b2c9.
 import {
 	StreamLogItemKind,
 	StreamLogRole,

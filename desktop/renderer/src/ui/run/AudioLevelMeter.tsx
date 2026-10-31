@@ -1,4 +1,3 @@
-// Copied from web/app/components/hud/run/AudioLevelMeter.tsx at 86ef5c1.
 const AUDIO_LEVEL_SEGMENTS = 6
 
 type AudioLevelMeterProps = {

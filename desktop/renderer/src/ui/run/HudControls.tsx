@@ -1,8 +1,6 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/run/HudControls.tsx at 076b2c9.
-// Adapted: `available: false` shows an action disabled until its owner arrives;
+// `available: false` shows an action disabled until its owner arrives;
 // a pending action is busy under its own label, which a span can truncate.
-// The image picker follows web/app/components/hud/run/HudControls.tsx at 2a0c183,
-// and the setup lock web at af87bea (#121). The copy controls render into the
+// The copy controls render into the
 // right edge's copy column (hud/AgentHud), not the footer.
 import { use } from "react"
 import { createPortal } from "react-dom"

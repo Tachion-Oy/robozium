@@ -1,5 +1,4 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentPanel.tsx at 076b2c9.
-// Adapted: the draft and its writes arrive as props from App, so unsaved edits
+// The draft and its writes arrive as props from App, so unsaved edits
 // survive leaving the screen, and App supplies the restart and backend actions. A key file
 // row adopts an existing .env.encrypt. The hub folder row shows and changes where projects live.
 // Loading, a failed read and a blocked edit are toasts, so the settings never shift.

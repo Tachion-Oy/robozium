@@ -153,8 +153,7 @@ function parseEventData(data: string): unknown {
 	}
 }
 
-// Adapted from web/lib/robozium/sse.ts at 8343b8e: retain streaming UTF-8 and
-// reader ownership; support SSE line endings/multiline data without run schemas.
+// Retain streaming UTF-8 and reader ownership; support SSE line endings/multiline data without run schemas.
 export async function* parseEventStream(body: ReadableStream<Uint8Array>, signal?: AbortSignal): AsyncGenerator<unknown> {
 	const reader = body.getReader()
 	const decoder = new TextDecoder("utf-8", { fatal: true })

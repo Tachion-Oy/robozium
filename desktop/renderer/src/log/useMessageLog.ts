@@ -1,7 +1,6 @@
-// Adapted from robozium-electron/desktop/web/hooks/useMessageLog.ts at 076b2c9.
 // Main owns whether the message log is open, because opening it grows the window
 // and closing it restores the earlier size; the state survives renderer reloads.
-// Adapted: the HUD keeps its width while the window resizes, and closing hides the
+// The HUD keeps its width while the window resizes, and closing hides the
 // log before the window shrinks.
 import { useCallback, useEffect, useRef, useState } from "react"
 import { showErrorToast } from "../feedback/notices"

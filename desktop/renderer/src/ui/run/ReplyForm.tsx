@@ -1,5 +1,4 @@
-// Copied from web/app/components/hud/run/ReplyForm.tsx at 2a0c183.
-// Adapted: the composer can focus the reply on open.
+// The composer can focus the reply on open.
 import type { SubmitEventHandler } from "react"
 import { useDropzone } from "react-dropzone"
 import {

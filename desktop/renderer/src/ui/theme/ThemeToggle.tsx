@@ -1,5 +1,4 @@
-// Copied from robozium-electron/desktop/web/app/components/theme/ThemeToggle.tsx at 076b2c9.
-// Adapted: the theme owner saves the choice natively; one window needs no cookie or channel.
+// The theme owner saves the choice natively; one window needs no cookie or channel.
 // The toggle is a left-edge button above the panel divider buttons, shaped as the
 // message log toggle on the right edge, showing only its dot.
 import { toggleTheme } from "../../theme/theme"

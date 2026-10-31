@@ -1,5 +1,4 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/run/CopyTextButton.tsx at 076b2c9.
-// Adapted: writes through the native clipboard bridge.
+// Writes through the native clipboard bridge.
 import { useEffect, useRef, useState } from "react"
 import { showErrorToast } from "../feedback/ErrorToast"
 import { HudEdgeButton } from "../hud/HudEdgeButton"

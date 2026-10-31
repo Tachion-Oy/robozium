@@ -2,7 +2,6 @@
 // The reply image draft owns the queue; requests here have no local state.
 import { ApiError, type DesktopApiClient } from "../api/client"
 
-// Contract adapted from web/lib/robozium/wire.ts (RunAttachmentSchema).
 export interface RunAttachment {
 	id: string
 	name: string

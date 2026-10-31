@@ -1,5 +1,4 @@
-// Copied from web/hooks/useCapabilities.ts at 5b06d82.
-// Adapted: reads use the desktop client with one deadline and run only while
+// Reads use the desktop client with one deadline and run only while
 // the selector is open; App owns this state and passes it to the selector.
 // Closing the selector forgets the reads, so reopening it never offers choices
 // older than the last save.

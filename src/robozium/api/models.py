@@ -66,7 +66,6 @@ class EnvironmentEntry(BaseModel):
 class EnvironmentEntryView(EnvironmentEntry):
     configured: bool = True
     overridden: bool = False
-    startup: bool = False
 
 
 class EnvironmentSuggestion(BaseModel):

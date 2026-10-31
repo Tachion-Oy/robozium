@@ -1,5 +1,4 @@
-// Copied from web/lib/robozium/landing.ts at 5b06d82.
-// Adapted: summaries come from the desktop projects API, already in camel case.
+// Summaries come from the desktop projects API, already in camel case.
 import type { Project } from "./projects-api"
 
 /**

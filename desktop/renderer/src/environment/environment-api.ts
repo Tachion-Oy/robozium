@@ -3,7 +3,6 @@
 import { ApiError, type DesktopApiClient } from "../api/client"
 import { parseCapability, type CapabilityView } from "../capabilities/capabilities-api"
 
-// Contracts from web/lib/robozium/wire.ts at 076b2c9.
 export interface EnvironmentEntry {
 	name: string
 	/** Null for a stored secret; saving null keeps its value. */
@@ -11,7 +10,6 @@ export interface EnvironmentEntry {
 	secret: boolean
 	configured: boolean
 	overridden: boolean
-	startup: boolean
 }
 export interface EnvironmentSuggestion { name: string; value: string; secret: boolean; source: string }
 export interface EnvironmentImport { name: string; capabilities: CapabilityView[]; variables: string[]; active: boolean }
@@ -65,7 +63,7 @@ function parseEntry(value: unknown): EnvironmentEntry {
 	if (stored !== null && typeof stored !== "string") malformed()
 	return {
 		name: text(fields, "name"), value: stored, secret: flag(fields, "secret"),
-		configured: flag(fields, "configured"), overridden: flag(fields, "overridden"), startup: flag(fields, "startup"),
+		configured: flag(fields, "configured"), overridden: flag(fields, "overridden"),
 	}
 }
 

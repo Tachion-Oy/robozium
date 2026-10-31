@@ -1,4 +1,3 @@
-// Copied from web/app/components/terminal/TerminalTag.tsx at db6a20f.
 import type { ReactNode } from "react";
 
 /**

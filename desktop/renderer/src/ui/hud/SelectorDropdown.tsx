@@ -1,5 +1,4 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/SelectorDropdown.tsx at 076b2c9.
-// Adapted: the empty catch carries a comment for the desktop lint rules; the
+// The empty catch carries a comment for the desktop lint rules; the
 // trigger markup lives in SelectorTrigger; the menu opens leftward from the trigger's
 // right edge and scrolls its options within the room left in the window.
 import {

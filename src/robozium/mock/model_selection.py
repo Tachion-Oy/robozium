@@ -129,7 +129,7 @@ def model_selection_endpoint(
     """Use cached scripted clients selected by the shared live endpoint route.
 
     Each factory call owns its response sequence and clients. The journal records
-    actual provider requests so browser tests can verify which model was called.
+    actual provider requests so tests can verify which model was called.
     """
     models: dict[str, LLMEndpoint] = {}
     request_count = 0
