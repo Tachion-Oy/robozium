@@ -68,7 +68,7 @@ def test_orchestrator_compacts_with_shed_and_persists_summary(tmp_path):
         m for m in messages if m.message_kind == MessageKind.COMPACTED_CONTEXT
     )
     payload = json.loads(compacted.content)
-    assert payload["caller"] == "compactify_messages_when_needed"
+    assert compacted.caller == "compactify_messages_when_needed"
     assert payload["threshold_percent"] == 60
     assert payload["summary_markdown"] == "Keep editing the local file."
     assert estimate_conversation_tokens(messages) < endpoint.max_context_tokens * 0.6
