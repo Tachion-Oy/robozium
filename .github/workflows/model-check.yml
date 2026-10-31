@@ -41,7 +41,7 @@ jobs:
           import pathlib, roboz.tooling._prompts as m
           p = pathlib.Path(m.__file__)
           old = "A string explaining your thought process i.e. your internal monologue for why you are taking the chosen action."
-          new = "A short statement of the reason behind the chosen action."
+          new = "A short statement of the reasons behind the chosen action. These are intended for later human evaluations and review of the agent's performance."
           s = p.read_text()
           assert old in s, "rationale wording not found"
           p.write_text(s.replace(old, new))
