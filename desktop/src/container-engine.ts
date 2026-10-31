@@ -1,7 +1,5 @@
-import { readFileSync } from "node:fs"
-import { parseEnv } from "node:util"
 import definition from "./backend-layout.json" with { type: "json" }
-import type { BackendLayout, BackendMount } from "./backend-layout.ts"
+import type { BackendMount } from "./backend-layout.ts"
 
 /**
  * The backend container as the desktop needs it, independent of the engine and
@@ -68,36 +66,12 @@ export interface ContainerEngine {
 	logs(id: string, lines: number, call: EngineCall): Promise<string>
 }
 
-const variableName = /^[A-Za-z_][A-Za-z0-9_]*$/
-
 /**
- * The backend's variables: the layout's environment files in order, each
- * overriding the one before, then the layout's own values and the selected
- * mode and port, which no file can override. Missing files are skipped.
+ * The backend's variables: the layout's own values and the selected mode and
+ * port. The backend reads the saved settings and the manual `.env` itself.
  */
-export function backendEnvironment(layout: BackendLayout, mode: "live" | "mock", port: number): Record<string, string> {
-	const environment: Record<string, string> = {}
-	for (const file of layout.environmentFiles) {
-		let content: string
-		try {
-			content = readFileSync(file, "utf8")
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code === "ENOENT") continue
-			throw new Error(`Could not read ${file}. Check its permissions.`, { cause: error })
-		}
-		for (const [name, value] of Object.entries(parseEnv(content))) {
-			if (value !== undefined) environment[name] = value
-		}
-	}
-	Object.assign(environment, definition.services.api.environment, {
-		ROBOZIUM_MODE: mode,
-		ROBOZIUM_DESKTOP_API_PORT: String(port),
-	})
-	for (const [name, value] of Object.entries(environment)) {
-		if (!variableName.test(name)) throw new Error(`Environment variable name ${JSON.stringify(name)} is invalid. Correct it in Environment.`)
-		if (/[\r\n\0]/.test(value)) throw new Error(`Environment variable ${name} spans several lines, which the backend cannot receive. Correct it in Environment.`)
-	}
-	return environment
+export function backendEnvironment(mode: "live" | "mock", port: number): Record<string, string> {
+	return { ...definition.services.api.environment, ROBOZIUM_MODE: mode, ROBOZIUM_DESKTOP_API_PORT: String(port) }
 }
 
 /** The backend command for this mode and port; the engine fills in the listening address. */

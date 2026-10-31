@@ -41,8 +41,6 @@ export interface BackendLayout {
 	mounts: BackendMount[]
 	/** Folders a launch creates before the container binds them. */
 	directories: string[]
-	/** Optional dotenv files the backend's environment is read from; later files override earlier ones. */
-	environmentFiles: string[]
 	/** Build and start diagnostics from the container engine. */
 	containerLog: string
 	/** A private file an engine may hand the backend's variables over in, while it starts the container. */
@@ -128,7 +126,6 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 		hub: mountSource("/hub"),
 		mounts,
 		directories: [...directories],
-		environmentFiles: definition.services.api.env_file.map(file => resolve(file.path)),
 		containerLog: path.join(mountSource(desktop.containerLog.mount), desktop.containerLog.filename),
 		containerEnvironment: path.join(runtime, desktop.containerEnvironment),
 		hostEnvironment: {

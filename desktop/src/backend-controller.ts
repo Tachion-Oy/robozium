@@ -221,7 +221,7 @@ export class BackendController {
 			image: `${project}-api`,
 			labels: { [LABELS.project]: project, [LABELS.installation]: installation, [LABELS.port]: String(port), [LABELS.build]: this.buildId },
 			mounts: this.layout.mounts,
-			environment: backendEnvironment(this.layout, this.options.mode, port),
+			environment: backendEnvironment(this.options.mode, port),
 			environmentFile: this.layout.containerEnvironment,
 			command: backendCommand(this.options.mode, port),
 			port,

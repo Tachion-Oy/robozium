@@ -36,7 +36,8 @@ interface FakePodman {
 	mutate?: (value: Inspection) => void
 }
 type FixtureOptions = Partial<FakePodman> & { hub?: string; findPodman?: () => string | undefined; controller?: Partial<ControllerOptions> }
-const rootless = { host: { security: { rootless: true }, idMappings: { uidmap: [{ size: 1 }, { size: 65536 }] } } }
+const ranges = [{ size: 1 }, { size: 65536 }]
+const rootless = { host: { security: { rootless: true }, idMappings: { uidmap: ranges, gidmap: ranges } } }
 
 const id = "a".repeat(64)
 /** The first steps of a Podman build, as its plain output announces them. */
@@ -304,30 +305,21 @@ test("inherited Robozium settings cannot change ownership, mounts or mode", asyn
 	await controller.close()
 })
 
-test("environment files reach the backend through a private file in order, below the layout's own values", async t => {
+test("the backend gets only the layout's own values through a private file; it reads the environment files itself", async t => {
 	const { controller, state, settings } = fixture(t)
 	mkdirSync(settings.runtime, { recursive: true })
-	writeFileSync(path.join(settings.runtime, ".env.encrypt"), "OPENROUTER_API_KEY_ENCRYPTED=roboz:synthetic\nEXAMPLE_VALUE=encrypted-copy\n")
-	writeFileSync(path.join(settings.runtime, ".env"), "EXAMPLE_VALUE='plain copy'\nROBOZIUM_HUB_ROOT=/wrong\nROBOZIUM_DESKTOP_API_PORT=9999\n")
+	writeFileSync(path.join(settings.runtime, ".env"), "EXAMPLE_VALUE='it\\'s'\nCERTIFICATE=\"line one\nline two\"\n")
 	await controller.start()
-	const run = runCall(state)!
 	const environment = Object.fromEntries((state.environment ?? "").trim().split("\n").map(line => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1)]))
-	assert.equal(environment.EXAMPLE_VALUE, "plain copy")
-	assert.equal(environment.OPENROUTER_API_KEY_ENCRYPTED, "roboz:synthetic")
-	assert.equal(environment.ROBOZIUM_HUB_ROOT, "/hub")
-	assert.equal(environment.ROBOZIUM_DESKTOP_API_PORT, "18000")
-	assert.equal(environment.ROBOZIUM_CONFIG, "/app/hub.config.py")
-	assert.equal(environment.ROBOZIUM_ENCRYPTED_ENV_PATH, "/configuration/.env.encrypt")
-	assert.equal(run.args.some(arg => arg.includes("synthetic") || arg.includes("plain copy")), false, "values stay off the command line")
-	await controller.close()
-})
-
-test("a multi-line environment value stops startup before any container change", async t => {
-	const { controller, state, settings } = fixture(t)
-	mkdirSync(settings.runtime, { recursive: true })
-	writeFileSync(path.join(settings.runtime, ".env"), 'CERTIFICATE="line one\nline two"\n')
-	await assert.rejects(controller.start(), /CERTIFICATE spans several lines/)
-	assert.equal(commands(state).some(args => args[0] === "run"), false)
+	assert.deepEqual(environment, {
+		ROBOZIUM_CONFIG: "/app/hub.config.py",
+		ROBOZIUM_HUB_ROOT: "/hub",
+		ROBOZIUM_LOG_DIR: "/logs",
+		ROBOZIUM_ENCRYPTED_ENV_PATH: "/configuration/.env.encrypt",
+		ROBOZIUM_HOST_SCRIPT_SOCKET: "/host-scripts/scripts.sock",
+		ROBOZIUM_MODE: "mock",
+		ROBOZIUM_DESKTOP_API_PORT: "18000",
+	})
 	await controller.close()
 })
 

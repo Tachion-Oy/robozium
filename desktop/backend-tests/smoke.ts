@@ -26,11 +26,22 @@ test("desktop mock image starts rootless and retains projects after restart, rec
 	async function cleanup() {
 		if (cleaned) return
 		cleaned = true
-		await controller.close()
-		const ids = podman(["ps", "--all", "--quiet", "--filter", `label=fi.tachion.robozium.desktop.project=${project}`]).trim()
-		if (ids) podman(["rm", "--force", ...ids.split(/\s+/)])
-		// Untagging keeps the layers, which Podman would delete with the image, for the next build's cache.
-		podman(["untag", `localhost/${project}-api`])
+		// Every step runs, so one failure cannot leave the others' containers or image behind.
+		const failures: unknown[] = []
+		for (const step of [
+			() => controller.close(),
+			() => {
+				const ids = podman(["ps", "--all", "--quiet", "--filter", `label=fi.tachion.robozium.desktop.project=${project}`]).trim()
+				if (ids) podman(["rm", "--force", ...ids.split(/\s+/)])
+			},
+			() => {
+				// A failed build leaves no image. Untagging keeps the layers, which Podman would delete with the image, for the next build's cache.
+				if (podman(["images", "--quiet", `localhost/${project}-api`]).trim()) podman(["untag", `localhost/${project}-api`])
+			},
+		]) {
+			try { await step() } catch (error) { failures.push(error) }
+		}
+		if (failures.length > 0) throw failures[0]
 	}
 	const interrupted = async () => {
 		try { await cleanup() } finally { process.exitCode = 1 }
@@ -81,8 +92,11 @@ test("desktop mock image starts rootless and retains projects after restart, rec
 		await cleanup()
 		assert.equal(fs.readFileSync(marker, "utf8"), "retained desktop data\n")
 	} catch (error) {
-		try { process.stderr.write(fs.readFileSync(path.join(runtime, ".runtime/logs/container.log"), "utf8").slice(-20_000)) }
-		catch { /* Preserve the original build or API failure. */ }
+		// The build and start log, then the API's own output, which holds a Python traceback.
+		for (const log of [() => fs.readFileSync(path.join(runtime, ".runtime/logs/container.log"), "utf8").slice(-20_000), () => podman(["logs", "--tail", "200", `${project}-api`])]) {
+			try { process.stderr.write(log()) }
+			catch { /* Preserve the original build or API failure. */ }
+		}
 		throw error
 	}
 })

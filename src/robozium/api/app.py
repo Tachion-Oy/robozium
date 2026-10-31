@@ -30,6 +30,7 @@ from robozium.api.capabilities import router as capability_router
 from robozium.api.credentials import (
     CredentialGateMiddleware,
     LoadedCredentials,
+    load_environment_files,
     missing_environment_files,
 )
 from robozium.api.credentials import router as credential_router
@@ -477,10 +478,12 @@ def _ephemeral_settings() -> HubSettings:
 
 
 def live_app() -> FastAPI:
+    load_environment_files()
     return create_app(deployment=load_hub(), require_credentials=True)
 
 
 def mock_app() -> FastAPI:
+    load_environment_files()
     endpoint = mock_model_endpoint()
     return create_app(
         deployment=Hub(

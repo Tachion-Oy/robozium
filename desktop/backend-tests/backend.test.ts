@@ -81,7 +81,6 @@ test("the layout mounts the runtime and hub, with only the socket and safe scrip
 	assert.deepEqual(Object.fromEntries(layout.mounts.map(mount => [mount.destination, mount.source])),
 		Object.fromEntries(Object.entries(sources).map(([destination, source]) => [destination, path.join(runtime, source)])))
 	assert.deepEqual(layout.mounts.filter(mount => !mount.writable).map(mount => mount.destination).sort(), ["/host-scripts", "/hub/readonly/safe-scripts"])
-	assert.deepEqual(layout.environmentFiles, [path.join(runtime, ".env.encrypt"), path.join(runtime, ".env")])
 })
 
 test("runtime preparation follows relocated paths from the shared layout", async t => {

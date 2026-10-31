@@ -56,16 +56,6 @@
   "services": {
     "api": {
       "build": { "target": "api" },
-      "env_file": [
-        {
-          "path": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/.env.encrypt",
-          "required": false
-        },
-        {
-          "path": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/.env",
-          "required": false
-        }
-      ],
       "environment": {
         "ROBOZIUM_CONFIG": "/app/hub.config.py",
         "ROBOZIUM_HUB_ROOT": "/hub",
