@@ -31,9 +31,12 @@ export class PodmanEngine implements ContainerEngine {
 	/**
 	 * The user's environment once, for every call: always this machine's own
 	 * rootless Podman, never a remote connection or another tool's settings.
+	 * Electron sets the session bus to `disabled:` when there is none; Podman would
+	 * then ask that bus for the user's systemd and fail instead of managing without.
 	 */
 	private readonly environment = Object.fromEntries(
-		Object.entries(process.env).filter(([name]) => !/^(ROBOZIUM_|ROBOZ_|CONTAINER_HOST$|CONTAINER_CONNECTION$)/.test(name)),
+		Object.entries(process.env).filter(([name, value]) => !/^(ROBOZIUM_|ROBOZ_|CONTAINER_HOST$|CONTAINER_CONNECTION$)/.test(name)
+			&& !(name === "DBUS_SESSION_BUS_ADDRESS" && value === "disabled:")),
 	)
 
 	constructor(options: PodmanOptions = {}) {

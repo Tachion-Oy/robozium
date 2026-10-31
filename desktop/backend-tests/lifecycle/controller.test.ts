@@ -284,10 +284,11 @@ test("port probe detects a real occupied loopback listener", async t => {
 })
 
 test("inherited Robozium and remote Podman settings cannot change ownership or the engine's target", async t => {
-	const names = ["ROBOZIUM_DESKTOP_RUNTIME", "ROBOZIUM_DESKTOP_HUB", "ROBOZIUM_MODE", "CONTAINER_HOST", "CONTAINER_CONNECTION"]
+	const names = ["ROBOZIUM_DESKTOP_RUNTIME", "ROBOZIUM_DESKTOP_HUB", "ROBOZIUM_MODE", "CONTAINER_HOST", "CONTAINER_CONNECTION", "DBUS_SESSION_BUS_ADDRESS"]
 	const originals = Object.fromEntries(names.map(name => [name, process.env[name]]))
+	// Electron sets `disabled:` when there is no session bus, as on CI runners.
 	Object.assign(process.env, { ROBOZIUM_DESKTOP_RUNTIME: "/foreign", ROBOZIUM_DESKTOP_HUB: "/foreign", ROBOZIUM_MODE: "live",
-		CONTAINER_HOST: "ssh://foreign/run/podman.sock", CONTAINER_CONNECTION: "foreign" })
+		CONTAINER_HOST: "ssh://foreign/run/podman.sock", CONTAINER_CONNECTION: "foreign", DBUS_SESSION_BUS_ADDRESS: "disabled:" })
 	t.after(() => {
 		for (const name of names) {
 			if (originals[name] === undefined) delete process.env[name]
