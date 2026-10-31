@@ -1,8 +1,0 @@
-#!/bin/sh
-set -eu
-cd "$(dirname "$0")"
-case "$#:${1:-}" in
-  0:) exec ./scripts/start-live.sh ;;
-  1:--mock) exec ./scripts/start-mock.sh ;;
-  *) echo 'Usage: ./start [--mock]' >&2; exit 2 ;;
-esac
