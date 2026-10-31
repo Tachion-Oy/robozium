@@ -31,9 +31,8 @@ function fixture(t: TestContext) {
 	return root
 }
 
-test("staging works without web, copies only public inputs, and replaces stale output", t => {
+test("staging copies only public inputs, and replaces stale output", t => {
 	const root = fixture(t)
-	assert.equal(fs.existsSync(path.join(root, "web")), false)
 	execFileSync(process.execPath, [path.join(root, "desktop/scripts/stage-backend.ts")], { cwd: os.tmpdir() })
 	const target = stageBackend(root)
 	const files = fs.readdirSync(target, { recursive: true, encoding: "utf8" }).filter(name => fs.statSync(path.join(target, name)).isFile()).sort()

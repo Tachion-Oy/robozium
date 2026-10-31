@@ -19,7 +19,6 @@ type RunSnapshotLoader = () => Promise<RunView | null>
 
 export function errorMessage(error: unknown) { return error instanceof Error ? error.message : "Run output unavailable." }
 
-// Adapted from web/lib/robozium/session/{connection,poller,snapshot}.ts at 673d361.
 // SSE supplies live output; snapshots recover history, status and prompts independently.
 // As in the reference, transient failures reconnect quietly; only a failure that
 // trying again cannot fix is reported, and it ends the watch.

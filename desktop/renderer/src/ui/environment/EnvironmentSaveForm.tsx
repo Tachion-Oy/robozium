@@ -1,5 +1,4 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentSaveForm.tsx at 076b2c9.
-// Adapted: desktop import paths, the save reports whether it succeeded, and the
+// Desktop import paths, the save reports whether it succeeded, and the
 // encryption password is entered in the password dialog instead of inline fields.
 // Reset is confirmed in a toast, so the buttons never move. Save, the restart
 // controls the panel passes in, and Reset share one row.

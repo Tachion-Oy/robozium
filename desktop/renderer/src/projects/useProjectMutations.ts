@@ -1,9 +1,8 @@
 // This app's launch, cancel and delete requests per project, until a listing confirms them.
 // Rows belong to the overview; this owner only knows which requests it sent.
-// The launch is adapted from web/hooks/useProjectLaunch.ts at 5b06d82: requests
-// use the desktop client under one abortable lifetime with deadlines; a launching
-// flag replaces the shared navigation lock; a launched run is handed to the caller
-// instead of navigating; a locked backend is reported to the caller, which reads
+// Launch requests use the desktop client under one abortable lifetime with
+// deadlines; a launching flag locks further launches; a launched run is handed to
+// the caller; a locked backend is reported to the caller, which reads
 // the secrets status again.
 import { useEffect, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"

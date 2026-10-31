@@ -81,7 +81,7 @@ export function App({ client, connected, covered, backend }: AppProps) {
 	const [layout, setLayout] = useState<LayoutMode>("top")
 	const display = selectRunDisplay(session)
 	const status = session?.run.unavailable ? "Run unavailable" : session ? runLabels[session.run.status] : "Awaiting input"
-	// A live start without keys locks the HUD on the guide and Environment, as in the web HUD.
+	// A live start without keys locks the HUD on the guide and Environment.
 	const setupRequired = Boolean(credentials.status?.setupRequired)
 	// As in the reference, a run that ends or goes missing leaves Current Run for the overview.
 	const presentation = resolveHudPresentation({
@@ -93,7 +93,7 @@ export function App({ client, connected, covered, backend }: AppProps) {
 		setupRequired,
 	})
 	const screen = presentation.screen
-	// As in the web HUD, Current Run shows and switches its live run's model; other screens set the default.
+	// Current Run shows and switches its live run's model; other screens set the default.
 	const modelRun = screen === "run" && session && !runEnded && !session.run.unavailable ? session.run.runId : null
 	const models = useModels(client, connected, modelRun)
 	const projectQuery = useProjectQuery(client, screen === "projects", projectMutations)

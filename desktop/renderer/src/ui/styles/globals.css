@@ -1,8 +1,6 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
- * Copied from robozium-electron/desktop/web/app/globals.css at 076b2c9; the
- * stylesheets below are verbatim copies (see each file's source in the PR).
  * ToastViewport supplies the notification stack without injected inline styles.
  *
  *   CSS owns LOOK   -- color, background, border colour, text/box-shadow glow,

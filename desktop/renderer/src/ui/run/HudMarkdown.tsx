@@ -1,5 +1,4 @@
-// Copied from web/app/components/hud/run/HudMarkdown.tsx at 2a0c183.
-// Adapted: links open through the desktop bridge instead of navigating; a file
+// Links open through the desktop bridge instead of navigating; a file
 // link names its hub-relative path, and images render through HudImage.
 import type { MouseEvent, ReactNode } from "react"
 import { openExternalLink, openHubFile } from "../../links/open-link"

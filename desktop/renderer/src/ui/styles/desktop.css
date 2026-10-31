@@ -310,7 +310,7 @@ html[data-desktop][data-theme] .desktop-edge-controls .agent-hud__copy-text {
 @keyframes desktop-log-appear { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .desktop-message-log { animation: none; } }
 
-/* Keep the web terminal's fonts and CRT treatment, with local pane geometry. */
+/* The terminal's fonts and CRT treatment, with local pane geometry. */
 html[data-desktop] .desktop-message-log .term-frame { position: relative; top: auto; bottom: auto; }
 .desktop-message-log .term-log {
   max-width: none;

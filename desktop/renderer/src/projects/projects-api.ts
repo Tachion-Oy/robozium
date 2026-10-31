@@ -2,7 +2,7 @@
 // Rows and their writes belong to useProjectQuery; this module has no React state.
 import { ApiError, type DesktopApiClient } from "../api/client"
 
-// Contract adapted from web/lib/robozium/wire.ts (ProjectSummary). The backend owns
+// The backend owns
 // status precedence; "opening" and "deleting" exist only as local overview marks.
 export const ProjectSummaryStatus = ["running", "awaiting_user_input", "cancelling", "syncing", "dormant"] as const
 export type ProjectSummaryStatus = typeof ProjectSummaryStatus[number]

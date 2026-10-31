@@ -1,4 +1,3 @@
-// Copied from robozium-electron/desktop/web/app/components/terminal/renderContent.tsx at 076b2c9.
 import { Fragment, type ReactNode } from "react"
 import {
 	StreamLogItemKind,

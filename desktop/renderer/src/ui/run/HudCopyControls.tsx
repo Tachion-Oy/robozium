@@ -1,6 +1,5 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/run/HudCopyControls.tsx at 076b2c9.
-// Adapted: an indicator message has no agent output to copy. Clear also removes
-// images, as in web/app/components/hud/run/HudCopyControls.tsx at 2a0c183. Without a
+// An indicator message has no agent output to copy. Clear also removes
+// images. Without a
 // message (no reply form) there is nothing to copy, and the buttons are disabled.
 // The buttons follow the panels top to bottom, with Clear last.
 import type { AgentMessage } from "./AgentMessagePanel"

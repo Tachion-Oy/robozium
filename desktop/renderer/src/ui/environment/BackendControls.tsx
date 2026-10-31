@@ -1,5 +1,4 @@
-// Copied from robozium-electron/desktop/web/app/components/desktop/BackendControls.tsx at 076b2c9.
-// Adapted: the operation comes from the backend owner, which covers it with the
+// The operation comes from the backend owner, which covers it with the
 // startup screen and restarts readiness polling afterwards. The buttons sit in the
 // Environment action row beside Restart app.
 import { useState } from "react"

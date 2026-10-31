@@ -1,4 +1,3 @@
-// Copied from web/app/components/terminal/TerminalBanner.tsx at db6a20f.
 /**
  * Opening banner for a new agent run.
  *

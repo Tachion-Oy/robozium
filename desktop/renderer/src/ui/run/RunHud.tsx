@@ -1,8 +1,6 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/run/RunHud.tsx at 076b2c9.
-// Adapted: the displayed run and its reply, interrupt and cancel writes come from
+// The displayed run and its reply, interrupt and cancel writes come from
 // the desktop owners as props; their owners report failures. Dictation comes
-// from App, so a recording outlives view switches. Images follow
-// web/app/components/hud/run/RunHud.tsx at 2a0c183.
+// from App, so a recording outlives view switches.
 import type { Dispatch, SetStateAction } from "react"
 import type { ReplyImagesModel } from "../../attachments/useReplyImages"
 import type { UseDictationResult } from "../../dictation/useDictation"

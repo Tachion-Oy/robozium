@@ -1,5 +1,3 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentFolderImport.tsx at 076b2c9.
-// Adapted: desktop import paths.
 import { useRef, useState, type SubmitEvent } from "react"
 import { HudButton } from "../hud/HudButton"
 

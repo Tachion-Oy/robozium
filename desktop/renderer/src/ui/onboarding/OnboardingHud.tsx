@@ -1,5 +1,3 @@
-// Copied from web/app/components/hud/onboarding/OnboardingHud.tsx at af87bea.
-// Adapted: desktop import paths.
 import { useState } from "react"
 import type { ReplyImagesModel } from "../../attachments/useReplyImages"
 import type { LayoutMode } from "../hud/HudCornerControls"

@@ -1,5 +1,4 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentRestart.tsx at 076b2c9.
-// Adapted: the restart flag and the restart action arrive as props; unsaved edits are
+// The restart flag and the restart action arrive as props; unsaved edits are
 // confirmed, and the restart reminder shown, in toasts, so the button never moves.
 import { useState } from "react"
 import { showErrorToast } from "../../feedback/notices"

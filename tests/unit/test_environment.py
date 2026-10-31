@@ -294,8 +294,8 @@ def test_encrypted_edit_stale_save_and_manual_override(client, tmp_path):
             "This setting is controlled by the application",
         ),
         (
-            [{"name": "ROBOZIUM_WEB_PORT", "value": "3000", "secret": True}],
-            "Startup settings must remain unencrypted",
+            [{"name": "ROBOZIUM_HUB_ROOT", "value": "/hub"}],
+            "This setting is controlled by the application",
         ),
     ],
 )
@@ -306,26 +306,6 @@ def test_invalid_edits_preserve_saved_settings(client, tmp_path, entries, error)
     assert response.status_code == 400
     assert response.json()["detail"] == error
     assert path.read_text() == "SETTING=original\n"
-
-
-@pytest.mark.parametrize("port", ["", "0", "65536", "１２３", "abc"])
-def test_invalid_web_port_is_rejected_before_saving(client, tmp_path, port):
-    response = save(client, [{"name": "ROBOZIUM_WEB_PORT", "value": port}])
-    assert response.status_code == 400
-    assert (
-        response.json()["detail"] == "Web port must be an integer between 1 and 65535"
-    )
-    assert not (tmp_path / ".env.encrypt").exists()
-
-
-@pytest.mark.parametrize("port", ["1", "65535"])
-def test_web_port_limits_can_be_saved_and_retained(client, tmp_path, port):
-    assert (
-        save(client, [{"name": "ROBOZIUM_WEB_PORT", "value": port}]).status_code == 200
-    )
-    assert save(client, [{"name": "ROBOZIUM_WEB_PORT"}]).status_code == 200
-    assert dotenv_values(tmp_path / ".env.encrypt") == {"ROBOZIUM_WEB_PORT": port}
-    assert client.get(URL).json()["entries"][0]["startup"] is True
 
 
 def test_retained_secret_requires_explicit_replacement_to_become_public(
@@ -524,14 +504,14 @@ def test_broken_import_example_preserves_confirmation_and_other_sources(
     client, tmp_path
 ):
     imported = upload(client).json()["imported"]
-    (tmp_path / ".env.example").write_text("ROBOZIUM_WEB_PORT=3000\n")
+    (tmp_path / ".env.example").write_text("EXAMPLE_SETTING=value\n")
     (tmp_path / "local/imports/bundle/env.example").write_text("BROKEN='unterminated\n")
     response = client.get(URL)
     assert response.status_code == 200
     view = response.json()
     assert view["imports"] == [imported]
     assert view["example_errors"] == ["Could not read environment example for bundle"]
-    assert [row["name"] for row in view["suggestions"]] == ["ROBOZIUM_WEB_PORT"]
+    assert [row["name"] for row in view["suggestions"]] == ["EXAMPLE_SETTING"]
 
 
 def test_ambiguous_stored_names_are_rejected_without_exposing_values(client, tmp_path):
@@ -661,8 +641,8 @@ def test_key_file_replaces_settings_only_when_its_password_opens_it(client, tmp_
         (b"A=1\nA=2\n", "Invalid or duplicate dotenv assignment"),
         (b"ROBOZIUM_ENCRYPTED_ENV_PATH=elsewhere\n", "This setting is controlled by the application"),
         (
-            key_file({"ROBOZIUM_WEB_PORT": "3000"}),
-            "Startup settings must remain unencrypted",
+            key_file({"ROBOZIUM_HUB_ROOT": "/hub"}),
+            "This setting is controlled by the application",
         ),
         (b"TOKEN=\xff\n", "Environment file must be UTF-8"),
         (b"A" * (256 * 1024 + 1), "Environment file is too large"),

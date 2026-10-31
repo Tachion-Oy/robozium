@@ -1,5 +1,4 @@
-// Copied from web/hooks/useDictation.ts at 2a0c183.
-// Adapted: clips go to the backend through the desktop client under a longer
+// Clips go to the backend through the desktop client under a longer
 // deadline.
 import { useEffect, useRef, useState } from "react"
 import { ApiError, type DesktopApiClient } from "../api/client"

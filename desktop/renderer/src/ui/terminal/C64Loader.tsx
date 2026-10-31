@@ -1,5 +1,4 @@
-// Copied from web/app/components/terminal/C64Loader.tsx at db6a20f.
-// Adapted: the prompt can show a typed command before the caret.
+// The prompt can show a typed command before the caret.
 import { StreamLogRole } from "../../log/view-model"
 import { TerminalCursor } from "./TerminalCursor"
 

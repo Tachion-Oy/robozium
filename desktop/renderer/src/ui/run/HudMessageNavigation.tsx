@@ -1,5 +1,4 @@
-// Copied from web/app/components/hud/run/HudMessageNavigation.tsx at 86ef5c1.
-// Adapted: types come from ./run-view, and the Robozium mark replaces the "A".
+// Types come from ./run-view, and the Robozium mark replaces the "A".
 import type {
 	AgentActivityState,
 	HudMessageNavigationDirection,

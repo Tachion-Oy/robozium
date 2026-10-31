@@ -2,7 +2,6 @@
 // useModels owns confirmed selection; requests here have no local state.
 import { ApiError, type DesktopApiClient } from "../api/client"
 
-// Minimal contracts adapted from web/lib/robozium/{client,wire}.ts; see the PR 7 plan.
 export interface AvailableModel { model_id: string; label: string }
 export interface ModelSelection { models: AvailableModel[]; selected_model_id: string }
 

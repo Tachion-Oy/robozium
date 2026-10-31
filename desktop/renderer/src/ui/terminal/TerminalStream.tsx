@@ -1,5 +1,4 @@
-// Copied from robozium-electron/desktop/web/app/components/terminal/TerminalStream.tsx at 076b2c9.
-// Adapted: the caller supplies the items, and the pane is always readable, so the HUD visibility store is gone.
+// The caller supplies the items, and the pane is always readable, so the HUD visibility store is gone.
 import { Fragment, memo, useCallback, useEffect, useState } from "react"
 import {
 	isPromptUserAssistantMessage,

@@ -1,5 +1,4 @@
-// Copied from web/app/components/hud/run/HudImage.tsx at 2a0c183.
-// Adapted: hub images load from the backend, which requires the renderer's
+// Hub images load from the backend, which requires the renderer's
 // Origin. Remote images never load without a click: the CSP admits only the
 // backend, and "Open original" opens either kind outside the window. The viewer
 // outlives message changes and returns focus to the panel when its trigger is gone.

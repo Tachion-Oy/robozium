@@ -1,5 +1,3 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/environment/EnvironmentVariableEditor.tsx at 076b2c9.
-// Adapted: desktop import paths.
 import type { EnvironmentEntry } from "../../environment/environment-api"
 import { HudButton } from "../hud/HudButton"
 
@@ -51,7 +49,7 @@ export function EnvironmentVariableEditor({
 					variant={entry.secret ? "danger-confirm" : "danger"}
 					role="checkbox"
 					aria-checked={entry.secret}
-					disabled={disabled || entry.startup}
+					disabled={disabled}
 					onClick={() => onChange({ ...entry, secret: !entry.secret })}>
 					Secret
 				</HudButton>

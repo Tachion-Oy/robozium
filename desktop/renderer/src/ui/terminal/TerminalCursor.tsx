@@ -1,4 +1,3 @@
-// Copied from web/app/components/terminal/TerminalCursor.tsx at db6a20f.
 import { logRoleToCaret, StreamLogRole } from "../../log/view-model"
 
 type TerminalCursorProps = {

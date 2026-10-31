@@ -7,7 +7,7 @@ const environment = (overrides: Record<string, unknown> = {}) => ({
 	revision: "r1", entries: [] as unknown[], overrides: [], requires_password: false, editable: true,
 	suggestions: [], example_errors: [], imports: [], ...overrides,
 })
-const saved = { name: "OPENROUTER_API_KEY", value: null, secret: true, configured: true, overridden: false, startup: false }
+const saved = { name: "OPENROUTER_API_KEY", value: null, secret: true, configured: true, overridden: false }
 const keyFile = (page: Page) => page.getByRole("group", { name: "Key file" })
 const prompt = (page: Page) => page.getByRole("dialog")
 const uploads = (backend: Backend) => backend.requests.filter(request => request.path === "/credentials/environment/file")

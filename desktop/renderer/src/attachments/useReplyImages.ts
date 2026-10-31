@@ -1,4 +1,3 @@
-// Adapted from web/hooks/useReplyImages.ts and web/lib/robozium/reply-images.ts at 2a0c183.
 // Rewritten for desktop: React state holds what the composer shows, and one queue
 // per run sends the requests in order and reports through setState. Requests go
 // through the desktop client under a deadline and end with the queue; restored

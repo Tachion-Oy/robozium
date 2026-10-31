@@ -127,7 +127,6 @@ flowchart LR
 
 ## The message log
 
-The web keeps one large session store because its terminal is always on screen.
 The desktop shows the message log only occasionally, so it keeps no log state:
 `run-reducer` already retains every durable event of the displayed run, and the
 HUD keeps only its own projection. The log is a pure selector over those events,

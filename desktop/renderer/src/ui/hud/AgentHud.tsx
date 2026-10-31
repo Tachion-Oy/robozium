@@ -1,6 +1,4 @@
-// Frame markup copied from robozium-electron/desktop/web/app/components/hud/AgentHUD.tsx
-// (lines 178-243) at 076b2c9, in its desktop configuration: no intro, minimize or
-// resize handle. The caller supplies the message log pane and owns whether it is open.
+// The HUD frame has no intro, minimize or resize handle. The caller supplies the message log pane and owns whether it is open.
 // The right edge holds the message log toggle with the copy controls beneath it.
 import { createContext, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import type { MessageLogState } from "../../log/useMessageLog"

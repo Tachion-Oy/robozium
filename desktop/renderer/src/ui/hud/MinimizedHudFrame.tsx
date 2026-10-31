@@ -1,5 +1,4 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/MinimizedHudFrame.tsx at 076b2c9.
-// Adapted: the Robozium mark replaces the "A".
+// The Robozium mark replaces the "A".
 import type { ReactNode } from "react"
 import type { AgentActivityState } from "../run/run-view"
 import { AgentIndicator } from "../branding/RoboziumMark"

@@ -1,6 +1,6 @@
 // Keep the acknowledged backend model selection; choosing a model again retries a failed write.
 // Reconnects refresh server state; reads and writes share one request owner. With a run,
-// the selection is that run's model, as in the web HUD; without one, the default for new runs.
+// the selection is that run's model; without one, the default for new runs.
 import { useCallback, useEffect, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { getModelSelection, selectModel, type ModelSelection } from "./models-api"

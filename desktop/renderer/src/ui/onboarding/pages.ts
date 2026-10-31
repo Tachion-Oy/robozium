@@ -1,5 +1,4 @@
-// Copied from web/app/components/hud/onboarding/pages.ts at af87bea.
-// Adapted: adding keys starts from an existing key file, and illustrations are
+// Adding keys starts from an existing key file, and illustrations are
 // named for their CSS classes.
 import type { AgentMessage } from "../run/AgentMessagePanel"
 

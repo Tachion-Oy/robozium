@@ -1,4 +1,3 @@
-// Adapted from robozium-electron/desktop/web/hooks/{useEnvironment,useEnvironmentEditor}.ts at 076b2c9.
 // The saved settings as read from the backend, with this app's unsaved edits on
 // top. This owner never writes: useEnvironmentMutations does, and App passes each
 // write's outcome here. Polling runs only while the screen is visible, and a new
@@ -10,7 +9,6 @@ import { showErrorToast } from "../feedback/notices"
 import { getEnvironment, type EnvironmentEntry, type EnvironmentImportResult, type EnvironmentView } from "./environment-api"
 import type { EnvironmentWrites } from "./useEnvironmentMutations"
 
-const startupNames = new Set(["ROBOZIUM_HUB_ROOT", "ROBOZIUM_WEB_PORT"])
 
 export type Editor = {
 	originalName: string | null
@@ -144,7 +142,6 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 	const newEntry = (name = "", value = "", secret = false): EnvironmentEntry => ({
 		name, value, secret, configured: false,
 		overridden: view?.overrides.includes(name) ?? false,
-		startup: startupNames.has(name),
 	})
 	const assigned = new Map(changedEntries.map(entry => [entry.name, entry]))
 	for (const suggestion of view?.suggestions ?? []) {
@@ -190,10 +187,9 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 	}
 	const updateEditor = (entry: EnvironmentEntry) => {
 		if (!editor || !editable) return
-		const startup = startupNames.has(entry.name)
 		setEditor({
 			...editor,
-			entry: { ...entry, startup, secret: !startup && entry.secret, overridden: view?.overrides.includes(entry.name) ?? false },
+			entry: { ...entry, overridden: view?.overrides.includes(entry.name) ?? false },
 		})
 	}
 	const validateEditor = () => {

@@ -1,5 +1,4 @@
-// Copied from web/app/components/hud/projects/CapabilitySelector.tsx at 5b06d82.
-// Adapted: App owns the capability reads and passes their state in; a failed read
+// App owns the capability reads and passes their state in; a failed read
 // is a toast with Retry, so the list never shifts.
 import { useEffect, useRef, type ComponentProps } from "react"
 import { DisplayArt } from "../branding/DisplayArt"

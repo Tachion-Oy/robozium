@@ -1,5 +1,4 @@
-// Copied from robozium-electron/desktop/web/startup/StartupScreen.tsx at 076b2c9.
-// Adapted: it covers the application inside the renderer, so its state arrives as
+// It covers the application inside the renderer, so its state arrives as
 // props from BackendStartup. A failure shows as a toast over it, so the loader never
 // moves, and reduced motion requested during the introduction settles it.
 import { useEffect, useState, type ReactNode } from "react"

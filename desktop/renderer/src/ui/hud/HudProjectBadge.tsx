@@ -1,4 +1,3 @@
-// Copied from web/app/components/hud/HudProjectBadge.tsx at 407e0c3.
 type HudProjectBadgeProps = {
 	projectSlug: string | null
 }

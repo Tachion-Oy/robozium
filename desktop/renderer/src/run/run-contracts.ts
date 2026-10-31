@@ -1,5 +1,4 @@
 // Run protocol values and types shared by payload validation, reconciliation and HUD consumers.
-// Consumed subset of web/lib/robozium/wire.ts at 673d361; no browser dependencies.
 export const RunEventType = {
 	Message: "message",
 	MessageDelta: "message_delta",

@@ -1,4 +1,4 @@
-"""Bounded service startup and teardown for integration and browser tests."""
+"""Bounded service startup and teardown for integration tests."""
 
 import os
 import signal

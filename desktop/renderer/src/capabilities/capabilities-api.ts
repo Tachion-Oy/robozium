@@ -2,7 +2,6 @@
 // The launch command owns request lifetimes; requests here have no local state.
 import { ApiError, type DesktopApiClient } from "../api/client"
 
-// Contracts adapted from web/lib/robozium/wire.ts.
 export type SkillLoading = "automatic" | "on_demand"
 export type CapabilitySelection = Record<string, boolean | SkillLoading>
 export interface CapabilityView {

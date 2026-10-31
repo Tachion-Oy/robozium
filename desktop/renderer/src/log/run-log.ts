@@ -1,7 +1,5 @@
 // Project the displayed run's retained events into message log rows. No log state:
 // the log pane computes this only while it is mounted.
-// Adapted from web/lib/robozium/stream.ts (mapFrameToLogItem) and session/reducer.ts
-// (script grouping) at db6a20f, over the desktop's validated run records.
 import { MessageRole, RunEventType, RunLifecycleKind, type RunRecord } from "../run/run-contracts"
 import { isAssistantContent, isUserContent, parseContentObject, type ParsedMessageContent } from "./normalize"
 import { StreamLogItemKind, StreamLogRole, type LifecycleLogItem, type MessageLogItem, type StreamLogItem } from "./view-model"

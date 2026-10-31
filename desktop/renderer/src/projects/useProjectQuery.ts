@@ -1,5 +1,4 @@
-// Adapted from web/app/components/hud/projects/useProjectOverview.ts at 5b06d82:
-// the same polling intervals and optimistic marks. This owner only reads: launch,
+// Polls the project listing and applies optimistic marks. This owner only reads: launch,
 // cancel and delete belong to useProjectMutations, and App passes its pending
 // writes in to mark the rows.
 import { useEffect, useMemo, useRef, useState } from "react"

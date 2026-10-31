@@ -1,5 +1,4 @@
-// Copied from web/app/components/hud/projects/ProjectOverview.tsx at 5b06d82.
-// Adapted: the listing, the cancel and delete owner, the launch lock and run
+// The listing, the cancel and delete owner, the launch lock and run
 // opening arrive as props instead of the navigation store, router and client;
 // a launch already in flight refuses another. A first listing that fails is
 // reported in a toast with Retry instead of showing an empty hub. Only the row's Open

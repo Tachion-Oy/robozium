@@ -1,5 +1,4 @@
-// Copied from web/lib/robozium/capabilities.ts at 5b06d82.
-// Adapted: contracts come from the desktop capability API.
+// Contracts come from the desktop capability API.
 import type { CapabilitySelection, CapabilityView } from "./capabilities-api"
 
 /** Keep available optional choices; new capabilities stay off and fixed ones are implicit. */

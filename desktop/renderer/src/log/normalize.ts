@@ -1,5 +1,4 @@
-// Adapted from web/lib/robozium/normalize.ts at db6a20f: the zod schemas become
-// plain object checks, because the desktop renderer has no zod dependency.
+// Plain object checks; the desktop renderer has no zod dependency.
 
 export type AssistantParsedContent = {
 	kind: "assistant"

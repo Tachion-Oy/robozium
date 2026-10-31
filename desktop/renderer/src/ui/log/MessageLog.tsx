@@ -1,5 +1,4 @@
-// Copied from robozium-electron/desktop/web/app/components/desktop/MessageLog.tsx at 076b2c9.
-// Adapted: the log rows are a selector over the displayed run's retained events.
+// The log rows are a selector over the displayed run's retained events.
 import { useMemo } from "react"
 import { TerminalBackdrop } from "../terminal/TerminalBackdrop"
 import { TerminalStream } from "../terminal/TerminalStream"

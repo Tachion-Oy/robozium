@@ -12,9 +12,6 @@ permissions:
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
-env:
-  NEXT_TELEMETRY_DISABLED: "1"
-
 jobs:
   ci:
     name: CI
@@ -33,32 +30,13 @@ jobs:
         with:
           node-version: "22.22.2"
           cache: npm
-          cache-dependency-path: |
-            web/package-lock.json
-            desktop/package-lock.json
-      - name: Install tested Process Compose
-        run: |
-          version=v1.122.0
-          base="https://github.com/F1bonacc1/process-compose/releases/download/$version"
-          curl -fsSL "$base/process-compose_linux_amd64.tar.gz" -o "$RUNNER_TEMP/process-compose_linux_amd64.tar.gz"
-          curl -fsSL "$base/process-compose_checksums.txt" -o "$RUNNER_TEMP/process-compose_checksums.txt"
-          (cd "$RUNNER_TEMP" && sha256sum -c process-compose_checksums.txt --ignore-missing)
-          tar -xzf "$RUNNER_TEMP/process-compose_linux_amd64.tar.gz" -C "$RUNNER_TEMP" process-compose
-          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
-          "$RUNNER_TEMP/process-compose" version
+          cache-dependency-path: desktop/package-lock.json
       - name: Python tests, lint, and types
         run: |
           uv sync --locked --dev
           uv run ruff check src tests scripts
           uv run pyright
           uv run pytest --cov-fail-under=90
-          uv run pytest tests/infrastructure/test_runtime_compose.py --no-cov -q
-      - name: Frontend tests, lint, and types
-        run: |
-          npm --prefix web ci
-          npm --prefix web run lint
-          npm --prefix web run typecheck
-          npm --prefix web run test:run
       - name: Desktop lint, types, and build
         run: |
           npm --prefix desktop ci
@@ -67,25 +45,3 @@ jobs:
           npm --prefix desktop run build
           npm --prefix desktop run test:backend:lifecycle
 
-  launcher-windows:
-    name: Windows launcher
-    runs-on: windows-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Exercise Windows launchers
-        shell: pwsh
-        run: ./tests/infrastructure/check_windows_launcher.ps1
-
-  launcher-macos:
-    name: macOS launcher
-    runs-on: macos-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Exercise macOS launchers
-        run: sh tests/infrastructure/check_macos_launcher.sh

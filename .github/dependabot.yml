@@ -8,7 +8,7 @@ updates:
     allow:
       - dependency-name: roboz
   - package-ecosystem: docker
-    directory: /
+    directory: /desktop
     schedule:
       interval: weekly
     rebase-strategy: disabled

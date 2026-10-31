@@ -1,4 +1,3 @@
-// Copied from web/app/components/hud/run/MessageWedge.tsx at 86ef5c1.
 type MessageWedgeProps = {
 	direction: "previous" | "next"
 	jump?: boolean

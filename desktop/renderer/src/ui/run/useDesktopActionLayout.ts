@@ -1,5 +1,4 @@
-// Copied from robozium-electron/desktop/web/hooks/useDesktopActionLayout.ts at 076b2c9.
-// Adapted: actions sit all beside the navigation or all on one row below it. The copy
+// Actions sit all beside the navigation or all on one row below it. The copy
 // controls are not footer actions: they sit on the right edge (AgentHud).
 import { useLayoutEffect, useRef } from "react"
 

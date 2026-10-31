@@ -1,5 +1,4 @@
-// Copied from web/app/components/hud/run/ReplyEditor.tsx at 2a0c183.
-// Adapted: autoFocus focuses the reply when Current Run opens; restored previews
+// autoFocus focuses the reply when Current Run opens; restored previews
 // load from the backend with crossorigin; the composer is disabled only with its
 // editor, not whenever images cannot be added; no "Updating images…" notice
 // flashes beneath the reply, and image failures are a toast with Retry images; the

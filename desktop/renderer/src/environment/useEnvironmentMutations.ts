@@ -1,4 +1,3 @@
-// Adapted from robozium-electron/desktop/web/hooks/{useEnvironment,useEnvironmentEditor}.ts at 076b2c9.
 // This app's writes to the saved settings, one at a time. The draft reads and
 // edits them; App passes each write's outcome to it. Requests use the desktop
 // client under its lifetime and deadlines, an import has a longer deadline than

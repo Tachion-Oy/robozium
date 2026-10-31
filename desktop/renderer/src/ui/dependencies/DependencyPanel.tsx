@@ -1,6 +1,5 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/dependencies/DependencyPanel.tsx at 076b2c9.
-// Adapted: records and Check Now come from the dependencies owner, the diagnostic is
-// copied through the native clipboard bridge, and cells wrap as in web/ at db6a20f.
+// Records and Check Now come from the dependencies owner, the diagnostic is
+// copied through the native clipboard bridge, and cells wrap.
 // A failed read is a toast with Check now; the table area stays empty.
 import { Fragment, useMemo, useState, type ReactElement } from "react"
 import type { DependencyRecord, DependencyStatus } from "../../dependencies/dependencies-api"

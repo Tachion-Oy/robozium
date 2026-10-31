@@ -1,5 +1,4 @@
-// Markup copied from robozium-electron/desktop/web/app/components/hud/ModelSelector.tsx
-// at 076b2c9. Adapted: useModels owns the selection, requests and acknowledgements,
+// useModels owns the selection, requests and acknowledgements,
 // and ModelLabel draws the speed tier as an icon.
 import type { ModelsState } from "../../models/useModels"
 import { ModelLabel } from "./ModelLabel"

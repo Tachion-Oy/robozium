@@ -1,5 +1,4 @@
-// Copied from robozium-electron/desktop/web/app/components/hud/HudCornerControls.tsx at 076b2c9.
-// Adapted: the theme toggle heads the column, above the panel divider buttons; no Minimize.
+// The theme toggle heads the column, above the panel divider buttons; no Minimize.
 import { ThemeToggle } from "../theme/ThemeToggle"
 import { HudEdgeButton } from "./HudEdgeButton"
 

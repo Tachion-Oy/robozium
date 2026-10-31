@@ -1,4 +1,3 @@
-// Copied from web/app/components/branding/DisplayArt.tsx at 5b06d82.
 type DisplayArtName =
 	| "robozium"
 	| "start"
