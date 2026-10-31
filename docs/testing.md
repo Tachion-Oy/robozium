@@ -321,7 +321,7 @@ package metadata.
 Staging checks cover the public allowlist, synthetic private-file exclusion,
 symlink rejection, stale-output replacement, and stable build identifiers that
 change when staged content changes. Layout checks cover bind paths and
-read-only mounts, environment files, relocated paths, and required runtime and
+read-only mounts, relocated paths, and required runtime and
 hub selection.
 
 The container smoke test runs the desktop's own controller and Podman engine: it
@@ -330,7 +330,7 @@ credential exclusion, creates a project through the existing mock API, checks
 that its files belong to the user running the test, and verifies data after
 restart, recreate and shutdown. It uses a unique profile and dynamically
 selected loopback port; live provider calls are never needed. On failure it
-prints the container log, then removes its test containers and untags its image, keeping the layers as build cache. On success it verifies
+prints the container log and the API's own output, then removes its test containers and untags its image, keeping the layers as build cache. On success it verifies
 host-data preservation before deleting the temporary runtime. Container options and
 data locations are documented in the [desktop README](../desktop/README.md#backend-diagnostics-linux).
 
@@ -439,7 +439,7 @@ identity and legacy settings, image reuse/rebuild, occupied ports, label/mount
 ownership, readiness failure and retry, cancellation during build/run/readiness,
 and shutdown ownership rechecks. It also checks the exact container options
 (host network, container root as the user, no capabilities, no pulls), that
-environment files reach the container in order through a private file that is
+the container gets only the layout's values through a private file that is
 removed once it starts, never the command line, and that remote Podman settings
 and Electron's `disabled:` session bus are ignored.
 Process tests execute disposable Node children to check bounded output, argument

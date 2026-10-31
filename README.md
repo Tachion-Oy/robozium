@@ -107,8 +107,10 @@ the HUD. **Start Here** walks you through adding provider keys in the
 **Environment** panel, and saving them unlocks the HUD without a restart.
 
 Versions up to 0.3.0 ran the backend in Docker. After an upgrade, the app builds
-its image with Podman and keeps your projects and keys. If you no longer need
-Docker for anything else, you can remove the old Robozium containers and images:
+its image with Podman and keeps your projects and keys. Before the first start
+after the upgrade, remove the old Robozium containers: one still running holds
+the backend's port, and the new backend cannot start. The second command removes
+the old images, which you can keep if you still want them:
 
 ```sh
 docker ps -aq --filter label=fi.tachion.robozium.desktop.installation | xargs -r docker rm -f

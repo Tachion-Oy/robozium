@@ -9,7 +9,6 @@ import { pathToFileURL } from "node:url"
 import { stageBackend } from "../scripts/stage-backend.ts"
 
 const desktop = path.resolve(import.meta.dirname, "..")
-interface LayoutMount { root: string; path: string; target: string; readOnly: boolean }
 
 function fixture(t: TestContext) {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "desktop-backend-"))
@@ -87,9 +86,9 @@ test("runtime preparation follows relocated paths from the shared layout", async
 	const root = fixture(t)
 	const runtime = path.join(root, "relocated runtime with spaces")
 	const configuration = path.join(root, "desktop/src/backend-layout.json")
-	const definition = JSON.parse(fs.readFileSync(configuration, "utf8"))
-	definition.backend.mounts.find((mount: LayoutMount) => mount.target === "/logs").path = "diagnostics"
-	definition.backend.mounts.find((mount: LayoutMount) => mount.target === "/app/local").path = "extensions"
+	const definition: typeof import("../src/backend-layout.json") = JSON.parse(fs.readFileSync(configuration, "utf8"))
+	definition.backend.mounts.find(mount => mount.target === "/logs")!.path = "diagnostics"
+	definition.backend.mounts.find(mount => mount.target === "/app/local")!.path = "extensions"
 	definition.desktop.containerLog.filename = "engine.log"
 	fs.writeFileSync(configuration, JSON.stringify(definition))
 

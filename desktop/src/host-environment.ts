@@ -15,7 +15,7 @@ interface HostEnvironmentOptions {
 /** The variables a host program receives: the user's own, without the backend's controlled names. */
 export function hostProcessEnvironment(directory: string): NodeJS.ProcessEnv {
 	return {
-		...Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(COMPOSE_|ROBOZIUM_|ROBOZ_)/.test(name))),
+		...Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(ROBOZIUM_|ROBOZ_)/.test(name))),
 		UV_PROJECT_ENVIRONMENT: directory,
 	}
 }

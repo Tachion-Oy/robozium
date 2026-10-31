@@ -320,7 +320,7 @@ unavailable dependency's diagnostic can be copied. **Environment** ends with one
 row of actions: **Save**, **Restart app**, **Restart backend**, **Recreate
 backend** and **Reset environment**. **Restart backend** restarts
 this installation's API container; **Recreate backend** recreates it from the
-same image so it reads `.env` again. Both keep mounted data, check container
+same image. Both read `.env` again. Both keep mounted data, check container
 ownership first, and run one at a time; the loading screen covers the HUD
 until it reconnects. **Restart app** shows it too, until the app closes.
 Divider controls remain visible but disabled outside Current Run.
@@ -517,16 +517,16 @@ Credentials, private imports, hubs, frontend files, and caches are excluded.
 The image retains the existing Linux CLI tools, and its own user is UID/GID 10001.
 
 `src/backend-layout.json` describes the container: its mounts, environment
-files and values, and command. The layout says what the backend needs, not how
-an engine provides it; `src/podman-engine.ts` turns it into Podman commands. At
-each start the app reads the runtime's `.env.encrypt` and then `.env`, with
-plaintext entries overriding matching encrypted ones, and passes them to Podman
-in `.runtime/container.env`, readable only by you and removed as soon as the
-container starts, so no value appears on a command line. Backend paths and
-the selected mode and port always win. Keys and decryption remain the Python
-backend's responsibility; the desktop only sends the unlock password to the
-backend. A changed `.env` applies after **Recreate backend** or a restart of
-the app.
+values, and command. The layout says what the backend needs, not how an engine
+provides it; `src/podman-engine.ts` turns it into Podman commands. The app
+passes only those values, with the selected mode and port, in
+`.runtime/container.env`, readable only by you and removed as soon as the
+container starts. At each start the backend reads the runtime's `.env.encrypt`
+and then `.env` itself, with plaintext entries overriding matching encrypted
+ones; the container's own values always win. Keys and decryption remain the
+Python backend's responsibility; the desktop only sends the unlock password to
+the backend. A changed `.env` applies after **Restart backend**, **Recreate
+backend** or a restart of the app.
 
 Every container and image the app creates carries labels with its installation
 and mode. To see them and the API's own log:
@@ -556,8 +556,9 @@ npm --prefix desktop run test:backend:electron
 The first command checks staging and the layout with synthetic inputs. The
 second builds the real image with the app's own controller and checks mock
 readiness and persistence across restart and recreate, using a temporary
-profile and unused loopback port. It removes only its own test containers,
-image and temporary data, including after failures.
+profile and unused loopback port. It removes only its own test containers and
+temporary data, and untags its image so the layers stay as build cache,
+including after failures.
 
 Lifecycle unit tests cover ownership, errors, cancellation, and process cleanup.
 The native backend suite verifies retry, first build/image reuse, close/reopen
