@@ -6,12 +6,12 @@ type StartupState =
 	| { state: "starting" | "error"; message: string; action?: BackendStatus["action"]; stage?: BackendStatus["stage"]; progress?: number }
 	| { state: "ready"; client: DesktopApiClient }
 
-/** Own Docker startup polling and discover the renderer's connection once ready. */
+/** Own backend startup polling and discover the renderer's connection once ready. */
 export function useBackendStartup() {
 	const [startup, setStartup] = useState<StartupState>({ state: "starting", message: "Starting Robozium…" })
 	const [attempt, setAttempt] = useState(0)
 	// Keep this milestone through retries: a renderer connection failure must
-	// never cause Docker startup to run again, even if connection discovery fails.
+	// never cause backend startup to run again, even if connection discovery fails.
 	const hasStartedBackend = useRef(false)
 
 	useEffect(() => {

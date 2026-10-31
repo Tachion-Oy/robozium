@@ -31,7 +31,7 @@ const octagonPoints = "29.289322,0 70.710678,0 100,29.289322 100,70.710678 70.71
 const FADE_FALLBACK_MS = 1000
 const reduceMotion = "(prefers-reduced-motion: reduce)"
 
-/** Local presentation runs independently of Docker and the application's data. */
+/** Local presentation runs independently of the backend container and the application's data. */
 export function StartupScreen({ mode, ready, status, updating, progress, onFaded }: StartupScreenProps): ReactNode {
 	const skipIntro = mode === "loading"
 	const [reducedMotion, setReducedMotion] = useState(() => matchMedia(reduceMotion).matches)

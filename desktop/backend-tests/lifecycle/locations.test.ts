@@ -9,7 +9,6 @@ test("an installed app keeps its profile in the user's config directory and read
 	assert.deepEqual(desktopLocations({ ...base, packaged: true }), {
 		profile: "/home/user/.config/Robozium",
 		source: "/opt/Robozium/resources/backend/stage",
-		compose: "/opt/Robozium/resources/backend/compose.yaml",
 		preload: "/repo/desktop/dist/preload.cjs",
 		renderer: "/repo/desktop/dist/renderer",
 		hubFolder: {
@@ -21,9 +20,7 @@ test("an installed app keeps its profile in the user's config directory and read
 
 test("a checkout keeps its own profile beside it and reads the staged backend from the checkout", () => {
 	const checkout = desktopLocations({ ...base, packaged: false })
-	assert.deepEqual([checkout.profile, checkout.source, checkout.compose], [
-		"/repo/.artifacts/desktop/data", "/repo/desktop/.stage/backend", "/repo/desktop/compose.yaml",
-	])
+	assert.deepEqual([checkout.profile, checkout.source], ["/repo/.artifacts/desktop/data", "/repo/desktop/.stage/backend"])
 })
 
 test("an explicit profile wins in both, resolved to an absolute path", () => {

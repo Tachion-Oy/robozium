@@ -1,10 +1,10 @@
 {
-  "x-desktop": {
-    "composeEnvironment": ".runtime/compose.env",
-    "dockerLog": {
+  "desktop": {
+    "containerLog": {
       "mount": "/logs",
-      "filename": "docker.log"
+      "filename": "container.log"
     },
+    "containerEnvironment": ".runtime/container.env",
     "hostServices": {
       "environment": ".runtime/host-environment",
       "processes": ".runtime/host-services",
@@ -14,8 +14,12 @@
       },
       "services": {
         "safe-scripts": {
-          "platforms": ["linux"],
-          "modes": ["live"],
+          "platforms": [
+            "linux"
+          ],
+          "modes": [
+            "live"
+          ],
           "endpoint": {
             "type": "unix-socket",
             "variable": "ROBOZIUM_HOST_SCRIPT_SOCKET"
@@ -26,13 +30,34 @@
           },
           "executable": "bin/roboz",
           "arguments": [
-            "scripts", "serve",
-            "--socket", { "endpoint": "address" },
-            "--scripts", { "hostPath": "/hub/readonly/safe-scripts" },
-            "--cwd", { "hostPath": "/hub" },
-            "--timeout-s", "600",
-            "--allow-env", "HOME", "--allow-env", "USER", "--allow-env", "LOGNAME",
-            "--allow-env", "XDG_CONFIG_HOME", "--allow-env", "XDG_DATA_HOME", "--allow-env", "XDG_CACHE_HOME"
+            "scripts",
+            "serve",
+            "--socket",
+            {
+              "endpoint": "address"
+            },
+            "--scripts",
+            {
+              "hostPath": "/hub/readonly/safe-scripts"
+            },
+            "--cwd",
+            {
+              "hostPath": "/hub"
+            },
+            "--timeout-s",
+            "600",
+            "--allow-env",
+            "HOME",
+            "--allow-env",
+            "USER",
+            "--allow-env",
+            "LOGNAME",
+            "--allow-env",
+            "XDG_CONFIG_HOME",
+            "--allow-env",
+            "XDG_DATA_HOME",
+            "--allow-env",
+            "XDG_CACHE_HOME"
           ]
         }
       }
@@ -43,7 +68,6 @@
       "checkoutBackend": "..",
       "installedSource": "stage",
       "checkoutSource": ".stage/backend",
-      "compose": "compose.yaml",
       "preload": "preload.cjs",
       "renderer": "renderer",
       "settings": "settings.json",
@@ -54,89 +78,82 @@
       "hubProjects": "projects"
     }
   },
-  "services": {
-    "api": {
-      "env_file": [
-        {
-          "path": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/.env.encrypt",
-          "required": false
-        },
-        {
-          "path": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/.env",
-          "required": false
-        }
-      ],
-      "environment": {
-        "ROBOZIUM_HUB_ROOT": "/hub",
-        "ROBOZIUM_LOG_DIR": "/logs",
-        "ROBOZIUM_ENCRYPTED_ENV_PATH": "/configuration/.env.encrypt",
-        "ROBOZIUM_HOST_SCRIPT_SOCKET": "/host-scripts/scripts.sock"
+  "backend": {
+    "build": {
+      "target": "api"
+    },
+    "environmentFiles": [
+      {
+        "root": "runtime",
+        "path": ".env.encrypt"
       },
-      "volumes": [
-        {
-          "type": "bind",
-          "source": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}",
-          "target": "/configuration",
-          "read_only": false,
-          "bind": {
-            "create_host_path": false
-          }
-        },
-        {
-          "type": "bind",
-          "source": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/local",
-          "target": "/app/local",
-          "read_only": false,
-          "bind": {
-            "create_host_path": false
-          }
-        },
-        {
-          "type": "bind",
-          "source": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/.runtime/local-deps",
-          "target": "/app/.runtime/local-deps",
-          "read_only": false,
-          "bind": {
-            "create_host_path": false
-          }
-        },
-        {
-          "type": "bind",
-          "source": "${ROBOZIUM_DESKTOP_HUB:?Select an absolute hub folder}",
-          "target": "/hub",
-          "read_only": false,
-          "bind": {
-            "create_host_path": false
-          }
-        },
-        {
-          "type": "bind",
-          "source": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/.runtime/logs",
-          "target": "/logs",
-          "read_only": false,
-          "bind": {
-            "create_host_path": false
-          }
-        },
-        {
-          "type": "bind",
-          "source": "${ROBOZIUM_DESKTOP_RUNTIME:?Select an absolute desktop runtime directory}/.runtime/host-socket",
-          "target": "/host-scripts",
-          "read_only": true,
-          "bind": {
-            "create_host_path": false
-          }
-        },
-        {
-          "type": "bind",
-          "source": "${ROBOZIUM_DESKTOP_HUB:?Select an absolute hub folder}/readonly/safe-scripts",
-          "target": "/hub/readonly/safe-scripts",
-          "read_only": true,
-          "bind": {
-            "create_host_path": false
-          }
-        }
-      ]
-    }
+      {
+        "root": "runtime",
+        "path": ".env"
+      }
+    ],
+    "environment": {
+      "ROBOZIUM_CONFIG": "/app/hub.config.py",
+      "ROBOZIUM_HUB_ROOT": "/hub",
+      "ROBOZIUM_LOG_DIR": "/logs",
+      "ROBOZIUM_ENCRYPTED_ENV_PATH": "/configuration/.env.encrypt",
+      "ROBOZIUM_HOST_SCRIPT_SOCKET": "/host-scripts/scripts.sock"
+    },
+    "mounts": [
+      {
+        "root": "runtime",
+        "path": "",
+        "target": "/configuration",
+        "readOnly": false
+      },
+      {
+        "root": "runtime",
+        "path": "local",
+        "target": "/app/local",
+        "readOnly": false
+      },
+      {
+        "root": "runtime",
+        "path": ".runtime/local-deps",
+        "target": "/app/.runtime/local-deps",
+        "readOnly": false
+      },
+      {
+        "root": "hub",
+        "path": "",
+        "target": "/hub",
+        "readOnly": false
+      },
+      {
+        "root": "runtime",
+        "path": ".runtime/logs",
+        "target": "/logs",
+        "readOnly": false
+      },
+      {
+        "root": "runtime",
+        "path": ".runtime/host-socket",
+        "target": "/host-scripts",
+        "readOnly": true
+      },
+      {
+        "root": "hub",
+        "path": "readonly/safe-scripts",
+        "target": "/hub/readonly/safe-scripts",
+        "readOnly": true
+      }
+    ],
+    "command": [
+      "uvicorn",
+      "robozium.api.app:{mode}_app",
+      "--factory",
+      "--host",
+      "{address}",
+      "--port",
+      "{port}",
+      "--workers",
+      "1"
+    ],
+    "stopTimeoutSeconds": 30
   }
 }

@@ -1,5 +1,5 @@
 import { appendFileSync } from "node:fs"
-import type { CommandOptions, runCommand } from "./docker-command.ts"
+import type { CommandOptions, runCommand } from "./host-command.ts"
 
 interface HostEnvironmentOptions {
 	uv: string

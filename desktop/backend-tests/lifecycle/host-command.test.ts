@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import process from "node:process"
-import { runCommand } from "../../src/docker-command.ts"
+import { runCommand } from "../../src/host-command.ts"
 
 const options = () => ({ cwd: process.cwd(), env: {}, signal: new globalThis.AbortController().signal })
 test("command output is bounded, stderr stays out of JSON, and arguments never enter a shell", async () => {
@@ -13,8 +13,8 @@ test("command output is bounded, stderr stays out of JSON, and arguments never e
 })
 
 test("failed and missing commands return safe messages", async () => {
-	await assert.rejects(runCommand(process.execPath, ["-e", 'console.error("private detail"); process.exit(7)'], options()), /Docker command failed/)
-	await assert.rejects(runCommand("/does-not-exist/docker", [], options()), /Could not execute Docker/)
+	await assert.rejects(runCommand(process.execPath, ["-e", 'console.error("private detail"); process.exit(7)'], options()), /node failed/)
+	await assert.rejects(runCommand("/does-not-exist/podman", [], options()), /Could not execute podman/)
 })
 
 test("timeouts terminate a running command", async () => {
@@ -35,5 +35,5 @@ test("cancellation waits for a stubborn process to be killed", async () => {
 test("log failures terminate the process without an uncaught exception", async () => {
 	await assert.rejects(runCommand(process.execPath, ["-e", 'console.log("output"); setInterval(() => {}, 1000)'], {
 		...options(), log: () => { throw new Error("disk full") },
-	}), /Could not write the desktop Docker log/)
+	}), /Could not write the desktop log/)
 })

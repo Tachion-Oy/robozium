@@ -8,7 +8,7 @@ Use GitHub's
 [private vulnerability reporting](https://github.com/Tachion-Oy/robozium/security/advisories/new)
 to send the affected commit or version, impact, reproduction steps, and any
 suggested remediation. Include the operating system and mock/live mode, plus
-Docker/Compose versions and, from a checkout, Python and Node.js versions. Remove
+the Podman version and, from a checkout, Python and Node.js versions. Remove
 credentials and unrelated private project data from the report.
 
 If private reporting is unavailable, open an issue asking maintainers for a

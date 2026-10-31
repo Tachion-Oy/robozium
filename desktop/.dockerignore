@@ -1,4 +1,4 @@
-# The staged context is allowlisted again before Docker receives it.
+# The staged context is allowlisted again before the image build receives it.
 **
 !Dockerfile
 !hub.config.py
@@ -7,6 +7,10 @@
 !README.md
 !LICENSE
 !CHANGELOG.md
+# Podman reads files only inside re-included folders, so re-include the source
+# folders, drop every file with an extension, then take back the Python sources.
+!src/**/
+src/**/*.*
 !src/robozium/**/*.py
 **/.env*
 **/__pycache__

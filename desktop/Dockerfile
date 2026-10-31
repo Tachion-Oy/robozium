@@ -1,6 +1,4 @@
-# syntax=docker/dockerfile:1.7
-
-FROM python:3.13-slim-bookworm AS python-deps
+FROM docker.io/library/python:3.13-slim-bookworm AS python-deps
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -13,7 +11,7 @@ COPY src ./src
 RUN uv sync --locked --no-dev --no-editable
 
 
-FROM python:3.13-slim-bookworm AS api
+FROM docker.io/library/python:3.13-slim-bookworm AS api
 
 ENV PATH=/app/.venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -37,7 +35,7 @@ RUN apt-get update \
     && mkdir -p /hub /logs \
     && chown -R robozium:robozium /hub /logs
 
-# The API UID may be overridden for bind-mount permissions; keep LO's profile writable.
+# The desktop runs the API under another UID; keep LO's profile writable.
 ENV HOME=/tmp \
     UserInstallation=file:///tmp/robozium-libreoffice
 
@@ -51,6 +49,4 @@ LABEL fi.tachion.robozium.desktop.build=$ROBOZIUM_DESKTOP_BUILD_ID
 USER robozium
 ENV ROBOZIUM_DESKTOP_API_PORT=18001
 EXPOSE 18001
-HEALTHCHECK --interval=5s --timeout=3s --start-period=180s --retries=12 \
-    CMD ["python", "-c", "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:'+os.environ['ROBOZIUM_DESKTOP_API_PORT']+'/ready', timeout=2).read()"]
 CMD ["sh", "-c", "exec uvicorn \"robozium.api.app:${ROBOZIUM_MODE:-live}_app\" --factory --host 127.0.0.1 --port \"$ROBOZIUM_DESKTOP_API_PORT\" --workers 1"]
