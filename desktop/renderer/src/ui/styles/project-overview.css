@@ -30,7 +30,7 @@
 }
 
 .agent-hud__project-input {
-  width: min(28rem, 52vw);
+  width: min(28rem, 52cqw);
   border: 1px solid var(--hud-input-border);
   background: var(--hud-input-bg);
   color: var(--hud-input-text);
@@ -157,6 +157,20 @@
 }
 .agent-hud__table-header > span:first-child {
   overflow: hidden;
+}
+
+/* Hovering anywhere on a row, its buttons included, tints it so the eye can
+   follow a button to its project name. The row itself does nothing on click,
+   so the cursor stays an arrow. */
+.agent-hud__project-row {
+  border-radius: 0.25rem;
+  cursor: default;
+}
+.agent-hud__project-row:hover {
+  background: rgba(64, 200, 255, 0.1);
+}
+.agent-hud__project-row:hover .agent-hud__project-summary {
+  filter: brightness(1.25);
 }
 
 .agent-hud__capability-selector,
@@ -305,6 +319,12 @@
   border-radius: 0.38rem;
   background: color-mix(in oklab, white clamp(0%, 22% * var(--tune-sheen, 1), 100%), var(--hud-input-bg));
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 72% * var(--tune-sheen, 1), 100%), transparent);
+}
+:root[data-theme="light"] .agent-hud__project-row:hover {
+  background: color-mix(in oklab, var(--term-blue) clamp(0%, 9% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
+}
+:root[data-theme="light"] .agent-hud__project-row:hover .agent-hud__project-summary {
+  filter: none;
 }
 :root[data-theme="light"] .agent-hud__project-row + .agent-hud__project-row {
   margin-top: 0.62rem;

@@ -1,4 +1,4 @@
-import { expect, type ElectronApplication } from "@playwright/test"
+import { expect, type ElectronApplication, type Page } from "@playwright/test"
 import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { test, reopen, skipIntro, reloadApp } from "./native"
@@ -9,6 +9,8 @@ const zoomFactor = (app: ElectronApplication) =>
 	app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.getZoomFactor())
 const resize = (app: ElectronApplication, width: number, height: number) =>
 	app.evaluate(({ BrowserWindow }, { width, height }) => BrowserWindow.getAllWindows()[0].setContentSize(width, height), { width, height })
+const hudWidth = (page: Page) =>
+	page.locator(".desktop-workspace .agent-hud").evaluate(element => element.getBoundingClientRect().width)
 async function pressZoom(app: ElectronApplication, keyCode: string) {
 	await app.evaluate(({ BrowserWindow }, keyCode) => {
 		const window = BrowserWindow.getAllWindows()[0]
@@ -18,23 +20,63 @@ async function pressZoom(app: ElectronApplication, keyCode: string) {
 	}, keyCode)
 }
 
-test("opening the log grows the window to fit both panes and closing restores it", async ({ desktop: { app, page } }) => {
-	await resize(app, 900, 650)
-	await expect.poll(() => contentSize(app)).toEqual([900, 650])
+test("opening the log adds it beside the HUD and closing detaches it, keeping the HUD's width", async ({ desktop: { app, page } }) => {
+	// Xvfb's 1280px screen leaves room for the HUD plus the log's minimum width.
+	await resize(app, 660, 650)
+	await expect.poll(() => contentSize(app)).toEqual([660, 650])
+	await expect.poll(() => hudWidth(page)).toBe(660)
 	await page.getByRole("button", { name: "Show message log", exact: true }).click()
-	await expect.poll(() => contentSize(app)).toEqual([1120, 650])
+	await expect.poll(() => contentSize(app)).toEqual([1140, 650])
 	await expect(page.getByRole("region", { name: "Message log" })).toBeVisible()
+	await expect.poll(() => hudWidth(page)).toBe(660)
 	await page.getByRole("button", { name: "Hide message log", exact: true }).click()
-	await expect.poll(() => contentSize(app)).toEqual([900, 650])
+	await expect.poll(() => contentSize(app)).toEqual([660, 650])
+	await expect.poll(() => hudWidth(page)).toBe(660)
 
-	// A size the user chose while the log was open is kept when it closes.
+	// After the user resizes the open window, closing keeps the HUD's column.
 	await page.getByRole("button", { name: "Show message log", exact: true }).click()
-	await expect.poll(() => contentSize(app)).toEqual([1120, 650])
-	await resize(app, 1000, 700)
-	await expect.poll(() => contentSize(app)).toEqual([1000, 700])
+	await expect.poll(() => contentSize(app)).toEqual([1140, 650])
+	await resize(app, 1150, 700)
+	await expect.poll(() => contentSize(app)).toEqual([1150, 700])
+	const column = await hudWidth(page)
 	await page.getByRole("button", { name: "Hide message log", exact: true }).click()
 	await expect(page.getByRole("region", { name: "Message log" })).toHaveCount(0)
-	expect(await contentSize(app)).toEqual([1000, 700])
+	await expect.poll(() => contentSize(app)).toEqual([column, 700])
+	await expect.poll(() => hudWidth(page)).toBe(column)
+})
+
+test("the HUD and its header controls keep their place on every frame while the log opens and closes", async ({ desktop: { app, page } }) => {
+	await resize(app, 660, 650)
+	await expect.poll(() => contentSize(app)).toEqual([660, 650])
+	// Each animation frame records the HUD's width and both header menus' positions.
+	const record = () => page.evaluate(() => {
+		const frames: string[] = []
+		Object.assign(window, { hudFrames: frames })
+		const x = (selector: string) => Math.round(document.querySelector(selector)!.getBoundingClientRect().x)
+		const tick = () => {
+			const hud = Math.round(document.querySelector(".agent-hud")!.getBoundingClientRect().width)
+			frames.push(`${hud}@${x(".agent-hud__model-trigger:not(.agent-hud__view-trigger)")},${x(".agent-hud__view-trigger")}`)
+			if (frames.length < 90) requestAnimationFrame(tick)
+		}
+		requestAnimationFrame(tick)
+	})
+	const recorded = () => page.evaluate(() => (window as unknown as { hudFrames: string[] }).hudFrames.length)
+	const frames = () => page.evaluate(() => [...new Set((window as unknown as { hudFrames: string[] }).hudFrames)])
+	await record()
+	await expect.poll(recorded).toBeGreaterThanOrEqual(90)
+	const [before] = await frames()
+	expect(before.startsWith("660@")).toBe(true)
+	await record()
+	await page.getByRole("button", { name: "Show message log", exact: true }).click()
+	await expect.poll(() => contentSize(app)).toEqual([1140, 650])
+	await expect(page.getByRole("region", { name: "Message log" })).toBeVisible()
+	await expect.poll(recorded).toBeGreaterThanOrEqual(90)
+	expect(await frames()).toEqual([before])
+	await record()
+	await page.getByRole("button", { name: "Hide message log", exact: true }).click()
+	await expect.poll(() => contentSize(app)).toEqual([660, 650])
+	await expect.poll(recorded).toBeGreaterThanOrEqual(90)
+	expect(await frames()).toEqual([before])
 })
 
 test("the log stays open across a renderer reload, since main owns it", async ({ desktop: { app, page } }) => {
@@ -71,14 +113,14 @@ test("zoom steps by a tenth and zoom and window size survive a restart", async (
 
 test("a window grown by the log is remembered at its earlier size", async ({ desktop: { app, page }, fakeBackend }) => {
 	const profile = await app.evaluate(({ app }) => app.getPath("userData"))
-	await resize(app, 900, 650)
+	await resize(app, 660, 650)
 	await page.getByRole("button", { name: "Show message log", exact: true }).click()
-	await expect.poll(() => contentSize(app)).toEqual([1120, 650])
+	await expect.poll(() => contentSize(app)).toEqual([1140, 650])
 	const reopened = await reopen(app, profile, fakeBackend.url)
 	try {
 		const window = await reopened.firstWindow()
 		await skipIntro(window)
 		await expect(window.locator(".agent-hud__box")).toBeVisible()
-		await expect.poll(() => contentSize(reopened)).toEqual([900, 650])
+		await expect.poll(() => contentSize(reopened)).toEqual([660, 650])
 	} finally { await reopened.close() }
 })

@@ -20,7 +20,7 @@ html[data-desktop] .agent-hud__mini { display: none; }
    selectors together on the right. Each shares the available row; a full label
    remains available through its accessible name and tooltip when shortened. */
 html[data-desktop] .agent-hud__header {
-  flex-wrap: nowrap; align-items: center; gap: clamp(0.35rem, 1.5vw, 1.4rem);
+  flex-wrap: nowrap; align-items: center; gap: clamp(0.35rem, 1.5cqw, 1.4rem);
 }
 /* The project badge stretches to the selectors' height. It is a label, not a
    button: in dark a glowing blue octagon with dark, unblurred text, cut like the
@@ -200,6 +200,11 @@ html[data-desktop] .desktop-workspace .agent-hud__box {
 }
 .desktop-workspace__panes[data-log-open] {
   grid-template-columns: minmax(640px, 3fr) minmax(480px, 2fr);
+}
+/* While the window resizes for the log, the HUD keeps its measured width instead of
+   briefly filling the window around the change. */
+.desktop-workspace__panes[data-log-resizing] > .agent-hud {
+  justify-self: start; width: min(100%, var(--desktop-hud-width));
 }
 /* Contain the existing HUD halo so it cannot become a divider over the log. */
 .desktop-workspace__panes[data-log-open] > .agent-hud {

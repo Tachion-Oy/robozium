@@ -292,9 +292,9 @@ test("an outage preserves the HUD, and after recovery the lost run returns to th
 		await expect(page.locator("html")).toHaveAttribute("data-theme", "light")
 		const recoveredRequests = readinessRequests
 		await expect.poll(() => readinessRequests, { timeout: 7000 }).toBeGreaterThan(recoveredRequests)
-		// The unsent draft belongs to the app, so the next run offers it again.
+		// The unsent draft belonged to the lost run, so the next run starts empty.
 		await row.getByRole("button", { name: "Launch", exact: true }).click()
-		await expect(reply).toHaveValue("retained across outage")
+		await expect(reply).toHaveValue("")
 	})
 })
 

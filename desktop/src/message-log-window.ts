@@ -1,18 +1,33 @@
 // Copied from robozium-electron/desktop/electron/message-log-window.cjs at 076b2c9.
-// Adapted: TypeScript, and the pane minima are named so tests can match them
-// against the desktop.css layout.
+// Adapted: TypeScript, the log is added beside the HUD instead of taking part of
+// its width, and the pane minima are named so tests can match them against the
+// desktop.css layout.
 import { windowLimits, type Size, type WorkArea } from "./window.ts"
 
 /** CSS pixel minima of the log layouts in desktop.css: HUD + log side by side, or stacked. */
-export const LOG_SIDE_WIDTH = 640 + 480
+export const HUD_MIN_WIDTH = 640
+export const LOG_MIN_WIDTH = 480
+export const LOG_SIDE_WIDTH = HUD_MIN_WIDTH + LOG_MIN_WIDTH
 export const LOG_STACK_HEIGHT = 336 + 224
 
-// CSS pixel minima match the pane layout; zoom changes physical requirements.
+/**
+ * The window that adds the log beside a HUD of `size`. The log takes its 2fr
+ * share of the 3fr:2fr panes, so the HUD keeps its width; CSS pixel minima
+ * scale with zoom.
+ */
 export function logWindowSize(size: Size, maximum: Size, zoom: number): Size {
-	if (maximum.width >= Math.ceil(LOG_SIDE_WIDTH * zoom)) {
-		return { width: Math.max(size.width, Math.ceil(LOG_SIDE_WIDTH * zoom)), height: size.height }
+	const side = Math.ceil(LOG_SIDE_WIDTH * zoom)
+	if (maximum.width >= side) {
+		const log = Math.max(Math.ceil(size.width * 2 / 3), Math.ceil(LOG_MIN_WIDTH * zoom))
+		return { width: Math.max(size.width + log, side), height: size.height }
 	}
 	return { width: size.width, height: Math.min(maximum.height, Math.max(size.height, Math.ceil(LOG_STACK_HEIGHT * zoom))) }
+}
+
+/** The HUD's column in a window of `width` with the log open: what closing the log leaves. */
+export function hudWidth(width: number, zoom: number): number {
+	if (width < Math.ceil(LOG_SIDE_WIDTH * zoom)) return width
+	return Math.max(Math.ceil(HUD_MIN_WIDTH * zoom), Math.min(Math.round(width * 3 / 5), width - Math.ceil(LOG_MIN_WIDTH * zoom)))
 }
 
 interface Bounds extends Size { x: number; y: number }
@@ -70,9 +85,17 @@ export class MessageLogWindow {
 		return { width, height }
 	}
 
+	/** The window without the log: its size before opening, or the HUD's column of a size the user chose. */
+	private closedSize(): Size {
+		if (!this.manuallyResized && this.baseline) return this.baseline
+		const { width, height } = this.contentSize()
+		return { width: hudWidth(width, this.window.webContents.getZoomFactor()), height }
+	}
+
+	/** Add the log beside the HUD; a zoom change recomputes it. */
 	expand(): void {
 		const current = this.contentSize()
-		const size = logWindowSize(current, this.maximum(), this.window.webContents.getZoomFactor())
+		const size = logWindowSize(this.closedSize(), this.maximum(), this.window.webContents.getZoomFactor())
 		if (current.width !== size.width || current.height !== size.height) this.apply(size)
 	}
 
@@ -86,8 +109,9 @@ export class MessageLogWindow {
 			this.open = true
 			this.expand()
 		} else {
+			// Closing detaches the log: the HUD keeps its width.
+			this.apply(this.closedSize())
 			this.open = false
-			if (!this.manuallyResized && this.baseline) this.apply(this.baseline)
 			this.baseline = null
 		}
 		return { open: this.open }
@@ -99,9 +123,8 @@ export class MessageLogWindow {
 		if (width !== this.expected?.width || height !== this.expected?.height) this.manuallyResized = true
 	}
 
-	/** The size to remember: the size before the log grew the window, unless the user resized it. */
+	/** The size to remember: the window without the log. */
 	savedSize(): Size {
-		if (this.open && !this.manuallyResized && this.baseline) return this.baseline
-		return this.contentSize()
+		return this.open ? this.closedSize() : this.contentSize()
 	}
 }

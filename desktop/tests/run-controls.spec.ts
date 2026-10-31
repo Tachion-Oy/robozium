@@ -127,7 +127,7 @@ for (const failure of ["refusal", "rejection", "timeout"] as const) {
 	})
 }
 
-test("HUD Cancel and the row share one cancellation, then the cancelled run returns to the overview", async ({ desktop: { page }, backend }) => {
+test("HUD Cancel and the row share one cancellation, then the cancelled run returns to the overview without its draft", async ({ desktop: { page }, backend }) => {
 	prepareRun(backend)
 	let rows = [project("existing-project", { status: "awaiting_user_input", run_id: "run-one" })]
 	backend.handlers.set("GET /projects", response => json(response, rows))
@@ -154,6 +154,9 @@ test("HUD Cancel and the row share one cancellation, then the cancelled run retu
 	await expectOverview(page)
 	await expect(row(page, "existing-project")).toContainText("DORMANT")
 	expect(posts(backend, "/cancel")).toHaveLength(1)
+	prepareRun(backend, "run-two")
+	await row(page, "existing-project").getByRole("button", { name: "Launch", exact: true }).click()
+	await expect(replyBox(page)).toHaveValue("")
 })
 
 test("a failed HUD cancellation is reported and Cancel is offered again", async ({ desktop: { page }, backend }) => {
@@ -168,17 +171,17 @@ test("a failed HUD cancellation is reported and Cancel is offered again", async 
 	expect(posts(backend, "/cancel")).toHaveLength(1)
 })
 
-test("a run that completes returns to the overview, keeping the unsent draft for the next run", async ({ desktop: { page }, backend }) => {
+test("a run that completes returns to the overview, and the next run starts without its unsent draft", async ({ desktop: { page }, backend }) => {
 	prepareRun(backend)
 	let current = snapshot()
 	backend.handlers.set("GET /run/run-one", response => json(response, current))
 	await page.clock.install()
 	await start(page, backend)
-	await replyBox(page).fill("Keep me")
+	await replyBox(page).fill("Stale draft")
 	current = snapshot({ status: "completed" })
 	await page.clock.fastForward(2001)
 	await expectOverview(page)
 	prepareRun(backend, "run-two")
 	await page.locator(".agent-hud__project-row", { hasText: "existing-project" }).getByRole("button", { name: "Launch", exact: true }).click()
-	await expect(replyBox(page)).toHaveValue("Keep me")
+	await expect(replyBox(page)).toHaveValue("")
 })

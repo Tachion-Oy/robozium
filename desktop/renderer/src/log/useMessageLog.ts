@@ -1,15 +1,17 @@
 // Adapted from robozium-electron/desktop/web/hooks/useMessageLog.ts at 076b2c9.
 // Main owns whether the message log is open, because opening it grows the window
 // and closing it restores the earlier size; the state survives renderer reloads.
-// Adapted: closing hides the log before the window shrinks.
+// Adapted: the HUD keeps its width while the window resizes, and closing hides the
+// log before the window shrinks.
 import { useCallback, useEffect, useRef, useState } from "react"
 import { showErrorToast } from "../feedback/notices"
 
 export interface MessageLogState {
 	open: boolean
-	/** A window resize is in progress; the toggle waits for it. */
-	pending: boolean
-	toggle: () => void
+	/** The HUD's CSS pixel width, held while a window resize is in progress; the toggle waits for it. */
+	resizingWidth: number | null
+	/** Toggle with the HUD's current width, which it keeps while the window resizes. */
+	toggle: (hudWidth: number) => void
 }
 
 function failureDetail(cause: unknown): string {
@@ -18,7 +20,7 @@ function failureDetail(cause: unknown): string {
 
 export function useMessageLog(): MessageLogState {
 	const [open, setOpen] = useState(false)
-	const [pending, setPending] = useState(false)
+	const [resizingWidth, setResizingWidth] = useState<number | null>(null)
 	// A toggle started before the initial read finishes wins over that read.
 	const revision = useRef(0)
 	const busy = useRef(false)
@@ -38,11 +40,11 @@ export function useMessageLog(): MessageLogState {
 		return () => { cancelled = true }
 	}, [])
 
-	const toggle = useCallback(() => {
+	const toggle = useCallback((hudWidth: number) => {
 		if (busy.current) return
 		busy.current = true
 		revision.current++
-		setPending(true)
+		setResizingWidth(hudWidth)
 		const change = async () => {
 			try {
 				// Closing shrinks the window: hide the log and let that frame paint first, or
@@ -58,11 +60,11 @@ export function useMessageLog(): MessageLogState {
 				showErrorToast({ title: "Could not toggle message log", message: failureDetail(cause) })
 			} finally {
 				busy.current = false
-				setPending(false)
+				setResizingWidth(null)
 			}
 		}
 		void change()
 	}, [open])
 
-	return { open, pending, toggle }
+	return { open, resizingWidth, toggle }
 }

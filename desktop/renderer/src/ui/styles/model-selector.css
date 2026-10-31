@@ -3,7 +3,7 @@
 .agent-hud__model-selector {
   --selector-accent: var(--term-green);
   position: relative;
-  width: min(15rem, 50vw);
+  width: min(15rem, 50cqw);
 }
 
 .agent-hud__view-selector {
@@ -257,7 +257,7 @@
 :root[data-theme="light"]
   .agent-hud__header-actions
   .agent-hud__view-selector {
-    width: min(14rem, 38vw)
+    width: min(14rem, 38cqw)
 }
 :root[data-theme="light"] .agent-hud__model-caret {
     filter: none;
