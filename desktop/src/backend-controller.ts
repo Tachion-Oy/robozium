@@ -6,7 +6,7 @@ import type { BackendStatus, HostServiceStatus } from "./bridge.d.ts"
 import { loadOrCreateBackendProfile } from "./backend-profile.ts"
 import { BuildProgress } from "./build-progress.ts"
 import { isInside, prepareBackendRuntime, resolveBackendLayout, type BackendLayout } from "./backend-layout.ts"
-import { findExecutable, runCommand, type CommandOptions } from "./docker-command.ts"
+import { findExecutable, runCommand, type CommandOptions } from "./host-command.ts"
 import { HostServices } from "./host-services.ts"
 import { HubFolderError, resolveHubFolder } from "./hub-folder.ts"
 import type { HubFolderLocation } from "./locations.ts"
@@ -384,7 +384,7 @@ export class BackendController {
 		try {
 			dockerfile = readFileSync(path.join(this.options.source, "Dockerfile"), "utf8")
 		} catch {
-			// Progress then weighs steps as BuildKit announces them; the build reports a missing file itself.
+			// Progress then weighs steps as the build announces them; the build reports a missing file itself.
 		}
 		const progress = new BuildProgress(dockerfile)
 		const building = (fraction: number): BackendStatus => ({
