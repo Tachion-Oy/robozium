@@ -20,7 +20,7 @@ export type HudPresentation = {
 	headerVariant: "landing" | "row"
 	showProjectBadge: boolean
 	enableCornerControls: boolean
-	/** No API keys are configured yet; only onboarding and Environment stay interactive. */
+	/** No API keys are configured yet, or an Environment change waits for a restart; other screens are disabled. */
 	locked: boolean
 }
 
@@ -60,6 +60,7 @@ export function resolveHudPresentation({
 	selectedScreen,
 	launch = null,
 	setupRequired = false,
+	restartRequired = false,
 }: {
 	hasRun: boolean
 	runEnded: boolean
@@ -67,6 +68,8 @@ export function resolveHudPresentation({
 	selectedScreen: HudScreen
 	launch?: object | null
 	setupRequired?: boolean
+	/** Saved settings, repositories or the hub folder changed; nothing may launch until a restart applies them. */
+	restartRequired?: boolean
 }): HudPresentation {
 	const context: HudContext = !hasRun
 		? "landing"
@@ -76,9 +79,11 @@ export function resolveHudPresentation({
 	const contextOptions: readonly HudScreenOption[] = launch
 		? [...SCREEN_OPTIONS[context], { value: "launch", label: "Launch" }]
 		: SCREEN_OPTIONS[context]
-	const allowedScreens = setupRequired ? SETUP_SCREENS : contextOptions.map(({ value }) => value)
-	const screen = allowedScreens.includes(selectedScreen) ? selectedScreen : "projects"
-	const screenOptions = setupRequired ? setupScreenOptions(screen) : contextOptions
+	const allowedScreens = restartRequired ? ["environment"] : setupRequired ? SETUP_SCREENS : contextOptions.map(({ value }) => value)
+	const screen = allowedScreens.includes(selectedScreen) ? selectedScreen : restartRequired ? "environment" : "projects"
+	const screenOptions = restartRequired
+		? contextOptions.map(option => ({ ...option, disabled: option.value !== "environment" }))
+		: setupRequired ? setupScreenOptions(screen) : contextOptions
 
 	return {
 		context,
@@ -90,6 +95,6 @@ export function resolveHudPresentation({
 		// The project name labels the run on Current Run only; elsewhere it would look like the screen's subject.
 		showProjectBadge: context === "active-run" && screen === "run" && !setupRequired,
 		enableCornerControls: context === "active-run" && screen === "run" && !setupRequired,
-		locked: setupRequired,
+		locked: setupRequired || restartRequired,
 	}
 }

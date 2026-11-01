@@ -22,7 +22,7 @@ import { useCredentials } from "../../credentials/useCredentials"
 import { EnvironmentPanel } from "../environment/EnvironmentPanel"
 import { useEnvironmentDraft } from "../../environment/useEnvironmentDraft"
 import { useEnvironmentMutations } from "../../environment/useEnvironmentMutations"
-import { useHubFolder } from "../../hub-folder/useHubFolder"
+import { hubRestartNeeded, useHubFolder } from "../../hub-folder/useHubFolder"
 import { DependencyPanel } from "../dependencies/DependencyPanel"
 import { useDependencies } from "../../dependencies/useDependencies"
 import { useRunSession } from "../../session/useRunSession"
@@ -83,6 +83,14 @@ export function App({ client, connected, covered, backend }: AppProps) {
 	const status = session?.run.unavailable ? "Run unavailable" : session ? runLabels[session.run.status] : "Awaiting input"
 	// A live start without keys locks the HUD on the guide and Environment.
 	const setupRequired = Boolean(credentials.status?.setupRequired)
+	// Each write's outcome goes to the draft declared below; it runs only after both exist.
+	const environmentMutations = useEnvironmentMutations(client, setupRequired, {
+		onReplaced: next => environmentDraft.replaced(next),
+		onReset: () => environmentDraft.reset(),
+		// Keys that load without a restart end setup. A write in Environment never changes the screen.
+		onKeysLoaded: credentials.refresh,
+	})
+	const hubFolder = useHubFolder()
 	// As in the reference, a run that ends or goes missing leaves Current Run for the overview.
 	const presentation = resolveHudPresentation({
 		hasRun: session !== null,
@@ -91,6 +99,8 @@ export function App({ client, connected, covered, backend }: AppProps) {
 		selectedScreen: navigation.screen,
 		launch: navigation.launch,
 		setupRequired,
+		// Until the restart applies an Environment change, nothing may launch with half-applied settings.
+		restartRequired: environmentMutations.restartRequired || hubRestartNeeded(hubFolder),
 	})
 	const screen = presentation.screen
 	// Current Run shows and switches its live run's model; other screens set the default.
@@ -98,15 +108,7 @@ export function App({ client, connected, covered, backend }: AppProps) {
 	const models = useModels(client, connected, modelRun)
 	const projectQuery = useProjectQuery(client, screen === "projects", projectMutations)
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
-	// Each write's outcome goes to the draft declared below; it runs only after both exist.
-	const environmentMutations = useEnvironmentMutations(client, setupRequired, {
-		onReplaced: next => environmentDraft.replaced(next),
-		onReset: () => environmentDraft.reset(),
-		// Keys that load without a restart end setup. A write in Environment never changes the screen.
-		onKeysLoaded: credentials.refresh,
-	})
 	const environmentDraft = useEnvironmentDraft(client, screen === "environment", environmentMutations)
-	const hubFolder = useHubFolder()
 	const dependencies = useDependencies(client, screen === "dependencies")
 	// A launch, a disconnection or an unconfirmed model change locks navigation.
 	const navigationPending = projectMutations.launching || !connected || models.pending

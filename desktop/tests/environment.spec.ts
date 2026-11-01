@@ -2,7 +2,7 @@ import { expect, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { writeFile } from "node:fs/promises"
 import { test, json, view } from "./run-fixture"
-import { captureNative, setNativeViewport, toast } from "./native"
+import { captureNative, setNativeViewport, toast, viewTrigger } from "./native"
 import type { Backend } from "./selection-fixture"
 
 type Entry = { name: string; value: string | null; secret: boolean; configured: boolean; overridden: boolean }
@@ -249,6 +249,12 @@ test("a public repository is added without a password, then updated and removed"
 	await expect(page.getByRole("status").filter({ hasText: "Updated toolkit" })).toBeVisible()
 	await expect(section.getByText("gamma tool", { exact: true })).toBeVisible()
 	await expect(toast(page, "Restart required")).toContainText("Restart to apply your changes.")
+	// Until the restart applies the change, nothing else can be opened, so nothing launches half-applied.
+	await viewTrigger(page).click()
+	const menu = page.getByRole("listbox", { name: "HUD view" })
+	for (const name of ["Runs Overview", "Dependencies"]) await expect(menu.getByRole("option", { name, exact: true })).toBeDisabled()
+	await expect(menu.getByRole("option", { name: "Environment", exact: true })).toBeEnabled()
+	await page.keyboard.press("Escape")
 	backend.handlers.set("DELETE /credentials/environment/repositories/toolkit", response => {
 		current = environment()
 		json(response, { status: "removed" })

@@ -343,10 +343,11 @@ backend accepts the file only if that password opens its secrets; a wrong
 password shows in the dialog and keeps the file. On a fresh live start the keys load
 at once, without a restart; otherwise they apply after **Restart app**.
 
-Saved settings and resets apply after **Restart app**, which stops the
-backend and starts the app again on Runs Overview, where the app asks for the
-password of encrypted secrets. With
-unsaved edits, Restart app first asks in the HUD whether to discard them.
+Saved settings, repository changes and resets apply after **Restart app**; until
+then only Environment can be opened, so nothing launches with half-applied
+settings. **Restart app** stops the backend and starts the app again on Runs
+Overview, where the app asks for the password of encrypted secrets. With unsaved
+edits, Restart app first asks in the HUD whether to discard them.
 
 Both selectors reserve stable widths for their labels, so changing the model or
 view keeps the other header controls in place. They shrink with the window;
