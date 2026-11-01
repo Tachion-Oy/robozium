@@ -46,6 +46,7 @@ class RunViewMessagePayload(TypedDict):
     content: str
     truncation: None
     message_kind: MessageKind | None
+    caller: str | None
 
 
 class RunViewMessageEntry(TypedDict):

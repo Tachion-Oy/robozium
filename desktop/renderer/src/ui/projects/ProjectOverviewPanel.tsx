@@ -48,36 +48,36 @@ function statusDisplay(status: ProjectStatus, locked: boolean): {
 			return {
 				label: "RUNNING",
 				className:
-					"agent-hud__row-status--running text-term-green [text-shadow:var(--term-glow-green)]",
+					"agent-hud__row-status--running font-bold text-term-green [text-shadow:var(--term-glow-green)]",
 			}
 		case ProjectStatus.AwaitingUserInput:
 			return {
 				label: "WAITING",
 				className:
-					"agent-hud__row-status--waiting text-term-amber [text-shadow:var(--term-glow-amber)]",
+					"agent-hud__row-status--waiting font-bold text-term-amber [text-shadow:var(--term-glow-amber)]",
 			}
 		case ProjectStatus.Opening:
 			return {
 				label: "OPENING",
-				className: "agent-hud__row-status--opening",
+				className: "agent-hud__row-status--opening font-bold",
 			}
 		case ProjectStatus.Cancelling:
 			return {
 				label: "STOPPING",
 				className:
-					"text-term-red [text-shadow:var(--term-glow-red)] opacity-80",
+					"font-bold text-term-red [text-shadow:var(--term-glow-red)] opacity-80",
 			}
 		case ProjectStatus.Syncing:
 			return {
 				label: "SYNCING",
 				className:
-					"agent-hud__row-status--syncing text-[color:var(--term-lime)] [text-shadow:var(--term-glow-lime)]",
+					"agent-hud__row-status--syncing font-bold text-[color:var(--term-lime)] [text-shadow:var(--term-glow-lime)]",
 			}
 		case ProjectStatus.Deleting:
 			return {
 				label: "DELETING",
 				className:
-					"text-term-red [text-shadow:var(--term-glow-red)] animate-pulse",
+					"font-bold text-term-red [text-shadow:var(--term-glow-red)] animate-pulse",
 			}
 		case ProjectStatus.Dormant:
 			return { label: "DORMANT", className: `${HUD_TEXT} opacity-60` }

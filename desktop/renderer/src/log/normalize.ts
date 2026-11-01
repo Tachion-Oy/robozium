@@ -46,7 +46,3 @@ export function parseContentObject(content: string): ContentObject | undefined {
 export function isAssistantContent(value: ContentObject): value is ContentObject & { action: string; rationale: string } {
 	return typeof value.action === "string" && typeof value.rationale === "string"
 }
-
-export function isUserContent(value: ContentObject): value is ContentObject & { caller: string } {
-	return typeof value.caller === "string"
-}

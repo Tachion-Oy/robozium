@@ -67,6 +67,7 @@ export function parseRunEvent(value: unknown): RunFrame | null {
 				role: readMember(payload.role, Object.values(MessageRole)),
 				content: readString(payload.content),
 				kind: payload.message_kind == null ? null : readString(payload.message_kind),
+				caller: payload.caller == null ? null : readString(payload.caller),
 			}
 		}
 		case RunEventType.MessageDelta: {

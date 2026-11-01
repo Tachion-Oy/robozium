@@ -130,6 +130,7 @@ class RunViewMessagePayload(BaseModel):
     content: str
     truncation: Any = None
     message_kind: MessageKind | None = None
+    caller: str | None = None
 
 
 class RunViewMessageEntry(BaseModel):
