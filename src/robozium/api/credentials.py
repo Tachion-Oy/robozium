@@ -33,7 +33,7 @@ class LoadedCredentials:
 
     def __init__(self, path: Path = DEFAULT_ENCRYPTED_ENV_PATH) -> None:
         self.path = _encrypted_path(path)
-        # Set at startup, when Compose reads environment files; the first save clears it.
+        # Set at startup from the environment files; the first save clears it.
         self.setup_required = False
         self.lock = threading.RLock()
         self.keys: dict[str, bytes] = {}
@@ -92,6 +92,25 @@ def _credential_names(path: Path) -> set[str]:
         for name in dotenv_values(path, interpolate=False)
         if name.endswith(ENCRYPTED_SUFFIX)
     }
+
+
+def load_environment_files() -> None:
+    """Fill unset process values from the saved settings the desktop names, then its manual .env.
+
+    The manual .env overrides saved settings, and values the container sets win over both.
+    Without the desktop's path nothing is read, so other runs never pick up a checkout's .env.
+    """
+    configured = os.environ.get(env.ENCRYPTED_ENV_PATH)
+    if not configured:
+        return
+    path = Path(configured)
+    values: dict[str, str | None] = {}
+    for file in (path, path.parent / ".env"):
+        if file.is_file():
+            values.update(dotenv_values(file, interpolate=False))
+    for name, value in values.items():
+        if value is not None:
+            os.environ.setdefault(name, value)
 
 
 def missing_environment_files(path: Path) -> bool:

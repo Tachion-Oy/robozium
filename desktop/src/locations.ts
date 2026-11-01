@@ -28,10 +28,8 @@ export interface HubFolderLocation {
 export interface DesktopLocations {
 	/** Settings, the backend runtime and its data. */
 	profile: string
-	/** Staged backend sources that Compose builds the image from. */
+	/** Staged backend sources that the container engine builds the image from. */
 	source: string
-	/** Compose file; it extends `src/backend-layout.json` beside it. */
-	compose: string
 	/** The compiled sandboxed preload script, beside the main process. */
 	preload: string
 	/** The built interface the window loads, beside the main process. */
@@ -47,7 +45,7 @@ export function expandHome(location: string, home: string): string {
 
 /**
  * An installed app keeps its profile in the user's config directory and reads
- * the backend files Docker needs from plain packaged resources. A checkout keeps
+ * the backend files the container engine needs from plain packaged resources. A checkout keeps
  * a profile of its own next to it, so worktrees stay isolated. Every live launch
  * can choose its hub folder. An installed app on its own profile starts with
  * `~/Robozium-Hub`; checkouts and test profiles start with a throwaway hub in
@@ -63,7 +61,6 @@ export function desktopLocations(inputs: LocationInputs): DesktopLocations {
 	return {
 		profile,
 		source: path.join(backend, packaged ? locations.installedSource : locations.checkoutSource),
-		compose: path.join(backend, locations.compose),
 		preload: path.join(appDirectory, locations.preload),
 		renderer: path.join(appDirectory, locations.renderer),
 		hubFolder: mode === "live"

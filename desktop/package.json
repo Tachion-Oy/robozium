@@ -20,7 +20,7 @@
     "test:backend": "node --test backend-tests/*.test.ts",
     "test:backend:lifecycle": "node --test backend-tests/lifecycle/*.test.ts",
     "test:backend:electron": "npm run backend:stage && npm run build && node scripts/virtual-display.ts playwright test --config playwright.lifecycle.config.ts",
-    "test:backend:docker": "node backend-tests/smoke.ts",
+    "test:backend:container": "node backend-tests/smoke.ts",
     "test:electron": "npm run build && node scripts/virtual-display.ts playwright test"
   },
   "dependencies": {
@@ -71,14 +71,6 @@
       {
         "from": ".stage/backend",
         "to": "backend/stage"
-      },
-      {
-        "from": "compose.yaml",
-        "to": "backend/compose.yaml"
-      },
-      {
-        "from": "src/backend-layout.json",
-        "to": "backend/src/backend-layout.json"
       }
     ],
     "linux": {
@@ -91,6 +83,22 @@
       "maintainer": "Tachion Oy <https://github.com/Tachion-Oy/robozium>",
       "synopsis": "Run and supervise Robozium agents from the desktop",
       "syncDesktopName": true
+    },
+    "deb": {
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0",
+        "podman",
+        "uidmap",
+        "catatonit"
+      ]
     }
   },
   "desktopName": "robozium.desktop"

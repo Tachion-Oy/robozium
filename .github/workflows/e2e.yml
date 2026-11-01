@@ -85,10 +85,16 @@ jobs:
           node-version: "22.22.2"
           cache: npm
           cache-dependency-path: desktop/package-lock.json
+      - name: Install the container engine the package depends on
+        run: |
+          # A stalled mirror otherwise hangs until the job limit; give it two tries of two minutes.
+          sudo timeout 120 apt-get update || sudo timeout 120 apt-get update
+          sudo apt-get install -y podman uidmap catatonit
+          podman info --format '{{.Host.Security.Rootless}}' | grep -qx true
       - name: Check desktop backend isolation and restart recovery
         run: |
           npm --prefix desktop run test:backend
-          npm --prefix desktop run test:backend:docker
+          npm --prefix desktop run test:backend:container
       - name: Install Electron for backend lifecycle checks
         run: |
           npm --prefix desktop ci

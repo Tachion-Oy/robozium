@@ -1,3 +1,4 @@
+import definition from "./backend-layout.json" with { type: "json" }
 import type { BackendMount } from "./backend-layout.ts"
 
 /**
@@ -64,3 +65,19 @@ export interface ContainerEngine {
 	remove(ids: string[], call: EngineCall): Promise<void>
 	logs(id: string, lines: number, call: EngineCall): Promise<string>
 }
+
+/**
+ * The backend's variables: the layout's own values and the selected mode and
+ * port. The backend reads the saved settings and the manual `.env` itself.
+ */
+export function backendEnvironment(mode: "live" | "mock", port: number): Record<string, string> {
+	return { ...definition.services.api.environment, ROBOZIUM_MODE: mode, ROBOZIUM_DESKTOP_API_PORT: String(port) }
+}
+
+/** The backend command for this mode and port; the engine fills in the listening address. */
+export function backendCommand(mode: "live" | "mock", port: number): string[] {
+	return definition.services.api.command.map(part => part.replace("{mode}", mode).replace("{port}", String(port)))
+}
+
+export const backendStopTimeoutSeconds = definition.services.api.stop_grace_period
+export const backendBuildTarget = definition.services.api.build.target

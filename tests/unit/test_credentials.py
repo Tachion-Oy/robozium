@@ -15,7 +15,7 @@ from roboz.endpoints import (
 )
 
 from robozium.api.app import create_app, live_app, mock_app
-from robozium.api.credentials import credential_status
+from robozium.api.credentials import credential_status, load_environment_files
 from robozium.hub.utils import load_hub
 
 
@@ -329,3 +329,34 @@ def test_later_saves_apply_after_restart(tmp_path, monkeypatch):
 
     assert save_groq_key(client).status_code == 200
     assert "TEST_GROQ_API_KEY" not in os.environ
+
+
+def test_desktop_environment_files_load_as_written_below_container_values(tmp_path, monkeypatch):
+    encrypted = tmp_path / ".env.encrypt"
+    encrypted.write_text(serialize_env({"TEST_MAIL_PASSWORD": "it's C:\\path", "TEST_MAIL_HOST": "saved"}))
+    (tmp_path / ".env").write_text(serialize_env(
+        {"TEST_MAIL_HOST": "manual", "TEST_GROQ_API_KEY": "line one\nline two", "TEST_ONLY_PASSWORD": "file"}
+    ))
+    for name in ("TEST_MAIL_PASSWORD", "TEST_MAIL_HOST", "TEST_GROQ_API_KEY"):
+        # Set, then deleted, so the test restores whatever the loader adds.
+        monkeypatch.setenv(name, "")
+        monkeypatch.delenv(name)
+    monkeypatch.setenv("TEST_ONLY_PASSWORD", "container")
+    monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(encrypted))
+
+    load_environment_files()
+
+    assert os.environ["TEST_MAIL_PASSWORD"] == "it's C:\\path"
+    assert os.environ["TEST_MAIL_HOST"] == "manual"
+    assert os.environ["TEST_GROQ_API_KEY"] == "line one\nline two"
+    assert os.environ["TEST_ONLY_PASSWORD"] == "container"
+
+
+def test_environment_files_are_read_only_for_the_desktop(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text("TEST_MAIL_HOST=checkout\n")
+    monkeypatch.delenv("ROBOZIUM_ENCRYPTED_ENV_PATH", raising=False)
+
+    load_environment_files()
+
+    assert "TEST_MAIL_HOST" not in os.environ
