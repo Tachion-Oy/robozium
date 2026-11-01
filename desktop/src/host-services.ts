@@ -3,7 +3,7 @@ import { closeSync, openSync, readFileSync, rmSync, writeFileSync } from "node:f
 import { setTimeout as delay } from "node:timers/promises"
 import type { HostServiceStatus } from "./bridge.d.ts"
 import type { BackendLayout, HostServiceLayout } from "./backend-layout.ts"
-import { findExecutable, processGroups, runCommand, signalProcessGroup } from "./host-command.ts"
+import { findExecutable, runCommand, signalProcessGroup } from "./host-command.ts"
 import { endpointType } from "./host-endpoints.ts"
 import { hostProcessEnvironment, prepareHostEnvironment } from "./host-environment.ts"
 
@@ -157,7 +157,7 @@ export class HostServices {
 			try {
 				child = spawn(service.executable, service.arguments, {
 					// Each service leads its own process group, so its descendants stop with it.
-					cwd: entry.cwd, env: entry.env, detached: processGroups, stdio: ["ignore", output, output],
+					cwd: entry.cwd, env: entry.env, detached: true, stdio: ["ignore", output, output],
 				})
 			} finally {
 				closeSync(output)

@@ -29,15 +29,14 @@ export function findExecutable(name: string): string | undefined {
 	}
 }
 
-/** Whether a spawned command leads its own process group, so stopping it stops its descendants; Windows has none. */
-export const processGroups = process.platform !== "win32"
-
-/** Signal a process, and every descendant in its group where the platform has process groups. */
+/** Signal a process and every descendant in its group; the process must lead its group (spawned `detached`).
+ * Linux and macOS only: Windows has no group signal, so a Windows engine needs its own stop path, such as a Job Object.
+ */
 export function signalProcessGroup(pid: number | undefined, signal: NodeJS.Signals): void {
 	if (!pid) return
 	try {
 		// A negative PID signals the whole group.
-		process.kill(processGroups ? -pid : pid, signal)
+		process.kill(-pid, signal)
 	} catch {
 		// The process already exited.
 	}
@@ -64,7 +63,7 @@ export function runCommand(executable: string, args: string[], options: CommandO
 			cwd: options.cwd,
 			env: options.env,
 			shell: false,
-			detached: processGroups,
+			detached: true,
 			stdio: ["ignore", "pipe", "pipe"],
 		})
 		child.stdout.setEncoding("utf8")
