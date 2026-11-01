@@ -6,7 +6,7 @@ import type { BackendStatus, HostServiceStatus } from "./bridge.d.ts"
 import { loadOrCreateBackendProfile } from "./backend-profile.ts"
 import { BuildProgress } from "./build-progress.ts"
 import { isInside, prepareBackendRuntime, resolveBackendLayout, type BackendLayout } from "./backend-layout.ts"
-import { findExecutable, runCommand, type CommandOptions } from "./docker-command.ts"
+import { findExecutable, runCommand, type CommandOptions } from "./host-command.ts"
 import { HostServices } from "./host-services.ts"
 import { HubFolderError, resolveHubFolder } from "./hub-folder.ts"
 import type { HubFolderLocation } from "./locations.ts"
@@ -384,7 +384,7 @@ export class BackendController {
 		try {
 			dockerfile = readFileSync(path.join(this.options.source, "Dockerfile"), "utf8")
 		} catch {
-			// Progress then weighs steps as BuildKit announces them; the build reports a missing file itself.
+			// Progress then weighs steps as the build announces them; the build reports a missing file itself.
 		}
 		const progress = new BuildProgress(dockerfile)
 		const building = (fraction: number): BackendStatus => ({
@@ -430,7 +430,7 @@ export class BackendController {
 
 			await delay(this.options.pollInterval ?? 500, undefined, { signal: this.startupAbort.signal })
 		}
-		throw new Error("Backend readiness timed out. Check the desktop Docker log and retry; your data is preserved.")
+		throw new Error("Backend readiness timed out. Check the desktop container log and retry; your data is preserved.")
 	}
 
 	/** A backend that exited during startup will never become ready; report its own error at once. */
@@ -440,7 +440,7 @@ export class BackendController {
 		const output = await this.command(["logs", "--tail", "40", containers[0].id])
 		const reason = output.split("\n").map(line => line.trim()).reverse()
 			.find(line => /^[A-Za-z.]*(Error|Exception)\b/.test(line))
-		throw new Error(`The backend stopped during startup${reason ? `: ${reason}` : ". Check the desktop Docker log"}. Your data is preserved.`)
+		throw new Error(`The backend stopped during startup${reason ? `: ${reason}` : ". Check the desktop container log"}. Your data is preserved.`)
 	}
 
 	private async stopBackend(): Promise<void> {

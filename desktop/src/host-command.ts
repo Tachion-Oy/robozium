@@ -37,8 +37,9 @@ export interface CommandOptions {
 	log?: (text: string) => void
 }
 
-/** Bound command lifetime and output; terminate the Compose client process group on cancellation. */
+/** Bound command lifetime and output; terminate the command's process group on cancellation. */
 export function runCommand(executable: string, args: string[], options: CommandOptions): Promise<string> {
+	const name = path.basename(executable)
 	return new Promise((resolve, reject) => {
 		if (options.signal.aborted) {
 			reject(new Error("Backend operation cancelled."))
@@ -62,7 +63,7 @@ export function runCommand(executable: string, args: string[], options: CommandO
 		const sendSignal = (signal: NodeJS.Signals) => {
 			try {
 				if (process.platform === "linux" && child.pid) {
-					// A negative PID signals the whole group, including Compose descendants.
+					// A negative PID signals the whole group, including the command's descendants.
 					process.kill(-child.pid, signal)
 				} else {
 					child.kill(signal)
@@ -84,7 +85,7 @@ export function runCommand(executable: string, args: string[], options: CommandO
 
 		const handleAbort = () => terminate("Backend operation cancelled.")
 		const commandTimer = setTimeout(() => {
-			terminate("Docker command timed out. Check Docker and retry.")
+			terminate(`${name} timed out. Check the desktop container log and retry.`)
 		}, options.timeout ?? 120_000)
 		options.signal.addEventListener("abort", handleAbort, { once: true })
 
@@ -92,7 +93,7 @@ export function runCommand(executable: string, args: string[], options: CommandO
 			try {
 				options.log?.(chunk)
 			} catch {
-				terminate("Could not write the desktop Docker log. Check available disk space and permissions.")
+				terminate("Could not write the desktop log. Check available disk space and permissions.")
 			}
 		}
 
@@ -102,7 +103,7 @@ export function runCommand(executable: string, args: string[], options: CommandO
 		})
 		child.stderr.on("data", writeLog)
 		child.on("error", () => {
-			failure = new Error("Could not execute Docker. Check its installation and permissions.")
+			failure = new Error(`Could not execute ${name}. Check its installation and permissions.`)
 		})
 		child.on("close", code => {
 			clearTimeout(commandTimer)
@@ -112,7 +113,7 @@ export function runCommand(executable: string, args: string[], options: CommandO
 			if (failure) {
 				reject(failure)
 			} else if (code !== 0) {
-				reject(new Error("Docker command failed. Check the desktop Docker log and retry."))
+				reject(new Error(`${name} failed. Check the desktop container log and retry.`))
 			} else {
 				resolve(output)
 			}

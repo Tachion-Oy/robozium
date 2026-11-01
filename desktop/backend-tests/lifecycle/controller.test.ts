@@ -9,7 +9,7 @@ import { setImmediate as tick } from "node:timers/promises"
 import { BackendController, portAvailable } from "../../src/backend-controller.ts"
 import { loadOrCreateBackendProfile } from "../../src/backend-profile.ts"
 import { resolveBackendLayout } from "../../src/backend-layout.ts"
-import type { CommandOptions } from "../../src/docker-command.ts"
+import type { CommandOptions } from "../../src/host-command.ts"
 import type { BackendStatus } from "../../src/bridge.d.ts"
 
 type ControllerOptions = ConstructorParameters<typeof BackendController>[0]
@@ -36,6 +36,8 @@ interface FakeDocker {
 type FixtureOptions = Partial<FakeDocker> & { hub?: string; controller?: Partial<ControllerOptions> }
 
 const id = "a".repeat(64)
+/** The first steps of a Podman build, as its plain output announces them. */
+const BUILD_START = "[1/2] STEP 1/7: FROM docker.io/library/python:3.13-slim-bookworm AS python-deps\n[1/2] STEP 2/7: ENV UV_COMPILE_BYTECODE=1\n"
 const hash = "b".repeat(64)
 function fixture(t: TestContext, options: FixtureOptions = {}) {
 	const directory = mkdtempSync(path.join(tmpdir(), "robozium-controller-"))
@@ -202,7 +204,7 @@ for (const [image, stage] of [["old-source-hash", "updating"], [undefined, undef
 				return image
 			}
 			if (!args.includes("build")) return
-			command.log?.("#8 [api 1/6] FROM docker.io/library/python:3.13-slim-bookworm\n#8 DONE 0.1s\n")
+			command.log?.(BUILD_START)
 			statuses.push(controller.snapshot())
 		} })
 	await controller.start()
@@ -219,7 +221,7 @@ test("build output flushed after shutdown aborts startup leaves the status alone
 	const { controller } = fixture(t, { cached: "",
 		intercept: async (args, command) => {
 			if (!args.includes("build")) return
-			flush = () => command.log?.("#8 [api 1/6] FROM docker.io/library/python:3.13-slim-bookworm\n#8 DONE 0.1s\n")
+			flush = () => command.log?.(BUILD_START)
 			reached()
 			return new Promise((_resolve, reject) => command.signal?.addEventListener("abort", () => reject(new Error("cancelled")), { once: true }))
 		} })
