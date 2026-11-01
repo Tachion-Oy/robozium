@@ -69,7 +69,9 @@ class FakeGitHub:
                 path = self.path.removeprefix(prefix)
                 if path.startswith("commits/"):
                     commit = fake.commits.get(path.removeprefix("commits/"))
-                    return self.reply(commit.encode() if commit else None)
+                    if commit is None:
+                        return self.send_error(422)
+                    return self.reply(commit.encode())
                 if path.startswith("contents/robozium.json?ref="):
                     files = fake.trees.get(path.split("=", 1)[1], {})
                     content = files.get("robozium.json")
@@ -242,6 +244,15 @@ def test_invalid_index_is_refused_with_a_reason(client, github, index, error):
     response = preview(client)
     assert response.status_code == 400
     assert error in response.json()["detail"]
+
+
+def test_unknown_branch_is_named_in_the_error(client, github):
+    github.commits["release/2"] = SECOND
+    github.trees[SECOND] = github.trees[FIRST]
+    assert preview(client, REPO + "/tree/release/2").json()["commit"] == SECOND
+    response = preview(client, REPO + "/tree/missing")
+    assert response.status_code == 400
+    assert "no branch or tag named missing" in response.json()["detail"]
 
 
 def test_import_refuses_paths_missing_from_the_index(client, github):

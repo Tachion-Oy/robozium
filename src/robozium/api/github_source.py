@@ -149,6 +149,10 @@ class RepositoryIndex(BaseModel):
         return next((item for item in self.packages if item.path == path), None)
 
 
+class _UnknownRef(ValueError):
+    """GitHub answered 422: the requested branch, tag, or commit does not exist."""
+
+
 class _GitHubRedirects(HTTPRedirectHandler):
     """Follow redirects only to the GitHub API and archive hosts."""
 
@@ -186,6 +190,8 @@ def _get(
         return _opener().open(request, timeout=_TIMEOUT_S)
     except HTTPError as exc:
         exc.close()
+        if exc.code == 422:
+            raise _UnknownRef(f"{repository.full_name} has no such branch, tag, or commit") from None
         if exc.code in (401, 403, 404):
             raise ValueError(
                 f"GitHub did not allow access to {repository.full_name}. "
@@ -208,12 +214,14 @@ def _read_limited(stream: IO[bytes], limit: int, what: str) -> bytes:
 
 def resolve_commit(repository: Repository, token: str | None) -> str:
     """Return the commit that the repository's branch, tag, or default branch names now."""
-    ref = quote(repository.ref or "HEAD", safe="")
-    content = _read_limited(
-        _get(repository, f"commits/{ref}", token, "application/vnd.github.sha"),
-        100,
-        "commit response",
-    )
+    ref = quote(repository.ref or "HEAD", safe="/")
+    try:
+        stream = _get(repository, f"commits/{ref}", token, "application/vnd.github.sha")
+    except _UnknownRef:
+        raise ValueError(
+            f"{repository.full_name} has no branch or tag named {repository.ref}"
+        ) from None
+    content = _read_limited(stream, 100, "commit response")
     commit = content.decode("ascii", "replace").strip()
     if not _COMMIT.fullmatch(commit):
         raise RepositoryUnavailableError("GitHub returned an unexpected commit")
