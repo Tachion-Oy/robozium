@@ -197,6 +197,8 @@ test("importing a folder uploads the files its catalog lists under their relativ
 	await writeFile(path.join(folder, "robozium.json"), JSON.stringify({ tools: ["tools/search"], env: [".env.example"] }))
 	await writeFile(path.join(folder, "tools", "search", "__init__.py"), "")
 	await writeFile(path.join(folder, "tools", "search", "nested", "helper.py"), "")
+	await mkdir(path.join(folder, "tools", "search", "__pycache__"), { recursive: true })
+	await writeFile(path.join(folder, "tools", "search", "__pycache__", "helper.cpython-313.pyc"), "")
 	await writeFile(path.join(folder, ".env.example"), "LOCAL_TOOL_KEY=\n")
 	await writeFile(path.join(folder, ".venv", "unlisted.py"), "")
 	await writeFile(path.join(folder, "README.md"), "")
@@ -230,7 +232,7 @@ test("importing a folder uploads the files its catalog lists under their relativ
 	for (const name of ["local_tool/robozium.json", "local_tool/tools/search/__init__.py", "local_tool/tools/search/nested/helper.py", "local_tool/.env.example"]) {
 		expect(uploads[1].body).toContain(`name="files"; filename="${name}"`)
 	}
-	for (const name of ["local_tool/.venv/unlisted.py", "local_tool/README.md"]) {
+	for (const name of ["local_tool/.venv/unlisted.py", "local_tool/README.md", "local_tool/tools/search/__pycache__/helper.cpython-313.pyc"]) {
 		expect(uploads[1].body).not.toContain(`filename="${name}"`)
 	}
 })
