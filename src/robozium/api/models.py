@@ -169,10 +169,9 @@ class RepositoryImportResult(BaseModel):
     suggestions: list[EnvironmentSuggestion]
 
 
-class RepositoryUpdateResult(BaseModel):
+class RepositoryUpdateResult(RepositoryImportResult):
     updated: bool
     commit: str
-    imported: list[EnvironmentImport]
 
 
 class ReplyBody(BaseModel):

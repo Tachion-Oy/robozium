@@ -264,6 +264,7 @@ def test_update_replaces_all_packages_and_reports_up_to_date(client, github, tmp
     assert response.status_code == 200, response.text
     assert response.json()["updated"] is True
     assert {item["source"]["commit"] for item in response.json()["imported"]} == {SECOND}
+    assert {row["source"] for row in response.json()["suggestions"]} == {"weather", "notes"}
     weather = tmp_path / "local/imports/weather"
     assert "VERSION = 2" in (weather / "__init__.py").read_text()
     assert json.loads((weather / "source.json").read_text())["commit"] == SECOND

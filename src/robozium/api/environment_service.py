@@ -271,7 +271,9 @@ class EnvironmentService:
             ) or None
             commit = github.resolve_commit(repository, token)
             if all(source.commit == commit for source in sources):
-                return RepositoryUpdateResult(updated=False, commit=commit, imported=items)
+                return RepositoryUpdateResult(
+                    updated=False, commit=commit, imported=items, suggestions=[]
+                )
             index = github.read_index(repository, commit, token)
             removed = [source.path for source in sources if index.package(source.path) is None]
             if removed:
@@ -293,6 +295,7 @@ class EnvironmentService:
             return RepositoryUpdateResult(
                 updated=True, commit=commit,
                 imported=[result.imported for result in results],
+                suggestions=[entry for result in results for entry in result.suggestions],
             )
 
     def remove_import(self, name: str) -> None:
