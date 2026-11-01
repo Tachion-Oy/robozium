@@ -348,8 +348,11 @@ at once, without a restart; otherwise they apply after **Restart app**.
 with its path inside the folder, their variables join the list, and it is
 available after a restart. Saved settings, imports and resets apply after
 **Restart app**, which stops the backend and starts the app again on Runs
-Overview, where the app asks for the password of encrypted secrets. With
-unsaved edits, Restart app first asks in the HUD whether to discard them.
+Overview, where the app asks for the password of encrypted secrets. Until then
+the HUD stays on Environment and the backend refuses new runs and dependency
+checks, so a run never mixes new settings or descriptions with code already
+loaded; more settings and imports remain possible. With unsaved edits, Restart
+app first asks in the HUD whether to discard them.
 
 Both selectors reserve stable widths for their labels, so changing the model or
 view keeps the other header controls in place. They shrink with the window;

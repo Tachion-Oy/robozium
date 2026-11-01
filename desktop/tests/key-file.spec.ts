@@ -28,7 +28,7 @@ test("a dropped key file with its password loads the keys at once; a wrong passw
 	backend.handlers.set("GET /credentials/environment", response => json(response, current))
 	backend.handlers.set("GET /credentials", response => {
 		credentialReads++
-		json(response, { available: credentialReads > 1, locked: false, removable: credentialReads > 1, setup_required: false })
+		json(response, { available: credentialReads > 1, locked: false, removable: credentialReads > 1, setup_required: false, restart_required: false })
 	})
 	let attempts = 0
 	backend.handlers.set("POST /credentials/environment/file", response => {
@@ -73,9 +73,13 @@ test("a dropped key file with its password loads the keys at once; a wrong passw
 
 test("a browsed key file replaces saved settings, and applies after a restart outside setup", async ({ desktop: { page }, backend }) => {
 	let current = environment({ requires_password: true, entries: [saved] })
+	let restart = false
+	backend.handlers.set("GET /credentials", response => json(response,
+		{ available: true, locked: false, removable: true, setup_required: false, restart_required: restart }))
 	backend.handlers.set("GET /credentials/environment", response => json(response, current))
 	backend.handlers.set("POST /credentials/environment/file", response => {
 		current = environment({ revision: "r2", requires_password: true, entries: [saved] })
+		restart = true
 		json(response, { status: "replaced", loaded: false })
 	})
 	await openEnvironment(page, backend)

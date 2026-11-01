@@ -17,10 +17,12 @@ import { EnvironmentSaveForm } from "./EnvironmentSaveForm"
 import { EnvironmentVariableEditor } from "./EnvironmentVariableEditor"
 import { EnvironmentVariableList } from "./EnvironmentVariableList"
 
-export function EnvironmentPanel({ draft, mutations, hub, onRestart, onManageBackend }: {
+export function EnvironmentPanel({ draft, mutations, hub, restartRequired, onRestart, onManageBackend }: {
 	draft: EnvironmentDraft
 	mutations: EnvironmentMutations
 	hub: HubFolder
+	/** The backend holds runs and dependency checks until Restart app. */
+	restartRequired: boolean
 	onRestart: () => Promise<void>
 	onManageBackend: (operation: "restart" | "recreate") => Promise<void>
 }) {
@@ -102,7 +104,7 @@ export function EnvironmentPanel({ draft, mutations, hub, onRestart, onManageBac
 				onValidate={draft.validateSave}
 				onSave={async password => view ? mutations.save(password, draft.currentEntries, view.revision) : false}
 				onReset={mutations.reset}>
-				<EnvironmentRestart required={mutations.restartRequired || hubRestartNeeded(hub)} importedPending={view?.imports.some(item => !item.active) ?? false}
+				<EnvironmentRestart required={restartRequired || hubRestartNeeded(hub)}
 					dirty={draft.dirty || editor !== null} onRestart={onRestart} />
 				<BackendControls onManage={onManageBackend} />
 			</EnvironmentSaveForm>

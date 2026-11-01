@@ -3,7 +3,7 @@ import type { ServerResponse } from "node:http"
 import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { test, json, view } from "./run-fixture"
-import { captureNative, setNativeViewport, toast } from "./native"
+import { captureNative, setNativeViewport, toast, viewTrigger } from "./native"
 import type { Backend } from "./selection-fixture"
 
 type Entry = { name: string; value: string | null; secret: boolean; configured: boolean; overridden: boolean }
@@ -18,6 +18,14 @@ const editor = (page: Page) => page.getByRole("form", { name: "Variable editor" 
 const saveForm = (page: Page) => page.getByRole("form", { name: "Save environment settings" })
 const saves = (backend: Backend) => backend.requests.filter(request => request.method === "POST" && request.path === "/credentials/environment")
 const alert = (page: Page, title: string) => page.getByRole("alert").filter({ hasText: title })
+
+/** The backend's status: a successful write that applies on restart sets `restart`. */
+function credentials(backend: Backend) {
+	const state = { restart: false }
+	backend.handlers.set("GET /credentials", response => json(response,
+		{ available: false, locked: false, removable: false, setup_required: false, restart_required: state.restart }))
+	return state
+}
 
 async function openEnvironment(page: Page, backend: Backend) {
 	await backend.open()
@@ -203,6 +211,7 @@ test("importing a folder uploads the files its catalog lists under their relativ
 	await writeFile(path.join(folder, ".venv", "unlisted.py"), "")
 	await writeFile(path.join(folder, "README.md"), "")
 	let current = environment()
+	const status = credentials(backend)
 	backend.handlers.set("GET /credentials/environment", response => json(response, current))
 	backend.handlers.set("POST /credentials/environment/import", response => json(response, { detail: "An imported folder named local_tool already exists" }, 409))
 	await openEnvironment(page, backend)
@@ -212,6 +221,8 @@ test("importing a folder uploads the files its catalog lists under their relativ
 	await picker.setInputFiles(folder)
 	await expect(alert(page, "Import failed")).toContainText("already exists")
 	await expect(panel(page).getByLabel("Selected tool or skill folder")).toHaveValue("local_tool")
+	// A refused import changes nothing, so the app stays unlocked.
+	await expect(toast(page, "Restart required")).toHaveCount(0)
 	const imported = { name: "local_tool", active: false, error: null, variables: ["LOCAL_TOOL_KEY"],
 		capabilities: [{ name: "local_tool", kind: "tool", selectable: true, loading: null }] }
 	let pending: ServerResponse | undefined
@@ -222,11 +233,21 @@ test("importing a folder uploads the files its catalog lists under their relativ
 	current = environment({ imports: [imported] })
 	// The catalog is read before the upload starts, so the request may arrive after the busy state.
 	await expect.poll(() => pending).toBeDefined()
+	status.restart = true
 	json(pending!, { imported, suggestions: [{ name: "LOCAL_TOOL_KEY", value: "", secret: false, source: "local_tool" }] })
 	await expect(panel(page).getByRole("button", { name: "Import", exact: true })).not.toHaveAttribute("aria-busy")
 	await expect(page.getByRole("status").filter({ hasText: "Imported" })).toContainText("Tool local_tool found and imported. Available after restart.")
 	await expect(toast(page, "Restart required")).toContainText("Restart to apply your changes.")
 	await expect(panel(page)).toContainText("Available on next start")
+	// Until Restart app, only Environment stays open: no runs and no dependency checks.
+	await viewTrigger(page).click()
+	const menu = page.getByRole("listbox", { name: "HUD view" })
+	await expect(menu.getByRole("option", { name: "Runs Overview", exact: true })).toBeDisabled()
+	await expect(menu.getByRole("option", { name: "Dependencies", exact: true })).toBeDisabled()
+	await expect(menu.getByRole("option", { name: "Environment", exact: true })).toBeEnabled()
+	await page.keyboard.press("Escape")
+	// More imports and settings stay available.
+	await expect(panel(page).getByRole("button", { name: "Browse folder" })).toBeEnabled()
 	const uploads = backend.requests.filter(request => request.path === "/credentials/environment/import")
 	expect(uploads).toHaveLength(2)
 	for (const name of ["local_tool/robozium.json", "local_tool/tools/search/__init__.py", "local_tool/tools/search/nested/helper.py", "local_tool/.env.example"]) {
@@ -272,6 +293,7 @@ test("removing an import asks for confirmation, keeps it on failure, and asks fo
 	const imported = { name: "local_tool", active: true, error: null, variables: [],
 		capabilities: [{ name: "local_tool", kind: "tool", selectable: true, loading: null }] }
 	let current = environment({ imports: [imported] })
+	const status = credentials(backend)
 	backend.handlers.set("GET /credentials/environment", response => json(response, current))
 	backend.handlers.set("DELETE /credentials/environment/imports/local_tool", response => json(response, { detail: "Stop all runs first" }, 409))
 	await openEnvironment(page, backend)
@@ -282,6 +304,7 @@ test("removing an import asks for confirmation, keeps it on failure, and asks fo
 	await expect(imports.getByText("local tool", { exact: true })).toBeVisible()
 	backend.handlers.set("DELETE /credentials/environment/imports/local_tool", response => {
 		current = environment()
+		status.restart = true
 		json(response, { status: "removed" })
 	})
 	await imports.getByRole("button", { name: "Remove local_tool" }).click()

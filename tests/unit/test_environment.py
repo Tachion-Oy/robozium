@@ -260,8 +260,10 @@ def test_remove_rejects_cross_origin_requests_and_queued_runs(client, tmp_path):
         URL + "/imports/bundle", headers={"Origin": "https://elsewhere.example"}
     )
     assert response.status_code == 403
+    # A run queued before the import; the import itself locks out new runs.
+    client.app.state.loaded_credentials.restart_required = False
     client.post("/projects", json={"name": "busy"})
-    client.post("/run/create", json={"project": "busy"})
+    assert client.post("/run/create", json={"project": "busy"}).status_code == 200
     assert client.delete(URL + "/imports/bundle").status_code == 409
     assert (tmp_path / "local/imports/bundle/robozium.json").is_file()
 
@@ -438,6 +440,7 @@ def test_reset_forgets_cached_secrets_and_accepts_a_new_password(
         "locked": False,
         "removable": False,
         "setup_required": False,
+        "restart_required": True,
     }
     assert (
         save(
@@ -720,3 +723,42 @@ def test_a_broken_import_is_reported_and_removable_while_others_load(tmp_path, m
     assert client.delete(URL + "/imports/legacy").status_code == 200
     assert not (tmp_path / "local/imports/legacy").exists()
     assert [item["name"] for item in client.get(URL).json()["imports"]] == ["bundle"]
+
+
+def test_changes_that_apply_on_restart_lock_runs_and_dependency_checks(client, tmp_path):
+    client.post("/projects", json={"name": "idle"})
+    assert client.get("/credentials").json()["restart_required"] is False
+    assert upload(client).status_code == 200
+    assert client.get("/credentials").json()["restart_required"] is True
+    for path, body in (("/run/create", {"project": "idle"}), ("/admin/dependencies/check", None)):
+        response = client.post(path, json=body)
+        assert response.status_code == 423
+        assert response.json()["detail"] == "Restart the app to apply your environment changes"
+    assert client.get("/projects").json()[0]["run_id"] is None
+    # Settings and further imports stay available until the restart.
+    assert save(client, [{"name": "SETTING", "value": "value"}]).status_code == 200
+    other = tool(TOOL, **{"pkg/nested/__init__.py": "NAME = 'other_tool'\n"})
+    assert upload(client, other, name="other").status_code == 200
+    assert client.delete(URL + "/imports/bundle").status_code == 200
+
+
+@pytest.mark.parametrize("write", ["save", "key_file", "reset", "import", "remove"])
+def test_each_change_that_applies_on_restart_sets_the_lock(client, tmp_path, write):
+    if write == "remove":
+        assert upload(client).status_code == 200
+        client.app.state.loaded_credentials.restart_required = False
+    response = {
+        "save": lambda: save(client, [{"name": "SETTING", "value": "value"}]),
+        "key_file": lambda: replace_file(client, key_file({"TOKEN": "synthetic"})),
+        "reset": lambda: client.delete(URL),
+        "import": lambda: upload(client),
+        "remove": lambda: client.delete(URL + "/imports/bundle"),
+    }[write]()
+    assert response.status_code == 200, response.text
+    assert client.get("/credentials").json()["restart_required"] is True
+
+
+def test_a_refused_change_leaves_the_app_unlocked(client):
+    assert upload(client, {"env.example": ""}).status_code == 400
+    assert save(client, [{"name": "1BAD", "value": ""}]).status_code == 400
+    assert client.get("/credentials").json()["restart_required"] is False

@@ -122,6 +122,7 @@ class EnvironmentService:
                 raise ValueError("Environment file is too large")
             self._replace_settings(original, output)
             if not self._credentials.setup_required:
+                self._credentials.restart_required = True
                 return False
             self._credentials.load(edit.password)
             self._credentials.setup_required = False
@@ -154,6 +155,7 @@ class EnvironmentService:
                 )
             self._replace_settings(original, content)
             if not self._credentials.setup_required:
+                self._credentials.restart_required = True
                 return False
             self._credentials.load(password)
             self._credentials.setup_required = False
@@ -163,6 +165,7 @@ class EnvironmentService:
         """Discard saved settings only while runs and background work are stopped."""
         with self._projects.stopped_runs():
             self._credentials.reset()
+            self._credentials.restart_required = True
 
     def import_folder(
         self, files: Sequence[tuple[str, BinaryIO]]
@@ -186,6 +189,7 @@ class EnvironmentService:
                 self._copy_upload(paths, stage)
                 result = self._inspect_package(stage, paths)
                 stage.rename(destination)
+                self._credentials.restart_required = True
                 self._imports[name] = result.imported
                 self._removed_labels.difference_update(
                     cap.name for cap in result.imported.capabilities
@@ -205,6 +209,7 @@ class EnvironmentService:
                 raise ValueError("The imported folder must stay inside local/imports/")
             if destination.exists():
                 shutil.rmtree(destination)
+            self._credentials.restart_required = True
             del self._imports[name]
             if item.active:
                 self._removed_labels.update(cap.name for cap in item.capabilities)

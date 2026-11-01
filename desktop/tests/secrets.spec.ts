@@ -3,8 +3,8 @@ import type { ServerResponse } from "node:http"
 import { test, json, prepareRun, snapshot, start, replyBox, launchButton } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
 
-const locked = { available: true, locked: true }
-const unlocked = { available: true, locked: false }
+const locked = { available: true, locked: true, restart_required: false }
+const unlocked = { available: true, locked: false, restart_required: false }
 const dialog = (page: Page) => page.getByRole("dialog", { name: "Unlock secrets" })
 const password = (page: Page) => dialog(page).getByLabel("Password")
 const writes = (backend: Backend, path: string) => backend.requests.filter(request => request.method === "POST" && request.path === path)
