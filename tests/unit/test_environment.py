@@ -172,6 +172,14 @@ def test_restart_loads_copied_capabilities_and_recovers_confirmation(
         ({"robozium.json": '{"tools": ["pkg"]}', "pkg/helper.py": ""}, "package pkg"),
         (tool(TOOL) | {"robozium.json": catalog(tools=["pkg"], skills=[], env=["missing.example"])}, "missing.example"),
         (tool(TOOL, **{"stray.txt": ""}), "stray.txt is not listed"),
+        (
+            tool(TOOL, **{".env": "TOKEN=real"}) | {"robozium.json": catalog(tools=["pkg"], skills=[], env=[".env"])},
+            "must be named env.example or .env.example",
+        ),
+        (
+            tool(TOOL) | {"robozium.json": catalog(tools=["pkg"], skills=[], env=["env.example", "env.example"])},
+            "env.example is listed twice",
+        ),
         (tool(SKILL), "listed under tools in robozium.json but exports skill 'actual_guide'"),
         (tool("CAPABILITY = None"), "Capability instance"),
         (
@@ -672,3 +680,23 @@ def test_invalid_key_files_preserve_saved_settings(client, tmp_path, content, er
     assert response.status_code == 400
     assert response.json()["detail"] == error
     assert path.read_text() == "SETTING=original\n"
+
+
+def test_a_variable_in_two_example_files_is_suggested_once(client):
+    files = tool(TOOL, env="SHARED=first\n", **{
+        "pkg/nested/__init__.py": "NAME = 'shared_tool'\n",
+        "pkg/env.example": "SHARED=second\nOWN=\n",
+    }) | {"robozium.json": catalog(tools=["pkg"], skills=[], env=["env.example", "pkg/env.example"])}
+    response = upload(client, files)
+    assert response.status_code == 200, response.text
+    assert [(row["name"], row["value"]) for row in response.json()["suggestions"]] == [
+        ("SHARED", "first"), ("OWN", ""),
+    ]
+
+
+def test_a_broken_package_keeps_its_folder_example_settings(client, tmp_path):
+    assert upload(client).status_code == 200
+    (tmp_path / "local/imports/bundle/skills/guide/__init__.py").unlink()
+    view = client.get(URL).json()
+    assert view["example_errors"] == []
+    assert {row["name"] for row in view["suggestions"]} == {"SERVICE_TOKEN", "HOST"}

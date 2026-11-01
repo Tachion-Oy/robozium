@@ -29,6 +29,8 @@ CATALOG_FILE = "robozium.json"
 
 type Kind = Literal["tool", "skill"]
 _CATALOG_KEYS: dict[str, Kind] = {"tools": "tool", "skills": "skill"}
+# Only example files: a listed .env would copy real credentials into the import.
+_ENV_EXAMPLE_NAMES = ("env.example", ".env.example")
 
 
 @dataclass(frozen=True)
@@ -40,7 +42,11 @@ class Catalog:
 
 
 def read_catalog(folder: Path) -> Catalog:
-    """Read and check the folder's robozium.json; nothing in the folder is executed."""
+    """Read and check the folder's robozium.json and its example files.
+
+    Listed packages are checked only when loaded, so a broken package never
+    hides the folder's example settings. Nothing in the folder is executed.
+    """
     file = folder / CATALOG_FILE
     if file.is_symlink() or not file.is_file():
         raise ValueError(f"{folder.name}: {CATALOG_FILE} is missing at the folder root")
@@ -60,7 +66,6 @@ def read_catalog(folder: Path) -> Catalog:
                 raise ValueError(f"{folder.name}: {path} is not a valid Python package path")
             if path in packages:
                 raise ValueError(f"{folder.name}: {path} is listed twice in {CATALOG_FILE}")
-            _local_file(root, Path(path, "__init__.py"), f"{folder.name}: package {path}")
             packages[path] = kind
     if not packages:
         raise ValueError(f"{folder.name}: {CATALOG_FILE} lists no tools or skills")
@@ -69,6 +74,12 @@ def read_catalog(folder: Path) -> Catalog:
             raise ValueError(f"{folder.name}: {path} is inside another listed package")
     env = _catalog_paths(folder, data, "env")
     for path in env:
+        if path.name not in _ENV_EXAMPLE_NAMES:
+            raise ValueError(
+                f"{folder.name}: {path} in {CATALOG_FILE} must be named env.example or .env.example"
+            )
+        if env.count(path) > 1:
+            raise ValueError(f"{folder.name}: {path} is listed twice in {CATALOG_FILE}")
         _local_file(root, Path(path), f"{folder.name}: environment example {path}")
     return Catalog(packages, env)
 
@@ -139,7 +150,7 @@ def _discover_packages(root: Path) -> dict[Path, Kind | None]:
             if kind == "imports":
                 # Hidden folders are imports still being staged.
                 if child.is_dir() and not child.name.startswith("."):
-                    packages.update(_catalog_packages(root, child))
+                    packages.update(_catalog_packages(root, child, read_catalog(child)))
                 continue
             entrypoint = child / "__init__.py"
             if not child.is_dir() or not (entrypoint.exists() or entrypoint.is_symlink()):
@@ -152,13 +163,17 @@ def _discover_packages(root: Path) -> dict[Path, Kind | None]:
     return packages
 
 
-def _catalog_packages(root: Path, folder: Path) -> dict[Path, Kind | None]:
+def _catalog_packages(
+    root: Path, folder: Path, catalog: Catalog
+) -> dict[Path, Kind | None]:
     if not folder.name.isidentifier() or iskeyword(folder.name):
         raise ValueError(f"invalid imported folder name: {folder}")
     if folder.is_symlink() or not folder.resolve().is_relative_to(root):
         raise ValueError(f"imported folder must stay inside {root}: {folder}")
     base = folder.relative_to(root)
-    return {base / path: kind for path, kind in read_catalog(folder).packages.items()}
+    for path in catalog.packages:
+        _local_file(root, base / path / "__init__.py", f"{folder.name}: package {path}")
+    return {base / path: kind for path, kind in catalog.packages.items()}
 
 
 def _register_namespace(name: str, directory: Path) -> None:
@@ -255,14 +270,16 @@ def _prepare_dependencies(
     return _install_requirements(config_dir, requirements)
 
 
-def inspect_import(config_dir: Path, folder: Path) -> tuple[Capability, ...]:
+def inspect_import(
+    config_dir: Path, folder: Path, catalog: Catalog
+) -> tuple[Capability, ...]:
     """Validate a staged folder's listed packages with the startup loader, without activating them."""
     with _IMPORT_LOCK, ExitStack() as cleanup:
         local_root = (config_dir / "local").resolve()
         packages = {local_root: _discover_packages(local_root)}
         # Staging uses the same imports/<name> layout as committed folders.
         root = folder.parent.parent
-        packages[root] = _catalog_packages(root, folder)
+        packages[root] = _catalog_packages(root, folder, catalog)
         dependencies = _prepare_dependencies(config_dir, packages)
         if dependencies is not None:
             sys.path.append(str(dependencies))

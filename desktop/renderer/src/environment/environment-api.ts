@@ -127,10 +127,11 @@ async function listedFiles(files: File[]): Promise<File[]> {
 	}
 	const packages = [...paths("tools"), ...paths("skills")]
 	const listed = new Set([CATALOG_FILE, ...paths("env")])
-	return files.filter(file => {
-		const relative = inFolder(file)
-		return listed.has(relative) || packages.some(path => relative.startsWith(`${path}/`))
-	})
+	// Keep the catalog and its example files by exact path, and everything inside a
+	// listed package folder except Python's compiled caches.
+	const insidePackage = (relative: string) =>
+		packages.some(folder => relative.startsWith(`${folder}/`)) && !relative.split("/").includes("__pycache__")
+	return files.filter(file => listed.has(inFolder(file)) || insidePackage(inFolder(file)))
 }
 
 /** Uploads the parts of one folder its catalog lists; each file keeps its path inside the folder. */

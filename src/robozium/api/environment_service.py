@@ -404,13 +404,14 @@ class EnvironmentService:
     def _folder_suggestions(
         self, folder: Path, catalog: Catalog
     ) -> list[EnvironmentSuggestion]:
-        """Example settings from every file the folder's catalog lists, in order."""
-        suggestions: list[EnvironmentSuggestion] = []
+        """Example settings from every file the folder's catalog lists; the first file to name a variable wins."""
+        suggestions: dict[str, EnvironmentSuggestion] = {}
         for path in catalog.env:
-            suggestions.extend(
-                self._example_suggestions(folder.joinpath(*path.parts), folder.name)
-            )
-        return suggestions
+            for suggestion in self._example_suggestions(
+                folder.joinpath(*path.parts), folder.name
+            ):
+                suggestions.setdefault(suggestion.name, suggestion)
+        return list(suggestions.values())
 
     def _inspect_package(
         self, folder: Path, uploaded: Iterable[PurePosixPath]
@@ -425,7 +426,7 @@ class EnvironmentService:
                 raise ValueError(f"{path} is not listed in {CATALOG_FILE}")
         suggestions = self._folder_suggestions(folder, catalog)
         try:
-            discovered = inspect_import(self._root, folder)
+            discovered = inspect_import(self._root, folder, catalog)
         except RuntimeError as exc:
             raise ValueError(str(exc)) from exc
         capabilities = [
