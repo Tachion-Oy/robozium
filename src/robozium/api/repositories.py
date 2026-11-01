@@ -28,8 +28,6 @@ MAX_REPOSITORY_BYTES = 4 * env.MAX_PACKAGE_BYTES
 _TIMEOUT_S = 300
 # Options for every git command; tests add ones that reach local repositories.
 GIT_CONFIG = ["protocol.allow=never", "protocol.https.allow=always"]
-# GitHub publishes its SSH host keys here; HTTPS proves the answer comes from GitHub.
-_GITHUB_META = "https://api.github.com/meta"
 _PRIVATE_KEY = re.compile(r"-----BEGIN (OPENSSH|RSA|EC) PRIVATE KEY-----(.*?)-----END \1 PRIVATE KEY-----", re.S)
 
 
@@ -133,13 +131,12 @@ class Repository:
 
     @staticmethod
     def _known_hosts() -> str:
-        """GitHub's current SSH host keys, so SSH accepts GitHub and nothing else."""
+        """GitHub's published SSH host keys; HTTPS proves the answer comes from GitHub."""
         try:
-            with urlopen(_GITHUB_META, timeout=30) as response:
-                keys = json.load(response)["ssh_keys"]
+            with urlopen("https://api.github.com/meta", timeout=30) as response:
+                return "".join(f"github.com {key}\n" for key in json.load(response)["ssh_keys"])
         except (OSError, ValueError, KeyError) as exc:
             raise RepositoryUnavailableError("Could not read GitHub's host keys. Check the connection.") from exc
-        return "".join(f"github.com {key}\n" for key in keys)
 
     @staticmethod
     def _index(content: str) -> list[str]:

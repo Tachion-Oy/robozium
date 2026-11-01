@@ -95,13 +95,11 @@ export function EnvironmentRepositories({ repositories, disabled, confirmPasswor
 				<HudButton type="submit" pending={pending && !asking} disabled={disabled || !url.trim()}>{pending && !asking ? "Adding…" : "Add"}</HudButton>
 			</form>
 			<p className="agent-hud__environment-value">Every package the repository lists in robozium.json is imported and runs as part of Robozium.</p>
-			{repositories.length > 0 && (
-				<ul className="flex flex-col">
-					{repositories.map(repository => (
-						<RepositoryRow key={repository.name} repository={repository} disabled={disabled} onUpdate={onUpdate} onRemove={onRemove} />
-					))}
-				</ul>
-			)}
+			<ul className="flex flex-col">
+				{repositories.map(repository => (
+					<RepositoryRow key={repository.name} repository={repository} disabled={disabled} onUpdate={onUpdate} onRemove={onRemove} />
+				))}
+			</ul>
 			<PasswordDialog open={asking} title="Save deploy key" label="Encryption password" confirm={confirmPassword}
 				submitLabel="Add repository" pendingLabel="Adding…" onSubmit={add} onCancel={() => setAsking(false)}>
 				<p>{confirmPassword ? "Choose a password to encrypt the deploy key." : "Enter the password your secrets are encrypted with."}</p>
