@@ -94,7 +94,9 @@ export class PodmanEngine implements ContainerEngine {
 
 	async list(label: string, value: string, call: EngineCall): Promise<string[]> {
 		const output = (await this.command(["ps", "--all", "--quiet", "--no-trunc", "--filter", `label=${label}=${value}`], call)).trim()
-		return output ? output.split(/\s+/) : []
+		const ids = output ? output.split(/\s+/) : []
+		if (ids.some(id => !/^[a-f0-9]{12,64}$/.test(id))) throw new Error("Invalid container identity.")
+		return ids
 	}
 
 	async inspect(id: string, call: EngineCall): Promise<ContainerInspection> {

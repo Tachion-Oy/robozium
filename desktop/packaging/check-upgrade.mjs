@@ -14,7 +14,7 @@ import process from "node:process"
 import { setTimeout as sleep } from "node:timers/promises"
 
 const readJson = file => JSON.parse(readFileSync(path.join(import.meta.dirname, "..", file), "utf8"))
-const { locations } = readJson("src/backend-layout.json")["x-desktop"]
+const { locations } = readJson("src/backend-layout.json").desktop
 const { build } = readJson("package.json")
 
 const [oldDeb, newDeb] = process.argv.slice(2).map(file => path.resolve(file))

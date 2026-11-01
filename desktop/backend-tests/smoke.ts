@@ -9,6 +9,7 @@ import { test } from "node:test"
 import { stageBackend } from "../scripts/stage-backend.ts"
 import { BackendController } from "../src/backend-controller.ts"
 import { loadOrCreateBackendProfile } from "../src/backend-profile.ts"
+import { platformEngine } from "../src/platform-engine.ts"
 
 test("desktop mock image starts rootless and retains projects after restart, recreate and shutdown", { timeout: 900_000 }, async t => {
 	const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "desktop-container-"))
@@ -20,7 +21,7 @@ test("desktop mock image starts rootless and retains projects after restart, rec
 	await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
 	const { project, runtime } = loadOrCreateBackendProfile(profile, "mock", String(port))
 	const podman = (args: string[]) => execFileSync("podman", args, { encoding: "utf8", timeout: 60_000 })
-	const controller = new BackendController({ profile, source, mode: "mock", port: String(port) })
+	const controller = new BackendController({ profile, source, mode: "mock", port: String(port), engine: platformEngine() })
 
 	let cleaned = false
 	async function cleanup() {

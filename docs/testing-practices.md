@@ -44,7 +44,7 @@ configuration belongs in unit tests. See
 
 Desktop Playwright tests drive the built Electron app against a controlled
 backend (`fakeBackend` in `desktop/tests/native.ts`) for ordering, refresh, and
-failure cases, and the backend lifecycle checks run the real API in Docker.
+failure cases, and the backend lifecycle checks run the real API in Podman.
 Verify meaningful user-visible outcomes rather than component implementation
 details. Keep assertions tolerant of normal asynchronous rendering, while
 checking the final state and errors explicitly. Avoid fixed sleeps when a

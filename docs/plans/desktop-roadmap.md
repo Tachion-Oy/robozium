@@ -276,12 +276,11 @@ Step 27 checklist (append further small findings here):
 
 Step 23 (macOS, deferred) covers:
 
-- **Networking:** replace `network_mode: host` in `desktop/compose.yaml` with
-  ports published on loopback (`127.0.0.1:<port>:<port>`). Uvicorn binds
-  `0.0.0.0` inside the container.
-- **Docker discovery:** also check `/opt/homebrew/bin` and
-  `/Applications/Docker.app/Contents/Resources/bin`. Mac GUI apps do not
-  inherit the shell `PATH`.
+- **Networking:** a Mac engine beside `podman-engine.ts` publishes the port on
+  loopback (`127.0.0.1:<port>:<port>`) instead of sharing the host network.
+  Uvicorn binds `0.0.0.0` inside the container.
+- **Engine discovery:** also check `/opt/homebrew/bin` and `/opt/podman/bin`.
+  Mac GUI apps do not inherit the shell `PATH`.
 - **Process cleanup:** platform-neutral process-tree cleanup.
 - **Mac app conventions:** the app menu, and the app staying open with no
   windows.

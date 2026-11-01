@@ -9,7 +9,6 @@ import { pathToFileURL } from "node:url"
 import { stageBackend } from "../scripts/stage-backend.ts"
 
 const desktop = path.resolve(import.meta.dirname, "..")
-interface LayoutMount { source: string; target: string }
 
 function fixture(t: TestContext) {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "desktop-backend-"))
@@ -87,10 +86,10 @@ test("runtime preparation follows relocated paths from the shared layout", async
 	const root = fixture(t)
 	const runtime = path.join(root, "relocated runtime with spaces")
 	const configuration = path.join(root, "desktop/src/backend-layout.json")
-	const definition = JSON.parse(fs.readFileSync(configuration, "utf8"))
-	definition.services.api.volumes.find((mount: LayoutMount) => mount.target === "/logs").source = "${ROBOZIUM_DESKTOP_RUNTIME}/diagnostics"
-	definition.services.api.volumes.find((mount: LayoutMount) => mount.target === "/app/local").source = "${ROBOZIUM_DESKTOP_RUNTIME}/extensions"
-	definition["x-desktop"].containerLog.filename = "engine.log"
+	const definition: typeof import("../src/backend-layout.json") = JSON.parse(fs.readFileSync(configuration, "utf8"))
+	definition.backend.mounts.find(mount => mount.target === "/logs")!.path = "diagnostics"
+	definition.backend.mounts.find(mount => mount.target === "/app/local")!.path = "extensions"
+	definition.desktop.containerLog.filename = "engine.log"
 	fs.writeFileSync(configuration, JSON.stringify(definition))
 
 	const { resolveBackendLayout, prepareBackendRuntime } = await fixtureLayout(root)
@@ -113,6 +112,16 @@ test("the layout refuses a relative runtime or hub instead of mounting a guess",
 	const { resolveBackendLayout } = await fixtureLayout(fixture(t))
 	assert.throws(() => resolveBackendLayout("relative"), /Select an absolute desktop runtime directory/)
 	assert.throws(() => resolveBackendLayout("/runtime", "relative"), /Select an absolute hub folder/)
+})
+
+test("the layout refuses a mount that climbs out of its folder", async t => {
+	const root = fixture(t)
+	const configuration = path.join(root, "desktop/src/backend-layout.json")
+	const definition: typeof import("../src/backend-layout.json") = JSON.parse(fs.readFileSync(configuration, "utf8"))
+	definition.backend.mounts.find(mount => mount.target === "/logs")!.path = "../outside"
+	fs.writeFileSync(configuration, JSON.stringify(definition))
+	const { resolveBackendLayout } = await fixtureLayout(root)
+	assert.throws(() => resolveBackendLayout(path.join(root, "runtime")), /must lie in the configured runtime or hub folder/)
 })
 
 test("runtime preparation never creates a user's hub folder outside the runtime", async t => {

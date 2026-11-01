@@ -4,13 +4,29 @@ import definition from "./backend-layout.json" with { type: "json" }
 import { endpointType } from "./host-endpoints.ts"
 
 /** The desktop's named locations; this layout file is the only place paths are written out. */
-export const locations = definition["x-desktop"].locations
+export const locations = definition.desktop.locations
 
 /** Whether `child` is `parent` or lies within it. */
 export function isInside(child: string, parent: string): boolean {
 	const relative = path.relative(parent, child)
 	return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
 }
+
+/**
+ * The backend's variables: the layout's own values and the selected mode and
+ * port. The backend reads the saved settings and the manual `.env` itself.
+ */
+export function backendEnvironment(mode: "live" | "mock", port: number): Record<string, string> {
+	return { ...definition.backend.environment, ROBOZIUM_MODE: mode, ROBOZIUM_DESKTOP_API_PORT: String(port) }
+}
+
+/** The backend command for this mode and port; the engine fills in the listening address. */
+export function backendCommand(mode: "live" | "mock", port: number): string[] {
+	return definition.backend.command.map(part => part.replace("{mode}", mode).replace("{port}", String(port)))
+}
+
+export const backendStopTimeoutSeconds = definition.backend.stopTimeoutSeconds
+export const backendBuildTarget = definition.backend.buildTarget
 
 /** A program the desktop runs on the host beside the backend container, resolved for one runtime and hub. */
 export interface HostServiceLayout {
@@ -60,18 +76,21 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 	if (!path.isAbsolute(hub)) {
 		throw new Error("Select an absolute hub folder.")
 	}
-	const roots = { ROBOZIUM_DESKTOP_RUNTIME: runtime, ROBOZIUM_DESKTOP_HUB: hub }
-	const resolve = (location: string): string => {
-		const match = /^\$\{(ROBOZIUM_DESKTOP_RUNTIME|ROBOZIUM_DESKTOP_HUB)(?::\?[^}]*)?\}(\/.*)?$/.exec(location)
-		if (!match) {
+	const roots = { runtime, hub }
+	const resolve = (location: { root: string; path: string }): string => {
+		if (location.root !== "runtime" && location.root !== "hub") {
 			throw new Error("Desktop backend files must lie in the configured runtime or hub folder.")
 		}
-		return path.join(roots[match[1] as keyof typeof roots], match[2] ?? "")
+		const resolved = path.join(roots[location.root], location.path)
+		if (!isInside(resolved, roots[location.root])) {
+			throw new Error("Desktop backend files must lie in the configured runtime or hub folder.")
+		}
+		return resolved
 	}
-	const mounts = definition.services.api.volumes.map((mount): BackendMount => ({
-		source: resolve(mount.source),
+	const mounts = definition.backend.mounts.map((mount): BackendMount => ({
+		source: resolve(mount),
 		destination: mount.target,
-		writable: !mount.read_only,
+		writable: !mount.readOnly,
 	}))
 
 	const mountSource = (destination: string): string => {
@@ -93,8 +112,8 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 		return path.join(mount.source, path.posix.relative(mount.destination, containerPath))
 	}
 
-	const desktop = definition["x-desktop"]
-	const containerEnvironment: Record<string, string> = definition.services.api.environment
+	const desktop = definition.desktop
+	const containerEnvironment: Record<string, string> = definition.backend.environment
 	const hostServices = Object.entries(desktop.hostServices.services).map(([name, service]): HostServiceLayout => {
 		let address: string
 		try {

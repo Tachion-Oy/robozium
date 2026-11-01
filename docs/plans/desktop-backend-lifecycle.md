@@ -1,5 +1,9 @@
 # PR 5 — Manage Docker from Electron main
 
+> **Superseded.** The backend now runs in rootless Podman without Compose; see
+> [`podman-engine.ts`](../../desktop/src/podman-engine.ts) and
+> [`backend-layout.json`](../../desktop/src/backend-layout.json). The plan below is kept as history.
+
 ## Summary
 
 Start the existing API-only backend when the desktop app launches, show startup

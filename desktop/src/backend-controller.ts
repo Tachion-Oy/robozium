@@ -5,12 +5,11 @@ import { setTimeout as delay } from "node:timers/promises"
 import type { BackendStatus, HostServiceStatus } from "./bridge.d.ts"
 import { loadOrCreateBackendProfile } from "./backend-profile.ts"
 import { BuildProgress } from "./build-progress.ts"
-import { isInside, prepareBackendRuntime, resolveBackendLayout, type BackendLayout } from "./backend-layout.ts"
-import { backendBuildTarget, backendCommand, backendEnvironment, backendStopTimeoutSeconds, type BackendContainer, type ContainerEngine, type ContainerInspection, type EngineCall } from "./container-engine.ts"
+import { backendBuildTarget, backendCommand, backendEnvironment, backendStopTimeoutSeconds, isInside, prepareBackendRuntime, resolveBackendLayout, type BackendLayout } from "./backend-layout.ts"
+import type { BackendContainer, ContainerEngine, ContainerInspection, EngineCall } from "./container-engine.ts"
 import { HostServices } from "./host-services.ts"
 import { HubFolderError, resolveHubFolder } from "./hub-folder.ts"
 import type { HubFolderLocation } from "./locations.ts"
-import { PodmanEngine } from "./podman-engine.ts"
 
 interface BackendOptions {
 	profile: string
@@ -19,8 +18,8 @@ interface BackendOptions {
 	hubFolder?: HubFolderLocation | null
 	mode: "live" | "mock"
 	port?: string
-	/** The container engine; this platform's own by default. */
-	engine?: ContainerEngine
+	/** The container engine for this platform, as `platformEngine` chooses it. */
+	engine: ContainerEngine
 	fetch?: typeof fetch
 	checkPort?: typeof portAvailable
 	hostServices?: HostServices
@@ -84,7 +83,7 @@ export class BackendController {
 	constructor(options: BackendOptions) {
 		this.options = options
 		this.settings = loadOrCreateBackendProfile(options.profile, options.mode, options.port)
-		this.engine = options.engine ?? new PodmanEngine()
+		this.engine = options.engine
 		this.hostServices = options.hostServices ?? new HostServices()
 	}
 
@@ -272,10 +271,6 @@ export class BackendController {
 		const containers: OwnedContainer[] = []
 
 		for (const id of ids) {
-			if (!/^[a-f0-9]{12,64}$/.test(id)) {
-				throw new Error("Invalid container identity.")
-			}
-
 			const container = await this.engine.inspect(id, this.call(overrides))
 			containers.push({ id, running: container.running, current: this.validateOwnership(container) })
 		}

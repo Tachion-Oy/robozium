@@ -1,5 +1,9 @@
 # PR 4 — Desktop-owned backend Docker configuration
 
+> **Superseded.** The backend now runs in rootless Podman without Compose; see
+> [`podman-engine.ts`](../../desktop/src/podman-engine.ts) and
+> [`backend-layout.json`](../../desktop/src/backend-layout.json). The plan below is kept as history.
+
 ## Summary
 
 Add an independently buildable Docker backend under `desktop/`, supporting manual live and mock startup. Live remains the default; mock provides credential-free validation.

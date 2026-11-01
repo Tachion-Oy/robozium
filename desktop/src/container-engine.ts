@@ -1,4 +1,3 @@
-import definition from "./backend-layout.json" with { type: "json" }
 import type { BackendMount } from "./backend-layout.ts"
 
 /**
@@ -36,6 +35,7 @@ export interface ImageBuild {
 export interface ContainerInspection {
 	labels: Record<string, string>
 	running: boolean
+	/** Host paths exactly as given to `run`; an engine running containers in a virtual machine translates them back. */
 	mounts: BackendMount[]
 }
 
@@ -55,29 +55,15 @@ export interface ContainerEngine {
 	/** A label of a local image, or undefined when the image does not exist. */
 	imageLabel(image: string, label: string, call: EngineCall): Promise<string | undefined>
 	build(build: ImageBuild, call: EngineCall): Promise<void>
-	/** IDs of every container, running or not, that carries this label value. */
+	/** IDs of every container, running or not, that carries this label value.
+	 * The engine validates their format; each is accepted by its own `inspect`, `restart`, `stop`, `remove` and `logs`.
+	 */
 	list(label: string, value: string, call: EngineCall): Promise<string[]>
 	inspect(id: string, call: EngineCall): Promise<ContainerInspection>
-	/** Create and start the container in the background. */
+	/** Create and start the container in the background, with the API reachable on the host's loopback interface only. */
 	run(container: BackendContainer, call: EngineCall): Promise<void>
 	restart(id: string, timeoutSeconds: number, call: EngineCall): Promise<void>
 	stop(ids: string[], timeoutSeconds: number, call: EngineCall): Promise<void>
 	remove(ids: string[], call: EngineCall): Promise<void>
 	logs(id: string, lines: number, call: EngineCall): Promise<string>
 }
-
-/**
- * The backend's variables: the layout's own values and the selected mode and
- * port. The backend reads the saved settings and the manual `.env` itself.
- */
-export function backendEnvironment(mode: "live" | "mock", port: number): Record<string, string> {
-	return { ...definition.services.api.environment, ROBOZIUM_MODE: mode, ROBOZIUM_DESKTOP_API_PORT: String(port) }
-}
-
-/** The backend command for this mode and port; the engine fills in the listening address. */
-export function backendCommand(mode: "live" | "mock", port: number): string[] {
-	return definition.services.api.command.map(part => part.replace("{mode}", mode).replace("{port}", String(port)))
-}
-
-export const backendStopTimeoutSeconds = definition.services.api.stop_grace_period
-export const backendBuildTarget = definition.services.api.build.target
