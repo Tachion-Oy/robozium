@@ -8,6 +8,7 @@ import pytest
 
 from robozium.api import repositories
 from robozium.api.errors import RepositoryUnavailableError
+from robozium.api.repositories import Repository
 
 URL = "https://github.com/acme/toolkit"
 
@@ -53,7 +54,7 @@ def source(tmp_path, monkeypatch):
 def test_listed_folders_are_copied_by_their_last_name(source, tmp_path):
     destination = tmp_path / "out"
     destination.mkdir()
-    assert repositories.fetch(URL, destination) == ["alpha", "beta"]
+    assert Repository(URL).fetch(destination) == ["alpha", "beta"]
     assert (destination / "beta/data/file.txt").read_text() == "data"
     assert not (destination / "README.md").exists()
 
@@ -72,7 +73,7 @@ def test_only_listed_folders_are_downloaded(source, tmp_path, monkeypatch):
 
     monkeypatch.setattr(repositories.shutil, "copytree", record_checkout)
     (tmp_path / "out").mkdir()
-    repositories.fetch(URL, tmp_path / "out")
+    Repository(URL).fetch(tmp_path / "out")
     assert not (checkouts[0] / "assets").exists()
 
 
@@ -91,7 +92,7 @@ def test_invalid_index_copies_nothing(source, tmp_path, files, error):
     commit(source, files)
     (tmp_path / "out").mkdir()
     with pytest.raises(ValueError, match=error):
-        repositories.fetch(URL, tmp_path / "out")
+        Repository(URL).fetch(tmp_path / "out")
     assert not list((tmp_path / "out").iterdir())
 
 
@@ -100,13 +101,13 @@ def test_links_and_oversized_folders_are_refused(source, tmp_path, monkeypatch):
     record(source)
     (tmp_path / "out").mkdir()
     with pytest.raises(ValueError, match="link"):
-        repositories.fetch(URL, tmp_path / "out")
+        Repository(URL).fetch(tmp_path / "out")
     (source / "beta" / "link").unlink()
     record(source)
     monkeypatch.setattr(repositories, "MAX_REPOSITORY_BYTES", 3)
     (tmp_path / "retry").mkdir()
     with pytest.raises(ValueError, match="too large"):
-        repositories.fetch(URL, tmp_path / "retry")
+        Repository(URL).fetch(tmp_path / "retry")
 
 
 @pytest.mark.parametrize("url", [
@@ -119,16 +120,16 @@ def test_links_and_oversized_folders_are_refused(source, tmp_path, monkeypatch):
 ])
 def test_only_github_repository_urls_are_accepted(url):
     with pytest.raises(ValueError, match="GitHub repository URL"):
-        repositories.repository_name(url)
+        Repository(url)
 
 
 def test_name_is_the_last_part_of_the_url():
-    assert repositories.repository_name("https://github.com/acme/Robo-Tools.git") == "robo_tools"
+    assert Repository("https://github.com/acme/Robo-Tools.git").name == "robo_tools"
 
 
 def test_unknown_repository_and_missing_git(source, tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="did not allow access"):
-        repositories.fetch("https://github.com/acme/absent", tmp_path)
+        Repository("https://github.com/acme/absent").fetch(tmp_path)
     monkeypatch.setattr(repositories.shutil, "which", lambda name: None)
     with pytest.raises(RepositoryUnavailableError, match="git is missing from the backend image"):
-        repositories.fetch(URL, tmp_path)
+        Repository(URL).fetch(tmp_path)

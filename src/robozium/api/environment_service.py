@@ -17,7 +17,6 @@ from roboz.endpoints import (
     serialize_env,
 )
 
-from robozium.api import repositories
 from robozium.api.credentials import LoadedCredentials
 from robozium.api.errors import (
     EnvironmentConflictError,
@@ -37,6 +36,7 @@ from robozium.api.models import (
     RepositoryView,
 )
 from robozium.api.project_service import ProjectService
+from robozium.api.repositories import Repository
 from robozium.hub import environment as env
 from robozium.hub.application import Hub
 from robozium.hub.local import inspect_import
@@ -190,9 +190,8 @@ class EnvironmentService:
         A folder left without a saved URL is replaced. A deploy key is encrypted with
         the settings password and loaded at once, so Update can use it without a restart.
         """
-        name = repositories.repository_name(request.url)
-        url = request.url.strip()
-        key = repositories.normalize_key(request.deploy_key) if request.deploy_key else None
+        repository = Repository(request.url, request.deploy_key)
+        name, url, key = repository.name, repository.url, repository.key
         variable = env.REPOSITORY_PREFIX + name.upper()
         changes = {variable: url}
         self._require_new(variable, name)
@@ -203,7 +202,7 @@ class EnvironmentService:
                 {self._deploy_key(name): key}, secret_names={self._deploy_key(name)},
                 password=request.password,
             )
-        with self._staged(name, url, key) as stage, self._projects.stopped_runs():
+        with self._staged(repository) as stage, self._projects.stopped_runs():
             self._require_new(variable, name)
             results = self._swap(stage, name)
             try:
@@ -222,7 +221,7 @@ class EnvironmentService:
         stored = self._parse_values(self._read_text(self._path))
         if self._deploy_key(name) + ENCRYPTED_SUFFIX in stored and not key:
             raise ValueError(f"Unlock your settings to update {name}")
-        with self._staged(name, url, key) as stage, self._projects.stopped_runs():
+        with self._staged(Repository(url, key)) as stage, self._projects.stopped_runs():
             self._repository_url(name)
             return self._record(name, url, self._swap(stage, name))
 
@@ -270,14 +269,14 @@ class EnvironmentService:
             )
 
     @contextmanager
-    def _staged(self, name: str, url: str, key: str | None) -> Generator[Path]:
+    def _staged(self, repository: Repository) -> Generator[Path]:
         """Download the repository's packages into a temporary folder laid out like local/."""
         local = self._root / "local"
         local.mkdir(exist_ok=True)
         with TemporaryDirectory(prefix=".staging-", dir=local) as temporary:
-            folder = Path(temporary) / "repositories" / name
+            folder = Path(temporary) / "repositories" / repository.name
             folder.mkdir(parents=True)
-            repositories.fetch(url, folder, key)
+            repository.fetch(folder)
             yield Path(temporary)
 
     def _swap(

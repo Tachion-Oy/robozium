@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from robozium.api import repositories
 from robozium.api.app import create_app
 from robozium.api.environment_service import EnvironmentService
+from robozium.api.repositories import Repository
 from robozium.hub import local
 from robozium.hub.utils import load_hub
 
@@ -210,10 +211,10 @@ def test_unknown_repository_and_missing_git(client, source, monkeypatch):
 
 
 def test_download_does_not_pause_runs(client, source, monkeypatch):
-    fetch = repositories.fetch
+    fetch = Repository.fetch
     held = []
 
-    def check_lock(url, destination, key):
+    def check_lock(repository, destination):
         lock = client.app.state.projects._lock
         def probe():
             acquired = lock.acquire(timeout=1)
@@ -224,9 +225,9 @@ def test_download_does_not_pause_runs(client, source, monkeypatch):
         thread = threading.Thread(target=probe)
         thread.start()
         thread.join()
-        return fetch(url, destination, key)
+        return fetch(repository, destination)
 
-    monkeypatch.setattr(repositories, "fetch", check_lock)
+    monkeypatch.setattr(Repository, "fetch", check_lock)
     assert add(client).status_code == 200
     assert held == [False]
 
