@@ -8,11 +8,13 @@ import { withDeadline } from "../api/request"
 import { useClientLifetime } from "../api/useClientLifetime"
 import { showErrorToast, showNotificationToast } from "../feedback/notices"
 import {
-	getEnvironment, importEnvironment, IMPORT_TIMEOUT_MS, removeEnvironmentImport, replaceEnvironmentFile, resetEnvironment, saveEnvironment,
-	type EnvironmentEntry, type EnvironmentImportResult, type EnvironmentView,
+	getEnvironment, importEnvironment, importRepository, IMPORT_TIMEOUT_MS, previewRepository, removeEnvironmentImport,
+	replaceEnvironmentFile, resetEnvironment, saveEnvironment, updateRepository,
+	type EnvironmentEntry, type EnvironmentImportResult, type EnvironmentView, type RepositoryImport,
+	type RepositoryImportResult, type RepositoryPreview,
 } from "./environment-api"
 
-type Operation = "save" | "import" | "remove" | "file" | "reset"
+type Operation = "save" | "import" | "remove" | "file" | "reset" | "update"
 
 /** Read synchronously by the draft's polling, so no read started before a write is applied after it. */
 export interface EnvironmentWrites {
@@ -38,6 +40,11 @@ export interface EnvironmentMutations extends EnvironmentWrites {
 	restartRequired: boolean
 	save: (password: string, entries: EnvironmentEntry[], revision: string) => Promise<boolean>
 	importPackage: (files: File[]) => Promise<boolean>
+	/** Reads a repository's package list; resolves to null after showing why it failed. */
+	previewRepository: (url: string, token: string | null) => Promise<RepositoryPreview | null>
+	/** With a token, also saves it encrypted and reloads the settings. Resolves to an error to show, or null. */
+	importRepository: (request: RepositoryImport) => Promise<string | null>
+	updateRepository: (repository: string) => Promise<boolean>
 	/** Deletes an imported package's copy; its capabilities stay loaded until restart. */
 	removeImport: (name: string) => Promise<boolean>
 	/** Resolves to an error to show beside the key file, or null once it is in use. */
@@ -128,6 +135,51 @@ export function useEnvironmentMutations(
 		return true
 	}, failure("Import failed", "Could not import package"))
 
+	// Each package reports its own example settings, as a folder import does.
+	const publishImports = ({ imported, suggestions }: RepositoryImportResult) => {
+		for (const item of imported) outcomes.onImported({ imported: item, suggestions: suggestions.filter(entry => entry.source === item.name) })
+	}
+	const names = ({ imported }: RepositoryImportResult) => imported.map(item => item.name).join(", ")
+
+	const previewPackages = async (url: string, token: string | null) => {
+		const signal = lifetime()
+		try {
+			return await withDeadline(signal, requestSignal => previewRepository(client, url, token, requestSignal))
+		} catch (cause) {
+			if (!signal.aborted) failure("Could not read repository", "Could not read the repository")(cause)
+			return null
+		}
+	}
+
+	const importFromRepository = (request: RepositoryImport) => run<string | null>("import", "", async (client, signal) => {
+		const result = await withDeadline(signal, requestSignal => importRepository(client, request, requestSignal), IMPORT_TIMEOUT_MS)
+		// A saved token changed the settings file, so the draft needs its new revision.
+		const next = request.token ? await read(client, signal) : null
+		if (signal.aborted) return ""
+		if (next) outcomes.onReplaced(next)
+		publishImports(result)
+		setRestartRequired(true)
+		showNotificationToast({ tone: "success", title: "Imported", message: `Imported ${names(result)} from GitHub. Available after restart.` })
+		return null
+	}, cause => cause instanceof ApiError && cause.detail ? cause.detail
+		: cause instanceof Error ? cause.message : "Could not import from the repository")
+
+	const updateFromRepository = (repository: string) => run("update", false, async (client, signal) => {
+		const result = await withDeadline(signal, requestSignal => updateRepository(client, repository, requestSignal), IMPORT_TIMEOUT_MS)
+		if (signal.aborted) return false
+		if (!result.updated) {
+			showNotificationToast({ tone: "success", title: "Up to date", message: `${repository} is already at its latest commit.` })
+			return true
+		}
+		publishImports(result)
+		setRestartRequired(true)
+		showNotificationToast({
+			tone: "success", title: "Updated",
+			message: `Updated ${names(result)} to ${result.commit.slice(0, 7)}. Available after restart.`,
+		})
+		return true
+	}, failure("Update failed", "Could not update from the repository"))
+
 	const removeImport = (name: string) => run("remove", false, async (client, signal) => {
 		await withDeadline(signal, requestSignal => removeEnvironmentImport(client, name, requestSignal))
 		if (signal.aborted) return false
@@ -173,5 +225,6 @@ export function useEnvironmentMutations(
 		saving: operation === "save",
 		restartRequired,
 		save, importPackage, removeImport, replaceFile, reset,
+		previewRepository: previewPackages, importRepository: importFromRepository, updateRepository: updateFromRepository,
 	}
 }

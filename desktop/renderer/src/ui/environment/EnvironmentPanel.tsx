@@ -13,6 +13,7 @@ import { EnvironmentHubFolder } from "./EnvironmentHubFolder"
 import { EnvironmentKeyFileImport } from "./EnvironmentKeyFileImport"
 import { EnvironmentRestart } from "./EnvironmentRestart"
 import { EnvironmentImportList } from "./EnvironmentImportList"
+import { EnvironmentRepositoryImport } from "./EnvironmentRepositoryImport"
 import { EnvironmentSaveForm } from "./EnvironmentSaveForm"
 import { EnvironmentVariableEditor } from "./EnvironmentVariableEditor"
 import { EnvironmentVariableList } from "./EnvironmentVariableList"
@@ -68,6 +69,13 @@ export function EnvironmentPanel({ draft, mutations, hub, onRestart, onManageBac
 						disabled={!editable || editor !== null}
 						onImport={mutations.importPackage}
 					/>
+					{/* A saved token rewrites the settings file, so unsaved variable edits block it. */}
+					<EnvironmentRepositoryImport
+						disabled={!editable || editor !== null || draft.dirty}
+						newPassword={!view?.requires_password}
+						onPreview={mutations.previewRepository}
+						onImport={mutations.importRepository}
+					/>
 					<h3 className="agent-hud__capability-group-heading">Variables</h3>
 					<EnvironmentVariableList
 						variables={draft.variables}
@@ -89,6 +97,7 @@ export function EnvironmentPanel({ draft, mutations, hub, onRestart, onManageBac
 						imported={view?.imports ?? []}
 						disabled={!editable || editor !== null}
 						onRemove={mutations.removeImport}
+						onUpdate={mutations.updateRepository}
 					/>
 				</fieldset>
 			</div>

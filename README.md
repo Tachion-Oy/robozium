@@ -214,10 +214,43 @@ never loads a package's `.env`. Requirements are resolved against the pinned
 application dependencies before the code is imported. Incompatible dependencies,
 invalid exports or duplicate capability names are rejected.
 
-To update an import, select **Remove** next to it, import the new version,
+To update a folder import, select **Remove** next to it, import the new version,
 then restart. Removing deletes only the copy; its saved settings remain.
 Imported code runs as part of the application, so import only trusted packages.
 [Robozify](https://github.com/Tachion-Oy/robozify) offers email and timesheets.
+
+### Repository imports
+
+**Add from GitHub** imports packages straight from a GitHub repository. The
+repository needs a `robozium.json` at its root that lists its package folders;
+each folder has the same layout as a folder import, and its name becomes the
+import name. [docs/robozium.schema.json](docs/robozium.schema.json) is the
+schema for editors:
+
+```json
+{
+  "schema": 1,
+  "packages": [
+    { "path": "tools/weather", "description": "Weather lookup tools" },
+    { "path": "skills/reporting" }
+  ]
+}
+```
+
+Enter the repository URL and select **Find packages**. Robozium reads the index
+first and lists the packages, then downloads only the
+folders you choose, at the commit it showed. Every package is checked as a
+folder import is, and the chosen packages are published together or not at
+all. Links, special files and oversized folders are refused.
+
+For a private repository, create a fine-grained token with read-only
+**Contents** access to that repository only. The token is saved as an encrypted
+setting named `GITHUB_TOKEN_<OWNER>_<REPO>`, never in the imported folders.
+
+**Update** next to a repository fetches its latest commit and replaces all of
+its packages at once, keeping the installed versions if any check fails.
+Restart to use the update. These checks catch broken or malformed packages,
+not malicious code, so add only repositories you trust.
 
 ## Host scripts
 

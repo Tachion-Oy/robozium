@@ -12,7 +12,15 @@ export interface EnvironmentEntry {
 	overridden: boolean
 }
 export interface EnvironmentSuggestion { name: string; value: string; secret: boolean; source: string }
-export interface EnvironmentImport { name: string; capabilities: CapabilityView[]; variables: string[]; active: boolean }
+/** Where a package imported from GitHub came from; folder imports have none. */
+export interface RepositorySource { repository: string; ref: string | null; commit: string; path: string }
+export interface EnvironmentImport {
+	name: string
+	capabilities: CapabilityView[]
+	variables: string[]
+	active: boolean
+	source: RepositorySource | null
+}
 export interface EnvironmentView {
 	revision: string
 	entries: EnvironmentEntry[]
@@ -24,6 +32,19 @@ export interface EnvironmentView {
 	imports: EnvironmentImport[]
 }
 export interface EnvironmentImportResult { imported: EnvironmentImport; suggestions: EnvironmentSuggestion[] }
+export interface RepositoryPackage { path: string; name: string; description: string | null; installed: boolean }
+/** A repository's robozium.json at the commit an import will download. */
+export interface RepositoryPreview { repository: string; ref: string | null; commit: string; packages: RepositoryPackage[] }
+export interface RepositoryImport {
+	url: string
+	commit: string
+	paths: string[]
+	/** A read-only GitHub token, saved encrypted with `password` for later updates. */
+	token: string | null
+	password: string | null
+}
+export interface RepositoryImportResult { imported: EnvironmentImport[]; suggestions: EnvironmentSuggestion[] }
+export interface RepositoryUpdateResult extends RepositoryImportResult { updated: boolean; commit: string }
 export interface EnvironmentEdit {
 	revision: string
 	entries: Pick<EnvironmentEntry, "name" | "value" | "secret">[]
@@ -72,12 +93,33 @@ function parseSuggestion(value: unknown): EnvironmentSuggestion {
 	return { name: text(fields, "name"), value: text(fields, "value"), secret: flag(fields, "secret"), source: text(fields, "source") }
 }
 
+function optionalText(fields: Fields, key: string): string | null {
+	const value = fields[key]
+	return value === null || value === undefined ? null : typeof value === "string" ? value : malformed()
+}
+
+function parseSource(value: unknown): RepositorySource | null {
+	if (value === null || value === undefined) return null
+	const fields = record(value)
+	return { repository: text(fields, "repository"), ref: optionalText(fields, "ref"), commit: text(fields, "commit"), path: text(fields, "path") }
+}
+
 function parseImport(value: unknown): EnvironmentImport {
 	const fields = record(value)
 	return {
 		name: text(fields, "name"), capabilities: list(fields, "capabilities", parseCapability),
 		variables: list(fields, "variables", item => typeof item === "string" ? item : malformed()), active: flag(fields, "active"),
+		source: parseSource(fields.source),
 	}
+}
+
+function parsePackage(value: unknown): RepositoryPackage {
+	const fields = record(value)
+	return { path: text(fields, "path"), name: text(fields, "name"), description: optionalText(fields, "description"), installed: flag(fields, "installed") }
+}
+
+function parseImports(fields: Fields): RepositoryImportResult {
+	return { imported: list(fields, "imported", parseImport), suggestions: list(fields, "suggestions", parseSuggestion) }
 }
 
 function parseView(value: unknown): EnvironmentView {
@@ -110,6 +152,29 @@ export async function importEnvironment(client: DesktopApiClient, files: File[],
 	for (const file of files) form.append("files", file, file.webkitRelativePath)
 	const fields = record(await client.request("/credentials/environment/import", { method: "POST", form, signal }))
 	return { imported: parseImport(fields.imported), suggestions: list(fields, "suggestions", parseSuggestion) }
+}
+
+/** Reads a repository's index without downloading code; a token is needed only for a private repository. */
+export async function previewRepository(
+	client: DesktopApiClient, url: string, token: string | null, signal: AbortSignal,
+): Promise<RepositoryPreview> {
+	const fields = record(await client.request("/credentials/environment/repository/preview", { method: "POST", json: { url, token }, signal }))
+	return {
+		repository: text(fields, "repository"), ref: optionalText(fields, "ref"), commit: text(fields, "commit"),
+		packages: list(fields, "packages", parsePackage),
+	}
+}
+
+/** Downloads the chosen folders at the previewed commit; like a folder import, it may install dependencies first. */
+export async function importRepository(client: DesktopApiClient, request: RepositoryImport, signal: AbortSignal): Promise<RepositoryImportResult> {
+	return parseImports(record(await client.request("/credentials/environment/repository/import", { method: "POST", json: request, signal })))
+}
+
+/** Replaces every package from one repository with its latest commit, or reports it is up to date. */
+export async function updateRepository(client: DesktopApiClient, repository: string, signal: AbortSignal): Promise<RepositoryUpdateResult> {
+	const fields = record(await client.request("/credentials/environment/repository/update", { method: "POST", json: { repository }, signal }))
+	if (typeof fields.updated !== "boolean") malformed()
+	return { ...parseImports(fields), updated: fields.updated, commit: text(fields, "commit") }
 }
 
 /**

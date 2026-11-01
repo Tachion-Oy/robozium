@@ -250,6 +250,98 @@ test("removing an import asks for confirmation, keeps it on failure, and asks fo
 	expect(backend.requests.filter(request => request.method === "DELETE" && request.path === "/credentials/environment/imports/local_tool")).toHaveLength(2)
 })
 
+const COMMIT = "a".repeat(40)
+const fromRepository = (name: string, commit = COMMIT) => ({
+	name, active: false, variables: [], capabilities: [{ name, kind: "tool", selectable: true, loading: null }],
+	source: { repository: "acme/kit", ref: null, commit, path: `tools/${name}`, token_variable: null },
+})
+const repositoryPreview = {
+	repository: "acme/kit", ref: null, commit: COMMIT, packages: [
+		{ path: "tools/weather", name: "weather", description: "Weather lookup", installed: false },
+		{ path: "tools/notes", name: "notes", description: "Notes", installed: false },
+		{ path: "tools/old", name: "old", description: null, installed: true },
+	],
+}
+const repositoryRequests = (backend: Backend, action: string) =>
+	backend.requests.filter(request => request.path === `/credentials/environment/repository/${action}`)
+
+test("a GitHub repository lists its packages, and only the chosen ones are imported", async ({ desktop: { page }, backend }) => {
+	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
+	backend.handlers.set("POST /credentials/environment/repository/preview", response => json(response, repositoryPreview))
+	backend.handlers.set("POST /credentials/environment/repository/import", response =>
+		json(response, { imported: [fromRepository("weather")], suggestions: [] }))
+	await openEnvironment(page, backend)
+	const form = panel(page).getByRole("form", { name: "Import from GitHub" })
+	await form.getByLabel("GitHub repository URL").fill("https://github.com/acme/kit")
+	await form.getByRole("button", { name: "Find packages" }).click()
+	const packages = panel(page).getByRole("region", { name: "Packages in acme/kit" })
+	await expect(packages).toContainText("acme/kit at aaaaaaa")
+	await expect(packages.getByRole("checkbox", { name: "tools/old" })).toBeDisabled()
+	await expect(packages.getByRole("checkbox", { name: "tools/weather" })).toHaveAttribute("aria-checked", "true")
+	await packages.getByRole("checkbox", { name: "tools/notes" }).click()
+	await packages.getByRole("button", { name: "Import selected" }).click()
+	await expect(page.getByRole("status").filter({ hasText: "Imported" })).toContainText("Imported weather from GitHub. Available after restart.")
+	await expect(packages).toHaveCount(0)
+	const imports = panel(page).getByRole("region", { name: "Tools & skills" })
+	await expect(imports.getByRole("listitem", { name: "acme/kit" })).toContainText("aaaaaaa")
+	await expect(imports.getByRole("button", { name: "Update acme/kit" })).toBeEnabled()
+	expect(repositoryRequests(backend, "preview").map(request => request.body)).toEqual([{ url: "https://github.com/acme/kit", token: null }])
+	expect(repositoryRequests(backend, "import").map(request => request.body)).toEqual([{
+		url: "https://github.com/acme/kit", commit: COMMIT, paths: ["tools/weather"], token: null, password: null,
+	}])
+})
+
+test("a GitHub token is saved with the settings password, and a refused password keeps the dialog open", async ({ desktop: { page }, backend }) => {
+	let current = environment({ requires_password: true, entries: [entry("API_KEY", null, true)] })
+	backend.handlers.set("GET /credentials/environment", response => json(response, current))
+	backend.handlers.set("POST /credentials/environment/repository/preview", response => json(response, repositoryPreview))
+	backend.handlers.set("POST /credentials/environment/repository/import", response =>
+		json(response, { detail: "Invalid encrypted secret or password" }, 400))
+	await openEnvironment(page, backend)
+	const form = panel(page).getByRole("form", { name: "Import from GitHub" })
+	await form.getByLabel("GitHub repository URL").fill("https://github.com/acme/kit")
+	await form.getByLabel("GitHub token").fill("ghp_secret")
+	await form.getByRole("button", { name: "Find packages" }).click()
+	await panel(page).getByRole("button", { name: "Import selected" }).click()
+	const prompt = page.getByRole("dialog", { name: "Save GitHub token" })
+	await expect(prompt.getByLabel("Confirm password")).toHaveCount(0)
+	await prompt.getByLabel("Settings password").fill("wrong")
+	await prompt.getByRole("button", { name: "Import" }).click()
+	await expect(prompt.getByRole("alert")).toHaveText("Invalid encrypted secret or password")
+	backend.handlers.set("POST /credentials/environment/repository/import", response => {
+		current = environment({ revision: "r2", requires_password: true, entries: [entry("API_KEY", null, true), entry("GITHUB_TOKEN_ACME_KIT", null, true)] })
+		json(response, { imported: [fromRepository("weather"), fromRepository("notes")], suggestions: [] })
+	})
+	await prompt.getByLabel("Settings password").fill("right")
+	await prompt.getByRole("button", { name: "Import" }).click()
+	await expect(prompt).toHaveCount(0)
+	await expect(page.getByRole("status").filter({ hasText: "Imported" })).toContainText("Imported weather, notes from GitHub.")
+	await expect(panel(page).getByLabel("Current value for GITHUB_TOKEN_ACME_KIT")).toHaveText("●●●●●●●●")
+	await expect(form.getByLabel("GitHub token")).toHaveValue("")
+	expect(repositoryRequests(backend, "import").map(request => request.body)).toEqual([
+		{ url: "https://github.com/acme/kit", commit: COMMIT, paths: ["tools/weather", "tools/notes"], token: "ghp_secret", password: "wrong" },
+		{ url: "https://github.com/acme/kit", commit: COMMIT, paths: ["tools/weather", "tools/notes"], token: "ghp_secret", password: "right" },
+	])
+})
+
+test("Update reports an unchanged repository, then swaps in a new commit and asks for a restart", async ({ desktop: { page }, backend }) => {
+	backend.handlers.set("GET /credentials/environment", response => json(response, environment({ imports: [fromRepository("weather")] })))
+	backend.handlers.set("POST /credentials/environment/repository/update", response =>
+		json(response, { updated: false, commit: COMMIT, imported: [fromRepository("weather")], suggestions: [] }))
+	await openEnvironment(page, backend)
+	const imports = panel(page).getByRole("region", { name: "Tools & skills" })
+	await imports.getByRole("button", { name: "Update acme/kit" }).click()
+	await expect(page.getByRole("status").filter({ hasText: "Up to date" })).toContainText("acme/kit is already at its latest commit.")
+	const next = "b".repeat(40)
+	backend.handlers.set("POST /credentials/environment/repository/update", response =>
+		json(response, { updated: true, commit: next, imported: [fromRepository("weather", next)], suggestions: [] }))
+	await imports.getByRole("button", { name: "Update acme/kit" }).click()
+	await expect(page.getByRole("status").filter({ hasText: "Updated" })).toContainText("Updated weather to bbbbbbb. Available after restart.")
+	await expect(imports.getByRole("listitem", { name: "acme/kit" })).toContainText("bbbbbbb")
+	await expect(toast(page, "Restart required")).toContainText("Restart to apply your changes.")
+	expect(repositoryRequests(backend, "update").map(request => request.body)).toEqual([{ repository: "acme/kit" }, { repository: "acme/kit" }])
+})
+
 test("Restart app confirms unsaved edits in the HUD before restarting", async ({ desktop: { app, page }, backend }) => {
 	await app.evaluate(({ ipcMain }) => {
 		ipcMain.removeHandler("desktop:relaunch")
