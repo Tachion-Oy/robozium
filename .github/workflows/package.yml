@@ -43,7 +43,8 @@ jobs:
         run: |
           set -euo pipefail
           ROBOZIUM_HOME="$RUNNER_TEMP/robozium-home"
-          sudo apt-get update
+          # A stalled mirror otherwise hangs until the job limit; give it two tries of two minutes.
+          sudo timeout 120 apt-get update || sudo timeout 120 apt-get update
           sudo apt-get install -y xvfb ./desktop/release/robozium-desktop_*_amd64.deb
           mkdir -p "$ROBOZIUM_HOME"
           # A fresh home: the installed app keeps its profile in ~/.config/Robozium.

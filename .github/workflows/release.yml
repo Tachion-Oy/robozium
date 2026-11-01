@@ -49,7 +49,8 @@ jobs:
           set -euo pipefail
           sudo install -m 644 desktop/packaging/robozium-archive-keyring.asc /etc/apt/keyrings/robozium.asc
           echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/robozium.asc] file:$RUNNER_TEMP/apt ./" | sudo tee /etc/apt/sources.list.d/robozium.list
-          sudo apt-get update
+          # A stalled mirror otherwise hangs until the job limit; give it two tries of two minutes.
+          sudo timeout 120 apt-get update || sudo timeout 120 apt-get update
           sudo apt-get install -y robozium-desktop xvfb
           sudo rm /etc/apt/sources.list.d/robozium.list
       - name: Upgrade from the previous release
