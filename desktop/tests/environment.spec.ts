@@ -190,12 +190,16 @@ for (const theme of ["dark", "light"]) {
 	})
 }
 
-test("importing a folder uploads each file under its relative path and asks for a restart", async ({ desktop: { page }, backend }, testInfo) => {
+test("importing a folder uploads the files its catalog lists under their relative paths and asks for a restart", async ({ desktop: { page }, backend }, testInfo) => {
 	const folder = testInfo.outputPath("local_tool")
-	await mkdir(path.join(folder, "nested"), { recursive: true })
-	await writeFile(path.join(folder, "__init__.py"), "")
+	await mkdir(path.join(folder, "tools", "search", "nested"), { recursive: true })
+	await mkdir(path.join(folder, ".venv"), { recursive: true })
+	await writeFile(path.join(folder, "robozium.json"), JSON.stringify({ tools: ["tools/search"], env: [".env.example"] }))
+	await writeFile(path.join(folder, "tools", "search", "__init__.py"), "")
+	await writeFile(path.join(folder, "tools", "search", "nested", "helper.py"), "")
 	await writeFile(path.join(folder, ".env.example"), "LOCAL_TOOL_KEY=\n")
-	await writeFile(path.join(folder, "nested", "helper.py"), "")
+	await writeFile(path.join(folder, ".venv", "unlisted.py"), "")
+	await writeFile(path.join(folder, "README.md"), "")
 	let current = environment()
 	backend.handlers.set("GET /credentials/environment", response => json(response, current))
 	backend.handlers.set("POST /credentials/environment/import", response => json(response, { detail: "An imported folder named local_tool already exists" }, 409))
@@ -221,9 +225,24 @@ test("importing a folder uploads each file under its relative path and asks for 
 	await expect(panel(page)).toContainText("Available on next start")
 	const uploads = backend.requests.filter(request => request.path === "/credentials/environment/import")
 	expect(uploads).toHaveLength(2)
-	for (const name of ["local_tool/__init__.py", "local_tool/.env.example", "local_tool/nested/helper.py"]) {
+	for (const name of ["local_tool/robozium.json", "local_tool/tools/search/__init__.py", "local_tool/tools/search/nested/helper.py", "local_tool/.env.example"]) {
 		expect(uploads[1].body).toContain(`name="files"; filename="${name}"`)
 	}
+	for (const name of ["local_tool/.venv/unlisted.py", "local_tool/README.md"]) {
+		expect(uploads[1].body).not.toContain(`filename="${name}"`)
+	}
+})
+
+test("a folder without robozium.json is refused before anything is uploaded", async ({ desktop: { page }, backend }, testInfo) => {
+	const folder = testInfo.outputPath("loose_tool")
+	await mkdir(folder, { recursive: true })
+	await writeFile(path.join(folder, "__init__.py"), "")
+	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
+	await openEnvironment(page, backend)
+	await expect(panel(page).getByRole("button", { name: "Browse folder" })).toBeEnabled()
+	await panel(page).getByLabel("Choose tool or skill folder").setInputFiles(folder)
+	await expect(alert(page, "Import failed")).toContainText("robozium.json is missing at the folder root")
+	expect(backend.requests.filter(request => request.path === "/credentials/environment/import")).toHaveLength(0)
 })
 
 test("removing an import asks for confirmation, keeps it on failure, and asks for a restart", async ({ desktop: { page }, backend }) => {
