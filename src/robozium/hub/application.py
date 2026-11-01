@@ -120,7 +120,7 @@ class Hub:
         self.deployment = deployment
         self._validate_storage_paths(self.settings.sandbox, self.settings.logging)
         self.local_packages = (
-            load_local_packages(settings.config_file.parent)
+            self._skip_builtin_clashes(load_local_packages(settings.config_file.parent))
             if additional_capabilities is None else LocalPackages({}, {})
         )
         self.additional_capabilities = (
@@ -159,26 +159,68 @@ class Hub:
         if sandbox.scope is not None and sandbox.scope != project_slug:
             raise ValueError("deployment project must match the sandbox scope")
         sandbox = sandbox.for_project(project_slug)
-        if self.deployment is not None:
-            root = self.deployment(
-                sandbox,
-                project_slug,
-                endpoint_getter=endpoint_getter,
-            )
-        else:
-            script_socket = os.environ.get(env.HOST_SCRIPT_SOCKET)
-            root = robozium(
-                sandbox,
-                endpoint_getter=endpoint_getter,
-                memory_endpoint=self.settings.memory_endpoint,
-                specialists=self.settings.subagents,
-                script_socket=Path(script_socket) if script_socket else None,
-            )
+        root = self._root(sandbox, project_slug, endpoint_getter)
         self._validate_local_capability_names(
             root.capabilities, self.additional_capabilities
         )
         root.add_capabilities(*self.additional_capabilities)
         return root
+
+    def _root(
+        self, sandbox: Sandbox, project_slug: str, endpoint_getter: Callable[[], LLMEndpoint]
+    ) -> DeployableAgent:
+        """The orchestrator with its built-in capabilities, before local ones are added."""
+        if self.deployment is not None:
+            return self.deployment(sandbox, project_slug, endpoint_getter=endpoint_getter)
+        script_socket = os.environ.get(env.HOST_SCRIPT_SOCKET)
+        return robozium(
+            sandbox,
+            endpoint_getter=endpoint_getter,
+            memory_endpoint=self.settings.memory_endpoint,
+            specialists=self.settings.subagents,
+            script_socket=Path(script_socket) if script_socket else None,
+        )
+
+    def _skip_builtin_clashes(self, loaded: LocalPackages) -> LocalPackages:
+        """Report an imported folder whose capability names a built-in, and leave it out.
+
+        Imports are plugins, so a clash skips the folder instead of stopping
+        startup; one can appear when an update adds a built-in.
+        """
+        imports = (self.settings.config_file.parent / "local" / "imports").resolve()
+        if not any(package.is_relative_to(imports) for package in loaded.capabilities):
+            return loaded
+        project = self.project(self.settings.name)
+        builtins = {
+            capability.label.name
+            for capability in self._root(
+                project.sandbox.for_project(project.slug),
+                project.slug,
+                lambda: self.model_selector.selected_endpoint,
+            ).capabilities
+        }
+        clashes: dict[str, str] = {}
+        for package, values in loaded.capabilities.items():
+            if not package.is_relative_to(imports):
+                continue
+            for capability in values:
+                if capability.label.name in builtins:
+                    clashes.setdefault(
+                        package.relative_to(imports).parts[0],
+                        f"Capability {capability.label.name!r} in {package} conflicts with a "
+                        "built-in; rename its label in the capability package",
+                    )
+        if not clashes:
+            return loaded
+        return LocalPackages(
+            {
+                package: values
+                for package, values in loaded.capabilities.items()
+                if not package.is_relative_to(imports)
+                or package.relative_to(imports).parts[0] not in clashes
+            },
+            loaded.broken | clashes,
+        )
 
     @staticmethod
     def _validate_labels(settings: HubSettings) -> None:
