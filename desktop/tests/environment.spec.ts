@@ -190,12 +190,18 @@ for (const theme of ["dark", "light"]) {
 	})
 }
 
-test("importing a folder uploads each file under its relative path and asks for a restart", async ({ desktop: { page }, backend }, testInfo) => {
+test("importing a folder uploads the files its catalog lists under their relative paths and asks for a restart", async ({ desktop: { page }, backend }, testInfo) => {
 	const folder = testInfo.outputPath("local_tool")
-	await mkdir(path.join(folder, "nested"), { recursive: true })
-	await writeFile(path.join(folder, "__init__.py"), "")
+	await mkdir(path.join(folder, "tools", "search", "nested"), { recursive: true })
+	await mkdir(path.join(folder, ".venv"), { recursive: true })
+	await writeFile(path.join(folder, "robozium.json"), JSON.stringify({ tools: ["tools/search"], env: [".env.example"] }))
+	await writeFile(path.join(folder, "tools", "search", "__init__.py"), "")
+	await writeFile(path.join(folder, "tools", "search", "nested", "helper.py"), "")
+	await mkdir(path.join(folder, "tools", "search", "__pycache__"), { recursive: true })
+	await writeFile(path.join(folder, "tools", "search", "__pycache__", "helper.cpython-313.pyc"), "")
 	await writeFile(path.join(folder, ".env.example"), "LOCAL_TOOL_KEY=\n")
-	await writeFile(path.join(folder, "nested", "helper.py"), "")
+	await writeFile(path.join(folder, ".venv", "unlisted.py"), "")
+	await writeFile(path.join(folder, "README.md"), "")
 	let current = environment()
 	backend.handlers.set("GET /credentials/environment", response => json(response, current))
 	backend.handlers.set("POST /credentials/environment/import", response => json(response, { detail: "An imported folder named local_tool already exists" }, 409))
@@ -206,7 +212,7 @@ test("importing a folder uploads each file under its relative path and asks for 
 	await picker.setInputFiles(folder)
 	await expect(alert(page, "Import failed")).toContainText("already exists")
 	await expect(panel(page).getByLabel("Selected tool or skill folder")).toHaveValue("local_tool")
-	const imported = { name: "local_tool", active: false, variables: ["LOCAL_TOOL_KEY"],
+	const imported = { name: "local_tool", active: false, error: null, variables: ["LOCAL_TOOL_KEY"],
 		capabilities: [{ name: "local_tool", kind: "tool", selectable: true, loading: null }] }
 	let pending: ServerResponse | undefined
 	backend.handlers.set("POST /credentials/environment/import", response => { pending = response })
@@ -214,6 +220,8 @@ test("importing a folder uploads each file under its relative path and asks for 
 	// The waiting button pulses until the outcome arrives.
 	await expect(panel(page).getByRole("button", { name: "Importing…" })).toHaveAttribute("aria-busy", "true")
 	current = environment({ imports: [imported] })
+	// The catalog is read before the upload starts, so the request may arrive after the busy state.
+	await expect.poll(() => pending).toBeDefined()
 	json(pending!, { imported, suggestions: [{ name: "LOCAL_TOOL_KEY", value: "", secret: false, source: "local_tool" }] })
 	await expect(panel(page).getByRole("button", { name: "Import", exact: true })).not.toHaveAttribute("aria-busy")
 	await expect(page.getByRole("status").filter({ hasText: "Imported" })).toContainText("Tool local_tool found and imported. Available after restart.")
@@ -221,13 +229,47 @@ test("importing a folder uploads each file under its relative path and asks for 
 	await expect(panel(page)).toContainText("Available on next start")
 	const uploads = backend.requests.filter(request => request.path === "/credentials/environment/import")
 	expect(uploads).toHaveLength(2)
-	for (const name of ["local_tool/__init__.py", "local_tool/.env.example", "local_tool/nested/helper.py"]) {
+	for (const name of ["local_tool/robozium.json", "local_tool/tools/search/__init__.py", "local_tool/tools/search/nested/helper.py", "local_tool/.env.example"]) {
 		expect(uploads[1].body).toContain(`name="files"; filename="${name}"`)
+	}
+	for (const name of ["local_tool/.venv/unlisted.py", "local_tool/README.md", "local_tool/tools/search/__pycache__/helper.cpython-313.pyc"]) {
+		expect(uploads[1].body).not.toContain(`filename="${name}"`)
 	}
 })
 
+test("a folder without robozium.json is refused before anything is uploaded", async ({ desktop: { page }, backend }, testInfo) => {
+	const folder = testInfo.outputPath("loose_tool")
+	await mkdir(folder, { recursive: true })
+	await writeFile(path.join(folder, "__init__.py"), "")
+	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
+	await openEnvironment(page, backend)
+	await expect(panel(page).getByRole("button", { name: "Browse folder" })).toBeEnabled()
+	await panel(page).getByLabel("Choose tool or skill folder").setInputFiles(folder)
+	await expect(alert(page, "Import failed")).toContainText("robozium.json is missing at the folder root")
+	expect(backend.requests.filter(request => request.path === "/credentials/environment/import")).toHaveLength(0)
+})
+
+test("an import that did not load shows why and can be removed", async ({ desktop: { page }, backend }) => {
+	const broken = { name: "old_tool", active: false, variables: [], capabilities: [],
+		error: "old_tool: robozium.json is missing at the folder root" }
+	let current = environment({ imports: [broken] })
+	backend.handlers.set("GET /credentials/environment", response => json(response, current))
+	backend.handlers.set("DELETE /credentials/environment/imports/old_tool", response => {
+		current = environment()
+		json(response, { status: "removed" })
+	})
+	await openEnvironment(page, backend)
+	const imports = panel(page).getByRole("region", { name: "Tools & skills" })
+	await expect(imports).toContainText("old_tool Not loaded")
+	await expect(imports).toContainText("robozium.json is missing at the folder root")
+	await expect(imports).not.toContainText("Available on next start")
+	await imports.getByRole("button", { name: "Remove old_tool" }).click()
+	await imports.getByRole("button", { name: "Confirm removing old_tool" }).click()
+	await expect(imports).toContainText("No imports yet.")
+})
+
 test("removing an import asks for confirmation, keeps it on failure, and asks for a restart", async ({ desktop: { page }, backend }) => {
-	const imported = { name: "local_tool", active: true, variables: [],
+	const imported = { name: "local_tool", active: true, error: null, variables: [],
 		capabilities: [{ name: "local_tool", kind: "tool", selectable: true, loading: null }] }
 	let current = environment({ imports: [imported] })
 	backend.handlers.set("GET /credentials/environment", response => json(response, current))
