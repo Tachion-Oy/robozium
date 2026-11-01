@@ -106,7 +106,7 @@ needs internet access and can take several minutes. The first live start locks
 the HUD. **Start Here** walks you through adding provider keys in the
 **Environment** panel, and saving them unlocks the HUD without a restart.
 
-Versions up to 0.3.0 ran the backend in Docker. After an upgrade, the app builds
+Versions up to 0.3.1 ran the backend in Docker. After an upgrade, the app builds
 its image with Podman and keeps your projects and keys. Before the first start
 after the upgrade, remove the old Robozium containers: one still running holds
 the backend's port, and the new backend cannot start. The second command removes
