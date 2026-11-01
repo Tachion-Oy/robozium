@@ -114,14 +114,17 @@ export const IMPORT_TIMEOUT_MS = 200_000
 
 const CATALOG_FILE = "robozium.json"
 
+/** A file of a browsed or dropped folder; `path` starts with the folder's name. */
+export interface FolderFile { file: File; path: string }
+
 /**
  * Keeps the folder's robozium.json and only the packages and example files it lists,
  * so a whole checkout (virtual environments, builds, tests) is never uploaded.
  * The backend validates the catalog itself; unreadable entries are left for it to reject.
  */
-async function listedFiles(files: File[]): Promise<File[]> {
-	const inFolder = (file: File) => file.webkitRelativePath.split("/").slice(1).join("/")
-	const catalog = files.find(file => inFolder(file) === CATALOG_FILE)
+async function listedFiles(files: FolderFile[]): Promise<FolderFile[]> {
+	const inFolder = ({ path }: FolderFile) => path.split("/").slice(1).join("/")
+	const catalog = files.find(file => inFolder(file) === CATALOG_FILE)?.file
 	if (!catalog) throw new Error(`${CATALOG_FILE} is missing at the folder root`)
 	let declared: unknown
 	try {
@@ -143,9 +146,9 @@ async function listedFiles(files: File[]): Promise<File[]> {
 }
 
 /** Uploads the parts of one folder its catalog lists; each file keeps its path inside the folder. */
-export async function importEnvironment(client: DesktopApiClient, files: File[], signal: AbortSignal): Promise<EnvironmentImportResult> {
+export async function importEnvironment(client: DesktopApiClient, files: FolderFile[], signal: AbortSignal): Promise<EnvironmentImportResult> {
 	const form = new FormData()
-	for (const file of await listedFiles(files)) form.append("files", file, file.webkitRelativePath)
+	for (const { file, path } of await listedFiles(files)) form.append("files", file, path)
 	const fields = record(await client.request("/credentials/environment/import", { method: "POST", form, signal }))
 	return { imported: parseImport(fields.imported), suggestions: list(fields, "suggestions", parseSuggestion) }
 }

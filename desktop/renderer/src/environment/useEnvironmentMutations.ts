@@ -9,7 +9,7 @@ import { useClientLifetime } from "../api/useClientLifetime"
 import { showErrorToast, showNotificationToast } from "../feedback/notices"
 import {
 	getEnvironment, importEnvironment, IMPORT_TIMEOUT_MS, removeEnvironmentImport, replaceEnvironmentFile, resetEnvironment, saveEnvironment,
-	type EnvironmentEntry, type EnvironmentImportResult, type EnvironmentView,
+	type EnvironmentEntry, type EnvironmentImportResult, type EnvironmentView, type FolderFile,
 } from "./environment-api"
 
 type Operation = "save" | "import" | "remove" | "file" | "reset"
@@ -37,7 +37,7 @@ export interface EnvironmentMutations extends EnvironmentWrites {
 	/** A save, import, removal or reset applies only after Restart app. */
 	restartRequired: boolean
 	save: (password: string, entries: EnvironmentEntry[], revision: string) => Promise<boolean>
-	importPackage: (files: File[]) => Promise<boolean>
+	importPackage: (files: FolderFile[]) => Promise<boolean>
 	/** Deletes an imported package's copy; its capabilities stay loaded until restart. */
 	removeImport: (name: string) => Promise<boolean>
 	/** Resolves to an error to show beside the key file, or null once it is in use. */
@@ -115,7 +115,7 @@ export function useEnvironmentMutations(
 		return true
 	}, failure("Could not save settings", "Could not save settings"))
 
-	const importPackage = (files: File[]) => run("import", false, async (client, signal) => {
+	const importPackage = (files: FolderFile[]) => run("import", false, async (client, signal) => {
 		const result = await withDeadline(signal, requestSignal => importEnvironment(client, files, requestSignal), IMPORT_TIMEOUT_MS)
 		if (signal.aborted) return false
 		outcomes.onImported(result)

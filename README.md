@@ -187,8 +187,9 @@ Mock mode offers harmless **mock information** and **mock guidance** examples.
 
 ## Private capabilities
 
-In **Environment**, select **Browse folder** to import a folder of tools and
-skills. Its root must contain `robozium.json`, which lists what to import:
+In **Environment**, drop a folder of tools and skills on the import row, or
+select **Browse folder**. Its root must contain `robozium.json`, which lists
+what to import:
 
 ```json
 {
