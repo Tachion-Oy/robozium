@@ -80,7 +80,7 @@ class EnvironmentService:
         overrides = {name.removesuffix(ENCRYPTED_SUFFIX) for name in manual}
         entries = [
             entry for entry in self._masked_entries(values, overrides)
-            if not entry.name.startswith(env.REPOSITORY_PREFIX)
+            if not entry.name.startswith(env.REPOSITORY_ENTRIES)
         ]
         suggestions, errors = self._read_examples()
         # A folder whose URL entry is gone still shows, so it can be removed.
@@ -91,9 +91,13 @@ class EnvironmentService:
         }
         on_disk = {folder.name for folder in self._repositories.glob("*") if folder.is_dir()}
         repositories = [
-            RepositoryView(name=key, url=saved.get(key) or "", packages=self._with_examples(
-                self._repositories / key, self._packages.get(key, []), suggestions, errors,
-            ))
+            RepositoryView(
+                name=key, url=saved.get(key) or "",
+                private=self._deploy_key(key) + ENCRYPTED_SUFFIX in values,
+                packages=self._with_examples(
+                    self._repositories / key, self._packages.get(key, []), suggestions, errors,
+                ),
+            )
             for key in sorted(saved.keys() | on_disk)
         ]
         return EnvironmentView(
@@ -127,7 +131,7 @@ class EnvironmentService:
             # The Repositories section owns these entries; keep them as saved.
             for stored_name in stored:
                 name = stored_name.removesuffix(ENCRYPTED_SUFFIX)
-                if name.startswith(env.REPOSITORY_PREFIX):
+                if name.startswith(env.REPOSITORY_ENTRIES):
                     values[name] = previous.get(name)
                     if stored_name != name:
                         secrets.add(name)
@@ -180,29 +184,45 @@ class EnvironmentService:
             self._credentials.reset()
 
     def add_repository(self, request: RepositoryAdd) -> RepositoryResult:
-        """Import every package the repository's index lists, then save its URL.
+        """Import every package the repository's index lists, then save its URL and key.
 
         The download happens before runs are paused; only the check and the swap wait.
-        A folder left without a saved URL is replaced.
+        A folder left without a saved URL is replaced. A deploy key is encrypted with
+        the settings password and loaded at once, so Update can use it without a restart.
         """
         name = repositories.repository_name(request.url)
         url = request.url.strip()
+        key = repositories.normalize_key(request.deploy_key) if request.deploy_key else None
         variable = env.REPOSITORY_PREFIX + name.upper()
+        changes = {variable: url}
         self._require_new(variable, name)
-        with self._staged(name, url) as stage, self._projects.stopped_runs():
+        if key:
+            # A wrong password fails before anything is fetched.
+            decrypt_env_values(self._parse_values(self._read_text(self._path)), password=request.password)
+            changes |= encrypt_env_values(
+                {self._deploy_key(name): key}, secret_names={self._deploy_key(name)},
+                password=request.password,
+            )
+        with self._staged(name, url, key) as stage, self._projects.stopped_runs():
             self._require_new(variable, name)
             results = self._swap(stage, name)
             try:
-                self._write_entries({variable: url})
+                self._write_entries(changes)
             except BaseException:
                 self._unswap(stage, name)
                 raise
+            if key:
+                self._credentials.load(request.password)
             return self._record(name, url, results)
 
     def update_repository(self, name: str) -> RepositoryResult:
         """Replace a repository's packages with what its index lists now, all or none."""
         url = self._repository_url(name)
-        with self._staged(name, url) as stage, self._projects.stopped_runs():
+        key = os.environ.get(self._deploy_key(name))
+        stored = self._parse_values(self._read_text(self._path))
+        if self._deploy_key(name) + ENCRYPTED_SUFFIX in stored and not key:
+            raise ValueError(f"Unlock your settings to update {name}")
+        with self._staged(name, url, key) as stage, self._projects.stopped_runs():
             self._repository_url(name)
             return self._record(name, url, self._swap(stage, name))
 
@@ -221,12 +241,19 @@ class EnvironmentService:
                 if destination.is_dir() and not destination.is_symlink():
                     destination.rename(removed)
                 try:
-                    self._write_entries({variable: None})
+                    self._write_entries({
+                        variable: None, self._deploy_key(name) + ENCRYPTED_SUFFIX: None,
+                    })
                 except BaseException:
                     if removed.exists():
                         removed.rename(destination)
                     raise
             self._forget(name)
+
+    @staticmethod
+    def _deploy_key(name: str) -> str:
+        """The settings entry that keeps a repository's deploy key."""
+        return env.DEPLOY_KEY_PREFIX + name.upper()
 
     def _repository_url(self, name: str) -> str:
         values = self._parse_values(self._read_text(self._path))
@@ -243,14 +270,14 @@ class EnvironmentService:
             )
 
     @contextmanager
-    def _staged(self, name: str, url: str) -> Generator[Path]:
+    def _staged(self, name: str, url: str, key: str | None) -> Generator[Path]:
         """Download the repository's packages into a temporary folder laid out like local/."""
         local = self._root / "local"
         local.mkdir(exist_ok=True)
         with TemporaryDirectory(prefix=".staging-", dir=local) as temporary:
             folder = Path(temporary) / "repositories" / name
             folder.mkdir(parents=True)
-            repositories.fetch(url, folder)
+            repositories.fetch(url, folder, key)
             yield Path(temporary)
 
     def _swap(
@@ -484,7 +511,7 @@ class EnvironmentService:
                 raise ValueError("Variable names must be unique")
             if entry.name in env.CONTROLLED_NAMES:
                 raise ValueError("This setting is controlled by the application")
-            if entry.name.startswith(env.REPOSITORY_PREFIX):
+            if entry.name.startswith(env.REPOSITORY_ENTRIES):
                 raise ValueError("Add and remove repositories in the Repositories section")
             if (
                 entry.value is None

@@ -85,6 +85,7 @@ class RepositoryPackage(BaseModel):
 class RepositoryView(BaseModel):
     name: str
     url: str
+    private: bool = False
     packages: list[RepositoryPackage]
 
 
@@ -121,6 +122,9 @@ class EnvironmentFileResult(BaseModel):
 class RepositoryAdd(BaseModel):
     model_config = ConfigDict(extra="forbid")
     url: str = Field(max_length=400)
+    # A private repository's read-only deploy key, encrypted with the settings password.
+    deploy_key: str | None = Field(default=None, max_length=16 * 1024, repr=False)
+    password: str | None = Field(default=None, max_length=env.MAX_PASSWORD_CHARS, repr=False)
 
 
 class RepositoryResult(BaseModel):

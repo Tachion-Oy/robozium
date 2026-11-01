@@ -1,6 +1,7 @@
 """Repositories import every package their index lists, update all or none, and remove cleanly."""
 
 import json
+import os
 import subprocess
 import threading
 from pathlib import Path
@@ -212,7 +213,7 @@ def test_download_does_not_pause_runs(client, source, monkeypatch):
     fetch = repositories.fetch
     held = []
 
-    def check_lock(url, destination):
+    def check_lock(url, destination, key):
         lock = client.app.state.projects._lock
         def probe():
             acquired = lock.acquire(timeout=1)
@@ -223,7 +224,7 @@ def test_download_does_not_pause_runs(client, source, monkeypatch):
         thread = threading.Thread(target=probe)
         thread.start()
         thread.join()
-        return fetch(url, destination)
+        return fetch(url, destination, key)
 
     monkeypatch.setattr(repositories, "fetch", check_lock)
     assert add(client).status_code == 200
@@ -259,3 +260,85 @@ def test_a_failed_add_keeps_label_state(client, hub, source, monkeypatch):
     monkeypatch.setattr(EnvironmentService, "_write_entries", write)
     response = add(restarted)
     assert response.status_code == 200, response.text
+
+
+BODY = "QUJD" * 35
+# Canonical form: 70 characters per line.
+KEY = f"-----BEGIN OPENSSH PRIVATE KEY-----\n{BODY[:70]}\n{BODY[70:]}\n-----END OPENSSH PRIVATE KEY-----\n"
+
+
+@pytest.fixture
+def private(tmp_path, source, monkeypatch):
+    """The same local repository, reached as GitHub's SSH address for a deploy key."""
+    monkeypatch.setattr(repositories, "GIT_CONFIG", [
+        *repositories.GIT_CONFIG,
+        f"url.file://{tmp_path / 'remote'}/.insteadOf=git@github.com:acme/",
+    ])
+    return source
+
+
+def add_private(client, password="password", key=KEY):
+    return client.post(URL + "/repositories", json={
+        "url": REPOSITORY, "deploy_key": key.replace("\n", " "), "password": password,
+    })
+
+
+def test_deploy_key_is_saved_encrypted_and_used_for_updates(client, hub, private, monkeypatch):
+    monkeypatch.delenv("ROBOZIUM_DEPLOY_KEY_TOOLKIT", raising=False)
+    response = add_private(client)
+    assert response.status_code == 200, response.text
+    assert response.json()["repository"]["name"] == "toolkit"
+    stored = (hub / ".env.encrypt").read_text()
+    assert "ROBOZIUM_DEPLOY_KEY_TOOLKIT_ENCRYPTED=" in stored
+    assert "QUJD" not in stored
+    assert not any("QUJD" in path.read_text(errors="ignore")
+                   for path in (hub / "local").rglob("*") if path.is_file())
+    view = client.get(URL).json()
+    assert view["entries"] == []
+    assert view["repositories"][0]["private"] is True
+    # Loaded at once in canonical lines, so Update needs no restart.
+    assert os.environ["ROBOZIUM_DEPLOY_KEY_TOOLKIT"] == KEY
+    assert client.post(URL + "/repositories/toolkit/update").status_code == 200
+    monkeypatch.delenv("ROBOZIUM_DEPLOY_KEY_TOOLKIT")
+    locked = client.post(URL + "/repositories/toolkit/update")
+    assert locked.status_code == 400
+    assert locked.json()["detail"] == "Unlock your settings to update toolkit"
+    assert client.delete(URL + "/repositories/toolkit").status_code == 200
+    assert (hub / ".env.encrypt").read_text() == ""
+
+
+def test_wrong_password_or_key_fetches_nothing(client, hub, private, monkeypatch):
+    monkeypatch.delenv("ROBOZIUM_DEPLOY_KEY_TOOLKIT", raising=False)
+    revision = client.get(URL).json()["revision"]
+    assert client.post(URL, json={
+        "revision": revision, "entries": [{"name": "OTHER", "value": "v", "secret": True}],
+        "password": "first",
+    }).status_code == 200
+    calls = []
+    monkeypatch.setattr(repositories.subprocess, "run", lambda *args, **kwargs: calls.append(args))
+    assert add_private(client, password="wrong").status_code == 400
+    response = add_private(client, key="not a key")
+    assert response.status_code == 400
+    assert "whole private deploy key" in response.json()["detail"]
+    assert calls == []
+    assert not (hub / "local/repositories/toolkit").exists()
+
+
+def test_deploy_key_uses_ssh_with_pinned_github_host_keys(client, monkeypatch):
+    seen = {}
+
+    def fail(command, env, **kwargs):
+        seen.update(command=command, env=env, key=Path(env["GIT_SSH_COMMAND"].split()[-1]).read_text())
+        return subprocess.CompletedProcess(command, 128, "", "git@github.com: Permission denied (publickey).")
+
+    monkeypatch.setattr(repositories.subprocess, "run", fail)
+    response = add_private(client)
+    assert response.status_code == 400
+    assert "this deploy key is added to the repository" in response.json()["detail"]
+    assert "git@github.com:acme/toolkit" in seen["command"]
+    assert "protocol.ssh.allow=always" in seen["command"]
+    ssh = seen["env"]["GIT_SSH_COMMAND"]
+    for option in ("-F /dev/null", "BatchMode=yes", "StrictHostKeyChecking=yes", "IdentitiesOnly=yes"):
+        assert option in ssh
+    assert seen["key"] == KEY
+    assert not Path(ssh.split()[-1]).exists()

@@ -2,14 +2,17 @@
 
 The provider's ``robozium.json`` decides which folders are packages; nothing from
 it is kept here. Git runs with an empty home and no user configuration, so it
-never uses anyone's own credentials.
+never uses anyone's own credentials. A private repository is read over SSH with a
+read-only deploy key, checked against GitHub's published host keys.
 """
 
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
+import textwrap
 from keyword import iskeyword
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
@@ -24,6 +27,13 @@ MAX_REPOSITORY_BYTES = 4 * env.MAX_PACKAGE_BYTES
 _TIMEOUT_S = 300
 # Options for every git command; tests add ones that reach local repositories.
 GIT_CONFIG = ["protocol.allow=never", "protocol.https.allow=always"]
+# https://api.github.com/meta "ssh_keys"; GitHub announces any change in advance.
+_KNOWN_HOSTS = """\
+github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
+github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=
+"""
+_PRIVATE_KEY = re.compile(r"-----BEGIN (OPENSSH|RSA|EC) PRIVATE KEY-----(.*?)-----END \1 PRIVATE KEY-----", re.S)
 
 
 def repository_name(url: str) -> str:
@@ -41,29 +51,57 @@ def repository_name(url: str) -> str:
     return name
 
 
-def fetch(url: str, destination: Path) -> list[str]:
+def normalize_key(key: str) -> str:
+    """Return a private key in canonical lines, or raise without echoing it.
+
+    Single-line fields drop a pasted key's line breaks, so the body is rewrapped.
+    """
+    match = _PRIVATE_KEY.fullmatch(key.strip())
+    body = re.sub(r"\s", "", match[2]) if match else ""
+    if not match or not re.fullmatch(r"[A-Za-z0-9+/=]+", body):
+        raise ValueError("Paste the whole private deploy key, including its BEGIN and END lines")
+    label = f"{match[1]} PRIVATE KEY"
+    return "\n".join([f"-----BEGIN {label}-----", *textwrap.wrap(body, 70), f"-----END {label}-----", ""])
+
+
+def fetch(url: str, destination: Path, key: str | None = None) -> list[str]:
     """Copy every package the repository's index lists into ``destination/<folder name>``.
 
     The clone is shallow and blob-filtered, and only the listed folders are checked
-    out, so nothing outside ``robozium.json`` and those folders is downloaded.
+    out, so nothing outside ``robozium.json`` and those folders is downloaded. A
+    deploy key exists on disk only while git runs.
     """
     git = shutil.which("git")
     if git is None:
         raise RepositoryUnavailableError("git is missing from the backend image")
     with TemporaryDirectory(prefix="robozium-git-") as folder:
-        checkout = Path(folder) / "checkout"
+        checkout, identity = Path(folder) / "checkout", Path(folder) / "deploy_key"
+        remote, ssh = url.strip(), None
+        if key:
+            remote = "git@github.com:" + urlsplit(remote).path.strip("/")
+            (Path(folder) / "known_hosts").write_text(_KNOWN_HOSTS)
+            identity.touch(mode=0o600)
+            identity.write_text(normalize_key(key))
+            ssh = shlex.join([
+                "ssh", "-F", "/dev/null", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
+                "-o", f"UserKnownHostsFile={Path(folder) / 'known_hosts'}",
+                "-o", "IdentitiesOnly=yes", "-i", str(identity),
+            ])
 
         def run(*args: str, stdin: str | None = None) -> str:
-            return _git(git, folder, url.strip(), [*args], stdin)
+            return _git(git, folder, url.strip(), [*args], stdin, ssh)
 
-        run("clone", "--quiet", "--depth=1", "--no-tags", "--filter=blob:none", "--no-checkout",
-            "--", url.strip(), str(checkout))
         inside = ("-C", str(checkout))
-        if not run(*inside, "ls-tree", "--name-only", "HEAD", "--", INDEX_FILE).strip():
-            raise ValueError(f"The repository has no {INDEX_FILE} at its root")
-        paths = _index(run(*inside, "show", f"HEAD:{INDEX_FILE}"))
-        run(*inside, "sparse-checkout", "set", "--stdin", stdin="\n".join(paths) + "\n")
-        run(*inside, "checkout", "--quiet")
+        try:
+            run("clone", "--quiet", "--depth=1", "--no-tags", "--filter=blob:none", "--no-checkout",
+                "--", remote, str(checkout))
+            if not run(*inside, "ls-tree", "--name-only", "HEAD", "--", INDEX_FILE).strip():
+                raise ValueError(f"The repository has no {INDEX_FILE} at its root")
+            paths = _index(run(*inside, "show", f"HEAD:{INDEX_FILE}"))
+            run(*inside, "sparse-checkout", "set", "--stdin", stdin="\n".join(paths) + "\n")
+            run(*inside, "checkout", "--quiet")
+        finally:
+            identity.unlink(missing_ok=True)
         total = 0
         for path in paths:
             source = checkout / path
@@ -81,12 +119,15 @@ def fetch(url: str, destination: Path) -> list[str]:
     return sorted(child.name for child in destination.iterdir())
 
 
-def _git(git: str, home: str, url: str, args: list[str], stdin: str | None) -> str:
-    """Run git with an empty home and no user configuration."""
-    config = [argument for option in GIT_CONFIG for argument in ("-c", option)]
+def _git(
+    git: str, home: str, url: str, args: list[str], stdin: str | None, ssh: str | None
+) -> str:
+    """Run git with an empty home and no user configuration; ``ssh`` reads with a deploy key."""
+    options = [*GIT_CONFIG, "protocol.ssh.allow=always"] if ssh else GIT_CONFIG
+    config = [argument for option in options for argument in ("-c", option)]
     environment = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": home,
                    "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull,
-                   "GIT_TERMINAL_PROMPT": "0"}
+                   "GIT_TERMINAL_PROMPT": "0", **({"GIT_SSH_COMMAND": ssh} if ssh else {})}
     try:
         result = subprocess.run(
             [git, *config, *args], input=stdin, env=environment, capture_output=True,
@@ -95,11 +136,16 @@ def _git(git: str, home: str, url: str, args: list[str], stdin: str | None) -> s
     except subprocess.TimeoutExpired:
         raise RepositoryUnavailableError("GitHub took too long to answer. Try again.") from None
     if result.returncode:
+        if "passphrase" in result.stderr:
+            raise ValueError("Use a deploy key without a passphrase")
+        if "Host key verification failed" in result.stderr:
+            raise RepositoryUnavailableError("GitHub's host key did not match. Do not retry on this network.")
         if any(text in result.stderr for text in (
-            "not found", "Authentication failed", "could not read Username",
+            "Permission denied", "not found", "Authentication failed", "could not read Username",
             "does not appear to be a git repository",
         )):
-            raise ValueError(f"GitHub did not allow access to {url}. Check the URL.")
+            raise ValueError(f"GitHub did not allow access to {url}. Check the URL"
+                             + (" and that this deploy key is added to the repository." if ssh else "."))
         raise RepositoryUnavailableError(f"Could not read {url} from GitHub. Check the connection.")
     return result.stdout
 

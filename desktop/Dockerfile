@@ -29,6 +29,7 @@ RUN apt-get update \
         grep \
         libglib2.0-bin \
         libreoffice \
+        openssh-client \
         ripgrep \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 robozium \

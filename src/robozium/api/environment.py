@@ -35,7 +35,8 @@ _REQUEST_LIMITS = {
     "/credentials/environment": ("application/json", env.MAX_ENV_BYTES),
     # The settings file plus its password, revision and multipart framing.
     "/credentials/environment/file": ("multipart/form-data", env.MAX_ENV_BYTES + 16 * 1024),
-    "/credentials/environment/repositories": ("application/json", 16 * 1024),
+    # A deploy key, its password and the URL.
+    "/credentials/environment/repositories": ("application/json", 32 * 1024),
 }
 # Write routes that end in a repository name; their bodies are empty.
 _REPOSITORY_PATHS = "/credentials/environment/repositories/"
