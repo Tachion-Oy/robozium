@@ -85,7 +85,7 @@ def test_config_relative_discovery_order_and_relative_imports_ignore_parent_code
     config = write_config(root)
     for path, label in (
         ("tools/z", "last"), ("tools/a", "middle"),
-        ("skills/z", "first"), ("imports/copied", "copied"),
+        ("skills/z", "first"),
     ):
         package = _package(root, path, "from .implementation import CAPABILITY\n")
         (package / "implementation.py").write_text(_source(label))
@@ -97,7 +97,7 @@ def test_config_relative_discovery_order_and_relative_imports_ignore_parent_code
     before = sys.path.copy()
     hub = load_hub(config_file=config)
     assert [cap.label.name for cap in hub.additional_capabilities] == [
-        "first", "middle", "last", "copied"
+        "first", "middle", "last"
     ]
     assert sys.path == before
     assert not hub.settings.sandbox.root.exists()

@@ -87,7 +87,7 @@ function previewHandlers(): Map<string, Handler> {
 		["GET /admin/dependencies", response => json(response, [])],
 		["GET /credentials/environment", response => json(response, {
 			revision: "r1", entries: [], overrides: [], requires_password: false, editable: true,
-			suggestions: [], example_errors: [], imports: [],
+			suggestions: [], example_errors: [],
 		})],
 		["POST /run/create", response => {
 			launched = true

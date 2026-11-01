@@ -17,7 +17,6 @@ from tempfile import TemporaryDirectory
 from threading import RLock
 from types import ModuleType
 from typing import cast
-from uuid import uuid4
 
 from roboz.deployment import Capability
 
@@ -60,7 +59,7 @@ def _load_local_packages(config_dir: Path) -> dict[Path, tuple[Capability, ...]]
 
 def _discover_packages(root: Path) -> list[Path]:
     packages: list[Path] = []
-    for kind in ("skills", "tools", "imports"):
+    for kind in ("skills", "tools"):
         directory = root / kind
         if not directory.exists():
             continue
@@ -98,7 +97,7 @@ def _import_packages(
 ) -> dict[Path, tuple[Capability, ...]]:
     invalidate_caches()
     _register_namespace(namespace, root)
-    for kind in ("skills", "tools", "imports"):
+    for kind in ("skills", "tools"):
         _register_namespace(f"{namespace}.{kind}", root / kind)
     capabilities: dict[Path, tuple[Capability, ...]] = {}
     for package in packages:
@@ -155,28 +154,10 @@ def _prepare_dependencies(
         _local_file(root, package / "requirements.txt", "requirements file")
         for root, paths in packages.items()
         for package in paths
-        if package.parts[0] != "imports" or (root / package / "requirements.txt").exists()
     ]
     if not any(file.read_text(encoding="utf-8").strip() for file in requirements):
         return None
     return _install_requirements(config_dir, requirements)
-
-
-def inspect_import(config_dir: Path, package: Path) -> tuple[Capability, ...]:
-    """Validate a staged package with the startup loader, without activating it."""
-    with _IMPORT_LOCK, ExitStack() as cleanup:
-        local_root = (config_dir / "local").resolve()
-        packages = {local_root: _discover_packages(local_root)}
-        # Staging uses the same imports/<name> layout as committed packages.
-        root = package.parent.parent
-        packages[root] = [package.relative_to(root)]
-        dependencies = _prepare_dependencies(config_dir, packages)
-        if dependencies is not None:
-            sys.path.append(str(dependencies))
-            cleanup.callback(sys.path.remove, str(dependencies))
-        namespace = _LOCAL_PACKAGE_PREFIX + uuid4().hex
-        cleanup.callback(_discard_namespace, namespace)
-        return _import_packages(root, [package.relative_to(root)], namespace, {})[package]
 
 
 def _install_requirements(config_dir: Path, requirements: list[Path]) -> Path:

@@ -56,7 +56,7 @@ test("desktop mock image starts rootless and retains projects after restart, rec
 		fs.rmSync(temporary, { recursive: true, force: true })
 	})
 	fs.cpSync(stageBackend(), source, { recursive: true })
-	for (const relative of [".env", ".env.encrypt", "local/imports/private.py", "src/robozium/.env", "src/robozium/private.txt"]) {
+	for (const relative of [".env", ".env.encrypt", "local/tools/private.py", "src/robozium/.env", "src/robozium/private.txt"]) {
 		const file = path.join(source, relative)
 		fs.mkdirSync(path.dirname(file), { recursive: true })
 		fs.writeFileSync(file, "SYNTHETIC_PRIVATE_SENTINEL=never-in-image\n")

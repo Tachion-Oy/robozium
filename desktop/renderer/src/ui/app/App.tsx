@@ -101,8 +101,6 @@ export function App({ client, connected, covered, backend }: AppProps) {
 	// Each write's outcome goes to the draft declared below; it runs only after both exist.
 	const environmentMutations = useEnvironmentMutations(client, setupRequired, {
 		onReplaced: next => environmentDraft.replaced(next),
-		onImported: result => environmentDraft.imported(result),
-		onRemoved: name => environmentDraft.removed(name),
 		onReset: () => environmentDraft.reset(),
 		// Keys that load without a restart end setup. A write in Environment never changes the screen.
 		onKeysLoaded: credentials.refresh,

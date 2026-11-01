@@ -1,5 +1,5 @@
 // The hub folder in use, opened in the file manager or changed with the native folder dialog.
-// Laid out like EnvironmentFolderImport. The confirmation and failures are toasts,
+// Laid out like the key file row. The confirmation and failures are toasts,
 // so the row never grows; the restart it needs joins Restart required.
 import { Toast } from "../feedback/Toast"
 import { hubFolderConfirmation, type HubFolder } from "../../hub-folder/useHubFolder"

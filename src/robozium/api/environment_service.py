@@ -1,15 +1,12 @@
-"""Validated environment edits and package copies, independent of HTTP transport."""
+"""Validated environment edits, independent of HTTP transport."""
 
 import os
 import re
-import shutil
 from collections.abc import Mapping, Sequence
 from hashlib import sha256
 from io import StringIO
-from keyword import iskeyword
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import BinaryIO
 
 from dotenv.parser import parse_stream
 from roboz.endpoints import (
@@ -22,57 +19,31 @@ from roboz.endpoints import (
 from robozium.api.credentials import LoadedCredentials
 from robozium.api.errors import (
     EnvironmentConflictError,
-    EnvironmentImportNotFoundError,
     ProjectBusyError,
 )
 from robozium.api.models import (
-    CapabilityView,
     EnvironmentEdit,
     EnvironmentEntry,
     EnvironmentEntryView,
-    EnvironmentImport,
-    EnvironmentImportResult,
     EnvironmentSuggestion,
     EnvironmentView,
 )
 from robozium.api.project_service import ProjectService
 from robozium.hub import environment as env
-from robozium.hub.application import Hub
-from robozium.hub.local import inspect_import
 
 _COMMENTED_ASSIGNMENT = re.compile(r"\s*#\s*([A-Za-z_][A-Za-z0-9_]*[ \t]*=.*)")
 
 
 class EnvironmentService:
-    """Own settings persistence and confirmed import labels for one API process.
+    """Own settings persistence for one API process.
 
-    Writes share the project service's stopped-run guard. Package files are the
-    source of truth; only their discovered labels are retained until restart.
+    Writes share the project service's stopped-run guard.
     """
 
-    def __init__(
-        self, hub: Hub, projects: ProjectService, credentials: LoadedCredentials
-    ) -> None:
-        self._hub = hub
+    def __init__(self, projects: ProjectService, credentials: LoadedCredentials) -> None:
         self._projects = projects
         self._credentials = credentials
         self._path = credentials.path
-        self._root = hub.settings.config_file.parent.resolve()
-        self._destination = self._root / "local" / "imports"
-        self._imports = {
-            package.name: EnvironmentImport(
-                name=package.name,
-                capabilities=[
-                    CapabilityView.model_validate(value.label) for value in values
-                ],
-                variables=[],
-                active=True,
-            )
-            for package, values in hub.local_packages.items()
-            if package.parent == self._destination
-        }
-        # Labels of removed packages stay loaded until restart; re-imports may reuse them.
-        self._removed_labels: set[str] = set()
 
     def read(self) -> EnvironmentView:
         """Return masked settings and examples, without importing or executing code."""
@@ -81,7 +52,7 @@ class EnvironmentService:
         manual = self._parse_values(self._read_text(self._path.parent / ".env"))
         overrides = {name.removesuffix(ENCRYPTED_SUFFIX) for name in manual}
         entries = self._masked_entries(values, overrides)
-        suggestions, imported, errors = self._read_examples()
+        suggestions, errors = self._read_examples()
         return EnvironmentView(
             revision=sha256(text.encode("utf-8")).hexdigest(),
             editable=self._editable(),
@@ -90,7 +61,6 @@ class EnvironmentService:
             requires_password=any(entry.secret for entry in entries),
             suggestions=suggestions,
             example_errors=errors,
-            imports=imported,
         )
 
     def save(self, edit: EnvironmentEdit) -> bool:
@@ -161,51 +131,6 @@ class EnvironmentService:
         with self._projects.stopped_runs():
             self._credentials.reset()
 
-    def import_folder(
-        self, files: Sequence[tuple[str, BinaryIO]]
-    ) -> EnvironmentImportResult:
-        """Stage the whole tree and discover real capabilities before publishing the copy."""
-        with self._projects.stopped_runs():
-            name, paths = self._upload_paths(files)
-            destination = self._destination / name
-            if destination.exists() or destination.is_symlink():
-                raise EnvironmentConflictError(
-                    f"An imported folder named {name} already exists"
-                )
-            if not self._destination.resolve().is_relative_to(self._root / "local"):
-                raise ValueError("The import destination must stay inside local/")
-            self._destination.mkdir(parents=True, exist_ok=True)
-            with TemporaryDirectory(
-                prefix=".upload-", dir=self._destination
-            ) as temporary:
-                # Reuse the startup loader's imports/<package> layout during validation.
-                stage = Path(temporary) / "imports" / name
-                self._copy_upload(paths, stage)
-                result = self._inspect_package(stage)
-                stage.rename(destination)
-                self._imports[name] = result.imported
-                self._removed_labels.difference_update(
-                    cap.name for cap in result.imported.capabilities
-                )
-            return result
-
-    def remove_import(self, name: str) -> None:
-        """Delete an imported package copy; loaded capabilities remain until restart."""
-        with self._projects.stopped_runs():
-            item = self._imports.get(name)
-            if item is None:
-                raise EnvironmentImportNotFoundError(f"No imported folder named {name}")
-            destination = self._destination / name
-            if destination.is_symlink() or not destination.resolve().is_relative_to(
-                self._destination.resolve()
-            ):
-                raise ValueError("The imported folder must stay inside local/imports/")
-            if destination.exists():
-                shutil.rmtree(destination)
-            del self._imports[name]
-            if item.active:
-                self._removed_labels.update(cap.name for cap in item.capabilities)
-
     @staticmethod
     def _read_text(path: Path) -> str:
         """Read a bounded UTF-8 file; an absent configuration file is empty."""
@@ -264,31 +189,12 @@ class EnvironmentService:
             )
         return list(entries.values())
 
-    def _read_examples(
-        self,
-    ) -> tuple[list[EnvironmentSuggestion], list[EnvironmentImport], list[str]]:
-        """Collect example defaults while reporting unreadable sources individually."""
-        errors: list[str] = []
-        suggestions: list[EnvironmentSuggestion] = []
-        imported: list[EnvironmentImport] = []
+    def _read_examples(self) -> tuple[list[EnvironmentSuggestion], list[str]]:
+        """Collect example defaults, reporting an unreadable example instead of failing."""
         try:
-            suggestions = self._example_suggestions(
-                self._path.parent / ".env.example", "Application"
-            )
+            return self._example_suggestions(self._path.parent / ".env.example", "Application"), []
         except (OSError, ValueError):
-            errors.append("Could not read the application environment example")
-        for item in self._imports.copy().values():
-            try:
-                example = self._package_example(self._destination / item.name)
-                defaults = self._example_suggestions(example, item.name)
-                suggestions.extend(defaults)
-                item = item.model_copy(
-                    update={"variables": [entry.name for entry in defaults]}
-                )
-            except (OSError, ValueError):
-                errors.append(f"Could not read environment example for {item.name}")
-            imported.append(item)
-        return suggestions, imported, errors
+            return [], ["Could not read the application environment example"]
 
     def _example_suggestions(
         self, path: Path, source: str
@@ -355,89 +261,3 @@ class EnvironmentService:
                     "Settings changed elsewhere. Refresh before saving."
                 )
             os.replace(replacement, self._path)
-
-    @staticmethod
-    def _upload_paths(
-        files: Sequence[tuple[str, BinaryIO]],
-    ) -> tuple[str, dict[PurePosixPath, BinaryIO]]:
-        """Validate the entire uploaded file tree before creating any directories."""
-        paths: dict[PurePosixPath, BinaryIO] = {}
-        for filename, stream in files:
-            parts = filename.split("/")
-            if (
-                len(parts) < 2
-                or any(part in ("", ".", "..") for part in parts)
-                or any(char in filename for char in ("\\", ":", "\x00"))
-            ):
-                raise ValueError(
-                    "Choose one folder; every file must have a relative path within it"
-                )
-            path = PurePosixPath(filename)
-            if path in paths:
-                raise ValueError("The upload contains duplicate file paths")
-            paths[path] = stream
-        if not paths:
-            raise ValueError("Choose a folder containing files")
-        name = next(iter(paths)).parts[0]
-        if (
-            not name.isidentifier()
-            or iskeyword(name)
-            or any(path.parts[0] != name for path in paths)
-        ):
-            raise ValueError("Choose one folder with a valid Python package name")
-        for path in paths:
-            if any(parent in paths for parent in path.parents):
-                raise ValueError(
-                    "An uploaded path cannot be both a file and a directory"
-                )
-        return name, {path.relative_to(name): stream for path, stream in paths.items()}
-
-    @staticmethod
-    def _copy_upload(paths: Mapping[PurePosixPath, BinaryIO], stage: Path) -> None:
-        """Copy the already validated relative paths into the temporary package."""
-        for relative, source in paths.items():
-            target = stage.joinpath(*relative.parts)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with target.open("xb") as stream:
-                shutil.copyfileobj(source, stream)
-
-    @staticmethod
-    def _package_example(package: Path) -> Path:
-        for name in ("env.example", ".env.example"):
-            path = package / name
-            if path.is_file():
-                return path
-        raise ValueError(
-            "The selected folder must contain env.example or .env.example at its root"
-        )
-
-    def _inspect_package(self, package: Path) -> EnvironmentImportResult:
-        """Confirm root files and unique capability labels before committing a copy."""
-        if not (package / "__init__.py").is_file():
-            raise ValueError("The selected folder must contain __init__.py at its root")
-        suggestions = self._example_suggestions(
-            self._package_example(package), package.name
-        )
-        try:
-            discovered = inspect_import(self._root, package)
-        except RuntimeError as exc:
-            raise ValueError(str(exc)) from exc
-        capabilities = [
-            CapabilityView.model_validate(value.label) for value in discovered
-        ]
-        existing = {label.name for label in self._hub.capabilities()}
-        existing -= self._removed_labels
-        existing.update(
-            cap.name for item in self._imports.values() for cap in item.capabilities
-        )
-        for capability in capabilities:
-            if capability.name in existing:
-                raise ValueError(
-                    f"A capability named {capability.name!r} already exists; choose a unique label"
-                )
-        imported = EnvironmentImport(
-            name=package.name,
-            capabilities=capabilities,
-            variables=[entry.name for entry in suggestions],
-        )
-        return EnvironmentImportResult(imported=imported, suggestions=suggestions)

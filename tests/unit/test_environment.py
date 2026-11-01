@@ -1,9 +1,6 @@
-"""Folder import confirms real exports, preserves package files, and survives restart."""
+"""Settings edits are validated, encrypted, and committed only when they apply."""
 
-import json
 import os
-import subprocess
-import sys
 
 import pytest
 from config_support import write_config
@@ -15,45 +12,11 @@ from robozium.api.app import create_app
 from robozium.hub.utils import load_hub
 
 URL = "/credentials/environment"
-SOURCE = """from roboz.deployment import Capability, ToolLabel, SkillLabel
-from roboz.tools import stop
-from .nested import NAME
-TOOLS = Capability(label=ToolLabel(NAME, selectable=True), value=stop)
-ALIAS = TOOLS
-class Guide(Capability):
-    def __init__(self):
-        super().__init__(label=SkillLabel('actual_guide', selectable=True))
-    def build(self, agent, pipe):
-        raise AssertionError('discovery must not build capabilities')
-"""
-
-
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     write_config(tmp_path)
     monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(tmp_path / ".env.encrypt"))
     return TestClient(create_app(deployment=load_hub(start=tmp_path)))
-
-
-def upload(client, files=None, name="bundle"):
-    content = (
-        {
-            "__init__.py": SOURCE,
-            "env.example": "SERVICE_TOKEN=\n# HOST=localhost\n",
-            "nested/__init__.py": "NAME = 'actual_tool'\n",
-            "nested/resource.bin": b"\x00\xff\x01",
-            ".env": "PRIVATE=not-a-suggestion\n",
-        }
-        if files is None
-        else files
-    )
-    return client.post(
-        URL + "/import",
-        files=[
-            ("files", (f"{name}/{path}", data, "application/octet-stream"))
-            for path, data in content.items()
-        ],
-    )
 
 
 def save(client, entries, password=None, revision=None):
@@ -83,177 +46,6 @@ def replace_file(client, content, password="password", revision=None):
         data=data,
         files={"file": (".env.encrypt", content, "application/octet-stream")},
     )
-
-
-def test_import_confirms_actual_names_and_copies_entire_subtree_before_restart(
-    client, tmp_path
-):
-    response = upload(client)
-    assert response.status_code == 200, response.text
-    imported = response.json()["imported"]
-    assert [(item["name"], item["kind"]) for item in imported["capabilities"]] == [
-        ("actual_tool", "tool"),
-        ("actual_guide", "skill"),
-    ]
-    assert imported["active"] is False
-    assert imported["variables"] == ["SERVICE_TOKEN", "HOST"]
-    assert (
-        tmp_path / "local/imports/bundle/nested/resource.bin"
-    ).read_bytes() == b"\x00\xff\x01"
-    assert (
-        tmp_path / "local/imports/bundle/.env"
-    ).read_text() == "PRIVATE=not-a-suggestion\n"
-    view = client.get(URL).json()
-    assert view["imports"] == [imported]
-    assert {row["name"] for row in view["suggestions"]} == {"SERVICE_TOKEN", "HOST"}
-    assert "actual_tool" not in {
-        row["name"] for row in client.get("/capabilities").json()
-    }
-    assert not (tmp_path / ".env.encrypt").exists()
-
-
-@pytest.mark.parametrize("mode", ["mock", "live"])
-def test_restart_loads_copied_capabilities_and_recovers_confirmation(
-    client, tmp_path, mode
-):
-    assert upload(client).status_code == 200
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            "import json; from fastapi.testclient import TestClient; "
-            f"from robozium.api.app import {mode}_app; "
-            f"client=TestClient({mode}_app()); "
-            "print(json.dumps([client.get('/capabilities').json(), client.get('/credentials/environment').json()['imports']]))",
-        ],
-        cwd=tmp_path,
-        env=os.environ | {"ROBOZIUM_CONFIG": str(tmp_path / "hub.config.py")},
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=30,
-    )
-    capabilities, imported = json.loads(result.stdout)
-    assert {"actual_tool", "actual_guide"} <= {row["name"] for row in capabilities}
-    assert imported[0]["active"] is True
-    assert imported[0]["variables"] == ["SERVICE_TOKEN", "HOST"]
-
-
-@pytest.mark.parametrize(
-    "files, error",
-    [
-        ({"env.example": ""}, "__init__.py"),
-        ({"__init__.py": SOURCE, "nested/env.example": ""}, "at its root"),
-        (
-            {"__init__.py": "CAPABILITY = None", "env.example": ""},
-            "Capability instance",
-        ),
-        (
-            {
-                "__init__.py": "from roboz.deployment import Capability, ToolLabel\nCAPABILITY = Capability(label=ToolLabel('unbound'))",
-                "env.example": "",
-            },
-            "must implement build",
-        ),
-        ({"__init__.py": "broken python!", "env.example": ""}, "__init__.py"),
-        (
-            {"__init__.py": "import nonexistent_dependency", "env.example": ""},
-            "nonexistent_dependency",
-        ),
-        ({"__init__.py": SOURCE, "env.example": "KEY=1\nKEY=2"}, "duplicate dotenv"),
-        ({"../outside": "escape"}, "relative path"),
-        ({"nested": "file", "nested/child.py": ""}, "both a file and a directory"),
-        ({"nested//child.py": ""}, "relative path"),
-        ({"__init__.py": SOURCE, "env.example": b"\xffprivate-value"}, "must be UTF-8"),
-    ],
-)
-def test_invalid_import_never_commits_or_claims_success(client, tmp_path, files, error):
-    response = upload(client, files)
-    assert response.status_code == 400, response.text
-    assert error in response.json()["detail"]
-    assert not (tmp_path / "local/imports/bundle").exists()
-    assert client.get(URL).json()["imports"] == []
-    assert not list((tmp_path / "local/imports").glob(".upload-*"))
-
-
-def test_existing_folder_and_duplicate_labels_preserve_committed_package(
-    client, tmp_path
-):
-    assert upload(client).status_code == 200
-    original = (tmp_path / "local/imports/bundle/__init__.py").read_bytes()
-    assert upload(client).status_code == 409
-    response = upload(client, name="another")
-    assert response.status_code == 400 and "actual_tool" in response.text
-    assert not (tmp_path / "local/imports/another").exists()
-    assert (tmp_path / "local/imports/bundle/__init__.py").read_bytes() == original
-
-
-def test_remove_deletes_the_copy_and_allows_reimport_before_restart(client, tmp_path):
-    assert upload(client).status_code == 200
-    response = client.delete(URL + "/imports/bundle")
-    assert response.status_code == 200, response.text
-    assert response.headers["cache-control"] == "no-store"
-    assert not (tmp_path / "local/imports/bundle").exists()
-    assert client.get(URL).json()["imports"] == []
-    assert upload(client).status_code == 200
-    assert (tmp_path / "local/imports/bundle/__init__.py").is_file()
-
-
-def test_removing_a_loaded_package_frees_its_labels_for_reimport(tmp_path, monkeypatch):
-    package = tmp_path / "local/imports/bundle"
-    (package / "nested").mkdir(parents=True)
-    (package / "__init__.py").write_text(SOURCE)
-    (package / "env.example").write_text("SERVICE_TOKEN=\n")
-    (package / "nested/__init__.py").write_text("NAME = 'actual_tool'\n")
-    write_config(tmp_path)
-    monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(tmp_path / ".env.encrypt"))
-    client = TestClient(create_app(deployment=load_hub(start=tmp_path)))
-    assert client.get(URL).json()["imports"][0]["active"] is True
-    assert upload(client).status_code == 409
-    assert client.delete(URL + "/imports/bundle").status_code == 200
-    assert upload(client, name="replacement").status_code == 200
-    assert (tmp_path / "local/imports/replacement/__init__.py").is_file()
-
-
-@pytest.mark.parametrize("name", ["missing", "%2E%2E", "bundle%2Fnested"])
-def test_remove_rejects_unknown_names_without_touching_imports(client, tmp_path, name):
-    assert upload(client).status_code == 200
-    assert client.delete(f"{URL}/imports/{name}").status_code in (404, 405)
-    assert (tmp_path / "local/imports/bundle/nested/__init__.py").is_file()
-    assert client.get(URL).json()["imports"][0]["name"] == "bundle"
-
-
-def test_remove_rejects_cross_origin_requests_and_queued_runs(client, tmp_path):
-    assert upload(client).status_code == 200
-    response = client.delete(
-        URL + "/imports/bundle", headers={"Origin": "https://elsewhere.example"}
-    )
-    assert response.status_code == 403
-    client.post("/projects", json={"name": "busy"})
-    client.post("/run/create", json={"project": "busy"})
-    assert client.delete(URL + "/imports/bundle").status_code == 409
-    assert (tmp_path / "local/imports/bundle/__init__.py").is_file()
-
-
-def test_dunder_all_supports_a_constructed_subclass_without_constructing_it_again(
-    client,
-):
-    source = """from roboz.deployment import Capability, ToolLabel
-from roboz.tools import stop
-class Configured(Capability):
-    def __init__(self, name):
-        super().__init__(label=ToolLabel(name, selectable=True), value=stop)
-CAPABILITY = Configured('configured')
-__all__ = ['Configured', 'CAPABILITY']
-"""
-    response = upload(
-        client, {"__init__.py": source, ".env.example": "VALUE='${LITERAL}'\n"}
-    )
-    assert response.status_code == 200, response.text
-    assert [cap["name"] for cap in response.json()["imported"]["capabilities"]] == [
-        "configured"
-    ]
-    assert response.json()["suggestions"][0]["value"] == "${LITERAL}"
 
 
 def test_encrypted_edit_stale_save_and_manual_override(client, tmp_path):
@@ -343,22 +135,18 @@ def test_retained_secret_requires_explicit_replacement_to_become_public(
     assert dotenv_values(path) == {"TOKEN": ""}
 
 
-def test_queued_run_blocks_saving_and_import(client):
+def test_queued_run_blocks_saving(client):
     client.post("/projects", json={"name": "busy"})
     client.post("/run/create", json={"project": "busy"})
     assert client.get(URL).json()["editable"] is False
     assert save(client, []).status_code == 409
     assert replace_file(client, key_file({"TOKEN": "synthetic"})).status_code == 409
-    assert upload(client).status_code == 409
     assert client.delete(URL).status_code == 409
     client.post("/projects/busy/cancel")
-    assert upload(client).status_code == 200
+    assert save(client, []).status_code == 200
 
 
-def test_reset_deletes_unreadable_settings_without_password_and_preserves_imports(
-    client, tmp_path
-):
-    assert upload(client).status_code == 200
+def test_reset_deletes_unreadable_settings_without_password(client, tmp_path):
     path = tmp_path / ".env.encrypt"
     path.write_bytes(b"\xffunreadable-settings")
     manual = tmp_path / ".env"
@@ -371,8 +159,6 @@ def test_reset_deletes_unreadable_settings_without_password_and_preserves_import
     view = client.get(URL).json()
     assert view["entries"] == []
     assert view["requires_password"] is False
-    assert view["imports"][0]["name"] == "bundle"
-    assert (tmp_path / "local/imports/bundle/__init__.py").is_file()
     assert manual.read_text() == "MANUAL=keep\n"
     assert client.delete(URL).status_code == 200
 
@@ -500,20 +286,6 @@ def test_broken_example_does_not_prevent_editing_valid_settings(client, tmp_path
     assert save(client, [{"name": "SETTING", "value": "value"}]).status_code == 200
 
 
-def test_broken_import_example_preserves_confirmation_and_other_sources(
-    client, tmp_path
-):
-    imported = upload(client).json()["imported"]
-    (tmp_path / ".env.example").write_text("EXAMPLE_SETTING=value\n")
-    (tmp_path / "local/imports/bundle/env.example").write_text("BROKEN='unterminated\n")
-    response = client.get(URL)
-    assert response.status_code == 200
-    view = response.json()
-    assert view["imports"] == [imported]
-    assert view["example_errors"] == ["Could not read environment example for bundle"]
-    assert [row["name"] for row in view["suggestions"]] == ["EXAMPLE_SETTING"]
-
-
 def test_ambiguous_stored_names_are_rejected_without_exposing_values(client, tmp_path):
     (tmp_path / ".env.encrypt").write_text(
         "TOKEN=private-value\nTOKEN_ENCRYPTED=private-ciphertext\n"
@@ -560,26 +332,6 @@ def test_failed_replacement_preserves_settings_and_removes_temporary_file(
     assert not list(tmp_path.glob(".environment-*"))
 
 
-def test_dependency_timeout_leaves_import_retryable(client, tmp_path, monkeypatch):
-    def unavailable(*args, **kwargs):
-        raise subprocess.TimeoutExpired("uv", 180)
-
-    with monkeypatch.context() as patch:
-        patch.setattr("robozium.hub.local.subprocess.run", unavailable)
-        response = upload(
-            client,
-            {
-                "__init__.py": "",
-                "env.example": "",
-                "requirements.txt": "synthetic-package==1\n",
-            },
-        )
-    assert response.status_code == 503
-    assert "timed out" in response.text
-    assert not list((tmp_path / "local/imports").iterdir())
-    assert upload(client).status_code == 200
-
-
 def test_streamed_requests_cannot_bypass_size_limit(client):
     response = client.post(
         URL,
@@ -597,20 +349,20 @@ def test_streamed_requests_cannot_bypass_size_limit(client):
         ({"Origin": "http://["}, 403),
         ({"Content-Type": "text/plain"}, 415),
         ({"Content-Length": "-1"}, 400),
-        ({"Content-Length": str(32 * 1024 * 1024 + 1)}, 413),
+        ({"Content-Length": str(256 * 1024 + 16 * 1024 + 1)}, 413),
     ],
 )
-def test_invalid_upload_headers_are_rejected_before_copying(
+def test_invalid_upload_headers_are_rejected_before_reading(
     client, tmp_path, headers, status
 ):
     response = client.post(
-        URL + "/import",
+        URL + "/file",
         content=b"unused",
         headers={"Content-Type": "multipart/form-data; boundary=test"} | headers,
     )
     assert response.status_code == status
     assert response.headers["cache-control"] == "no-store"
-    assert not (tmp_path / "local").exists()
+    assert not (tmp_path / ".env.encrypt").exists()
 
 
 def test_key_file_replaces_settings_only_when_its_password_opens_it(client, tmp_path):

@@ -1,7 +1,6 @@
 // Read and replace the runtime's saved settings and secrets (`.env.encrypt`).
 // useEnvironmentDraft owns the view and its edits, useEnvironmentMutations the writes; requests here have no local state.
 import { ApiError, type DesktopApiClient } from "../api/client"
-import { parseCapability, type CapabilityView } from "../capabilities/capabilities-api"
 
 export interface EnvironmentEntry {
 	name: string
@@ -12,7 +11,6 @@ export interface EnvironmentEntry {
 	overridden: boolean
 }
 export interface EnvironmentSuggestion { name: string; value: string; secret: boolean; source: string }
-export interface EnvironmentImport { name: string; capabilities: CapabilityView[]; variables: string[]; active: boolean }
 export interface EnvironmentView {
 	revision: string
 	entries: EnvironmentEntry[]
@@ -21,9 +19,7 @@ export interface EnvironmentView {
 	editable: boolean
 	suggestions: EnvironmentSuggestion[]
 	example_errors: string[]
-	imports: EnvironmentImport[]
 }
-export interface EnvironmentImportResult { imported: EnvironmentImport; suggestions: EnvironmentSuggestion[] }
 export interface EnvironmentEdit {
 	revision: string
 	entries: Pick<EnvironmentEntry, "name" | "value" | "secret">[]
@@ -72,14 +68,6 @@ function parseSuggestion(value: unknown): EnvironmentSuggestion {
 	return { name: text(fields, "name"), value: text(fields, "value"), secret: flag(fields, "secret"), source: text(fields, "source") }
 }
 
-function parseImport(value: unknown): EnvironmentImport {
-	const fields = record(value)
-	return {
-		name: text(fields, "name"), capabilities: list(fields, "capabilities", parseCapability),
-		variables: list(fields, "variables", item => typeof item === "string" ? item : malformed()), active: flag(fields, "active"),
-	}
-}
-
 function parseView(value: unknown): EnvironmentView {
 	const fields = record(value)
 	const names = (key: string) => list(fields, key, item => typeof item === "string" ? item : malformed())
@@ -87,7 +75,6 @@ function parseView(value: unknown): EnvironmentView {
 		revision: text(fields, "revision"), entries: list(fields, "entries", parseEntry), overrides: names("overrides"),
 		requires_password: flag(fields, "requires_password"), editable: flag(fields, "editable"),
 		suggestions: list(fields, "suggestions", parseSuggestion), example_errors: names("example_errors"),
-		imports: list(fields, "imports", parseImport),
 	}
 }
 
@@ -99,17 +86,6 @@ export async function getEnvironment(client: DesktopApiClient, signal: AbortSign
 export async function saveEnvironment(client: DesktopApiClient, edit: EnvironmentEdit, signal: AbortSignal): Promise<void> {
 	const value = record(await client.request("/credentials/environment", { method: "POST", json: edit, signal }))
 	if (value.status !== "saved") malformed()
-}
-
-/** The backend may install a tool's dependencies first; it gives up after 180 seconds. */
-export const IMPORT_TIMEOUT_MS = 200_000
-
-/** Uploads one folder; each file keeps its path inside the folder. */
-export async function importEnvironment(client: DesktopApiClient, files: File[], signal: AbortSignal): Promise<EnvironmentImportResult> {
-	const form = new FormData()
-	for (const file of files) form.append("files", file, file.webkitRelativePath)
-	const fields = record(await client.request("/credentials/environment/import", { method: "POST", form, signal }))
-	return { imported: parseImport(fields.imported), suggestions: list(fields, "suggestions", parseSuggestion) }
 }
 
 /**
@@ -127,11 +103,6 @@ export async function replaceEnvironmentFile(
 	const fields = record(await client.request("/credentials/environment/file", { method: "POST", form, signal }))
 	if (fields.status !== "replaced" || typeof fields.loaded !== "boolean") malformed()
 	return { loaded: fields.loaded }
-}
-
-/** Deletes an imported package's copy; its capabilities stay loaded until restart. */
-export async function removeEnvironmentImport(client: DesktopApiClient, name: string, signal: AbortSignal): Promise<void> {
-	await client.request(`/credentials/environment/imports/${encodeURIComponent(name)}`, { method: "DELETE", signal })
 }
 
 export async function resetEnvironment(client: DesktopApiClient, signal: AbortSignal): Promise<void> {

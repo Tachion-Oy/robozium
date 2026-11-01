@@ -1,7 +1,6 @@
 import { expect, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
-import { mkdir, writeFile } from "node:fs/promises"
-import path from "node:path"
+import { writeFile } from "node:fs/promises"
 import { test, json, view } from "./run-fixture"
 import { captureNative, setNativeViewport, toast } from "./native"
 import type { Backend } from "./selection-fixture"
@@ -11,7 +10,7 @@ const entry = (name: string, value: string | null, secret = false): Entry =>
 	({ name, value, secret, configured: true, overridden: false })
 const environment = (overrides: Record<string, unknown> = {}) => ({
 	revision: "r1", entries: [] as Entry[], overrides: [], requires_password: false, editable: true,
-	suggestions: [], example_errors: [], imports: [], ...overrides,
+	suggestions: [], example_errors: [], ...overrides,
 })
 const panel = (page: Page) => page.getByRole("region", { name: "Environment settings" })
 const editor = (page: Page) => page.getByRole("form", { name: "Variable editor" })
@@ -189,66 +188,6 @@ for (const theme of ["dark", "light"]) {
 		}
 	})
 }
-
-test("importing a folder uploads each file under its relative path and asks for a restart", async ({ desktop: { page }, backend }, testInfo) => {
-	const folder = testInfo.outputPath("local_tool")
-	await mkdir(path.join(folder, "nested"), { recursive: true })
-	await writeFile(path.join(folder, "__init__.py"), "")
-	await writeFile(path.join(folder, ".env.example"), "LOCAL_TOOL_KEY=\n")
-	await writeFile(path.join(folder, "nested", "helper.py"), "")
-	let current = environment()
-	backend.handlers.set("GET /credentials/environment", response => json(response, current))
-	backend.handlers.set("POST /credentials/environment/import", response => json(response, { detail: "An imported folder named local_tool already exists" }, 409))
-	await openEnvironment(page, backend)
-	const picker = panel(page).getByLabel("Choose tool or skill folder")
-	// The chooser accepts a folder only once settings have loaded, as Browse shows.
-	await expect(panel(page).getByRole("button", { name: "Browse folder" })).toBeEnabled()
-	await picker.setInputFiles(folder)
-	await expect(alert(page, "Import failed")).toContainText("already exists")
-	await expect(panel(page).getByLabel("Selected tool or skill folder")).toHaveValue("local_tool")
-	const imported = { name: "local_tool", active: false, variables: ["LOCAL_TOOL_KEY"],
-		capabilities: [{ name: "local_tool", kind: "tool", selectable: true, loading: null }] }
-	let pending: ServerResponse | undefined
-	backend.handlers.set("POST /credentials/environment/import", response => { pending = response })
-	await panel(page).getByRole("button", { name: "Import", exact: true }).click()
-	// The waiting button pulses until the outcome arrives.
-	await expect(panel(page).getByRole("button", { name: "Importing…" })).toHaveAttribute("aria-busy", "true")
-	current = environment({ imports: [imported] })
-	json(pending!, { imported, suggestions: [{ name: "LOCAL_TOOL_KEY", value: "", secret: false, source: "local_tool" }] })
-	await expect(panel(page).getByRole("button", { name: "Import", exact: true })).not.toHaveAttribute("aria-busy")
-	await expect(page.getByRole("status").filter({ hasText: "Imported" })).toContainText("Tool local_tool found and imported. Available after restart.")
-	await expect(toast(page, "Restart required")).toContainText("Restart to apply your changes.")
-	await expect(panel(page)).toContainText("Available on next start")
-	const uploads = backend.requests.filter(request => request.path === "/credentials/environment/import")
-	expect(uploads).toHaveLength(2)
-	for (const name of ["local_tool/__init__.py", "local_tool/.env.example", "local_tool/nested/helper.py"]) {
-		expect(uploads[1].body).toContain(`name="files"; filename="${name}"`)
-	}
-})
-
-test("removing an import asks for confirmation, keeps it on failure, and asks for a restart", async ({ desktop: { page }, backend }) => {
-	const imported = { name: "local_tool", active: true, variables: [],
-		capabilities: [{ name: "local_tool", kind: "tool", selectable: true, loading: null }] }
-	let current = environment({ imports: [imported] })
-	backend.handlers.set("GET /credentials/environment", response => json(response, current))
-	backend.handlers.set("DELETE /credentials/environment/imports/local_tool", response => json(response, { detail: "Stop all runs first" }, 409))
-	await openEnvironment(page, backend)
-	const imports = panel(page).getByRole("region", { name: "Tools & skills" })
-	await imports.getByRole("button", { name: "Remove local_tool" }).click()
-	await imports.getByRole("button", { name: "Confirm removing local_tool" }).click()
-	await expect(alert(page, "Remove failed")).toContainText("Stop all runs first")
-	await expect(imports.getByText("local tool", { exact: true })).toBeVisible()
-	backend.handlers.set("DELETE /credentials/environment/imports/local_tool", response => {
-		current = environment()
-		json(response, { status: "removed" })
-	})
-	await imports.getByRole("button", { name: "Remove local_tool" }).click()
-	await imports.getByRole("button", { name: "Confirm removing local_tool" }).click()
-	await expect(page.getByRole("status").filter({ hasText: "Removed" })).toContainText("Removed local_tool. Takes effect after restart.")
-	await expect(imports).toContainText("No imports yet.")
-	await expect(toast(page, "Restart required")).toContainText("Restart to apply your changes.")
-	expect(backend.requests.filter(request => request.method === "DELETE" && request.path === "/credentials/environment/imports/local_tool")).toHaveLength(2)
-})
 
 test("Restart app confirms unsaved edits in the HUD before restarting", async ({ desktop: { app, page }, backend }) => {
 	await app.evaluate(({ ipcMain }) => {

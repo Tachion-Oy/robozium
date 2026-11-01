@@ -7,12 +7,10 @@ import { Toast } from "../feedback/Toast"
 import type { EnvironmentDraft } from "../../environment/useEnvironmentDraft"
 import type { EnvironmentMutations } from "../../environment/useEnvironmentMutations"
 import { hubRestartNeeded, type HubFolder } from "../../hub-folder/useHubFolder"
-import { EnvironmentFolderImport } from "./EnvironmentFolderImport"
 import { BackendControls } from "./BackendControls"
 import { EnvironmentHubFolder } from "./EnvironmentHubFolder"
 import { EnvironmentKeyFileImport } from "./EnvironmentKeyFileImport"
 import { EnvironmentRestart } from "./EnvironmentRestart"
-import { EnvironmentImportList } from "./EnvironmentImportList"
 import { EnvironmentSaveForm } from "./EnvironmentSaveForm"
 import { EnvironmentVariableEditor } from "./EnvironmentVariableEditor"
 import { EnvironmentVariableList } from "./EnvironmentVariableList"
@@ -64,10 +62,6 @@ export function EnvironmentPanel({ draft, mutations, hub, onRestart, onManageBac
 						replacing={(view?.entries.length ?? 0) > 0}
 						onReplace={async (file, password) => view ? mutations.replaceFile(file, password, view.revision) : "Settings cannot be changed right now."}
 					/>
-					<EnvironmentFolderImport
-						disabled={!editable || editor !== null}
-						onImport={mutations.importPackage}
-					/>
 					<h3 className="agent-hud__capability-group-heading">Variables</h3>
 					<EnvironmentVariableList
 						variables={draft.variables}
@@ -85,11 +79,6 @@ export function EnvironmentPanel({ draft, mutations, hub, onRestart, onManageBac
 							/>
 						)}
 					</EnvironmentVariableList>
-					<EnvironmentImportList
-						imported={view?.imports ?? []}
-						disabled={!editable || editor !== null}
-						onRemove={mutations.removeImport}
-					/>
 				</fieldset>
 			</div>
 			<EnvironmentSaveForm
@@ -102,8 +91,7 @@ export function EnvironmentPanel({ draft, mutations, hub, onRestart, onManageBac
 				onValidate={draft.validateSave}
 				onSave={async password => view ? mutations.save(password, draft.currentEntries, view.revision) : false}
 				onReset={mutations.reset}>
-				<EnvironmentRestart required={mutations.restartRequired || hubRestartNeeded(hub)} importedPending={view?.imports.some(item => !item.active) ?? false}
-					dirty={draft.dirty || editor !== null} onRestart={onRestart} />
+				<EnvironmentRestart required={mutations.restartRequired || hubRestartNeeded(hub)} dirty={draft.dirty || editor !== null} onRestart={onRestart} />
 				<BackendControls onManage={onManageBackend} />
 			</EnvironmentSaveForm>
 			{view && view.overrides.length > 0 && <p>Manual .env overrides: {view.overrides.join(", ")}.</p>}

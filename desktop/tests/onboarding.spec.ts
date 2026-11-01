@@ -4,7 +4,7 @@ import { test, json, view, launchButton } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
 
 const status = (setupRequired: boolean) => ({ available: !setupRequired, locked: false, removable: !setupRequired, setup_required: setupRequired })
-const environment = { revision: "r1", entries: [], overrides: [], requires_password: false, editable: true, suggestions: [], example_errors: [], imports: [] }
+const environment = { revision: "r1", entries: [], overrides: [], requires_password: false, editable: true, suggestions: [], example_errors: [] }
 const startHere = (page: Page) => page.getByRole("button", { name: "Start Here", exact: true })
 const newProject = (page: Page) => page.getByRole("button", { name: "New Project", exact: true })
 const guide = (page: Page) => page.locator(".agent-hud__replyBox--agent")

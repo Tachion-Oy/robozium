@@ -13,7 +13,7 @@ const desktop = path.resolve(import.meta.dirname, "..")
 function fixture(t: TestContext) {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "desktop-backend-"))
 	t.after(() => fs.rmSync(root, { recursive: true, force: true }))
-	for (const directory of ["desktop/scripts", "desktop/src", "src/robozium/nested", "private", "local/imports", ".runtime", ".artifacts"]) {
+	for (const directory of ["desktop/scripts", "desktop/src", "src/robozium/nested", "private", "local/tools", ".runtime", ".artifacts"]) {
 		fs.mkdirSync(path.join(root, directory), { recursive: true })
 	}
 	for (const name of ["Dockerfile", ".dockerignore", "package.json", "scripts/stage-backend.ts", "src/backend-layout.json", "src/backend-layout.ts", "src/host-endpoints.ts"]) {
@@ -22,7 +22,7 @@ function fixture(t: TestContext) {
 	for (const name of ["hub.config.py", "pyproject.toml", "uv.lock", "README.md", "LICENSE", "CHANGELOG.md", "src/robozium/__init__.py", "src/robozium/nested/module.py"]) {
 		fs.writeFileSync(path.join(root, name), `# public ${name}\n`)
 	}
-	for (const name of [".env", ".env.encrypt", "private/key.py", "local/imports/private.py", ".runtime/data", ".artifacts/data", "src/robozium/.env", "src/robozium/cache.pyc"]) {
+	for (const name of [".env", ".env.encrypt", "private/key.py", "local/tools/private.py", ".runtime/data", ".artifacts/data", "src/robozium/.env", "src/robozium/cache.pyc"]) {
 		fs.writeFileSync(path.join(root, name), "SYNTHETIC_PRIVATE_SENTINEL\n")
 	}
 	return root

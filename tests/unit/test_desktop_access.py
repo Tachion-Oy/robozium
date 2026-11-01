@@ -114,7 +114,7 @@ def test_environment_keeps_validation_storage_and_busy_gate(client, tmp_path):
                            headers={"Content-Type": "application/json"})
     assert response.status_code == 413
     assert response.headers["access-control-allow-origin"] == ORIGIN
-    assert client.post(ENVIRONMENT + "/import", content=b"unused",
+    assert client.post(ENVIRONMENT + "/file", content=b"unused",
                        headers={"Content-Type": "text/plain"}).status_code == 415
     client.post("/projects", json={"name": "busy"})
     client.post("/run/create", json={"project": "busy"})

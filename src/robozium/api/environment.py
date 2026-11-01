@@ -3,7 +3,6 @@
 import asyncio
 from collections.abc import Generator
 from contextlib import contextmanager
-from subprocess import TimeoutExpired
 from typing import Annotated
 from urllib.parse import urlsplit
 
@@ -16,13 +15,11 @@ from robozium.api.credentials import refresh_dependencies
 from robozium.api.environment_service import EnvironmentService
 from robozium.api.errors import (
     EnvironmentConflictError,
-    EnvironmentImportNotFoundError,
     ProjectBusyError,
 )
 from robozium.api.models import (
     EnvironmentEdit,
     EnvironmentFileResult,
-    EnvironmentImportResult,
     EnvironmentSaveResult,
     EnvironmentView,
 )
@@ -31,11 +28,9 @@ from robozium.hub import environment as env
 router = APIRouter(prefix="/credentials/environment")
 _REQUEST_LIMITS = {
     "/credentials/environment": ("application/json", env.MAX_ENV_BYTES),
-    "/credentials/environment/import": ("multipart/form-data", env.MAX_PACKAGE_BYTES),
     # The settings file plus its password, revision and multipart framing.
     "/credentials/environment/file": ("multipart/form-data", env.MAX_ENV_BYTES + 16 * 1024),
 }
-_IMPORTS_PATH = "/credentials/environment/imports/"
 
 
 @contextmanager
@@ -45,14 +40,8 @@ def _environment(request: Request) -> Generator[EnvironmentService]:
         yield request.app.state.environment
     except (EnvironmentConflictError, ProjectBusyError) as exc:
         raise HTTPException(409, str(exc)) from exc
-    except EnvironmentImportNotFoundError as exc:
-        raise HTTPException(404, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    except TimeoutExpired as exc:
-        raise HTTPException(
-            503, "Capability dependency installation timed out. Retry the import."
-        ) from exc
     except OSError as exc:
         raise HTTPException(
             503, "Environment storage is unavailable. Check access and retry."
@@ -72,17 +61,6 @@ async def save_environment(body: EnvironmentEdit, request: Request) -> Environme
     if loaded:
         await refresh_dependencies(request)
     return EnvironmentSaveResult()
-
-
-@router.post("/import", response_model=EnvironmentImportResult)
-def import_folder(
-    request: Request,
-    files: Annotated[list[UploadFile], File()],
-) -> EnvironmentImportResult:
-    with _environment(request) as environment:
-        return environment.import_folder(
-            [(file.filename or "", file.file) for file in files]
-        )
 
 
 @router.post("/file", response_model=EnvironmentFileResult)
@@ -106,13 +84,6 @@ def reset_environment(request: Request) -> dict[str, str]:
     with _environment(request) as environment:
         environment.reset()
     return {"status": "reset"}
-
-
-@router.delete("/imports/{name}")
-def remove_import(name: str, request: Request) -> dict[str, str]:
-    with _environment(request) as environment:
-        environment.remove_import(name)
-    return {"status": "removed"}
 
 
 def _validate_write_headers(
@@ -156,7 +127,7 @@ class EnvironmentRequestMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         path = scope.get("path", "")
         if scope["type"] != "http" or (
-            path not in _REQUEST_LIMITS and not path.startswith(_IMPORTS_PATH)
+            path not in _REQUEST_LIMITS
         ):
             await self.app(scope, receive, send)
             return

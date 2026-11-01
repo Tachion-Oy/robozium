@@ -1,5 +1,5 @@
 // Adopt an existing .env.encrypt: drop it or browse, then enter its password in the
-// password dialog. Laid out like EnvironmentFolderImport; failures show in the dialog.
+// password dialog. Failures show in the dialog.
 import { useState } from "react"
 import { useDropzone } from "react-dropzone"
 import { HudButton } from "../hud/HudButton"

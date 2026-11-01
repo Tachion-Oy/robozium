@@ -19,13 +19,8 @@ class EnvironmentConflictError(RuntimeError):
     """Saved settings changed or an imported package already occupies its destination."""
 
 
-class EnvironmentImportNotFoundError(LookupError):
-    """No imported package with the requested name exists."""
-
-
 __all__ = [
     "EnvironmentConflictError",
-    "EnvironmentImportNotFoundError",
     "ProjectBusyError",
     "ProjectCancellationInProgressError",
     "InvalidCapabilitySelection",

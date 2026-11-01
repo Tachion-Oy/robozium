@@ -326,7 +326,7 @@ until it reconnects. **Restart app** shows it too, until the app closes.
 Divider controls remain visible but disabled outside Current Run.
 
 **Environment** lists the runtime's saved settings and secrets, with the
-variables that the application and imported tools need. **Add variable** and
+variables that the application needs. **Add variable** and
 **Change** open an inline editor; **Secret** stores the value encrypted, and
 stored secrets are shown masked and can be kept or replaced. Saving replaces the
 saved file once: secrets need an encryption password, confirmed the first time.
@@ -343,10 +343,7 @@ backend accepts the file only if that password opens its secrets; a wrong
 password shows in the dialog and keeps the file. On a fresh live start the keys load
 at once, without a restart; otherwise they apply after **Restart app**.
 
-**Browse folder** imports a tool or skill folder (a Python package with an
-`env.example` or `.env.example`); each file is uploaded with its path inside the
-folder, its variables join the list, and it is available after a restart. Saved
-settings, imports and resets apply after **Restart app**, which stops the
+Saved settings and resets apply after **Restart app**, which stops the
 backend and starts the app again on Runs Overview, where the app asks for the
 password of encrypted secrets. With
 unsaved edits, Restart app first asks in the HUD whether to discard them.
@@ -443,7 +440,7 @@ and Playwright, so their imports omit extensions.
 Desktop setup prepares the host folders the container mounts, including the
 nested read-only safe-scripts mount. The hub owns its application structure and
 files within those mounts; desktop setup must not create or configure internal
-directories such as `local/tools`, `local/skills`, or `local/imports`. The desktop
+directories such as `local/tools` or `local/skills`. The desktop
 also owns its installation identity and container log.
 
 - `src/` contains Electron main, preload, and the typed bridge. Main owns

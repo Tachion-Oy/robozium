@@ -33,8 +33,7 @@
   border-bottom: 1px solid var(--hud-input-border);
 }
 
-.agent-hud__environment-save,
-.agent-hud__environment-imports {
+.agent-hud__environment-save {
   border-top: 1px solid var(--term-blue);
 }
 

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { showErrorToast } from "../feedback/notices"
-import { getEnvironment, type EnvironmentEntry, type EnvironmentImportResult, type EnvironmentView } from "./environment-api"
+import { getEnvironment, type EnvironmentEntry, type EnvironmentView } from "./environment-api"
 import type { EnvironmentWrites } from "./useEnvironmentMutations"
 
 
@@ -74,8 +74,6 @@ export interface EnvironmentDraft {
 	retry: () => void
 	/** Write outcomes, passed in by App. */
 	replaced: (next: EnvironmentView) => void
-	imported: (result: EnvironmentImportResult) => void
-	removed: (name: string) => void
 	reset: () => void
 }
 
@@ -155,11 +153,8 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 	const currentEntries = edited ? replaceEntry(entries, editor) : entries
 	const dirty = Boolean(view && !sameEnvironmentEntries(currentEntries, view.entries))
 	const needsPassword = Boolean(view?.requires_password || currentEntries.some(entry => entry.secret))
-	const sources = (name: string) => [...new Set([
-		...(view?.suggestions.some(item => item.name === name && item.source === "Application") ? ["required"] : []),
-		...(view?.imports ?? []).filter(item => item.variables.includes(name))
-			.flatMap(item => item.capabilities.map(capability => capability.name)),
-	])]
+	const sources = (name: string) =>
+		view?.suggestions.some(item => item.name === name && item.source === "Application") ? ["required"] : []
 	const variables = new Map<string, EnvironmentVariable>()
 	for (const suggestion of view?.suggestions ?? []) {
 		if (variables.has(suggestion.name)) continue
@@ -225,21 +220,6 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 			setChangedEntries(next.entries)
 			dirtyRef.current = false
 			closeEditor()
-		},
-		imported: result => {
-			setView(previous => previous && {
-				...previous,
-				imports: [...previous.imports.filter(item => item.name !== result.imported.name), result.imported],
-				suggestions: [...previous.suggestions.filter(item => item.source !== result.imported.name), ...result.suggestions],
-			})
-			revealSuggestions(new Set(result.suggestions.map(entry => entry.name)))
-		},
-		removed: name => {
-			setView(previous => previous && {
-				...previous,
-				imports: previous.imports.filter(item => item.name !== name),
-				suggestions: previous.suggestions.filter(item => item.source !== name),
-			})
 		},
 		reset: () => {
 			setView(null)

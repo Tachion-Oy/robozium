@@ -181,30 +181,22 @@ choices directly. Relaunching keeps the project's memory while allowing a
 different set of capabilities.
 
 Filesystem, stop, compactification, and the Robozium skill are always included.
-SafeScripts and imported capabilities are optional. New optional capabilities
+SafeScripts and private capabilities are optional. New optional capabilities
 start unchecked, and newly selected skills follow their declared loading mode.
 Mock mode offers harmless **mock information** and **mock guidance** examples.
 
 ## Private capabilities
 
-In **Environment**, select **Browse folder** to import a package. Its root must
-contain `__init__.py` and `env.example` (or `.env.example`); `requirements.txt`
-is optional. Robozium validates the package, copies it to
-`~/.config/Robozium/<mode>/local/imports/<folder-name>/`, and shows the
-discovered capabilities and example settings. The source folder is not linked.
-Restart to activate the copy, then select its tools or skills when launching a
-project.
-
-The app discovers the package's exported RoboZ `Capability` instances, and
-subclasses that take no constructor arguments. `__all__` limits the exports
-when present. Discovery doesn't run capability builders or tools, and importing
-never loads a package's `.env`. Requirements are resolved against the pinned
+A private capability package is a Python package whose root contains
+`__init__.py` and `env.example` (or `.env.example`); `requirements.txt` is
+optional. The app discovers the package's exported RoboZ `Capability`
+instances, and subclasses that take no constructor arguments. `__all__` limits the exports
+when present. Discovery doesn't run capability builders or tools, and never
+loads a package's `.env`. Requirements are resolved against the pinned
 application dependencies before the code is imported. Incompatible dependencies,
 invalid exports or duplicate capability names are rejected.
 
-To update an import, select **Remove** next to it, import the new version,
-then restart. Removing deletes only the copy; its saved settings remain.
-Imported code runs as part of the application, so import only trusted packages.
+Package code runs as part of the application, so use only trusted packages.
 [Robozify](https://github.com/Tachion-Oy/robozify) offers email and timesheets.
 
 ## Host scripts

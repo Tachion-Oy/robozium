@@ -64,7 +64,7 @@ for (const theme of ["dark", "light"]) {
 test("a successful environment reset uses a polite success toast", async ({ desktop: { page }, backend }) => {
 	backend.handlers.set("GET /credentials/environment", response => json(response, {
 		revision: "r1", entries: [], overrides: [], requires_password: false, editable: true,
-		suggestions: [], example_errors: [], imports: [],
+		suggestions: [], example_errors: [],
 	}))
 	backend.handlers.set("DELETE /credentials/environment", response => json(response, { status: "reset" }))
 	await backend.open()
