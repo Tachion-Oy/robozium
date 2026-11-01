@@ -5,9 +5,11 @@
 // alone, so any single-colour SVG works.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
+import process from "node:process"
 
 const source = path.join(import.meta.dirname, "../renderer/public/branding/robozium-mark.svg")
-const output = path.join(import.meta.dirname, "../dist/icon.svg")
+// The README shows the same icon: `node desktop/scripts/build-icon.ts docs/assets/robozium-icon.svg`.
+const output = path.resolve(process.argv[2] ?? path.join(import.meta.dirname, "../dist/icon.svg"))
 
 // The dark theme's --term-lime, and the oklab mixes of the awaiting-input indicator: its
 // mark (84% white in lime), which also draws the ring, and its background (35% blue in black).

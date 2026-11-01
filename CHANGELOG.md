@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.4.0 - 2026-11-01
+
+- The desktop app runs its backend in a rootless Podman container as your own
+  user instead of Docker: no daemon, no `docker` group and no root access. apt
+  installs Podman, `uidmap` and `catatonit` with the app. Files the backend
+  creates in the hub folder belong to you. After upgrading from 0.3.1 or
+  earlier, remove the old Docker containers before the first start, as the
+  README describes; projects and keys carry over.
+- Claude Sonnet 5.5 is offered again. RoboZ 0.15.0's agent prompt no longer
+  makes it answer with empty replies.
+
 ## 0.3.1 - 2026-11-01
 
 - Update RoboZ to 0.15.0. Tool results now carry their producer and a local
