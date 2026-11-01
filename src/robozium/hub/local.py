@@ -2,7 +2,7 @@
 
 import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from contextlib import ExitStack
 from functools import cache
 from hashlib import sha256
@@ -162,21 +162,33 @@ def _prepare_dependencies(
     return _install_requirements(config_dir, requirements)
 
 
-def inspect_import(config_dir: Path, package: Path) -> tuple[Capability, ...]:
-    """Validate a staged package with the startup loader, without activating it."""
+def inspect_import(
+    config_dir: Path, staged: Sequence[Path]
+) -> dict[Path, tuple[Capability, ...]]:
+    """Validate staged packages together with the startup loader, without activating them.
+
+    Committed imports with the same folder names are left out, so an update is
+    checked against the rest of the installation rather than its old version.
+    """
     with _IMPORT_LOCK, ExitStack() as cleanup:
         local_root = (config_dir / "local").resolve()
-        packages = {local_root: _discover_packages(local_root)}
+        replaced = {Path("imports") / package.name for package in staged}
+        packages = {
+            local_root: [
+                package for package in _discover_packages(local_root)
+                if package not in replaced
+            ]
+        }
         # Staging uses the same imports/<name> layout as committed packages.
-        root = package.parent.parent
-        packages[root] = [package.relative_to(root)]
+        root = staged[0].parent.parent
+        packages[root] = [package.relative_to(root) for package in staged]
         dependencies = _prepare_dependencies(config_dir, packages)
         if dependencies is not None:
             sys.path.append(str(dependencies))
             cleanup.callback(sys.path.remove, str(dependencies))
         namespace = _LOCAL_PACKAGE_PREFIX + uuid4().hex
         cleanup.callback(_discard_namespace, namespace)
-        return _import_packages(root, [package.relative_to(root)], namespace, {})[package]
+        return _import_packages(root, packages[root], namespace, {})
 
 
 def _install_requirements(config_dir: Path, requirements: list[Path]) -> Path:

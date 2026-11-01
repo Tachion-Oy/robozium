@@ -23,10 +23,15 @@ class EnvironmentImportNotFoundError(LookupError):
     """No imported package with the requested name exists."""
 
 
+class RepositoryUnavailableError(RuntimeError):
+    """GitHub could not be reached or answered unexpectedly; retrying may help."""
+
+
 __all__ = [
     "EnvironmentConflictError",
     "EnvironmentImportNotFoundError",
     "ProjectBusyError",
     "ProjectCancellationInProgressError",
     "InvalidCapabilitySelection",
+    "RepositoryUnavailableError",
 ]

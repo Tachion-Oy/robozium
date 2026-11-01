@@ -1,0 +1,56 @@
+{
+  "$defs": {
+    "IndexedPackage": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "maxLength": 300,
+          "title": "Path",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "IndexedPackage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The ``robozium.json`` file at a repository's root.",
+  "properties": {
+    "schema": {
+      "const": 1,
+      "title": "Schema",
+      "type": "integer"
+    },
+    "packages": {
+      "items": {
+        "$ref": "#/$defs/IndexedPackage"
+      },
+      "maxItems": 50,
+      "minItems": 1,
+      "title": "Packages",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema",
+    "packages"
+  ],
+  "title": "Robozium repository index",
+  "type": "object"
+}

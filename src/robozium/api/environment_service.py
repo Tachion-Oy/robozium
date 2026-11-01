@@ -3,7 +3,8 @@
 import os
 import re
 import shutil
-from collections.abc import Mapping, Sequence
+from collections.abc import Generator, Mapping, Sequence
+from contextlib import contextmanager
 from hashlib import sha256
 from io import StringIO
 from keyword import iskeyword
@@ -19,6 +20,7 @@ from roboz.endpoints import (
     serialize_env,
 )
 
+from robozium.api import github_source as github
 from robozium.api.credentials import LoadedCredentials
 from robozium.api.errors import (
     EnvironmentConflictError,
@@ -34,6 +36,14 @@ from robozium.api.models import (
     EnvironmentImportResult,
     EnvironmentSuggestion,
     EnvironmentView,
+    RepositoryImportRequest,
+    RepositoryImportResult,
+    RepositoryPackageView,
+    RepositoryPreview,
+    RepositoryPreviewRequest,
+    RepositorySource,
+    RepositoryUpdateRequest,
+    RepositoryUpdateResult,
 )
 from robozium.api.project_service import ProjectService
 from robozium.hub import environment as env
@@ -41,6 +51,8 @@ from robozium.hub.application import Hub
 from robozium.hub.local import inspect_import
 
 _COMMENTED_ASSIGNMENT = re.compile(r"\s*#\s*([A-Za-z_][A-Za-z0-9_]*[ \t]*=.*)")
+# Records a repository import's origin inside its folder; folder imports have none.
+SOURCE_FILE = "source.json"
 
 
 class EnvironmentService:
@@ -67,6 +79,7 @@ class EnvironmentService:
                 ],
                 variables=[],
                 active=True,
+                source=self._read_source(package),
             )
             for package, values in hub.local_packages.items()
             if package.parent == self._destination
@@ -167,27 +180,120 @@ class EnvironmentService:
         """Stage the whole tree and discover real capabilities before publishing the copy."""
         with self._projects.stopped_runs():
             name, paths = self._upload_paths(files)
-            destination = self._destination / name
-            if destination.exists() or destination.is_symlink():
-                raise EnvironmentConflictError(
-                    f"An imported folder named {name} already exists"
-                )
-            if not self._destination.resolve().is_relative_to(self._root / "local"):
-                raise ValueError("The import destination must stay inside local/")
-            self._destination.mkdir(parents=True, exist_ok=True)
-            with TemporaryDirectory(
-                prefix=".upload-", dir=self._destination
-            ) as temporary:
-                # Reuse the startup loader's imports/<package> layout during validation.
-                stage = Path(temporary) / "imports" / name
-                self._copy_upload(paths, stage)
-                result = self._inspect_package(stage)
-                stage.rename(destination)
-                self._imports[name] = result.imported
-                self._removed_labels.difference_update(
-                    cap.name for cap in result.imported.capabilities
-                )
+            self._require_new([name])
+            with self._staging() as stage:
+                self._copy_upload(paths, stage / name)
+                [result] = self._publish(stage, [name])
             return result
+
+    def preview_repository(self, request: RepositoryPreviewRequest) -> RepositoryPreview:
+        """Read a repository's index at its current commit, without downloading code."""
+        repository = github.parse_repository(request.url)
+        token = request.token or os.environ.get(repository.token_variable) or None
+        commit = github.resolve_commit(repository, token)
+        index = github.read_index(repository, commit, token)
+        return RepositoryPreview(
+            repository=repository.full_name,
+            ref=repository.ref,
+            commit=commit,
+            packages=[
+                RepositoryPackageView(
+                    path=package.path,
+                    name=package.name,
+                    description=package.description,
+                    installed=package.name in self._imports,
+                )
+                for package in index.packages
+            ],
+        )
+
+    def import_repository(self, request: RepositoryImportRequest) -> RepositoryImportResult:
+        """Download the chosen index entries at the previewed commit and publish them together.
+
+        A token is used for this download and saved as an encrypted setting, so
+        updates after the next restart can reuse it.
+        """
+        repository = github.parse_repository(request.url)
+        if request.token:
+            # Fail on a wrong password before downloading anything.
+            self._unlock_settings(request.password)
+        token = request.token or os.environ.get(repository.token_variable) or None
+        with self._projects.stopped_runs():
+            index = github.read_index(repository, request.commit, token)
+            packages = []
+            for path in dict.fromkeys(request.paths):
+                package = index.package(path)
+                if package is None:
+                    raise ValueError(f"{path} is not listed in {github.INDEX_FILE}")
+                packages.append(package)
+            names = [package.name for package in packages]
+            self._require_new(names)
+            variable = repository.token_variable if token else None
+            with self._staging() as stage:
+                github.download_packages(
+                    repository, request.commit, token,
+                    [package.path for package in packages], stage,
+                )
+                for package in packages:
+                    self._write_source(stage / package.name, RepositorySource(
+                        repository=repository.full_name, ref=repository.ref,
+                        commit=request.commit, path=package.path,
+                        token_variable=variable,
+                    ))
+                results = self._publish(stage, names)
+        if request.token:
+            self._store_secret(repository.token_variable, request.token, request.password)
+        return RepositoryImportResult(
+            imported=[result.imported for result in results],
+            suggestions=[entry for result in results for entry in result.suggestions],
+        )
+
+    def update_repository(self, request: RepositoryUpdateRequest) -> RepositoryUpdateResult:
+        """Replace every package imported from one repository with its latest commit.
+
+        The new versions are checked together and swapped in at once; any failure
+        keeps the installed versions.
+        """
+        with self._projects.stopped_runs():
+            items = [
+                item for item in self._imports.values()
+                if item.source and item.source.repository == request.repository
+            ]
+            if not items:
+                raise EnvironmentImportNotFoundError(
+                    f"Nothing is imported from {request.repository}"
+                )
+            sources = [item.source for item in items if item.source]
+            first = sources[0]
+            repository = github.parse_full_name(first.repository, first.ref)
+            token = request.token or (
+                os.environ.get(first.token_variable) if first.token_variable else None
+            ) or None
+            commit = github.resolve_commit(repository, token)
+            if all(source.commit == commit for source in sources):
+                return RepositoryUpdateResult(updated=False, commit=commit, imported=items)
+            index = github.read_index(repository, commit, token)
+            removed = [source.path for source in sources if index.package(source.path) is None]
+            if removed:
+                raise ValueError(
+                    f"{github.INDEX_FILE} no longer lists {', '.join(removed)}. "
+                    "Remove those imports to update the rest."
+                )
+            names = [item.name for item in items]
+            with self._staging() as stage:
+                github.download_packages(
+                    repository, commit, token, [source.path for source in sources], stage
+                )
+                for source in sources:
+                    self._write_source(
+                        stage / PurePosixPath(source.path).name,
+                        source.model_copy(update={"commit": commit}),
+                    )
+                results = self._publish(stage, names)
+            return RepositoryUpdateResult(
+                updated=True, commit=commit,
+                imported=[result.imported for result in results],
+            )
 
     def remove_import(self, name: str) -> None:
         """Delete an imported package copy; loaded capabilities remain until restart."""
@@ -411,33 +517,139 @@ class EnvironmentService:
             "The selected folder must contain env.example or .env.example at its root"
         )
 
-    def _inspect_package(self, package: Path) -> EnvironmentImportResult:
-        """Confirm root files and unique capability labels before committing a copy."""
-        if not (package / "__init__.py").is_file():
-            raise ValueError("The selected folder must contain __init__.py at its root")
-        suggestions = self._example_suggestions(
-            self._package_example(package), package.name
-        )
+    def _require_new(self, names: Sequence[str]) -> None:
+        for name in names:
+            destination = self._destination / name
+            if name in self._imports or destination.exists() or destination.is_symlink():
+                raise EnvironmentConflictError(
+                    f"An imported folder named {name} already exists"
+                )
+
+    @contextmanager
+    def _staging(self) -> Generator[Path]:
+        """A temporary ``imports/`` folder beside the committed packages, removed afterwards."""
+        if not self._destination.resolve().is_relative_to(self._root / "local"):
+            raise ValueError("The import destination must stay inside local/")
+        self._destination.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(prefix=".upload-", dir=self._destination) as temporary:
+            # Reuse the startup loader's imports/<package> layout during validation.
+            stage = Path(temporary) / "imports"
+            stage.mkdir()
+            yield stage
+
+    def _publish(
+        self, stage: Path, names: Sequence[str]
+    ) -> list[EnvironmentImportResult]:
+        """Check staged packages together, then swap them all in or leave everything as it was."""
+        results = self._inspect_packages([stage / name for name in names])
+        retired = stage.parent / "retired"
+        retired.mkdir()
+        moved: list[str] = []
+        published: list[str] = []
         try:
-            discovered = inspect_import(self._root, package)
+            for name in names:
+                destination = self._destination / name
+                if destination.is_symlink():
+                    raise ValueError("The imported folder must stay inside local/imports/")
+                if destination.exists():
+                    destination.rename(retired / name)
+                    moved.append(name)
+                (stage / name).rename(destination)
+                published.append(name)
+        except BaseException:
+            for name in published:
+                (self._destination / name).rename(stage / name)
+            for name in moved:
+                (retired / name).rename(self._destination / name)
+            raise
+        for result in results:
+            self._imports[result.imported.name] = result.imported
+            self._removed_labels.difference_update(
+                cap.name for cap in result.imported.capabilities
+            )
+        return results
+
+    def _inspect_packages(self, packages: Sequence[Path]) -> list[EnvironmentImportResult]:
+        """Confirm root files and unique capability labels before committing copies."""
+        suggestions: dict[Path, list[EnvironmentSuggestion]] = {}
+        for package in packages:
+            if not (package / "__init__.py").is_file():
+                raise ValueError(f"{package.name} must contain __init__.py at its root")
+            suggestions[package] = self._example_suggestions(
+                self._package_example(package), package.name
+            )
+        try:
+            discovered = inspect_import(self._root, packages)
         except RuntimeError as exc:
             raise ValueError(str(exc)) from exc
-        capabilities = [
-            CapabilityView.model_validate(value.label) for value in discovered
-        ]
+        replacing = {package.name for package in packages}
         existing = {label.name for label in self._hub.capabilities()}
         existing -= self._removed_labels
+        existing -= {
+            cap.name for name in replacing if name in self._imports
+            for cap in self._imports[name].capabilities
+        }
         existing.update(
-            cap.name for item in self._imports.values() for cap in item.capabilities
+            cap.name for item in self._imports.values() if item.name not in replacing
+            for cap in item.capabilities
         )
-        for capability in capabilities:
-            if capability.name in existing:
-                raise ValueError(
-                    f"A capability named {capability.name!r} already exists; choose a unique label"
-                )
-        imported = EnvironmentImport(
-            name=package.name,
-            capabilities=capabilities,
-            variables=[entry.name for entry in suggestions],
-        )
-        return EnvironmentImportResult(imported=imported, suggestions=suggestions)
+        results = []
+        for package in packages:
+            capabilities = [
+                CapabilityView.model_validate(value.label) for value in discovered[package]
+            ]
+            for capability in capabilities:
+                if capability.name in existing:
+                    raise ValueError(
+                        f"A capability named {capability.name!r} already exists; choose a unique label"
+                    )
+            imported = EnvironmentImport(
+                name=package.name,
+                capabilities=capabilities,
+                variables=[entry.name for entry in suggestions[package]],
+                source=self._read_source(package),
+            )
+            results.append(EnvironmentImportResult(
+                imported=imported, suggestions=suggestions[package]
+            ))
+        return results
+
+    @staticmethod
+    def _write_source(package: Path, source: RepositorySource) -> None:
+        (package / SOURCE_FILE).write_text(source.model_dump_json(indent=2) + "\n")
+
+    @staticmethod
+    def _read_source(package: Path) -> RepositorySource | None:
+        """Read where a package came from; folder imports have no source file."""
+        path = package / SOURCE_FILE
+        if path.is_symlink() or not path.is_file():
+            return None
+        try:
+            return RepositorySource.model_validate_json(path.read_bytes())
+        except ValueError:
+            return None
+
+    def _unlock_settings(self, password: str | None) -> None:
+        """Raise unless the password opens the saved settings and can encrypt a new secret."""
+        if not password:
+            raise ValueError("Enter your settings password to save the token")
+        decrypt_env_values(self._parse_values(self._read_text(self._path)), password=password)
+
+    def _store_secret(self, name: str, value: str, password: str | None) -> None:
+        """Add or replace one encrypted setting, keeping every other saved value."""
+        original = self._read_text(self._path)
+        entries = [
+            EnvironmentEntry(
+                name=stored.removesuffix(ENCRYPTED_SUFFIX),
+                value=None if stored.endswith(ENCRYPTED_SUFFIX) else current,
+                secret=stored.endswith(ENCRYPTED_SUFFIX),
+            )
+            for stored, current in self._parse_values(original).items()
+            if stored.removesuffix(ENCRYPTED_SUFFIX) != name
+        ]
+        entries.append(EnvironmentEntry(name=name, value=value, secret=True))
+        self.save(EnvironmentEdit(
+            revision=sha256(original.encode("utf-8")).hexdigest(),
+            entries=entries,
+            password=password,
+        ))

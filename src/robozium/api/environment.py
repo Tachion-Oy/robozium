@@ -18,6 +18,7 @@ from robozium.api.errors import (
     EnvironmentConflictError,
     EnvironmentImportNotFoundError,
     ProjectBusyError,
+    RepositoryUnavailableError,
 )
 from robozium.api.models import (
     EnvironmentEdit,
@@ -25,6 +26,12 @@ from robozium.api.models import (
     EnvironmentImportResult,
     EnvironmentSaveResult,
     EnvironmentView,
+    RepositoryImportRequest,
+    RepositoryImportResult,
+    RepositoryPreview,
+    RepositoryPreviewRequest,
+    RepositoryUpdateRequest,
+    RepositoryUpdateResult,
 )
 from robozium.hub import environment as env
 
@@ -34,6 +41,9 @@ _REQUEST_LIMITS = {
     "/credentials/environment/import": ("multipart/form-data", env.MAX_PACKAGE_BYTES),
     # The settings file plus its password, revision and multipart framing.
     "/credentials/environment/file": ("multipart/form-data", env.MAX_ENV_BYTES + 16 * 1024),
+    "/credentials/environment/repository/preview": ("application/json", 16 * 1024),
+    "/credentials/environment/repository/import": ("application/json", 16 * 1024),
+    "/credentials/environment/repository/update": ("application/json", 16 * 1024),
 }
 _IMPORTS_PATH = "/credentials/environment/imports/"
 
@@ -49,6 +59,8 @@ def _environment(request: Request) -> Generator[EnvironmentService]:
         raise HTTPException(404, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+    except RepositoryUnavailableError as exc:
+        raise HTTPException(502, str(exc)) from exc
     except TimeoutExpired as exc:
         raise HTTPException(
             503, "Capability dependency installation timed out. Retry the import."
@@ -83,6 +95,24 @@ def import_folder(
         return environment.import_folder(
             [(file.filename or "", file.file) for file in files]
         )
+
+
+@router.post("/repository/preview", response_model=RepositoryPreview)
+def preview_repository(body: RepositoryPreviewRequest, request: Request) -> RepositoryPreview:
+    with _environment(request) as environment:
+        return environment.preview_repository(body)
+
+
+@router.post("/repository/import", response_model=RepositoryImportResult)
+def import_repository(body: RepositoryImportRequest, request: Request) -> RepositoryImportResult:
+    with _environment(request) as environment:
+        return environment.import_repository(body)
+
+
+@router.post("/repository/update", response_model=RepositoryUpdateResult)
+def update_repository(body: RepositoryUpdateRequest, request: Request) -> RepositoryUpdateResult:
+    with _environment(request) as environment:
+        return environment.update_repository(body)
 
 
 @router.post("/file", response_model=EnvironmentFileResult)

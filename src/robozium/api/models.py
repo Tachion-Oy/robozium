@@ -75,11 +75,23 @@ class EnvironmentSuggestion(BaseModel):
     source: str
 
 
+class RepositorySource(BaseModel):
+    """Where an imported package came from; stored as source.json in its folder."""
+
+    model_config = ConfigDict(extra="forbid")
+    repository: str
+    ref: str | None = None
+    commit: str
+    path: str
+    token_variable: str | None = None
+
+
 class EnvironmentImport(BaseModel):
     name: str
     capabilities: list[CapabilityView]
     variables: list[str]
     active: bool = False
+    source: RepositorySource | None = None
 
 
 class EnvironmentView(BaseModel):
@@ -115,6 +127,52 @@ class EnvironmentFileResult(BaseModel):
 class EnvironmentImportResult(BaseModel):
     imported: EnvironmentImport
     suggestions: list[EnvironmentSuggestion]
+
+
+class RepositoryPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    url: str = Field(max_length=400)
+    token: str | None = Field(default=None, max_length=1000, repr=False)
+
+
+class RepositoryPackageView(BaseModel):
+    path: str
+    name: str
+    description: str | None
+    installed: bool
+
+
+class RepositoryPreview(BaseModel):
+    repository: str
+    ref: str | None
+    commit: str
+    packages: list[RepositoryPackageView]
+
+
+class RepositoryImportRequest(RepositoryPreviewRequest):
+    commit: str = Field(max_length=40)
+    paths: list[str] = Field(min_length=1, max_length=50)
+    # Encrypts the token in saved settings; required only with a token.
+    password: str | None = Field(
+        default=None, max_length=env.MAX_PASSWORD_CHARS, repr=False
+    )
+
+
+class RepositoryUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    repository: str = Field(max_length=200)
+    token: str | None = Field(default=None, max_length=1000, repr=False)
+
+
+class RepositoryImportResult(BaseModel):
+    imported: list[EnvironmentImport]
+    suggestions: list[EnvironmentSuggestion]
+
+
+class RepositoryUpdateResult(BaseModel):
+    updated: bool
+    commit: str
+    imported: list[EnvironmentImport]
 
 
 class ReplyBody(BaseModel):
