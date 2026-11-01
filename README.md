@@ -221,7 +221,7 @@ Imported code runs as part of the application, so import only trusted packages.
 
 ### Repository imports
 
-**Add from GitHub** imports packages straight from a GitHub repository. The
+Environment can also import packages straight from a GitHub repository. The
 repository needs a `robozium.json` at its root that lists its package folders;
 each folder has the same layout as a folder import, and its name becomes the
 import name. [docs/robozium.schema.json](docs/robozium.schema.json) is the
@@ -238,8 +238,8 @@ schema for editors:
 ```
 
 Enter the repository URL and select **Find packages**. Robozium reads the index
-first and lists the packages, then downloads only the
-folders you choose, at the commit it showed. Every package is checked as a
+and lists the packages, then downloads only the folders you choose, at the
+commit it showed. Every package is checked as a
 folder import is, and the chosen packages are published together or not at
 all. Links, special files and oversized folders are refused.
 
