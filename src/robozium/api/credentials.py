@@ -35,6 +35,8 @@ class LoadedCredentials:
         self.path = _encrypted_path(path)
         # Set at startup from the environment files; the first save clears it.
         self.setup_required = False
+        # Set by an environment change that applies only after a restart; never cleared.
+        self.restart_required = False
         self.lock = threading.RLock()
         self.keys: dict[str, bytes] = {}
         self.encrypted = {
@@ -121,6 +123,7 @@ def missing_environment_files(path: Path) -> bool:
 def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStatus:
     """Report only whether encrypted keys exist and are loaded."""
     setup_required = bool(loaded and loaded.setup_required)
+    restart_required = bool(loaded and loaded.restart_required)
     path = loaded.path if loaded else _encrypted_path()
     values = dict(dotenv_values(path, interpolate=False)) if path.is_file() else {}
     values.update(loaded.encrypted if loaded else os.environ)
@@ -133,7 +136,11 @@ def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStat
     ]
     if not encrypted_names:
         return CredentialStatus(
-            available=False, locked=False, removable=False, setup_required=setup_required
+            available=False,
+            locked=False,
+            removable=False,
+            setup_required=setup_required,
+            restart_required=restart_required,
         )
     locked = any(
         name not in os.environ
@@ -146,7 +153,13 @@ def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStat
         locked=locked,
         removable=bool(tracked and not locked),
         setup_required=setup_required,
+        restart_required=restart_required,
     )
+
+
+def _uses_current_code(method: str, path: str) -> bool:
+    """Starting a run or checking dependencies would mix saved changes with loaded code."""
+    return (method, path) in {("POST", "/run/create"), ("POST", "/admin/dependencies/check")}
 
 
 def _uses_provider(method: str, path: str) -> bool:
@@ -160,19 +173,29 @@ def _uses_provider(method: str, path: str) -> bool:
 
 
 class CredentialGateMiddleware:
-    """Hold provider actions while encrypted API keys are locked or never configured."""
+    """Hold provider actions while encrypted API keys are locked or never configured.
+
+    After an environment change that applies on restart, also refuse new runs and
+    dependency checks until the app restarts.
+    """
 
     def __init__(self, app: ASGIApp, loaded: LoadedCredentials) -> None:
         self.app = app
         self.loaded = loaded
 
+    def _held(self, method: str, path: str) -> str | None:
+        if self.loaded.restart_required and _uses_current_code(method, path):
+            return "Restart the app to apply your environment changes"
+        if not _uses_provider(method, path):
+            return None
+        if self.loaded.setup_required:
+            return "Add API keys before using providers"
+        if credential_status(self.loaded).locked:
+            return "Unlock secrets before using providers"
+        return None
+
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        detail = None
-        if scope["type"] == "http" and _uses_provider(scope["method"], scope["path"]):
-            if self.loaded.setup_required:
-                detail = "Add API keys before using providers"
-            elif credential_status(self.loaded).locked:
-                detail = "Unlock secrets before using providers"
+        detail = self._held(scope["method"], scope["path"]) if scope["type"] == "http" else None
         if detail is not None:
             response = JSONResponse(
                 {"detail": detail},

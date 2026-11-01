@@ -1,7 +1,7 @@
 // This app's writes to the saved settings, one at a time. The draft reads and
 // edits them; App passes each write's outcome to it. Requests use the desktop
-// client under its lifetime and deadlines, an import has a longer deadline than
-// other requests, and the restart flag lasts until the app restarts.
+// client under its lifetime and deadlines, and an import has a longer deadline than
+// other requests. The backend owns whether a restart is required.
 import { useEffect, useRef, useState } from "react"
 import { ApiError, type DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
@@ -28,14 +28,12 @@ export interface EnvironmentOutcomes {
 	onImported: (result: EnvironmentImportResult) => void
 	onRemoved: (name: string) => void
 	onReset: () => void
-	/** Keys loaded without a restart: an adopted key file, or a save during setup. */
-	onKeysLoaded: () => void
+	/** After every write, even a failed one: it may have loaded keys or required a restart, which the backend status reports. */
+	onSettled: () => void
 }
 
 export interface EnvironmentMutations extends EnvironmentWrites {
 	saving: boolean
-	/** A save, import, removal or reset applies only after Restart app. */
-	restartRequired: boolean
 	save: (password: string, entries: EnvironmentEntry[], revision: string) => Promise<boolean>
 	importPackage: (files: File[]) => Promise<boolean>
 	/** Deletes an imported package's copy; its capabilities stay loaded until restart. */
@@ -50,7 +48,6 @@ export function useEnvironmentMutations(
 	client: DesktopApiClient, setupRequired: boolean, outcomes: EnvironmentOutcomes,
 ): EnvironmentMutations {
 	const [operation, setOperation] = useState<Operation | null>(null)
-	const [restartRequired, setRestartRequired] = useState(false)
 	const lifetime = useClientLifetime(client)
 	const writing = useRef(false)
 	const version = useRef(0)
@@ -80,6 +77,7 @@ export function useEnvironmentMutations(
 			if (!signal.aborted) {
 				writing.current = false
 				setOperation(null)
+				outcomes.onSettled()
 			}
 		}
 	}
@@ -104,10 +102,8 @@ export function useEnvironmentMutations(
 				tone: "success", title: "API keys saved",
 				message: "Robozium is ready. Start your first run with New Project.",
 			})
-			outcomes.onKeysLoaded()
 			return true
 		}
-		setRestartRequired(true)
 		showNotificationToast({
 			tone: "success", title: "Settings saved",
 			message: "Use Restart app in Environment, then enter your password.",
@@ -119,7 +115,6 @@ export function useEnvironmentMutations(
 		const result = await withDeadline(signal, requestSignal => importEnvironment(client, files, requestSignal), IMPORT_TIMEOUT_MS)
 		if (signal.aborted) return false
 		outcomes.onImported(result)
-		setRestartRequired(true)
 		const item = result.imported
 		showNotificationToast({
 			tone: "success", title: "Imported",
@@ -132,7 +127,6 @@ export function useEnvironmentMutations(
 		await withDeadline(signal, requestSignal => removeEnvironmentImport(client, name, requestSignal))
 		if (signal.aborted) return false
 		outcomes.onRemoved(name)
-		setRestartRequired(true)
 		showNotificationToast({ tone: "success", title: "Removed", message: `Removed ${name}. Takes effect after restart.` })
 		return true
 	}, failure("Remove failed", "Could not remove package"))
@@ -145,11 +139,9 @@ export function useEnvironmentMutations(
 		if (signal.aborted) return ""
 		outcomes.onReplaced(next)
 		// First-start setup loads the keys at once; later replacements apply after a restart.
-		if (!loaded) setRestartRequired(true)
 		showNotificationToast(loaded
 			? { tone: "success", title: "Keys loaded", message: "Your key file is in use." }
 			: { tone: "success", title: "Key file saved", message: "Use Restart app in Environment, then enter your password." })
-		if (loaded) outcomes.onKeysLoaded()
 		return null
 	}, cause => cause instanceof ApiError && cause.detail ? cause.detail
 		: cause instanceof Error ? cause.message : "Could not use the key file")
@@ -158,7 +150,6 @@ export function useEnvironmentMutations(
 		await withDeadline(signal, requestSignal => resetEnvironment(client, requestSignal))
 		if (signal.aborted) return false
 		outcomes.onReset()
-		setRestartRequired(true)
 		showNotificationToast({
 			tone: "success", title: "Environment reset",
 			message: "Saved settings and secrets deleted. Enter them again and restart the app.",
@@ -171,7 +162,6 @@ export function useEnvironmentMutations(
 		isWriting: () => writing.current,
 		version: () => version.current,
 		saving: operation === "save",
-		restartRequired,
 		save, importPackage, removeImport, replaceFile, reset,
 	}
 }

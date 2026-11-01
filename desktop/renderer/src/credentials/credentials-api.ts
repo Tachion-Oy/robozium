@@ -9,10 +9,14 @@ export interface CredentialStatus {
 	locked: boolean
 	/** A live start with no saved settings or .env: provider actions wait for keys. */
 	setupRequired: boolean
+	/** An environment change applies after a restart; until then no run starts and no dependency check runs. */
+	restartRequired: boolean
 }
 
-const CredentialStatus: z.ZodType<CredentialStatus> = z.object({ available: z.boolean(), locked: z.boolean(), setup_required: z.boolean() })
-	.transform(({ available, locked, setup_required: setupRequired }) => ({ available, locked, setupRequired }))
+const CredentialStatus: z.ZodType<CredentialStatus> = z.object({
+	available: z.boolean(), locked: z.boolean(), setup_required: z.boolean(), restart_required: z.boolean(),
+}).transform(({ available, locked, setup_required: setupRequired, restart_required: restartRequired }) =>
+	({ available, locked, setupRequired, restartRequired }))
 
 const parseCredentialStatus = (value: unknown): CredentialStatus =>
 	parsePayload(CredentialStatus, value, "The backend returned an invalid secrets status.")
