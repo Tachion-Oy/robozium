@@ -1,4 +1,4 @@
-FROM docker.io/library/python:3.13-slim-bookworm AS python-deps
+FROM docker.io/library/python:3.15-slim-bookworm AS python-deps
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -11,7 +11,7 @@ COPY src ./src
 RUN uv sync --locked --no-dev --no-editable
 
 
-FROM docker.io/library/python:3.13-slim-bookworm AS api
+FROM docker.io/library/python:3.15-slim-bookworm AS api
 
 ENV PATH=/app/.venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
