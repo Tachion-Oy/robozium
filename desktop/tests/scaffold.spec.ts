@@ -284,6 +284,19 @@ test("loads the built React script, stylesheet, and fonts through the local prot
 	await expect(modelTrigger(page)).toHaveCSS("font-family", /^"Source Code Pro"/)
 })
 
+test("starting and reading backend data causes no Content Security Policy violation", async ({ desktop: { page } }) => {
+	// A caught eval is reported only as an event, never on the console.
+	await page.addInitScript(() => {
+		const violations: string[] = []
+		Object.assign(window, { violations })
+		document.addEventListener("securitypolicyviolation", event => violations.push(event.violatedDirective))
+	})
+	await reloadApp(page)
+	// The model catalogue is validated before its selector enables.
+	await expect(modelTrigger(page)).toBeEnabled()
+	expect(await page.evaluate(() => (window as unknown as { violations: string[] }).violations)).toEqual([])
+})
+
 test("switches themes with the keyboard and mouse while retaining focus", async ({ desktop: { page } }) => {
 	const root = page.locator("html")
 	const toggle = page.getByRole("button", { name: "Toggle color theme" })

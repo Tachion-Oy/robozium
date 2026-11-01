@@ -4,22 +4,44 @@ import { z } from "zod"
 import { parsePayload, type DesktopApiClient } from "../api/client"
 import { CapabilityView } from "../capabilities/capabilities-api"
 
-const EnvironmentEntry = z.object({
-	name: z.string(),
+export interface EnvironmentEntry {
+	name: string
 	/** Null for a stored secret; saving null keeps its value. */
-	value: z.string().nullable(),
-	secret: z.boolean(),
-	configured: z.boolean(),
-	overridden: z.boolean(),
+	value: string | null
+	secret: boolean
+	configured: boolean
+	overridden: boolean
+}
+export interface EnvironmentSuggestion { name: string; value: string; secret: boolean; source: string }
+export interface EnvironmentImport { name: string; capabilities: CapabilityView[]; variables: string[]; active: boolean }
+export interface EnvironmentView {
+	revision: string
+	entries: EnvironmentEntry[]
+	overrides: string[]
+	requires_password: boolean
+	editable: boolean
+	suggestions: EnvironmentSuggestion[]
+	example_errors: string[]
+	imports: EnvironmentImport[]
+}
+export interface EnvironmentImportResult { imported: EnvironmentImport; suggestions: EnvironmentSuggestion[] }
+export interface EnvironmentEdit {
+	revision: string
+	entries: Pick<EnvironmentEntry, "name" | "value" | "secret">[]
+	/** Used only to encrypt this save; never kept by the app. */
+	password: string | null
+}
+
+const EnvironmentEntry: z.ZodType<EnvironmentEntry> = z.object({
+	name: z.string(), value: z.string().nullable(), secret: z.boolean(), configured: z.boolean(), overridden: z.boolean(),
 })
-export type EnvironmentEntry = z.infer<typeof EnvironmentEntry>
-const EnvironmentSuggestion = z.object({ name: z.string(), value: z.string(), secret: z.boolean(), source: z.string() })
-export type EnvironmentSuggestion = z.infer<typeof EnvironmentSuggestion>
-const EnvironmentImport = z.object({
+const EnvironmentSuggestion: z.ZodType<EnvironmentSuggestion> = z.object({
+	name: z.string(), value: z.string(), secret: z.boolean(), source: z.string(),
+})
+const EnvironmentImport: z.ZodType<EnvironmentImport> = z.object({
 	name: z.string(), capabilities: z.array(CapabilityView), variables: z.array(z.string()), active: z.boolean(),
 })
-export type EnvironmentImport = z.infer<typeof EnvironmentImport>
-const EnvironmentView = z.object({
+const EnvironmentView: z.ZodType<EnvironmentView> = z.object({
 	revision: z.string(),
 	entries: z.array(EnvironmentEntry),
 	overrides: z.array(z.string()),
@@ -29,15 +51,11 @@ const EnvironmentView = z.object({
 	example_errors: z.array(z.string()),
 	imports: z.array(EnvironmentImport),
 })
-export type EnvironmentView = z.infer<typeof EnvironmentView>
-const EnvironmentImportResult = z.object({ imported: EnvironmentImport, suggestions: z.array(EnvironmentSuggestion) })
-export type EnvironmentImportResult = z.infer<typeof EnvironmentImportResult>
-export interface EnvironmentEdit {
-	revision: string
-	entries: Pick<EnvironmentEntry, "name" | "value" | "secret">[]
-	/** Used only to encrypt this save; never kept by the app. */
-	password: string | null
-}
+const EnvironmentImportResult: z.ZodType<EnvironmentImportResult> = z.object({
+	imported: EnvironmentImport, suggestions: z.array(EnvironmentSuggestion),
+})
+const Saved = z.object({ status: z.literal("saved") })
+const Replaced = z.object({ status: z.literal("replaced"), loaded: z.boolean() })
 
 const parse = <T>(schema: z.ZodType<T>, value: unknown): T =>
 	parsePayload(schema, value, "The backend returned invalid environment settings.")
@@ -48,7 +66,7 @@ export async function getEnvironment(client: DesktopApiClient, signal: AbortSign
 
 /** Replaces every entry; a stale revision is refused with 409. */
 export async function saveEnvironment(client: DesktopApiClient, edit: EnvironmentEdit, signal: AbortSignal): Promise<void> {
-	parse(z.object({ status: z.literal("saved") }), await client.request("/credentials/environment", { method: "POST", json: edit, signal }))
+	parse(Saved, await client.request("/credentials/environment", { method: "POST", json: edit, signal }))
 }
 
 /** The backend may install a tool's dependencies first; it gives up after 180 seconds. */
@@ -74,7 +92,7 @@ export async function replaceEnvironmentFile(
 	form.append("revision", revision)
 	if (password) form.append("password", password)
 	const value = await client.request("/credentials/environment/file", { method: "POST", form, signal })
-	const { loaded } = parse(z.object({ status: z.literal("replaced"), loaded: z.boolean() }), value)
+	const { loaded } = parse(Replaced, value)
 	return { loaded }
 }
 

@@ -6,6 +6,9 @@ import type { CapabilitySelection } from "../capabilities/capabilities-api"
 import type { RunFrame, RunView } from "./run-contracts"
 import { parseCreatedRunId, parseRunEvent, parseRunSnapshot } from "./run-payloads"
 
+const ReplyAccepted = z.object({ ok: z.literal(true) })
+const Acknowledgement = z.object({ ok: z.boolean() })
+
 /** A null selection lets the backend use its default capabilities and reuse any active run. */
 export async function createRun(
 	client: DesktopApiClient, project: string, capabilities: CapabilitySelection | null, signal: AbortSignal,
@@ -33,11 +36,11 @@ export async function submitReply(
 	const value = await client.request(`/run/${encodeURIComponent(runId)}/reply`, {
 		method: "POST", json: { prompt_id: promptId, content }, signal,
 	})
-	parsePayload(z.object({ ok: z.literal(true) }), value, "The backend did not acknowledge the reply.")
+	parsePayload(ReplyAccepted, value, "The backend did not acknowledge the reply.")
 }
 
 /** Resolves false when the backend refuses, for example because the run already stopped. */
 export async function interruptRun(client: DesktopApiClient, runId: string, signal: AbortSignal): Promise<boolean> {
 	const value = await client.request(`/run/${encodeURIComponent(runId)}/interrupt`, { method: "POST", signal })
-	return parsePayload(z.object({ ok: z.boolean() }), value, "The backend returned an invalid interruption acknowledgement.").ok
+	return parsePayload(Acknowledgement, value, "The backend returned an invalid interruption acknowledgement.").ok
 }

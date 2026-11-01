@@ -1,27 +1,34 @@
 // Read and refresh the backend's dependency monitor records.
 // useDependencies owns the view's state; requests here have no local state.
 import { z } from "zod"
-import { parsePayload, type DesktopApiClient } from "../api/client"
+import { orNull, parsePayload, type DesktopApiClient } from "../api/client"
 
-const DependencyStatus = z.enum(["pending", "available", "unavailable"])
-export type DependencyStatus = z.infer<typeof DependencyStatus>
-/** Absent and null both mean the monitor has no value yet. */
-const unknownAs = <T>(schema: z.ZodType<T>) => schema.nullish().transform(value => value ?? null)
 // Kinds and reasons stay open for new values.
-const DependencyRecord = z.object({
+export type DependencyStatus = "pending" | "available" | "unavailable"
+export interface DependencyRecord {
+	dependency_id: string
+	kind: string
+	redacted_metadata: Record<string, string>
+	status: DependencyStatus
+	checked_at: string | null
+	latency_ms: number | null
+	reason_code: string | null
+	message: string | null
+}
+
+const DependencyRecords: z.ZodType<DependencyRecord[]> = z.array(z.object({
 	dependency_id: z.string(),
 	kind: z.string(),
 	redacted_metadata: z.record(z.string(), z.string()),
-	status: DependencyStatus,
-	checked_at: unknownAs(z.string()),
-	latency_ms: unknownAs(z.number()),
-	reason_code: unknownAs(z.string()),
-	message: unknownAs(z.string()),
-})
-export type DependencyRecord = z.infer<typeof DependencyRecord>
+	status: z.enum(["pending", "available", "unavailable"]),
+	checked_at: orNull(z.string()),
+	latency_ms: orNull(z.number()),
+	reason_code: orNull(z.string()),
+	message: orNull(z.string()),
+}))
 
 const parseRecords = (value: unknown): DependencyRecord[] =>
-	parsePayload(z.array(DependencyRecord), value, "The backend returned invalid dependency records.")
+	parsePayload(DependencyRecords, value, "The backend returned invalid dependency records.")
 
 export async function listDependencies(client: DesktopApiClient, signal: AbortSignal): Promise<DependencyRecord[]> {
 	return parseRecords(await client.request("/admin/dependencies", { signal }))

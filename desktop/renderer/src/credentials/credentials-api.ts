@@ -3,10 +3,15 @@
 import { z } from "zod"
 import { parsePayload, type DesktopApiClient } from "../api/client"
 
-const CredentialStatus = z.object({ available: z.boolean(), locked: z.boolean(), setup_required: z.boolean() })
+export interface CredentialStatus {
+	available: boolean
+	locked: boolean
+	/** A live start with no saved settings or .env: provider actions wait for keys. */
+	setupRequired: boolean
+}
+
+const CredentialStatus: z.ZodType<CredentialStatus> = z.object({ available: z.boolean(), locked: z.boolean(), setup_required: z.boolean() })
 	.transform(({ available, locked, setup_required: setupRequired }) => ({ available, locked, setupRequired }))
-/** `setupRequired` marks a live start with no saved settings or .env: provider actions wait for keys. */
-export type CredentialStatus = z.infer<typeof CredentialStatus>
 
 const parseCredentialStatus = (value: unknown): CredentialStatus =>
 	parsePayload(CredentialStatus, value, "The backend returned an invalid secrets status.")

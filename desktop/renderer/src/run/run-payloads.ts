@@ -1,7 +1,7 @@
 // Validate unknown backend payloads and normalize the run fields consumed by desktop.
 // Snapshot history and SSE share the same event decoder; message content stays uninterpreted.
 import { z } from "zod"
-import { parsePayload } from "../api/client"
+import { nonBlank, orNull, parsePayload } from "../api/client"
 import {
 	LIFECYCLE_DETAIL_KEYS, LifecycleStatus, MessageRole, RunEventType, RunLifecycleKind, RunStatus, RuntimeEventCategory, RuntimeEventKind,
 	type RunFrame, type RunView,
@@ -9,14 +9,13 @@ import {
 
 const parse = <T>(schema: z.ZodType<T>, value: unknown): T => parsePayload(schema, value, "The backend returned invalid run data.")
 
-const identifier = z.string().refine(text => text.trim() !== "")
 const sequence = z.number().int().min(0)
-const orNull = <T>(schema: z.ZodType<T>) => schema.nullish().transform(value => value ?? null)
+const Envelope = z.object({ type: z.string() })
 
 const MessageEvent = z.object({
 	type: z.literal(RunEventType.Message),
 	sequence,
-	message_id: orNull(identifier),
+	message_id: orNull(nonBlank),
 	payload: z.object({ role: z.enum(MessageRole), content: z.string(), message_kind: orNull(z.string()), caller: orNull(z.string()) }),
 }).transform(({ type, sequence, message_id, payload }) => ({
 	type, sequence, id: message_id, role: payload.role, content: payload.content, kind: payload.message_kind, caller: payload.caller,
@@ -25,7 +24,7 @@ const MessageEvent = z.object({
 const MessageDeltaEvent = z.object({
 	type: z.literal(RunEventType.MessageDelta),
 	sequence,
-	payload: z.object({ message_id: identifier, delta: z.string(), chunk_index: sequence, agent_name: identifier }),
+	payload: z.object({ message_id: nonBlank, delta: z.string(), chunk_index: sequence, agent_name: nonBlank }),
 }).transform(({ type, sequence, payload }) => ({
 	type, sequence, id: payload.message_id, delta: payload.delta, chunk: payload.chunk_index, agent: payload.agent_name,
 }))
@@ -48,12 +47,12 @@ const RunLifecycleEvent = z.object({
 }))
 
 const RuntimeEvent = z.object({ payload: z.object({ category: z.unknown(), kind: z.unknown() }) })
-const LlmRetryEvent = z.object({ sequence, payload: z.object({ agent_name: identifier }) })
+const LlmRetryEvent = z.object({ sequence, payload: z.object({ agent_name: nonBlank }) })
 	.transform(({ sequence, payload }) => ({ type: RunEventType.LlmRetry, sequence, agent: payload.agent_name }))
 
 /** Unconsumed event kinds are ignored; malformed consumed fields are errors. */
 export function parseRunEvent(value: unknown): RunFrame | null {
-	switch (parse(z.object({ type: z.string() }), value).type) {
+	switch (parse(Envelope, value).type) {
 		case RunEventType.Message: return parse(MessageEvent, value)
 		case RunEventType.MessageDelta: return parse(MessageDeltaEvent, value)
 		case RunEventType.ScriptOutput: return parse(ScriptOutputEvent, value)
@@ -68,12 +67,14 @@ export function parseRunEvent(value: unknown): RunFrame | null {
 	}
 }
 
+const CreatedRun = z.object({ run_id: nonBlank })
+
 export function parseCreatedRunId(value: unknown): string {
-	return parse(z.object({ run_id: identifier }), value).run_id
+	return parse(CreatedRun, value).run_id
 }
 
 const RunSnapshot = z.object({
-	project: identifier,
+	project: nonBlank,
 	status: z.enum(RunStatus),
 	message_trace: z.array(z.unknown()),
 	current_prompt_id: z.string().nullable(),
