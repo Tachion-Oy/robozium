@@ -111,19 +111,25 @@ test("an image label reads trimmed, and a missing image reads as none", async ()
 })
 
 test("containers are listed by label and inspected into mounts", async () => {
-	let listed = "aaa111\nbbb222\n"
+	let listed = "aaa111aaa111\nbbb222bbb222\n"
 	const { engine, calls } = fakePodman(args => {
 		if (args[0] === "info") return JSON.stringify(rootless)
 		if (args[0] === "ps") return listed
 		return JSON.stringify({ labels: null, running: true, mounts: [{ Source: "/hub", Destination: "/hub", RW: false }] })
 	})
 	await engine.prepare(call())
-	assert.deepEqual(await engine.list("fi.tachion.robozium.desktop.project", "robozium", call()), ["aaa111", "bbb222"])
+	assert.deepEqual(await engine.list("fi.tachion.robozium.desktop.project", "robozium", call()), ["aaa111aaa111", "bbb222bbb222"])
 	assert.deepEqual(calls.at(-1)!.args, ["ps", "--all", "--quiet", "--no-trunc", "--filter", "label=fi.tachion.robozium.desktop.project=robozium"])
 	listed = "\n"
 	assert.deepEqual(await engine.list("fi.tachion.robozium.desktop.project", "robozium", call()), [])
-	assert.deepEqual(await engine.inspect("aaa111", call()), { labels: {}, running: true, mounts: [{ source: "/hub", destination: "/hub", writable: false }] })
+	assert.deepEqual(await engine.inspect("aaa111aaa111", call()), { labels: {}, running: true, mounts: [{ source: "/hub", destination: "/hub", writable: false }] })
 	assert.deepEqual(calls.at(-1)!.args.slice(0, 2), ["container", "inspect"])
+})
+
+test("a listed ID that is not a container ID is refused", async () => {
+	const { engine } = fakePodman(args => args[0] === "info" ? JSON.stringify(rootless) : `${"a".repeat(64)}\n../escape\n`)
+	await engine.prepare(call())
+	await assert.rejects(engine.list("label", "value", call()), /Invalid container identity/)
 })
 
 test("the container runs rootless on the host's loopback, with its variables in a private file that is removed after", async t => {

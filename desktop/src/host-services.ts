@@ -3,7 +3,7 @@ import { closeSync, openSync, readFileSync, rmSync, writeFileSync } from "node:f
 import { setTimeout as delay } from "node:timers/promises"
 import type { HostServiceStatus } from "./bridge.d.ts"
 import type { BackendLayout, HostServiceLayout } from "./backend-layout.ts"
-import { findExecutable, runCommand } from "./host-command.ts"
+import { findExecutable, processGroups, runCommand, signalProcessGroup } from "./host-command.ts"
 import { endpointType } from "./host-endpoints.ts"
 import { hostProcessEnvironment, prepareHostEnvironment } from "./host-environment.ts"
 
@@ -31,14 +31,10 @@ async function stopLeftover(service: HostServiceLayout, timeout: number, signal:
 		pid = 0
 	}
 	if (pid > 0) {
-		try {
-			process.kill(-pid, "SIGTERM")
-		} catch {
-			// It exited meanwhile.
-		}
+		signalProcessGroup(pid, "SIGTERM")
 		const deadline = Date.now() + timeout
 		while (alive(pid) && Date.now() < deadline) await delay(50)
-		if (alive(pid)) process.kill(-pid, "SIGKILL")
+		if (alive(pid)) signalProcessGroup(pid, "SIGKILL")
 	}
 	rmSync(service.pidFile, { force: true })
 }
@@ -65,15 +61,6 @@ interface Supervised {
 }
 
 const MAX_RESTARTS = 2
-
-function signalGroup(child: ChildProcess, signal: NodeJS.Signals): void {
-	try {
-		// Each service leads its own process group, so its descendants stop with it.
-		if (child.pid) process.kill(-child.pid, signal)
-	} catch {
-		// The service already exited.
-	}
-}
 
 /** Run the layout's host services for this platform and mode beside the backend container.
  * A service's own failure is reported through `status()` and never stops the backend.
@@ -142,8 +129,8 @@ export class HostServices {
 			clearTimeout(entry.timer)
 			const { child, exited } = entry
 			if (!child || !exited) return
-			signalGroup(child, "SIGTERM")
-			const force = setTimeout(() => signalGroup(child, "SIGKILL"), this.options.stopTimeout ?? 10_000)
+			signalProcessGroup(child.pid, "SIGTERM")
+			const force = setTimeout(() => signalProcessGroup(child.pid, "SIGKILL"), this.options.stopTimeout ?? 10_000)
 			try {
 				await exited
 			} finally {
@@ -169,7 +156,8 @@ export class HostServices {
 			let child: ChildProcess
 			try {
 				child = spawn(service.executable, service.arguments, {
-					cwd: entry.cwd, env: entry.env, detached: true, stdio: ["ignore", output, output],
+					// Each service leads its own process group, so its descendants stop with it.
+					cwd: entry.cwd, env: entry.env, detached: processGroups, stdio: ["ignore", output, output],
 				})
 			} finally {
 				closeSync(output)
@@ -195,7 +183,7 @@ export class HostServices {
 				if (Date.now() >= deadline) {
 					this.update(service.name, "failed", `Did not start answering. See ${service.log}.`)
 					entry.restarts = MAX_RESTARTS
-					signalGroup(child, "SIGTERM")
+					signalProcessGroup(child.pid, "SIGTERM")
 					return
 				}
 				await delay(100, undefined, { signal })

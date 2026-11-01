@@ -29,6 +29,20 @@ export function findExecutable(name: string): string | undefined {
 	}
 }
 
+/** Whether a spawned command leads its own process group, so stopping it stops its descendants; Windows has none. */
+export const processGroups = process.platform !== "win32"
+
+/** Signal a process, and every descendant in its group where the platform has process groups. */
+export function signalProcessGroup(pid: number | undefined, signal: NodeJS.Signals): void {
+	if (!pid) return
+	try {
+		// A negative PID signals the whole group.
+		process.kill(processGroups ? -pid : pid, signal)
+	} catch {
+		// The process already exited.
+	}
+}
+
 export interface CommandOptions {
 	cwd: string
 	env: NodeJS.ProcessEnv
@@ -50,7 +64,7 @@ export function runCommand(executable: string, args: string[], options: CommandO
 			cwd: options.cwd,
 			env: options.env,
 			shell: false,
-			detached: process.platform === "linux",
+			detached: processGroups,
 			stdio: ["ignore", "pipe", "pipe"],
 		})
 		child.stdout.setEncoding("utf8")
@@ -60,18 +74,7 @@ export function runCommand(executable: string, args: string[], options: CommandO
 		let failure: Error | undefined
 		let forceKillTimer: NodeJS.Timeout | undefined
 
-		const sendSignal = (signal: NodeJS.Signals) => {
-			try {
-				if (process.platform === "linux" && child.pid) {
-					// A negative PID signals the whole group, including the command's descendants.
-					process.kill(-child.pid, signal)
-				} else {
-					child.kill(signal)
-				}
-			} catch {
-				// The process already exited.
-			}
-		}
+		const sendSignal = (signal: NodeJS.Signals) => signalProcessGroup(child.pid, signal)
 
 		const terminate = (message: string) => {
 			if (failure) {

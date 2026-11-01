@@ -1,6 +1,7 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme, protocol, screen, shell, type IpcMainInvokeEvent } from "electron"
 import { mkdirSync } from "node:fs"
 import { BackendController } from "./backend-controller.ts"
+import { platformEngine } from "./platform-engine.ts"
 import { backendUrl } from "./backend-url.ts"
 import { registerRendererProtocol, rendererUrl } from "./renderer-protocol.ts"
 import { MessageLogWindow } from "./message-log-window.ts"
@@ -61,7 +62,7 @@ async function start(): Promise<void> {
 	if (givenBackend === null) {
 		backend = new BackendController({
 			profile, mode, port: process.env.ROBOZIUM_DESKTOP_API_PORT,
-			source, hubFolder,
+			source, hubFolder, engine: platformEngine(),
 		})
 		connection = backend.connection()
 	} else connection = { baseUrl: givenBackend }
