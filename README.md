@@ -216,9 +216,9 @@ application dependencies before the code is imported. Incompatible dependencies,
 invalid exports or duplicate capability names are rejected.
 
 An imported folder that fails to load at startup, for example an old folder
-without `robozium.json` or code that raises, is skipped and marked **Not
-loaded** with the reason; the app and other imports still start. Remove it in
-**Environment**. Packages in `local/tools/` and `local/skills/` are not
+without `robozium.json`, code that raises, or a capability named like a
+built-in after an update, is skipped and marked **Not loaded** with the
+reason; the app and other imports still start. Remove it in **Environment**. Packages in `local/tools/` and `local/skills/` are not
 imports: a broken one still stops startup.
 
 To update an import, select **Remove** next to it, import the new version,

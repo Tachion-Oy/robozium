@@ -406,3 +406,13 @@ def test_an_imported_folder_linked_from_elsewhere_is_reported(tmp_path):
     (tmp_path / "local/imports").mkdir(parents=True)
     (tmp_path / "local/imports/linked").symlink_to(outside)
     assert "must stay inside" in load_local_packages(tmp_path).broken["linked"]
+
+
+def test_an_imported_folder_that_names_a_built_in_is_skipped_at_startup(tmp_path):
+    _imported(tmp_path, "a_good", source=_source("good"))
+    _imported(tmp_path, "b_clash", source=_source("stop"))
+    hub = load_hub(config_file=write_config(tmp_path))
+    assert "conflicts with a built-in" in hub.local_packages.broken["b_clash"]
+    assert [cap.label.name for cap in hub.additional_capabilities] == ["good"]
+    names = {row["name"] for row in TestClient(create_app(deployment=hub)).get("/capabilities").json()}
+    assert "good" in names
