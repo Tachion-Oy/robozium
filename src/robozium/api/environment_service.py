@@ -39,7 +39,12 @@ from robozium.api.models import (
 from robozium.api.project_service import ProjectService
 from robozium.hub import environment as env
 from robozium.hub.application import Hub
-from robozium.hub.local import REPOSITORIES, inspect_import, local_root
+from robozium.hub.local import (
+    REPOSITORIES,
+    inspect_import,
+    local_root,
+    package_repository,
+)
 
 _COMMENTED_ASSIGNMENT = re.compile(r"\s*#\s*([A-Za-z_][A-Za-z0-9_]*[ \t]*=.*)")
 
@@ -63,8 +68,8 @@ class EnvironmentService:
         self._repositories = self._local / REPOSITORIES
         self._packages: dict[str, list[RepositoryPackage]] = {}
         for package, values in hub.local_packages.items():
-            if package.parent.parent == self._repositories:
-                self._packages.setdefault(package.parent.name, []).append(RepositoryPackage(
+            if (repository := package_repository(self._root, package)) is not None:
+                self._packages.setdefault(repository, []).append(RepositoryPackage(
                     name=package.name,
                     capabilities=[CapabilityView.model_validate(value.label) for value in values],
                     variables=[],

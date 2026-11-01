@@ -33,6 +33,12 @@ def local_root(config_dir: Path) -> Path:
     return (config_dir / "local").resolve()
 
 
+def package_repository(config_dir: Path, package: Path) -> str | None:
+    """The repository a loaded package came from, or None for skills and tools."""
+    parts = package.relative_to(local_root(config_dir)).parts
+    return parts[1] if parts[0] == REPOSITORIES else None
+
+
 def load_local_packages(config_dir: Path) -> dict[Path, tuple[Capability, ...]]:
     """Load packages from local/, retaining their paths.
 
