@@ -85,10 +85,13 @@ def test_config_relative_discovery_order_and_relative_imports_ignore_parent_code
     config = write_config(root)
     for path, label in (
         ("tools/z", "last"), ("tools/a", "middle"),
-        ("skills/z", "first"), ("imports/copied", "copied"),
+        ("skills/z", "first"), ("imports/copied/tools/inner", "copied"),
     ):
         package = _package(root, path, "from .implementation import CAPABILITY\n")
         (package / "implementation.py").write_text(_source(label))
+    (root / "local/imports/copied/robozium.json").write_text('{"tools": ["tools/inner"]}')
+    (root / "local/imports/copied/__init__.py").write_text("raise AssertionError('folder')\n")
+    (root / "local/imports/copied/tools/__init__.py").write_text("raise AssertionError('parent')\n")
     for parent in ("local", "local/tools", "local/skills"):
         (root / parent / "__init__.py").write_text("raise AssertionError('old registry')\n")
     _package(root, "tools/container/nested", "raise AssertionError('nested')\n")
@@ -330,3 +333,23 @@ def test_fresh_api_processes_rediscover_packages_and_preserve_saved_selections(t
     mock = _restart(config, "mock")
     assert mock["effective"]["added"] is False
     assert {"mock_information", "mock_guidance"} <= mock["effective"].keys()
+
+
+def test_an_imported_folder_without_a_catalog_stops_startup_with_its_name(tmp_path):
+    _package(tmp_path, "imports/legacy")
+    with pytest.raises(RuntimeError, match="legacy: robozium.json is missing"):
+        load_local_packages(tmp_path)
+
+
+def test_hidden_staging_folders_under_imports_are_not_loaded(tmp_path):
+    _package(tmp_path, "imports/.upload-1/imports/staged")
+    assert load_local_packages(tmp_path) == {}
+
+
+def test_an_imported_folder_linked_from_elsewhere_is_refused(tmp_path):
+    outside = _package(tmp_path / "outside", "imports/linked/tools/inner").parents[2]
+    (outside / "robozium.json").write_text('{"tools": ["tools/inner"]}')
+    (tmp_path / "local/imports").mkdir(parents=True)
+    (tmp_path / "local/imports/linked").symlink_to(outside)
+    with pytest.raises(RuntimeError, match="must stay inside"):
+        load_local_packages(tmp_path)
