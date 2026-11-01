@@ -3,7 +3,7 @@
 import os
 import re
 import shutil
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from hashlib import sha256
 from io import StringIO
 from keyword import iskeyword
@@ -38,7 +38,7 @@ from robozium.api.models import (
 from robozium.api.project_service import ProjectService
 from robozium.hub import environment as env
 from robozium.hub.application import Hub
-from robozium.hub.local import inspect_import
+from robozium.hub.local import CATALOG_FILE, Catalog, inspect_import, read_catalog
 
 _COMMENTED_ASSIGNMENT = re.compile(r"\s*#\s*([A-Za-z_][A-Za-z0-9_]*[ \t]*=.*)")
 
@@ -59,17 +59,20 @@ class EnvironmentService:
         self._path = credentials.path
         self._root = hub.settings.config_file.parent.resolve()
         self._destination = self._root / "local" / "imports"
-        self._imports = {
-            package.name: EnvironmentImport(
-                name=package.name,
-                capabilities=[
+        loaded: dict[str, list[CapabilityView]] = {}
+        for package, values in hub.local_packages.capabilities.items():
+            if package.is_relative_to(self._destination):
+                loaded.setdefault(package.relative_to(self._destination).parts[0], []).extend(
                     CapabilityView.model_validate(value.label) for value in values
-                ],
-                variables=[],
-                active=True,
+                )
+        self._imports = {
+            name: EnvironmentImport(
+                name=name, capabilities=capabilities, variables=[], active=True
             )
-            for package, values in hub.local_packages.items()
-            if package.parent == self._destination
+            for name, capabilities in loaded.items()
+        } | {
+            name: EnvironmentImport(name=name, capabilities=[], variables=[], error=error)
+            for name, error in hub.local_packages.broken.items()
         }
         # Labels of removed packages stay loaded until restart; re-imports may reuse them.
         self._removed_labels: set[str] = set()
@@ -119,6 +122,7 @@ class EnvironmentService:
                 raise ValueError("Environment file is too large")
             self._replace_settings(original, output)
             if not self._credentials.setup_required:
+                self._credentials.restart_required = True
                 return False
             self._credentials.load(edit.password)
             self._credentials.setup_required = False
@@ -151,6 +155,7 @@ class EnvironmentService:
                 )
             self._replace_settings(original, content)
             if not self._credentials.setup_required:
+                self._credentials.restart_required = True
                 return False
             self._credentials.load(password)
             self._credentials.setup_required = False
@@ -160,6 +165,7 @@ class EnvironmentService:
         """Discard saved settings only while runs and background work are stopped."""
         with self._projects.stopped_runs():
             self._credentials.reset()
+            self._credentials.restart_required = True
 
     def import_folder(
         self, files: Sequence[tuple[str, BinaryIO]]
@@ -181,8 +187,9 @@ class EnvironmentService:
                 # Reuse the startup loader's imports/<package> layout during validation.
                 stage = Path(temporary) / "imports" / name
                 self._copy_upload(paths, stage)
-                result = self._inspect_package(stage)
+                result = self._inspect_package(stage, paths)
                 stage.rename(destination)
+                self._credentials.restart_required = True
                 self._imports[name] = result.imported
                 self._removed_labels.difference_update(
                     cap.name for cap in result.imported.capabilities
@@ -202,6 +209,7 @@ class EnvironmentService:
                 raise ValueError("The imported folder must stay inside local/imports/")
             if destination.exists():
                 shutil.rmtree(destination)
+            self._credentials.restart_required = True
             del self._imports[name]
             if item.active:
                 self._removed_labels.update(cap.name for cap in item.capabilities)
@@ -278,9 +286,12 @@ class EnvironmentService:
         except (OSError, ValueError):
             errors.append("Could not read the application environment example")
         for item in self._imports.copy().values():
+            if item.error is not None:
+                imported.append(item)
+                continue
             try:
-                example = self._package_example(self._destination / item.name)
-                defaults = self._example_suggestions(example, item.name)
+                folder = self._destination / item.name
+                defaults = self._folder_suggestions(folder, read_catalog(folder))
                 suggestions.extend(defaults)
                 item = item.model_copy(
                     update={"variables": [entry.name for entry in defaults]}
@@ -401,25 +412,32 @@ class EnvironmentService:
             with target.open("xb") as stream:
                 shutil.copyfileobj(source, stream)
 
-    @staticmethod
-    def _package_example(package: Path) -> Path:
-        for name in ("env.example", ".env.example"):
-            path = package / name
-            if path.is_file():
-                return path
-        raise ValueError(
-            "The selected folder must contain env.example or .env.example at its root"
-        )
+    def _folder_suggestions(
+        self, folder: Path, catalog: Catalog
+    ) -> list[EnvironmentSuggestion]:
+        """Example settings from every file the folder's catalog lists; the first file to name a variable wins."""
+        suggestions: dict[str, EnvironmentSuggestion] = {}
+        for path in catalog.env:
+            for suggestion in self._example_suggestions(
+                folder.joinpath(*path.parts), folder.name
+            ):
+                suggestions.setdefault(suggestion.name, suggestion)
+        return list(suggestions.values())
 
-    def _inspect_package(self, package: Path) -> EnvironmentImportResult:
-        """Confirm root files and unique capability labels before committing a copy."""
-        if not (package / "__init__.py").is_file():
-            raise ValueError("The selected folder must contain __init__.py at its root")
-        suggestions = self._example_suggestions(
-            self._package_example(package), package.name
-        )
+    def _inspect_package(
+        self, folder: Path, uploaded: Iterable[PurePosixPath]
+    ) -> EnvironmentImportResult:
+        """Confirm the catalog, its packages and unique labels before committing a copy."""
+        catalog = read_catalog(folder)
+        listed = {PurePosixPath(CATALOG_FILE), *catalog.env}
+        for path in uploaded:
+            if path not in listed and not any(
+                parent in catalog.packages for parent in path.parents
+            ):
+                raise ValueError(f"{path} is not listed in {CATALOG_FILE}")
+        suggestions = self._folder_suggestions(folder, catalog)
         try:
-            discovered = inspect_import(self._root, package)
+            discovered = inspect_import(self._root, folder, catalog)
         except RuntimeError as exc:
             raise ValueError(str(exc)) from exc
         capabilities = [
@@ -436,7 +454,7 @@ class EnvironmentService:
                     f"A capability named {capability.name!r} already exists; choose a unique label"
                 )
         imported = EnvironmentImport(
-            name=package.name,
+            name=folder.name,
             capabilities=capabilities,
             variables=[entry.name for entry in suggestions],
         )

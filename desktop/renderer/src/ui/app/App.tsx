@@ -83,6 +83,8 @@ export function App({ client, connected, covered, backend }: AppProps) {
 	const status = session?.run.unavailable ? "Run unavailable" : session ? runLabels[session.run.status] : "Awaiting input"
 	// A live start without keys locks the HUD on the guide and Environment.
 	const setupRequired = Boolean(credentials.status?.setupRequired)
+	// A change that applies after a restart locks the HUD on Environment until Restart app.
+	const restartRequired = Boolean(credentials.status?.restartRequired)
 	// As in the reference, a run that ends or goes missing leaves Current Run for the overview.
 	const presentation = resolveHudPresentation({
 		hasRun: session !== null,
@@ -91,6 +93,7 @@ export function App({ client, connected, covered, backend }: AppProps) {
 		selectedScreen: navigation.screen,
 		launch: navigation.launch,
 		setupRequired,
+		restartRequired,
 	})
 	const screen = presentation.screen
 	// Current Run shows and switches its live run's model; other screens set the default.
@@ -104,8 +107,8 @@ export function App({ client, connected, covered, backend }: AppProps) {
 		onImported: result => environmentDraft.imported(result),
 		onRemoved: name => environmentDraft.removed(name),
 		onReset: () => environmentDraft.reset(),
-		// Keys that load without a restart end setup. A write in Environment never changes the screen.
-		onKeysLoaded: credentials.refresh,
+		// Keys that load end setup; a change that needs a restart locks the HUD. A write never changes the screen.
+		onSettled: credentials.refresh,
 	})
 	const environmentDraft = useEnvironmentDraft(client, screen === "environment", environmentMutations)
 	const hubFolder = useHubFolder()
@@ -152,7 +155,7 @@ export function App({ client, connected, covered, backend }: AppProps) {
 			case "dependencies":
 				return <DependencyPanel dependencies={dependencies} />
 			case "environment":
-				return <EnvironmentPanel draft={environmentDraft} mutations={environmentMutations} hub={hubFolder} onRestart={backend.restartApp} onManageBackend={backend.manage} />
+				return <EnvironmentPanel draft={environmentDraft} mutations={environmentMutations} hub={hubFolder} restartRequired={restartRequired} onRestart={backend.restartApp} onManageBackend={backend.manage} />
 		}
 	}
 

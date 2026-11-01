@@ -63,11 +63,13 @@ export function useCredentials(client: DesktopApiClient, connected: boolean, vis
 	useEffect(() => {
 		if (connected) refresh()
 	}, [connected, refresh])
+	// Secrets saved while a restart is pending load only after it, so the prompt waits for it.
+	const unlockable = Boolean(status?.locked && !status.restartRequired)
 	useEffect(() => {
-		if (!visible || !status?.locked || askedAtStart.current) return
+		if (!visible || !unlockable || askedAtStart.current) return
 		askedAtStart.current = true
 		void prompt()
-	}, [visible, status?.locked, prompt])
+	}, [visible, unlockable, prompt])
 
 	const unlock = async (password: string) => {
 		if (pending.current) return false

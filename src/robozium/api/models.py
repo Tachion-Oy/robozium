@@ -54,6 +54,7 @@ class CredentialStatus(BaseModel):
     locked: bool
     removable: bool
     setup_required: bool
+    restart_required: bool
 
 
 class EnvironmentEntry(BaseModel):
@@ -80,6 +81,8 @@ class EnvironmentImport(BaseModel):
     capabilities: list[CapabilityView]
     variables: list[str]
     active: bool = False
+    # Why the folder did not load at startup; it is skipped until removed.
+    error: str | None = None
 
 
 class EnvironmentView(BaseModel):

@@ -54,7 +54,7 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch, source_kind
     client = TestClient(create_app(deployment=load_hub(start=tmp_path)))
 
     status = client.get("/credentials")
-    assert status.json() == {"available": True, "locked": True, "removable": False, "setup_required": False}
+    assert status.json() == {"available": True, "locked": True, "removable": False, "setup_required": False, "restart_required": False}
     assert status.headers["cache-control"] == "no-store"
     blocked = [
         client.post("/run/create", json={"project": "demo"}),
@@ -78,7 +78,7 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch, source_kind
 
     response = client.post("/credentials/unlock", json={"password": "test-password"})
     assert response.status_code == 200
-    assert response.json() == {"available": True, "locked": False, "removable": True, "setup_required": False}
+    assert response.json() == {"available": True, "locked": False, "removable": True, "setup_required": False, "restart_required": False}
     assert response.headers["cache-control"] == "no-store"
     assert "test-password" not in response.text
     assert "first-synthetic" not in response.text
@@ -91,7 +91,7 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch, source_kind
     assert client.get("/credentials").json()["removable"] is True
     cleared = client.post("/credentials/clear")
     assert cleared.status_code == 200
-    assert cleared.json() == {"available": True, "locked": True, "removable": False, "setup_required": False}
+    assert cleared.json() == {"available": True, "locked": True, "removable": False, "setup_required": False, "restart_required": False}
     assert os.environ.get("TEST_UNLOCK_FIRST_API_KEY") == original["TEST_UNLOCK_FIRST_API_KEY"]
     assert client.post("/run/create", json={"project": "demo"}).status_code == 423
     assert (
@@ -108,7 +108,7 @@ def test_unlock_encrypted_keys_and_guard_runs(tmp_path, monkeypatch, source_kind
         assert client.get("/credentials").json()["removable"] is True
         cleared = client.post("/credentials/clear")
         assert cleared.status_code == 200
-        assert cleared.json() == {"available": True, "locked": True, "removable": False, "setup_required": False}
+        assert cleared.json() == {"available": True, "locked": True, "removable": False, "setup_required": False, "restart_required": False}
     assert cleared.headers["cache-control"] == "no-store"
     assert os.environ.get("TEST_UNLOCK_FIRST_API_KEY") == original["TEST_UNLOCK_FIRST_API_KEY"]
     assert os.environ.get("TEST_UNLOCK_SECOND_API_KEY") == original["TEST_UNLOCK_SECOND_API_KEY"]
@@ -134,6 +134,7 @@ def test_plaintext_only_keys_never_offer_control(tmp_path, monkeypatch):
         "locked": False,
         "removable": False,
         "setup_required": False,
+        "restart_required": False,
     }
     assert client.post("/credentials/clear").status_code == 200
     assert os.environ["TEST_PLAINTEXT_API_KEY"] == "synthetic"
@@ -148,7 +149,7 @@ def test_empty_selected_secret_can_be_unlocked_and_cleared(tmp_path, monkeypatch
     monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(encrypted))
     client = TestClient(create_app(deployment=load_hub(start=tmp_path)))
     response = client.post("/credentials/unlock", json={"password": "synthetic-password"})
-    assert response.json() == {"available": True, "locked": False, "removable": True, "setup_required": False}
+    assert response.json() == {"available": True, "locked": False, "removable": True, "setup_required": False, "restart_required": False}
     assert os.environ["TEST_ONLY_PASSWORD"] == ""
     assert client.post("/credentials/clear").json()["locked"] is True
     assert "TEST_ONLY_PASSWORD" not in os.environ
@@ -212,6 +213,7 @@ def test_without_encrypted_file_hides_unlock(tmp_path, monkeypatch):
         "locked": False,
         "removable": False,
         "setup_required": False,
+        "restart_required": False,
     }
     assert client.post("/credentials/unlock", json={"password": "x"}).status_code == 404
 
@@ -281,6 +283,7 @@ def test_first_setup_save_loads_keys_without_restart(tmp_path, monkeypatch, secr
         "locked": False,
         "removable": secret,
         "setup_required": False,
+        "restart_required": False,
     }
     assert client.post("/run/create", json={"project": "demo"}).status_code != 423
     # Clearing forgets keys this process loaded, as after an unlock.
@@ -318,6 +321,7 @@ def test_first_setup_key_file_loads_keys_without_restart(tmp_path, monkeypatch):
         "locked": False,
         "removable": True,
         "setup_required": False,
+        "restart_required": False,
     }
     assert client.post("/run/create", json={"project": "demo"}).status_code != 423
 

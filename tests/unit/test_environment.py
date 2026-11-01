@@ -15,17 +15,43 @@ from robozium.api.app import create_app
 from robozium.hub.utils import load_hub
 
 URL = "/credentials/environment"
-SOURCE = """from roboz.deployment import Capability, ToolLabel, SkillLabel
+TOOL = """from roboz.deployment import Capability, ToolLabel
 from roboz.tools import stop
 from .nested import NAME
 TOOLS = Capability(label=ToolLabel(NAME, selectable=True), value=stop)
 ALIAS = TOOLS
+"""
+SKILL = """from roboz.deployment import Capability, SkillLabel
 class Guide(Capability):
     def __init__(self):
         super().__init__(label=SkillLabel('actual_guide', selectable=True))
     def build(self, agent, pipe):
         raise AssertionError('discovery must not build capabilities')
 """
+
+
+def catalog(tools=("tools/actual",), skills=("skills/guide",), env=("env.example",)):
+    return json.dumps({"tools": list(tools), "skills": list(skills), "env": list(env)})
+
+
+FOLDER = {
+    "robozium.json": catalog(),
+    "tools/actual/__init__.py": TOOL,
+    "tools/actual/nested/__init__.py": "NAME = 'actual_tool'\n",
+    "tools/actual/nested/resource.bin": b"\x00\xff\x01",
+    "tools/actual/.env": "PRIVATE=not-a-suggestion\n",
+    "skills/guide/__init__.py": SKILL,
+    "env.example": "SERVICE_TOKEN=\n# HOST=localhost\n",
+}
+
+
+def tool(source, env="", **extra):
+    """A folder whose catalog lists one tool package and one example settings file."""
+    return {
+        "robozium.json": catalog(tools=["pkg"], skills=[]),
+        "pkg/__init__.py": source,
+        "env.example": env,
+    } | extra
 
 
 @pytest.fixture
@@ -36,17 +62,7 @@ def client(tmp_path, monkeypatch):
 
 
 def upload(client, files=None, name="bundle"):
-    content = (
-        {
-            "__init__.py": SOURCE,
-            "env.example": "SERVICE_TOKEN=\n# HOST=localhost\n",
-            "nested/__init__.py": "NAME = 'actual_tool'\n",
-            "nested/resource.bin": b"\x00\xff\x01",
-            ".env": "PRIVATE=not-a-suggestion\n",
-        }
-        if files is None
-        else files
-    )
+    content = FOLDER if files is None else files
     return client.post(
         URL + "/import",
         files=[
@@ -98,10 +114,10 @@ def test_import_confirms_actual_names_and_copies_entire_subtree_before_restart(
     assert imported["active"] is False
     assert imported["variables"] == ["SERVICE_TOKEN", "HOST"]
     assert (
-        tmp_path / "local/imports/bundle/nested/resource.bin"
+        tmp_path / "local/imports/bundle/tools/actual/nested/resource.bin"
     ).read_bytes() == b"\x00\xff\x01"
     assert (
-        tmp_path / "local/imports/bundle/.env"
+        tmp_path / "local/imports/bundle/tools/actual/.env"
     ).read_text() == "PRIVATE=not-a-suggestion\n"
     view = client.get(URL).json()
     assert view["imports"] == [imported]
@@ -142,29 +158,41 @@ def test_restart_loads_copied_capabilities_and_recovers_confirmation(
 @pytest.mark.parametrize(
     "files, error",
     [
-        ({"env.example": ""}, "__init__.py"),
-        ({"__init__.py": SOURCE, "nested/env.example": ""}, "at its root"),
+        ({"pkg/__init__.py": TOOL}, "robozium.json is missing"),
+        ({"robozium.json": "{", "pkg/__init__.py": ""}, "not valid JSON"),
+        ({"robozium.json": '{"other": []}'}, "only"),
+        ({"robozium.json": '{"tools": "pkg"}'}, "list of paths"),
+        ({"robozium.json": '{"tools": []}'}, "lists no tools or skills"),
+        ({"robozium.json": '{"tools": ["../pkg"]}'}, "relative path inside"),
+        ({"robozium.json": '{"tools": ["/pkg"]}'}, "relative path inside"),
+        ({"robozium.json": '{"tools": ["pkg/"]}'}, "relative path inside"),
+        ({"robozium.json": '{"tools": ["my-pkg"]}', "my-pkg/__init__.py": ""}, "valid Python package path"),
+        ({"robozium.json": '{"tools": ["pkg"], "skills": ["pkg"]}', "pkg/__init__.py": ""}, "listed twice"),
+        ({"robozium.json": '{"tools": ["pkg", "pkg/inner"]}', "pkg/__init__.py": "", "pkg/inner/__init__.py": ""}, "inside another listed package"),
+        ({"robozium.json": '{"tools": ["pkg"]}', "pkg/helper.py": ""}, "package pkg"),
+        (tool(TOOL) | {"robozium.json": catalog(tools=["pkg"], skills=[], env=["missing.example"])}, "missing.example"),
+        (tool(TOOL, **{"stray.txt": ""}), "stray.txt is not listed"),
         (
-            {"__init__.py": "CAPABILITY = None", "env.example": ""},
-            "Capability instance",
+            tool(TOOL, **{".env": "TOKEN=real"}) | {"robozium.json": catalog(tools=["pkg"], skills=[], env=[".env"])},
+            "must be named env.example or .env.example",
         ),
         (
-            {
-                "__init__.py": "from roboz.deployment import Capability, ToolLabel\nCAPABILITY = Capability(label=ToolLabel('unbound'))",
-                "env.example": "",
-            },
+            tool(TOOL) | {"robozium.json": catalog(tools=["pkg"], skills=[], env=["env.example", "env.example"])},
+            "env.example is listed twice",
+        ),
+        (tool(SKILL), "listed under tools in robozium.json but exports skill 'actual_guide'"),
+        (tool("CAPABILITY = None"), "Capability instance"),
+        (
+            tool("from roboz.deployment import Capability, ToolLabel\nCAPABILITY = Capability(label=ToolLabel('unbound'))"),
             "must implement build",
         ),
-        ({"__init__.py": "broken python!", "env.example": ""}, "__init__.py"),
-        (
-            {"__init__.py": "import nonexistent_dependency", "env.example": ""},
-            "nonexistent_dependency",
-        ),
-        ({"__init__.py": SOURCE, "env.example": "KEY=1\nKEY=2"}, "duplicate dotenv"),
+        (tool("broken python!"), "__init__.py"),
+        (tool("import nonexistent_dependency"), "nonexistent_dependency"),
+        (tool("", env="KEY=1\nKEY=2"), "duplicate dotenv"),
         ({"../outside": "escape"}, "relative path"),
         ({"nested": "file", "nested/child.py": ""}, "both a file and a directory"),
         ({"nested//child.py": ""}, "relative path"),
-        ({"__init__.py": SOURCE, "env.example": b"\xffprivate-value"}, "must be UTF-8"),
+        (tool("", env=b"\xffprivate-value"), "must be UTF-8"),
     ],
 )
 def test_invalid_import_never_commits_or_claims_success(client, tmp_path, files, error):
@@ -180,12 +208,12 @@ def test_existing_folder_and_duplicate_labels_preserve_committed_package(
     client, tmp_path
 ):
     assert upload(client).status_code == 200
-    original = (tmp_path / "local/imports/bundle/__init__.py").read_bytes()
+    original = (tmp_path / "local/imports/bundle/robozium.json").read_bytes()
     assert upload(client).status_code == 409
     response = upload(client, name="another")
     assert response.status_code == 400 and "actual_tool" in response.text
     assert not (tmp_path / "local/imports/another").exists()
-    assert (tmp_path / "local/imports/bundle/__init__.py").read_bytes() == original
+    assert (tmp_path / "local/imports/bundle/robozium.json").read_bytes() == original
 
 
 def test_remove_deletes_the_copy_and_allows_reimport_before_restart(client, tmp_path):
@@ -196,15 +224,18 @@ def test_remove_deletes_the_copy_and_allows_reimport_before_restart(client, tmp_
     assert not (tmp_path / "local/imports/bundle").exists()
     assert client.get(URL).json()["imports"] == []
     assert upload(client).status_code == 200
-    assert (tmp_path / "local/imports/bundle/__init__.py").is_file()
+    assert (tmp_path / "local/imports/bundle/robozium.json").is_file()
 
 
 def test_removing_a_loaded_package_frees_its_labels_for_reimport(tmp_path, monkeypatch):
-    package = tmp_path / "local/imports/bundle"
-    (package / "nested").mkdir(parents=True)
-    (package / "__init__.py").write_text(SOURCE)
-    (package / "env.example").write_text("SERVICE_TOKEN=\n")
-    (package / "nested/__init__.py").write_text("NAME = 'actual_tool'\n")
+    folder = tmp_path / "local/imports/bundle"
+    for relative, content in FOLDER.items():
+        (folder / relative).parent.mkdir(parents=True, exist_ok=True)
+        (folder / relative).write_bytes(
+            content if isinstance(content, bytes) else content.encode()
+        )
+    # Folders above a listed package are namespaces; their __init__.py never runs.
+    (folder / "tools/__init__.py").write_text("raise AssertionError('executed')\n")
     write_config(tmp_path)
     monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(tmp_path / ".env.encrypt"))
     client = TestClient(create_app(deployment=load_hub(start=tmp_path)))
@@ -212,14 +243,14 @@ def test_removing_a_loaded_package_frees_its_labels_for_reimport(tmp_path, monke
     assert upload(client).status_code == 409
     assert client.delete(URL + "/imports/bundle").status_code == 200
     assert upload(client, name="replacement").status_code == 200
-    assert (tmp_path / "local/imports/replacement/__init__.py").is_file()
+    assert (tmp_path / "local/imports/replacement/robozium.json").is_file()
 
 
 @pytest.mark.parametrize("name", ["missing", "%2E%2E", "bundle%2Fnested"])
 def test_remove_rejects_unknown_names_without_touching_imports(client, tmp_path, name):
     assert upload(client).status_code == 200
     assert client.delete(f"{URL}/imports/{name}").status_code in (404, 405)
-    assert (tmp_path / "local/imports/bundle/nested/__init__.py").is_file()
+    assert (tmp_path / "local/imports/bundle/tools/actual/nested/__init__.py").is_file()
     assert client.get(URL).json()["imports"][0]["name"] == "bundle"
 
 
@@ -229,10 +260,12 @@ def test_remove_rejects_cross_origin_requests_and_queued_runs(client, tmp_path):
         URL + "/imports/bundle", headers={"Origin": "https://elsewhere.example"}
     )
     assert response.status_code == 403
+    # A run queued before the import; the import itself locks out new runs.
+    client.app.state.loaded_credentials.restart_required = False
     client.post("/projects", json={"name": "busy"})
-    client.post("/run/create", json={"project": "busy"})
+    assert client.post("/run/create", json={"project": "busy"}).status_code == 200
     assert client.delete(URL + "/imports/bundle").status_code == 409
-    assert (tmp_path / "local/imports/bundle/__init__.py").is_file()
+    assert (tmp_path / "local/imports/bundle/robozium.json").is_file()
 
 
 def test_dunder_all_supports_a_constructed_subclass_without_constructing_it_again(
@@ -246,9 +279,7 @@ class Configured(Capability):
 CAPABILITY = Configured('configured')
 __all__ = ['Configured', 'CAPABILITY']
 """
-    response = upload(
-        client, {"__init__.py": source, ".env.example": "VALUE='${LITERAL}'\n"}
-    )
+    response = upload(client, tool(source, env="VALUE='${LITERAL}'\n"))
     assert response.status_code == 200, response.text
     assert [cap["name"] for cap in response.json()["imported"]["capabilities"]] == [
         "configured"
@@ -372,7 +403,7 @@ def test_reset_deletes_unreadable_settings_without_password_and_preserves_import
     assert view["entries"] == []
     assert view["requires_password"] is False
     assert view["imports"][0]["name"] == "bundle"
-    assert (tmp_path / "local/imports/bundle/__init__.py").is_file()
+    assert (tmp_path / "local/imports/bundle/robozium.json").is_file()
     assert manual.read_text() == "MANUAL=keep\n"
     assert client.delete(URL).status_code == 200
 
@@ -409,6 +440,7 @@ def test_reset_forgets_cached_secrets_and_accepts_a_new_password(
         "locked": False,
         "removable": False,
         "setup_required": False,
+        "restart_required": True,
     }
     assert (
         save(
@@ -568,11 +600,7 @@ def test_dependency_timeout_leaves_import_retryable(client, tmp_path, monkeypatc
         patch.setattr("robozium.hub.local.subprocess.run", unavailable)
         response = upload(
             client,
-            {
-                "__init__.py": "",
-                "env.example": "",
-                "requirements.txt": "synthetic-package==1\n",
-            },
+            tool("", **{"pkg/requirements.txt": "synthetic-package==1\n"}),
         )
     assert response.status_code == 503
     assert "timed out" in response.text
@@ -655,3 +683,82 @@ def test_invalid_key_files_preserve_saved_settings(client, tmp_path, content, er
     assert response.status_code == 400
     assert response.json()["detail"] == error
     assert path.read_text() == "SETTING=original\n"
+
+
+def test_a_variable_in_two_example_files_is_suggested_once(client):
+    files = tool(TOOL, env="SHARED=first\n", **{
+        "pkg/nested/__init__.py": "NAME = 'shared_tool'\n",
+        "pkg/env.example": "SHARED=second\nOWN=\n",
+    }) | {"robozium.json": catalog(tools=["pkg"], skills=[], env=["env.example", "pkg/env.example"])}
+    response = upload(client, files)
+    assert response.status_code == 200, response.text
+    assert [(row["name"], row["value"]) for row in response.json()["suggestions"]] == [
+        ("SHARED", "first"), ("OWN", ""),
+    ]
+
+
+def test_a_broken_package_keeps_its_folder_example_settings(client, tmp_path):
+    assert upload(client).status_code == 200
+    (tmp_path / "local/imports/bundle/skills/guide/__init__.py").unlink()
+    view = client.get(URL).json()
+    assert view["example_errors"] == []
+    assert {row["name"] for row in view["suggestions"]} == {"SERVICE_TOKEN", "HOST"}
+
+
+def test_a_broken_import_is_reported_and_removable_while_others_load(tmp_path, monkeypatch):
+    for name, files in (("bundle", FOLDER), ("legacy", {"__init__.py": TOOL})):
+        for relative, content in files.items():
+            target = tmp_path / "local/imports" / name / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content if isinstance(content, bytes) else content.encode())
+    write_config(tmp_path)
+    monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(tmp_path / ".env.encrypt"))
+    client = TestClient(create_app(deployment=load_hub(start=tmp_path)))
+    assert {"actual_tool", "actual_guide"} <= {row["name"] for row in client.get("/capabilities").json()}
+    view = client.get(URL).json()
+    broken = next(item for item in view["imports"] if item["name"] == "legacy")
+    assert broken["capabilities"] == [] and broken["active"] is False
+    assert "robozium.json is missing" in broken["error"]
+    assert view["example_errors"] == []
+    assert client.delete(URL + "/imports/legacy").status_code == 200
+    assert not (tmp_path / "local/imports/legacy").exists()
+    assert [item["name"] for item in client.get(URL).json()["imports"]] == ["bundle"]
+
+
+def test_changes_that_apply_on_restart_lock_runs_and_dependency_checks(client, tmp_path):
+    client.post("/projects", json={"name": "idle"})
+    assert client.get("/credentials").json()["restart_required"] is False
+    assert upload(client).status_code == 200
+    assert client.get("/credentials").json()["restart_required"] is True
+    for path, body in (("/run/create", {"project": "idle"}), ("/admin/dependencies/check", None)):
+        response = client.post(path, json=body)
+        assert response.status_code == 423
+        assert response.json()["detail"] == "Restart the app to apply your environment changes"
+    assert client.get("/projects").json()[0]["run_id"] is None
+    # Settings and further imports stay available until the restart.
+    assert save(client, [{"name": "SETTING", "value": "value"}]).status_code == 200
+    other = tool(TOOL, **{"pkg/nested/__init__.py": "NAME = 'other_tool'\n"})
+    assert upload(client, other, name="other").status_code == 200
+    assert client.delete(URL + "/imports/bundle").status_code == 200
+
+
+@pytest.mark.parametrize("write", ["save", "key_file", "reset", "import", "remove"])
+def test_each_change_that_applies_on_restart_sets_the_lock(client, tmp_path, write):
+    if write == "remove":
+        assert upload(client).status_code == 200
+        client.app.state.loaded_credentials.restart_required = False
+    response = {
+        "save": lambda: save(client, [{"name": "SETTING", "value": "value"}]),
+        "key_file": lambda: replace_file(client, key_file({"TOKEN": "synthetic"})),
+        "reset": lambda: client.delete(URL),
+        "import": lambda: upload(client),
+        "remove": lambda: client.delete(URL + "/imports/bundle"),
+    }[write]()
+    assert response.status_code == 200, response.text
+    assert client.get("/credentials").json()["restart_required"] is True
+
+
+def test_a_refused_change_leaves_the_app_unlocked(client):
+    assert upload(client, {"env.example": ""}).status_code == 400
+    assert save(client, [{"name": "1BAD", "value": ""}]).status_code == 400
+    assert client.get("/credentials").json()["restart_required"] is False
