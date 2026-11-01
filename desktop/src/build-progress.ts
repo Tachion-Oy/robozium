@@ -1,10 +1,10 @@
 // Estimates how far a backend image build has come from Podman's plain build output.
 // Each step announces itself as `[2/2] STEP 4/14: RUN …`, writes its output as plain
-// lines, and ends when the next step, `[2/2] COMMIT …` or a `--> <id>` line follows;
-// `Successfully tagged …` ends the build. The Dockerfile gives every step's weight
-// before Podman announces it. The package installation takes most of a fresh build,
-// so its step advances with apt's own download, unpack and set-up counts. A base image
-// pull advances as its layers finish copying.
+// lines, and ends when the next step, `[2/2] COMMIT …` or a `--> <id>` line follows.
+// The Dockerfile gives every step's weight before Podman announces it. The package
+// installation takes most of a fresh build, so its step advances with apt's own
+// download, unpack and set-up counts. A base image pull advances as its layers finish
+// copying.
 
 interface Step {
 	weight: number
@@ -25,7 +25,8 @@ const QUICK_WEIGHT = 0.3
 // Instructions such as ENV or LABEL only record settings.
 const SETTING_WEIGHT = 0.05
 // Not measured: the slim Python base is about 45 MB, roughly 15 s on a typical
-// connection. A FROM step takes this weight only once it starts pulling.
+// connection. The first FROM of each base plans for a pull, so the total stays
+// fixed while layers arrive; a local base finishes it at once.
 const PULL_WEIGHT = 6
 
 const installsPackages = (instruction: string) => /^RUN\b.*\bapt-get install\b/.test(instruction)
@@ -41,6 +42,7 @@ function plannedStep(instruction: string): Step {
 /** Each stage's build steps, keyed as Podman numbers them: `stage/step`, both from 1. */
 function planSteps(dockerfile: string): Map<string, Step> {
 	const steps = new Map<string, Step>()
+	const bases = new Set<string>()
 	let stage = 0
 	let index = 0
 	// Continuation lines join into their instruction, so a long RUN reads as one.
@@ -53,7 +55,11 @@ function planSteps(dockerfile: string): Map<string, Step> {
 		}
 		if (stage === 0) continue
 		index++
-		steps.set(`${stage}/${index}`, plannedStep(instruction))
+		const step = plannedStep(instruction)
+		const base = /^FROM\s+(\S+)/i.exec(instruction)?.[1]
+		if (base && !bases.has(base)) step.weight = PULL_WEIGHT
+		if (base) bases.add(base)
+		steps.set(`${stage}/${index}`, step)
 	}
 	return steps
 }
@@ -62,7 +68,6 @@ const stepLine = /^\[(\d+)\/\d+\] STEP (\d+)\/\d+: (.+)$/
 const commitLine = /^\[\d+\/\d+\] COMMIT\b/
 const finishLine = /^--> [0-9a-f]+$/
 const blobLine = /^Copying blob (?:sha256:)?([0-9a-f]+)/
-const doneLine = /^Successfully tagged /
 
 /** Feed raw build output in arbitrary chunks; `fraction` only rises, from 0 to 1. */
 export class BuildProgress {
@@ -99,7 +104,7 @@ export class BuildProgress {
 			this.begin(this.exporting)
 			return
 		}
-		if (finishLine.test(line) || doneLine.test(line)) {
+		if (finishLine.test(line)) {
 			if (this.current) this.current.done = 1
 			return
 		}
@@ -139,7 +144,6 @@ export class BuildProgress {
 	/** Without a terminal, Podman names each layer once as it starts copying and again once it is done. */
 	private readLayer(step: Step, digest: string): void {
 		const layers = step.layers!
-		step.weight = PULL_WEIGHT
 		layers.set(digest, layers.has(digest))
 		const finished = [...layers.values()].filter(Boolean).length
 		step.done = Math.max(step.done, Math.min(0.99, 0.1 + 0.9 * finished / layers.size))

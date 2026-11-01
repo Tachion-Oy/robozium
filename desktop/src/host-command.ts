@@ -85,7 +85,7 @@ export function runCommand(executable: string, args: string[], options: CommandO
 
 		const handleAbort = () => terminate("Backend operation cancelled.")
 		const commandTimer = setTimeout(() => {
-			terminate(`${name} timed out. Check its installation and retry.`)
+			terminate(`${name} timed out. Check the desktop container log and retry.`)
 		}, options.timeout ?? 120_000)
 		options.signal.addEventListener("abort", handleAbort, { once: true })
 
