@@ -1,5 +1,6 @@
 """Repositories import every package their index lists, update all or none, and remove cleanly."""
 
+import io
 import json
 import os
 import subprocess
@@ -13,6 +14,7 @@ from fastapi.testclient import TestClient
 from robozium.api import repositories
 from robozium.api.app import create_app
 from robozium.api.environment_service import EnvironmentService
+from robozium.api.errors import RepositoryUnavailableError
 from robozium.api.repositories import Repository
 from robozium.hub import local
 from robozium.hub.utils import load_hub
@@ -264,8 +266,15 @@ def test_a_failed_add_keeps_label_state(client, hub, source, monkeypatch):
 
 
 BODY = "QUJD" * 35
-# Canonical form: 70 characters per line.
 KEY = f"-----BEGIN OPENSSH PRIVATE KEY-----\n{BODY[:70]}\n{BODY[70:]}\n-----END OPENSSH PRIVATE KEY-----\n"
+HOST_KEYS = "github.com ssh-ed25519 SYNTHETIC\n"
+FETCH_HOST_KEYS = Repository._known_hosts
+
+
+@pytest.fixture(autouse=True)
+def github_host_keys(monkeypatch):
+    """Stands in for GitHub's published host keys, so no test reaches the network."""
+    monkeypatch.setattr(Repository, "_known_hosts", staticmethod(lambda: HOST_KEYS))
 
 
 @pytest.fixture
@@ -297,7 +306,7 @@ def test_deploy_key_is_saved_encrypted_and_used_for_updates(client, hub, private
     view = client.get(URL).json()
     assert view["entries"] == []
     assert view["repositories"][0]["private"] is True
-    # Loaded at once in canonical lines, so Update needs no restart.
+    # Loaded at once with its line breaks restored, so Update needs no restart.
     assert os.environ["ROBOZIUM_DEPLOY_KEY_TOOLKIT"] == KEY
     assert client.post(URL + "/repositories/toolkit/update").status_code == 200
     monkeypatch.delenv("ROBOZIUM_DEPLOY_KEY_TOOLKIT")
@@ -325,11 +334,14 @@ def test_wrong_password_or_key_fetches_nothing(client, hub, private, monkeypatch
     assert not (hub / "local/repositories/toolkit").exists()
 
 
-def test_deploy_key_uses_ssh_with_pinned_github_host_keys(client, monkeypatch):
+def test_deploy_key_uses_ssh_with_github_host_keys(client, monkeypatch):
     seen = {}
 
     def fail(command, env, **kwargs):
-        seen.update(command=command, env=env, key=Path(env["GIT_SSH_COMMAND"].split()[-1]).read_text())
+        ssh = env["GIT_SSH_COMMAND"]
+        hosts = ssh.split("UserKnownHostsFile=")[1].split()[0]
+        seen.update(command=command, env=env, key=Path(ssh.split()[-1]).read_text(),
+                    hosts=Path(hosts).read_text())
         return subprocess.CompletedProcess(command, 128, "", "git@github.com: Permission denied (publickey).")
 
     monkeypatch.setattr(repositories.subprocess, "run", fail)
@@ -342,4 +354,25 @@ def test_deploy_key_uses_ssh_with_pinned_github_host_keys(client, monkeypatch):
     for option in ("-F /dev/null", "BatchMode=yes", "StrictHostKeyChecking=yes", "IdentitiesOnly=yes"):
         assert option in ssh
     assert seen["key"] == KEY
+    assert seen["hosts"] == HOST_KEYS
     assert not Path(ssh.split()[-1]).exists()
+
+
+def test_github_host_keys_come_from_its_meta_api(monkeypatch):
+    answer = io.BytesIO(json.dumps({"ssh_keys": ["ssh-ed25519 A", "ssh-rsa B"]}).encode())
+    requested = []
+
+    def meta(url, timeout):
+        requested.append(url)
+        return answer
+
+    monkeypatch.setattr(repositories, "urlopen", meta)
+    assert FETCH_HOST_KEYS() == "github.com ssh-ed25519 A\ngithub.com ssh-rsa B\n"
+    assert requested == ["https://api.github.com/meta"]
+
+    def offline(url, timeout):
+        raise OSError("offline")
+
+    monkeypatch.setattr(repositories, "urlopen", offline)
+    with pytest.raises(RepositoryUnavailableError, match="GitHub's host keys"):
+        FETCH_HOST_KEYS()

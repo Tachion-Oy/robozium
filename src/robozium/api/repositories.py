@@ -17,6 +17,7 @@ from keyword import iskeyword
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from urllib.parse import urlsplit
+from urllib.request import urlopen
 
 from robozium.api.errors import RepositoryUnavailableError
 from robozium.hub import environment as env
@@ -27,12 +28,8 @@ MAX_REPOSITORY_BYTES = 4 * env.MAX_PACKAGE_BYTES
 _TIMEOUT_S = 300
 # Options for every git command; tests add ones that reach local repositories.
 GIT_CONFIG = ["protocol.allow=never", "protocol.https.allow=always"]
-# https://api.github.com/meta "ssh_keys"; GitHub announces any change in advance.
-_KNOWN_HOSTS = """\
-github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
-github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
-github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=
-"""
+# GitHub publishes its SSH host keys here; HTTPS proves the answer comes from GitHub.
+_GITHUB_META = "https://api.github.com/meta"
 _PRIVATE_KEY = re.compile(r"-----BEGIN (OPENSSH|RSA|EC) PRIVATE KEY-----(.*?)-----END \1 PRIVATE KEY-----", re.S)
 
 
@@ -73,7 +70,7 @@ class Repository:
             checkout = home / "checkout"
             inside = (git, home, "-C", str(checkout))
             if self.key:
-                (home / "known_hosts").write_text(_KNOWN_HOSTS)
+                (home / "known_hosts").write_text(self._known_hosts())
                 (home / "deploy_key").touch(mode=0o600)
                 (home / "deploy_key").write_text(self.key)
             try:
@@ -133,6 +130,16 @@ class Repository:
             raise ValueError("Paste the whole private deploy key, including its BEGIN and END lines")
         label = f"{match[1]} PRIVATE KEY"
         return "\n".join([f"-----BEGIN {label}-----", *textwrap.wrap(body, 70), f"-----END {label}-----", ""])
+
+    @staticmethod
+    def _known_hosts() -> str:
+        """GitHub's current SSH host keys, so SSH accepts GitHub and nothing else."""
+        try:
+            with urlopen(_GITHUB_META, timeout=30) as response:
+                keys = json.load(response)["ssh_keys"]
+        except (OSError, ValueError, KeyError) as exc:
+            raise RepositoryUnavailableError("Could not read GitHub's host keys. Check the connection.") from exc
+        return "".join(f"github.com {key}\n" for key in keys)
 
     @staticmethod
     def _index(content: str) -> list[str]:
