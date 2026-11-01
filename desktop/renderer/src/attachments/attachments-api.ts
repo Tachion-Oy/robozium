@@ -1,7 +1,8 @@
 // Stage images for a run's next reply (`/run/{id}/files`) and address hub files.
 // The reply image draft owns the queue; requests here have no local state.
 import { z } from "zod"
-import { nonBlank, orNull, parsePayload, type DesktopApiClient } from "../api/client"
+import { type DesktopApiClient } from "../api/client"
+import { nonBlank, orNull, parsePayload } from "../api/payload"
 
 export interface RunAttachment {
 	id: string

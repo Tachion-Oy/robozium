@@ -1,7 +1,8 @@
 // Read and change whether encrypted secrets are loaded into the backend process.
 // useCredentials owns the status; requests here have no local state.
 import { z } from "zod"
-import { parsePayload, type DesktopApiClient } from "../api/client"
+import { type DesktopApiClient } from "../api/client"
+import { parsePayload } from "../api/payload"
 
 export interface CredentialStatus {
 	available: boolean

@@ -1,7 +1,8 @@
 // Read and replace the runtime's saved settings and secrets (`.env.encrypt`).
 // useEnvironmentDraft owns the view and its edits, useEnvironmentMutations the writes; requests here have no local state.
 import { z } from "zod"
-import { parsePayload, type DesktopApiClient } from "../api/client"
+import { type DesktopApiClient } from "../api/client"
+import { parsePayload } from "../api/payload"
 import { CapabilityView } from "../capabilities/capabilities-api"
 
 export interface EnvironmentEntry {

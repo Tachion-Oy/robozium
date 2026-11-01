@@ -1,7 +1,8 @@
 // Read the capability catalogue and a project's saved choices, and save new choices.
 // The launch command owns request lifetimes; requests here have no local state.
 import { z } from "zod"
-import { nonBlank, parsePayload, type DesktopApiClient } from "../api/client"
+import { type DesktopApiClient } from "../api/client"
+import { nonBlank, parsePayload } from "../api/payload"
 
 export type SkillLoading = "automatic" | "on_demand"
 export type CapabilitySelection = Record<string, boolean | SkillLoading>

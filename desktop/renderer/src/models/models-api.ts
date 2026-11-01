@@ -1,7 +1,8 @@
 // Read the model catalogue and validate acknowledgements of backend-default changes.
 // useModels owns confirmed selection; requests here have no local state.
 import { z } from "zod"
-import { ApiError, nonBlank, parsePayload, type DesktopApiClient } from "../api/client"
+import { ApiError, type DesktopApiClient } from "../api/client"
+import { nonBlank, parsePayload } from "../api/payload"
 
 export interface AvailableModel { model_id: string; label: string }
 export interface ModelSelection { models: AvailableModel[]; selected_model_id: string }

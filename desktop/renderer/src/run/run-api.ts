@@ -1,7 +1,8 @@
 // Typed operations for creating a run, reading its snapshot and following its event stream.
 // Payload validation lives in run-payloads; session code owns request lifetimes and reconciliation.
 import { z } from "zod"
-import { parsePayload, type DesktopApiClient } from "../api/client"
+import { type DesktopApiClient } from "../api/client"
+import { parsePayload } from "../api/payload"
 import type { CapabilitySelection } from "../capabilities/capabilities-api"
 import type { RunFrame, RunView } from "./run-contracts"
 import { parseCreatedRunId, parseRunEvent, parseRunSnapshot } from "./run-payloads"

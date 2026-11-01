@@ -1,7 +1,8 @@
 // Project requests and validation of the summaries returned by the backend.
 // Rows and their writes belong to useProjectQuery; this module has no React state.
 import { z } from "zod"
-import { nonBlank, orNull, parsePayload, type DesktopApiClient } from "../api/client"
+import { type DesktopApiClient } from "../api/client"
+import { nonBlank, orNull, parsePayload } from "../api/payload"
 
 // The backend owns status precedence; "opening" and "deleting" exist only as local overview marks.
 const ProjectSummaryStatus = z.enum(["running", "awaiting_user_input", "cancelling", "syncing", "dormant"])

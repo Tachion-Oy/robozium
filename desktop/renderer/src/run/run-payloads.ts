@@ -1,7 +1,7 @@
 // Validate unknown backend payloads and normalize the run fields consumed by desktop.
 // Snapshot history and SSE share the same event decoder; message content stays uninterpreted.
 import { z } from "zod"
-import { nonBlank, orNull, parsePayload } from "../api/client"
+import { nonBlank, orNull, parsePayload } from "../api/payload"
 import {
 	LIFECYCLE_DETAIL_KEYS, LifecycleStatus, MessageRole, RunEventType, RunLifecycleKind, RunStatus, RuntimeEventCategory, RuntimeEventKind,
 	type RunFrame, type RunView,

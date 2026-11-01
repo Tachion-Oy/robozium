@@ -1,7 +1,8 @@
 // Transcribe one recorded clip (`POST /transcribe`). useDictation owns recording
 // and the request's lifetime; this module has no local state.
 import { z } from "zod"
-import { parsePayload, type DesktopApiClient } from "../api/client"
+import { type DesktopApiClient } from "../api/client"
+import { parsePayload } from "../api/payload"
 
 const Transcription = z.object({ text: z.string() })
 

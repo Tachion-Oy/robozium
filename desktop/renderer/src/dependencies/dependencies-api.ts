@@ -1,7 +1,8 @@
 // Read and refresh the backend's dependency monitor records.
 // useDependencies owns the view's state; requests here have no local state.
 import { z } from "zod"
-import { orNull, parsePayload, type DesktopApiClient } from "../api/client"
+import { type DesktopApiClient } from "../api/client"
+import { orNull, parsePayload } from "../api/payload"
 
 // Kinds and reasons stay open for new values.
 export type DependencyStatus = "pending" | "available" | "unavailable"
