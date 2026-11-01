@@ -24,7 +24,7 @@ from roboz.shed.sandbox import Sandbox
 from robozium.api.projects import Project
 from robozium.hub import environment as env
 from robozium.hub.deployment import robozium
-from robozium.hub.local import load_local_packages
+from robozium.hub.local import LocalPackages, load_local_packages
 from robozium.hub.logging import HubLoggingConfig
 from robozium.hub.utils import slugify_project_name
 
@@ -119,9 +119,12 @@ class Hub:
             raise TypeError("deployment override must be callable")
         self.deployment = deployment
         self._validate_storage_paths(self.settings.sandbox, self.settings.logging)
-        self.local_packages = load_local_packages(settings.config_file.parent) if additional_capabilities is None else {}
+        self.local_packages = (
+            load_local_packages(settings.config_file.parent)
+            if additional_capabilities is None else LocalPackages({}, {})
+        )
         self.additional_capabilities = (
-            tuple(value for values in self.local_packages.values() for value in values)
+            tuple(value for values in self.local_packages.capabilities.values() for value in values)
             if additional_capabilities is None else tuple(additional_capabilities)
         )
 

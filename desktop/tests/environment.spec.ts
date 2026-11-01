@@ -212,7 +212,7 @@ test("importing a folder uploads the files its catalog lists under their relativ
 	await picker.setInputFiles(folder)
 	await expect(alert(page, "Import failed")).toContainText("already exists")
 	await expect(panel(page).getByLabel("Selected tool or skill folder")).toHaveValue("local_tool")
-	const imported = { name: "local_tool", active: false, variables: ["LOCAL_TOOL_KEY"],
+	const imported = { name: "local_tool", active: false, error: null, variables: ["LOCAL_TOOL_KEY"],
 		capabilities: [{ name: "local_tool", kind: "tool", selectable: true, loading: null }] }
 	let pending: ServerResponse | undefined
 	backend.handlers.set("POST /credentials/environment/import", response => { pending = response })
@@ -249,8 +249,27 @@ test("a folder without robozium.json is refused before anything is uploaded", as
 	expect(backend.requests.filter(request => request.path === "/credentials/environment/import")).toHaveLength(0)
 })
 
+test("an import that did not load shows why and can be removed", async ({ desktop: { page }, backend }) => {
+	const broken = { name: "old_tool", active: false, variables: [], capabilities: [],
+		error: "old_tool: robozium.json is missing at the folder root" }
+	let current = environment({ imports: [broken] })
+	backend.handlers.set("GET /credentials/environment", response => json(response, current))
+	backend.handlers.set("DELETE /credentials/environment/imports/old_tool", response => {
+		current = environment()
+		json(response, { status: "removed" })
+	})
+	await openEnvironment(page, backend)
+	const imports = panel(page).getByRole("region", { name: "Tools & skills" })
+	await expect(imports).toContainText("old_tool Not loaded")
+	await expect(imports).toContainText("robozium.json is missing at the folder root")
+	await expect(imports).not.toContainText("Available on next start")
+	await imports.getByRole("button", { name: "Remove old_tool" }).click()
+	await imports.getByRole("button", { name: "Confirm removing old_tool" }).click()
+	await expect(imports).toContainText("No imports yet.")
+})
+
 test("removing an import asks for confirmation, keeps it on failure, and asks for a restart", async ({ desktop: { page }, backend }) => {
-	const imported = { name: "local_tool", active: true, variables: [],
+	const imported = { name: "local_tool", active: true, error: null, variables: [],
 		capabilities: [{ name: "local_tool", kind: "tool", selectable: true, loading: null }] }
 	let current = environment({ imports: [imported] })
 	backend.handlers.set("GET /credentials/environment", response => json(response, current))

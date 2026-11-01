@@ -12,7 +12,14 @@ export interface EnvironmentEntry {
 	overridden: boolean
 }
 export interface EnvironmentSuggestion { name: string; value: string; secret: boolean; source: string }
-export interface EnvironmentImport { name: string; capabilities: CapabilityView[]; variables: string[]; active: boolean }
+export interface EnvironmentImport {
+	name: string
+	capabilities: CapabilityView[]
+	variables: string[]
+	active: boolean
+	/** Why the folder did not load at startup; it stays skipped until removed. */
+	error: string | null
+}
 export interface EnvironmentView {
 	revision: string
 	entries: EnvironmentEntry[]
@@ -77,6 +84,7 @@ function parseImport(value: unknown): EnvironmentImport {
 	return {
 		name: text(fields, "name"), capabilities: list(fields, "capabilities", parseCapability),
 		variables: list(fields, "variables", item => typeof item === "string" ? item : malformed()), active: flag(fields, "active"),
+		error: fields.error === null ? null : text(fields, "error"),
 	}
 }
 

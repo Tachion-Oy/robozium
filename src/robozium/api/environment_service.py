@@ -60,7 +60,7 @@ class EnvironmentService:
         self._root = hub.settings.config_file.parent.resolve()
         self._destination = self._root / "local" / "imports"
         loaded: dict[str, list[CapabilityView]] = {}
-        for package, values in hub.local_packages.items():
+        for package, values in hub.local_packages.capabilities.items():
             if package.is_relative_to(self._destination):
                 loaded.setdefault(package.relative_to(self._destination).parts[0], []).extend(
                     CapabilityView.model_validate(value.label) for value in values
@@ -70,6 +70,9 @@ class EnvironmentService:
                 name=name, capabilities=capabilities, variables=[], active=True
             )
             for name, capabilities in loaded.items()
+        } | {
+            name: EnvironmentImport(name=name, capabilities=[], variables=[], error=error)
+            for name, error in hub.local_packages.broken.items()
         }
         # Labels of removed packages stay loaded until restart; re-imports may reuse them.
         self._removed_labels: set[str] = set()
@@ -278,6 +281,9 @@ class EnvironmentService:
         except (OSError, ValueError):
             errors.append("Could not read the application environment example")
         for item in self._imports.copy().values():
+            if item.error is not None:
+                imported.append(item)
+                continue
             try:
                 folder = self._destination / item.name
                 defaults = self._folder_suggestions(folder, read_catalog(folder))
