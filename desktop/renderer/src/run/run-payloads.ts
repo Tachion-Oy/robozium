@@ -1,107 +1,67 @@
 // Validate unknown backend payloads and normalize the run fields consumed by desktop.
 // Snapshot history and SSE share the same event decoder; message content stays uninterpreted.
-import { ApiError } from "../api/client"
+import { z } from "zod"
+import { parsePayload } from "../api/client"
 import {
 	LIFECYCLE_DETAIL_KEYS, LifecycleStatus, MessageRole, RunEventType, RunLifecycleKind, RunStatus, RuntimeEventCategory, RuntimeEventKind,
-	type LifecycleDetails, type RunFrame, type RunView,
+	type RunFrame, type RunView,
 } from "./run-contracts"
 
-function malformed(): never {
-	throw new ApiError("malformed", "The backend returned invalid run data.")
-}
+const parse = <T>(schema: z.ZodType<T>, value: unknown): T => parsePayload(schema, value, "The backend returned invalid run data.")
 
-function readObject(value: unknown): Record<string, unknown> {
-	if (!value || typeof value !== "object" || Array.isArray(value)) malformed()
-	return value as Record<string, unknown>
-}
+const identifier = z.string().refine(text => text.trim() !== "")
+const sequence = z.number().int().min(0)
+const orNull = <T>(schema: z.ZodType<T>) => schema.nullish().transform(value => value ?? null)
 
-function readString(value: unknown): string {
-	if (typeof value !== "string") malformed()
-	return value
-}
+const MessageEvent = z.object({
+	type: z.literal(RunEventType.Message),
+	sequence,
+	message_id: orNull(identifier),
+	payload: z.object({ role: z.enum(MessageRole), content: z.string(), message_kind: orNull(z.string()), caller: orNull(z.string()) }),
+}).transform(({ type, sequence, message_id, payload }) => ({
+	type, sequence, id: message_id, role: payload.role, content: payload.content, kind: payload.message_kind, caller: payload.caller,
+}))
 
-function readIdentifier(value: unknown): string {
-	const text = readString(value)
-	if (!text.trim()) malformed()
-	return text
-}
+const MessageDeltaEvent = z.object({
+	type: z.literal(RunEventType.MessageDelta),
+	sequence,
+	payload: z.object({ message_id: identifier, delta: z.string(), chunk_index: sequence, agent_name: identifier }),
+}).transform(({ type, sequence, payload }) => ({
+	type, sequence, id: payload.message_id, delta: payload.delta, chunk: payload.chunk_index, agent: payload.agent_name,
+}))
 
-function readNullableString(value: unknown): string | null {
-	return value === null ? null : readString(value)
-}
-
-function readSequence(value: unknown): number {
-	if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) malformed()
-	return value
-}
-
-function readMember<T extends string>(value: unknown, values: readonly T[]): T {
-	const member = values.find(candidate => candidate === value)
-	if (member === undefined) malformed()
-	return member
-}
+const ScriptOutputEvent = z.object({ type: z.literal(RunEventType.ScriptOutput), sequence, payload: z.object({ content: z.string() }) })
+	.transform(({ type, sequence, payload }) => ({ type, sequence, content: payload.content }))
 
 /** Detail fields are display-only scalars; absent fields stay absent. */
-function readLifecycleDetails(payload: Record<string, unknown>): LifecycleDetails {
-	const details: Record<string, string | number | null> = {}
-	for (const key of LIFECYCLE_DETAIL_KEYS) {
-		const value = payload[key]
-		if (value === undefined) continue
-		if (value !== null && typeof value !== "string" && typeof value !== "number") malformed()
-		details[key] = value
-	}
-	return details
-}
+const detail = z.union([z.string(), z.number()]).nullable().optional()
+const LifecycleDetails = z.object(
+	Object.fromEntries(LIFECYCLE_DETAIL_KEYS.map(key => [key, detail])) as Record<typeof LIFECYCLE_DETAIL_KEYS[number], typeof detail>,
+)
+const RunLifecycleEvent = z.object({
+	type: z.literal(RunEventType.RunLifecycle),
+	payload: LifecycleDetails.extend({
+		sequence, kind: z.enum(RunLifecycleKind), agent_name: z.string(), status: z.enum(LifecycleStatus).nullish(),
+	}),
+}).transform(({ type, payload: { sequence, kind, agent_name, ...details } }) => ({
+	type, sequence, kind, agent: agent_name, status: details.status ?? null, details,
+}))
+
+const RuntimeEvent = z.object({ payload: z.object({ category: z.unknown(), kind: z.unknown() }) })
+const LlmRetryEvent = z.object({ sequence, payload: z.object({ agent_name: identifier }) })
+	.transform(({ sequence, payload }) => ({ type: RunEventType.LlmRetry, sequence, agent: payload.agent_name }))
 
 /** Unconsumed event kinds are ignored; malformed consumed fields are errors. */
 export function parseRunEvent(value: unknown): RunFrame | null {
-	const event = readObject(value)
-	const type = readString(event.type)
-	switch (type) {
-		case RunEventType.Message: {
-			const payload = readObject(event.payload)
-			return {
-				type,
-				sequence: readSequence(event.sequence),
-				id: event.message_id == null ? null : readIdentifier(event.message_id),
-				role: readMember(payload.role, Object.values(MessageRole)),
-				content: readString(payload.content),
-				kind: payload.message_kind == null ? null : readString(payload.message_kind),
-				caller: payload.caller == null ? null : readString(payload.caller),
-			}
-		}
-		case RunEventType.MessageDelta: {
-			const payload = readObject(event.payload)
-			return {
-				type,
-				sequence: readSequence(event.sequence),
-				id: readIdentifier(payload.message_id),
-				delta: readString(payload.delta),
-				chunk: readSequence(payload.chunk_index),
-				agent: readIdentifier(payload.agent_name),
-			}
-		}
-		case RunEventType.ScriptOutput:
-			return { type, sequence: readSequence(event.sequence), content: readString(readObject(event.payload).content) }
-		case RunEventType.RunLifecycle: {
-			const payload = readObject(event.payload)
-			return {
-				type,
-				sequence: readSequence(payload.sequence),
-				kind: readMember(payload.kind, Object.values(RunLifecycleKind)),
-				agent: readString(payload.agent_name),
-				status: payload.status == null ? null : readMember(payload.status, Object.values(LifecycleStatus)),
-				details: readLifecycleDetails(payload),
-			}
-		}
+	switch (parse(z.object({ type: z.string() }), value).type) {
+		case RunEventType.Message: return parse(MessageEvent, value)
+		case RunEventType.MessageDelta: return parse(MessageDeltaEvent, value)
+		case RunEventType.ScriptOutput: return parse(ScriptOutputEvent, value)
+		case RunEventType.RunLifecycle: return parse(RunLifecycleEvent, value)
 		case RunEventType.RuntimeEvent: {
-			const payload = readObject(event.payload)
+			const { payload } = parse(RuntimeEvent, value)
 			if (payload.category !== RuntimeEventCategory.Llm || payload.kind !== RuntimeEventKind.Retrying) return null
-			return {
-				type: RunEventType.LlmRetry,
-				sequence: readSequence(event.sequence),
-				agent: readIdentifier(payload.agent_name),
-			}
+			return parse(LlmRetryEvent, value)
 		}
 		default:
 			return null
@@ -109,27 +69,31 @@ export function parseRunEvent(value: unknown): RunFrame | null {
 }
 
 export function parseCreatedRunId(value: unknown): string {
-	return readIdentifier(readObject(value).run_id)
+	return parse(z.object({ run_id: identifier }), value).run_id
 }
 
+const RunSnapshot = z.object({
+	project: identifier,
+	status: z.enum(RunStatus),
+	message_trace: z.array(z.unknown()),
+	current_prompt_id: z.string().nullable(),
+	current_prompt: z.string().nullable(),
+	error: z.string().nullable(),
+}).refine(({ current_prompt_id: promptId, current_prompt: prompt }) => (promptId === null) === (prompt === null) && promptId !== "")
+
 export function parseRunSnapshot(value: unknown): RunView {
-	const snapshot = readObject(value)
-	const status = readMember(snapshot.status, Object.values(RunStatus))
-	if (!Array.isArray(snapshot.message_trace)) malformed()
-	const promptId = readNullableString(snapshot.current_prompt_id)
-	const prompt = readNullableString(snapshot.current_prompt)
-	if ((promptId === null) !== (prompt === null) || promptId === "") malformed()
+	const snapshot = parse(RunSnapshot, value)
 	const frames: RunFrame[] = []
-	for (const value of snapshot.message_trace) {
-		const event = parseRunEvent(value)
-		if (event) frames.push(event)
+	for (const event of snapshot.message_trace) {
+		const frame = parseRunEvent(event)
+		if (frame) frames.push(frame)
 	}
 	return {
-		project: readIdentifier(snapshot.project),
-		status,
+		project: snapshot.project,
+		status: snapshot.status,
 		frames,
-		promptId,
-		prompt,
-		error: readNullableString(snapshot.error),
+		promptId: snapshot.current_prompt_id,
+		prompt: snapshot.current_prompt,
+		error: snapshot.error,
 	}
 }

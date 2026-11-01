@@ -1,11 +1,20 @@
 // Shared HTTP policy and SSE framing. Callers supply endpoint paths and validate domain payloads.
 // Transport owns response readers; feature/session owners supply cancellation signals.
+import type { z } from "zod"
+
 export class ApiError extends Error {
 	/** `detail` is the server's own explanation, when it gave one. */
 	constructor(readonly kind: "http" | "malformed" | "connection", message: string, readonly status?: number, readonly detail?: string) {
 		super(message)
 		this.name = "ApiError"
 	}
+}
+
+/** Validate a decoded payload; any mismatch is reported as `message`. */
+export function parsePayload<T>(schema: z.ZodType<T>, value: unknown, message: string): T {
+	const result = schema.safeParse(value)
+	if (!result.success) throw new ApiError("malformed", message)
+	return result.data
 }
 
 interface JsonRequest {
