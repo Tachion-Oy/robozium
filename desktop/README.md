@@ -528,13 +528,13 @@ Python backend's responsibility; the desktop only sends the unlock password to
 the backend. A changed `.env` applies after **Restart backend**, **Recreate
 backend** or a restart of the app.
 
-Every container and image the app creates carries labels with its installation
-and mode. To see them and the API's own log:
+Every container the app creates carries labels with its installation and mode,
+and every image it builds carries its build label. To see them and the API's own log:
 
 ```sh
 podman ps --all --filter label=fi.tachion.robozium.desktop.installation
 podman logs --tail=200 <container>
-podman images --filter reference='robozium-desktop-*'
+podman images --filter label=fi.tachion.robozium.desktop.build
 ```
 
 The runtime contains the hub, credentials, local packages, dependency cache, and

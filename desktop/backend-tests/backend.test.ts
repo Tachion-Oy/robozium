@@ -114,6 +114,16 @@ test("the layout refuses a relative runtime or hub instead of mounting a guess",
 	assert.throws(() => resolveBackendLayout("/runtime", "relative"), /Select an absolute hub folder/)
 })
 
+test("the layout refuses a mount that climbs out of its folder", async t => {
+	const root = fixture(t)
+	const configuration = path.join(root, "desktop/src/backend-layout.json")
+	const definition: typeof import("../src/backend-layout.json") = JSON.parse(fs.readFileSync(configuration, "utf8"))
+	definition.backend.mounts.find(mount => mount.target === "/logs")!.path = "../outside"
+	fs.writeFileSync(configuration, JSON.stringify(definition))
+	const { resolveBackendLayout } = await fixtureLayout(root)
+	assert.throws(() => resolveBackendLayout(path.join(root, "runtime")), /must lie in the configured runtime or hub folder/)
+})
+
 test("runtime preparation never creates a user's hub folder outside the runtime", async t => {
 	const root = fixture(t)
 	const runtime = path.join(root, "runtime")

@@ -65,7 +65,11 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 		if (location.root !== "runtime" && location.root !== "hub") {
 			throw new Error("Desktop backend files must lie in the configured runtime or hub folder.")
 		}
-		return path.join(roots[location.root], location.path)
+		const resolved = path.join(roots[location.root], location.path)
+		if (!isInside(resolved, roots[location.root])) {
+			throw new Error("Desktop backend files must lie in the configured runtime or hub folder.")
+		}
+		return resolved
 	}
 	const mounts = definition.backend.mounts.map((mount): BackendMount => ({
 		source: resolve(mount),

@@ -80,4 +80,4 @@ export function backendCommand(mode: "live" | "mock", port: number): string[] {
 }
 
 export const backendStopTimeoutSeconds = definition.backend.stopTimeoutSeconds
-export const backendBuildTarget = definition.backend.build.target
+export const backendBuildTarget = definition.backend.buildTarget

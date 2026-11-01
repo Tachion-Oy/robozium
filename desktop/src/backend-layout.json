@@ -54,7 +54,7 @@
     }
   },
   "backend": {
-    "build": { "target": "api" },
+    "buildTarget": "api",
     "environment": {
       "ROBOZIUM_CONFIG": "/app/hub.config.py",
       "ROBOZIUM_HUB_ROOT": "/hub",
