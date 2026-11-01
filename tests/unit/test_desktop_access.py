@@ -100,6 +100,11 @@ def test_unhandled_server_errors_preserve_cors_for_allowed_origin(client, origin
 
 def test_environment_keeps_validation_storage_and_busy_gate(client, tmp_path):
     client.headers["Origin"] = ORIGIN
+    # Queued before any change: a saved change would lock out new runs.
+    client.post("/projects", json={"name": "busy"})
+    client.post("/run/create", json={"project": "busy"})
+    assert client.delete(ENVIRONMENT).status_code == 409
+    client.post("/projects/busy/cancel")
     view = client.get(ENVIRONMENT).json()
     edit = {"revision": view["revision"], "entries": [{"name": "SETTING", "value": "saved"}]}
     assert client.post(ENVIRONMENT, json=edit).status_code == 200
@@ -116,10 +121,6 @@ def test_environment_keeps_validation_storage_and_busy_gate(client, tmp_path):
     assert response.headers["access-control-allow-origin"] == ORIGIN
     assert client.post(ENVIRONMENT + "/import", content=b"unused",
                        headers={"Content-Type": "text/plain"}).status_code == 415
-    client.post("/projects", json={"name": "busy"})
-    client.post("/run/create", json={"project": "busy"})
-    assert client.delete(ENVIRONMENT).status_code == 409
-    client.post("/projects/busy/cancel")
 
 
 def test_desktop_does_not_bypass_locked_credentials(client, tmp_path, monkeypatch):

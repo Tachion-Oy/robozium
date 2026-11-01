@@ -5,8 +5,8 @@ import { showErrorToast } from "../../feedback/notices"
 import { Toast } from "../feedback/Toast"
 import { HudButton } from "../hud/HudButton"
 
-export function EnvironmentRestart({ required, importedPending, dirty, onRestart }: {
-	required: boolean; importedPending: boolean; dirty: boolean; onRestart: () => Promise<void>
+export function EnvironmentRestart({ required, dirty, onRestart }: {
+	required: boolean; dirty: boolean; onRestart: () => Promise<void>
 }) {
 	const [restarting, setRestarting] = useState(false)
 	const [confirming, setConfirming] = useState(false)
@@ -19,7 +19,7 @@ export function EnvironmentRestart({ required, importedPending, dirty, onRestart
 			showErrorToast({ title: "Could not restart app", message: cause instanceof Error ? cause.message : "Restart failed" })
 		}
 	}
-	const reminder = (required || importedPending) && !confirming && !restarting
+	const reminder = required && !confirming && !restarting
 	return <>
 		<HudButton variant="warning" pending={restarting} disabled={confirming} onClick={() => { if (dirty) setConfirming(true); else void restart() }}>
 			{restarting ? "Restarting…" : "Restart app"}
