@@ -42,6 +42,7 @@ your own tools and skills as the agent's capabilities.
 - [Hub files and permissions](#hub-files-and-permissions)
 - [Run capabilities](#run-capabilities)
 - [Private capabilities](#private-capabilities)
+  - [Repositories](#repositories)
 - [Host scripts](#host-scripts)
 - [Configuration](#configuration)
 - [Development and contributions](#development-and-contributions)
@@ -198,6 +199,30 @@ invalid exports or duplicate capability names are rejected.
 
 Package code runs as part of the application, so use only trusted packages.
 [Robozify](https://github.com/Tachion-Oy/robozify) offers email and timesheets.
+
+### Repositories
+
+Packages come from GitHub repositories. Under **Repositories** in
+**Environment**, enter a repository's URL and select **Add**. Robozium imports
+every package the repository lists in a `robozium.json` file at its root, and
+downloads nothing else:
+
+```json
+{ "packages": ["tools/email", "timesheets"] }
+```
+
+The repository decides what it provides, so **Update** reads `robozium.json`
+again and replaces the repository's packages all at once. Packages it no longer
+lists are removed. If anything fails, the installed versions stay. Restart
+afterwards, then select the tools or skills when launching a project.
+
+A private repository is read with a read-only deploy key. Give each customer
+their own key, so one can be revoked without affecting the others: repository
+admins add and delete them under **Settings → Deploy keys**. Paste the private
+key into **Deploy key** when adding the repository. Robozium encrypts it with
+your settings password and uses it only for that repository. A deploy key
+reads the whole repository, so sell each separate toolkit from its own
+repository.
 
 ## Host scripts
 

@@ -10,7 +10,7 @@ const entry = (name: string, value: string | null, secret = false): Entry =>
 	({ name, value, secret, configured: true, overridden: false })
 const environment = (overrides: Record<string, unknown> = {}) => ({
 	revision: "r1", entries: [] as Entry[], overrides: [], requires_password: false, editable: true,
-	suggestions: [], example_errors: [], ...overrides,
+	suggestions: [], example_errors: [], repositories: [], ...overrides,
 })
 const panel = (page: Page) => page.getByRole("region", { name: "Environment settings" })
 const editor = (page: Page) => page.getByRole("form", { name: "Variable editor" })
@@ -188,6 +188,82 @@ for (const theme of ["dark", "light"]) {
 		}
 	})
 }
+
+const toolkit = (active: boolean, name = "alpha_tool") => ({
+	name: "toolkit", url: "https://github.com/acme/toolkit", private: true,
+	packages: [{ name: "alpha", active, variables: [], capabilities: [{ name, kind: "tool", selectable: true, loading: null }] }],
+})
+const repositoryRequests = (backend: Backend) => backend.requests.filter(request => request.path.startsWith("/credentials/environment/repositories"))
+
+test("adding a private repository asks for the password, keeps the dialog on refusal, and lists its packages", async ({ desktop: { page }, backend }) => {
+	let current = environment({ requires_password: true })
+	backend.handlers.set("GET /credentials/environment", response => json(response, current))
+	backend.handlers.set("POST /credentials/environment/repositories", response => json(response, { detail: "Invalid encrypted secret or password" }, 400))
+	await openEnvironment(page, backend)
+	const section = panel(page).getByRole("region", { name: "Repositories" })
+	await section.getByLabel("GitHub repository URL").fill("https://github.com/acme/toolkit")
+	await section.getByRole("textbox", { name: "Deploy key", exact: true }).fill("-----BEGIN OPENSSH PRIVATE KEY----- abc -----END OPENSSH PRIVATE KEY-----")
+	await expect(section.getByRole("textbox", { name: "Deploy key", exact: true })).toHaveAttribute("type", "password")
+	await section.getByRole("button", { name: "Add", exact: true }).click()
+	const prompt = page.getByRole("dialog", { name: "Save deploy key" })
+	await expect(prompt.getByLabel("Confirm password")).toHaveCount(0)
+	await prompt.getByLabel("Encryption password").fill("wrong")
+	await prompt.getByRole("button", { name: "Add repository" }).click()
+	await expect(prompt.getByRole("alert")).toHaveText("The repository was not added.")
+	await expect(alert(page, "Repository failed")).toContainText("Invalid encrypted secret or password")
+	backend.handlers.set("POST /credentials/environment/repositories", response => {
+		current = environment({ requires_password: true, repositories: [toolkit(false)] })
+		json(response, { repository: toolkit(false), suggestions: [] })
+	})
+	await prompt.getByLabel("Encryption password").fill("right")
+	await prompt.getByRole("button", { name: "Add repository" }).click()
+	await expect(prompt).toHaveCount(0)
+	await expect(page.getByRole("status").filter({ hasText: "Repositories" })).toContainText("Repository added. Available after restart.")
+	await expect(section).toContainText("https://github.com/acme/toolkit · deploy key")
+	await expect(section).toContainText("Available on next start")
+	await expect(section.getByLabel("GitHub repository URL")).toHaveValue("")
+	expect(repositoryRequests(backend).map(request => request.body)).toEqual([
+		{ url: "https://github.com/acme/toolkit", deploy_key: "-----BEGIN OPENSSH PRIVATE KEY----- abc -----END OPENSSH PRIVATE KEY-----", password: "wrong" },
+		{ url: "https://github.com/acme/toolkit", deploy_key: "-----BEGIN OPENSSH PRIVATE KEY----- abc -----END OPENSSH PRIVATE KEY-----", password: "right" },
+	])
+})
+
+test("a public repository is added without a password, then updated and removed", async ({ desktop: { page }, backend }) => {
+	let current = environment()
+	backend.handlers.set("GET /credentials/environment", response => json(response, current))
+	backend.handlers.set("POST /credentials/environment/repositories", response => {
+		current = environment({ repositories: [toolkit(true)] })
+		json(response, { repository: toolkit(true), suggestions: [] })
+	})
+	await openEnvironment(page, backend)
+	const section = panel(page).getByRole("region", { name: "Repositories" })
+	await section.getByLabel("GitHub repository URL").fill("https://github.com/acme/toolkit")
+	await section.getByRole("button", { name: "Add", exact: true }).click()
+	await expect(section.getByText("alpha tool", { exact: true })).toBeVisible()
+	await expect(page.getByRole("dialog")).toHaveCount(0)
+	backend.handlers.set("POST /credentials/environment/repositories/toolkit/update", response => {
+		current = environment({ repositories: [toolkit(false, "gamma_tool")] })
+		json(response, { repository: toolkit(false, "gamma_tool"), suggestions: [] })
+	})
+	await section.getByRole("button", { name: "Update toolkit" }).click()
+	await expect(page.getByRole("status").filter({ hasText: "Updated toolkit" })).toBeVisible()
+	await expect(section.getByText("gamma tool", { exact: true })).toBeVisible()
+	await expect(toast(page, "Restart required")).toContainText("Restart to apply your changes.")
+	backend.handlers.set("DELETE /credentials/environment/repositories/toolkit", response => {
+		current = environment()
+		json(response, { status: "removed" })
+	})
+	await section.getByRole("button", { name: "Remove toolkit" }).click()
+	await section.getByRole("button", { name: "Confirm removing toolkit" }).click()
+	await expect(page.getByRole("status").filter({ hasText: "Removed toolkit" })).toBeVisible()
+	await expect(section.getByText("gamma tool", { exact: true })).toHaveCount(0)
+	expect(repositoryRequests(backend).map(request => `${request.method} ${request.path}`)).toEqual([
+		"POST /credentials/environment/repositories",
+		"POST /credentials/environment/repositories/toolkit/update",
+		"DELETE /credentials/environment/repositories/toolkit",
+	])
+	expect(repositoryRequests(backend)[0].body).toEqual({ url: "https://github.com/acme/toolkit" })
+})
 
 test("Restart app confirms unsaved edits in the HUD before restarting", async ({ desktop: { app, page }, backend }) => {
 	await app.evaluate(({ ipcMain }) => {

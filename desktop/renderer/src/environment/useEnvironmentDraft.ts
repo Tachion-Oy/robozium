@@ -153,8 +153,11 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 	const currentEntries = edited ? replaceEntry(entries, editor) : entries
 	const dirty = Boolean(view && !sameEnvironmentEntries(currentEntries, view.entries))
 	const needsPassword = Boolean(view?.requires_password || currentEntries.some(entry => entry.secret))
-	const sources = (name: string) =>
-		view?.suggestions.some(item => item.name === name && item.source === "Application") ? ["required"] : []
+	const sources = (name: string) => [...new Set([
+		...(view?.suggestions.some(item => item.name === name && item.source === "Application") ? ["required"] : []),
+		...(view?.repositories ?? []).flatMap(repository => repository.packages).filter(item => item.variables.includes(name))
+			.flatMap(item => item.capabilities.map(capability => capability.name)),
+	])]
 	const variables = new Map<string, EnvironmentVariable>()
 	for (const suggestion of view?.suggestions ?? []) {
 		if (variables.has(suggestion.name)) continue

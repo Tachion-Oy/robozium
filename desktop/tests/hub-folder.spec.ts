@@ -4,7 +4,7 @@ import type { Backend } from "./selection-fixture"
 import { startupDone, toast } from "./native"
 
 type Pick = { folder: string; needsConfirmation: boolean } | { refused: string } | null
-const environment = { revision: "r1", entries: [], overrides: [], requires_password: false, editable: true, suggestions: [], example_errors: [] }
+const environment = { revision: "r1", entries: [], overrides: [], requires_password: false, editable: true, suggestions: [], example_errors: [], repositories: [] }
 const panel = (page: Page) => page.getByRole("region", { name: "Environment settings" })
 const hubInput = (page: Page) => panel(page).getByRole("textbox", { name: "Hub folder" })
 

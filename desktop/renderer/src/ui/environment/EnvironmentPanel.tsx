@@ -10,6 +10,7 @@ import { hubRestartNeeded, type HubFolder } from "../../hub-folder/useHubFolder"
 import { BackendControls } from "./BackendControls"
 import { EnvironmentHubFolder } from "./EnvironmentHubFolder"
 import { EnvironmentKeyFileImport } from "./EnvironmentKeyFileImport"
+import { EnvironmentRepositories } from "./EnvironmentRepositories"
 import { EnvironmentRestart } from "./EnvironmentRestart"
 import { EnvironmentSaveForm } from "./EnvironmentSaveForm"
 import { EnvironmentVariableEditor } from "./EnvironmentVariableEditor"
@@ -79,6 +80,15 @@ export function EnvironmentPanel({ draft, mutations, hub, onRestart, onManageBac
 							/>
 						)}
 					</EnvironmentVariableList>
+					{/* A repository write saves settings, so unsaved variable edits must be saved first. */}
+					<EnvironmentRepositories
+						repositories={view?.repositories ?? []}
+						disabled={!editable || editor !== null || draft.dirty}
+						confirmPassword={!view?.requires_password}
+						onAdd={mutations.addRepository}
+						onUpdate={mutations.updateRepository}
+						onRemove={mutations.removeRepository}
+					/>
 				</fieldset>
 			</div>
 			<EnvironmentSaveForm

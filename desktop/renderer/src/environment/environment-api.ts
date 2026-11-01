@@ -1,6 +1,7 @@
 // Read and replace the runtime's saved settings and secrets (`.env.encrypt`).
 // useEnvironmentDraft owns the view and its edits, useEnvironmentMutations the writes; requests here have no local state.
 import { ApiError, type DesktopApiClient } from "../api/client"
+import { parseCapability, type CapabilityView } from "../capabilities/capabilities-api"
 
 export interface EnvironmentEntry {
 	name: string
@@ -11,6 +12,9 @@ export interface EnvironmentEntry {
 	overridden: boolean
 }
 export interface EnvironmentSuggestion { name: string; value: string; secret: boolean; source: string }
+export interface RepositoryPackage { name: string; capabilities: CapabilityView[]; variables: string[]; active: boolean }
+/** A GitHub repository whose own robozium.json lists the packages it provides; `url` is empty for a leftover folder. */
+export interface EnvironmentRepository { name: string; url: string; private: boolean; packages: RepositoryPackage[] }
 export interface EnvironmentView {
 	revision: string
 	entries: EnvironmentEntry[]
@@ -19,6 +23,7 @@ export interface EnvironmentView {
 	editable: boolean
 	suggestions: EnvironmentSuggestion[]
 	example_errors: string[]
+	repositories: EnvironmentRepository[]
 }
 export interface EnvironmentEdit {
 	revision: string
@@ -68,6 +73,20 @@ function parseSuggestion(value: unknown): EnvironmentSuggestion {
 	return { name: text(fields, "name"), value: text(fields, "value"), secret: flag(fields, "secret"), source: text(fields, "source") }
 }
 
+function parseRepository(value: unknown): EnvironmentRepository {
+	const fields = record(value)
+	return {
+		name: text(fields, "name"), url: text(fields, "url"), private: flag(fields, "private"),
+		packages: list(fields, "packages", item => {
+			const name = record(item)
+			return {
+				name: text(name, "name"), capabilities: list(name, "capabilities", parseCapability),
+				variables: list(name, "variables", entry => typeof entry === "string" ? entry : malformed()), active: flag(name, "active"),
+			}
+		}),
+	}
+}
+
 function parseView(value: unknown): EnvironmentView {
 	const fields = record(value)
 	const names = (key: string) => list(fields, key, item => typeof item === "string" ? item : malformed())
@@ -75,6 +94,7 @@ function parseView(value: unknown): EnvironmentView {
 		revision: text(fields, "revision"), entries: list(fields, "entries", parseEntry), overrides: names("overrides"),
 		requires_password: flag(fields, "requires_password"), editable: flag(fields, "editable"),
 		suggestions: list(fields, "suggestions", parseSuggestion), example_errors: names("example_errors"),
+		repositories: list(fields, "repositories", parseRepository),
 	}
 }
 
@@ -103,6 +123,26 @@ export async function replaceEnvironmentFile(
 	const fields = record(await client.request("/credentials/environment/file", { method: "POST", form, signal }))
 	if (fields.status !== "replaced" || typeof fields.loaded !== "boolean") malformed()
 	return { loaded: fields.loaded }
+}
+
+/** Downloading a repository and installing its dependencies can take minutes; the backend gives up first. */
+export const REPOSITORY_TIMEOUT_MS = 400_000
+
+/** Imports every package the repository lists; a deploy key is encrypted with `password`. */
+export async function addRepository(
+	client: DesktopApiClient, url: string, deployKey: string, password: string, signal: AbortSignal,
+): Promise<void> {
+	const json = deployKey ? { url, deploy_key: deployKey, password } : { url }
+	await client.request("/credentials/environment/repositories", { method: "POST", json, signal })
+}
+
+/** Replaces the repository's packages with what it lists now, all or none. */
+export async function updateRepository(client: DesktopApiClient, name: string, signal: AbortSignal): Promise<void> {
+	await client.request(`/credentials/environment/repositories/${encodeURIComponent(name)}/update`, { method: "POST", signal })
+}
+
+export async function removeRepository(client: DesktopApiClient, name: string, signal: AbortSignal): Promise<void> {
+	await client.request(`/credentials/environment/repositories/${encodeURIComponent(name)}`, { method: "DELETE", signal })
 }
 
 export async function resetEnvironment(client: DesktopApiClient, signal: AbortSignal): Promise<void> {

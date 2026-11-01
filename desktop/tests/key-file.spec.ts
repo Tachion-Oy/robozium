@@ -5,7 +5,7 @@ import { toast } from "./native"
 
 const environment = (overrides: Record<string, unknown> = {}) => ({
 	revision: "r1", entries: [] as unknown[], overrides: [], requires_password: false, editable: true,
-	suggestions: [], example_errors: [], ...overrides,
+	suggestions: [], example_errors: [], repositories: [], ...overrides,
 })
 const saved = { name: "OPENROUTER_API_KEY", value: null, secret: true, configured: true, overridden: false }
 const keyFile = (page: Page) => page.getByRole("group", { name: "Key file" })

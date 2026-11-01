@@ -8,10 +8,11 @@ import { withDeadline } from "../api/request"
 import { useClientLifetime } from "../api/useClientLifetime"
 import { showErrorToast, showNotificationToast } from "../feedback/notices"
 import {
-	getEnvironment, replaceEnvironmentFile, resetEnvironment, saveEnvironment, type EnvironmentEntry, type EnvironmentView,
+	addRepository, getEnvironment, removeRepository, replaceEnvironmentFile, REPOSITORY_TIMEOUT_MS, resetEnvironment,
+	saveEnvironment, updateRepository, type EnvironmentEntry, type EnvironmentView,
 } from "./environment-api"
 
-type Operation = "save" | "file" | "reset"
+type Operation = "save" | "file" | "reset" | "repository"
 
 /** Read synchronously by the draft's polling, so no read started before a write is applied after it. */
 export interface EnvironmentWrites {
@@ -37,6 +38,9 @@ export interface EnvironmentMutations extends EnvironmentWrites {
 	/** Resolves to an error to show beside the key file, or null once it is in use. */
 	replaceFile: (file: File, password: string, revision: string) => Promise<string | null>
 	reset: () => Promise<boolean>
+	addRepository: (url: string, deployKey: string, password: string) => Promise<boolean>
+	updateRepository: (name: string) => Promise<boolean>
+	removeRepository: (name: string) => Promise<boolean>
 }
 
 /** During first-start setup (`setupRequired`) a save loads the keys at once, as an adopted key file does. */
@@ -138,6 +142,18 @@ export function useEnvironmentMutations(
 		return true
 	}, failure("Could not reset settings", "Could not delete saved settings"))
 
+	/** A repository write changes saved settings and packages; the view is read again after it. */
+	const repositoryWrite = (write: (client: DesktopApiClient, signal: AbortSignal) => Promise<void>, message: string) =>
+		run("repository", false, async (client, signal) => {
+			await withDeadline(signal, requestSignal => write(client, requestSignal), REPOSITORY_TIMEOUT_MS)
+			const next = await read(client, signal)
+			if (signal.aborted) return false
+			outcomes.onReplaced(next)
+			setRestartRequired(true)
+			showNotificationToast({ tone: "success", title: "Repositories", message })
+			return true
+		}, failure("Repository failed", "Could not change the repository"))
+
 	return {
 		pending: operation !== null,
 		isWriting: () => writing.current,
@@ -145,5 +161,9 @@ export function useEnvironmentMutations(
 		saving: operation === "save",
 		restartRequired,
 		save, replaceFile, reset,
+		addRepository: (url, deployKey, password) => repositoryWrite(
+			(client, signal) => addRepository(client, url, deployKey, password, signal), "Repository added. Available after restart."),
+		updateRepository: name => repositoryWrite((client, signal) => updateRepository(client, name, signal), `Updated ${name}. Available after restart.`),
+		removeRepository: name => repositoryWrite((client, signal) => removeRepository(client, name, signal), `Removed ${name}. Takes effect after restart.`),
 	}
 }
