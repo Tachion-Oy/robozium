@@ -187,20 +187,40 @@ Mock mode offers harmless **mock information** and **mock guidance** examples.
 
 ## Private capabilities
 
-In **Environment**, select **Browse folder** to import a package. Its root must
-contain `__init__.py` and `env.example` (or `.env.example`); `requirements.txt`
-is optional. Robozium validates the package, copies it to
+In **Environment**, drop a folder of tools and skills on the import row, or
+select **Browse folder**. Its root must contain `robozium.json`, which lists
+what to import:
+
+```json
+{
+  "tools": ["tools/search"],
+  "skills": ["skills/email"],
+  "env": ["skills/email/.env.example"]
+}
+```
+
+Each `tools` or `skills` path is a Python package inside the folder; `env`
+lists optional example settings files. Only these paths are uploaded, so the
+folder can be a whole checkout. A package may hold its own `requirements.txt`.
+Robozium validates the folder, copies it to
 `~/.config/Robozium/<mode>/local/imports/<folder-name>/`, and shows the
 discovered capabilities and example settings. The source folder is not linked.
 Restart to activate the copy, then select its tools or skills when launching a
 project.
 
-The app discovers the package's exported RoboZ `Capability` instances, and
-subclasses that take no constructor arguments. `__all__` limits the exports
-when present. Discovery doesn't run capability builders or tools, and importing
+The app discovers each listed package's exported RoboZ `Capability` instances,
+and subclasses that take no constructor arguments. `__all__` limits the exports
+when present. A package listed under `tools` must export only tools, and one
+under `skills` only skills. Folders above a listed package are never executed. Discovery doesn't run capability builders or tools, and importing
 never loads a package's `.env`. Requirements are resolved against the pinned
 application dependencies before the code is imported. Incompatible dependencies,
 invalid exports or duplicate capability names are rejected.
+
+An imported folder that fails to load at startup, for example an old folder
+without `robozium.json`, code that raises, or a capability named like a
+built-in after an update, is skipped and marked **Not loaded** with the
+reason; the app and other imports still start. Remove it in **Environment**. Packages in `local/tools/` and `local/skills/` are not
+imports: a broken one still stops startup.
 
 To update an import, select **Remove** next to it, import the new version,
 then restart. Removing deletes only the copy; its saved settings remain.

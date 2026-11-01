@@ -343,12 +343,12 @@ backend accepts the file only if that password opens its secrets; a wrong
 password shows in the dialog and keeps the file. On a fresh live start the keys load
 at once, without a restart; otherwise they apply after **Restart app**.
 
-**Browse folder** imports a tool or skill folder (a Python package with an
-`env.example` or `.env.example`); each file is uploaded with its path inside the
-folder, its variables join the list, and it is available after a restart. Saved
-settings, imports and resets apply after **Restart app**, which stops the
-backend and starts the app again on Runs Overview, where the app asks for the
-password of encrypted secrets. With
+Dropping a folder on the import row, or **Browse folder**, imports the tools
+and skills listed in its `robozium.json`; only the listed packages and example
+files are uploaded, each with its path inside the folder, their variables join
+the list, and it is available after a restart. Saved settings, imports and resets apply after
+**Restart app**, which stops the backend and starts the app again on Runs
+Overview, where the app asks for the password of encrypted secrets. With
 unsaved edits, Restart app first asks in the HUD whether to discard them.
 
 Both selectors reserve stable widths for their labels, so changing the model or
