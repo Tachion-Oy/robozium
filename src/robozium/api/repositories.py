@@ -126,10 +126,7 @@ class Repository:
 
     @staticmethod
     def _normalized(key: str) -> str:
-        """Return a private key in canonical lines, or raise without echoing it.
-
-        Single-line fields drop a pasted key's line breaks, so the body is rewrapped.
-        """
+        """Canonical lines of a private key; pasting into one line drops its breaks."""
         match = _PRIVATE_KEY.fullmatch(key.strip())
         body = re.sub(r"\s", "", match[2]) if match else ""
         if not match or not re.fullmatch(r"[A-Za-z0-9+/=]+", body):
