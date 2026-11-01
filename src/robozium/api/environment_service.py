@@ -187,11 +187,12 @@ class EnvironmentService:
             return result
 
     def preview_repository(self, request: RepositoryPreviewRequest) -> RepositoryPreview:
-        """Read a repository's index at its current commit, without downloading code."""
+        """Read a repository's index at its current commit; no package code runs."""
         repository = github.parse_repository(request.url)
-        token = request.token or os.environ.get(repository.token_variable) or None
-        commit = github.resolve_commit(repository, token)
-        index = github.read_index(repository, commit, token)
+        key = self._deploy_key(repository.key_variable, request.deploy_key)
+        commit = github.resolve_commit(repository, key)
+        with github.snapshot(repository, commit, key) as snapshot:
+            index = snapshot.index()
         return RepositoryPreview(
             repository=repository.full_name,
             ref=repository.ref,
@@ -208,26 +209,18 @@ class EnvironmentService:
         )
 
     def import_repository(self, request: RepositoryImportRequest) -> RepositoryImportResult:
-        """Download the chosen index entries at the previewed commit and publish them together.
+        """Copy the chosen index entries at the previewed commit and publish them together.
 
-        A token is used for this download and saved as an encrypted setting, so
+        A deploy key is used for this fetch and saved as an encrypted setting, so
         updates after the next restart can reuse it.
         """
         repository = github.parse_repository(request.url)
-        if request.token:
-            # Fail on a wrong password before downloading anything.
+        if request.deploy_key:
+            github.normalize_key(request.deploy_key)
+            # Fail on a wrong password before fetching anything.
             self._unlock_settings(request.password)
-        token = request.token or os.environ.get(repository.token_variable) or None
+        key = self._deploy_key(repository.key_variable, request.deploy_key)
         with self._projects.stopped_runs():
-            index = github.read_index(repository, request.commit, token)
-            packages = []
-            for path in dict.fromkeys(request.paths):
-                package = index.package(path)
-                if package is None:
-                    raise ValueError(f"{path} is not listed in {github.INDEX_FILE}")
-                packages.append(package)
-            names = [package.name for package in packages]
-            self._require_new(names)
             # Update follows one branch per repository.
             for item in self._imports.values():
                 if item.source and item.source.repository == repository.full_name and (
@@ -237,21 +230,29 @@ class EnvironmentService:
                         f"{repository.full_name} is already imported from "
                         f"{item.source.ref or 'its default branch'}; use the same URL"
                     )
-            variable = repository.token_variable if token else None
-            with self._staging() as stage:
-                github.download_packages(
-                    repository, request.commit, token,
-                    [package.path for package in packages], stage,
-                )
-                for package in packages:
-                    self._write_source(stage / package.name, RepositorySource(
-                        repository=repository.full_name, ref=repository.ref,
-                        commit=request.commit, path=package.path,
-                        token_variable=variable,
-                    ))
-                results = self._publish(stage, names)
-        if request.token:
-            self._store_secret(repository.token_variable, request.token, request.password)
+            with github.snapshot(repository, request.commit, key) as snapshot:
+                index = snapshot.index()
+                packages = []
+                for path in dict.fromkeys(request.paths):
+                    package = index.package(path)
+                    if package is None:
+                        raise ValueError(f"{path} is not listed in {github.INDEX_FILE}")
+                    packages.append(package)
+                names = [package.name for package in packages]
+                self._require_new(names)
+                with self._staging() as stage:
+                    snapshot.extract([package.path for package in packages], stage)
+                    for package in packages:
+                        self._write_source(stage / package.name, RepositorySource(
+                            repository=repository.full_name, ref=repository.ref,
+                            commit=request.commit, path=package.path,
+                            key_variable=repository.key_variable if key else None,
+                        ))
+                    results = self._publish(stage, names)
+        if request.deploy_key:
+            self._store_secret(
+                repository.key_variable, github.normalize_key(request.deploy_key), request.password
+            )
         return RepositoryImportResult(
             imported=[result.imported for result in results],
             suggestions=[entry for result in results for entry in result.suggestions],
@@ -261,7 +262,8 @@ class EnvironmentService:
         """Replace every package imported from one repository with its latest commit.
 
         The new versions are checked together and swapped in at once; any failure
-        keeps the installed versions.
+        keeps the installed versions. A private repository's saved deploy key is
+        available after the restart that follows its import.
         """
         with self._projects.stopped_runs():
             items = [
@@ -275,37 +277,41 @@ class EnvironmentService:
             sources = [item.source for item in items if item.source]
             first = sources[0]
             repository = github.parse_full_name(first.repository, first.ref)
-            token = request.token or (
-                os.environ.get(first.token_variable) if first.token_variable else None
-            ) or None
-            commit = github.resolve_commit(repository, token)
+            key = self._deploy_key(repository.key_variable, None)
+            commit = github.resolve_commit(repository, key)
             if all(source.commit == commit for source in sources):
                 return RepositoryUpdateResult(
                     updated=False, commit=commit, imported=items, suggestions=[]
                 )
-            index = github.read_index(repository, commit, token)
-            removed = [source.path for source in sources if index.package(source.path) is None]
-            if removed:
-                raise ValueError(
-                    f"{github.INDEX_FILE} no longer lists {', '.join(removed)}. "
-                    "Remove those imports to update the rest."
-                )
-            names = [item.name for item in items]
-            with self._staging() as stage:
-                github.download_packages(
-                    repository, commit, token, [source.path for source in sources], stage
-                )
-                for source in sources:
-                    self._write_source(
-                        stage / PurePosixPath(source.path).name,
-                        source.model_copy(update={"commit": commit}),
+            with github.snapshot(repository, commit, key) as snapshot:
+                index = snapshot.index()
+                removed = [source.path for source in sources if index.package(source.path) is None]
+                if removed:
+                    raise ValueError(
+                        f"{github.INDEX_FILE} no longer lists {', '.join(removed)}. "
+                        "Remove those imports to update the rest."
                     )
-                results = self._publish(stage, names)
+                with self._staging() as stage:
+                    snapshot.extract([source.path for source in sources], stage)
+                    for source in sources:
+                        self._write_source(
+                            stage / PurePosixPath(source.path).name,
+                            source.model_copy(update={
+                                "commit": commit,
+                                "key_variable": repository.key_variable if key else None,
+                            }),
+                        )
+                    results = self._publish(stage, [item.name for item in items])
             return RepositoryUpdateResult(
                 updated=True, commit=commit,
                 imported=[result.imported for result in results],
                 suggestions=[entry for result in results for entry in result.suggestions],
             )
+
+    @staticmethod
+    def _deploy_key(variable: str, supplied: str | None) -> str | None:
+        """The key typed for this request, else the one saved for the repository."""
+        return supplied or os.environ.get(variable) or None
 
     def remove_import(self, name: str) -> None:
         """Delete an imported package copy; loaded capabilities remain until restart."""
@@ -644,7 +650,7 @@ class EnvironmentService:
     def _unlock_settings(self, password: str | None) -> None:
         """Raise unless the password opens the saved settings and can encrypt a new secret."""
         if not password:
-            raise ValueError("Enter your settings password to save the token")
+            raise ValueError("Enter your settings password to save the deploy key")
         decrypt_env_values(self._parse_values(self._read_text(self._path)), password=password)
 
     def _store_secret(self, name: str, value: str, password: str | None) -> None:

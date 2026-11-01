@@ -1,10 +1,9 @@
-"""Repository imports read an index, download only chosen folders, and update atomically."""
+"""Repository imports read an index, copy only chosen folders, and update atomically."""
 
-import io
 import json
-import tarfile
-import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -19,9 +18,9 @@ from robozium.hub.utils import load_hub
 
 URL = "/credentials/environment"
 REPO = "https://github.com/acme/kit"
-FIRST = "a" * 40
-SECOND = "b" * 40
 SCHEMA = Path(__file__).parents[2] / "docs" / "robozium.schema.json"
+# Not a usable key; it only has the shape of one.
+KEY = "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA\nQUJDRA==\n-----END OPENSSH PRIVATE KEY-----\n"
 
 
 def package(label, extra=""):
@@ -36,8 +35,8 @@ def package(label, extra=""):
     }
 
 
-def tree(**folders):
-    files = {"robozium.json": json.dumps({
+def tree(index=None, **folders):
+    files = {"robozium.json": index if index is not None else json.dumps({
         "schema": 1,
         "packages": [{"path": path, "description": f"{path} tools"} for path in folders],
     })}
@@ -46,88 +45,59 @@ def tree(**folders):
     return files
 
 
-class FakeGitHub:
-    """Serve commits, raw index files, and tarballs the way the GitHub API does."""
+class Remote:
+    """A local stand-in for a GitHub repository, read through git like the real one."""
 
-    def __init__(self):
-        self.commits = {"HEAD": FIRST}
-        self.trees = {FIRST: tree(**{"tools/weather": package("weather"), "skills/notes": package("notes")})}
-        self.links: dict[str, dict[str, str]] = {}
-        self.requests: list[tuple[str, str | None]] = []
-        self.redirect: str | None = None
-        fake = self
+    def __init__(self, root: Path):
+        root.mkdir(parents=True)
+        self.work = root / "work"
+        self.bare = root / "kit.git"
+        self.git("init", "-q", "-b", "main", str(self.work), cwd=root)
+        self.git("init", "-q", "--bare", "-b", "main", str(self.bare), cwd=root)
+        self.first = ""
+        self.keys: list[str | None] = []
 
-        class Handler(BaseHTTPRequestHandler):
-            def log_message(self, *args):
-                pass
+    def git(self, *args, cwd=None):
+        environment = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+                       "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        return subprocess.run(
+            ["git", *args], cwd=cwd or self.work, env=environment,
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
 
-            def do_GET(self):
-                fake.requests.append((self.path, self.headers.get("Authorization")))
-                prefix = "/repos/acme/kit/"
-                if not self.path.startswith(prefix):
-                    return self.send_error(404)
-                path = self.path.removeprefix(prefix)
-                if path.startswith("commits/"):
-                    commit = fake.commits.get(path.removeprefix("commits/"))
-                    if commit is None:
-                        return self.send_error(422)
-                    return self.reply(commit.encode())
-                if path.startswith("contents/robozium.json?ref="):
-                    files = fake.trees.get(path.split("=", 1)[1], {})
-                    content = files.get("robozium.json")
-                    return self.reply(content.encode() if content else None)
-                if path.startswith("tarball/"):
-                    if fake.redirect:
-                        self.send_response(302)
-                        self.send_header("Location", fake.redirect)
-                        self.end_headers()
-                        return None
-                    commit = path.removeprefix("tarball/")
-                    return self.reply(fake.archive(commit) if commit in fake.trees else None)
-                return self.send_error(404)
-
-            def reply(self, body):
-                if body is None:
-                    return self.send_error(404)
-                self.send_response(200)
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-                return None
-
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
-
-    @property
-    def url(self):
-        return f"http://127.0.0.1:{self.server.server_address[1]}"
-
-    def archive(self, commit):
-        buffer = io.BytesIO()
-        top = f"acme-kit-{commit[:7]}"
-        with tarfile.open(fileobj=buffer, mode="w:gz") as tar:
-            for name, content in self.trees[commit].items():
-                data = content.encode() if isinstance(content, str) else content
-                info = tarfile.TarInfo(f"{top}/{name}")
-                info.size = len(data)
-                tar.addfile(info, io.BytesIO(data))
-            for name, target in self.links.get(commit, {}).items():
-                info = tarfile.TarInfo(f"{top}/{name}")
-                info.type = tarfile.SYMTYPE
-                info.linkname = target
-                tar.addfile(info)
-        return buffer.getvalue()
-
-    def downloads(self):
-        return [path for path, _ in self.requests if "/tarball/" in path]
+    def commit(self, files, links=None, branch="main"):
+        self.git("checkout", "-q", "-B", branch)
+        for child in self.work.iterdir():
+            if child.name != ".git":
+                shutil.rmtree(child) if child.is_dir() and not child.is_symlink() else child.unlink()
+        for name, content in files.items():
+            path = self.work / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content)
+        for name, target in (links or {}).items():
+            path = self.work / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.symlink_to(target)
+        self.git("add", "-A")
+        self.git("commit", "-q", "--allow-empty", "-m", "change")
+        self.git("push", "-q", "--force", str(self.bare), f"{branch}:{branch}")
+        return self.git("rev-parse", "HEAD")
 
 
 @pytest.fixture
-def github(monkeypatch):
-    fake = FakeGitHub()
-    monkeypatch.setattr(github_source, "_API", fake.url)
-    yield fake
-    fake.server.shutdown()
+def remote(tmp_path, monkeypatch):
+    repository = Remote(tmp_path / "remote")
+    repository.first = repository.commit(tree(**{
+        "tools/weather": package("weather"), "skills/notes": package("notes"),
+    }))
+
+    def fake_remote(target, key):
+        repository.keys.append(key)
+        return f"file://{repository.bare}"
+
+    monkeypatch.setattr(github_source, "remote", fake_remote)
+    monkeypatch.setattr(github_source, "_PROTOCOLS", ("file",))
+    return repository
 
 
 @pytest.fixture
@@ -137,14 +107,14 @@ def client(tmp_path, monkeypatch):
     return TestClient(create_app(deployment=load_hub(start=tmp_path)))
 
 
-def preview(client, url=REPO, token=None):
-    return client.post(URL + "/repository/preview", json={"url": url, "token": token})
+def preview(client, url=REPO, deploy_key=None):
+    return client.post(URL + "/repository/preview", json={"url": url, "deploy_key": deploy_key})
 
 
-def import_repo(client, paths, commit=FIRST, token=None, password=None):
+def import_repo(client, paths, commit, deploy_key=None, password=None, url=REPO):
     return client.post(URL + "/repository/import", json={
-        "url": REPO, "commit": commit, "paths": paths,
-        "token": token, "password": password,
+        "url": url, "commit": commit, "paths": paths,
+        "deploy_key": deploy_key, "password": password,
     })
 
 
@@ -152,74 +122,111 @@ def update(client):
     return client.post(URL + "/repository/update", json={"repository": "acme/kit"})
 
 
-def test_preview_lists_indexed_packages_without_downloading_code(client, github):
+def test_preview_lists_indexed_packages_at_the_current_commit(client, remote):
     response = preview(client)
     assert response.status_code == 200, response.text
     assert response.json() == {
-        "repository": "acme/kit", "ref": None, "commit": FIRST,
+        "repository": "acme/kit", "ref": None, "commit": remote.first,
         "packages": [
             {"path": "tools/weather", "name": "weather", "description": "tools/weather tools", "installed": False},
             {"path": "skills/notes", "name": "notes", "description": "skills/notes tools", "installed": False},
         ],
     }
-    assert github.downloads() == []
 
 
-def test_import_publishes_only_chosen_folders_and_saves_the_token_encrypted(
-    client, github, tmp_path
+def test_import_publishes_only_chosen_folders_and_saves_the_deploy_key_encrypted(
+    client, remote, tmp_path
 ):
-    response = import_repo(client, ["tools/weather"], token="ghp_secret", password="pw")
+    pasted = KEY.replace("\n", " ")
+    response = import_repo(client, ["tools/weather"], remote.first, deploy_key=pasted, password="pw")
     assert response.status_code == 200, response.text
     [imported] = response.json()["imported"]
     assert imported["name"] == "weather"
     assert imported["source"] == {
-        "repository": "acme/kit", "ref": None, "commit": FIRST,
-        "path": "tools/weather", "token_variable": "GITHUB_TOKEN_ACME_KIT",
+        "repository": "acme/kit", "ref": None, "commit": remote.first,
+        "path": "tools/weather", "key_variable": "GITHUB_DEPLOY_KEY_ACME_KIT",
     }
     assert [cap["name"] for cap in imported["capabilities"]] == ["weather"]
     imports = tmp_path / "local/imports"
     assert sorted(path.name for path in imports.iterdir()) == ["weather"]
     for file in imports.rglob("*"):
-        assert not file.is_file() or b"ghp_secret" not in file.read_bytes()
+        assert not file.is_file() or b"PRIVATE KEY" not in file.read_bytes()
     stored = dotenv_values(tmp_path / ".env.encrypt", interpolate=False)
-    assert "GITHUB_TOKEN_ACME_KIT" not in stored
-    assert decrypt_env_values(stored, password="pw")["GITHUB_TOKEN_ACME_KIT"] == "ghp_secret"
-    assert all(auth == "Bearer ghp_secret" for _, auth in github.requests)
+    assert "GITHUB_DEPLOY_KEY_ACME_KIT" not in stored
+    # A key pasted into a single-line field is saved with its line breaks restored.
+    saved = decrypt_env_values(stored, password="pw")["GITHUB_DEPLOY_KEY_ACME_KIT"]
+    assert saved == (
+        "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAAQUJDRA==\n"
+        "-----END OPENSSH PRIVATE KEY-----\n"
+    )
+    assert set(remote.keys) == {pasted}
     assert client.get(URL).json()["imports"] == [imported]
     assert preview(client).json()["packages"][0]["installed"] is True
 
 
-def test_token_requires_the_settings_password_before_downloading(client, github, tmp_path):
-    response = import_repo(client, ["tools/weather"], token="ghp_secret")
+def test_saved_deploy_key_is_used_when_none_is_typed(client, remote, monkeypatch):
+    monkeypatch.setenv("GITHUB_DEPLOY_KEY_ACME_KIT", KEY)
+    assert preview(client).status_code == 200
+    assert set(remote.keys) == {KEY}
+
+
+@pytest.mark.parametrize(
+    ("key", "password", "error"),
+    [("not a key", "pw", "whole private deploy key"), (KEY, None, "password")],
+)
+def test_bad_key_or_missing_password_fails_before_fetching(
+    client, remote, tmp_path, key, password, error
+):
+    response = import_repo(client, ["tools/weather"], remote.first, deploy_key=key, password=password)
     assert response.status_code == 400
-    assert "password" in response.json()["detail"]
-    assert github.downloads() == []
+    assert error in response.json()["detail"]
+    assert remote.keys == []
     assert not (tmp_path / "local/imports/weather").exists()
 
 
-def test_one_failing_package_publishes_nothing(client, github, tmp_path):
-    github.trees[FIRST]["skills/notes/__init__.py"] = "raise RuntimeError('broken')\n"
-    response = import_repo(client, ["tools/weather", "skills/notes"])
+def test_git_runs_ssh_with_only_the_deploy_key_and_githubs_host_keys(tmp_path):
+    repository = github_source.parse_repository(REPO)
+    git = github_source._Git(repository, KEY, tmp_path)
+    command = git.environment["GIT_SSH_COMMAND"]
+    for option in ("IdentitiesOnly=yes", "StrictHostKeyChecking=yes", "BatchMode=yes", "-F /dev/null"):
+        assert option in command
+    assert (tmp_path / "deploy_key").stat().st_mode & 0o777 == 0o600
+    assert (tmp_path / "known_hosts").read_text().startswith("github.com ssh-ed25519 ")
+    assert github_source.remote(repository, KEY) == "git@github.com:acme/kit.git"
+    assert github_source.remote(repository, None) == "https://github.com/acme/kit.git"
+
+
+def test_only_https_and_ssh_are_allowed(client, remote, monkeypatch):
+    monkeypatch.setattr(github_source, "_PROTOCOLS", ("https", "ssh"))
+    assert preview(client).status_code == 502
+
+
+def test_one_failing_package_publishes_nothing(client, remote, tmp_path):
+    commit = remote.commit(tree(**{
+        "tools/weather": package("weather"),
+        "skills/notes": {"__init__.py": "raise RuntimeError('broken')\n", "env.example": ""},
+    }))
+    response = import_repo(client, ["tools/weather", "skills/notes"], commit)
     assert response.status_code == 400
     assert "broken" in response.json()["detail"]
     assert not any((tmp_path / "local/imports").iterdir())
 
 
-def test_links_inside_chosen_folders_are_refused_and_ignored_elsewhere(
-    client, github, tmp_path
-):
-    github.links[FIRST] = {"docs/elsewhere": "/etc/passwd"}
-    assert import_repo(client, ["skills/notes"]).status_code == 200
-    github.links[FIRST] = {"tools/weather/data": "/etc/passwd"}
-    response = import_repo(client, ["tools/weather"])
+def test_links_inside_chosen_folders_are_refused_and_ignored_elsewhere(client, remote, tmp_path):
+    files = tree(**{"tools/weather": package("weather"), "skills/notes": package("notes")})
+    commit = remote.commit(files, links={
+        "docs/elsewhere": "/etc/passwd", "tools/weather/data": "/etc/passwd",
+    })
+    assert import_repo(client, ["skills/notes"], commit).status_code == 200
+    response = import_repo(client, ["tools/weather"], commit)
     assert response.status_code == 400
     assert "link or special file" in response.json()["detail"]
     assert not (tmp_path / "local/imports/weather").exists()
 
 
-def test_oversized_package_is_refused(client, github, monkeypatch, tmp_path):
+def test_oversized_package_is_refused(client, remote, monkeypatch, tmp_path):
     monkeypatch.setattr(github_source, "MAX_PACKAGE_FILES", 1)
-    response = import_repo(client, ["tools/weather"])
+    response = import_repo(client, ["tools/weather"], remote.first)
     assert response.status_code == 400
     assert "too large" in response.json()["detail"]
     assert not (tmp_path / "local/imports/weather").exists()
@@ -228,7 +235,7 @@ def test_oversized_package_is_refused(client, github, monkeypatch, tmp_path):
 @pytest.mark.parametrize(
     ("index", "error"),
     [
-        (None, "no readable robozium.json"),
+        (None, "no robozium.json"),
         ('{"schema": 1, "packages": [{"path": "../evil"}]}', "relative folders"),
         ('{"schema": 1, "packages": [{"path": "a/x"}, {"path": "b/x"}]}', "unique"),
         ('{"schema": 1, "packages": [{"path": "x", "run": "now"}]}', "Extra inputs"),
@@ -236,101 +243,90 @@ def test_oversized_package_is_refused(client, github, monkeypatch, tmp_path):
         ("not json", "Invalid robozium.json"),
     ],
 )
-def test_invalid_index_is_refused_with_a_reason(client, github, index, error):
+def test_invalid_index_is_refused_with_a_reason(client, remote, index, error):
+    files = tree(index=index or "", **{"tools/weather": package("weather")})
     if index is None:
-        del github.trees[FIRST]["robozium.json"]
-    else:
-        github.trees[FIRST]["robozium.json"] = index
+        del files["robozium.json"]
+    remote.commit(files)
     response = preview(client)
     assert response.status_code == 400
     assert error in response.json()["detail"]
 
 
-def test_unknown_branch_is_named_in_the_error(client, github):
-    github.commits["release/2"] = SECOND
-    github.trees[SECOND] = github.trees[FIRST]
-    assert preview(client, REPO + "/tree/release/2").json()["commit"] == SECOND
+def test_branches_and_tags_resolve_and_unknown_ones_are_named(client, remote):
+    commit = remote.commit(tree(**{"tools/weather": package("weather")}), branch="release/2")
+    assert preview(client, REPO + "/tree/release/2").json()["commit"] == commit
+    remote.git("tag", "-a", "v1", "-m", "v1", commit)
+    remote.git("push", "-q", str(remote.bare), "v1")
+    assert preview(client, REPO + "/tree/v1").json()["commit"] == commit
     response = preview(client, REPO + "/tree/missing")
     assert response.status_code == 400
     assert "no branch or tag named missing" in response.json()["detail"]
 
 
-def test_one_repository_is_imported_from_one_branch(client, github):
-    assert import_repo(client, ["tools/weather"]).status_code == 200
-    github.commits["main"] = FIRST
-    response = client.post(URL + "/repository/import", json={
-        "url": REPO + "/tree/main", "commit": FIRST, "paths": ["skills/notes"],
-    })
+def test_one_repository_is_imported_from_one_branch(client, remote):
+    assert import_repo(client, ["tools/weather"], remote.first).status_code == 200
+    response = import_repo(client, ["skills/notes"], remote.first, url=REPO + "/tree/main")
     assert response.status_code == 409
     assert "already imported from its default branch" in response.json()["detail"]
 
 
-def test_import_refuses_paths_missing_from_the_index(client, github):
-    response = import_repo(client, ["tools/other"])
+def test_import_refuses_paths_missing_from_the_index(client, remote):
+    response = import_repo(client, ["tools/other"], remote.first)
     assert response.status_code == 400
     assert "not listed" in response.json()["detail"]
 
 
-def test_update_replaces_all_packages_and_reports_up_to_date(client, github, tmp_path):
-    assert import_repo(client, ["tools/weather", "skills/notes"]).status_code == 200
+def test_update_replaces_all_packages_and_reports_up_to_date(client, remote, tmp_path):
+    assert import_repo(client, ["tools/weather", "skills/notes"], remote.first).status_code == 200
     first = update(client)
     assert first.status_code == 200, first.text
     assert first.json()["updated"] is False
-    github.commits["HEAD"] = SECOND
-    github.trees[SECOND] = tree(**{
+    second = remote.commit(tree(**{
         "tools/weather": package("weather", "VERSION = 2\n"),
         "skills/notes": package("notes"),
-    })
+    }))
     response = update(client)
     assert response.status_code == 200, response.text
     assert response.json()["updated"] is True
-    assert {item["source"]["commit"] for item in response.json()["imported"]} == {SECOND}
+    assert {item["source"]["commit"] for item in response.json()["imported"]} == {second}
     assert {row["source"] for row in response.json()["suggestions"]} == {"weather", "notes"}
     weather = tmp_path / "local/imports/weather"
     assert "VERSION = 2" in (weather / "__init__.py").read_text()
-    assert json.loads((weather / "source.json").read_text())["commit"] == SECOND
+    assert json.loads((weather / "source.json").read_text())["commit"] == second
     assert sorted(path.name for path in (tmp_path / "local/imports").iterdir()) == [
         "notes", "weather"
     ]
 
 
-def test_failed_update_keeps_the_installed_versions(client, github, tmp_path):
-    assert import_repo(client, ["tools/weather", "skills/notes"]).status_code == 200
+def test_failed_update_keeps_the_installed_versions(client, remote, tmp_path):
+    assert import_repo(client, ["tools/weather", "skills/notes"], remote.first).status_code == 200
     before = (tmp_path / "local/imports/weather/__init__.py").read_text()
-    github.commits["HEAD"] = SECOND
-    github.trees[SECOND] = tree(**{
+    remote.commit(tree(**{
         "tools/weather": package("weather", "VERSION = 2\n"),
         "skills/notes": {"__init__.py": "raise RuntimeError('broken')\n", "env.example": ""},
-    })
+    }))
     response = update(client)
     assert response.status_code == 400
     assert (tmp_path / "local/imports/weather/__init__.py").read_text() == before
     assert json.loads(
         (tmp_path / "local/imports/notes/source.json").read_text()
-    )["commit"] == FIRST
-    assert {item["source"]["commit"] for item in client.get(URL).json()["imports"]} == {FIRST}
+    )["commit"] == remote.first
+    imports = client.get(URL).json()["imports"]
+    assert {item["source"]["commit"] for item in imports} == {remote.first}
 
 
-def test_update_stops_when_the_index_drops_an_imported_package(client, github, tmp_path):
-    assert import_repo(client, ["tools/weather", "skills/notes"]).status_code == 200
-    github.commits["HEAD"] = SECOND
-    github.trees[SECOND] = tree(**{"tools/weather": package("weather")})
+def test_update_stops_when_the_index_drops_an_imported_package(client, remote, tmp_path):
+    assert import_repo(client, ["tools/weather", "skills/notes"], remote.first).status_code == 200
+    remote.commit(tree(**{"tools/weather": package("weather")}))
     response = update(client)
     assert response.status_code == 400
     assert "no longer lists skills/notes" in response.json()["detail"]
     assert (tmp_path / "local/imports/notes/source.json").is_file()
 
 
-def test_update_of_an_unknown_repository_is_not_found(client, github):
+def test_update_of_an_unknown_repository_is_not_found(client, remote):
     assert update(client).status_code == 404
-
-
-def test_redirects_to_other_hosts_are_refused(client, github, tmp_path):
-    github.redirect = "http://example.invalid/archive.tar.gz"
-    response = import_repo(client, ["tools/weather"])
-    assert response.status_code == 502
-    assert "unexpected host" in response.json()["detail"]
-    assert not (tmp_path / "local/imports/weather").exists()
 
 
 @pytest.mark.parametrize(
@@ -338,6 +334,7 @@ def test_redirects_to_other_hosts_are_refused(client, github, tmp_path):
     [
         ("https://github.com/acme/kit", ("acme", "kit", None)),
         ("https://github.com/acme/kit.git", ("acme", "kit", None)),
+        ("git@github.com:acme/kit.git", ("acme", "kit", None)),
         ("https://github.com/acme/kit/tree/release/2", ("acme", "kit", "release/2")),
     ],
 )
@@ -351,6 +348,7 @@ def test_repository_urls_are_parsed(url, expected):
     [
         "http://github.com/acme/kit",
         "https://gitlab.com/acme/kit",
+        "git@gitlab.com:acme/kit.git",
         "https://user:pw@github.com/acme/kit",
         "https://github.com/acme",
         "https://github.com/acme/kit/blob/main/x",

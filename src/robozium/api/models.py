@@ -83,7 +83,7 @@ class RepositorySource(BaseModel):
     ref: str | None = None
     commit: str
     path: str
-    token_variable: str | None = None
+    key_variable: str | None = None
 
 
 class EnvironmentImport(BaseModel):
@@ -132,7 +132,8 @@ class EnvironmentImportResult(BaseModel):
 class RepositoryPreviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     url: str = Field(max_length=400)
-    token: str | None = Field(default=None, max_length=1000, repr=False)
+    # A private repository's read-only deploy key (an OpenSSH private key).
+    deploy_key: str | None = Field(default=None, max_length=16 * 1024, repr=False)
 
 
 class RepositoryPackageView(BaseModel):
@@ -152,7 +153,7 @@ class RepositoryPreview(BaseModel):
 class RepositoryImportRequest(RepositoryPreviewRequest):
     commit: str = Field(max_length=40)
     paths: list[str] = Field(min_length=1, max_length=50)
-    # Encrypts the token in saved settings; required only with a token.
+    # Encrypts the deploy key in saved settings; required only with a key.
     password: str | None = Field(
         default=None, max_length=env.MAX_PASSWORD_CHARS, repr=False
     )
@@ -161,7 +162,6 @@ class RepositoryImportRequest(RepositoryPreviewRequest):
 class RepositoryUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     repository: str = Field(max_length=200)
-    token: str | None = Field(default=None, max_length=1000, repr=False)
 
 
 class RepositoryImportResult(BaseModel):
