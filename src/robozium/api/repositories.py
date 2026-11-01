@@ -41,7 +41,7 @@ def repository_name(url: str) -> str:
     return name
 
 
-def fetch(url: str, destination: Path) -> list[str]:
+def fetch(url: str, destination: Path) -> None:
     """Copy every package the repository's index lists into ``destination/<folder name>``.
 
     The clone is shallow and blob-filtered, and only the listed folders are checked
@@ -62,7 +62,10 @@ def fetch(url: str, destination: Path) -> list[str]:
         if not run(*inside, "ls-tree", "--name-only", "HEAD", "--", INDEX_FILE).strip():
             raise ValueError(f"The repository has no {INDEX_FILE} at its root")
         paths = _index(run(*inside, "show", f"HEAD:{INDEX_FILE}"))
-        run(*inside, "sparse-checkout", "set", "--stdin", stdin="\n".join(paths) + "\n")
+        # Exact patterns, not cone mode, which would also check out every file at the
+        # root and in each parent folder of a listed path.
+        run(*inside, "sparse-checkout", "set", "--no-cone", "--stdin",
+            stdin="".join(f"/{path}/\n" for path in paths))
         run(*inside, "checkout", "--quiet")
         total = 0
         for path in paths:
@@ -78,7 +81,6 @@ def fetch(url: str, destination: Path) -> list[str]:
             if size > env.MAX_PACKAGE_BYTES or total > MAX_REPOSITORY_BYTES:
                 raise ValueError(f"{path} is too large to import")
             shutil.copytree(source, destination / PurePosixPath(path).name)
-    return sorted(child.name for child in destination.iterdir())
 
 
 def _git(git: str, home: str, url: str, args: list[str], stdin: str | None) -> str:

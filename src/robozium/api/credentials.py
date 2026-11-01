@@ -120,8 +120,7 @@ def missing_environment_files(path: Path) -> bool:
     """
     if (path.parent / ".env").is_file():
         return False
-    names = list(dotenv_values(path, interpolate=False)) if path.is_file() else []
-    return not path.is_file() or bool(names) and all(name.startswith(env.REPOSITORY_PREFIX) for name in names)
+    return not path.is_file() or env.only_repositories(list(dotenv_values(path, interpolate=False)))
 
 
 def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStatus:

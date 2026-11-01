@@ -352,3 +352,11 @@ def test_remove_deletes_a_link_in_place_of_the_folder(client, hub, tmp_path):
     assert not (hub / "local/repositories/toolkit").is_symlink()
     assert target.is_dir()
     assert client.get(URL).json()["repositories"] == []
+
+
+def test_removing_a_leftover_folder_after_reset_keeps_first_start_setup(client, hub, source):
+    assert add(client).status_code == 200
+    (hub / ".env.encrypt").unlink()
+    assert client.delete(URL + "/repositories/toolkit").status_code == 200
+    assert not (hub / ".env.encrypt").exists()
+    assert missing_environment_files(hub / ".env.encrypt")

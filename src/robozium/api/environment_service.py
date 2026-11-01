@@ -361,15 +361,18 @@ class EnvironmentService:
     def _write_entries(self, changes: Mapping[str, str | None]) -> None:
         """Set or remove stored entries in either form (``None`` removes), keeping every other value."""
         original = self._read_text(self._path)
-        stored = self._parse_values(original)
-        only_repositories = bool(stored) and all(name.startswith(env.REPOSITORY_PREFIX) for name in stored)
+        before = self._parse_values(original)
+        stored = dict(before)
         for name, value in changes.items():
             base = name.removesuffix(ENCRYPTED_SUFFIX)
             stored.pop(base, None)
             stored.pop(base + ENCRYPTED_SUFFIX, None)
             if value is not None:
                 stored[name] = value
-        if only_repositories and not stored:
+        if stored == before:
+            # Writing nothing keeps a missing file missing, so first-start setup still applies.
+            return
+        if env.only_repositories(before) and not stored:
             # The file existed only for repositories; without it, first-start setup still applies.
             if self._read_text(self._path) != original:
                 raise EnvironmentConflictError("Settings changed elsewhere. Refresh before saving.")

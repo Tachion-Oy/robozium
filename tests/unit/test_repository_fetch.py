@@ -53,27 +53,33 @@ def source(tmp_path, monkeypatch):
 def test_listed_folders_are_copied_by_their_last_name(source, tmp_path):
     destination = tmp_path / "out"
     destination.mkdir()
-    assert repositories.fetch(URL, destination) == ["alpha", "beta"]
+    repositories.fetch(URL, destination)
+    assert sorted(child.name for child in destination.iterdir()) == ["alpha", "beta"]
     assert (destination / "beta/data/file.txt").read_text() == "data"
     assert not (destination / "README.md").exists()
 
 
 def test_only_listed_folders_are_downloaded(source, tmp_path, monkeypatch):
     commit(source, {
-        "robozium.json": json.dumps({"packages": ["beta"]}),
+        "robozium.json": json.dumps({"packages": ["tools/beta"]}),
         "beta/__init__.py": "", "assets/large.bin": "x" * 1_000_000,
+        "root.bin": "x" * 1_000_000, "tools/beside.bin": "x" * 1_000_000,
+        "tools/beta/__init__.py": "",
     })
-    checkouts = []
+    present = {}
     copy = repositories.shutil.copytree
 
     def record_checkout(source_path, target):
-        checkouts.append(source_path.parent)
+        # Seen while the checkout exists; it is deleted when fetch returns.
+        checkout = source_path.parent.parent
+        present.update({name: (checkout / name).exists() for name in ("assets", "root.bin", "tools/beside.bin")})
         return copy(source_path, target)
 
     monkeypatch.setattr(repositories.shutil, "copytree", record_checkout)
     (tmp_path / "out").mkdir()
     repositories.fetch(URL, tmp_path / "out")
-    assert not (checkouts[0] / "assets").exists()
+    # Cone mode would also check out files at the root and beside the listed folder.
+    assert present == {"assets": False, "root.bin": False, "tools/beside.bin": False}
 
 
 @pytest.mark.parametrize(("files", "error"), [
