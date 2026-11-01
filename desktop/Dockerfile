@@ -25,6 +25,7 @@ RUN apt-get update \
         coreutils \
         diffutils \
         findutils \
+        git \
         grep \
         libglib2.0-bin \
         libreoffice \

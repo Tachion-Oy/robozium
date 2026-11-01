@@ -19,9 +19,14 @@ class EnvironmentConflictError(RuntimeError):
     """Saved settings changed or an imported package already occupies its destination."""
 
 
+class RepositoryUnavailableError(RuntimeError):
+    """A repository could not be fetched for a reason retrying or the backend must fix."""
+
+
 __all__ = [
     "EnvironmentConflictError",
     "ProjectBusyError",
     "ProjectCancellationInProgressError",
     "InvalidCapabilitySelection",
+    "RepositoryUnavailableError",
 ]

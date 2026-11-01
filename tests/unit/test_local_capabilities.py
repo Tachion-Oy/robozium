@@ -17,7 +17,7 @@ from roboz.deployment import SkillLoading
 from roboz.llm import MockLLMEndpoint
 
 from robozium.api.app import create_app
-from robozium.hub.local import load_local_packages
+from robozium.hub.local import inspect_import, load_local_packages
 from robozium.hub.utils import load_hub
 
 
@@ -85,7 +85,7 @@ def test_config_relative_discovery_order_and_relative_imports_ignore_parent_code
     config = write_config(root)
     for path, label in (
         ("tools/z", "last"), ("tools/a", "middle"),
-        ("skills/z", "first"),
+        ("skills/z", "first"), ("repositories/toolkit/copied", "copied"),
     ):
         package = _package(root, path, "from .implementation import CAPABILITY\n")
         (package / "implementation.py").write_text(_source(label))
@@ -97,7 +97,7 @@ def test_config_relative_discovery_order_and_relative_imports_ignore_parent_code
     before = sys.path.copy()
     hub = load_hub(config_file=config)
     assert [cap.label.name for cap in hub.additional_capabilities] == [
-        "first", "middle", "last"
+        "first", "middle", "last", "copied"
     ]
     assert sys.path == before
     assert not hub.settings.sandbox.root.exists()
@@ -330,3 +330,15 @@ def test_fresh_api_processes_rediscover_packages_and_preserve_saved_selections(t
     mock = _restart(config, "mock")
     assert mock["effective"]["added"] is False
     assert {"mock_information", "mock_guidance"} <= mock["effective"].keys()
+
+
+def test_inspect_import_checks_staged_packages_without_their_old_versions(tmp_path):
+    _package(tmp_path, "repositories/toolkit/alpha", _source("alpha"))
+    stage = tmp_path / "stage"
+    for name, label in (("alpha", "alpha"), ("beta", "beta")):
+        _package(stage, f"repositories/toolkit/{name}", _source(label))
+    staged = [Path("repositories/toolkit/alpha"), Path("repositories/toolkit/beta")]
+    found = inspect_import(tmp_path, stage / "local", staged, replacing=Path("repositories/toolkit"))
+    assert [[cap.label.name for cap in found[stage / "local" / path]] for path in staged] == [
+        ["alpha"], ["beta"],
+    ]

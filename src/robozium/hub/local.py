@@ -2,7 +2,7 @@
 
 import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from contextlib import ExitStack
 from functools import cache
 from hashlib import sha256
@@ -17,11 +17,14 @@ from tempfile import TemporaryDirectory
 from threading import RLock
 from types import ModuleType
 from typing import cast
+from uuid import uuid4
 
 from roboz.deployment import Capability
 
 _IMPORT_LOCK = RLock()
 _LOCAL_PACKAGE_PREFIX = "_robozium_local_"
+# Folders under local/ that hold packages; repositories/<name>/<package> nests one level.
+_KINDS = ("skills", "tools", "repositories")
 
 
 def load_local_packages(config_dir: Path) -> dict[Path, tuple[Capability, ...]]:
@@ -59,13 +62,19 @@ def _load_local_packages(config_dir: Path) -> dict[Path, tuple[Capability, ...]]
 
 def _discover_packages(root: Path) -> list[Path]:
     packages: list[Path] = []
-    for kind in ("skills", "tools"):
+    for kind in _KINDS:
         directory = root / kind
         if not directory.exists():
             continue
         if not directory.resolve().is_relative_to(root) or not directory.is_dir():
             raise ValueError(f"invalid local capability directory {directory}")
-        for child in sorted(directory.iterdir()):
+        children = sorted(directory.iterdir())
+        if kind == "repositories":
+            children = [
+                child for repository in children if repository.is_dir()
+                for child in sorted(repository.iterdir())
+            ]
+        for child in children:
             entrypoint = child / "__init__.py"
             if not child.is_dir() or not (entrypoint.exists() or entrypoint.is_symlink()):
                 continue
@@ -97,10 +106,13 @@ def _import_packages(
 ) -> dict[Path, tuple[Capability, ...]]:
     invalidate_caches()
     _register_namespace(namespace, root)
-    for kind in ("skills", "tools"):
+    for kind in _KINDS:
         _register_namespace(f"{namespace}.{kind}", root / kind)
     capabilities: dict[Path, tuple[Capability, ...]] = {}
     for package in packages:
+        parent = f"{namespace}.{'.'.join(package.parent.parts)}"
+        if parent not in sys.modules:
+            _register_namespace(parent, root / package.parent)
         entrypoint = root / package / "__init__.py"
         values = _import_capabilities(f"{namespace}.{'.'.join(package.parts)}", entrypoint)
         for capability in values:
@@ -154,10 +166,34 @@ def _prepare_dependencies(
         _local_file(root, package / "requirements.txt", "requirements file")
         for root, paths in packages.items()
         for package in paths
+        if package.parts[0] != "repositories" or (root / package / "requirements.txt").exists()
     ]
     if not any(file.read_text(encoding="utf-8").strip() for file in requirements):
         return None
     return _install_requirements(config_dir, requirements)
+
+
+def inspect_import(
+    config_dir: Path, root: Path, staged: Sequence[Path], replacing: Path | None = None
+) -> dict[Path, tuple[Capability, ...]]:
+    """Validate packages staged under ``root`` (laid out like local/) without activating them.
+
+    Committed packages under ``replacing`` are left out, so an update skips its old version.
+    """
+    with _IMPORT_LOCK, ExitStack() as cleanup:
+        local_root = (config_dir / "local").resolve()
+        packages = {local_root: [
+            package for package in _discover_packages(local_root)
+            if replacing is None or not package.is_relative_to(replacing)
+        ]}
+        packages[root] = list(staged)
+        dependencies = _prepare_dependencies(config_dir, packages)
+        if dependencies is not None:
+            sys.path.append(str(dependencies))
+            cleanup.callback(sys.path.remove, str(dependencies))
+        namespace = _LOCAL_PACKAGE_PREFIX + uuid4().hex
+        cleanup.callback(_discard_namespace, namespace)
+        return _import_packages(root, packages[root], namespace, {})
 
 
 def _install_requirements(config_dir: Path, requirements: list[Path]) -> Path:
