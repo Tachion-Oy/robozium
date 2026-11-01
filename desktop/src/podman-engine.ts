@@ -7,6 +7,13 @@ interface PodmanOptions {
 	findPodman?: () => string | undefined
 }
 
+/**
+ * Subordinate IDs required beyond the user's own: the range the fix below
+ * grants, and the default for new Ubuntu and Debian users. It covers any UID
+ * the image's own user has below it, so the image's UID needs no second home.
+ */
+const SUBORDINATE_IDS = 65536
+
 interface PodmanInfo {
 	host?: {
 		security?: { rootless?: boolean }
@@ -56,12 +63,13 @@ export class PodmanEngine implements ContainerEngine {
 		if (info.host?.security?.rootless !== true) {
 			throw new Error("Podman runs as root here. Start Robozium as your own user, not as root.")
 		}
-		// Beyond the user's own ID, the image's own user needs a subordinate user and group ID to unpack.
+		// Beyond the user's own ID, the image's own user needs its UID and GID mapped to unpack.
 		const mapped = (ranges?: { size?: number }[] | null) => (ranges ?? []).reduce((total, range) => total + (range.size ?? 0), 0)
-		if (Math.min(mapped(info.host.idMappings?.uidmap), mapped(info.host.idMappings?.gidmap)) <= 1) {
+		if (Math.min(mapped(info.host.idMappings?.uidmap), mapped(info.host.idMappings?.gidmap)) <= SUBORDINATE_IDS) {
+			const range = `100000-${100000 + SUBORDINATE_IDS - 1}`
 			throw new Error(
-				"Podman has no subordinate user and group IDs for your account. Run " +
-				'"sudo usermod --add-subuids 100000-165535 --add-subgids 100000-165535 $USER" and "podman system migrate", then retry.',
+				"Podman has too few subordinate user and group IDs for your account. Run " +
+				`"sudo usermod --add-subuids ${range} --add-subgids ${range} $USER" and "podman system migrate", then retry.`,
 			)
 		}
 	}

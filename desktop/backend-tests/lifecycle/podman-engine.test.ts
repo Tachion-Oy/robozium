@@ -50,8 +50,9 @@ for (const [name, setup, error] of [
 	["a missing Podman", fakePodman(undefined, () => undefined), /Podman was not found/],
 	["an unavailable Podman", fakePodman(() => { throw new Error("broken storage") }), /Podman is unavailable/],
 	["a Podman running as root", fakePodman(() => JSON.stringify({ host: { security: { rootless: false } } })), /runs as root/],
-	["missing subordinate user IDs", fakePodman(() => JSON.stringify({ host: { security: { rootless: true }, idMappings: { uidmap: [{ size: 1 }], gidmap: ranges } } })), /subordinate user and group IDs/],
-	["missing subordinate group IDs", fakePodman(() => JSON.stringify({ host: { security: { rootless: true }, idMappings: { uidmap: ranges, gidmap: [{ size: 1 }] } } })), /subordinate user and group IDs/],
+	["missing subordinate user IDs", fakePodman(() => JSON.stringify({ host: { security: { rootless: true }, idMappings: { uidmap: [{ size: 1 }], gidmap: ranges } } })), /too few subordinate user and group IDs/],
+	["too small a subordinate range", fakePodman(() => JSON.stringify({ host: { security: { rootless: true }, idMappings: { uidmap: [{ size: 1 }, { size: 1000 }], gidmap: ranges } } })), /too few subordinate user and group IDs/],
+	["missing subordinate group IDs", fakePodman(() => JSON.stringify({ host: { security: { rootless: true }, idMappings: { uidmap: ranges, gidmap: [{ size: 1 }] } } })), /too few subordinate user and group IDs/],
 ] as [string, ReturnType<typeof fakePodman>, RegExp][]) test(`preparation reports ${name} with an actionable error`, async () => {
 	await assert.rejects(setup.engine.prepare(call()), error)
 })
