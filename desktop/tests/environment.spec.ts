@@ -218,6 +218,8 @@ test("importing a folder uploads the files its catalog lists under their relativ
 	// The waiting button pulses until the outcome arrives.
 	await expect(panel(page).getByRole("button", { name: "Importing…" })).toHaveAttribute("aria-busy", "true")
 	current = environment({ imports: [imported] })
+	// The catalog is read before the upload starts, so the request may arrive after the busy state.
+	await expect.poll(() => pending).toBeDefined()
 	json(pending!, { imported, suggestions: [{ name: "LOCAL_TOOL_KEY", value: "", secret: false, source: "local_tool" }] })
 	await expect(panel(page).getByRole("button", { name: "Import", exact: true })).not.toHaveAttribute("aria-busy")
 	await expect(page.getByRole("status").filter({ hasText: "Imported" })).toContainText("Tool local_tool found and imported. Available after restart.")
