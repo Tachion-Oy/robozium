@@ -104,12 +104,29 @@ def _catalog_paths(folder: Path, data: dict[str, object], key: str) -> tuple[Pur
     return tuple(paths)
 
 
-def load_local_packages(config_dir: Path) -> dict[Path, tuple[Capability, ...]]:
+@dataclass(frozen=True)
+class LocalPackages:
+    """Loaded packages by path, and imported folders that could not load, with why.
+
+    An imported folder is a plugin: one that fails is skipped and reported, so
+    the application still starts and the folder can be removed in the HUD.
+    """
+
+    capabilities: dict[Path, tuple[Capability, ...]]
+    broken: dict[str, str]
+
+
+type _Packages = dict[Path, Kind | None]
+
+
+def load_local_packages(config_dir: Path) -> LocalPackages:
     """Load packages from local/, retaining their paths.
 
     Parent registration files are never executed. Successful loads are cached
-    per configuration; restart the API to discover private changes.
-    Failures discard the isolated namespace so corrected packages can be retried.
+    per configuration; restart the API to discover private changes. A failure
+    in local/skills or local/tools stops the load and discards the isolated
+    namespace so corrected packages can be retried; an imported folder that
+    fails is reported in ``broken`` instead.
     """
     config_dir = config_dir.resolve()
     with _IMPORT_LOCK:
@@ -120,10 +137,12 @@ def load_local_packages(config_dir: Path) -> dict[Path, tuple[Capability, ...]]:
 
 
 @cache
-def _load_local_packages(config_dir: Path) -> dict[Path, tuple[Capability, ...]]:
+def _load_local_packages(config_dir: Path) -> LocalPackages:
     root = (config_dir / "local").resolve()
-    packages = {root: _discover_packages(root)}
-    dependencies = _prepare_dependencies(config_dir, packages)
+    own, folders, broken = _discover_packages(root)
+    dependencies = _install_folders(
+        config_dir, _requirements(root, own), _folder_requirements(root, folders, broken), broken
+    )
     namespace = _LOCAL_PACKAGE_PREFIX + sha256(str(config_dir).encode()).hexdigest()
     with ExitStack() as rollback:
         rollback.callback(_discard_namespace, namespace)
@@ -131,15 +150,35 @@ def _load_local_packages(config_dir: Path) -> dict[Path, tuple[Capability, ...]]
             sys.path.append(str(dependencies))
             rollback.callback(sys.path.remove, str(dependencies))
         _register_namespace(namespace, config_dir)
-        capabilities = _import_packages(root, packages[root], f"{namespace}.source_0", {})
+        source = f"{namespace}.source_0"
+        _register_roots(source, root)
+        labels: dict[str, Path] = {}
+        capabilities = _import_packages(root, own, source, labels)
+        for name, packages in folders.items():
+            if name in broken:
+                continue
+            attempt = dict(labels)
+            try:
+                capabilities.update(_import_packages(root, packages, source, attempt))
+            except Exception as exc:
+                broken[name] = str(exc)
+                _discard_namespace(f"{source}.imports.{name}")
+            else:
+                labels = attempt
         # Keep successful imports available; unwind partial imports on any failure.
         rollback.pop_all()
-    return capabilities
+    return LocalPackages(capabilities, broken)
 
 
-def _discover_packages(root: Path) -> dict[Path, Kind | None]:
-    """Find packages under skills/ and tools/, and those each imported folder's catalog lists."""
-    packages: dict[Path, Kind | None] = {}
+def _discover_packages(root: Path) -> tuple[_Packages, dict[str, _Packages], dict[str, str]]:
+    """Find packages under skills/ and tools/, and those each imported folder's catalog lists.
+
+    Returns the skills/ and tools/ packages, each readable imported folder's
+    packages, and why each unreadable imported folder was skipped.
+    """
+    own: _Packages = {}
+    folders: dict[str, _Packages] = {}
+    broken: dict[str, str] = {}
     for kind in ("skills", "tools", "imports"):
         directory = root / kind
         if not directory.exists():
@@ -150,7 +189,10 @@ def _discover_packages(root: Path) -> dict[Path, Kind | None]:
             if kind == "imports":
                 # Hidden folders are imports still being staged.
                 if child.is_dir() and not child.name.startswith("."):
-                    packages.update(_catalog_packages(root, child, read_catalog(child)))
+                    try:
+                        folders[child.name] = _catalog_packages(root, child, read_catalog(child))
+                    except (OSError, ValueError) as exc:
+                        broken[child.name] = str(exc)
                 continue
             entrypoint = child / "__init__.py"
             if not child.is_dir() or not (entrypoint.exists() or entrypoint.is_symlink()):
@@ -159,13 +201,11 @@ def _discover_packages(root: Path) -> dict[Path, Kind | None]:
                 raise ValueError(f"invalid Python package name: {child}")
             package = child.relative_to(root)
             _local_file(root, package / "__init__.py", "package entrypoint")
-            packages[package] = None
-    return packages
+            own[package] = None
+    return own, folders, broken
 
 
-def _catalog_packages(
-    root: Path, folder: Path, catalog: Catalog
-) -> dict[Path, Kind | None]:
+def _catalog_packages(root: Path, folder: Path, catalog: Catalog) -> _Packages:
     if not folder.name.isidentifier() or iskeyword(folder.name):
         raise ValueError(f"invalid imported folder name: {folder}")
     if folder.is_symlink() or not folder.resolve().is_relative_to(root):
@@ -191,13 +231,16 @@ def _discard_namespace(name: str) -> None:
             del sys.modules[key]
 
 
-def _import_packages(
-    root: Path, packages: dict[Path, Kind | None], namespace: str, labels: dict[str, Path]
-) -> dict[Path, tuple[Capability, ...]]:
+def _register_roots(namespace: str, root: Path) -> None:
     invalidate_caches()
     _register_namespace(namespace, root)
     for kind in ("skills", "tools", "imports"):
         _register_namespace(f"{namespace}.{kind}", root / kind)
+
+
+def _import_packages(
+    root: Path, packages: _Packages, namespace: str, labels: dict[str, Path]
+) -> dict[Path, tuple[Capability, ...]]:
     capabilities: dict[Path, tuple[Capability, ...]] = {}
     for package, expected in packages.items():
         # Folders above a listed package are namespaces; their __init__.py never runs.
@@ -256,37 +299,84 @@ def _local_file(root: Path, relative: Path, label: str) -> Path:
     return file
 
 
-def _prepare_dependencies(
-    config_dir: Path, packages: dict[Path, dict[Path, Kind | None]]
-) -> Path | None:
-    requirements = [
+def _requirements(root: Path, packages: _Packages) -> list[Path]:
+    """Each package's requirements file; required under skills/ and tools/, optional in imports."""
+    return [
         _local_file(root, package / "requirements.txt", "requirements file")
-        for root, paths in packages.items()
-        for package in paths
+        for package in packages
         if package.parts[0] != "imports" or (root / package / "requirements.txt").exists()
     ]
+
+
+def _folder_requirements(
+    root: Path, folders: dict[str, _Packages], broken: dict[str, str]
+) -> dict[str, list[Path]]:
+    requirements: dict[str, list[Path]] = {}
+    for name, packages in folders.items():
+        try:
+            requirements[name] = _requirements(root, packages)
+        except (OSError, ValueError) as exc:
+            broken[name] = str(exc)
+    return requirements
+
+
+def _install(config_dir: Path, requirements: list[Path]) -> Path | None:
     if not any(file.read_text(encoding="utf-8").strip() for file in requirements):
         return None
     return _install_requirements(config_dir, requirements)
 
 
+def _install_folders(
+    config_dir: Path, own: list[Path], folders: dict[str, list[Path]], broken: dict[str, str]
+) -> Path | None:
+    """Install everything together; if that fails, skip the folders that cannot join.
+
+    Requirements in skills/ and tools/ must always install. Each imported folder
+    is then added in order, and one whose requirements conflict is marked broken.
+    """
+    usable = {name: files for name, files in folders.items() if name not in broken}
+    try:
+        return _install(config_dir, own + [file for files in usable.values() for file in files])
+    except (RuntimeError, ValueError):
+        if not usable:
+            raise
+    accepted = list(own)
+    result = _install(config_dir, accepted)
+    for name, files in usable.items():
+        try:
+            result = _install(config_dir, accepted + files)
+        except (RuntimeError, ValueError) as exc:
+            broken[name] = str(exc)
+        else:
+            accepted += files
+    return result
+
+
 def inspect_import(
     config_dir: Path, folder: Path, catalog: Catalog
 ) -> tuple[Capability, ...]:
-    """Validate a staged folder's listed packages with the startup loader, without activating them."""
+    """Validate a staged folder's listed packages with the startup loader, without activating them.
+
+    Its requirements must install together with those of every working import.
+    """
     with _IMPORT_LOCK, ExitStack() as cleanup:
         local_root = (config_dir / "local").resolve()
-        packages = {local_root: _discover_packages(local_root)}
+        own, folders, broken = _discover_packages(local_root)
         # Staging uses the same imports/<name> layout as committed folders.
         root = folder.parent.parent
-        packages[root] = _catalog_packages(root, folder, catalog)
-        dependencies = _prepare_dependencies(config_dir, packages)
+        packages = _catalog_packages(root, folder, catalog)
+        requirements = _folder_requirements(local_root, folders, broken)
+        requirements[folder.name] = _requirements(root, packages)
+        dependencies = _install_folders(config_dir, _requirements(local_root, own), requirements, broken)
+        if folder.name in broken:
+            raise RuntimeError(broken[folder.name])
         if dependencies is not None:
             sys.path.append(str(dependencies))
             cleanup.callback(sys.path.remove, str(dependencies))
         namespace = _LOCAL_PACKAGE_PREFIX + uuid4().hex
         cleanup.callback(_discard_namespace, namespace)
-        imported = _import_packages(root, packages[root], namespace, {})
+        _register_roots(namespace, root)
+        imported = _import_packages(root, packages, namespace, {})
         return tuple(value for values in imported.values() for value in values)
 
 

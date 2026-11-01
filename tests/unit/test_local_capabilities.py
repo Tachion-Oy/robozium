@@ -17,8 +17,12 @@ from roboz.deployment import SkillLoading
 from roboz.llm import MockLLMEndpoint
 
 from robozium.api.app import create_app
-from robozium.hub.local import load_local_packages
+from robozium.hub.local import LocalPackages, load_local_packages
 from robozium.hub.utils import load_hub
+
+
+def _load(config_dir):
+    return load_local_packages(config_dir).capabilities
 
 
 def _source(label="private"):
@@ -107,12 +111,12 @@ def test_config_relative_discovery_order_and_relative_imports_ignore_parent_code
 
 
 def test_missing_directories_and_successful_loads_are_cached_and_isolated(tmp_path):
-    assert load_local_packages(tmp_path / "empty") == {}
+    assert _load(tmp_path / "empty") == {}
     for root in (tmp_path / "first", tmp_path / "second"):
         _package(root)
     first = load_local_packages(tmp_path / "first")
     second = load_local_packages(tmp_path / "second")
-    assert next(iter(first.values()))[0] is not next(iter(second.values()))[0]
+    assert next(iter(first.capabilities.values()))[0] is not next(iter(second.capabilities.values()))[0]
     _package(tmp_path / "first", source="raise AssertionError('reimported')\n")
     assert load_local_packages(tmp_path / "first") is first
 
@@ -132,20 +136,20 @@ def test_failed_imports_discard_submodules_and_remain_retryable(tmp_path, source
     helper = package / "helper.py"
     helper.write_text(_source("before"))
     with pytest.raises(RuntimeError, match="Invalid local capabilities"):
-        load_local_packages(tmp_path)
+        _load(tmp_path)
     helper.write_text(_source("after_repair"))
     (package / "__init__.py").write_text("from .helper import CAPABILITY\n")
-    assert next(iter(load_local_packages(tmp_path).values()))[0].label.name == "after_repair"
+    assert next(iter(_load(tmp_path).values()))[0].label.name == "after_repair"
 
 
 def test_duplicate_names_identify_both_packages_and_allow_repair(tmp_path):
     first = _package(tmp_path, "tools/one")
     second = _package(tmp_path, "skills/two")
     with pytest.raises(RuntimeError, match="duplicate capability name 'private'") as error:
-        load_local_packages(tmp_path)
+        _load(tmp_path)
     assert str(first) in str(error.value) and str(second) in str(error.value)
     (first / "__init__.py").write_text(_source("unique"))
-    assert len(load_local_packages(tmp_path)) == 2
+    assert len(_load(tmp_path)) == 2
 
 
 def test_builtin_collision_is_an_actionable_live_startup_error(tmp_path):
@@ -176,9 +180,9 @@ def test_requirements_are_installed_together_before_any_import(tmp_path, monkeyp
     monkeypatch.setattr("robozium.hub.local.subprocess.run", install)
     before = sys.path.copy()
     try:
-        assert len(load_local_packages(tmp_path)) == 2
+        assert len(_load(tmp_path)) == 2
         assert str(installed[0]) in sys.path
-        load_local_packages(tmp_path)
+        _load(tmp_path)
         assert len(installed) == 1
     finally:
         sys.path[:] = before
@@ -198,7 +202,7 @@ def test_real_dependency_conflicts_fail_before_imports_and_allow_repair(tmp_path
     monkeypatch.setenv("UV_CACHE_DIR", str(tmp_path / "uv-cache"))
     before = sys.path.copy()
     with pytest.raises(RuntimeError, match="Dependencies must be compatible") as error:
-        load_local_packages(tmp_path)
+        _load(tmp_path)
     assert str(first / "requirements.txt") in str(error.value)
     assert str(second / "requirements.txt") in str(error.value)
     detail = str(error.value).split("application environment: ", 1)[1]
@@ -209,7 +213,7 @@ def test_real_dependency_conflicts_fail_before_imports_and_allow_repair(tmp_path
     assert not marker.exists()
     for package in (first, second):
         (package / "requirements.txt").write_text("")
-    assert len(load_local_packages(tmp_path)) == 2
+    assert len(_load(tmp_path)) == 2
     assert marker.exists()
 
 
@@ -234,13 +238,13 @@ def test_invalid_files_fail_before_installation(tmp_path, monkeypatch, invalid):
         "robozium.hub.local.subprocess.run", lambda *a, **k: pytest.fail("must validate first")
     )
     with pytest.raises(RuntimeError, match="missing or invalid local file|invalid local capability directory"):
-        load_local_packages(tmp_path)
+        _load(tmp_path)
 
 
 def test_empty_requirements_skip_installation(tmp_path, monkeypatch):
     _package(tmp_path, requirements=" \n")
     monkeypatch.setattr("robozium.hub.local.which", lambda _: None)
-    assert len(load_local_packages(tmp_path)) == 1
+    assert len(_load(tmp_path)) == 1
 
 
 def test_dependency_and_import_failures_restore_path_and_can_be_retried(tmp_path, monkeypatch):
@@ -253,11 +257,11 @@ def test_dependency_and_import_failures_restore_path_and_can_be_retried(tmp_path
     before = sys.path.copy()
     for error in ("dependency conflict", "bad import"):
         with pytest.raises(RuntimeError, match=error):
-            load_local_packages(tmp_path)
+            _load(tmp_path)
         assert sys.path == before
     (package / "__init__.py").write_text(_source())
     try:
-        assert len(load_local_packages(tmp_path)) == 1
+        assert len(_load(tmp_path)) == 1
     finally:
         sys.path[:] = before
 
@@ -335,21 +339,70 @@ def test_fresh_api_processes_rediscover_packages_and_preserve_saved_selections(t
     assert {"mock_information", "mock_guidance"} <= mock["effective"].keys()
 
 
-def test_an_imported_folder_without_a_catalog_stops_startup_with_its_name(tmp_path):
-    _package(tmp_path, "imports/legacy")
-    with pytest.raises(RuntimeError, match="legacy: robozium.json is missing"):
+def _imported(root, name, source=None, catalog='{"tools": ["tools/inner"]}', requirements=""):
+    folder = root / "local/imports" / name
+    _package(root, f"imports/{name}/tools/inner", source=source, requirements=requirements)
+    (folder / "robozium.json").write_text(catalog)
+    return folder
+
+
+@pytest.mark.parametrize(
+    "name, catalog, source, reason",
+    [
+        ("legacy", None, None, "legacy: robozium.json is missing"),
+        ("broken_json", "{", None, "not valid JSON"),
+        ("missing_package", '{"tools": ["tools/absent"]}', None, "package tools/absent"),
+        ("bad_code", '{"tools": ["tools/inner"]}', "raise ValueError('broken')", "broken"),
+        ("wrong_kind", '{"skills": ["tools/inner"]}', None, "listed under skills"),
+        ("duplicate", '{"tools": ["tools/inner"]}', _source("good"), "duplicate capability name 'good'"),
+    ],
+)
+def test_a_broken_imported_folder_is_skipped_and_reported(tmp_path, name, catalog, source, reason):
+    _imported(tmp_path, "a_good", source=_source("good"))
+    folder = _imported(tmp_path, name, source=source, catalog=catalog or "")
+    if catalog is None:
+        (folder / "robozium.json").unlink()
+    loaded = load_local_packages(tmp_path)
+    assert [cap.label.name for values in loaded.capabilities.values() for cap in values] == ["good"]
+    assert list(loaded.broken) == [name]
+    assert reason in loaded.broken[name]
+    assert not any(module.startswith("_robozium_local_") and f".imports.{name}" in module for module in sys.modules)
+
+
+def test_an_imported_folder_whose_requirements_conflict_is_skipped(tmp_path, monkeypatch):
+    _imported(tmp_path, "a_good", source=_source("good"), requirements="good-package\n")
+    _imported(tmp_path, "b_conflict", source=_source("conflict"), requirements="conflicting-package\n")
+    installs = []
+
+    def install(config_dir, requirements):
+        installs.append(sorted(file.parent.parent.parent.name for file in requirements))
+        if any("conflicting" in file.read_text() for file in requirements):
+            raise RuntimeError("Could not install local requirements")
+        return tmp_path / "deps"
+
+    monkeypatch.setattr("robozium.hub.local._install_requirements", install)
+    loaded = load_local_packages(tmp_path)
+    assert [cap.label.name for values in loaded.capabilities.values() for cap in values] == ["good"]
+    assert "Could not install" in loaded.broken["b_conflict"]
+    # Together first; then the folders one at a time.
+    assert installs == [["a_good", "b_conflict"], ["a_good"], ["a_good", "b_conflict"]]
+
+
+def test_a_broken_package_in_tools_still_stops_startup(tmp_path):
+    _imported(tmp_path, "a_good", source=_source("good"))
+    _package(tmp_path, "tools/broken", source="raise ValueError('developer package')")
+    with pytest.raises(RuntimeError, match="developer package"):
         load_local_packages(tmp_path)
 
 
 def test_hidden_staging_folders_under_imports_are_not_loaded(tmp_path):
     _package(tmp_path, "imports/.upload-1/imports/staged")
-    assert load_local_packages(tmp_path) == {}
+    assert load_local_packages(tmp_path) == LocalPackages({}, {})
 
 
-def test_an_imported_folder_linked_from_elsewhere_is_refused(tmp_path):
+def test_an_imported_folder_linked_from_elsewhere_is_reported(tmp_path):
     outside = _package(tmp_path / "outside", "imports/linked/tools/inner").parents[2]
     (outside / "robozium.json").write_text('{"tools": ["tools/inner"]}')
     (tmp_path / "local/imports").mkdir(parents=True)
     (tmp_path / "local/imports/linked").symlink_to(outside)
-    with pytest.raises(RuntimeError, match="must stay inside"):
-        load_local_packages(tmp_path)
+    assert "must stay inside" in load_local_packages(tmp_path).broken["linked"]

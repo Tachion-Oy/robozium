@@ -26,7 +26,8 @@ function ImportRow({ item, disabled, onRemove }: { item: EnvironmentImport, disa
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<span className="min-w-0 break-all">
 					{item.name}
-					{!item.active && <span className="agent-hud__environment-value"> Available on next start</span>}
+					{item.error === null && !item.active && <span className="agent-hud__environment-value"> Available on next start</span>}
+					{item.error !== null && <span className="agent-hud__environment-value"> Not loaded</span>}
 				</span>
 				<div className="flex gap-2">
 					{confirming ? <>
@@ -35,6 +36,7 @@ function ImportRow({ item, disabled, onRemove }: { item: EnvironmentImport, disa
 					</> : <HudButton variant="danger" aria-label={`Remove ${item.name}`} disabled={disabled} onClick={() => setConfirming(true)}>Remove</HudButton>}
 				</div>
 			</div>
+			{item.error !== null && <p className="agent-hud__environment-value break-all">{item.error}</p>}
 			<ul className="flex flex-wrap gap-3">
 				{item.capabilities.map(capability => (
 					<li key={capability.name}><CapabilityItem capability={capability} /></li>

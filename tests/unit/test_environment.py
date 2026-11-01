@@ -700,3 +700,23 @@ def test_a_broken_package_keeps_its_folder_example_settings(client, tmp_path):
     view = client.get(URL).json()
     assert view["example_errors"] == []
     assert {row["name"] for row in view["suggestions"]} == {"SERVICE_TOKEN", "HOST"}
+
+
+def test_a_broken_import_is_reported_and_removable_while_others_load(tmp_path, monkeypatch):
+    for name, files in (("bundle", FOLDER), ("legacy", {"__init__.py": TOOL})):
+        for relative, content in files.items():
+            target = tmp_path / "local/imports" / name / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content if isinstance(content, bytes) else content.encode())
+    write_config(tmp_path)
+    monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(tmp_path / ".env.encrypt"))
+    client = TestClient(create_app(deployment=load_hub(start=tmp_path)))
+    assert {"actual_tool", "actual_guide"} <= {row["name"] for row in client.get("/capabilities").json()}
+    view = client.get(URL).json()
+    broken = next(item for item in view["imports"] if item["name"] == "legacy")
+    assert broken["capabilities"] == [] and broken["active"] is False
+    assert "robozium.json is missing" in broken["error"]
+    assert view["example_errors"] == []
+    assert client.delete(URL + "/imports/legacy").status_code == 200
+    assert not (tmp_path / "local/imports/legacy").exists()
+    assert [item["name"] for item in client.get(URL).json()["imports"]] == ["bundle"]

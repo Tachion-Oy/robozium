@@ -80,6 +80,8 @@ class EnvironmentImport(BaseModel):
     capabilities: list[CapabilityView]
     variables: list[str]
     active: bool = False
+    # Why the folder did not load at startup; it is skipped until removed.
+    error: str | None = None
 
 
 class EnvironmentView(BaseModel):

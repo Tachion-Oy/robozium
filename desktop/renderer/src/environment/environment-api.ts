@@ -14,7 +14,14 @@ export interface EnvironmentEntry {
 	overridden: boolean
 }
 export interface EnvironmentSuggestion { name: string; value: string; secret: boolean; source: string }
-export interface EnvironmentImport { name: string; capabilities: CapabilityView[]; variables: string[]; active: boolean }
+export interface EnvironmentImport {
+	name: string
+	capabilities: CapabilityView[]
+	variables: string[]
+	active: boolean
+	/** Why the folder did not load at startup; it stays skipped until removed. */
+	error: string | null
+}
 export interface EnvironmentView {
 	revision: string
 	entries: EnvironmentEntry[]
@@ -41,6 +48,7 @@ const EnvironmentSuggestion: z.ZodType<EnvironmentSuggestion> = z.object({
 })
 const EnvironmentImport: z.ZodType<EnvironmentImport> = z.object({
 	name: z.string(), capabilities: z.array(CapabilityView), variables: z.array(z.string()), active: z.boolean(),
+	error: z.string().nullable(),
 })
 const EnvironmentView: z.ZodType<EnvironmentView> = z.object({
 	revision: z.string(),
