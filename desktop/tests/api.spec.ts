@@ -270,8 +270,11 @@ test("typed run streams ignore unknown events and release the response on exit, 
 
 test("run parsing preserves the wire contract while normalizing retry controls", () => {
 	expect(parseRunEvent({ type: "message", sequence: 1, message_id: "m1", payload: {
-		role: "assistant", content: "Hello", message_kind: "user_notification",
-	} })).toEqual({ type: "message", sequence: 1, id: "m1", role: "assistant", content: "Hello", kind: "user_notification" })
+		role: "assistant", content: "Hello", message_kind: "user_notification", caller: null,
+	} })).toEqual({ type: "message", sequence: 1, id: "m1", role: "assistant", content: "Hello", kind: "user_notification", caller: null })
+	expect(parseRunEvent({ type: "message", sequence: 1, payload: {
+		role: "user", content: "{}", message_kind: null, caller: "run_file_command",
+	} })).toMatchObject({ role: "user", kind: null, caller: "run_file_command" })
 	expect(parseRunEvent({ type: "message_delta", sequence: 2, payload: {
 		message_id: "m2", delta: "Progress", chunk_index: 0, agent_name: "root",
 	} })).toEqual({ type: "message_delta", sequence: 2, id: "m2", delta: "Progress", chunk: 0, agent: "root" })

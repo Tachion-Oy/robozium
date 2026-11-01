@@ -143,6 +143,7 @@ class RunEvents:
             "content": event.message.content,
             "truncation": None,
             "message_kind": event.message.message_kind,
+            "caller": event.message.caller,
         }
         message_entry: RunViewMessageEntry = {
             "type": "message",

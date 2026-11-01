@@ -30,7 +30,10 @@ test("the overview shows backend statuses and polls every three seconds only whi
 	backend.handlers.set("GET /projects", response => json(response, rows))
 	await backend.open()
 	for (const [slug, label] of [["running", "RUNNING"], ["waiting", "WAITING"], ["cancelling", "STOPPING"], ["syncing", "SYNCING"], ["dormant", "DORMANT"]]) {
-		await expect(row(page, `${slug}-project`)).toContainText(label)
+		const status = row(page, `${slug}-project`).getByText(label, { exact: true })
+		await expect(status).toBeVisible()
+		// Only the resting state is regular weight, so active states stand out in either theme.
+		await expect(status).toHaveCSS("font-weight", slug === "dormant" ? "400" : "700")
 	}
 	await expect(row(page, "running-project")).toContainText("2m ago")
 	// A live run opens, a dormant project launches; Launch or Open comes first.

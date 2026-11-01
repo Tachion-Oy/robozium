@@ -10,8 +10,8 @@ const lifecycle = (sequence: number, kind: string, extra: Record<string, unknown
 	type: "run_lifecycle", payload: { kind, agent_name: "orchestrator", sequence, parent_agent_name: null, status: null, model_name: "mock", ...extra },
 })
 const script = (sequence: number, content: string) => ({ type: "script_output", sequence, payload: { content } })
-const wire = (role: string, content: string, sequence: number, kind: string | null = null) => ({
-	type: "message", sequence, message_id: `m${sequence}`, payload: { role, content, message_kind: kind },
+const wire = (role: string, content: string, sequence: number, kind: string | null = null, caller: string | null = null) => ({
+	type: "message", sequence, message_id: `m${sequence}`, payload: { role, content, message_kind: kind, caller },
 })
 const records = (...frames: unknown[]) => frames.map(frame => parseRunEvent(frame) as RunRecord)
 
@@ -28,8 +28,9 @@ test("the log projects messages, grouped script output and lifecycle banners fro
 		script(5, "after retry"),
 		wire("user", "plain output", 6, "script_result"),
 		wire("user", "unlabelled", 7),
-		wire("error", "Boom", 8),
-		lifecycle(9, "stopped", { status: "completed" }),
+		wire("user", JSON.stringify({ status: "ok", agent: "librarian" }), 8, null, "run_file_command"),
+		wire("error", "Boom", 9),
+		lifecycle(10, "stopped", { status: "completed" }),
 	))
 	expect(items).toEqual([
 		{ kind: "lifecycle", role: "lifecycle", phase: "started", agentName: "orchestrator", details: { model_name: "mock" } },
@@ -39,6 +40,8 @@ test("the log projects messages, grouped script output and lifecycle banners fro
 		{ kind: "message", role: "script", content: "line one\nline two\nafter retry" },
 		{ kind: "message", role: "tool", content: "plain output", parsed: { kind: "user", caller: "script_result", extra: {} } },
 		{ kind: "message", role: "tool", content: "unlabelled" },
+		{ kind: "message", role: "tool", content: JSON.stringify({ status: "ok", agent: "librarian" }),
+			parsed: { kind: "user", caller: "run_file_command", extra: { status: "ok", agent: "librarian" } } },
 		{ kind: "message", role: "error", content: "Boom", parsed: { kind: "error", value: "Boom" } },
 		{ kind: "lifecycle", role: "lifecycle", phase: "stopped", agentName: "orchestrator", status: "completed",
 			details: { parent_agent_name: "null", status: "completed", model_name: "mock" } },
@@ -177,8 +180,12 @@ test("scrolled up, the row being read stays put while messages arrive", async ({
 	await expect.poll(() => run.streams.length).toBe(1)
 	await setNativeViewport(app, page, 1260, 780, 1)
 	await toggle(page, "Show message log").click()
-	for (let i = 1; i <= 80; i++) emit(run.streams[0], wire("user", JSON.stringify({ caller: "status", value: `Row ${i}` }), i))
+	for (let i = 1; i <= 80; i++) emit(run.streams[0], wire("user", JSON.stringify({ value: `Row ${i}` }), i, null, "status"))
 	await expect(log(page)).toContainText("Row 80")
+	// A tool row names its tool as a tag and emphasises its keys.
+	const last = log(page).locator(".term-msg", { hasText: "Row 80" })
+	await expect(last.locator(".intro-emph__rich .term-tag-label")).toHaveText("status")
+	await expect(last.locator(".intro-emph__rich .term-emph")).toHaveText("value")
 	// One GPU layer per label exhausts the tile budget in a long log, and labels then paint blank.
 	expect(await log(page).locator(".term-tag-label").first().evaluate(label => getComputedStyle(label).willChange)).toBe("auto")
 	const scroller = log(page).locator(".term-log")
@@ -186,7 +193,7 @@ test("scrolled up, the row being read stays put while messages arrive", async ({
 	const row = log(page).locator(".term-msg", { hasText: "Row 40" })
 	await row.scrollIntoViewIfNeeded()
 	const before = (await row.boundingBox())!.y
-	for (let i = 81; i <= 90; i++) emit(run.streams[0], wire("user", JSON.stringify({ caller: "status", value: `Row ${i}` }), i))
+	for (let i = 81; i <= 90; i++) emit(run.streams[0], wire("user", JSON.stringify({ value: `Row ${i}` }), i, null, "status"))
 	await expect(log(page)).toContainText("Row 90")
 	await expect.poll(async () => Math.abs((await row.boundingBox())!.y - before)).toBeLessThanOrEqual(1)
 })

@@ -1,14 +1,13 @@
 // Project the displayed run's retained events into message log rows. No log state:
 // the log pane computes this only while it is mounted.
 import { MessageRole, RunEventType, RunLifecycleKind, type RunRecord } from "../run/run-contracts"
-import { isAssistantContent, isUserContent, parseContentObject, type ParsedMessageContent } from "./normalize"
+import { isAssistantContent, parseContentObject, type ParsedMessageContent } from "./normalize"
 import { StreamLogItemKind, StreamLogRole, type LifecycleLogItem, type MessageLogItem, type StreamLogItem } from "./view-model"
 
 type MessageEvent = Extract<RunRecord, { type: typeof RunEventType.Message }>
 type LifecycleEvent = Extract<RunRecord, { type: typeof RunEventType.RunLifecycle }>
 
 const ASSISTANT_KNOWN_KEYS = new Set(["action", "rationale"])
-const USER_KNOWN_KEYS = new Set(["caller"])
 
 export function stringifyValue(value: unknown): string {
 	if (typeof value === "string") return value
@@ -44,11 +43,10 @@ function parseContent(event: MessageEvent): ParsedMessageContent | undefined {
 			return { kind: "assistant", action: parsed.action, rationale: parsed.rationale, extra: stripKnownKeys(parsed, ASSISTANT_KNOWN_KEYS) }
 		}
 		case MessageRole.User: {
-			const parsed = parseContentObject(event.content)
-			if (parsed && isUserContent(parsed))
-				return { kind: "user", caller: parsed.caller, extra: stripKnownKeys(parsed, USER_KNOWN_KEYS) }
-			if (event.kind === null) return undefined
-			return { kind: "user", caller: event.kind, extra: parsed ? stripKnownKeys(parsed, USER_KNOWN_KEYS) : {} }
+			// A tool result names its tool in the message, not in its content.
+			const caller = event.caller ?? event.kind
+			if (caller === null) return undefined
+			return { kind: "user", caller, extra: parseContentObject(event.content) ?? {} }
 		}
 	}
 }

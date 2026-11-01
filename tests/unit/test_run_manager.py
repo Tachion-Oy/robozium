@@ -374,7 +374,10 @@ def test_run_events_assigns_one_sequence_space_to_mixed_run_events(
         ),
     )
     events.dispatch(
-        MessageEvent(Message(role=Role.USER, content="done"), sequence=1),
+        MessageEvent(
+            Message(role=Role.USER, content="done", caller="run_file_command"),
+            sequence=1,
+        ),
     )
 
     assert [getattr(event, "sequence") for event in delivered] == [1, 2, 3, 4]
@@ -390,6 +393,7 @@ def test_run_events_assigns_one_sequence_space_to_mixed_run_events(
     message_entry = view["message_trace"][-1]
     assert message_entry["type"] == "message"
     assert message_entry["payload"]["message_kind"] is None
+    assert message_entry["payload"]["caller"] == "run_file_command"
 
 
 def test_run_event_snapshots_detach_nested_runtime_data() -> None:

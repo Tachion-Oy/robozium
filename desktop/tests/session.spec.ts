@@ -15,7 +15,7 @@ function delta(sequence: number, id: string, text: string, chunk = 0, agent = "r
 	return { type: "message_delta", sequence, id, delta: text, chunk, agent }
 }
 function message(sequence: number, id: string, content: string, kind: string | null = "user_notification"): RunFrame {
-	return { type: "message", sequence, id, content, kind, role: "assistant" }
+	return { type: "message", sequence, id, content, kind, caller: null, role: "assistant" }
 }
 function snapshot(state: RunSession, overrides: Partial<RunView>): RunSession {
 	return reduceRunSession(state, { type: "snapshot", view: {
@@ -90,9 +90,9 @@ for (const source of ["SSE", "snapshot"] as const) {
 			script(1, "First"), retry(2), script(3, " continued"),
 			message(4, "internal", "null", null), script(5, "Second"),
 			message(6, "question", '{"action":"prompt_user","value":"Continue?"}', null),
-			{ type: "message", sequence: 7, id: "error", role: "error", kind: null, content: "Problem" },
+			{ type: "message", sequence: 7, id: "error", role: "error", kind: null, caller: null, content: "Problem" },
 			message(8, "notification", literal),
-			{ type: "message", sequence: 9, id: "reply", role: "user", kind: null, content: "Hidden reply" },
+			{ type: "message", sequence: 9, id: "reply", role: "user", kind: null, caller: null, content: "Hidden reply" },
 			script(10, "Third"),
 		]
 		const state = source === "SSE" ? receive(session(), ...events) : snapshot(session(), { frames: events })

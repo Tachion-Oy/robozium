@@ -47,7 +47,7 @@ export function isTerminal(status: RunStatus): boolean {
 }
 
 export type RunFrame = { sequence: number } & (
-	| { type: typeof RunEventType.Message; id: string | null; role: MessageRole; content: string; kind: string | null }
+	| { type: typeof RunEventType.Message; id: string | null; role: MessageRole; content: string; kind: string | null; caller: string | null }
 	| { type: typeof RunEventType.MessageDelta; id: string; delta: string; chunk: number; agent: string }
 	| { type: typeof RunEventType.LlmRetry; agent: string }
 	| { type: typeof RunEventType.ScriptOutput; content: string }
