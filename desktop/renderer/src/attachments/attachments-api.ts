@@ -1,6 +1,8 @@
 // Stage images for a run's next reply (`/run/{id}/files`) and address hub files.
 // The reply image draft owns the queue; requests here have no local state.
-import { ApiError, type DesktopApiClient } from "../api/client"
+import { z } from "zod"
+import { type DesktopApiClient } from "../api/client"
+import { nonBlank, orNull, parsePayload } from "../api/payload"
 
 export interface RunAttachment {
 	id: string
@@ -11,24 +13,17 @@ export interface RunAttachment {
 	uploadId: string | null
 }
 
-function malformed(): never {
-	throw new ApiError("malformed", "The backend returned an invalid image attachment.")
-}
+const RunAttachment: z.ZodType<RunAttachment> = z.object({ id: nonBlank, name: z.string(), path: nonBlank, upload_id: orNull(z.string()) })
+	.transform(({ id, name, path, upload_id: uploadId }) => ({ id, name, path, uploadId }))
+const RunAttachments = z.array(RunAttachment)
 
-function parseAttachment(value: unknown): RunAttachment {
-	if (!value || typeof value !== "object" || Array.isArray(value)) malformed()
-	const { id, name, path, upload_id: uploadId = null } = value as Record<string, unknown>
-	if (typeof id !== "string" || !id || typeof name !== "string" || typeof path !== "string" || !path) malformed()
-	if (uploadId !== null && typeof uploadId !== "string") malformed()
-	return { id, name, path, uploadId }
-}
+const parse = <T>(schema: z.ZodType<T>, value: unknown): T =>
+	parsePayload(schema, value, "The backend returned an invalid image attachment.")
 
 const filesPath = (runId: string) => `/run/${encodeURIComponent(runId)}/files`
 
 export async function listRunAttachments(client: DesktopApiClient, runId: string, signal: AbortSignal): Promise<RunAttachment[]> {
-	const value = await client.request(filesPath(runId), { signal })
-	if (!Array.isArray(value)) malformed()
-	return value.map(parseAttachment)
+	return parse(RunAttachments, await client.request(filesPath(runId), { signal }))
 }
 
 /** Reuse uploadId when retrying one selection; the backend then returns the same attachment. */
@@ -36,7 +31,7 @@ export async function uploadRunAttachment(
 	client: DesktopApiClient, runId: string, file: File, uploadId: string, signal: AbortSignal,
 ): Promise<RunAttachment> {
 	const query = new URLSearchParams({ filename: file.name, upload_id: uploadId })
-	return parseAttachment(await client.request(`${filesPath(runId)}?${query}`, { method: "POST", bytes: file, signal }))
+	return parse(RunAttachment, await client.request(`${filesPath(runId)}?${query}`, { method: "POST", bytes: file, signal }))
 }
 
 /** Without an attachment id, removes every pending image of the run. */
