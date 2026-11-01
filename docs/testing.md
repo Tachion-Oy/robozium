@@ -503,7 +503,8 @@ change and Escape closing the editor, the two-step reset, and both themes at
 narrow and 125% zoom with an open editor. A lifecycle scenario saves a setting
 through the screen and finds it again after reopening. The same spec covers a
 folder import uploading only the files its `robozium.json` lists, each under its
-relative path, a folder without a catalog refused before upload, a refused import,
+relative path, the same for a dropped folder, a folder without a catalog
+refused before upload, a refused import,
 and Restart app confirming unsaved edits in the HUD; `backend-ipc.spec.ts`
 denies `restartApp` to untrusted windows and documents. A lifecycle scenario
 saves a secret with a test password, uses Restart app (recording
