@@ -39,7 +39,7 @@ from robozium.api.models import (
 from robozium.api.project_service import ProjectService
 from robozium.hub import environment as env
 from robozium.hub.application import Hub
-from robozium.hub.local import inspect_import
+from robozium.hub.local import REPOSITORIES, inspect_import, local_root
 
 _COMMENTED_ASSIGNMENT = re.compile(r"\s*#\s*([A-Za-z_][A-Za-z0-9_]*[ \t]*=.*)")
 
@@ -59,7 +59,8 @@ class EnvironmentService:
         self._credentials = credentials
         self._path = credentials.path
         self._root = hub.settings.config_file.parent.resolve()
-        self._repositories = self._root / "local" / "repositories"
+        self._local = local_root(self._root)
+        self._repositories = self._local / REPOSITORIES
         self._packages: dict[str, list[RepositoryPackage]] = {}
         for package, values in hub.local_packages.items():
             if package.parent.parent == self._repositories:
@@ -83,13 +84,17 @@ class EnvironmentService:
             if not entry.name.startswith(env.REPOSITORY_PREFIX)
         ]
         suggestions, errors = self._read_examples()
-        # A folder whose URL entry is gone still shows, so it can be removed.
+        # An entry without a folder, or a folder without an entry, still shows so it can be removed.
         saved = {
-            name.removeprefix(env.REPOSITORY_PREFIX).lower(): url
-            for name, url in values.items()
-            if name.startswith(env.REPOSITORY_PREFIX) and not name.endswith(ENCRYPTED_SUFFIX)
+            stored.removesuffix(ENCRYPTED_SUFFIX).removeprefix(env.REPOSITORY_PREFIX).lower():
+                url if not stored.endswith(ENCRYPTED_SUFFIX) else None
+            for stored, url in values.items()
+            if stored.startswith(env.REPOSITORY_PREFIX) and stored != env.REPOSITORY_PREFIX
         }
-        on_disk = {folder.name for folder in self._repositories.glob("*") if folder.is_dir()}
+        on_disk = {
+            folder.name for folder in self._repositories.glob("*")
+            if folder.is_dir() or folder.is_symlink()
+        }
         repositories = [
             RepositoryView(name=key, url=saved.get(key) or "", packages=self._with_examples(
                 self._repositories / key, self._packages.get(key, []), suggestions, errors,
@@ -101,7 +106,8 @@ class EnvironmentService:
             editable=self._editable(),
             entries=entries,
             overrides=sorted(overrides),
-            requires_password=any(entry.secret for entry in entries),
+            # Hidden repository secrets need the password on every save too.
+            requires_password=any(name.endswith(ENCRYPTED_SUFFIX) for name in values),
             suggestions=suggestions,
             example_errors=errors,
             repositories=repositories,
@@ -131,11 +137,7 @@ class EnvironmentService:
                     values[name] = previous.get(name)
                     if stored_name != name:
                         secrets.add(name)
-            encrypted = encrypt_env_values(values, secret_names=secrets, password=edit.password)
-            output = serialize_env(encrypted).encode("utf-8")
-            if len(output) > env.MAX_ENV_BYTES:
-                raise ValueError("Environment file is too large")
-            self._replace_settings(original, output)
+            self._commit(original, encrypt_env_values(values, secret_names=secrets, password=edit.password))
             if not self._credentials.setup_required:
                 return False
             self._credentials.load(edit.password)
@@ -187,13 +189,12 @@ class EnvironmentService:
         """
         name = repositories.repository_name(request.url)
         url = request.url.strip()
-        variable = env.REPOSITORY_PREFIX + name.upper()
-        self._require_new(variable, name)
+        self._require_new(name)
         with self._staged(name, url) as stage, self._projects.stopped_runs():
-            self._require_new(variable, name)
+            self._require_new(name)
             results = self._swap(stage, name)
             try:
-                self._write_entries({variable: url})
+                self._write_entries({self._variable(name): url})
             except BaseException:
                 self._unswap(stage, name)
                 raise
@@ -203,52 +204,60 @@ class EnvironmentService:
         """Replace a repository's packages with what its index lists now, all or none."""
         url = self._repository_url(name)
         with self._staged(name, url) as stage, self._projects.stopped_runs():
-            self._repository_url(name)
+            if self._repository_url(name) != url:
+                raise EnvironmentConflictError(f"{name} changed while downloading. Try again.")
             return self._record(name, url, self._swap(stage, name))
 
     def remove_repository(self, name: str) -> None:
-        """Delete a repository's folder and its settings entry, whichever exist."""
-        variable = env.REPOSITORY_PREFIX + name.upper()
+        """Delete a repository's folder, or a link in its place, and its settings entry."""
+        variable = self._variable(name)
         destination = self._repositories / name
         with self._projects.stopped_runs():
             stored = self._parse_values(self._read_text(self._path))
-            if not re.fullmatch(r"[a-z0-9_]+", name) or (
-                variable not in stored and not destination.is_dir()
-            ):
+            exists = destination.exists() or destination.is_symlink()
+            if not exists and not {variable, variable + ENCRYPTED_SUFFIX} & stored.keys():
                 raise RepositoryNotFoundError(f"No repository named {name}")
-            with TemporaryDirectory(prefix=".staging-", dir=self._root / "local") as temporary:
+            self._local.mkdir(exist_ok=True)
+            with TemporaryDirectory(prefix=".staging-", dir=self._local) as temporary:
                 removed = Path(temporary) / name
-                if destination.is_dir() and not destination.is_symlink():
+                if exists:
                     destination.rename(removed)
                 try:
                     self._write_entries({variable: None})
                 except BaseException:
-                    if removed.exists():
+                    if removed.exists() or removed.is_symlink():
                         removed.rename(destination)
                     raise
             self._forget(name)
 
-    def _repository_url(self, name: str) -> str:
-        values = self._parse_values(self._read_text(self._path))
-        url = values.get(env.REPOSITORY_PREFIX + name.upper())
-        if not re.fullmatch(r"[a-z0-9_]+", name) or url is None:
+    @staticmethod
+    def _variable(name: str) -> str:
+        """The settings entry that keeps a repository's URL; names come from repository_name."""
+        if not re.fullmatch(r"[a-z0-9_]+", name):
             raise RepositoryNotFoundError(f"No repository named {name}")
+        return env.REPOSITORY_PREFIX + name.upper()
+
+    def _repository_url(self, name: str) -> str:
+        url = self._parse_values(self._read_text(self._path)).get(self._variable(name))
+        if url is None:
+            raise RepositoryNotFoundError(f"No repository URL is saved for {name}")
         return url
 
-    def _require_new(self, variable: str, name: str) -> None:
+    def _require_new(self, name: str) -> None:
         stored = self._parse_values(self._read_text(self._path))
-        if variable in stored:
+        variable = self._variable(name)
+        if variable in stored or variable + ENCRYPTED_SUFFIX in stored:
+            url = stored.get(variable)
             raise EnvironmentConflictError(
-                f"A repository named {name} is already added from {stored[variable]}"
+                f"A repository named {name} is already added" + (f" from {url}" if url else "")
             )
 
     @contextmanager
     def _staged(self, name: str, url: str) -> Generator[Path]:
         """Download the repository's packages into a temporary folder laid out like local/."""
-        local = self._root / "local"
-        local.mkdir(exist_ok=True)
-        with TemporaryDirectory(prefix=".staging-", dir=local) as temporary:
-            folder = Path(temporary) / "repositories" / name
+        self._local.mkdir(exist_ok=True)
+        with TemporaryDirectory(prefix=".staging-", dir=self._local) as temporary:
+            folder = Path(temporary) / REPOSITORIES / name
             folder.mkdir(parents=True)
             repositories.fetch(url, folder)
             yield Path(temporary)
@@ -260,7 +269,7 @@ class EnvironmentService:
         destination = self._repositories / name
         if destination.is_symlink():
             raise ValueError("The repository folder must stay inside local/repositories/")
-        folder = stage / "repositories" / name
+        folder = stage / REPOSITORIES / name
         results = self._inspect(stage, name, sorted(folder.iterdir()))
         self._repositories.mkdir(parents=True, exist_ok=True)
         if destination.exists():
@@ -274,7 +283,7 @@ class EnvironmentService:
 
     def _unswap(self, stage: Path, name: str) -> None:
         """Put back whatever the repository's folder held before ``_swap``."""
-        destination, folder = self._repositories / name, stage / "repositories" / name
+        destination, folder = self._repositories / name, stage / REPOSITORIES / name
         if destination.exists() and not folder.exists():
             destination.rename(folder)
         if (stage / "retired").exists():
@@ -296,10 +305,12 @@ class EnvironmentService:
         )
 
     def _forget(self, name: str) -> None:
-        # Labels of loaded packages stay registered until restart.
-        for package in self._packages.pop(name, []):
-            if package.active:
-                self._removed_labels.update(cap.name for cap in package.capabilities)
+        """Drop a repository's packages; labels the running app has loaded become free to reuse."""
+        loaded = {label.name for label in self._hub.capabilities()}
+        self._removed_labels.update(
+            cap.name for package in self._packages.pop(name, []) for cap in package.capabilities
+            if cap.name in loaded
+        )
 
     def _inspect(
         self, stage: Path, name: str, folders: Sequence[Path]
@@ -315,7 +326,7 @@ class EnvironmentService:
         try:
             discovered = inspect_import(
                 self._root, stage, [folder.relative_to(stage) for folder in folders],
-                replacing=Path("repositories", name),
+                replacing=Path(REPOSITORIES, name),
             )
         except RuntimeError as exc:
             raise ValueError(str(exc)) from exc
@@ -343,13 +354,26 @@ class EnvironmentService:
         return results
 
     def _write_entries(self, changes: Mapping[str, str | None]) -> None:
-        """Set or remove stored entries (``None`` removes), keeping every other saved value."""
+        """Set or remove stored entries in either form (``None`` removes), keeping every other value."""
         original = self._read_text(self._path)
         stored = self._parse_values(original)
+        only_repositories = bool(stored) and all(name.startswith(env.REPOSITORY_PREFIX) for name in stored)
         for name, value in changes.items():
-            stored.pop(name, None)
+            base = name.removesuffix(ENCRYPTED_SUFFIX)
+            stored.pop(base, None)
+            stored.pop(base + ENCRYPTED_SUFFIX, None)
             if value is not None:
                 stored[name] = value
+        if only_repositories and not stored:
+            # The file existed only for repositories; without it, first-start setup still applies.
+            if self._read_text(self._path) != original:
+                raise EnvironmentConflictError("Settings changed elsewhere. Refresh before saving.")
+            self._path.unlink()
+            return
+        self._commit(original, stored)
+
+    def _commit(self, original: str, stored: Mapping[str, str | None]) -> None:
+        """Serialize stored entries, check their size, and replace the settings file."""
         output = serialize_env(stored).encode("utf-8")
         if len(output) > env.MAX_ENV_BYTES:
             raise ValueError("Environment file is too large")

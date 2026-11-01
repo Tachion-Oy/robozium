@@ -24,7 +24,13 @@ from roboz.deployment import Capability
 _IMPORT_LOCK = RLock()
 _LOCAL_PACKAGE_PREFIX = "_robozium_local_"
 # Folders under local/ that hold packages; repositories/<name>/<package> nests one level.
-_KINDS = ("skills", "tools", "repositories")
+REPOSITORIES = "repositories"
+_KINDS = ("skills", "tools", REPOSITORIES)
+
+
+def local_root(config_dir: Path) -> Path:
+    """The folder whose skills/, tools/ and repositories/ hold private packages."""
+    return (config_dir / "local").resolve()
 
 
 def load_local_packages(config_dir: Path) -> dict[Path, tuple[Capability, ...]]:
@@ -44,7 +50,7 @@ def load_local_packages(config_dir: Path) -> dict[Path, tuple[Capability, ...]]:
 
 @cache
 def _load_local_packages(config_dir: Path) -> dict[Path, tuple[Capability, ...]]:
-    root = (config_dir / "local").resolve()
+    root = local_root(config_dir)
     packages = {root: _discover_packages(root)}
     dependencies = _prepare_dependencies(config_dir, packages)
     namespace = _LOCAL_PACKAGE_PREFIX + sha256(str(config_dir).encode()).hexdigest()
@@ -69,7 +75,7 @@ def _discover_packages(root: Path) -> list[Path]:
         if not directory.resolve().is_relative_to(root) or not directory.is_dir():
             raise ValueError(f"invalid local capability directory {directory}")
         children = sorted(directory.iterdir())
-        if kind == "repositories":
+        if kind == REPOSITORIES:
             children = [
                 child for repository in children if repository.is_dir()
                 for child in sorted(repository.iterdir())
@@ -166,7 +172,7 @@ def _prepare_dependencies(
         _local_file(root, package / "requirements.txt", "requirements file")
         for root, paths in packages.items()
         for package in paths
-        if package.parts[0] != "repositories" or (root / package / "requirements.txt").exists()
+        if package.parts[0] != REPOSITORIES or (root / package / "requirements.txt").exists()
     ]
     if not any(file.read_text(encoding="utf-8").strip() for file in requirements):
         return None
@@ -181,9 +187,9 @@ def inspect_import(
     Committed packages under ``replacing`` are left out, so an update skips its old version.
     """
     with _IMPORT_LOCK, ExitStack() as cleanup:
-        local_root = (config_dir / "local").resolve()
-        packages = {local_root: [
-            package for package in _discover_packages(local_root)
+        committed = local_root(config_dir)
+        packages = {committed: [
+            package for package in _discover_packages(committed)
             if replacing is None or not package.is_relative_to(replacing)
         ]}
         packages[root] = list(staged)

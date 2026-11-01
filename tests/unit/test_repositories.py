@@ -1,6 +1,7 @@
 """Repositories import every package their index lists, update all or none, and remove cleanly."""
 
 import json
+import os
 import subprocess
 import threading
 from pathlib import Path
@@ -8,9 +9,11 @@ from pathlib import Path
 import pytest
 from config_support import write_config
 from fastapi.testclient import TestClient
+from roboz.endpoints import encrypt_env_values, serialize_env
 
 from robozium.api import repositories
 from robozium.api.app import create_app
+from robozium.api.credentials import missing_environment_files
 from robozium.api.environment_service import EnvironmentService
 from robozium.hub import local
 from robozium.hub.utils import load_hub
@@ -162,7 +165,8 @@ def test_remove_deletes_packages_and_entry(client, hub, source):
     assert client.delete(URL + "/repositories/toolkit").status_code == 200
     assert not (hub / "local/repositories/toolkit").exists()
     assert client.get(URL).json()["repositories"] == []
-    assert (hub / ".env.encrypt").read_text() == ""
+    # The file held only the repository, so removing it leaves no settings at all.
+    assert not (hub / ".env.encrypt").exists()
     assert client.delete(URL + "/repositories/toolkit").status_code == 404
     assert client.post(URL + "/repositories/toolkit/update").status_code == 404
     assert add(client).status_code == 200
@@ -232,7 +236,7 @@ def test_download_does_not_pause_runs(client, source, monkeypatch):
 
 def test_a_folder_without_its_entry_can_be_removed_or_added_again(client, hub, source):
     assert add(client).status_code == 200
-    (hub / ".env.encrypt").write_text("ROBOZIUM_REPOSITORY_OTHER_ENCRYPTED='x'\n")
+    (hub / ".env.encrypt").write_text("SETTING='x'\n")
     [orphan] = client.get(URL).json()["repositories"]
     assert (orphan["name"], orphan["url"]) == ("toolkit", "")
     assert client.post(URL + "/repositories/toolkit/update").status_code == 404
@@ -259,3 +263,92 @@ def test_a_failed_add_keeps_label_state(client, hub, source, monkeypatch):
     monkeypatch.setattr(EnvironmentService, "_write_entries", write)
     response = add(restarted)
     assert response.status_code == 200, response.text
+
+
+def encrypted_entry(hub, name="ROBOZIUM_REPOSITORY_TOOLKIT", extra=""):
+    """A settings file whose repository entry is stored encrypted, as an adopted file can hold."""
+    values = encrypt_env_values({name: REPOSITORY}, secret_names={name}, password="password")
+    (hub / ".env.encrypt").write_text(serialize_env(values) + extra)
+
+
+def test_an_encrypted_entry_is_listed_refuses_a_duplicate_and_can_be_removed(client, hub, source):
+    encrypted_entry(hub)
+    view = client.get(URL)
+    assert view.status_code == 200
+    assert [(item["name"], item["url"]) for item in view.json()["repositories"]] == [("toolkit", "")]
+    assert view.json()["requires_password"] is True
+    assert add(client).status_code == 409
+    assert client.get(URL).status_code == 200
+    update = client.post(URL + "/repositories/toolkit/update")
+    assert update.status_code == 404
+    assert client.delete(URL + "/repositories/toolkit").status_code == 200
+    assert client.get(URL).json()["repositories"] == []
+
+
+def test_a_hidden_secret_makes_saving_ask_for_the_password(client, hub):
+    encrypted_entry(hub, extra="SETTING='x'\n")
+    view = client.get(URL).json()
+    assert [entry["name"] for entry in view["entries"]] == ["SETTING"]
+    assert view["requires_password"] is True
+    revision = view["revision"]
+    edit = {"revision": revision, "entries": [{"name": "SETTING", "value": "y"}]}
+    assert client.post(URL, json=edit).status_code == 400
+    assert client.post(URL, json=edit | {"password": "password"}).status_code == 200
+    assert "ROBOZIUM_REPOSITORY_TOOLKIT_ENCRYPTED=" in (hub / ".env.encrypt").read_text()
+
+
+def test_repositories_alone_never_end_first_start_setup(client, hub, source):
+    path = hub / ".env.encrypt"
+    assert missing_environment_files(path)
+    assert add(client).status_code == 200
+    assert missing_environment_files(path)
+    assert client.delete(URL + "/repositories/toolkit").status_code == 200
+    assert not path.exists()
+    path.write_text("")
+    assert not missing_environment_files(path)
+    path.write_text("ROBOZIUM_REPOSITORY_TOOLKIT='x'\nKEY='y'\n")
+    assert not missing_environment_files(path)
+
+
+def test_remove_works_without_a_local_folder(client, hub):
+    (hub / ".env.encrypt").write_text(f"ROBOZIUM_REPOSITORY_TOOLKIT='{REPOSITORY}'\nSETTING='x'\n")
+    assert not (hub / "local").exists()
+    assert client.delete(URL + "/repositories/toolkit").status_code == 200
+    assert (hub / ".env.encrypt").read_text() == "SETTING='x'\n"
+
+
+def test_update_remove_and_add_again_before_restart(client, hub, source):
+    assert add(client).status_code == 200
+    restarted = restart(hub)
+    assert restarted.post(URL + "/repositories/toolkit/update").status_code == 200
+    assert restarted.delete(URL + "/repositories/toolkit").status_code == 200
+    # The loaded labels are free again, although an update replaced them in between.
+    response = add(restarted)
+    assert response.status_code == 200, response.text
+
+
+def test_update_stops_if_the_url_changed_during_the_download(client, hub, source, monkeypatch):
+    assert add(client).status_code == 200
+    fetch = repositories.fetch
+
+    def replace_url(url, destination):
+        text = (hub / ".env.encrypt").read_text().replace("acme/toolkit", "other/toolkit")
+        (hub / ".env.encrypt").write_text(text)
+        return fetch(url, destination)
+
+    monkeypatch.setattr(repositories, "fetch", replace_url)
+    response = client.post(URL + "/repositories/toolkit/update")
+    assert response.status_code == 409
+    assert "changed while downloading" in response.json()["detail"]
+
+
+def test_remove_deletes_a_link_in_place_of_the_folder(client, hub, tmp_path):
+    target = tmp_path / "elsewhere"
+    target.mkdir()
+    (hub / "local/repositories").mkdir(parents=True)
+    os.symlink(target, hub / "local/repositories/toolkit")
+    assert [item["name"] for item in client.get(URL).json()["repositories"]] == ["toolkit"]
+    assert client.delete(URL + "/repositories/toolkit").status_code == 200
+    assert not (hub / "local/repositories/toolkit").is_symlink()
+    assert target.is_dir()
+    assert client.get(URL).json()["repositories"] == []

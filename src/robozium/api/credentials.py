@@ -114,8 +114,14 @@ def load_environment_files() -> None:
 
 
 def missing_environment_files(path: Path) -> bool:
-    """Whether neither saved settings nor a manual .env exists beside them."""
-    return not (path.is_file() or (path.parent / ".env").is_file())
+    """Whether no settings are saved: no manual .env, and saved settings at most list repositories.
+
+    Repositories can be added before any key is entered, so they never end first-start setup.
+    """
+    if (path.parent / ".env").is_file():
+        return False
+    names = list(dotenv_values(path, interpolate=False)) if path.is_file() else []
+    return not path.is_file() or bool(names) and all(name.startswith(env.REPOSITORY_PREFIX) for name in names)
 
 
 def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStatus:
