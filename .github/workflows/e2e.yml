@@ -87,7 +87,8 @@ jobs:
           cache-dependency-path: desktop/package-lock.json
       - name: Install the container engine the package depends on
         run: |
-          sudo apt-get update
+          # A stalled mirror otherwise hangs until the job limit; give it two tries of two minutes.
+          sudo timeout 120 apt-get update || sudo timeout 120 apt-get update
           sudo apt-get install -y podman uidmap catatonit
           podman info --format '{{.Host.Security.Rootless}}' | grep -qx true
       - name: Check desktop backend isolation and restart recovery
