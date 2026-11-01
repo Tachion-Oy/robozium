@@ -41,8 +41,8 @@ export interface EnvironmentMutations extends EnvironmentWrites {
 	save: (password: string, entries: EnvironmentEntry[], revision: string) => Promise<boolean>
 	importPackage: (files: File[]) => Promise<boolean>
 	/** Reads a repository's package list; resolves to null after showing why it failed. */
-	previewRepository: (url: string, token: string | null) => Promise<RepositoryPreview | null>
-	/** With a token, also saves it encrypted and reloads the settings. Resolves to an error to show, or null. */
+	previewRepository: (url: string, deployKey: string | null) => Promise<RepositoryPreview | null>
+	/** With a deploy key, also saves it encrypted and reloads the settings. Resolves to an error to show, or null. */
 	importRepository: (request: RepositoryImport) => Promise<string | null>
 	updateRepository: (repository: string) => Promise<boolean>
 	/** Deletes an imported package's copy; its capabilities stay loaded until restart. */
@@ -141,10 +141,10 @@ export function useEnvironmentMutations(
 	}
 	const names = ({ imported }: RepositoryImportResult) => imported.map(item => item.name).join(", ")
 
-	const previewPackages = async (url: string, token: string | null) => {
+	const previewPackages = async (url: string, deployKey: string | null) => {
 		const signal = lifetime()
 		try {
-			return await withDeadline(signal, requestSignal => previewRepository(client, url, token, requestSignal))
+			return await withDeadline(signal, requestSignal => previewRepository(client, url, deployKey, requestSignal))
 		} catch (cause) {
 			if (!signal.aborted) failure("Could not read repository", "Could not read the repository")(cause)
 			return null
@@ -153,8 +153,8 @@ export function useEnvironmentMutations(
 
 	const importFromRepository = (request: RepositoryImport) => run<string | null>("import", "", async (client, signal) => {
 		const result = await withDeadline(signal, requestSignal => importRepository(client, request, requestSignal), IMPORT_TIMEOUT_MS)
-		// A saved token changed the settings file, so the draft needs its new revision.
-		const next = request.token ? await read(client, signal) : null
+		// A saved deploy key changed the settings file, so the draft needs its new revision.
+		const next = request.deploy_key ? await read(client, signal) : null
 		if (signal.aborted) return ""
 		if (next) outcomes.onReplaced(next)
 		publishImports(result)

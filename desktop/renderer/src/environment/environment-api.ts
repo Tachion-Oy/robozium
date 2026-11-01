@@ -39,8 +39,8 @@ export interface RepositoryImport {
 	url: string
 	commit: string
 	paths: string[]
-	/** A read-only GitHub token, saved encrypted with `password` for later updates. */
-	token: string | null
+	/** The repository's read-only deploy key (private key), saved encrypted with `password` for later updates. */
+	deploy_key: string | null
 	password: string | null
 }
 export interface RepositoryImportResult { imported: EnvironmentImport[]; suggestions: EnvironmentSuggestion[] }
@@ -154,11 +154,11 @@ export async function importEnvironment(client: DesktopApiClient, files: File[],
 	return { imported: parseImport(fields.imported), suggestions: list(fields, "suggestions", parseSuggestion) }
 }
 
-/** Reads a repository's index without downloading code; a token is needed only for a private repository. */
+/** Reads a repository's index without running its code; a deploy key is needed only for a private repository. */
 export async function previewRepository(
-	client: DesktopApiClient, url: string, token: string | null, signal: AbortSignal,
+	client: DesktopApiClient, url: string, deployKey: string | null, signal: AbortSignal,
 ): Promise<RepositoryPreview> {
-	const fields = record(await client.request("/credentials/environment/repository/preview", { method: "POST", json: { url, token }, signal }))
+	const fields = record(await client.request("/credentials/environment/repository/preview", { method: "POST", json: { url, deploy_key: deployKey }, signal }))
 	return {
 		repository: text(fields, "repository"), ref: optionalText(fields, "ref"), commit: text(fields, "commit"),
 		packages: list(fields, "packages", parsePackage),

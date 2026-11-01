@@ -243,9 +243,24 @@ commit it showed. Every package is checked as a
 folder import is, and the chosen packages are published together or not at
 all. Links, special files and oversized folders are refused.
 
-For a private repository, create a fine-grained token with read-only
-**Contents** access to that repository only. The token is saved as an encrypted
-setting named `GITHUB_TOKEN_<OWNER>_<REPO>`, never in the imported folders.
+Public repositories need no key. A private repository is read over SSH with a
+read-only **deploy key**, one per customer, so ending one customer's access
+leaves everyone else's untouched:
+
+1. Create a key pair for the customer, without a passphrase:
+   `ssh-keygen -t ed25519 -N "" -C client-acme -f client-acme`
+2. In the repository on GitHub, open **Settings → Deploy keys → Add deploy
+   key**, paste `client-acme.pub`, and leave **Allow write access** unchecked.
+   Anyone with admin access to the repository can add or delete keys there.
+3. Give the customer the private key, `client-acme`. They paste it into the
+   **Deploy key** field with the repository URL and enter their settings
+   password; Robozium saves it encrypted as `GITHUB_DEPLOY_KEY_<OWNER>_<REPO>`,
+   never in the imported folders.
+
+To end access, delete the customer's deploy key on GitHub. Their next update
+fails; packages they already imported stay on their machine. A deploy key
+reads the whole repository, so keep each separately sold toolkit in its own
+repository.
 
 **Update** next to a repository fetches its latest commit and replaces all of
 its packages at once, keeping the installed versions if any check fails.

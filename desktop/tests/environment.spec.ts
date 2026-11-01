@@ -251,9 +251,11 @@ test("removing an import asks for confirmation, keeps it on failure, and asks fo
 })
 
 const COMMIT = "a".repeat(40)
+// A single-line field drops the key's line breaks; the backend restores them.
+const DEPLOY_KEY = "-----BEGIN OPENSSH PRIVATE KEY-----b3BlbnNzaC1rZXktdjE=-----END OPENSSH PRIVATE KEY-----"
 const fromRepository = (name: string, commit = COMMIT) => ({
 	name, active: false, variables: [], capabilities: [{ name, kind: "tool", selectable: true, loading: null }],
-	source: { repository: "acme/kit", ref: null, commit, path: `tools/${name}`, token_variable: null },
+	source: { repository: "acme/kit", ref: null, commit, path: `tools/${name}`, key_variable: null },
 })
 const repositoryPreview = {
 	repository: "acme/kit", ref: null, commit: COMMIT, packages: [
@@ -285,13 +287,13 @@ test("a GitHub repository lists its packages, and only the chosen ones are impor
 	const imports = panel(page).getByRole("region", { name: "Tools & skills" })
 	await expect(imports.getByRole("listitem", { name: "acme/kit" })).toContainText("aaaaaaa")
 	await expect(imports.getByRole("button", { name: "Update acme/kit" })).toBeEnabled()
-	expect(repositoryRequests(backend, "preview").map(request => request.body)).toEqual([{ url: "https://github.com/acme/kit", token: null }])
+	expect(repositoryRequests(backend, "preview").map(request => request.body)).toEqual([{ url: "https://github.com/acme/kit", deploy_key: null }])
 	expect(repositoryRequests(backend, "import").map(request => request.body)).toEqual([{
-		url: "https://github.com/acme/kit", commit: COMMIT, paths: ["tools/weather"], token: null, password: null,
+		url: "https://github.com/acme/kit", commit: COMMIT, paths: ["tools/weather"], deploy_key: null, password: null,
 	}])
 })
 
-test("a GitHub token is saved with the settings password, and a refused password keeps the dialog open", async ({ desktop: { page }, backend }) => {
+test("a deploy key is saved with the settings password, and a refused password keeps the dialog open", async ({ desktop: { page }, backend }) => {
 	let current = environment({ requires_password: true, entries: [entry("API_KEY", null, true)] })
 	backend.handlers.set("GET /credentials/environment", response => json(response, current))
 	backend.handlers.set("POST /credentials/environment/repository/preview", response => json(response, repositoryPreview))
@@ -300,27 +302,27 @@ test("a GitHub token is saved with the settings password, and a refused password
 	await openEnvironment(page, backend)
 	const form = panel(page).getByRole("form", { name: "Import from GitHub" })
 	await form.getByLabel("GitHub repository URL").fill("https://github.com/acme/kit")
-	await form.getByLabel("GitHub token").fill("ghp_secret")
+	await form.getByLabel("Deploy key").fill(DEPLOY_KEY)
 	await form.getByRole("button", { name: "Find packages" }).click()
 	await panel(page).getByRole("button", { name: "Import selected" }).click()
-	const prompt = page.getByRole("dialog", { name: "Save GitHub token" })
+	const prompt = page.getByRole("dialog", { name: "Save deploy key" })
 	await expect(prompt.getByLabel("Confirm password")).toHaveCount(0)
 	await prompt.getByLabel("Settings password").fill("wrong")
 	await prompt.getByRole("button", { name: "Import" }).click()
 	await expect(prompt.getByRole("alert")).toHaveText("Invalid encrypted secret or password")
 	backend.handlers.set("POST /credentials/environment/repository/import", response => {
-		current = environment({ revision: "r2", requires_password: true, entries: [entry("API_KEY", null, true), entry("GITHUB_TOKEN_ACME_KIT", null, true)] })
+		current = environment({ revision: "r2", requires_password: true, entries: [entry("API_KEY", null, true), entry("GITHUB_DEPLOY_KEY_ACME_KIT", null, true)] })
 		json(response, { imported: [fromRepository("weather"), fromRepository("notes")], suggestions: [] })
 	})
 	await prompt.getByLabel("Settings password").fill("right")
 	await prompt.getByRole("button", { name: "Import" }).click()
 	await expect(prompt).toHaveCount(0)
 	await expect(page.getByRole("status").filter({ hasText: "Imported" })).toContainText("Imported weather, notes from GitHub.")
-	await expect(panel(page).getByLabel("Current value for GITHUB_TOKEN_ACME_KIT")).toHaveText("●●●●●●●●")
-	await expect(form.getByLabel("GitHub token")).toHaveValue("")
+	await expect(panel(page).getByLabel("Current value for GITHUB_DEPLOY_KEY_ACME_KIT")).toHaveText("●●●●●●●●")
+	await expect(form.getByLabel("Deploy key")).toHaveValue("")
 	expect(repositoryRequests(backend, "import").map(request => request.body)).toEqual([
-		{ url: "https://github.com/acme/kit", commit: COMMIT, paths: ["tools/weather", "tools/notes"], token: "ghp_secret", password: "wrong" },
-		{ url: "https://github.com/acme/kit", commit: COMMIT, paths: ["tools/weather", "tools/notes"], token: "ghp_secret", password: "right" },
+		{ url: "https://github.com/acme/kit", commit: COMMIT, paths: ["tools/weather", "tools/notes"], deploy_key: DEPLOY_KEY, password: "wrong" },
+		{ url: "https://github.com/acme/kit", commit: COMMIT, paths: ["tools/weather", "tools/notes"], deploy_key: DEPLOY_KEY, password: "right" },
 	])
 })
 

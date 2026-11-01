@@ -1,5 +1,5 @@
 // Import from GitHub: read the repository's robozium.json, choose its packages, then
-// download them. A token is saved encrypted, so it asks for the settings password.
+// copy them. A private repository's deploy key is saved encrypted, so it asks for the settings password.
 import { useState, type SubmitEvent } from "react"
 import type { RepositoryImport, RepositoryPreview } from "../../environment/environment-api"
 import { HudButton } from "../hud/HudButton"
@@ -9,11 +9,11 @@ export function EnvironmentRepositoryImport({ disabled, newPassword, onPreview, 
 	disabled: boolean
 	/** No secrets are saved yet, so the password is new and asked twice. */
 	newPassword: boolean
-	onPreview: (url: string, token: string | null) => Promise<RepositoryPreview | null>
+	onPreview: (url: string, deployKey: string | null) => Promise<RepositoryPreview | null>
 	onImport: (request: RepositoryImport) => Promise<string | null>
 }) {
 	const [url, setUrl] = useState("")
-	const [token, setToken] = useState("")
+	const [deployKey, setDeployKey] = useState("")
 	const [preview, setPreview] = useState<RepositoryPreview | null>(null)
 	const [chosen, setChosen] = useState<string[]>([])
 	const [pending, setPending] = useState(false)
@@ -23,7 +23,7 @@ export function EnvironmentRepositoryImport({ disabled, newPassword, onPreview, 
 	const clear = () => {
 		setPreview(null)
 		setChosen([])
-		setToken("")
+		setDeployKey("")
 		setUrl("")
 		setError("")
 	}
@@ -32,7 +32,7 @@ export function EnvironmentRepositoryImport({ disabled, newPassword, onPreview, 
 		if (disabled || pending || !url.trim()) return
 		setPending(true)
 		try {
-			const found = await onPreview(url.trim(), token || null)
+			const found = await onPreview(url.trim(), deployKey || null)
 			setPreview(found)
 			setChosen(found?.packages.filter(item => !item.installed).map(item => item.path) ?? [])
 			setError("")
@@ -42,12 +42,12 @@ export function EnvironmentRepositoryImport({ disabled, newPassword, onPreview, 
 	}
 	const download = async (password: string | null) => {
 		if (!preview) return "Read the repository again."
-		const failure = await onImport({ url: url.trim(), commit: preview.commit, paths: chosen, token: token || null, password })
+		const failure = await onImport({ url: url.trim(), commit: preview.commit, paths: chosen, deploy_key: deployKey || null, password })
 		if (failure === null) clear()
 		return failure
 	}
 	const start = async () => {
-		if (token) {
+		if (deployKey) {
 			setAsking(true)
 			return
 		}
@@ -76,11 +76,11 @@ export function EnvironmentRepositoryImport({ disabled, newPassword, onPreview, 
 					className="agent-hud__project-input min-w-0 flex-1"
 					type="password"
 					autoComplete="off"
-					aria-label="GitHub token"
-					placeholder="Read-only token (private repositories)"
-					value={token}
+					aria-label="Deploy key"
+					placeholder="Private deploy key (private repositories)"
+					value={deployKey}
 					disabled={disabled || pending || preview !== null}
-					onChange={event => setToken(event.target.value)}
+					onChange={event => setDeployKey(event.target.value)}
 				/>
 				{preview === null && (
 					<HudButton type="submit" pending={pending} disabled={disabled || !url.trim()}>
@@ -120,7 +120,7 @@ export function EnvironmentRepositoryImport({ disabled, newPassword, onPreview, 
 					</div>
 				</section>
 			)}
-			<PasswordDialog open={asking} title="Save GitHub token" label="Settings password" confirm={newPassword}
+			<PasswordDialog open={asking} title="Save deploy key" label="Settings password" confirm={newPassword}
 				submitLabel="Import" pendingLabel="Importing…"
 				onSubmit={async password => {
 					const failure = await download(password)
@@ -128,7 +128,7 @@ export function EnvironmentRepositoryImport({ disabled, newPassword, onPreview, 
 					return failure
 				}}
 				onCancel={() => setAsking(false)}>
-				<p>The token is saved encrypted, so Update can use it after a restart.</p>
+				<p>The deploy key is saved encrypted, so Update can use it after a restart.</p>
 				{newPassword && <p>This sets the password for your saved keys.</p>}
 			</PasswordDialog>
 		</>
