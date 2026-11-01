@@ -255,6 +255,16 @@ def test_unknown_branch_is_named_in_the_error(client, github):
     assert "no branch or tag named missing" in response.json()["detail"]
 
 
+def test_one_repository_is_imported_from_one_branch(client, github):
+    assert import_repo(client, ["tools/weather"]).status_code == 200
+    github.commits["main"] = FIRST
+    response = client.post(URL + "/repository/import", json={
+        "url": REPO + "/tree/main", "commit": FIRST, "paths": ["skills/notes"],
+    })
+    assert response.status_code == 409
+    assert "already imported from its default branch" in response.json()["detail"]
+
+
 def test_import_refuses_paths_missing_from_the_index(client, github):
     response = import_repo(client, ["tools/other"])
     assert response.status_code == 400

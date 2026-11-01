@@ -228,6 +228,15 @@ class EnvironmentService:
                 packages.append(package)
             names = [package.name for package in packages]
             self._require_new(names)
+            # Update follows one branch per repository.
+            for item in self._imports.values():
+                if item.source and item.source.repository == repository.full_name and (
+                    item.source.ref != repository.ref
+                ):
+                    raise EnvironmentConflictError(
+                        f"{repository.full_name} is already imported from "
+                        f"{item.source.ref or 'its default branch'}; use the same URL"
+                    )
             variable = repository.token_variable if token else None
             with self._staging() as stage:
                 github.download_packages(
