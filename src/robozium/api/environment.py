@@ -3,6 +3,7 @@
 import asyncio
 from collections.abc import Generator
 from contextlib import contextmanager
+from subprocess import TimeoutExpired
 from typing import Annotated
 from urllib.parse import urlsplit
 
@@ -16,12 +17,16 @@ from robozium.api.environment_service import EnvironmentService
 from robozium.api.errors import (
     EnvironmentConflictError,
     ProjectBusyError,
+    RepositoryNotFoundError,
+    RepositoryUnavailableError,
 )
 from robozium.api.models import (
     EnvironmentEdit,
     EnvironmentFileResult,
     EnvironmentSaveResult,
     EnvironmentView,
+    RepositoryAdd,
+    RepositoryResult,
 )
 from robozium.hub import environment as env
 
@@ -30,7 +35,10 @@ _REQUEST_LIMITS = {
     "/credentials/environment": ("application/json", env.MAX_ENV_BYTES),
     # The settings file plus its password, revision and multipart framing.
     "/credentials/environment/file": ("multipart/form-data", env.MAX_ENV_BYTES + 16 * 1024),
+    "/credentials/environment/repositories": ("application/json", 16 * 1024),
 }
+# Write routes that end in a repository name; their bodies are empty.
+_REPOSITORY_PATHS = "/credentials/environment/repositories/"
 
 
 @contextmanager
@@ -40,8 +48,16 @@ def _environment(request: Request) -> Generator[EnvironmentService]:
         yield request.app.state.environment
     except (EnvironmentConflictError, ProjectBusyError) as exc:
         raise HTTPException(409, str(exc)) from exc
+    except RepositoryNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+    except RepositoryUnavailableError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    except TimeoutExpired as exc:
+        raise HTTPException(
+            503, "Capability dependency installation timed out. Try again."
+        ) from exc
     except OSError as exc:
         raise HTTPException(
             503, "Environment storage is unavailable. Check access and retry."
@@ -61,6 +77,25 @@ async def save_environment(body: EnvironmentEdit, request: Request) -> Environme
     if loaded:
         await refresh_dependencies(request)
     return EnvironmentSaveResult()
+
+
+@router.post("/repositories", response_model=RepositoryResult)
+def add_repository(body: RepositoryAdd, request: Request) -> RepositoryResult:
+    with _environment(request) as environment:
+        return environment.add_repository(body)
+
+
+@router.post("/repositories/{name}/update", response_model=RepositoryResult)
+def update_repository(name: str, request: Request) -> RepositoryResult:
+    with _environment(request) as environment:
+        return environment.update_repository(name)
+
+
+@router.delete("/repositories/{name}")
+def remove_repository(name: str, request: Request) -> dict[str, str]:
+    with _environment(request) as environment:
+        environment.remove_repository(name)
+    return {"status": "removed"}
 
 
 @router.post("/file", response_model=EnvironmentFileResult)
@@ -127,7 +162,7 @@ class EnvironmentRequestMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         path = scope.get("path", "")
         if scope["type"] != "http" or (
-            path not in _REQUEST_LIMITS
+            path not in _REQUEST_LIMITS and not path.startswith(_REPOSITORY_PATHS)
         ):
             await self.app(scope, receive, send)
             return

@@ -75,6 +75,19 @@ class EnvironmentSuggestion(BaseModel):
     source: str
 
 
+class RepositoryPackage(BaseModel):
+    name: str
+    capabilities: list[CapabilityView]
+    variables: list[str]
+    active: bool = False
+
+
+class RepositoryView(BaseModel):
+    name: str
+    url: str
+    packages: list[RepositoryPackage]
+
+
 class EnvironmentView(BaseModel):
     revision: str
     editable: bool
@@ -83,6 +96,7 @@ class EnvironmentView(BaseModel):
     requires_password: bool
     suggestions: list[EnvironmentSuggestion]
     example_errors: list[str]
+    repositories: list[RepositoryView]
 
 
 class EnvironmentEdit(BaseModel):
@@ -102,6 +116,16 @@ class EnvironmentFileResult(BaseModel):
     status: Literal["replaced"] = "replaced"
     # True when first-start setup loaded the keys at once; otherwise restart.
     loaded: bool
+
+
+class RepositoryAdd(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    url: str = Field(max_length=400)
+
+
+class RepositoryResult(BaseModel):
+    repository: RepositoryView
+    suggestions: list[EnvironmentSuggestion]
 
 
 class ReplyBody(BaseModel):

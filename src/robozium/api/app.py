@@ -156,7 +156,7 @@ def create_app(*, deployment: Hub, require_credentials: bool = False) -> FastAPI
         require_credentials
         and missing_environment_files(app.state.loaded_credentials.path)
     )
-    app.state.environment = EnvironmentService(projects, app.state.loaded_credentials)
+    app.state.environment = EnvironmentService(deployment, projects, app.state.loaded_credentials)
     app.add_middleware(CredentialGateMiddleware, loaded=app.state.loaded_credentials)
     host = app.desktop_host = desktop_host()
     app.add_middleware(
