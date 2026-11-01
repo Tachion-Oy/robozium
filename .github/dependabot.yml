@@ -12,6 +12,13 @@ updates:
     schedule:
       interval: weekly
     rebase-strategy: disabled
+    # Moving to a new Python version is a deliberate change across CI and the
+    # image; newer versions can lack wheels for locked dependencies.
+    ignore:
+      - dependency-name: python
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
   - package-ecosystem: github-actions
     directory: /
     schedule:
