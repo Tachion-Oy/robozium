@@ -21,7 +21,7 @@ export function EnvironmentPanel({ draft, mutations, hub, restartRequired, onRes
 	draft: EnvironmentDraft
 	mutations: EnvironmentMutations
 	hub: HubFolder
-	/** The backend holds runs and dependency checks until Restart app. */
+	/** The backend refuses new runs and Check dependencies until Restart app. */
 	restartRequired: boolean
 	onRestart: () => Promise<void>
 	onManageBackend: (operation: "restart" | "recreate") => Promise<void>

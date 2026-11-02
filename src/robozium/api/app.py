@@ -47,6 +47,7 @@ from robozium.api.errors import (
     InvalidCapabilitySelection,
     ProjectBusyError,
     ProjectCancellationInProgressError,
+    RestartRequiredError,
 )
 from robozium.api.files import router as file_router
 from robozium.api.lifespan import application_lifespan
@@ -133,7 +134,10 @@ def create_app(*, deployment: Hub, require_credentials: bool = False) -> FastAPI
         ),
         attachment_settings=deployment.settings.attachments,
     )
-    projects = ProjectService(deployment, manager)
+    loaded_credentials = LoadedCredentials(
+        deployment.settings.config_file.parent / DEFAULT_ENCRYPTED_ENV_PATH
+    )
+    projects = ProjectService(deployment, manager, loaded_credentials)
     app = ApiApplication(
         title=deployment.settings.name,
         version=version("robozium"),
@@ -149,9 +153,7 @@ def create_app(*, deployment: Hub, require_credentials: bool = False) -> FastAPI
     app.state.run_manager = manager
     app.state.projects = projects
     app.state.transcription_endpoint = deployment.settings.transcription_endpoint
-    app.state.loaded_credentials = LoadedCredentials(
-        deployment.settings.config_file.parent / DEFAULT_ENCRYPTED_ENV_PATH
-    )
+    app.state.loaded_credentials = loaded_credentials
     app.state.loaded_credentials.setup_required = (
         require_credentials
         and missing_environment_files(app.state.loaded_credentials.path)
@@ -216,6 +218,8 @@ def create_app(*, deployment: Hub, require_credentials: bool = False) -> FastAPI
             return operation()
         except InvalidCapabilitySelection as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except RestartRequiredError as exc:
+            raise HTTPException(status_code=423, detail=str(exc)) from exc
         except (ProjectBusyError, ProjectCancellationInProgressError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except FileNotFoundError as exc:

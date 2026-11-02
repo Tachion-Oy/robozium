@@ -19,6 +19,7 @@ from roboz.tools import stop
 
 from robozium.api.app import create_app
 from robozium.api.attachments import UploadedImage
+from robozium.api.credentials import LoadedCredentials
 from robozium.api.errors import ProjectBusyError
 from robozium.api.project_service import ProjectService
 from robozium.api.run_control import RunControl
@@ -273,7 +274,7 @@ def test_deletion_serializes_against_start_and_create(config, monkeypatch, opera
         return BuiltAgents(SimpleNamespace(pipe=EventPipe(), invoke=lambda: None))
 
     manager = manager_for(factory)
-    projects = ProjectService(config, manager)
+    projects = ProjectService(config, manager, LoadedCredentials())
     projects.create("demo")
     run_id = projects.prepare_run("demo")
     original_remove = module.shutil.rmtree
@@ -332,7 +333,7 @@ def test_shutdown_tracks_background_thread_until_it_exits(config):
         )
 
     manager = manager_for(factory)
-    projects = ProjectService(config, manager)
+    projects = ProjectService(config, manager, LoadedCredentials())
     projects.create("demo")
     run_id = projects.prepare_run("demo")
     manager.start_run(run_id)

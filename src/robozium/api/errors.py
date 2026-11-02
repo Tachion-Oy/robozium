@@ -11,6 +11,13 @@ class ProjectBusyError(RuntimeError):
     """Raised when active project work prevents the requested run creation."""
 
 
+class RestartRequiredError(RuntimeError):
+    """An environment change applies after a restart; until then no run starts."""
+
+    def __init__(self) -> None:
+        super().__init__("Restart the app to apply your environment changes")
+
+
 class InvalidCapabilitySelection(ValueError):
     """The requested capability selection cannot be applied."""
 
@@ -28,5 +35,6 @@ __all__ = [
     "EnvironmentImportNotFoundError",
     "ProjectBusyError",
     "ProjectCancellationInProgressError",
+    "RestartRequiredError",
     "InvalidCapabilitySelection",
 ]

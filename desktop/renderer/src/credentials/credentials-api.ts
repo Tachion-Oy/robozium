@@ -9,7 +9,7 @@ export interface CredentialStatus {
 	locked: boolean
 	/** A live start with no saved settings or .env: provider actions wait for keys. */
 	setupRequired: boolean
-	/** An environment change applies after a restart; until then no run starts and no dependency check runs. */
+	/** An environment change applies after a restart; until then no run starts and Check dependencies is refused. */
 	restartRequired: boolean
 }
 

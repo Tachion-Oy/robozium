@@ -102,7 +102,7 @@ export function App({ client, connected, covered, backend }: AppProps) {
 	const projectQuery = useProjectQuery(client, screen === "projects", projectMutations)
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
 	// Each write's outcome goes to the draft declared below; it runs only after both exist.
-	const environmentMutations = useEnvironmentMutations(client, setupRequired, {
+	const environmentMutations = useEnvironmentMutations(client, setupRequired, restartRequired, {
 		onReplaced: next => environmentDraft.replaced(next),
 		onImported: result => environmentDraft.imported(result),
 		onRemoved: name => environmentDraft.removed(name),

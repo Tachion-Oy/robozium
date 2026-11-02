@@ -91,7 +91,7 @@ export function useCredentials(client: DesktopApiClient, connected: boolean, vis
 
 	return {
 		status, refresh, asking, prompt, unlock,
-		ensureUnlocked: () => status?.locked ? prompt() : Promise.resolve(true),
+		ensureUnlocked: () => unlockable ? prompt() : Promise.resolve(!status?.locked),
 		cancel: () => answer(false),
 	}
 }

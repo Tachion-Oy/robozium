@@ -51,7 +51,7 @@ const SETUP_SCREENS: readonly HudScreen[] = ["projects", "onboarding", "environm
 const RESTART_SCREENS: readonly HudScreen[] = ["environment"]
 
 function restartScreenOptions(): readonly HudScreenOption[] {
-	return SCREEN_OPTIONS.landing.map((option) => ({ ...option, disabled: option.value !== "environment" }))
+	return SCREEN_OPTIONS.landing.map((option) => ({ ...option, disabled: !RESTART_SCREENS.includes(option.value) }))
 }
 
 function setupScreenOptions(screen: HudScreen): readonly HudScreenOption[] {
