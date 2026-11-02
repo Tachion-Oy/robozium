@@ -17,10 +17,10 @@ from robozium.hub.application import Hub
 
 
 class ProjectService:
-    def __init__(self, hub: Hub, manager: RunManager, loaded: LoadedCredentials) -> None:
+    def __init__(self, hub: Hub, manager: RunManager, credentials: LoadedCredentials) -> None:
         self._hub = hub
         self._manager = manager
-        self._loaded = loaded
+        self._credentials = credentials
         self._lock = RLock()
 
     def _projects(self) -> list[Project]:
@@ -107,7 +107,7 @@ class ProjectService:
         """Check the project and ask the manager to register or reuse a run."""
         with self._lock:
             # Checked under the lock environment writers hold, so no run starts after a change.
-            if self._loaded.restart_required:
+            if self._credentials.restart_required:
                 raise RestartRequiredError()
             project = self._existing(name)
             for directory in (
