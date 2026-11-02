@@ -157,9 +157,8 @@ def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStat
     )
 
 
-def _uses_current_code(method: str, path: str) -> bool:
-    """Starting a run or checking dependencies would mix saved changes with loaded code."""
-    return (method, path) in {("POST", "/run/create"), ("POST", "/admin/dependencies/check")}
+# Refused until restart: a run or dependency check would mix saved changes with loaded code.
+_BLOCKED_UNTIL_RESTART = {("POST", "/run/create"), ("POST", "/admin/dependencies/check")}
 
 
 def _uses_provider(method: str, path: str) -> bool:
@@ -184,7 +183,7 @@ class CredentialGateMiddleware:
         self.loaded = loaded
 
     def _held(self, method: str, path: str) -> str | None:
-        if self.loaded.restart_required and _uses_current_code(method, path):
+        if self.loaded.restart_required and (method, path) in _BLOCKED_UNTIL_RESTART:
             return "Restart the app to apply your environment changes"
         if not _uses_provider(method, path):
             return None
