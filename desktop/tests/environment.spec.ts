@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test"
+import { expect, type Locator, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
@@ -262,15 +262,11 @@ test("importing a folder uploads the files its catalog lists under their relativ
 	}
 })
 
-test("a dropped folder uploads the files its catalog lists under their relative paths", async ({ desktop: { page }, backend }) => {
-	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
-	let pending: ServerResponse | undefined
-	backend.handlers.set("POST /credentials/environment/import", response => { pending = response })
-	await openEnvironment(page, backend)
-	const form = page.getByRole("form", { name: "Import tool or skill" })
-	await expect(form.getByRole("button", { name: "Browse folder" })).toBeEnabled()
-	// Synthetic drags cannot hold a real folder, so the drop carries a directory entry tree.
-	await form.evaluate(target => {
+type Tree = { [name: string]: string | Tree }
+
+/** Synthetic drags cannot hold a real folder, so the drop carries a directory entry tree per top folder. */
+async function drop(target: Locator, folders: Tree) {
+	await target.evaluate((element, folders) => {
 		type Tree = { [name: string]: string | Tree }
 		const entry = (name: string, fullPath: string, node: string | Tree): object => typeof node === "string"
 			? { isFile: true, isDirectory: false, name, fullPath, file: (done: (file: File) => void) => done(new File([node], name)) }
@@ -282,20 +278,30 @@ test("a dropped folder uploads the files its catalog lists under their relative 
 					done(batch)
 				} }
 			} }
-		const folder = entry("dropped_tool", "/dropped_tool", {
-			"robozium.json": JSON.stringify({ tools: ["tools/search"], env: [".env.example"] }),
-			".env.example": "DROPPED_KEY=\n",
-			tools: { search: { "__init__.py": "" } },
-			".venv": { "unlisted.py": "" },
-		})
-		const item = { kind: "file", type: "", getAsFile: () => null, webkitGetAsEntry: () => folder }
-		const data = { types: ["Files"], items: [item], files: [], dropEffect: "copy" }
+		const items = Object.entries(folders).map(([name, node]) =>
+			({ kind: "file", type: "", getAsFile: () => null, webkitGetAsEntry: () => entry(name, `/${name}`, node) }))
+		const data = { types: ["Files"], items, files: [], dropEffect: "copy" }
 		for (const type of ["dragenter", "drop"]) {
 			const event = new DragEvent(type, { bubbles: true, cancelable: true })
 			Object.defineProperty(event, "dataTransfer", { value: data })
-			target.dispatchEvent(event)
+			element.dispatchEvent(event)
 		}
-	})
+	}, folders)
+}
+
+test("a dropped folder uploads the files its catalog lists under their relative paths", async ({ desktop: { page }, backend }) => {
+	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
+	let pending: ServerResponse | undefined
+	backend.handlers.set("POST /credentials/environment/import", response => { pending = response })
+	await openEnvironment(page, backend)
+	const form = page.getByRole("form", { name: "Import tool or skill" })
+	await expect(form.getByRole("button", { name: "Browse folder" })).toBeEnabled()
+	await drop(form, { dropped_tool: {
+		"robozium.json": JSON.stringify({ tools: ["tools/search"], env: [".env.example"] }),
+		".env.example": "DROPPED_KEY=\n",
+		tools: { search: { "__init__.py": "" } },
+		".venv": { "unlisted.py": "" },
+	} })
 	await expect(form.getByLabel("Selected tool or skill folder")).toHaveValue("dropped_tool")
 	await expect.poll(() => pending).toBeDefined()
 	const imported = { name: "dropped_tool", active: false, error: null, variables: ["DROPPED_KEY"],
@@ -386,4 +392,15 @@ test("Restart app confirms unsaved edits in the HUD before restarting", async ({
 	await expect(panel(page).getByRole("button", { name: "Restarting…" })).toBeDisabled()
 	// The loading screen stays until the app exits; this stub never does.
 	await expect(page.locator(".startup[data-stage='loading']")).toBeVisible()
+})
+
+
+test("dropping several folders asks for one and uploads nothing", async ({ desktop: { page }, backend }) => {
+	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
+	await openEnvironment(page, backend)
+	const form = page.getByRole("form", { name: "Import tool or skill" })
+	await expect(form.getByRole("button", { name: "Browse folder" })).toBeEnabled()
+	await drop(form, { first_tool: { "robozium.json": "{}" }, second_tool: { "robozium.json": "{}" } })
+	await expect(alert(page, "Import failed")).toContainText("Drop or choose one folder that contains files.")
+	expect(backend.requests.filter(request => request.path === "/credentials/environment/import")).toHaveLength(0)
 })
