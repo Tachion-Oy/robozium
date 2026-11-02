@@ -1,7 +1,9 @@
 // Read and replace the runtime's saved settings and secrets (`.env.encrypt`).
 // useEnvironmentDraft owns the view and its edits, useEnvironmentMutations the writes; requests here have no local state.
-import { ApiError, type DesktopApiClient } from "../api/client"
-import { parseCapability, type CapabilityView } from "../capabilities/capabilities-api"
+import { z } from "zod"
+import { type DesktopApiClient } from "../api/client"
+import { parsePayload } from "../api/payload"
+import { CapabilityView } from "../capabilities/capabilities-api"
 
 export interface EnvironmentEntry {
 	name: string
@@ -31,74 +33,41 @@ export interface EnvironmentEdit {
 	password: string | null
 }
 
-type Fields = Record<string, unknown>
+const EnvironmentEntry: z.ZodType<EnvironmentEntry> = z.object({
+	name: z.string(), value: z.string().nullable(), secret: z.boolean(), configured: z.boolean(), overridden: z.boolean(),
+})
+const EnvironmentSuggestion: z.ZodType<EnvironmentSuggestion> = z.object({
+	name: z.string(), value: z.string(), secret: z.boolean(), source: z.string(),
+})
+const EnvironmentImport: z.ZodType<EnvironmentImport> = z.object({
+	name: z.string(), capabilities: z.array(CapabilityView), variables: z.array(z.string()), active: z.boolean(),
+})
+const EnvironmentView: z.ZodType<EnvironmentView> = z.object({
+	revision: z.string(),
+	entries: z.array(EnvironmentEntry),
+	overrides: z.array(z.string()),
+	requires_password: z.boolean(),
+	editable: z.boolean(),
+	suggestions: z.array(EnvironmentSuggestion),
+	example_errors: z.array(z.string()),
+	imports: z.array(EnvironmentImport),
+})
+const EnvironmentImportResult: z.ZodType<EnvironmentImportResult> = z.object({
+	imported: EnvironmentImport, suggestions: z.array(EnvironmentSuggestion),
+})
+const Saved = z.object({ status: z.literal("saved") })
+const Replaced = z.object({ status: z.literal("replaced"), loaded: z.boolean() })
 
-function malformed(): never {
-	throw new ApiError("malformed", "The backend returned invalid environment settings.")
-}
-
-function record(value: unknown): Fields {
-	if (!value || typeof value !== "object" || Array.isArray(value)) malformed()
-	return value as Fields
-}
-
-function text(fields: Fields, key: string): string {
-	const value = fields[key]
-	return typeof value === "string" ? value : malformed()
-}
-
-function flag(fields: Fields, key: string): boolean {
-	const value = fields[key]
-	return typeof value === "boolean" ? value : malformed()
-}
-
-function list<T>(fields: Fields, key: string, parse: (value: unknown) => T): T[] {
-	const value = fields[key]
-	return Array.isArray(value) ? value.map(parse) : malformed()
-}
-
-function parseEntry(value: unknown): EnvironmentEntry {
-	const fields = record(value)
-	const stored = fields.value
-	if (stored !== null && typeof stored !== "string") malformed()
-	return {
-		name: text(fields, "name"), value: stored, secret: flag(fields, "secret"),
-		configured: flag(fields, "configured"), overridden: flag(fields, "overridden"),
-	}
-}
-
-function parseSuggestion(value: unknown): EnvironmentSuggestion {
-	const fields = record(value)
-	return { name: text(fields, "name"), value: text(fields, "value"), secret: flag(fields, "secret"), source: text(fields, "source") }
-}
-
-function parseImport(value: unknown): EnvironmentImport {
-	const fields = record(value)
-	return {
-		name: text(fields, "name"), capabilities: list(fields, "capabilities", parseCapability),
-		variables: list(fields, "variables", item => typeof item === "string" ? item : malformed()), active: flag(fields, "active"),
-	}
-}
-
-function parseView(value: unknown): EnvironmentView {
-	const fields = record(value)
-	const names = (key: string) => list(fields, key, item => typeof item === "string" ? item : malformed())
-	return {
-		revision: text(fields, "revision"), entries: list(fields, "entries", parseEntry), overrides: names("overrides"),
-		requires_password: flag(fields, "requires_password"), editable: flag(fields, "editable"),
-		suggestions: list(fields, "suggestions", parseSuggestion), example_errors: names("example_errors"),
-		imports: list(fields, "imports", parseImport),
-	}
-}
+const parse = <T>(schema: z.ZodType<T>, value: unknown): T =>
+	parsePayload(schema, value, "The backend returned invalid environment settings.")
 
 export async function getEnvironment(client: DesktopApiClient, signal: AbortSignal): Promise<EnvironmentView> {
-	return parseView(await client.request("/credentials/environment", { signal }))
+	return parse(EnvironmentView, await client.request("/credentials/environment", { signal }))
 }
 
 /** Replaces every entry; a stale revision is refused with 409. */
 export async function saveEnvironment(client: DesktopApiClient, edit: EnvironmentEdit, signal: AbortSignal): Promise<void> {
-	const value = record(await client.request("/credentials/environment", { method: "POST", json: edit, signal }))
-	if (value.status !== "saved") malformed()
+	parse(Saved, await client.request("/credentials/environment", { method: "POST", json: edit, signal }))
 }
 
 /** The backend may install a tool's dependencies first; it gives up after 180 seconds. */
@@ -108,8 +77,7 @@ export const IMPORT_TIMEOUT_MS = 200_000
 export async function importEnvironment(client: DesktopApiClient, files: File[], signal: AbortSignal): Promise<EnvironmentImportResult> {
 	const form = new FormData()
 	for (const file of files) form.append("files", file, file.webkitRelativePath)
-	const fields = record(await client.request("/credentials/environment/import", { method: "POST", form, signal }))
-	return { imported: parseImport(fields.imported), suggestions: list(fields, "suggestions", parseSuggestion) }
+	return parse(EnvironmentImportResult, await client.request("/credentials/environment/import", { method: "POST", form, signal }))
 }
 
 /**
@@ -124,9 +92,9 @@ export async function replaceEnvironmentFile(
 	form.append("file", file, file.name)
 	form.append("revision", revision)
 	if (password) form.append("password", password)
-	const fields = record(await client.request("/credentials/environment/file", { method: "POST", form, signal }))
-	if (fields.status !== "replaced" || typeof fields.loaded !== "boolean") malformed()
-	return { loaded: fields.loaded }
+	const value = await client.request("/credentials/environment/file", { method: "POST", form, signal })
+	const { loaded } = parse(Replaced, value)
+	return { loaded }
 }
 
 /** Deletes an imported package's copy; its capabilities stay loaded until restart. */
