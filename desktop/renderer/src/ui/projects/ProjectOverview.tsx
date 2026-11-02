@@ -87,7 +87,6 @@ export function ProjectOverview({
 	return (
 		<ProjectOverviewPanel
 			projects={projects.rows}
-			currentRunId={currentRunId}
 			navigationPending={navigationPending}
 			locked={locked}
 			onStartHere={onStartHere}

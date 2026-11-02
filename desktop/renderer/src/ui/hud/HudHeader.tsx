@@ -23,13 +23,10 @@ export function HudHeader({
 		<div
 			className={[
 				"agent-hud__header",
-				presentation.headerVariant === "landing"
-					? "agent-hud__header--landing"
+				presentation.headerVariant === "overview"
+					? "agent-hud__header--overview"
 					: "agent-hud__header--row",
 				presentation.showProjectBadge ? "agent-hud__header--project" : "",
-				presentation.context === "active-run" && presentation.screen === "projects"
-					? "agent-hud__header--runs-overview"
-					: "",
 			]
 					.filter(Boolean)
 					.join(" ")}>

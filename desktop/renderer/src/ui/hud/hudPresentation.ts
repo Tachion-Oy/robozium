@@ -17,7 +17,8 @@ export type HudPresentation = {
 	screen: HudScreen
 	screenOptions: readonly HudScreenOption[]
 	modelScope: "default" | "run"
-	headerVariant: "landing" | "row"
+	/** The overview and Launch keep the same gap below the selectors, whatever the run state. */
+	headerVariant: "overview" | "row"
 	showProjectBadge: boolean
 	enableCornerControls: boolean
 	/** No API keys are configured yet; only onboarding and Environment stay interactive. */
@@ -85,8 +86,7 @@ export function resolveHudPresentation({
 		screen,
 		screenOptions,
 		modelScope: context === "active-run" && screen !== "launch" ? "run" : "default",
-		headerVariant:
-			context === "landing" && screen !== "dependencies" && screen !== "environment" && screen !== "onboarding" ? "landing" : "row",
+		headerVariant: screen === "projects" || screen === "launch" ? "overview" : "row",
 		// The project name labels the run on Current Run only; elsewhere it would look like the screen's subject.
 		showProjectBadge: context === "active-run" && screen === "run" && !setupRequired,
 		enableCornerControls: context === "active-run" && screen === "run" && !setupRequired,

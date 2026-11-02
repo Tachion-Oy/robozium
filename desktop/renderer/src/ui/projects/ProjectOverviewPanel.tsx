@@ -3,7 +3,6 @@
 import { useState } from "react"
 import {
 	isActiveRunStatus,
-	isCurrentRunRow,
 	ProjectStatus,
 	type ProjectRow,
 } from "../../projects/landing"
@@ -12,7 +11,6 @@ import { HudButton } from "../hud/HudButton"
 
 type ProjectOverviewPanelProps = {
 	projects: ProjectRow[]
-	currentRunId?: string | null
 	navigationPending: boolean
 	/** API keys are missing: every row is disabled and only Start Here works. */
 	locked?: boolean
@@ -163,7 +161,6 @@ function RowActions({
 
 function ProjectRowItem({
 	project,
-	isCurrent,
 	locked,
 	onOpenProject,
 	onSelectCapabilities,
@@ -172,7 +169,6 @@ function ProjectRowItem({
 	onDeleteProject,
 }: {
 	project: ProjectRow
-	isCurrent: boolean
 	locked: boolean
 	onOpenProject: (project: ProjectRow) => void
 	onSelectCapabilities: (project: ProjectRow) => void
@@ -181,21 +177,16 @@ function ProjectRowItem({
 	onDeleteProject: (project: ProjectRow) => void
 }) {
 	const display = statusDisplay(project.status, locked)
-	// The current run, or another project's live run, opens; a dormant project launches.
-	const canOpen = isCurrent || (isActiveRunStatus(project.status) && project.runId !== null)
+	// A live run opens; a dormant project launches.
+	const canOpen = isActiveRunStatus(project.status) && project.runId !== null
 
 	return (
-		<li className="agent-hud__project-row flex flex-wrap items-center gap-2" aria-current={isCurrent ? "true" : undefined}>
+		<li className="agent-hud__project-row flex flex-wrap items-center gap-2">
 			<div
 				className={`agent-hud__project-summary ${HUD_TEXT} text-[1.3rem] leading-tight tracking-[0.03em] py-1 pl-1`}>
 				<span className={`grid ${COLS} gap-3 items-baseline`}>
 					<span className={display.className}>{display.label}</span>
-					<span
-						className={`${HUD_TEXT} truncate${
-							isCurrent ? " agent-hud__project-name--current" : ""
-						}`}>
-						{project.slug}
-					</span>
+					<span className={`${HUD_TEXT} truncate`}>{project.slug}</span>
 					<span className={`${HUD_TEXT} opacity-80 text-[1rem]`}>
 						{project.createdAt !== null
 							? formatRelative(project.createdAt)
@@ -218,7 +209,6 @@ function ProjectRowItem({
 
 function ProjectsTable({
 	projects,
-	currentRunId,
 	locked,
 	onOpenProject,
 	onSelectCapabilities,
@@ -227,7 +217,6 @@ function ProjectsTable({
 	onDeleteProject,
 }: {
 	projects: ProjectRow[]
-	currentRunId: string | null
 	locked: boolean
 	onOpenProject: (project: ProjectRow) => void
 	onSelectCapabilities: (project: ProjectRow) => void
@@ -254,7 +243,6 @@ function ProjectsTable({
 					<ProjectRowItem
 						key={project.slug}
 						project={project}
-						isCurrent={isCurrentRunRow(project, currentRunId)}
 						locked={locked}
 						onOpenProject={onOpenProject}
 						onSelectCapabilities={onSelectCapabilities}
@@ -270,7 +258,6 @@ function ProjectsTable({
 
 export function ProjectOverviewPanel({
 	projects,
-	currentRunId = null,
 	navigationPending,
 	locked = false,
 	onStartHere,
@@ -290,7 +277,6 @@ export function ProjectOverviewPanel({
 				{projects.length > 0 ? (
 					<ProjectsTable
 						projects={projects}
-						currentRunId={currentRunId}
 						locked={locked}
 						onOpenProject={onOpenProject}
 						onSelectCapabilities={onSelectCapabilities}

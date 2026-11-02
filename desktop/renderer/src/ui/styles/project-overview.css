@@ -90,35 +90,6 @@
   text-shadow: var(--term-glow-blue);
 }
 
-/* Mark the project belonging to the open run without adding row chrome. The
-   label's phosphor pulse keeps the context visible while the table remains
-   visually consistent with its other rows. */
-
-.agent-hud__project-name--current {
-  color: color-mix(in oklab, var(--term-blue) clamp(0%, 64% * var(--tune-text, 1), 100%), white);
-  text-shadow:
-    0 0 1px var(--term-blue),
-    0 0 6px color-mix(in oklab, var(--term-blue) clamp(0%, 64% * var(--tune-glow, 1), 100%), transparent),
-    0 0 16px color-mix(in oklab, var(--term-blue) clamp(0%, 30% * var(--tune-glow, 1), 100%), transparent);
-}
-
-@keyframes hud-current-project-pulse {
-  from {
-    filter: brightness(0.82);
-    text-shadow:
-      0 0 1px var(--term-blue),
-      0 0 4px color-mix(in oklab, var(--term-blue) clamp(0%, 44% * var(--tune-glow, 1), 100%), transparent),
-      0 0 10px color-mix(in oklab, var(--term-blue) clamp(0%, 18% * var(--tune-glow, 1), 100%), transparent);
-  }
-  to {
-    filter: brightness(1.16);
-    text-shadow:
-      0 0 2px color-mix(in oklab, var(--term-blue) clamp(0%, 76% * var(--tune-glow, 1), 100%), white),
-      0 0 8px color-mix(in oklab, var(--term-blue) clamp(0%, 76% * var(--tune-glow, 1), 100%), transparent),
-      0 0 22px color-mix(in oklab, var(--term-blue) clamp(0%, 42% * var(--tune-glow, 1), 100%), transparent);
-  }
-}
-
 @keyframes hud-opening-pulse {
   0%,
   100% {
@@ -130,10 +101,6 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .agent-hud__project-name--current {
-    animation: hud-current-project-pulse 1.8s ease-in-out infinite alternate;
-  }
-
   .agent-hud__row-status--opening {
     animation: hud-opening-pulse 1.8s ease-in-out infinite;
   }
@@ -238,11 +205,6 @@
 
 :root[data-theme="light"] .agent-hud__project-view [class*="text-shadow"] {
   text-shadow: none;
-}
-:root[data-theme="light"] .agent-hud__project-name--current {
-  color: color-mix(in oklab, var(--term-blue) clamp(0%, 68% * var(--tune-text, 1), 100%), var(--hud-input-text));
-  text-shadow: none;
-  animation: none;
 }
 :root[data-theme="light"] .agent-hud__row-status--running {
   color: var(--hud-status-running);

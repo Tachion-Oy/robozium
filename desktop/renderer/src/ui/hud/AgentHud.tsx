@@ -28,8 +28,8 @@ export function AgentHud({ presentation, layoutMode, onLayoutModeChange, message
 	const resizing = messageLog.resizingWidth
 	const isLanding = presentation.context === "landing"
 	const hudBoxClassName = `agent-hud__box${
-		presentation.headerVariant === "landing"
-			? " agent-hud__box--landing"
+		presentation.headerVariant === "overview"
+			? " agent-hud__box--overview"
 			: ""
 	}${presentation.context === "recovery" ? " agent-hud__box--inactive" : ""}`
 	const hudClassName = [
