@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## 0.5.0 - 2026-11-03
+
+- An imported tool and skill folder lists what it provides in a
+  `robozium.json` file at its top level: the tool and skill packages, and
+  their `env.example` or `.env.example` files. Only the listed files are
+  uploaded; hidden entries such as `.venv`, `.git` and `.env`, and
+  `__pycache__`, are left out. The README describes the file.
+- A folder imported in 0.4.0 or earlier has no `robozium.json`. Environment
+  shows it as **Not loaded** with the reason; remove it there and import the
+  folder again once it has a catalog. An imported folder that fails to load,
+  for example because a capability reuses a built-in name, is skipped the same
+  way instead of stopping the app.
+- Drop a tool and skill folder on the import row in Environment, or choose it
+  with **Browse folder**.
+- After saving settings, adopting a key file, resetting, or importing or
+  removing a tool or skill, only Environment stays open until **Restart app**.
+  New runs and dependency checks wait for the restart, so a run never mixes
+  the changes with the code already loaded. More settings and imports are
+  still possible.
+- The message log highlights the tool name on tool rows again, and every run
+  status except DORMANT is bold in Runs Overview.
+- Runs Overview keeps the same gap above the table before, during and after a
+  run, and the last opened project's name no longer glows.
+
 ## 0.4.0 - 2026-11-01
 
 - The desktop app runs its backend in a rootless Podman container as your own
