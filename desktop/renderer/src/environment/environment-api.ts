@@ -105,9 +105,11 @@ async function listedFiles(files: File[]): Promise<File[]> {
 	const packages = [...paths("tools"), ...paths("skills")]
 	const listed = new Set([CATALOG_FILE, ...paths("env")])
 	// Keep the catalog and its example files by exact path, and everything inside a
-	// listed package folder except Python's compiled caches.
+	// listed package folder except hidden entries (.venv, .git, .env) and compiled caches:
+	// the backend installs each package's pinned requirements itself.
+	const skipped = (part: string) => part.startsWith(".") || part === "__pycache__"
 	const insidePackage = (relative: string) =>
-		packages.some(folder => relative.startsWith(`${folder}/`)) && !relative.split("/").includes("__pycache__")
+		packages.some(folder => relative.startsWith(`${folder}/`)) && !relative.split("/").some(skipped)
 	return files.filter(file => listed.has(inFolder(file)) || insidePackage(inFolder(file)))
 }
 

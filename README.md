@@ -198,9 +198,13 @@ skills. Its root must contain `robozium.json`, which lists what to import:
 }
 ```
 
-Each `tools` or `skills` path is a Python package inside the folder; `env`
-lists optional example settings files. Only these paths are uploaded, so the
-folder can be a whole checkout. A package may hold its own `requirements.txt`.
+Each `tools` or `skills` path is a self-contained Python package inside the
+folder: it may import only its own modules and its requirements. `env` lists
+optional example settings files. Only these paths are uploaded, without hidden
+entries such as `.venv` or `.git` and without `__pycache__`, so the folder can
+be a whole checkout. A package declares its dependencies in its own
+`requirements.txt`; pin exact versions to get the environment it was tested
+with, since Robozium installs them in its own environment.
 Robozium validates the folder, copies it to
 `~/.config/Robozium/<mode>/local/imports/<folder-name>/`, and shows the
 discovered capabilities and example settings. The source folder is not linked.
