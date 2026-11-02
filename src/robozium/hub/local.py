@@ -28,7 +28,7 @@ _LOCAL_PACKAGE_PREFIX = "_robozium_local_"
 CATALOG_FILE = "robozium.json"
 
 type Kind = Literal["tool", "skill"]
-_CATALOG_KEYS: dict[str, Kind] = {"tools": "tool", "skills": "skill"}
+_PACKAGE_LISTS: dict[str, Kind] = {"tools": "tool", "skills": "skill"}
 # Only example files: a listed .env would copy real credentials into the import.
 _ENV_EXAMPLE_NAMES = ("env.example", ".env.example")
 
@@ -47,61 +47,67 @@ def read_catalog(folder: Path) -> Catalog:
     Listed packages are checked only when loaded, so a broken package never
     hides the folder's example settings. Nothing in the folder is executed.
     """
-    file = folder / CATALOG_FILE
+    try:
+        lists = _read_lists(folder / CATALOG_FILE)
+        packages: dict[PurePosixPath, Kind] = {
+            path: kind for key, kind in _PACKAGE_LISTS.items() for path in lists[key]
+        }
+        _check_packages(packages)
+        _check_examples(folder, lists["env"])
+    except ValueError as exc:
+        raise ValueError(f"{folder.name}: {exc}") from None
+    return Catalog(packages, tuple(lists["env"]))
+
+
+def _read_lists(file: Path) -> dict[str, list[PurePosixPath]]:
+    """robozium.json as its "tools", "skills" and "env" lists, each path listed once."""
     if file.is_symlink() or not file.is_file():
-        raise ValueError(f"{folder.name}: {CATALOG_FILE} is missing at the folder root")
+        raise ValueError(f"{CATALOG_FILE} is missing at the folder root")
     try:
         data = json.loads(file.read_text(encoding="utf-8"))
     except (UnicodeError, ValueError):
-        raise ValueError(f"{folder.name}: {CATALOG_FILE} is not valid JSON") from None
-    if not isinstance(data, dict) or not set(data) <= {*_CATALOG_KEYS, "env"}:
-        raise ValueError(
-            f'{folder.name}: {CATALOG_FILE} must be an object with only "tools", "skills" and "env"'
-        )
-    root = folder.resolve()
-    packages: dict[PurePosixPath, Kind] = {}
-    for key, kind in _CATALOG_KEYS.items():
-        for path in _catalog_paths(folder, data, key):
-            if not all(part.isidentifier() and not iskeyword(part) for part in path.parts):
-                raise ValueError(f"{folder.name}: {path} is not a valid Python package path")
-            if path in packages:
-                raise ValueError(f"{folder.name}: {path} is listed twice in {CATALOG_FILE}")
-            packages[path] = kind
+        raise ValueError(f"{CATALOG_FILE} is not valid JSON") from None
+    keys = (*_PACKAGE_LISTS, "env")
+    if not isinstance(data, dict) or not set(data) <= set(keys):
+        raise ValueError(f'{CATALOG_FILE} must be an object with only "tools", "skills" and "env"')
+    lists: dict[str, list[PurePosixPath]] = {}
+    for key in keys:
+        values = data.get(key, [])
+        if not isinstance(values, list) or not all(isinstance(value, str) for value in values):
+            raise ValueError(f'"{key}" in {CATALOG_FILE} must be a list of paths')
+        lists[key] = [_relative_path(value) for value in values]
+    every = [path for paths in lists.values() for path in paths]
+    for path in every:
+        if every.count(path) > 1:
+            raise ValueError(f"{path} is listed twice in {CATALOG_FILE}")
+    return lists
+
+
+def _relative_path(value: str) -> PurePosixPath:
+    """A catalog entry as a path; "./a", "a/" and "a//b" are refused, not normalized."""
+    path = PurePosixPath(value)
+    normalized = str(path) == value and "\\" not in value
+    inside = path.parts and not path.is_absolute() and ".." not in path.parts
+    if not (normalized and inside):
+        raise ValueError(f"{value!r} in {CATALOG_FILE} must be a relative path inside the folder")
+    return path
+
+
+def _check_packages(packages: dict[PurePosixPath, Kind]) -> None:
     if not packages:
-        raise ValueError(f"{folder.name}: {CATALOG_FILE} lists no tools or skills")
+        raise ValueError(f"{CATALOG_FILE} lists no tools or skills")
     for path in packages:
+        if not all(part.isidentifier() and not iskeyword(part) for part in path.parts):
+            raise ValueError(f"{path} is not a valid Python package path")
         if any(parent in packages for parent in path.parents):
-            raise ValueError(f"{folder.name}: {path} is inside another listed package")
-    env = _catalog_paths(folder, data, "env")
+            raise ValueError(f"{path} is inside another listed package")
+
+
+def _check_examples(folder: Path, env: list[PurePosixPath]) -> None:
     for path in env:
         if path.name not in _ENV_EXAMPLE_NAMES:
-            raise ValueError(
-                f"{folder.name}: {path} in {CATALOG_FILE} must be named env.example or .env.example"
-            )
-        if env.count(path) > 1:
-            raise ValueError(f"{folder.name}: {path} is listed twice in {CATALOG_FILE}")
-        _local_file(root, Path(path), f"{folder.name}: environment example {path}")
-    return Catalog(packages, env)
-
-
-def _catalog_paths(folder: Path, data: dict[str, object], key: str) -> tuple[PurePosixPath, ...]:
-    values = data.get(key, [])
-    if not isinstance(values, list) or not all(isinstance(value, str) for value in values):
-        raise ValueError(f'{folder.name}: "{key}" in {CATALOG_FILE} must be a list of paths')
-    paths: list[PurePosixPath] = []
-    for value in cast(list[str], values):
-        path = PurePosixPath(value)
-        if (
-            str(path) != value
-            or path.is_absolute()
-            or any(part in (".", "..") for part in path.parts)
-            or "\\" in value
-        ):
-            raise ValueError(
-                f"{folder.name}: {value!r} in {CATALOG_FILE} must be a relative path inside the folder"
-            )
-        paths.append(path)
-    return tuple(paths)
+            raise ValueError(f"{path} in {CATALOG_FILE} must be named env.example or .env.example")
+        _local_file(folder.resolve(), Path(path), f"environment example {path}")
 
 
 @dataclass(frozen=True)
