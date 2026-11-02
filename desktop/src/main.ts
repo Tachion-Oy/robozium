@@ -76,17 +76,20 @@ async function start(): Promise<void> {
 	}
 	let closing = false
 	let relaunch = false
-	/** Stop the backend, then exit; a restart starts again only after a clean stop. */
+	/**
+	 * Stop the backend, whose shutdown cancels every run, then exit; a restart starts again
+	 * only after a clean stop. The window stays, covered by the startup screen, until the exit.
+	 */
 	const quit = async (restart = false) => {
 		if (closing) {
-			// Closing during a restart hides the window at once and exits without starting again.
-			if (!restart) { relaunch = false; window.hide() }
+			// Closing during a restart exits without starting again.
+			if (!restart) { relaunch = false; window.webContents.send("desktop:closing") }
 			return
 		}
 		closing = true
 		relaunch = restart
-		// A restart keeps the window, which shows the startup screen until the app exits.
-		if (!restart) window.hide()
+		// The restart's own screen already covers the window.
+		if (!restart) window.webContents.send("desktop:closing")
 		try {
 			await backend?.close()
 			if (relaunch) app.relaunch()
@@ -121,8 +124,9 @@ async function start(): Promise<void> {
 	})
 	window.on("close", event => { event.preventDefault(); clearTimeout(resizeTimer); saveSize(); void quit() })
 	// The lock above makes later launches exit; bring this window forward instead.
+	// A launch while the app closes starts it again once the backend has stopped.
 	app.on("second-instance", () => {
-		if (closing) return
+		if (closing) relaunch = true
 		if (window.isMinimized()) window.restore()
 		window.show()
 		window.focus()

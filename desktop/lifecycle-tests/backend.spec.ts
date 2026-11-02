@@ -318,6 +318,25 @@ test("a duplicate launch focuses the first window and cannot stop its backend", 
 	expect(execFileSync(podman, ["inspect", "--format", "{{.State.Running}}", container], { encoding: "utf8" }).trim()).toBe("true")
 })
 
+test("a launch while the app closes starts the app again once the backend has stopped", async ({ runtime }) => {
+	const marker = path.join(runtime.directory, "relaunched")
+	const { app, page } = await launchConnected(runtime)
+	await createAndLaunch(page, "Relaunch while closing")
+	await expect(page.getByRole("status", { name: "Run status" })).toContainText("Awaiting input")
+	await app.evaluate(({ app }, marker) => {
+		app.relaunch = () => process.getBuiltinModule("fs").writeFileSync(marker, "relaunch")
+	}, marker)
+	const exited = once(app.process(), "exit")
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())
+	await expect(page.locator(".startup .startup__label")).toHaveAttribute("data-label", "stopping")
+	execFileSync(app.process().spawnfile, [desktop, "--mock", "--ozone-platform=x11"], {
+		env: { ...process.env, ROBOZIUM_DESKTOP_TEST_DATA: runtime.profile },
+		cwd: runtime.directory, timeout: 15_000, stdio: "pipe",
+	})
+	expect(await exited).toEqual([0, null])
+	expect(await readFile(marker, "utf8")).toBe("relaunch")
+})
+
 test("closing and reopening preserves project data and reuses the backend image", async ({ runtime }) => {
 	const { profile, commands, port } = runtime
 	const { app, page } = await launchConnected(runtime)
@@ -334,9 +353,21 @@ test("closing and reopening preserves project data and reuses the backend image"
 	await expect(page.getByRole("button", { name: "Open native-lifecycle", exact: true })).toBeVisible()
 	const proof = path.join(profile, "mock/hub/projects/native-lifecycle/proof.txt")
 	await writeFile(proof, "native data survives shutdown\n")
-	await test.step("Close the window and retain the mounted project files", async () => {
-		await closeWindow(app)
+	await test.step("Close the window during the run: Stopping shows, the run cancels and the API exits cleanly", async () => {
+		const exited = once(app.process(), "exit")
+		const started = Date.now()
+		await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())
+		await expect(page.locator(".startup .startup__label")).toHaveAttribute("data-label", "stopping")
+		expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(true)
+		expect(await exited).toEqual([0, null])
+		// Well inside the engine's stop timeout, after which it would kill the API.
+		expect(Date.now() - started).toBeLessThan(15_000)
 		expect(execFileSync(podman, ["inspect", "--format", "{{.State.Running}}", container], { encoding: "utf8" }).trim()).toBe("false")
+		// The API cancelled the run as Stop does and finished its own shutdown before exiting.
+		const { stdout, stderr } = spawnSync(podman, ["logs", container], { encoding: "utf8", timeout: 15_000 })
+		expect(stdout + stderr).toContain("Agent finished: orchestrator (status=cancelled)")
+		expect(stdout + stderr).toContain("Application shutdown complete.")
+		expect(stdout + stderr).not.toContain("Run shutdown timed out")
 		expect(await readFile(proof, "utf8")).toBe("native data survives shutdown\n")
 	})
 	await test.step("Reopen the installation and reuse its project and image", async () => {

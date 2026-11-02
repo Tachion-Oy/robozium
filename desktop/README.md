@@ -113,8 +113,11 @@ introduction. The first build requires internet.
 Later launches reuse the image when the staged inputs match its build identifier.
 Startup failures show an explanation and **Retry** in a toast over the loading screen. Closing the window cancels
 startup, waits for its Podman command to exit, and stops only the installation's
-verified API containers. Containers, images, credentials, and host data remain.
-A second managed launch using the same profile exits without changing its backend.
+verified API containers. Closing during runs stops each run as **Stop** does; the
+window shows **Stopping** until the backend has exited. Containers, images,
+credentials, and host data remain.
+A second managed launch using the same profile exits without changing its backend;
+launched while the app closes, it starts the app again once the backend has stopped.
 The app always uses this machine's own rootless Podman; it ignores
 `CONTAINER_HOST` and `CONTAINER_CONNECTION`, so a remote Podman never receives
 the hub's mounts.

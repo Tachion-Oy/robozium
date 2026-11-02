@@ -71,7 +71,7 @@
       { "root": "runtime", "path": ".runtime/host-socket", "target": "/host-scripts", "readOnly": true },
       { "root": "hub", "path": "readonly/safe-scripts", "target": "/hub/readonly/safe-scripts", "readOnly": true }
     ],
-    "command": ["uvicorn", "robozium.api.app:{mode}_app", "--factory", "--host", "{address}", "--port", "{port}", "--workers", "1"],
+    "command": ["uvicorn", "robozium.api.app:{mode}_app", "--factory", "--host", "{address}", "--port", "{port}", "--workers", "1", "--timeout-graceful-shutdown", "2"],
     "stopTimeoutSeconds": 30
   }
 }

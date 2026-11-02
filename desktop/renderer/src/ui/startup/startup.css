@@ -19,18 +19,20 @@ html[data-desktop] .startup__loading .agent-hud__mini-box { --mini-size: var(--s
 .startup__outline { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; fill: none; stroke: var(--mini-edge); z-index: -1; filter: drop-shadow(0 0 6px rgba(64, 200, 255, 0.38)) drop-shadow(0 0 16px rgba(64, 200, 255, 0.16)); }
 :root[data-theme="light"] .startup__outline { display: none; }
 .startup__heading { position: relative; }
-/* Both words share one cell at the same letter height; only their opacity changes. */
+/* The words share one cell at the same letter height; only their opacity changes. */
 .startup__loading { --startup-ink: var(--term-lime); }
 :root[data-theme="light"] .startup__loading { --startup-ink: var(--hud-input-text); }
 .startup__label { margin: 0; color: var(--startup-ink); display: grid; justify-items: center; }
-.startup__loading-art, .startup__updating-art { grid-area: 1 / 1; display: block; height: 16px; background: currentColor; transition: opacity 400ms ease; }
+.startup__loading-art, .startup__updating-art, .startup__stopping-art { grid-area: 1 / 1; display: block; height: 16px; background: currentColor; transition: opacity 400ms ease; }
 .startup__loading-art { width: var(--startup-loading-art-width); mask: url("/branding/loading.svg") center / contain no-repeat; }
 /* Wide enough that the word keeps the 16px height; the viewBox is 7223 by 734. */
 .startup__updating-art { width: 158px; mask: url("/branding/updating.svg") center / contain no-repeat; opacity: 0; }
-.startup__label[data-updating] .startup__loading-art { opacity: 0; }
-.startup__label[data-updating] .startup__updating-art { opacity: 1; }
+/* The viewBox is 6968 by 734. */
+.startup__stopping-art { width: 152px; mask: url("/branding/stopping.svg") center / contain no-repeat; opacity: 0; }
+.startup__label:not([data-label="loading"]) .startup__loading-art { opacity: 0; }
+.startup__label[data-label="updating"] .startup__updating-art, .startup__label[data-label="stopping"] .startup__stopping-art { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .startup { transition: none; }
   .startup__hud--enter { animation: none; }
-  .startup__loading-art, .startup__updating-art { transition: none; }
+  .startup__loading-art, .startup__updating-art, .startup__stopping-art { transition: none; }
 }

@@ -20,7 +20,11 @@ export function backendEnvironment(mode: "live" | "mock", port: number): Record<
 	return { ...definition.backend.environment, ROBOZIUM_MODE: mode, ROBOZIUM_DESKTOP_API_PORT: String(port) }
 }
 
-/** The backend command for this mode and port; the engine fills in the listening address. */
+/**
+ * The backend command for this mode and port; the engine fills in the listening address.
+ * Its graceful-shutdown timeout ends the open run streams, which last until their run ends,
+ * so the API's shutdown then cancels every run as Stop would before the engine's stop timeout.
+ */
 export function backendCommand(mode: "live" | "mock", port: number): string[] {
 	return definition.backend.command.map(part => part.replace("{mode}", mode).replace("{port}", String(port)))
 }

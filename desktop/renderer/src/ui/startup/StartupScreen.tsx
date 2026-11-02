@@ -17,13 +17,15 @@ export interface StartupScreenProps {
 	ready: boolean
 	/** The startup step, announced to assistive technology; the screen itself shows only the loader. */
 	status: string
-	/** The backend image is being rebuilt, so the label reads "Updating" rather than "Loading". */
-	updating: boolean
+	/** The word the loader shows: "Updating" while the backend image is rebuilt, "Stopping" while the app closes. */
+	label: StartupLabel
 	/** 0–1 through a startup that rebuilds the backend; absent when no build runs. */
 	progress?: number
 	/** The screen has faded out; the owner removes it. */
 	onFaded: () => void
 }
+
+export type StartupLabel = "loading" | "updating" | "stopping"
 
 // Equal sides and 135-degree interior angles; the cut is 100 / (2 + sqrt(2)).
 const octagonPoints = "29.289322,0 70.710678,0 100,29.289322 100,70.710678 70.710678,100 29.289322,100 0,70.710678 0,29.289322"
@@ -32,7 +34,7 @@ const FADE_FALLBACK_MS = 1000
 const reduceMotion = "(prefers-reduced-motion: reduce)"
 
 /** Local presentation runs independently of the backend container and the application's data. */
-export function StartupScreen({ mode, ready, status, updating, progress, onFaded }: StartupScreenProps): ReactNode {
+export function StartupScreen({ mode, ready, status, label, progress, onFaded }: StartupScreenProps): ReactNode {
 	const skipIntro = mode === "loading"
 	const [reducedMotion, setReducedMotion] = useState(() => matchMedia(reduceMotion).matches)
 	const [introDone, setIntroDone] = useState(skipIntro || reducedMotion)
@@ -86,12 +88,13 @@ export function StartupScreen({ mode, ready, status, updating, progress, onFaded
 							<MinimizedHudFrame
 								agentActivityState={AgentActivityState.Working}
 								heading={<div className="startup__heading">
-									<p className="startup__label" role="status" data-updating={updating || undefined}>
+									<p className="startup__label" role="status" data-label={label}>
 										<span className="startup__loading-art" aria-hidden="true" />
 										<span className="startup__updating-art" aria-hidden="true" />
+										<span className="startup__stopping-art" aria-hidden="true" />
 										<span className="sr-only">{status}</span>
 									</p>
-									{shownProgress !== undefined && <StartupProgress fraction={shownProgress} label={updating ? "Updating" : "Loading"} />}
+									{shownProgress !== undefined && <StartupProgress fraction={shownProgress} label={label === "updating" ? "Updating" : "Loading"} />}
 								</div>}>
 								<svg className="startup__outline" viewBox="0 0 100 100" aria-hidden="true">
 									<polygon points={octagonPoints} strokeWidth="1" vectorEffect="non-scaling-stroke" />

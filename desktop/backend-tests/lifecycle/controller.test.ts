@@ -300,7 +300,7 @@ test("inherited Robozium settings cannot change ownership, mounts or mode", asyn
 	assert.ok(run.args.includes(`fi.tachion.robozium.desktop.project=${settings.project}`))
 	assert.ok(run.args.includes(`${path.join(settings.runtime, "hub")}:/hub`), "without a hub folder the runtime keeps its own hub")
 	assert.deepEqual(run.args.slice(run.args.indexOf(`localhost/${settings.project}-api`) + 1),
-		["uvicorn", "robozium.api.app:mock_app", "--factory", "--host", "127.0.0.1", "--port", "18000", "--workers", "1"])
+		["uvicorn", "robozium.api.app:mock_app", "--factory", "--host", "127.0.0.1", "--port", "18000", "--workers", "1", "--timeout-graceful-shutdown", "2"])
 	assert.match(state.environment ?? "", /^ROBOZIUM_MODE=mock$/m)
 	await controller.close()
 })

@@ -2,7 +2,7 @@ import { _electron, expect } from "@playwright/test"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { launchArgs, startupDone, test, toast } from "./native"
+import { json, launchArgs, startupDone, test, toast } from "./native"
 
 const screen = ".startup"
 const launchButton = "button:text-is('Launch')"
@@ -82,7 +82,7 @@ test("a rebuild reads Updating with a progress bar, then fades to Loading withou
 	await page.reload()
 	const label = page.locator(`${screen} .startup__label`)
 	const bar = page.getByRole("progressbar")
-	await expect(label).toHaveAttribute("data-updating")
+	await expect(label).toHaveAttribute("data-label", "updating")
 	await expect(bar).toHaveAccessibleName("Updating")
 	await expect(bar).toHaveAttribute("aria-valuenow", "45")
 	await expect(bar.locator(".startup__progress-segment[data-active]")).toHaveCount(9)
@@ -90,7 +90,7 @@ test("a rebuild reads Updating with a progress bar, then fades to Loading withou
 	const updatingPlace = await place()
 
 	await app.evaluate(() => Reflect.set(globalThis, "status", { state: "starting", message: "Starting the backend…", progress: 0.96 }))
-	await expect(label).not.toHaveAttribute("data-updating")
+	await expect(label).toHaveAttribute("data-label", "loading")
 	await expect(bar).toHaveAttribute("aria-valuenow", "96")
 	await expect(bar).toHaveAccessibleName("Loading")
 	expect(await place()).toBe(updatingPlace)
@@ -134,4 +134,42 @@ test("a failed rebuild clears the bar, so a retry that builds nothing shows none
 	await expect(bar).toHaveCount(0)
 	await app.evaluate(() => Reflect.set(globalThis, "status", { state: "ready", message: "Backend ready" }))
 	await startupDone(page)
+})
+
+test("closing covers the HUD with Stopping while the backend stops, without an outage toast", async ({ desktop: { app, page }, fakeBackend }) => {
+	await expect(page.locator(launchButton)).toBeVisible()
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send("desktop:closing"))
+	const label = page.locator(`${screen} .startup__label`)
+	await expect(label).toHaveAttribute("data-label", "stopping")
+	await expect(label).toHaveText("Stopping runs and the backend…")
+	await expect(page.getByRole("progressbar")).toHaveCount(0)
+	// The stopping backend fails its readiness check; that outage is the expected one.
+	fakeBackend.handlers.set("GET /ready", response => json(response, { detail: "Stopping" }, 503))
+	const checks = fakeBackend.requests.filter(request => request.path === "/ready").length
+	await expect.poll(() => fakeBackend.requests.filter(request => request.path === "/ready").length, { timeout: 10_000 }).toBeGreaterThan(checks)
+	await expect(page.getByRole("region", { name: "Notifications" }).locator(".agent-error-toast--visible")).toHaveCount(0)
+	await expect(label).toHaveAttribute("data-label", "stopping")
+})
+
+test("closing during the launch animation still shows Stopping", async ({ fakeBackend }) => {
+	const directory = await mkdtemp(path.join(tmpdir(), "robozium-startup-"))
+	try {
+		const app = await _electron.launch({
+			args: launchArgs(fakeBackend.url),
+			chromiumSandbox: true,
+			cwd: directory,
+			env: { ...process.env, ROBOZIUM_DESKTOP_TEST_DATA: path.join(directory, "profile") },
+			timeout: 15_000,
+		})
+		try {
+			const page = await app.firstWindow()
+			await expect(page.locator(`${screen}[data-stage='intro']`)).toBeVisible()
+			await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send("desktop:closing"))
+			await expect(page.locator(`${screen} .startup__label`)).toHaveAttribute("data-label", "stopping")
+		} finally {
+			await app.close()
+		}
+	} finally {
+		await rm(directory, { recursive: true, force: true })
+	}
 })

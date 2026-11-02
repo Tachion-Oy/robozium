@@ -49,6 +49,8 @@ export interface DesktopBridge {
 	recreateBackend(): Promise<void>
 	/** Stop the backend and start the app again, so saved settings take effect. */
 	restartApp(): Promise<void>
+	/** Call `listener` when the app starts closing: it stops the runs and the backend, then exits. Returns an unsubscribe. */
+	onClosing(listener: () => void): () => void
 	getVersion(): Promise<string>
 	/** The startup screen is rendered in its loaded fonts; the hidden window shows. */
 	painted(): Promise<void>
