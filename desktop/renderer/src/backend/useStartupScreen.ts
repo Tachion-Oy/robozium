@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 export type StartupScreenMode = "intro" | "loading"
 
@@ -9,6 +9,8 @@ export interface StartupScreenState {
 	ready: boolean
 	/** An operation runs or the app exits, so a lost connection is expected rather than a failure. */
 	busy: boolean
+	/** The app is closing: it stops the runs and the backend, then exits. */
+	closing: boolean
 	/** Remove the screen after its fade. */
 	dismiss: () => void
 	/**
@@ -19,10 +21,18 @@ export interface StartupScreenState {
 	cover: <T>(operation: () => Promise<T>, release?: boolean) => Promise<T>
 }
 
-/** Own when the startup screen covers the application: at launch and during restarts. */
+/** Own when the startup screen covers the application: at launch, during restarts and while the app closes. */
 export function useStartupScreen(backendReady: boolean, reconnect: () => void): StartupScreenState {
 	const [mode, setMode] = useState<StartupScreenMode | null>("intro")
 	const [busy, setBusy] = useState(false)
+	const [closing, setClosing] = useState(false)
+
+	useEffect(() => window.robozium.onClosing(() => {
+		// Nothing follows the close but the exit, so the screen stays.
+		setClosing(true)
+		setMode("loading")
+		setBusy(true)
+	}), [])
 
 	const dismiss = useCallback(() => setMode(null), [])
 	const cover = async <T>(operation: () => Promise<T>, release = true): Promise<T> => {
@@ -44,5 +54,5 @@ export function useStartupScreen(backendReady: boolean, reconnect: () => void): 
 			throw error
 		}
 	}
-	return { mode, ready: backendReady && !busy, busy, dismiss, cover }
+	return { mode, ready: backendReady && !busy, busy, closing, dismiss, cover }
 }

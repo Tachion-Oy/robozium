@@ -14,6 +14,11 @@ const bridge: DesktopBridge = {
 	restartBackend: () => ipcRenderer.invoke("desktop:restart-backend"),
 	recreateBackend: () => ipcRenderer.invoke("desktop:recreate-backend"),
 	restartApp: () => ipcRenderer.invoke("desktop:relaunch"),
+	onClosing: listener => {
+		const handler = () => listener()
+		ipcRenderer.on("desktop:closing", handler)
+		return () => { ipcRenderer.off("desktop:closing", handler) }
+	},
 	getVersion: () => ipcRenderer.invoke("desktop:version"),
 	painted: () => ipcRenderer.invoke("desktop:painted"),
 	writeClipboardText: text => ipcRenderer.invoke("desktop:write-clipboard-text", text),

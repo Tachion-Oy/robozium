@@ -55,12 +55,14 @@ export function BackendStartup() {
 				covered={screen.mode !== null}
 				backend={backend} />}
 		</div>
+		{/* Closing starts the screen afresh, so a close during the intro still shows Stopping. */}
 		{screen.mode && <StartupScreen
+			key={screen.closing ? "closing" : "startup"}
 			mode={screen.mode}
 			ready={screen.ready}
-			status={status.message}
-			updating={starting?.stage === "updating"}
-			progress={starting?.progress}
+			status={screen.closing ? "Stopping runs and the backend…" : status.message}
+			label={screen.closing ? "stopping" : starting?.stage === "updating" ? "updating" : "loading"}
+			progress={screen.closing ? undefined : starting?.progress}
 			onFaded={screen.dismiss} />}
 		{hubFolderFailure && !expectedOutage && <StartupHubFolder message={status.message} onRetry={retryStartup} />}
 		{failed && <Toast tone="error" title={startupFailed ? "Robozium could not start" : "Backend unavailable"} message={status.message}
