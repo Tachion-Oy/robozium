@@ -11,7 +11,9 @@ from dotenv import dotenv_values
 from fastapi.testclient import TestClient
 from roboz.endpoints import decrypt_env_values, encrypt_env_values, serialize_env
 
+from robozium.api import environment_service
 from robozium.api.app import create_app
+from robozium.api.errors import RestartRequiredError
 from robozium.hub.utils import load_hub
 
 URL = "/credentials/environment"
@@ -762,3 +764,24 @@ def test_a_refused_change_leaves_the_app_unlocked(client):
     assert upload(client, {"env.example": ""}).status_code == 400
     assert save(client, [{"name": "1BAD", "value": ""}]).status_code == 400
     assert client.get("/credentials").json()["restart_required"] is False
+
+
+def test_a_run_waiting_on_a_change_does_not_start(client):
+    # prepare_run checks under the lock writers hold, so a run request that waited
+    # for an import to finish is refused too.
+    client.post("/projects", json={"name": "idle"})
+    client.app.state.loaded_credentials.restart_required = True
+    with pytest.raises(RestartRequiredError):
+        client.app.state.projects.prepare_run("idle")
+
+
+def test_a_failed_remove_still_locks(client, monkeypatch):
+    assert upload(client).status_code == 200
+    client.app.state.loaded_credentials.restart_required = False
+
+    def fail(path, *args, **kwargs):
+        raise OSError("disk failed partway")
+
+    monkeypatch.setattr(environment_service.shutil, "rmtree", fail)
+    assert client.delete(URL + "/imports/bundle").status_code == 503
+    assert client.get("/credentials").json()["restart_required"] is True

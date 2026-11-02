@@ -287,12 +287,13 @@ def test_overlapping_app_lifespans_preserve_existing_logging(config_file, confli
 
 
 def test_project_service_owns_startup_layout_validation(config_file):
+    from robozium.api.credentials import LoadedCredentials
     from robozium.api.project_service import ProjectService
 
     config = load_hub(config_file=config_file)
     unexpected = config.settings.sandbox.root / "misplaced"
     unexpected.mkdir(parents=True)
-    service = ProjectService(config, SimpleNamespace())
+    service = ProjectService(config, SimpleNamespace(), LoadedCredentials())
     with pytest.raises(ValueError, match="Unexpected folders.*misplaced"):
         service.recover()
     unexpected.rmdir()

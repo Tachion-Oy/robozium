@@ -164,8 +164,9 @@ class EnvironmentService:
     def reset(self) -> None:
         """Discard saved settings only while runs and background work are stopped."""
         with self._projects.stopped_runs():
-            self._credentials.reset()
+            # Locked first: a reset that fails partway has still changed the files.
             self._credentials.restart_required = True
+            self._credentials.reset()
 
     def import_folder(
         self, files: Sequence[tuple[str, BinaryIO]]
@@ -207,9 +208,10 @@ class EnvironmentService:
                 self._destination.resolve()
             ):
                 raise ValueError("The imported folder must stay inside local/imports/")
+            # Locked first: a delete that fails partway has still changed the files.
+            self._credentials.restart_required = True
             if destination.exists():
                 shutil.rmtree(destination)
-            self._credentials.restart_required = True
             del self._imports[name]
             if item.active:
                 self._removed_labels.update(cap.name for cap in item.capabilities)

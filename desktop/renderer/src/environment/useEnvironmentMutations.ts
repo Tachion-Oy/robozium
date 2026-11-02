@@ -45,7 +45,7 @@ export interface EnvironmentMutations extends EnvironmentWrites {
 
 /** During first-start setup (`setupRequired`) a save loads the keys at once, as an adopted key file does. */
 export function useEnvironmentMutations(
-	client: DesktopApiClient, setupRequired: boolean, outcomes: EnvironmentOutcomes,
+	client: DesktopApiClient, setupRequired: boolean, restartRequired: boolean, outcomes: EnvironmentOutcomes,
 ): EnvironmentMutations {
 	const [operation, setOperation] = useState<Operation | null>(null)
 	const lifetime = useClientLifetime(client)
@@ -100,7 +100,9 @@ export function useEnvironmentMutations(
 		if (setupRequired) {
 			showNotificationToast({
 				tone: "success", title: "API keys saved",
-				message: "Robozium is ready. Start your first run with New Project.",
+				message: restartRequired
+					? "Robozium is ready. Restart the app to use your imports."
+					: "Robozium is ready. Start your first run with New Project.",
 			})
 			return true
 		}

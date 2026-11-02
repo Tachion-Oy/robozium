@@ -157,10 +157,6 @@ def credential_status(loaded: LoadedCredentials | None = None) -> CredentialStat
     )
 
 
-# Refused until restart: a run or dependency check would mix saved changes with loaded code.
-_BLOCKED_UNTIL_RESTART = {("POST", "/run/create"), ("POST", "/admin/dependencies/check")}
-
-
 def _uses_provider(method: str, path: str) -> bool:
     if (method, path) in {("POST", "/run/create"), ("POST", "/transcribe")}:
         return True
@@ -172,29 +168,19 @@ def _uses_provider(method: str, path: str) -> bool:
 
 
 class CredentialGateMiddleware:
-    """Hold provider actions while encrypted API keys are locked or never configured.
-
-    After an environment change that applies on restart, also refuse new runs and
-    dependency checks until the app restarts.
-    """
+    """Hold provider actions while encrypted API keys are locked or never configured."""
 
     def __init__(self, app: ASGIApp, loaded: LoadedCredentials) -> None:
         self.app = app
         self.loaded = loaded
 
-    def _held(self, method: str, path: str) -> str | None:
-        if self.loaded.restart_required and (method, path) in _BLOCKED_UNTIL_RESTART:
-            return "Restart the app to apply your environment changes"
-        if not _uses_provider(method, path):
-            return None
-        if self.loaded.setup_required:
-            return "Add API keys before using providers"
-        if credential_status(self.loaded).locked:
-            return "Unlock secrets before using providers"
-        return None
-
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        detail = self._held(scope["method"], scope["path"]) if scope["type"] == "http" else None
+        detail = None
+        if scope["type"] == "http" and _uses_provider(scope["method"], scope["path"]):
+            if self.loaded.setup_required:
+                detail = "Add API keys before using providers"
+            elif credential_status(self.loaded).locked:
+                detail = "Unlock secrets before using providers"
         if detail is not None:
             response = JSONResponse(
                 {"detail": detail},

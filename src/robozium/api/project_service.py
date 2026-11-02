@@ -8,7 +8,8 @@ from threading import RLock
 from roboz.runtime.persistence import active_marker_paths, clear_active_markers
 
 from robozium.api.attachments import DIRECTORY, remove_attachments
-from robozium.api.errors import ProjectBusyError
+from robozium.api.credentials import LoadedCredentials
+from robozium.api.errors import ProjectBusyError, RestartRequiredError
 from robozium.api.projects import Project, ProjectListItem, compose_project_list
 from robozium.api.run_manager import RunManager
 from robozium.api.state import CapabilitySelection
@@ -16,9 +17,10 @@ from robozium.hub.application import Hub
 
 
 class ProjectService:
-    def __init__(self, hub: Hub, manager: RunManager) -> None:
+    def __init__(self, hub: Hub, manager: RunManager, loaded: LoadedCredentials) -> None:
         self._hub = hub
         self._manager = manager
+        self._loaded = loaded
         self._lock = RLock()
 
     def _projects(self) -> list[Project]:
@@ -104,6 +106,9 @@ class ProjectService:
     ) -> str:
         """Check the project and ask the manager to register or reuse a run."""
         with self._lock:
+            # Checked under the lock environment writers hold, so no run starts after a change.
+            if self._loaded.restart_required:
+                raise RestartRequiredError()
             project = self._existing(name)
             for directory in (
                 project.sandbox.readonly_dir,

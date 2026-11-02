@@ -10,6 +10,7 @@ from roboz.shed.dependency_health import (
     DependencyRecord,
 )
 
+from robozium.api.errors import RestartRequiredError
 from robozium.hub.application import Hub
 
 router = APIRouter()
@@ -73,6 +74,10 @@ def dependencies(request: Request) -> list[DependencyRecord]:
     response_model=list[DependencyRecord],
 )
 async def check_dependencies(request: Request) -> list[DependencyRecord]:
+    # A manual check after an environment change would test the old code; the
+    # background checks keep observing the loaded code until the restart.
+    if request.app.state.loaded_credentials.restart_required:
+        raise HTTPException(423, str(RestartRequiredError()))
     monitor: DependencyHealthMonitor | None = request.app.state.dependency_health
     if monitor is None:
         return []
