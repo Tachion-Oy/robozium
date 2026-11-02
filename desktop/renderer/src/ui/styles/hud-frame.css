@@ -295,7 +295,7 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   opacity: 1;
 }
 
-.agent-hud__box--landing {
+.agent-hud__box--overview {
   justify-content: flex-start;
 }
 
@@ -311,12 +311,10 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   width: 100%;
 }
 
-.agent-hud__header--landing {
-  flex: 0 0 auto;
-  margin-bottom: var(--hud-section-gap);
-}
+/* The overview's table keeps a clear gap from the selectors above it. */
 
-:root[data-theme="dark"] .agent-hud__header--landing {
+.agent-hud__header--overview {
+  flex: 0 0 auto;
   margin-bottom: 3.75rem;
 }
 
@@ -326,10 +324,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
 .agent-hud__header--row {
   flex: 0 0 auto;
   margin-bottom: var(--hud-section-gap);
-}
-
-:root[data-theme="dark"] .agent-hud__header--runs-overview {
-  margin-bottom: 3rem;
 }
 
 .agent-hud__run-view {
@@ -621,9 +615,7 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
 :root[data-theme="light"] .agent-hud__header--row {
   margin-bottom: 0.85rem;
 }
-/* The overview's table keeps a clear gap from the selectors above it. */
-:root[data-theme="light"] .agent-hud__header--landing,
-:root[data-theme="light"] .agent-hud__header--runs-overview {
+:root[data-theme="light"] .agent-hud__header--overview {
   margin-bottom: 3rem;
 }
 :root[data-theme="light"] .agent-hud__event-edge {

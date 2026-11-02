@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { writeFile } from "node:fs/promises"
-import { test, json, project, prepareRun, launchButton, runStatus, view, snapshot, expectOverview } from "./run-fixture"
+import { test, json, project, prepareRun, launchButton, runStatus, view, snapshot, expectOverview, replyBox } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
 import { captureNative, inlineAlerts, setNativeViewport, toast } from "./native"
 
@@ -172,6 +172,65 @@ test("Open opens active runs and returns to the current run", async ({ desktop: 
 	await expect(runStatus(page)).toContainText("live-project")
 	expect(live.streams).toHaveLength(1)
 	expect(writes(backend)).toEqual([])
+})
+
+for (const theme of ["dark", "light"]) {
+	test(`the overview keeps one gap below the selectors before, during and after a run in ${theme}`, async ({ desktop: { page }, backend }) => {
+		prepareRun(backend)
+		await backend.open()
+		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+		await expect(page.locator("html")).toHaveAttribute("data-theme", theme)
+		// Layout offsets, since the view scales in as it opens.
+		const tableGap = async () => {
+			await expect(page.locator(".agent-hud__table-header")).toBeVisible()
+			return page.locator(".agent-hud__box").evaluate(box => {
+				const header = box.querySelector<HTMLElement>(".agent-hud__header")!
+				const view = box.querySelector<HTMLElement>(".agent-hud__project-view")!
+				return view.offsetTop - (header.offsetTop + header.offsetHeight)
+			})
+		}
+		const header = page.locator(".agent-hud__header")
+		const headerMargin = () => header.evaluate(element => getComputedStyle(element).marginBottom)
+		const fresh = await tableGap()
+		const freshMargin = await headerMargin()
+		await page.locator(".agent-hud__project-row", { hasText: "existing-project" }).getByRole("button", { name: "Tools", exact: true }).click()
+		await expect(page.getByRole("form", { name: "Capability selector" })).toBeVisible()
+		expect(await headerMargin()).toBe(freshMargin)
+		await page.getByRole("button", { name: "Cancel", exact: true }).click()
+		await launchButton(page, "existing-project").click()
+		await expect(replyBox(page)).toBeFocused()
+		await view(page, "Runs Overview")
+		expect(await tableGap()).toBe(fresh)
+		await page.locator(".agent-hud__project-row", { hasText: "existing-project" }).getByRole("button", { name: "Tools", exact: true }).click()
+		await expect(page.getByRole("form", { name: "Capability selector" })).toBeVisible()
+		expect(await headerMargin()).toBe(freshMargin)
+		await page.getByRole("button", { name: "Cancel", exact: true }).click()
+		// The run ends while its HUD is open; the overview it returns to keeps the same gap.
+		backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ status: "cancelled" })))
+		await view(page, "Current Run")
+		await expectOverview(page)
+		expect(await tableGap()).toBe(fresh)
+	})
+}
+
+test("no project name is singled out while several runs are live", async ({ desktop: { page }, backend }) => {
+	backend.handlers.set("GET /projects", response => json(response, [
+		project("first-project", { status: "awaiting_user_input", run_id: "run-first" }),
+		project("second-project", { status: "awaiting_user_input", run_id: "run-second" }),
+	]))
+	prepareRun(backend, "run-first", "first-project")
+	await backend.open()
+	await page.getByRole("button", { name: "Open first-project", exact: true }).click()
+	await expect(runStatus(page)).toContainText("first-project")
+	await view(page, "Runs Overview")
+	const names = page.locator(".agent-hud__project-row .agent-hud__project-summary > span > span:nth-child(2)")
+	await expect(names).toHaveText(["first-project", "second-project"])
+	const looks = await names.evaluateAll(elements => elements.map(element => {
+		const style = getComputedStyle(element)
+		return { color: style.color, textShadow: style.textShadow, animation: style.animationName }
+	}))
+	expect(looks[0]).toEqual(looks[1])
+	await expect(page.locator(".agent-hud__project-row[aria-current]")).toHaveCount(0)
 })
 
 test("cancel and delete settle through listings and report refused or failed writes", async ({ desktop: { page }, backend }) => {
