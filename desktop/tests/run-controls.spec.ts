@@ -30,6 +30,7 @@ test("Cancel (interrupt) is offered only while the agent works and stays pending
 	await expectBusy(interruptButton(page), "Cancel")
 	await expect(interruptButton(page)).toBeDisabled()
 	await expect(send(page)).toBeDisabled()
+	await expect.poll(() => pending).toBeDefined()
 	json(pending!, { ok: true })
 	// An accepted interruption stays pending while snapshots still show the agent working.
 	await page.clock.fastForward(2001)
@@ -147,6 +148,7 @@ test("HUD Cancel and the row share one cancellation, then the cancelled run retu
 	await expect(row(page, "existing-project")).toContainText("STOPPING")
 	await expect(row(page, "existing-project").getByRole("button", { name: "Stop", exact: true })).toBeDisabled()
 	await page.getByRole("button", { name: "Open existing-project", exact: true }).click()
+	await expect.poll(() => pending).toBeDefined()
 	json(pending!, { ok: true })
 	current = snapshot({ status: "cancelled" })
 	rows = [project("existing-project")]

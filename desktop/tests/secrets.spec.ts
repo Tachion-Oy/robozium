@@ -59,6 +59,8 @@ test("a pending unlock ignores Escape, and Escape cancels afterwards", async ({ 
 	await expect(dialog(page).getByRole("button", { name: "Unlocking…" })).toHaveAttribute("aria-busy", "true")
 	await page.keyboard.press("Escape")
 	await expect(dialog(page)).toBeVisible()
+	// The button changes before the request reaches the mock backend.
+	await expect.poll(() => pending).toBeDefined()
 	json(pending!, { detail: "Could not unlock secrets" }, 400)
 	await expect(dialog(page).getByRole("alert")).toBeVisible()
 	await page.keyboard.press("Escape")
