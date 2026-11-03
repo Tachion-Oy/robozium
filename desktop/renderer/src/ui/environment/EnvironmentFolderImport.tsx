@@ -39,6 +39,8 @@ export function EnvironmentFolderImport({ disabled, onImport, onBusy }: {
 		noClick: true,
 		noKeyboard: true,
 		disabled: disabled || pending,
+		// A folder that cannot be read reports why instead of doing nothing.
+		onError: error => showErrorToast({ title: "Import failed", message: error.message || "The folder could not be read." }),
 		onDropAccepted: (selected: File[]) => void importFiles(selected.map(file => ({
 			file,
 			path: (file as FileWithPath).relativePath.replace(/^\//, ""),

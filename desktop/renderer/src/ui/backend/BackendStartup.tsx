@@ -50,6 +50,7 @@ export function BackendStartup() {
 				client={startup.client}
 				connected={status.state === "ready"}
 				covered={screen.mode !== null}
+				operating={screen.busy}
 				backend={backend} />}
 		</div>
 		{/* Closing starts the screen afresh, so a close during the intro still shows Stopping. */}
