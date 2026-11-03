@@ -75,6 +75,8 @@ export interface EnvironmentDraft {
 	retry: () => void
 	/** Write outcomes, passed in by App. */
 	replaced: (next: EnvironmentView) => void
+	/** A write applied but its result could not be read: read the settings again, keeping removed suggestions hidden. */
+	reload: () => void
 	imported: (result: EnvironmentImportResult) => void
 	removed: (name: string) => void
 	reset: () => void
@@ -214,6 +216,16 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 		if (editor?.original.name === name) closeEditor()
 	}
 
+	/** Read the settings again from scratch, discarding the edits but not the removed suggestions. */
+	const reload = () => {
+		setView(null)
+		setChangedEntries([])
+		dirtyRef.current = false
+		setLoadError(null)
+		closeEditor()
+		setRefreshVersion(version => version + 1)
+	}
+
 	return {
 		view, editable, loadFailed, loadError, canReset,
 		editor, currentEntries, dirty, needsPassword,
@@ -227,6 +239,7 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 			dirtyRef.current = false
 			closeEditor()
 		},
+		reload,
 		imported: result => {
 			setView(previous => previous && {
 				...previous,
@@ -242,15 +255,11 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 				suggestions: previous.suggestions.filter(item => item.source !== name),
 			})
 		},
+		// A reset also forgets the removed suggestions and the last example error.
 		reset: () => {
-			setView(null)
-			setChangedEntries([])
-			dirtyRef.current = false
-			setLoadError(null)
+			reload()
 			lastLoadError.current = ""
-			closeEditor()
 			setHiddenSuggestions(new Set())
-			setRefreshVersion(version => version + 1)
 		},
 	}
 }
