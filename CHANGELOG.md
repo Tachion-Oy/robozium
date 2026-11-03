@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.5.1 - 2026-11-03
+
+- Closing the window stops every run the way **Stop** does, then stops the
+  backend. Before, the backend waited on the runs' open connections until
+  Podman killed it after 30 seconds, so the runs were never cancelled and the
+  next launch took that long to start.
+- The window stays open and reads **Stopping** until the app exits, also when
+  closing during the launch animation or while **Restart backend** runs.
+  Launching Robozium while it closes brings that window forward instead of
+  doing nothing.
+- **Restart backend** and **Recreate backend** stop the runs the same way
+  before the container restarts.
+
 ## 0.5.0 - 2026-11-03
 
 - An imported tool and skill folder lists what it provides in a
