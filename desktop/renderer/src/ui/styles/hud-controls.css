@@ -1363,8 +1363,8 @@
 /* An import lays one translucent layer over the whole window and takes its clicks. */
 .agent-hud__busy--window {
   position: fixed;
-  /* Under the toasts (10001), so the outcome shows above the layer. */
-  z-index: 10000;
+  /* Under the startup and Stopping screen (10000) and the toasts (10001). */
+  z-index: 9999;
   pointer-events: auto;
   background: color-mix(in oklab, var(--hud-box-bg) 60%, transparent);
 }

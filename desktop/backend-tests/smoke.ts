@@ -11,7 +11,7 @@ import { BackendController } from "../src/backend-controller.ts"
 import { loadOrCreateBackendProfile } from "../src/backend-profile.ts"
 import { platformEngine } from "../src/platform-engine.ts"
 
-test("desktop mock image starts rootless and retains projects after restart, recreate and shutdown", { timeout: 900_000 }, async t => {
+test("desktop mock image starts rootless and retains projects in a new container after an app restart and shutdown", { timeout: 900_000 }, async t => {
 	const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "desktop-container-"))
 	const profile = path.join(temporary, "profile with spaces")
 	const source = path.join(temporary, "stage")
@@ -87,10 +87,15 @@ test("desktop mock image starts rootless and retains projects after restart, rec
 			"present = [str(p) for p in private if p.exists()]",
 			"assert not present, present",
 		].join("; ")])
-		// Restart app: the container stops with the app and the next launch starts it again.
+		// Restart app: the container stops with the app and the next launch replaces it.
+		const containerIds = () => podman(["ps", "--all", "--quiet", "--filter", `label=fi.tachion.robozium.desktop.project=${project}`]).trim().split(/\s+/).filter(Boolean)
+		const before = containerIds()
 		await controller.close()
 		controller = launch()
 		await controller.start()
+		const after = containerIds()
+		assert.equal(after.length, 1)
+		assert.ok(!before.includes(after[0]), "the restart runs a new container")
 		assert.ok((await request("/projects")).some((item: { slug: string }) => item.slug === created.slug))
 		await cleanup()
 		assert.equal(fs.readFileSync(marker, "utf8"), "retained desktop data\n")

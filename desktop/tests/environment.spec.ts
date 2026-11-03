@@ -375,6 +375,31 @@ test("removing an import asks for confirmation, keeps it on failure, and asks fo
 	expect(backend.requests.filter(request => request.method === "DELETE" && request.path === "/credentials/environment/imports/local_tool")).toHaveLength(2)
 })
 
+test("Restart app covers the HUD until the app exits, expects the outage, and a close shows Stopping", async ({ desktop: { app, page }, backend }) => {
+	// The relaunch never finishes, as when the app is about to exit.
+	await app.evaluate(({ ipcMain }) => {
+		ipcMain.removeHandler("desktop:relaunch")
+		ipcMain.handle("desktop:relaunch", () => new Promise<void>(() => {}))
+	})
+	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
+	await openEnvironment(page, backend)
+	await panel(page).getByRole("button", { name: "Restart app" }).click()
+	await expect(page.locator(".startup[data-stage='loading']")).toBeVisible()
+	// The covered HUD is inert: keyboard focus never reaches its controls.
+	await expect(page.locator(".backend-startup__app")).toHaveAttribute("inert", "")
+	for (let step = 0; step < 6; step++) {
+		await page.keyboard.press("Tab")
+		expect(await page.evaluate(() => Boolean(document.activeElement?.closest(".backend-startup__app")))).toBe(false)
+	}
+	// The backend goes away during the restart: an expected outage, not a failure toast.
+	const before = backend.requests.filter(request => request.path === "/ready").length
+	backend.handlers.set("GET /ready", response => json(response, { detail: "Restarting" }, 503))
+	await expect.poll(() => backend.requests.filter(request => request.path === "/ready").length, { timeout: 10_000 }).toBeGreaterThan(before)
+	await expect(toast(page, "Backend unavailable")).toHaveCount(0)
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send("desktop:closing"))
+	await expect(page.locator(".startup .startup__label")).toHaveAttribute("data-label", "stopping")
+})
+
 test("Restart app confirms unsaved edits in the HUD before restarting", async ({ desktop: { app, page }, backend }) => {
 	await app.evaluate(({ ipcMain }) => {
 		ipcMain.removeHandler("desktop:relaunch")
