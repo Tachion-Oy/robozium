@@ -171,8 +171,12 @@ def test_restart_loads_copied_capabilities_and_recovers_confirmation(
         ({"robozium.json": '{"tools": ["my-pkg"]}', "my-pkg/__init__.py": ""}, "valid Python package path"),
         ({"robozium.json": '{"tools": ["pkg"], "skills": ["pkg"]}', "pkg/__init__.py": ""}, "listed twice"),
         ({"robozium.json": '{"tools": ["pkg", "pkg/inner"]}', "pkg/__init__.py": "", "pkg/inner/__init__.py": ""}, "inside another listed package"),
-        ({"robozium.json": '{"tools": ["pkg"]}', "pkg/helper.py": ""}, "package pkg"),
+        ({"robozium.json": '{"tools": ["pkg"]}', "pkg/helper.py": ""}, "pkg is listed in robozium.json but has no __init__.py"),
         (tool(TOOL) | {"robozium.json": catalog(tools=["pkg"], skills=[], env=["missing.example"])}, "missing.example"),
+        (
+            tool(TOOL) | {"robozium.json": catalog(tools=["pkg"], skills=[], env=["pkg/.env.example"])},
+            "pkg/.env.example is listed in robozium.json but is not in the folder",
+        ),
         (tool(TOOL, **{"stray.txt": ""}), "stray.txt is not listed"),
         (
             tool(TOOL, **{".env": "TOKEN=real"}) | {"robozium.json": catalog(tools=["pkg"], skills=[], env=[".env"])},

@@ -203,11 +203,11 @@ Each `tools` or `skills` path is a self-contained Python package inside the
 folder: it may import only its own modules and its requirements. `env` lists
 optional example settings files. Only these paths are uploaded, without hidden
 entries such as `.venv` or `.git` and without `__pycache__`, so the folder can
-be a whole checkout. The folder must not contain symbolic links: the app
-skips folders reached through them and refuses the import when a listed file
-is missing. A package declares its dependencies in its own
-`requirements.txt`; pin exact versions to get the environment it was tested
-with, since Robozium installs them in its own environment.
+be a whole checkout. Do not link to a folder that is also inside the imported
+folder: the app reads each folder once, so the real folder is skipped and the
+import fails with a listed file missing. A package declares its dependencies
+in its own `requirements.txt`; pin exact versions to get the environment it was
+tested with, since Robozium installs them in its own environment.
 Robozium validates the folder, copies it to
 `~/.config/Robozium/<mode>/local/imports/<folder-name>/`, and shows the
 discovered capabilities and example settings. The source folder is not linked.

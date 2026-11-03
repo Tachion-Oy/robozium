@@ -107,7 +107,7 @@ def _check_examples(folder: Path, env: list[PurePosixPath]) -> None:
     for path in env:
         if path.name not in _ENV_EXAMPLE_NAMES:
             raise ValueError(f"{path} in {CATALOG_FILE} must be named env.example or .env.example")
-        _local_file(folder.resolve(), Path(path), f"environment example {path}")
+        _local_file(folder.resolve(), Path(path), f"{path} is listed in {CATALOG_FILE} but is not in the folder")
 
 
 @dataclass(frozen=True)
@@ -206,7 +206,7 @@ def _discover_packages(root: Path) -> tuple[_Packages, dict[str, _Packages], dic
             if not child.name.isidentifier() or iskeyword(child.name):
                 raise ValueError(f"invalid Python package name: {child}")
             package = child.relative_to(root)
-            _local_file(root, package / "__init__.py", "package entrypoint")
+            _local_file(root, package / "__init__.py", f"package entrypoint: missing or invalid local file {package}/__init__.py")
             own[package] = None
     return own, folders, broken
 
@@ -218,7 +218,7 @@ def _catalog_packages(root: Path, folder: Path, catalog: Catalog) -> _Packages:
         raise ValueError(f"imported folder must stay inside {root}: {folder}")
     base = folder.relative_to(root)
     for path in catalog.packages:
-        _local_file(root, base / path / "__init__.py", f"{folder.name}: package {path}")
+        _local_file(root, base / path / "__init__.py", f"{folder.name}: {path} is listed in {CATALOG_FILE} but has no __init__.py")
     return {base / path: kind for path, kind in catalog.packages.items()}
 
 
@@ -298,17 +298,17 @@ def _import_capabilities(module_name: str, entrypoint: Path) -> tuple[Capability
         raise RuntimeError(f"{entrypoint}: {exc}") from exc
 
 
-def _local_file(root: Path, relative: Path, label: str) -> Path:
+def _local_file(root: Path, relative: Path, missing: str) -> Path:
     file = (root / relative).resolve()
     if relative.is_absolute() or not file.is_relative_to(root) or not file.is_file():
-        raise ValueError(f"{label}: missing or invalid local file {relative}")
+        raise ValueError(missing)
     return file
 
 
 def _requirements(root: Path, packages: _Packages) -> list[Path]:
     """Each package's requirements file; required under skills/ and tools/, optional in imports."""
     return [
-        _local_file(root, package / "requirements.txt", "requirements file")
+        _local_file(root, package / "requirements.txt", f"requirements file: missing or invalid local file {package}/requirements.txt")
         for package in packages
         if package.parts[0] != "imports" or (root / package / "requirements.txt").exists()
     ]
