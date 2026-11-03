@@ -38,10 +38,9 @@ function replaceEntry(entries: EnvironmentEntry[], editor: Editor): EnvironmentE
 }
 
 function entryError({ entry, original, originalName }: Editor, entries: EnvironmentEntry[]): string {
-	if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(entry.name)) {
-		return "Use letters, digits and underscores in the variable name, starting with a letter or an underscore."
+	if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(entry.name) || /_ENCRYPTED$/i.test(entry.name)) {
+		return "Use a variable name without the reserved _ENCRYPTED suffix."
 	}
-	if (/_ENCRYPTED$/i.test(entry.name)) return "Use a variable name without the reserved _ENCRYPTED suffix."
 	if (entries.some(row => row.name !== originalName && row.name === entry.name)) {
 		return "Variable names must be unique."
 	}

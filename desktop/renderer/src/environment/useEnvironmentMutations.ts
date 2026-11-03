@@ -34,8 +34,7 @@ export interface EnvironmentOutcomes {
 
 export interface EnvironmentMutations extends EnvironmentWrites {
 	saving: boolean
-	/** Resolves null once saved, otherwise the reason to show where the password was entered; "" when another write runs. */
-	save: (password: string, entries: EnvironmentEntry[], revision: string) => Promise<string | null>
+	save: (password: string, entries: EnvironmentEntry[], revision: string) => Promise<boolean>
 	importPackage: (files: FolderFile[]) => Promise<boolean>
 	/** Deletes an imported package's copy; its capabilities stay loaded until restart. */
 	removeImport: (name: string) => Promise<boolean>
@@ -86,12 +85,9 @@ export function useEnvironmentMutations(
 		showErrorToast({ title, message: cause instanceof Error ? cause.message : fallback })
 		return false
 	}
-	/** The backend's own explanation, for a failure shown where the user acted. */
-	const reason = (fallback: string) => (cause: unknown) => cause instanceof ApiError && cause.detail ? cause.detail
-		: cause instanceof Error ? cause.message : fallback
 	const read = (client: DesktopApiClient, signal: AbortSignal) => withDeadline(signal, requestSignal => getEnvironment(client, requestSignal))
 
-	const save = (password: string, entries: EnvironmentEntry[], revision: string) => run<string | null>("save", "", async (client, signal) => {
+	const save = (password: string, entries: EnvironmentEntry[], revision: string) => run("save", false, async (client, signal) => {
 		// Sent once; a conflict or failure keeps the edits for the user to retry.
 		await withDeadline(signal, requestSignal => saveEnvironment(client, {
 			revision,
@@ -99,7 +95,7 @@ export function useEnvironmentMutations(
 			password: password || null,
 		}, requestSignal))
 		const next = await read(client, signal)
-		if (signal.aborted) return ""
+		if (signal.aborted) return false
 		outcomes.onReplaced(next)
 		if (setupRequired) {
 			showNotificationToast({
@@ -108,14 +104,14 @@ export function useEnvironmentMutations(
 					? "Robozium is ready. Restart the app to use your imports."
 					: "Robozium is ready. Start your first run with New Project.",
 			})
-			return null
+			return true
 		}
 		showNotificationToast({
 			tone: "success", title: "Settings saved",
 			message: "Use Restart app in Environment, then enter your password.",
 		})
-		return null
-	}, reason("Could not save settings"))
+		return true
+	}, failure("Could not save settings", "Could not save settings"))
 
 	const importPackage = (files: FolderFile[]) => run("import", false, async (client, signal) => {
 		const result = await withDeadline(signal, requestSignal => importEnvironment(client, files, requestSignal), IMPORT_TIMEOUT_MS)
@@ -149,7 +145,8 @@ export function useEnvironmentMutations(
 			? { tone: "success", title: "Keys loaded", message: "Your key file is in use." }
 			: { tone: "success", title: "Key file saved", message: "Use Restart app in Environment, then enter your password." })
 		return null
-	}, reason("Could not use the key file"))
+	}, cause => cause instanceof ApiError && cause.detail ? cause.detail
+		: cause instanceof Error ? cause.message : "Could not use the key file")
 
 	const reset = () => run("reset", false, async (client, signal) => {
 		await withDeadline(signal, requestSignal => resetEnvironment(client, requestSignal))

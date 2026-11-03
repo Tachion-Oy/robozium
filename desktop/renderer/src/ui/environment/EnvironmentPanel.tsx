@@ -102,7 +102,7 @@ export function EnvironmentPanel({ draft, mutations, hub, restartRequired, onRes
 				confirmPassword={!view?.requires_password}
 				canReset={draft.canReset}
 				onValidate={draft.validateSave}
-				onSave={async password => view ? mutations.save(password, draft.currentEntries, view.revision) : "Settings cannot be changed right now."}
+				onSave={async password => view ? mutations.save(password, draft.currentEntries, view.revision) : false}
 				onReset={mutations.reset}>
 				<EnvironmentRestart required={restartRequired || hubRestartNeeded(hub)}
 					dirty={draft.dirty || editor !== null} onRestart={onRestart} />
