@@ -7,7 +7,7 @@ import { registerRendererProtocol, rendererUrl } from "./renderer-protocol.ts"
 import { MessageLogWindow } from "./message-log-window.ts"
 import { externalUrl, hubFilePath } from "./links.ts"
 import { checkHubFolderChoice, recordedHubFolder, saveHubFolder } from "./hub-folder.ts"
-import { permissionAllowed, permissionRequestAllowed } from "./security.ts"
+import { droppedFolderReadAllowed, permissionAllowed, permissionRequestAllowed } from "./security.ts"
 import { desktopLocations } from "./locations.ts"
 import { isAppTheme, readSettings, saveSettings, themeBackground, type DesktopSettings } from "./settings.ts"
 import { boundedSize, DEFAULT_SIZE, nextZoom, windowLimits, zoomShortcut } from "./window.ts"
@@ -150,9 +150,11 @@ async function start(): Promise<void> {
 	contents.on("will-frame-navigate", event => event.preventDefault())
 	contents.on("will-redirect", event => event.preventDefault())
 	contents.on("will-attach-webview", event => event.preventDefault())
-	// Only the bundled document's main frame may record audio, for dictation.
-	contents.session.setPermissionCheckHandler((requester, permission, _origin, details) =>
-		permissionAllowed(window, requester, rendererUrl, permission, details))
+	// Only the bundled document's main frame may record audio, for dictation, and the
+	// bundled document may read a folder the user dropped on it.
+	contents.session.setPermissionCheckHandler((requester, permission, origin, details) =>
+		permissionAllowed(window, requester, rendererUrl, permission, details)
+		|| droppedFolderReadAllowed(rendererUrl, permission, origin, details))
 	contents.session.setPermissionRequestHandler((requester, permission, callback, details) =>
 		callback(permissionRequestAllowed(window, requester, rendererUrl, permission, details)))
 

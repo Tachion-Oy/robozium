@@ -110,7 +110,8 @@ export function App({ client, connected, covered, backend }: AppProps) {
 		// Keys that load end setup; a change that needs a restart locks the HUD. A write never changes the screen.
 		onSettled: credentials.refresh,
 	})
-	const environmentDraft = useEnvironmentDraft(client, screen === "environment", environmentMutations)
+	// Like the credentials, the settings are not read while the startup screen covers a restart or the close.
+	const environmentDraft = useEnvironmentDraft(client, screen === "environment" && !covered, environmentMutations)
 	const hubFolder = useHubFolder()
 	const dependencies = useDependencies(client, screen === "dependencies")
 	// A launch, a disconnection or an unconfirmed model change locks navigation.
