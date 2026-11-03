@@ -392,7 +392,7 @@ prompt fails the check. The memory model must reply to a one-word text prompt.
 Models that accept images must also name the colour of a small red square. OpenRouter models must also match
 OpenRouter's published image support, context limit and tool support. Output
 is capped at 1024 tokens per request. Replies vary between requests, so each
-probe is tried up to three times, and a model fails only when every attempt
+probe is tried up to five times, and a model fails only when every attempt
 does. Without `--provider`, providers whose
 key is missing are skipped.
 

@@ -4,7 +4,7 @@ Run ``uv run python scripts/model_check.py``. Each model the application can
 select receives the orchestrator's real system prompt and a short greeting,
 and must answer with a valid tool call. The memory model receives one short
 text prompt. Models that accept images also receive one tiny image. Each probe
-is tried up to three times and passes on the first accepted reply. Requests
+is tried up to five times and passes on the first accepted reply. Requests
 carry the application's own request options, including reasoning effort, plus
 an output limit. OpenRouter models are also compared with OpenRouter's public
 model listing.
@@ -43,7 +43,7 @@ MEMORY_LABEL = "Memory"
 MAX_OUTPUT_TOKENS = 1024
 TIMEOUT_S = 45.0
 # Replies are stochastic; a model fails a probe only when every attempt does.
-PROBE_ATTEMPTS = 3
+PROBE_ATTEMPTS = 5
 PARALLEL_MODELS = 8
 TEXT_PROMPT = "Reply with exactly one word: hello"
 AGENT_GREETING = "hi"
