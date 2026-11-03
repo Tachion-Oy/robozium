@@ -1,7 +1,7 @@
-import { expect, type ElectronApplication, type Page } from "@playwright/test"
+import { expect, type Page } from "@playwright/test"
 import { writeFile } from "node:fs/promises"
 import { test, json, view } from "./run-fixture"
-import { captureNative, setNativeViewport, startupDone, toast } from "./native"
+import { captureNative, setNativeViewport, toast } from "./native"
 import type { Backend } from "./selection-fixture"
 
 type Dependency = {
@@ -18,14 +18,6 @@ const failure = dependency("network:diagnostic-test", {
 })
 const panel = (page: Page) => page.locator(".agent-hud__status-view")
 const checkNow = (page: Page) => panel(page).getByRole("button", { name: "Check Now", exact: true })
-// The backend controls sit in Environment's action row.
-const backendButton = (page: Page, name: string) =>
-	page.getByRole("region", { name: "Environment settings" }).getByLabel("Backend controls").getByRole("button", { name })
-async function openEnvironment(page: Page, backend: Backend) {
-	await backend.open()
-	await view(page, "Environment")
-	await expect(backendButton(page, "Restart backend")).toBeVisible()
-}
 const checks = (backend: Backend) => backend.requests.filter(request => request.method === "POST" && request.path === "/admin/dependencies/check")
 
 async function openDependencies(page: Page, backend: Backend, records: Dependency[] | (() => Dependency[])) {
@@ -97,113 +89,6 @@ test("a cause is copied through the native clipboard and clears once the check r
 	await expect(panel(page).getByRole("cell", { name: "AVAILABLE", exact: true })).toBeVisible()
 	await expect(panel(page).getByText(/Caused by: gaierror/)).toHaveCount(0)
 	expect(checks(backend)).toHaveLength(2)
-})
-
-/** Restart and Recreate wait in main until the test finishes them. */
-async function holdBackendOperations(app: ElectronApplication) {
-	await app.evaluate(({ ipcMain }) => {
-		const calls: string[] = []
-		Reflect.set(globalThis, "backendCalls", calls)
-		for (const operation of ["restart", "recreate"]) {
-			ipcMain.removeHandler(`desktop:${operation}-backend`)
-			ipcMain.handle(`desktop:${operation}-backend`, () => new Promise<void>((resolve, reject) => {
-				calls.push(operation)
-				Reflect.set(globalThis, "finishBackend", (error?: string) => error ? reject(new Error(error)) : resolve())
-			}))
-		}
-	})
-	return {
-		calls: () => app.evaluate(() => [...(Reflect.get(globalThis, "backendCalls") as string[])]),
-		finish: (error?: string) => app.evaluate((_electron, error) => (Reflect.get(globalThis, "finishBackend") as (error?: string) => void)(error), error),
-	}
-}
-
-test("Restart and Recreate run one backend operation at a time, report failures and reconnect", async ({ desktop: { app, page }, backend }) => {
-	const { calls, finish } = await holdBackendOperations(app)
-	const readiness = () => backend.requests.filter(request => request.path === "/ready").length
-	await openEnvironment(page, backend)
-	const restart = backendButton(page, "Restart backend")
-	const recreate = backendButton(page, "Recreate backend")
-
-	await restart.click()
-	await expect.poll(calls).toEqual(["restart"])
-	// The loading screen covers the HUD while the backend restarts.
-	await expect(page.locator(".startup[data-stage='loading']")).toBeVisible()
-	await expect(restart).toBeDisabled()
-	await expect(recreate).toBeDisabled()
-	// The covered HUD is inert: keyboard focus never reaches its controls.
-	await expect(page.locator(".backend-startup__app")).toHaveAttribute("inert", "")
-	for (let step = 0; step < 6; step++) {
-		await page.keyboard.press("Tab")
-		expect(await page.evaluate(() => Boolean(document.activeElement?.closest(".backend-startup__app")))).toBe(false)
-	}
-	const before = readiness()
-	await finish()
-	await startupDone(page)
-	await expect(recreate).toBeEnabled()
-	await expect.poll(readiness).toBeGreaterThan(before)
-
-	await recreate.click()
-	await expect.poll(calls).toEqual(["restart", "recreate"])
-	await expect(page.locator(".startup")).toBeVisible()
-	await finish("A backend operation is already running.")
-	// A failure removes the loading screen again and explains itself.
-	await startupDone(page)
-	await expect(page.getByRole("alert").filter({ hasText: "Backend operation failed" })).toContainText("A backend operation is already running.")
-	await expect(restart).toBeEnabled()
-})
-
-test("a slow restart keeps the loading screen, not the expected outage, even when readiness fails", async ({ desktop: { app, page }, backend }) => {
-	const { calls, finish } = await holdBackendOperations(app)
-	await openEnvironment(page, backend)
-	const before = backend.requests.filter(request => request.path === "/ready").length
-	backend.handlers.set("GET /ready", response => json(response, { detail: "Restarting" }, 503))
-	await backendButton(page, "Restart backend").click()
-	await expect.poll(calls).toEqual(["restart"])
-	// The five-second poll fails while the operation runs.
-	await expect.poll(() => backend.requests.filter(request => request.path === "/ready").length, { timeout: 10_000 }).toBeGreaterThan(before)
-	// The outage is expected while the restart runs: no failure toast over the loader.
-	await expect(page.locator(".startup .agent-hud__mini-box")).toBeVisible()
-	await expect(toast(page, "Backend unavailable")).toHaveCount(0)
-	backend.handlers.set("GET /ready", response => json(response, { status: "ready" }))
-	await finish()
-	await startupDone(page)
-})
-
-test("a reconnect that fails after a restart shows the error and Retry in a toast over the loading screen", async ({ desktop: { app, page }, backend }) => {
-	const { calls, finish } = await holdBackendOperations(app)
-	await openEnvironment(page, backend)
-	await backendButton(page, "Restart backend").click()
-	await expect.poll(calls).toEqual(["restart"])
-	backend.handlers.set("GET /ready", response => json(response, { detail: "Restarting" }, 503))
-	await finish()
-	const failure = toast(page, "Backend unavailable")
-	await expect(failure).toContainText("Backend connection unavailable. Check the backend and retry.")
-	await expect(page.locator(".startup .agent-hud__mini-box")).toBeVisible()
-	backend.handlers.set("GET /ready", response => json(response, { status: "ready" }))
-	await failure.getByRole("button", { name: "Retry", exact: true }).click()
-	await startupDone(page)
-	await expect(page.locator(".backend-startup__app")).not.toHaveAttribute("inert")
-	await expect(backendButton(page, "Restart backend")).toBeVisible()
-})
-
-for (const outcome of ["fails", "succeeds"] as const) test(`a close during a restart keeps Stopping when the restart ${outcome}`, async ({ desktop: { app, page }, backend }) => {
-	const { calls, finish } = await holdBackendOperations(app)
-	await openEnvironment(page, backend)
-	await backendButton(page, "Restart backend").click()
-	await expect.poll(calls).toEqual(["restart"])
-	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send("desktop:closing"))
-	const label = page.locator(".startup .startup__label")
-	await expect(label).toHaveAttribute("data-label", "stopping")
-	backend.handlers.set("GET /ready", response => json(response, { detail: "Stopping" }, 503))
-	await finish(outcome === "fails" ? "Robozium is closing." : undefined)
-	// The five-second readiness poll fails on the stopping backend; a released screen would report it.
-	const before = backend.requests.filter(request => request.path === "/ready").length
-	await expect.poll(() => backend.requests.filter(request => request.path === "/ready").length, { timeout: 10_000 }).toBeGreaterThan(before)
-	await expect(label).toHaveAttribute("data-label", "stopping")
-	await expect(page.locator(".backend-startup__app")).toHaveAttribute("inert")
-	await expect(toast(page, "Backend unavailable")).toHaveCount(0)
-	await expect(page.getByRole("alert").filter({ hasText: "Backend operation failed" })).toHaveCount(0)
 })
 
 for (const theme of ["dark", "light"]) {

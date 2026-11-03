@@ -22,7 +22,6 @@ function unsupportedEngine(os: string): ContainerEngine {
 		list: async () => unsupported(),
 		inspect: async () => unsupported(),
 		run: async () => unsupported(),
-		restart: async () => unsupported(),
 		stop: async () => unsupported(),
 		remove: async () => unsupported(),
 		logs: async () => unsupported(),

@@ -175,9 +175,8 @@ cd desktop && npm run build && npx electron . --backend-url=http://127.0.0.1:800
 
 `--backend-url` takes `http://127.0.0.1:<port>` or `http://localhost:<port>`.
 The app then starts no container and leaves the backend's lifecycle and hub
-to whoever started it: startup Retry has nothing to retry, **Restart backend**,
-**Recreate backend** and opening hub files report that this launch uses a
-backend it does not manage, and the hub folder cannot be chosen. **Restart app**
+to whoever started it: startup Retry has nothing to retry, opening hub files
+reports that this launch uses a backend it does not manage, and the hub folder cannot be chosen. **Restart app**
 starts the app again with the same address. Such a launch uses the same profile,
 and the same single running instance, as an ordinary launch.
 
@@ -320,12 +319,10 @@ Runs Overview with no local session; it does not recover an existing run yet.
 redacted metadata, check time and failure reason, sortable by status or ID.
 **Check Now** probes every dependency again (up to about 20 seconds), and an
 unavailable dependency's diagnostic can be copied. **Environment** ends with one
-row of actions: **Save**, **Restart app**, **Restart backend**, **Recreate
-backend** and **Reset environment**. **Restart backend** restarts
-this installation's API container; **Recreate backend** recreates it from the
-same image. Both read `.env` again. Both keep mounted data, check container
-ownership first, and run one at a time; the loading screen covers the HUD
-until it reconnects. **Restart app** shows it too, until the app closes.
+row of actions: **Save**, **Restart app** and **Reset environment**. **Restart
+app** stops the runs and the backend container and starts the app again with a
+new container, which reads `.env` again and keeps mounted data; the loading
+screen covers the HUD until the app closes.
 Divider controls remain visible but disabled outside Current Run.
 
 **Environment** lists the runtime's saved settings and secrets, with the
@@ -534,8 +531,7 @@ container starts. At each start the backend reads the runtime's `.env.encrypt`
 and then `.env` itself, with plaintext entries overriding matching encrypted
 ones; the container's own values always win. Keys and decryption remain the
 Python backend's responsibility; the desktop only sends the unlock password to
-the backend. A changed `.env` applies after **Restart backend**, **Recreate
-backend** or a restart of the app.
+the backend. A changed `.env` applies after **Restart app**.
 
 Every container the app creates carries labels with its installation and mode,
 and every image it builds carries its build label. To see them and the API's own log:
@@ -564,7 +560,7 @@ npm --prefix desktop run test:backend:electron
 
 The first command checks staging and the layout with synthetic inputs. The
 second builds the real image with the app's own controller and checks mock
-readiness and persistence across restart and recreate, using a temporary
+readiness and persistence across an app restart, using a temporary
 profile and unused loopback port. It removes only its own test containers and
 temporary data, and untags its image so the layers stay as build cache,
 including after failures.

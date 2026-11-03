@@ -185,8 +185,14 @@
 }
 
 .agent-hud__capability-badge {
-  font-size: 0.9rem;
-  opacity: 0.8;
+  flex: none;
+  padding: 0.15em 0.4em;
+  border: 1px solid color-mix(in oklab, currentColor 45%, transparent);
+  border-radius: 2px;
+  font-size: 0.75em;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
 }
 
 .agent-hud__capability-actions {

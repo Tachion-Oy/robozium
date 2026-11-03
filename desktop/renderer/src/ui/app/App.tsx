@@ -155,7 +155,7 @@ export function App({ client, connected, covered, backend }: AppProps) {
 			case "dependencies":
 				return <DependencyPanel dependencies={dependencies} />
 			case "environment":
-				return <EnvironmentPanel draft={environmentDraft} mutations={environmentMutations} hub={hubFolder} restartRequired={restartRequired} onRestart={backend.restartApp} onManageBackend={backend.manage} />
+				return <EnvironmentPanel draft={environmentDraft} mutations={environmentMutations} hub={hubFolder} restartRequired={restartRequired} onRestart={backend.restartApp} />
 		}
 	}
 

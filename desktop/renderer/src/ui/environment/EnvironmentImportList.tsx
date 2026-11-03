@@ -1,6 +1,7 @@
-// Each import names its tools and skills and has a Remove button.
+// One group per imported catalog: its name, status and Remove, then its tools and skills.
 import { useState } from "react"
 import type { EnvironmentImport } from "../../environment/environment-api"
+import { CapabilityItem } from "../hud/CapabilityItem"
 import { HudButton } from "../hud/HudButton"
 
 type EnvironmentImportListProps = {
@@ -8,8 +9,6 @@ type EnvironmentImportListProps = {
 	disabled: boolean
 	onRemove: (name: string) => Promise<boolean>
 }
-
-const KINDS = [["Tools", "tool"], ["Skills", "skill"]] as const
 
 function ImportRow({ item, disabled, onRemove }: { item: EnvironmentImport, disabled: boolean, onRemove: (name: string) => Promise<boolean> }) {
 	const [confirming, setConfirming] = useState(false)
@@ -23,10 +22,10 @@ function ImportRow({ item, disabled, onRemove }: { item: EnvironmentImport, disa
 		}
 	}
 	return (
-		<li className="agent-hud__environment-row flex flex-col gap-2 py-2">
+		<li className="agent-hud__environment-import" aria-label={item.name}>
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<span className="min-w-0 break-all">
-					{item.name}
+					<span className="agent-hud__capability-group-heading">{item.name}</span>
 					{item.error === null && !item.active && <span className="agent-hud__environment-value"> Available on next start</span>}
 					{item.error !== null && <span className="agent-hud__environment-value"> Not loaded</span>}
 				</span>
@@ -38,10 +37,11 @@ function ImportRow({ item, disabled, onRemove }: { item: EnvironmentImport, disa
 				</div>
 			</div>
 			{item.error !== null && <p className="agent-hud__environment-value break-all">{item.error}</p>}
-			{KINDS.map(([label, kind]) => {
-				const names = item.capabilities.filter(capability => capability.kind === kind).map(capability => capability.name.replaceAll("_", " "))
-				return names.length > 0 && <p key={kind} className="break-words">{label}: {names.join(", ")}</p>
-			})}
+			{item.capabilities.length > 0 && <ul className="flex flex-wrap gap-3">
+				{item.capabilities.map(capability => (
+					<li key={capability.name}><CapabilityItem capability={capability} /></li>
+				))}
+			</ul>}
 		</li>
 	)
 }
@@ -49,7 +49,7 @@ function ImportRow({ item, disabled, onRemove }: { item: EnvironmentImport, disa
 export function EnvironmentImportList({ imported, disabled, onRemove }: EnvironmentImportListProps) {
 	if (imported.length === 0) return <p className="agent-hud__environment-value">No imports yet.</p>
 	return (
-		<ul className="flex flex-col">
+		<ul className="flex flex-col gap-4">
 			{imported.map(item => <ImportRow key={item.name} item={item} disabled={disabled} onRemove={onRemove} />)}
 		</ul>
 	)

@@ -29,13 +29,13 @@ html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-edge {
   position: static; transform: none; display: flex; flex: 0 1 auto; align-self: stretch;
   min-width: 0; max-width: none;
 }
-html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-label {
+html[data-desktop][data-theme] :is(.agent-hud__header, .agent-hud__environment) .agent-hud__event-label {
   display: flex; min-width: 0;
   /* A clip removes box shadows, so the octagon glows through a filter on its parent. */
   filter: drop-shadow(0 0 1.5px var(--term-blue))
     drop-shadow(0 0 6px color-mix(in oklab, var(--term-blue) clamp(0%, 45% * var(--tune-glow, 1), 100%), transparent));
 }
-html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-label .term-msg-badge {
+html[data-desktop][data-theme] :is(.agent-hud__header, .agent-hud__environment) .agent-hud__event-label .term-msg-badge {
   --btn-cut: 0.5625rem;
   display: flex; align-self: stretch; align-items: center; min-width: 0; padding: 0 1rem;
   font-family: var(--font-agent-input); font-size: 1.2rem; letter-spacing: 0.06em;
@@ -45,12 +45,12 @@ html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-label .term-
     calc(100% - var(--btn-cut)) 100%, var(--btn-cut) 100%, 0 calc(100% - var(--btn-cut)), 0 var(--btn-cut)
   );
 }
-html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-label .term-msg-badge-label {
+html[data-desktop][data-theme] :is(.agent-hud__header, .agent-hud__environment) .agent-hud__event-label .term-msg-badge-label {
   color: color-mix(in oklab, var(--term-bg) 82%, var(--term-blue));
   font-weight: 600; -webkit-text-stroke: 0; text-shadow: none; filter: none;
 }
-html[data-desktop][data-theme="light"] .agent-hud__header .agent-hud__event-label { filter: none; }
-html[data-desktop][data-theme="light"] .agent-hud__header .agent-hud__event-label .term-msg-badge {
+html[data-desktop][data-theme="light"] :is(.agent-hud__header, .agent-hud__environment) .agent-hud__event-label { filter: none; }
+html[data-desktop][data-theme="light"] :is(.agent-hud__header, .agent-hud__environment) .agent-hud__event-label .term-msg-badge {
   padding: 0 0.9rem; font-size: 1.1rem; letter-spacing: 0.04em;
   clip-path: none; border-radius: 0.42rem;
   border: 1px solid color-mix(in oklab, var(--hud-input-border) clamp(0%, 78% * var(--tune-line, 1), 100%), transparent);
@@ -64,7 +64,7 @@ html[data-desktop][data-theme="light"] .agent-hud__header .agent-hud__event-labe
     0 1px 1px color-mix(in oklab, var(--hud-control-ink) clamp(0%, 14% * var(--tune-shadow, 1), 100%), transparent),
     0 0.22rem 0.5rem color-mix(in oklab, var(--hud-control-ink) clamp(0%, 10% * var(--tune-shadow, 1), 100%), transparent);
 }
-html[data-desktop][data-theme="light"] .agent-hud__header .agent-hud__event-label .term-msg-badge-label {
+html[data-desktop][data-theme="light"] :is(.agent-hud__header, .agent-hud__environment) .agent-hud__event-label .term-msg-badge-label {
   color: var(--hud-control-ink); font-weight: 600; text-transform: none; text-shadow: none;
 }
 html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-text {

@@ -11,8 +11,6 @@ const bridge: DesktopBridge = {
 	getBackendStatus: () => ipcRenderer.invoke("desktop:backend-status"),
 	getHostServices: () => ipcRenderer.invoke("desktop:host-services"),
 	retryBackend: () => ipcRenderer.invoke("desktop:retry-backend"),
-	restartBackend: () => ipcRenderer.invoke("desktop:restart-backend"),
-	recreateBackend: () => ipcRenderer.invoke("desktop:recreate-backend"),
 	restartApp: () => ipcRenderer.invoke("desktop:relaunch"),
 	onClosing: listener => {
 		const handler = () => listener()

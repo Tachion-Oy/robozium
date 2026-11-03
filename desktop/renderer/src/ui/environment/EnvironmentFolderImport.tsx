@@ -15,7 +15,10 @@ export function EnvironmentFolderImport({ disabled, onImport, onBusy }: {
 }) {
 	const [files, setFiles] = useState<FolderFile[]>([])
 	const [pending, setPending] = useState(false)
+	// The folder dialog closed and Chromium is reading the chosen folder, before any file arrives.
+	const [choosing, setChoosing] = useState(false)
 	const importFiles = async (selected: FolderFile[]) => {
+		setChoosing(false)
 		if (disabled || pending) return
 		if (new Set(selected.map(({ path }) => path.split("/")[0])).size !== 1) {
 			showErrorToast({ title: "Import failed", message: "Drop or choose one folder that contains files." })
@@ -39,12 +42,27 @@ export function EnvironmentFolderImport({ disabled, onImport, onBusy }: {
 			file,
 			path: (file as FileWithPath).relativePath.replace(/^\//, ""),
 		}))),
+		onDropRejected: () => setChoosing(false),
 	})
+	// Browse: the window regains focus as the dialog closes, long before a large folder is
+	// read, so the wait starts there; cancelling the dialog ends it.
+	const browse = () => {
+		window.addEventListener("focus", () => setChoosing(true), { once: true })
+		dropzone.open()
+	}
+	const { inputRef } = dropzone
+	useEffect(() => {
+		const input = inputRef.current
+		if (!input) return
+		const cancel = () => setChoosing(false)
+		input.addEventListener("cancel", cancel)
+		return () => input.removeEventListener("cancel", cancel)
+	}, [inputRef])
 	const reading = dropzone.isProcessing
 	const folder = files[0]?.path.split("/")[0] ?? null
 	useEffect(() => {
-		onBusy(reading || pending ? folder : undefined)
-	}, [reading, pending, folder, onBusy])
+		onBusy(choosing || reading || pending ? folder : undefined)
+	}, [choosing, reading, pending, folder, onBusy])
 	const busy = disabled || pending || reading
 	const submit = (event: SubmitEvent<HTMLFormElement>) => {
 		event.preventDefault()
@@ -65,7 +83,7 @@ export function EnvironmentFolderImport({ disabled, onImport, onBusy }: {
 				readOnly
 				disabled={busy}
 			/>
-			<HudButton disabled={busy} onClick={dropzone.open}>
+			<HudButton disabled={busy} onClick={browse}>
 				Browse folder
 			</HudButton>
 			<HudButton type="submit" disabled={busy || files.length === 0}>

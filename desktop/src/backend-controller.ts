@@ -66,7 +66,7 @@ export function portAvailable(port: number): Promise<boolean> {
 /** API-only adaptation of the ownership and cancellation boundaries in experiment 076b2c9. */
 export class BackendController {
 	private status: BackendStatus = { state: "starting", message: "Checking the container engine…" }
-	/** Startup, restart or recreate; only one runs at a time and shutdown waits for it. */
+	/** Startup; shutdown waits for it. */
 	private pendingStartup?: Promise<void>
 	private pendingShutdown?: Promise<void>
 	private startupAbort = new AbortController()
@@ -132,43 +132,6 @@ export class BackendController {
 		this.status = { state: "starting", message: `Checking ${this.engine.name}…` }
 		this.pendingStartup = this.withStatus(() => this.launch())
 
-		return this.pendingStartup
-	}
-
-	/** Restart the API container; it keeps the environment it was created with. */
-	restart(): Promise<void> {
-		return this.manage("Restarting the backend…", async containers => {
-			if (containers.length !== 1) throw new Error("The backend container is missing. Restart the app.")
-			await this.stopRuns(containers)
-			await this.engine.restart(containers[0].id, backendStopTimeoutSeconds, this.call({ timeout: 120_000, log: this.log }))
-		})
-	}
-
-	/** Recreate the API container from the same image, so it reads `.env` again. Mounted data is kept. */
-	recreate(): Promise<void> {
-		return this.manage("Recreating the backend…", async containers => {
-			await this.stopRuns(containers)
-			await this.removeContainers(containers)
-			await this.runContainer()
-		})
-	}
-
-	private manage(message: string, operation: (containers: OwnedContainer[]) => Promise<void>): Promise<void> {
-		if (this.closing) {
-			return Promise.reject(new Error("Robozium is closing."))
-		}
-		if (this.pendingStartup) {
-			return Promise.reject(new Error("A backend operation is already running."))
-		}
-		if (this.status.state !== "ready") {
-			return Promise.reject(new Error("Start the backend before managing it."))
-		}
-		this.status = { state: "starting", message }
-		this.pendingStartup = this.withStatus(async () => {
-			// Throws before any change when a container is not this installation's.
-			await operation(await this.ownedContainers())
-			await this.waitUntilReady()
-		})
 		return this.pendingStartup
 	}
 

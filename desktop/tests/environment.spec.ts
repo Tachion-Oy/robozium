@@ -232,14 +232,14 @@ test("importing a folder uploads the files its catalog lists under their relativ
 	backend.handlers.set("POST /credentials/environment/import", response => { pending = response })
 	await panel(page).getByRole("button", { name: "Import", exact: true }).click()
 	// The screen shows the wait and takes no input until the outcome arrives.
-	await expect(panel(page).getByRole("status", { name: "Importing local_tool…" })).toBeVisible()
+	await expect(page.getByRole("status", { name: "Importing local_tool…" })).toBeVisible()
 	await expect(panel(page).locator(".agent-hud__busy-content").first()).toHaveAttribute("inert", "")
 	current = environment({ imports: [imported] })
 	// The catalog is read before the upload starts, so the request may arrive after the busy state.
 	await expect.poll(() => pending).toBeDefined()
 	status.restart = true
 	json(pending!, { imported, suggestions: [{ name: "LOCAL_TOOL_KEY", value: "", secret: false, source: "local_tool" }] })
-	await expect(panel(page).getByRole("status", { name: "Importing local_tool…" })).toHaveCount(0)
+	await expect(page.getByRole("status", { name: "Importing local_tool…" })).toHaveCount(0)
 	await expect(panel(page).locator(".agent-hud__busy-content").first()).not.toHaveAttribute("inert")
 	await expect(page.getByRole("status").filter({ hasText: "Imported" })).toContainText("Tool local_tool found and imported. Available after restart.")
 	await expect(toast(page, "Restart required")).toContainText("Restart to apply your changes.")
@@ -305,7 +305,7 @@ test("a dropped folder uploads the files its catalog lists under their relative 
 		".venv": { "unlisted.py": "" },
 	} })
 	await expect(form.getByLabel("Selected tool or skill folder")).toHaveValue("dropped_tool")
-	await expect(panel(page).getByRole("status", { name: "Importing dropped_tool…" })).toBeVisible()
+	await expect(page.getByRole("status", { name: "Importing dropped_tool…" })).toBeVisible()
 	await expect.poll(() => pending).toBeDefined()
 	const imported = { name: "dropped_tool", active: false, error: null, variables: ["DROPPED_KEY"],
 		capabilities: [{ name: "search", kind: "tool", selectable: true, loading: null }] }
@@ -361,7 +361,7 @@ test("removing an import asks for confirmation, keeps it on failure, and asks fo
 	await imports.getByRole("button", { name: "Remove local_tool" }).click()
 	await imports.getByRole("button", { name: "Confirm removing local_tool" }).click()
 	await expect(alert(page, "Remove failed")).toContainText("Stop all runs first")
-	await expect(imports).toContainText("Tools: local tool")
+	await expect(imports.getByText("local tool", { exact: true })).toBeVisible()
 	backend.handlers.set("DELETE /credentials/environment/imports/local_tool", response => {
 		current = environment()
 		status.restart = true

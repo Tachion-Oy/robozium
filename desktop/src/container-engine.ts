@@ -62,7 +62,6 @@ export interface ContainerEngine {
 	inspect(id: string, call: EngineCall): Promise<ContainerInspection>
 	/** Create and start the container in the background, with the API reachable on the host's loopback interface only. */
 	run(container: BackendContainer, call: EngineCall): Promise<void>
-	restart(id: string, timeoutSeconds: number, call: EngineCall): Promise<void>
 	stop(ids: string[], timeoutSeconds: number, call: EngineCall): Promise<void>
 	remove(ids: string[], call: EngineCall): Promise<void>
 	logs(id: string, lines: number, call: EngineCall): Promise<string>
