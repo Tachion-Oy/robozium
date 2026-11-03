@@ -203,9 +203,7 @@ Each `tools` or `skills` path is a self-contained Python package inside the
 folder: it may import only its own modules and its requirements. `env` lists
 optional example settings files. Only these paths are uploaded, without hidden
 entries such as `.venv` or `.git` and without `__pycache__`, so the folder can
-be a whole checkout. The folder must not contain symbolic links: the app
-skips folders reached through them and refuses the import when a listed file
-is missing. A package declares its dependencies in its own
+be a whole checkout. A package declares its dependencies in its own
 `requirements.txt`; pin exact versions to get the environment it was tested
 with, since Robozium installs them in its own environment.
 Robozium validates the folder, copies it to

@@ -327,20 +327,6 @@ test("a folder without robozium.json is refused before anything is uploaded", as
 	expect(backend.requests.filter(request => request.path === "/credentials/environment/import")).toHaveLength(0)
 })
 
-test("a listed file missing from the selected folder is refused before anything is uploaded", async ({ desktop: { page }, backend }, testInfo) => {
-	const folder = testInfo.outputPath("partial_tool")
-	await mkdir(path.join(folder, "tools", "search"), { recursive: true })
-	await writeFile(path.join(folder, "robozium.json"), JSON.stringify({ tools: ["tools/search"], env: ["tools/search/.env.example"] }))
-	await writeFile(path.join(folder, "tools", "search", "__init__.py"), "")
-	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
-	await openEnvironment(page, backend)
-	await expect(panel(page).getByRole("button", { name: "Browse folder" })).toBeEnabled()
-	await panel(page).getByLabel("Choose tool or skill folder").setInputFiles(folder)
-	await expect(alert(page, "Import failed")).toContainText(
-		"tools/search/.env.example is listed in robozium.json but was not in the selected folder.")
-	expect(backend.requests.filter(request => request.path === "/credentials/environment/import")).toHaveLength(0)
-})
-
 test("an import that did not load shows why and can be removed", async ({ desktop: { page }, backend }) => {
 	const broken = { name: "old_tool", active: false, variables: [], capabilities: [],
 		error: "old_tool: robozium.json is missing at the folder root" }
