@@ -98,6 +98,8 @@ def test_metadata_matches_published_capabilities() -> None:
     assert metadata_problems(_TEXT, _PUBLISHED["lab/text"]) == []
     reasoning = ChatModelSpec("lab/text", 1_000, accepts_temperature=False)
     assert metadata_problems(reasoning, {**_PUBLISHED["lab/text"], "supported_parameters": ["tools"]}) == []
+    # A provider can list temperature yet refuse it; leaving it out is safe.
+    assert metadata_problems(reasoning, _PUBLISHED["lab/text"]) == []
 
 
 @pytest.mark.parametrize(
@@ -125,11 +127,6 @@ def test_metadata_matches_published_capabilities() -> None:
             _TEXT,
             {**_PUBLISHED["lab/text"], "supported_parameters": ["tools"]},
             "accepts_temperature is True, provider omits temperature",
-        ),
-        (
-            ChatModelSpec("lab/text", 1_000, accepts_temperature=False),
-            _PUBLISHED["lab/text"],
-            "accepts_temperature is False, provider lists temperature",
         ),
     ],
 )

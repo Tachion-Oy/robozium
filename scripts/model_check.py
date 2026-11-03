@@ -135,12 +135,11 @@ def metadata_problems(
     if "tools" not in parameters:
         problems.append("provider does not list tool support")
     # Requests carry temperature unless the catalogue opts out; with
-    # require_parameters, a model whose providers reject it cannot be routed.
-    if spec.accepts_temperature != ("temperature" in parameters):
-        problems.append(
-            f"accepts_temperature is {spec.accepts_temperature},"
-            f" provider {'lists' if 'temperature' in parameters else 'omits'} temperature"
-        )
+    # require_parameters, a model whose providers omit it cannot be routed.
+    # A listed temperature can still be refused, and leaving it out never
+    # is, so the probes decide whether sending it works.
+    if spec.accepts_temperature and "temperature" not in parameters:
+        problems.append("accepts_temperature is True, provider omits temperature")
     return problems
 
 
