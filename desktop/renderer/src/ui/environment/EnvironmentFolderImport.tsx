@@ -1,14 +1,17 @@
-// Import a folder of tools and skills: drop it on the row or browse. Laid out like
-// EnvironmentKeyFileImport; the outcome is a toast from the import itself.
-import { useState, type SubmitEvent } from "react"
+// Import a folder of tools and skills: drop it on the row or browse. Reading the folder
+// and uploading it can take a while, so the screen shows the wait (onBusy); the outcome
+// is a toast from the import itself.
+import { useEffect, useState, type SubmitEvent } from "react"
 import { useDropzone, type FileWithPath } from "react-dropzone"
 import type { FolderFile } from "../../environment/environment-api"
 import { showErrorToast } from "../../feedback/notices"
 import { HudButton } from "../hud/HudButton"
 
-export function EnvironmentFolderImport({ disabled, onImport }: {
+export function EnvironmentFolderImport({ disabled, onImport, onBusy }: {
 	disabled: boolean
 	onImport: (files: FolderFile[]) => Promise<boolean>
+	/** The folder being read or uploaded, null while its name is not known yet, undefined when idle. */
+	onBusy: (folder: string | null | undefined) => void
 }) {
 	const [files, setFiles] = useState<FolderFile[]>([])
 	const [pending, setPending] = useState(false)
@@ -37,8 +40,12 @@ export function EnvironmentFolderImport({ disabled, onImport }: {
 			path: (file as FileWithPath).relativePath.replace(/^\//, ""),
 		}))),
 	})
-	// While the dropzone reads a dropped folder, nothing else may start an import.
-	const busy = disabled || pending || dropzone.isProcessing
+	const reading = dropzone.isProcessing
+	const folder = files[0]?.path.split("/")[0] ?? null
+	useEffect(() => {
+		onBusy(reading || pending ? folder : undefined)
+	}, [reading, pending, folder, onBusy])
+	const busy = disabled || pending || reading
 	const submit = (event: SubmitEvent<HTMLFormElement>) => {
 		event.preventDefault()
 		void importFiles(files)
@@ -46,7 +53,7 @@ export function EnvironmentFolderImport({ disabled, onImport }: {
 	return (
 		<form
 			{...dropzone.getRootProps({ role: "form", "aria-label": "Import tool or skill" })}
-			className="flex flex-wrap gap-3 data-[drag-active]:outline data-[drag-active]:outline-1 data-[drag-active]:outline-dashed"
+			className="agent-hud__environment-controls"
 			data-drag-active={dropzone.isDragActive || undefined}
 			onSubmit={submit}>
 			<input {...dropzone.getInputProps({ "aria-label": "Choose tool or skill folder", webkitdirectory: "" })} />
@@ -54,15 +61,15 @@ export function EnvironmentFolderImport({ disabled, onImport }: {
 				className="agent-hud__project-input min-w-0 flex-1"
 				aria-label="Selected tool or skill folder"
 				placeholder="Drop a tool or skill folder here"
-				value={files[0]?.path.split("/")[0] ?? ""}
+				value={folder ?? ""}
 				readOnly
 				disabled={busy}
 			/>
 			<HudButton disabled={busy} onClick={dropzone.open}>
 				Browse folder
 			</HudButton>
-			<HudButton type="submit" pending={pending} disabled={busy || files.length === 0}>
-				{pending ? "Importing…" : "Import"}
+			<HudButton type="submit" disabled={busy || files.length === 0}>
+				Import
 			</HudButton>
 		</form>
 	)

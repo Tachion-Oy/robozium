@@ -54,12 +54,12 @@ test("a pending unlock ignores Escape, and Escape cancels afterwards", async ({ 
 	await backend.open()
 	await password(page).fill("secret")
 	await password(page).press("Enter")
-	await expect(dialog(page).getByRole("button", { name: "Unlocking…" })).toBeDisabled()
-	// The waiting button pulses until the outcome arrives.
-	await expect(dialog(page).getByRole("button", { name: "Unlocking…" })).toHaveAttribute("aria-busy", "true")
+	// The dialog shows the wait and takes no input until the outcome arrives.
+	await expect(dialog(page).getByRole("status", { name: "Unlocking…" })).toBeVisible()
+	await expect(dialog(page).locator(".agent-hud__busy-content")).toHaveAttribute("inert", "")
 	await page.keyboard.press("Escape")
 	await expect(dialog(page)).toBeVisible()
-	// The button changes before the request reaches the mock backend.
+	// The wait shows before the request reaches the mock backend.
 	await expect.poll(() => pending).toBeDefined()
 	json(pending!, { detail: "Could not unlock secrets" }, 400)
 	await expect(dialog(page).getByRole("alert")).toBeVisible()

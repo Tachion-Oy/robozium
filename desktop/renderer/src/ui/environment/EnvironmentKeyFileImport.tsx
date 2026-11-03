@@ -1,5 +1,5 @@
-// Adopt an existing .env.encrypt: drop it or browse, then enter its password in the
-// password dialog. Laid out like EnvironmentFolderImport; failures show in the dialog.
+// Adopt an existing .env.encrypt: drop it on the row or browse, then enter its
+// password in the password dialog. Failures show in the dialog.
 import { useState } from "react"
 import { useDropzone } from "react-dropzone"
 import { HudButton } from "../hud/HudButton"
@@ -30,20 +30,18 @@ export function EnvironmentKeyFileImport({ disabled, replacing, onReplace }: {
 		<>
 			<div
 				{...dropzone.getRootProps({ role: "group", "aria-label": "Key file" })}
-				className="data-[drag-active]:outline data-[drag-active]:outline-1 data-[drag-active]:outline-dashed"
+				className="agent-hud__environment-controls"
 				data-drag-active={dropzone.isDragActive || undefined}>
 				<input {...dropzone.getInputProps({ "aria-label": "Choose key file" })} />
-				<div className="flex flex-wrap gap-3">
-					<input
-						className="agent-hud__project-input min-w-0 flex-1"
-						aria-label="Selected key file"
-						placeholder="Drop your .env.encrypt here"
-						value={file?.name ?? ""}
-						readOnly
-						disabled={disabled}
-					/>
-					<HudButton disabled={disabled} onClick={dropzone.open}>Browse file</HudButton>
-				</div>
+				<input
+					className="agent-hud__project-input min-w-0 flex-1"
+					aria-label="Selected key file"
+					placeholder="Drop your .env.encrypt here"
+					value={file?.name ?? ""}
+					readOnly
+					disabled={disabled}
+				/>
+				<HudButton disabled={disabled} onClick={dropzone.open}>Browse file</HudButton>
 			</div>
 			<PasswordDialog open={file !== null} title={action} label="Key file password"
 				submitLabel={action} pendingLabel="Checking…" onSubmit={replace} onCancel={() => setFile(null)}>

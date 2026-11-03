@@ -20,24 +20,54 @@
   outline-offset: 2px;
 }
 
-.agent-hud__environment-lead {
-  font-size: 1.25rem;
-}
-
 .agent-hud__environment-value {
   color: var(--hud-input-placeholder);
   text-shadow: none;
+}
+
+/* Sections stand apart; the rows inside a section sit together. */
+.agent-hud__environment-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  min-width: 0;
+  /* Also a fieldset, which keeps its own padding and border otherwise. */
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.agent-hud__environment-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+/* A row of one input and its buttons, the same in every section. */
+.agent-hud__environment-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* The dropzone's hidden file input would otherwise take a gap as a flex item. */
+.agent-hud__environment-controls > input[type="file"] {
+  position: absolute;
+}
+
+/* A file or folder held over the row lights its input up in the HUD's blue. */
+.agent-hud__environment-controls[data-drag-active] .agent-hud__project-input {
+  border-color: color-mix(in oklab, var(--term-blue) clamp(0%, 80% * var(--tune-hover-edge, 1), 100%), transparent);
+  background: color-mix(in oklab, var(--term-blue) clamp(0%, 12% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  box-shadow: var(--term-glow-blue);
 }
 
 .agent-hud__environment-row {
   border-bottom: 1px solid var(--hud-input-border);
 }
 
-.agent-hud__environment-save,
-.agent-hud__environment-imports {
+.agent-hud__environment-save {
   border-top: 1px solid var(--term-blue);
-}
-
-:root[data-theme="light"] .agent-hud__environment .agent-hud__table-scroll {
-  padding-inline: 0;
 }

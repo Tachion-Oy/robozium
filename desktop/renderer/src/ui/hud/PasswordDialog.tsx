@@ -1,6 +1,7 @@
 // The one place the user types a secrets password: a modal dialog that holds focus
 // until the password is accepted or the dialog is cancelled. Failures show in place.
 import { useEffect, useRef, useState, type ReactNode, type SubmitEvent } from "react"
+import { HudBusy } from "./HudBusy"
 import { HudButton } from "./HudButton"
 
 export function PasswordDialog({ open, title, children, label, confirm = false, submitLabel, pendingLabel, onSubmit, onCancel }: {
@@ -13,6 +14,7 @@ export function PasswordDialog({ open, title, children, label, confirm = false, 
 	/** A new password: ask for it twice. */
 	confirm?: boolean
 	submitLabel: string
+	/** Names the wait while the password is checked. */
 	pendingLabel: string
 	/** Resolves null once the password is accepted, otherwise the error to show. */
 	onSubmit: (password: string) => Promise<string | null>
@@ -64,35 +66,37 @@ export function PasswordDialog({ open, title, children, label, confirm = false, 
 			className="agent-hud__password-dialog"
 			aria-label={title}
 			onCancel={event => { event.preventDefault(); cancel() }}>
-			<form aria-label={title} className="flex flex-col gap-4" onSubmit={event => void submit(event)}>
-				<h3 className="agent-hud__capability-group-heading">{title}</h3>
-				{children}
-				<input
-					ref={passwordInput}
-					className="agent-hud__project-input"
-					type="password"
-					aria-label={label}
-					placeholder={label}
-					autoComplete="off"
-					value={password}
-					onChange={event => setPassword(event.target.value)}
-					disabled={pending}
-				/>
-				{confirm && <input
-					className="agent-hud__project-input"
-					type="password"
-					aria-label="Confirm password"
-					placeholder="Confirm password"
-					autoComplete="off"
-					value={confirmation}
-					onChange={event => setConfirmation(event.target.value)}
-					disabled={pending}
-				/>}
-				{error && <p role="alert">{error}</p>}
-				<div className="flex flex-wrap justify-end gap-3">
-					<HudButton variant="warning" disabled={pending} onClick={cancel}>Cancel</HudButton>
-					<HudButton type="submit" pending={pending} disabled={!password || (confirm && !confirmation)}>{pending ? pendingLabel : submitLabel}</HudButton>
-				</div>
+			<form aria-label={title} onSubmit={event => void submit(event)}>
+				<HudBusy busy={pending} label={pendingLabel} className="flex flex-col gap-4">
+					<h3 className="agent-hud__capability-group-heading">{title}</h3>
+					{children}
+					<input
+						ref={passwordInput}
+						className="agent-hud__project-input"
+						type="password"
+						aria-label={label}
+						placeholder={label}
+						autoComplete="off"
+						value={password}
+						onChange={event => setPassword(event.target.value)}
+						disabled={pending}
+					/>
+					{confirm && <input
+						className="agent-hud__project-input"
+						type="password"
+						aria-label="Confirm password"
+						placeholder="Confirm password"
+						autoComplete="off"
+						value={confirmation}
+						onChange={event => setConfirmation(event.target.value)}
+						disabled={pending}
+					/>}
+					{error && <p role="alert">{error}</p>}
+					<div className="flex flex-wrap justify-end gap-3">
+						<HudButton variant="warning" disabled={pending} onClick={cancel}>Cancel</HudButton>
+						<HudButton type="submit" disabled={pending || !password || (confirm && !confirmation)}>{submitLabel}</HudButton>
+					</div>
+				</HudBusy>
 			</form>
 		</dialog>
 	)

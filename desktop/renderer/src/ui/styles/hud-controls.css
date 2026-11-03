@@ -237,7 +237,8 @@
 }
 
 .agent-hud__logo > .robozium-mark::before,
-.agent-hud__logo-pulse > .robozium-mark::before {
+.agent-hud__logo-pulse > .robozium-mark::before,
+.agent-hud__busy > .robozium-mark::before {
   content: "";
   display: block;
   width: 100%;
@@ -290,7 +291,8 @@
 .agent-hud__interrupt,
 .agent-hud__layout-controls .agent-hud__layout-direction,
 .agent-hud__send,
-.agent-hud__selector-trigger {
+.agent-hud__selector-trigger,
+.agent-hud__section-tag {
   /* Shape-locked equivalent of the original 9px cut at a 16px root. */
   --btn-cut: 0.5625rem;
   --btn-ring: 2px;
@@ -319,7 +321,8 @@
 .agent-hud__interrupt::before,
 .agent-hud__layout-controls .agent-hud__layout-direction::before,
 .agent-hud__send::before,
-.agent-hud__selector-trigger::before {
+.agent-hud__selector-trigger::before,
+.agent-hud__section-tag::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -347,7 +350,8 @@
 .agent-hud__interrupt::after,
 .agent-hud__layout-controls .agent-hud__layout-direction::after,
 .agent-hud__send::after,
-.agent-hud__selector-trigger::after {
+.agent-hud__selector-trigger::after,
+.agent-hud__section-tag::after {
   content: "";
   position: absolute;
   inset: var(--btn-ring);
@@ -763,7 +767,8 @@
    a stronger fill to stand out from the other controls. */
 
 .agent-hud__send,
-.agent-hud__selector-trigger {
+.agent-hud__selector-trigger,
+.agent-hud__section-tag {
   --btn-accent: var(--term-green);
   --btn-edge: color-mix(in oklab, var(--term-green) clamp(0%, 62% * var(--tune-edge, 1), 100%), transparent);
   --btn-fill-strength: 22%;
@@ -1338,4 +1343,48 @@
 :root[data-theme="light"]
   .agent-hud__send:not(:disabled):active {
   transform: translateY(0);
+}
+
+/* A section heading in the view trigger's tag, without its hover. */
+.agent-hud__section-tag {
+  align-self: flex-start;
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: default;
+}
+
+/* A wait the user cannot interrupt (HudBusy): the content behind goes faint and
+   inert, and the mark pulses in the middle until the outcome arrives. */
+.agent-hud__busy-host {
+  position: relative;
+}
+
+.agent-hud__busy-host[data-busy] > .agent-hud__busy-content > * {
+  opacity: 0.35;
+}
+
+.agent-hud__busy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  color: var(--hud-input-text);
+}
+
+.agent-hud__busy > .robozium-mark {
+  display: block;
+  width: 4rem;
+  height: 4rem;
+  filter:
+    drop-shadow(0 0 4px color-mix(in oklab, var(--term-blue) clamp(0%, 85% * var(--tune-glow, 1), 100%), transparent))
+    drop-shadow(0 0 12px color-mix(in oklab, var(--term-blue) clamp(0%, 55% * var(--tune-glow, 1), 100%), transparent));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .agent-hud__busy > .robozium-mark {
+    animation: hud-opening-pulse 1.8s ease-in-out infinite;
+  }
 }

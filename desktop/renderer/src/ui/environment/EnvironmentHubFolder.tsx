@@ -1,5 +1,5 @@
 // The hub folder in use, opened in the file manager or changed with the native folder dialog.
-// Laid out like EnvironmentFolderImport. The confirmation and failures are toasts,
+// The confirmation and failures are toasts,
 // so the row never grows; the restart it needs joins Restart required.
 import { Toast } from "../feedback/Toast"
 import { hubFolderConfirmation, type HubFolder } from "../../hub-folder/useHubFolder"
@@ -15,7 +15,7 @@ export function EnvironmentHubFolder({ hub, disabled }: { hub: HubFolder; disabl
 				{ label: "Cancel", disabled: pending, onClick: hub.cancel },
 			]} />}
 			{error && <Toast tone="error" title="Hub folder" message={error} />}
-			<div className="flex flex-wrap gap-3">
+			<div className="agent-hud__environment-controls">
 				<input
 					className="agent-hud__project-input min-w-0 flex-1"
 					aria-label="Hub folder"
