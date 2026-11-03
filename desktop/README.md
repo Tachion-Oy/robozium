@@ -444,7 +444,10 @@ for type-only imports, and relative imports that name their `.ts` file. The
 exception is the sandboxed preload, `src/preload.cts`: Electron requires it to be
 CommonJS, so `tsconfig.preload.json` compiles it on its own and Node never runs
 it directly. The renderer and Playwright tests are bundled or transpiled by Vite
-and Playwright, so their imports omit extensions.
+and Playwright, so their imports omit extensions. For the app itself,
+`vite.main.config.ts` bundles the main process into `dist/main.js` with the
+libraries it imports, since the package ships no `node_modules`; only Electron
+and Node's built-in modules stay outside it.
 
 Desktop setup prepares the host folders the container mounts, including the
 nested read-only safe-scripts mount. The hub owns its application structure and
@@ -498,8 +501,8 @@ also owns its installation identity and container log.
   prompt/display composition and typed text extraction respectively.
   [PR 8 notes](../docs/plans/desktop-run-output.md) record browser sources and adaptations.
 - `tsconfig.json` supplies Node types and module settings for every file in
-  `src/`. Its standard name lets editors discover the same project used by the
-  build. The test and Vite configurations extend it.
+  `src/`. Its standard name lets editors discover the same project the type check
+  uses. The test and Vite configurations extend it.
 - `renderer/tsconfig.json` supplies the renderer's browser and Vite asset types
   to both the editor and the command-line type check.
 - `tests/` contains native scenarios and screenshot baselines.

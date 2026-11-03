@@ -11,7 +11,7 @@
   },
   "scripts": {
     "postinstall": "install-electron",
-    "build": "npm run typecheck && node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.json && tsc -p tsconfig.preload.json && vite build && node scripts/build-icon.ts",
+    "build": "npm run typecheck && node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && vite build --config vite.main.config.ts && tsc -p tsconfig.preload.json && vite build && node scripts/build-icon.ts",
     "start": "npm run backend:stage && npm run build && electron .",
     "package:linux": "npm run backend:stage && npm run build && electron-builder --linux deb",
     "lint": "eslint .",

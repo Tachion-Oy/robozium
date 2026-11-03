@@ -3,6 +3,7 @@ import net from "node:net"
 import path from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
 import type { BackendStatus, HostServiceStatus } from "./bridge.d.ts"
+import { BackendApi } from "./backend-api.ts"
 import { loadOrCreateBackendProfile } from "./backend-profile.ts"
 import { BuildProgress } from "./build-progress.ts"
 import { backendBuildTarget, backendCommand, backendEnvironment, backendStopTimeoutSeconds, isInside, prepareBackendRuntime, resolveBackendLayout, type BackendLayout } from "./backend-layout.ts"
@@ -353,23 +354,13 @@ export class BackendController {
 
 	private async waitUntilReady(): Promise<void> {
 		const deadline = Date.now() + (this.options.readinessTimeout ?? 180_000)
-		const url = `${this.connection().baseUrl}/ready`
 
 		while (Date.now() < deadline) {
 			this.startupAbort.signal.throwIfAborted()
-			try {
-				const response = await (this.options.fetch ?? fetch)(url, {
-					// Node fetch sends Fetch Metadata too; identify this desktop health request.
-					headers: { Origin: "robozium://app" },
-					signal: AbortSignal.any([this.startupAbort.signal, AbortSignal.timeout(2500)]),
-				})
-				if (response.ok && (await response.json()).status === "ready") {
-					this.startupAbort.signal.throwIfAborted()
-					this.status = { state: "ready", message: "Backend ready" }
-					return
-				}
-			} catch {
+			if (await this.api().ready(this.startupAbort.signal)) {
 				this.startupAbort.signal.throwIfAborted()
+				this.status = { state: "ready", message: "Backend ready" }
+				return
 			}
 			await this.failIfStopped()
 
@@ -420,22 +411,17 @@ export class BackendController {
 	 */
 	private async cancelRuns(): Promise<void> {
 		const signal = AbortSignal.timeout(20_000)
-		const request = async (route: string, method = "GET"): Promise<unknown> => {
-			const response = await (this.options.fetch ?? fetch)(`${this.connection().baseUrl}${route}`, {
-				method, headers: { Origin: "robozium://app" }, signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]),
-			})
-			if (!response.ok) throw new Error(`${method} ${route} returned ${response.status}`)
-			return response.json()
-		}
-		const active = async () => (await request("/projects") as { slug: string; status: string }[])
-			.filter(project => project.status !== "dormant")
+		const api = this.api()
 		try {
-			const projects = await active()
-			for (const project of projects) await request(`/projects/${encodeURIComponent(project.slug)}/cancel`, "POST")
-			while ((await active()).length > 0) await delay(this.options.pollInterval ?? 250, undefined, { signal })
+			for (const slug of await api.activeProjects(signal)) await api.cancelProject(slug, signal)
+			while ((await api.activeProjects(signal)).length > 0) await delay(this.options.pollInterval ?? 250, undefined, { signal })
 		} catch (error) {
 			this.log(`Runs were not cancelled before the backend stopped: ${error instanceof Error ? error.message : String(error)}\n`)
 		}
+	}
+
+	private api(): BackendApi {
+		return new BackendApi(this.connection().baseUrl, this.options.fetch)
 	}
 
 	/** Startup's cancellation unless overridden, as shutdown does with its own deadline. */
