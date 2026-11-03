@@ -113,6 +113,14 @@ async function listedFiles(files: FolderFile[]): Promise<FolderFile[]> {
 	const skipped = (part: string) => part.startsWith(".") || part === "__pycache__"
 	const insidePackage = (relative: string) =>
 		packages.some(folder => relative.startsWith(`${folder}/`)) && !relative.split("/").some(skipped)
+	// Chromium skips a folder it already reached through a symbolic link, so a listed
+	// file can be missing from the selection although it exists on disk.
+	const selected = new Set(files.map(inFolder))
+	const missing = [...paths("env"), ...packages.map(folder => `${folder}/__init__.py`)].find(path => !selected.has(path))
+	if (missing) {
+		throw new Error(`${missing} is listed in ${CATALOG_FILE} but was not in the selected folder. `
+			+ "Folders reached through symbolic links are skipped; replace links with real folders.")
+	}
 	return files.filter(file => listed.has(inFolder(file)) || insidePackage(inFolder(file)))
 }
 
