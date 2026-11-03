@@ -15,8 +15,6 @@ import "./backend-startup.css"
 
 /** Backend operations that the startup screen covers while they run. */
 export interface BackendOperations {
-	/** Restart or recreate the backend container, then reconnect. */
-	manage: (operation: "restart" | "recreate") => Promise<void>
 	/** Stop the backend and start the app again. */
 	restartApp: () => Promise<void>
 }
@@ -35,7 +33,6 @@ export function BackendStartup() {
 	}, [status.state])
 
 	const backend: BackendOperations = {
-		manage: operation => screen.cover(() => operation === "restart" ? window.robozium.restartBackend() : window.robozium.recreateBackend()),
 		restartApp: () => screen.cover(() => window.robozium.restartApp(), false),
 	}
 	// Failures show, with Retry, except during the expected outage while an operation runs

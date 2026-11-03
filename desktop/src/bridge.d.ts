@@ -44,10 +44,6 @@ export interface DesktopBridge {
 	/** The host services this launch runs beside the backend; empty when it runs none. */
 	getHostServices(): Promise<HostServiceStatus[]>
 	retryBackend(): Promise<void>
-	/** Restart this installation's API container; resolves once it is ready again. */
-	restartBackend(): Promise<void>
-	/** Recreate the API container from the same image, rereading `.env`; mounted data is kept. */
-	recreateBackend(): Promise<void>
 	/** Stop the backend and start the app again, so saved settings take effect. */
 	restartApp(): Promise<void>
 	/** Call `listener` when the app starts closing: it stops the runs and the backend, then exits. Returns an unsubscribe. */

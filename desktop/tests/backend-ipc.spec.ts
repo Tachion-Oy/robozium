@@ -1,7 +1,7 @@
 import { expect } from "@playwright/test"
 import { test, documentUrl, preload } from "./native"
 
-for (const method of ["getBackendStatus", "getHostServices", "getBackendConnection", "retryBackend", "restartBackend", "recreateBackend", "restartApp"] as const) {
+for (const method of ["getBackendStatus", "getHostServices", "getBackendConnection", "retryBackend", "restartApp"] as const) {
 	test(`${method} only accepts the trusted window and document`, async ({ desktop: { app, page }, fakeBackend }) => {
 		await expect(page.getByRole("button", { name: "Launch", exact: true })).toBeVisible()
 		expect(await page.evaluate(() => window.robozium.getBackendStatus())).toEqual({ state: "ready", message: "Connected" })
@@ -43,16 +43,14 @@ for (const method of ["getBackendStatus", "getHostServices", "getBackendConnecti
 }
 
 test("a launch given a backend leaves its container and hub files to whoever started it", async ({ desktop: { page } }) => {
-	for (const operation of ["restartBackend", "recreateBackend", "openHubFile"] as const) {
-		expect(await page.evaluate(async operation => {
-			try {
-				await (operation === "openHubFile" ? window.robozium.openHubFile("notes.md") : window.robozium[operation]())
-				return "allowed"
-			} catch (error) {
-				return error instanceof Error ? error.message : String(error)
-			}
-		}, operation), operation).toContain("This launch uses a backend it does not manage.")
-	}
+	expect(await page.evaluate(async () => {
+		try {
+			await window.robozium.openHubFile("notes.md")
+			return "allowed"
+		} catch (error) {
+			return error instanceof Error ? error.message : String(error)
+		}
+	})).toContain("This launch uses a backend it does not manage.")
 	expect(await page.evaluate(() => window.robozium.getHubFolder())).toEqual({ current: null, selected: null, choosable: false })
 })
 

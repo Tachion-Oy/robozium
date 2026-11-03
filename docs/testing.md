@@ -329,7 +329,7 @@ The container smoke test runs the desktop's own controller and Podman engine: it
 builds an API-only image, checks the image's non-root user and synthetic
 credential exclusion, creates a project through the existing mock API, checks
 that its files belong to the user running the test, and verifies data after
-restart, recreate and shutdown. It uses a unique profile and dynamically
+an app restart and shutdown. It uses a unique profile and dynamically
 selected loopback port; live provider calls are never needed. On failure it
 prints the container log and the API's own output, then removes its test containers and untags its image, keeping the layers as build cache. On success it verifies
 host-data preservation before deleting the temporary runtime. Container options and
@@ -488,13 +488,8 @@ and replies, and a 423 opening the dialog.
 `desktop/tests/dependencies.spec.ts` covers a failed load recovered by Check
 Now, the empty state, the availability count, sorting by status and ID in both
 directions, copying a diagnostic through the native clipboard, a failed check
-keeping the rows, Checking while a check runs, and Restart/Recreate calling
-their IPC channels one at a time, reporting failures and restarting readiness
-polling. Long identifiers, metadata and diagnostics stay inside their cells in
+keeping the rows, and Checking while a check runs. Long identifiers, metadata and diagnostics stay inside their cells in
 both themes at 1260×780 and at 640×420 with 125% zoom; captures are attached.
-Lifecycle tests check that restart and recreate verify ownership before
-running their exact Podman commands, run one at a time, make shutdown wait,
-and leave a replaced container untouched.
 
 `desktop/tests/environment.spec.ts` covers a failed load with Retry and masked
 secrets, editing disabled while work is active, validation of a new secret, the

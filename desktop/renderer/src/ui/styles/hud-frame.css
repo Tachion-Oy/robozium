@@ -400,6 +400,13 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
    --hud-logo-* / --hud-control-pad-* mirror .agent-hud__box so the reused seam
    logo and Expand button render at exactly their HUD size. */
 
+/* The startup mark's size; a wait elsewhere (.agent-hud__busy) shows the same mark. */
+.agent-hud__mini-box,
+.agent-hud__busy {
+  --hud-logo-size: 3.85rem;
+  --hud-logo-font-size: 3.3rem;
+}
+
 .agent-hud__mini-box {
   --mini-size: 9.75rem;
   --mini-cut: calc(var(--mini-size) / (2 + 1.41421356));
@@ -408,8 +415,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   --mini-line: 1px;
   --mini-gap: 2px;
   --mini-band: calc(2 * var(--mini-line) + var(--mini-gap));
-  --hud-logo-size: 3.85rem;
-  --hud-logo-font-size: 3.3rem;
   --hud-control-pad-y: 0.48rem;
   --hud-control-pad-x: 0.72rem;
   --hud-corner-control-size: calc(1.15rem + 2 * var(--hud-control-pad-y));
@@ -536,10 +541,14 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
     width: 6.5rem;
   }
 
-  .agent-hud__mini-box {
-    --mini-size: 6.5rem;
+  .agent-hud__mini-box,
+  .agent-hud__busy {
     --hud-logo-size: 2.35rem;
     --hud-logo-font-size: 2rem;
+  }
+
+  .agent-hud__mini-box {
+    --mini-size: 6.5rem;
     --hud-control-pad-y: 0.28rem;
     --hud-control-pad-x: 0.42rem;
     gap: 0.2rem;
@@ -671,9 +680,11 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
 :root[data-theme="light"] .agent-hud__mini {
   width: 8rem;
 }
-:root[data-theme="light"] .agent-hud__mini-box {
+:root[data-theme="light"] :is(.agent-hud__mini-box, .agent-hud__busy) {
   --hud-logo-size: 3.1rem;
   --hud-logo-font-size: 2.5rem;
+}
+:root[data-theme="light"] .agent-hud__mini-box {
   width: 7.15rem;
   height: auto;
   min-height: 7.9rem;

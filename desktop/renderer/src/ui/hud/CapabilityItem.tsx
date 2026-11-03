@@ -3,12 +3,17 @@ import { HudButton } from "./HudButton"
 
 type CapabilityItemProps = {
 	capability: Pick<CapabilityView, "name" | "kind">
-	selection: { checked: boolean; disabled: boolean; onToggle: () => void }
+	selection?: { checked: boolean; disabled: boolean; onToggle: () => void }
 }
 
 export function CapabilityItem({ capability, selection }: CapabilityItemProps) {
 	const name = capability.name.replaceAll("_", " ")
-	return (
+	const content = <>
+		<span className="agent-hud__capability-name">{name}</span>
+		{capability.kind === "skill" && <span className="agent-hud__capability-badge">Skill</span>}
+	</>
+
+	return selection ? (
 		<HudButton
 			variant="option"
 			role="checkbox"
@@ -17,8 +22,11 @@ export function CapabilityItem({ capability, selection }: CapabilityItemProps) {
 			disabled={selection.disabled}
 			onClick={selection.onToggle}
 			className="flex items-center gap-3">
-			<span className="agent-hud__capability-name">{name}</span>
-			{capability.kind === "skill" && <span className="agent-hud__capability-badge">Skill</span>}
+			{content}
 		</HudButton>
+	) : (
+		<span className="agent-hud__row-action agent-hud__row-tools agent-hud__capability-static flex items-center gap-2">
+			{content}
+		</span>
 	)
 }

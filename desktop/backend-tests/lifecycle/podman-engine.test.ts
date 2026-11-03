@@ -178,14 +178,13 @@ test("a mount path with a colon is refused before anything runs", async t => {
 	assert.equal(existsSync(backend.environmentFile), false)
 })
 
-test("restart, stop, remove and logs name only the given containers", async () => {
+test("stop, remove and logs name only the given containers", async () => {
 	const { engine, calls } = fakePodman(args => args[0] === "info" ? JSON.stringify(rootless) : "log text")
 	await engine.prepare(call())
-	await engine.restart("aaa111", 30, call())
 	await engine.stop(["aaa111", "bbb222"], 30, call())
 	await engine.remove(["aaa111"], call())
 	assert.equal(await engine.logs("aaa111", 40, call()), "log text")
 	assert.deepEqual(calls.slice(1).map(each => each.args), [
-		["restart", "--time", "30", "aaa111"], ["stop", "--time", "30", "aaa111", "bbb222"], ["rm", "aaa111"], ["logs", "--tail", "40", "aaa111"],
+		["stop", "--time", "30", "aaa111", "bbb222"], ["rm", "aaa111"], ["logs", "--tail", "40", "aaa111"],
 	])
 })

@@ -142,10 +142,6 @@ export class PodmanEngine implements ContainerEngine {
 		}
 	}
 
-	async restart(id: string, timeoutSeconds: number, call: EngineCall): Promise<void> {
-		await this.command(["restart", "--time", String(timeoutSeconds), id], call)
-	}
-
 	async stop(ids: string[], timeoutSeconds: number, call: EngineCall): Promise<void> {
 		await this.command(["stop", "--time", String(timeoutSeconds), ...ids], call)
 	}

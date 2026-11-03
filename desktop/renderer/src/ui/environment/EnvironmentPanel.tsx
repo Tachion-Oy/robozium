@@ -1,5 +1,5 @@
 // The draft and its writes arrive as props from App, so unsaved edits
-// survive leaving the screen, and App supplies the restart and backend actions.
+// survive leaving the screen, and App supplies Restart app.
 // Four sections: the hub folder, the key file, imported tools and skills, and the
 // variables. Loading, a failed read and a blocked edit are toasts, so the settings never
 // shift; an import in progress shows the wait over the whole screen.
@@ -8,9 +8,9 @@ import { Toast } from "../feedback/Toast"
 import type { EnvironmentDraft } from "../../environment/useEnvironmentDraft"
 import type { EnvironmentMutations } from "../../environment/useEnvironmentMutations"
 import { hubRestartNeeded, type HubFolder } from "../../hub-folder/useHubFolder"
+import { HudBadge } from "../hud/HudBadge"
 import { HudBusy } from "../hud/HudBusy"
 import { EnvironmentFolderImport } from "./EnvironmentFolderImport"
-import { BackendControls } from "./BackendControls"
 import { EnvironmentHubFolder } from "./EnvironmentHubFolder"
 import { EnvironmentKeyFileImport } from "./EnvironmentKeyFileImport"
 import { EnvironmentRestart } from "./EnvironmentRestart"
@@ -19,14 +19,13 @@ import { EnvironmentSaveForm } from "./EnvironmentSaveForm"
 import { EnvironmentVariableEditor } from "./EnvironmentVariableEditor"
 import { EnvironmentVariableList } from "./EnvironmentVariableList"
 
-export function EnvironmentPanel({ draft, mutations, hub, restartRequired, onRestart, onManageBackend }: {
+export function EnvironmentPanel({ draft, mutations, hub, restartRequired, onRestart }: {
 	draft: EnvironmentDraft
 	mutations: EnvironmentMutations
 	hub: HubFolder
 	/** The backend refuses new runs and Check dependencies until Restart app. */
 	restartRequired: boolean
 	onRestart: () => Promise<void>
-	onManageBackend: (operation: "restart" | "recreate") => Promise<void>
 }) {
 	const { view, editor, editable, loadFailed, loadError } = draft
 	// A read that finishes quickly shows no loading toast at all.
@@ -52,7 +51,7 @@ export function EnvironmentPanel({ draft, mutations, hub, restartRequired, onRes
 			aria-label="Environment settings"
 			className="agent-hud__project-view agent-hud__settings-view agent-hud__environment flex min-h-0 flex-1 flex-col"
 			onKeyDown={handleKeyDown}>
-			<HudBusy busy={importing !== undefined} label={importing ? `Importing ${importing}…` : "Importing…"} className="flex min-h-0 flex-1 flex-col gap-4">
+			<HudBusy window busy={importing !== undefined} label={importing ? `Importing ${importing}…` : "Importing…"} className="flex min-h-0 flex-1 flex-col gap-4">
 				{loading && slowLoad && <Toast tone="info" title="Environment" message="Loading settings…" />}
 				{loadError !== null && <Toast tone="error" title="Could not load settings" message={loadError} actions={[{ label: "Retry", onClick: draft.retry }]} />}
 				{view && !view.editable && <Toast tone="info" title="Editing paused" message="Stop all runs and background work before editing." />}
@@ -60,13 +59,13 @@ export function EnvironmentPanel({ draft, mutations, hub, restartRequired, onRes
 				<div className="agent-hud__table-scroll min-h-0 flex-1 overflow-auto px-3 [scrollbar-gutter:stable]">
 					<div className="agent-hud__environment-sections pb-4">
 						<section aria-label="Hub folder" className="agent-hud__environment-section">
-							<h3 className="agent-hud__section-tag">Hub folder</h3>
+							<h3 className="agent-hud__environment-heading"><HudBadge>Hub folder</HudBadge></h3>
 							{/* Opening stays available during runs; changing the folder waits for them. */}
 							<EnvironmentHubFolder hub={hub} disabled={!editable || editor !== null} />
 						</section>
 						<fieldset disabled={!editable} className="agent-hud__environment-sections">
 							<section aria-label="Key file" className="agent-hud__environment-section">
-								<h3 className="agent-hud__section-tag">Key file</h3>
+								<h3 className="agent-hud__environment-heading"><HudBadge>Key file</HudBadge></h3>
 								<EnvironmentKeyFileImport
 									disabled={!editable || editor !== null}
 									replacing={(view?.entries.length ?? 0) > 0}
@@ -74,7 +73,7 @@ export function EnvironmentPanel({ draft, mutations, hub, restartRequired, onRes
 								/>
 							</section>
 							<section aria-label="Tools and skills" className="agent-hud__environment-section">
-								<h3 className="agent-hud__section-tag">Tools and skills</h3>
+								<h3 className="agent-hud__environment-heading"><HudBadge>Tools and skills</HudBadge></h3>
 								<EnvironmentFolderImport
 									disabled={!editable || editor !== null}
 									onImport={mutations.importPackage}
@@ -87,7 +86,7 @@ export function EnvironmentPanel({ draft, mutations, hub, restartRequired, onRes
 								/>
 							</section>
 							<section aria-label="Variables" className="agent-hud__environment-section">
-								<h3 className="agent-hud__section-tag">Variables</h3>
+								<h3 className="agent-hud__environment-heading"><HudBadge>Variables</HudBadge></h3>
 								<EnvironmentVariableList
 									variables={draft.variables}
 									editorName={editor?.original.name ?? null}
@@ -120,7 +119,6 @@ export function EnvironmentPanel({ draft, mutations, hub, restartRequired, onRes
 					onReset={mutations.reset}>
 					<EnvironmentRestart required={restartRequired || hubRestartNeeded(hub)}
 						dirty={draft.dirty || editor !== null} onRestart={onRestart} />
-					<BackendControls onManage={onManageBackend} />
 				</EnvironmentSaveForm>
 				{view && view.overrides.length > 0 && <p>Manual .env overrides: {view.overrides.join(", ")}.</p>}
 			</HudBusy>

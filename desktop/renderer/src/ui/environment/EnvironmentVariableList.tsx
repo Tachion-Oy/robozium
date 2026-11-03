@@ -30,7 +30,7 @@ function VariableRow({ variable, editing, disabled, onEdit, onDelete, children }
 	return (
 		<li className="agent-hud__environment-row">
 			<div className="flex flex-wrap items-center justify-between gap-3 py-2">
-				<div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-6 gap-y-1">
+				<div className="agent-hud__environment-variable flex min-w-0 flex-1 flex-wrap items-baseline gap-x-6 gap-y-1">
 					<span className="min-w-0 break-all">
 						{name}
 						{variable.sources.length > 0 && <span className="agent-hud__environment-value"> [{variable.sources.join(", ")}]</span>}

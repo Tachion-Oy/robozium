@@ -21,7 +21,8 @@ test("desktop mock image starts rootless and retains projects after restart, rec
 	await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
 	const { project, runtime } = loadOrCreateBackendProfile(profile, "mock", String(port))
 	const podman = (args: string[]) => execFileSync("podman", args, { encoding: "utf8", timeout: 60_000 })
-	const controller = new BackendController({ profile, source, mode: "mock", port: String(port), engine: platformEngine() })
+	const launch = () => new BackendController({ profile, source, mode: "mock", port: String(port), engine: platformEngine() })
+	let controller = launch()
 
 	let cleaned = false
 	async function cleanup() {
@@ -86,9 +87,10 @@ test("desktop mock image starts rootless and retains projects after restart, rec
 			"present = [str(p) for p in private if p.exists()]",
 			"assert not present, present",
 		].join("; ")])
-		await controller.restart()
-		assert.ok((await request("/projects")).some((item: { slug: string }) => item.slug === created.slug))
-		await controller.recreate()
+		// Restart app: the container stops with the app and the next launch starts it again.
+		await controller.close()
+		controller = launch()
+		await controller.start()
 		assert.ok((await request("/projects")).some((item: { slug: string }) => item.slug === created.slug))
 		await cleanup()
 		assert.equal(fs.readFileSync(marker, "utf8"), "retained desktop data\n")

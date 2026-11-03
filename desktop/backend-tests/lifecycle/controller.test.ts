@@ -5,7 +5,6 @@ import path from "node:path"
 import net from "node:net"
 import process from "node:process"
 import { test, type TestContext } from "node:test"
-import { setImmediate as tick } from "node:timers/promises"
 import { BackendController, portAvailable } from "../../src/backend-controller.ts"
 import { loadOrCreateBackendProfile } from "../../src/backend-profile.ts"
 import { resolveBackendLayout } from "../../src/backend-layout.ts"
@@ -29,7 +28,6 @@ interface FakePodman {
 	calls: { args: string[]; command: CommandOptions }[]
 	/** The environment file's lines as the last `podman run` read them. */
 	environment?: string
-	restarts?: number
 	info?: unknown
 	logs?: string
 	intercept?: (args: string[], command: CommandOptions) => Promise<string | void>
@@ -479,81 +477,3 @@ test("a missing hub folder stops startup before Podman and offers choosing anoth
 	await controller.close()
 })
 
-const managed = (state: FakePodman) => async (args: string[]) => {
-	if (args[0] === "restart") { state.restarts = (state.restarts ?? 0) + 1; return "" }
-}
-
-test("Restart and Recreate stop the runs before the container, as closing does", async t => {
-	const { controller, state } = fixture(t, { projects: [{ slug: "busy", status: "running" }] })
-	await controller.start()
-	state.intercept = managed(state)
-	for (const operation of ["restart", "recreate"] as const) {
-		state.requests = []
-		state.cancelPolls = undefined
-		state.projects = [{ slug: "busy", status: "running" }]
-		const before = state.calls.length
-		await controller[operation]()
-		assert.deepEqual(state.requests, ["GET /projects", "POST /projects/busy/cancel", "GET /projects", "GET /projects", "GET /projects"])
-		assert.ok(state.calls.slice(before).some(call => ["restart", "stop"].includes(call.args[0])), `${operation} stopped the container`)
-	}
-	await controller.close()
-})
-
-for (const [operation, expected] of [
-	["restart", [["restart", "--time", "30", id]]],
-	["recreate", [["stop", "--time", "30", id], ["rm", id], ["run"]]],
-] as ["restart" | "recreate", string[][]][]) test(`${operation} checks ownership, runs ${expected.map(args => args[0]).join(", ")} and waits until ready`, async t => {
-	const { controller, state } = fixture(t)
-	state.intercept = managed(state)
-	await assert.rejects(controller[operation](), /Start the backend/)
-	await controller.start()
-	const count = state.calls.length
-	const pending = controller[operation]()
-	assert.equal(controller.snapshot().state, "starting")
-	await pending
-	const calls = commands(state).slice(count)
-	assert.deepEqual(calls.slice(0, 2).map(args => args.slice(0, 2)), [["ps", "--all"], ["container", "inspect"]])
-	assert.deepEqual(calls.slice(2).map((args, index) => args.slice(0, expected[index].length)), expected)
-	assert.deepEqual(controller.snapshot(), { state: "ready", message: "Backend ready" })
-	await controller.close()
-})
-
-test("backend operations run one at a time and shutdown waits for them", async t => {
-	let release = () => {}
-	const { controller, state } = fixture(t)
-	await controller.start()
-	state.intercept = async args => {
-		if (args[0] === "restart") return new Promise(resolve => { release = () => resolve("") })
-	}
-	const restart = controller.restart()
-	await assert.rejects(controller.recreate(), /already running/)
-	await assert.rejects(controller.restart(), /already running/)
-	await tick()
-	const close = controller.close()
-	let closed = false
-	void (async () => { await close; closed = true })()
-	await tick()
-	assert.equal(closed, false)
-	release()
-	await assert.rejects(restart, /cancel|abort/i)
-	await close
-	assert.equal(commands(state).at(-1)![0], "stop")
-	await assert.rejects(controller.restart(), /closing/)
-})
-
-test("a replaced container stops an operation before any change, and a failure can be retried", async t => {
-	const { controller, state } = fixture(t)
-	await controller.start()
-	state.intercept = managed(state)
-	state.mutate = value => { value.labels["fi.tachion.robozium.desktop.installation"] = "foreign" }
-	await assert.rejects(controller.recreate(), /ownership/)
-	assert.equal(controller.snapshot().state, "error")
-	assert.equal(state.restarts, undefined)
-	assert.equal(commands(state).filter(args => args[0] === "run").length, 1, "only startup ran a container")
-	state.mutate = undefined
-	await assert.rejects(controller.restart(), /Start the backend/)
-	await controller.start()
-	await controller.restart()
-	assert.equal(state.restarts, 1)
-	await controller.close()
-})

@@ -29,7 +29,7 @@
 .agent-hud__environment-sections {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 3rem;
   min-width: 0;
   /* Also a fieldset, which keeps its own padding and border otherwise. */
   margin: 0;
@@ -40,8 +40,15 @@
 .agent-hud__environment-section {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1.1rem;
   min-width: 0;
+}
+
+/* The section's name in the run-name badge, at its own width. */
+.agent-hud__environment-heading {
+  display: flex;
+  align-self: flex-start;
+  min-height: 2.2rem;
 }
 
 /* A row of one input and its buttons, the same in every section. */
@@ -64,8 +71,29 @@
   box-shadow: var(--term-glow-blue);
 }
 
+/* On the light background a glow barely shows: a solid blue edge and ring instead. */
+:root[data-theme="light"] .agent-hud__environment-controls[data-drag-active] .agent-hud__project-input {
+  border-color: var(--term-blue);
+  background: color-mix(in oklab, var(--term-blue) clamp(0%, 18% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--term-blue) 45%, transparent);
+}
+
+.agent-hud__environment-import {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid var(--hud-input-border);
+  background: var(--hud-input-bg);
+}
+
 .agent-hud__environment-row {
   border-bottom: 1px solid var(--hud-input-border);
+}
+
+/* A variable's name, sources and value read in bold; its buttons keep theirs. */
+.agent-hud__environment-variable {
+  font-weight: 600;
 }
 
 .agent-hud__environment-save {
