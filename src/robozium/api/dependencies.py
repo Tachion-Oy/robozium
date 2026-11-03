@@ -1,5 +1,6 @@
 """Liveness, readiness, and cached dependency-health endpoints."""
 
+import asyncio
 from collections.abc import AsyncGenerator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
@@ -45,6 +46,11 @@ def dependency_lifespan(
             yield
         finally:
             application.state.ready = False
+            refreshes = tuple(application.state.dependency_refreshes)
+            for refresh in refreshes:
+                refresh.cancel()
+            if refreshes:
+                await asyncio.gather(*refreshes, return_exceptions=True)
             await monitor.stop()
 
     return lifespan

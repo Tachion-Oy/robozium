@@ -69,6 +69,27 @@ test("a pending unlock ignores Escape, and Escape cancels afterwards", async ({ 
 	expect(writes(backend, "/credentials/unlock")).toHaveLength(1)
 })
 
+test("Cancel after an unlock reply lost to the deadline locks the backend, so a launch asks again", async ({ desktop: { page }, backend }) => {
+	let status = locked
+	backend.handlers.set("GET /credentials", response => json(response, status))
+	// The backend unlocks but its reply never arrives.
+	backend.handlers.set("POST /credentials/unlock", () => { status = unlocked })
+	backend.handlers.set("POST /credentials/clear", response => { status = locked; json(response, status) })
+	prepareRun(backend)
+	await page.clock.install()
+	await backend.open()
+	await password(page).fill("correct horse")
+	await password(page).press("Enter")
+	await expect.poll(() => writes(backend, "/credentials/unlock")).toHaveLength(1)
+	await page.clock.fastForward(10_001)
+	await expect(dialog(page).getByRole("alert")).toBeVisible()
+	await dialog(page).getByRole("button", { name: "Cancel" }).click()
+	await expect.poll(() => writes(backend, "/credentials/clear")).toHaveLength(1)
+	await launchButton(page, "existing-project").click()
+	await expect(dialog(page)).toBeVisible()
+	expect(writes(backend, "/run/create")).toHaveLength(0)
+})
+
 test("a launch while locked asks again: cancelling reports it, unlocking launches", async ({ desktop: { page }, backend }) => {
 	let status = locked
 	backend.handlers.set("GET /credentials", response => json(response, status))
@@ -82,6 +103,7 @@ test("a launch while locked asks again: cancelling reports it, unlocking launche
 	await dialog(page).getByRole("button", { name: "Cancel" }).click()
 	await expect(lockedAlert(page)).toContainText("Unlock secrets before starting a run.")
 	expect(writes(backend, "/run/create")).toHaveLength(0)
+	await expect.poll(() => writes(backend, "/credentials/clear")).toHaveLength(2)
 	await launchButton(page, "existing-project").click()
 	await password(page).fill("correct horse")
 	await password(page).press("Enter")

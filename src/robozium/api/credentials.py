@@ -192,14 +192,26 @@ class CredentialGateMiddleware:
         await self.app(scope, receive, send)
 
 
-async def refresh_dependencies(request: Request) -> None:
-    """Re-check dependencies after keys load; observations never fail the request."""
+def refresh_dependencies(request: Request) -> None:
+    """Re-check dependencies after keys load, in the background.
+
+    A provider that answers slowly must never hold up the reply the keys were
+    loaded for; the HUD gives up on a reply after ten seconds. The checks are
+    cancelled with the monitor on shutdown.
+    """
     monitor = request.app.state.dependency_health
-    if monitor is not None:
-        try:
-            await monitor.run_once()
-        except Exception:
+    if monitor is None:
+        return
+    refreshes: set[asyncio.Task[None]] = request.app.state.dependency_refreshes
+    task = asyncio.create_task(monitor.run_once(), name="dependency-refresh")
+    refreshes.add(task)
+
+    def finished(done: asyncio.Task[None]) -> None:
+        refreshes.discard(done)
+        if not done.cancelled() and done.exception() is not None:
             logger.warning("Dependency refresh failed after loading API keys")
+
+    task.add_done_callback(finished)
 
 
 @router.get("/credentials", response_model=CredentialStatus)
@@ -233,7 +245,7 @@ async def unlock_credentials(request: Request, response: Response) -> Credential
         raise HTTPException(
             status_code=400, detail="Could not unlock secrets"
         ) from None
-    await refresh_dependencies(request)
+    refresh_dependencies(request)
     response.headers["Cache-Control"] = "no-store"
     return credential_status(loaded)
 

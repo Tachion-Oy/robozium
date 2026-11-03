@@ -70,7 +70,7 @@ async def save_environment(body: EnvironmentEdit, request: Request) -> Environme
     with _environment(request) as environment:
         loaded = await asyncio.to_thread(environment.save, body)
     if loaded:
-        await refresh_dependencies(request)
+        refresh_dependencies(request)
     return EnvironmentSaveResult()
 
 
@@ -97,7 +97,7 @@ async def replace_environment_file(
     with _environment(request) as environment:
         loaded = await asyncio.to_thread(environment.replace_file, revision, content, password)
     if loaded:
-        await refresh_dependencies(request)
+        refresh_dependencies(request)
     return EnvironmentFileResult(loaded=loaded)
 
 
