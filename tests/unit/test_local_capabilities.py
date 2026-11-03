@@ -351,7 +351,7 @@ def _imported(root, name, source=None, catalog='{"tools": ["tools/inner"]}', req
     [
         ("legacy", None, None, "legacy: robozium.json is missing"),
         ("broken_json", "{", None, "not valid JSON"),
-        ("missing_package", '{"tools": ["tools/absent"]}', None, "package tools/absent"),
+        ("missing_package", '{"tools": ["tools/absent"]}', None, "listed in robozium.json but not in the folder: tools/absent/__init__.py"),
         ("bad_code", '{"tools": ["tools/inner"]}', "raise ValueError('broken')", "broken"),
         ("wrong_kind", '{"skills": ["tools/inner"]}', None, "listed under skills"),
         ("duplicate", '{"tools": ["tools/inner"]}', _source("good"), "duplicate capability name 'good'"),
