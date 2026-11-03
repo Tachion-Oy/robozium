@@ -46,7 +46,7 @@
           "model_id": "moonshotai/kimi-k3.1-pro",
           "max_context_tokens": 1048576,
           "accepts_images": true,
-          "accepts_temperature": false,
+          "accepts_temperature": true,
           "endpoint_type": "llm"
         },
         "moonshotai__kimi_k3": {
