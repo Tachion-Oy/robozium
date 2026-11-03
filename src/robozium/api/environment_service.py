@@ -74,8 +74,11 @@ class EnvironmentService:
             name: EnvironmentImport(name=name, capabilities=[], variables=[], error=error)
             for name, error in hub.local_packages.broken.items()
         }
-        # Labels of removed packages stay loaded until restart; re-imports may reuse them.
-        self._removed_labels: set[str] = set()
+        # Labels this process loaded from imports. They stay loaded until restart, but
+        # count as taken only while an import that provides them is still present.
+        self._loaded_import_labels = {
+            capability.name for capabilities in loaded.values() for capability in capabilities
+        }
 
     def read(self) -> EnvironmentView:
         """Return masked settings and examples, without importing or executing code."""
@@ -192,9 +195,6 @@ class EnvironmentService:
                 stage.rename(destination)
                 self._credentials.restart_required = True
                 self._imports[name] = result.imported
-                self._removed_labels.difference_update(
-                    cap.name for cap in result.imported.capabilities
-                )
             return result
 
     def remove_import(self, name: str) -> None:
@@ -213,8 +213,6 @@ class EnvironmentService:
             if destination.exists():
                 shutil.rmtree(destination)
             del self._imports[name]
-            if item.active:
-                self._removed_labels.update(cap.name for cap in item.capabilities)
 
     @staticmethod
     def _read_text(path: Path) -> str:
@@ -446,7 +444,7 @@ class EnvironmentService:
             CapabilityView.model_validate(value.label) for value in discovered
         ]
         existing = {label.name for label in self._hub.capabilities()}
-        existing -= self._removed_labels
+        existing -= self._loaded_import_labels
         existing.update(
             cap.name for item in self._imports.values() for cap in item.capabilities
         )

@@ -35,8 +35,10 @@ export function EnvironmentSaveForm({
 		if (needsPassword) setAsking(true)
 		else void onSave("")
 	}
+	// The dialog closes whether or not the save succeeds: a failure's reason shows as a toast,
+	// which an open modal dialog would hide, and the edits stay for another try.
 	const save = async (password: string) => {
-		if (!await onSave(password)) return "The settings were not saved."
+		await onSave(password)
 		setAsking(false)
 		return null
 	}

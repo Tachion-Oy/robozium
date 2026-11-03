@@ -28,6 +28,8 @@ export interface EnvironmentOutcomes {
 	onImported: (result: EnvironmentImportResult) => void
 	onRemoved: (name: string) => void
 	onReset: () => void
+	/** A write applied, but reading the settings after it failed; they are read again from scratch. */
+	onUnread: () => void
 	/** After every write, even a failed one: it may have loaded keys or required a restart, which the backend status reports. */
 	onSettled: () => void
 }
@@ -86,6 +88,14 @@ export function useEnvironmentMutations(
 		return false
 	}
 	const read = (client: DesktopApiClient, signal: AbortSignal) => withDeadline(signal, requestSignal => getEnvironment(client, requestSignal))
+	/** After a write the backend accepted: a failed read must not report the write as failed. */
+	const readBack = async (client: DesktopApiClient, signal: AbortSignal) => {
+		try {
+			outcomes.onReplaced(await read(client, signal))
+		} catch {
+			if (!signal.aborted) outcomes.onUnread()
+		}
+	}
 
 	const save = (password: string, entries: EnvironmentEntry[], revision: string) => run("save", false, async (client, signal) => {
 		// Sent once; a conflict or failure keeps the edits for the user to retry.
@@ -94,9 +104,8 @@ export function useEnvironmentMutations(
 			entries: entries.map(({ name, value, secret }) => ({ name, value, secret })),
 			password: password || null,
 		}, requestSignal))
-		const next = await read(client, signal)
+		await readBack(client, signal)
 		if (signal.aborted) return false
-		outcomes.onReplaced(next)
 		if (setupRequired) {
 			showNotificationToast({
 				tone: "success", title: "API keys saved",
@@ -137,9 +146,8 @@ export function useEnvironmentMutations(
 		// Sent once; a wrong password or a conflict keeps the chosen file for another try.
 		const { loaded } = await withDeadline(signal, requestSignal =>
 			replaceEnvironmentFile(client, file, revision, password, requestSignal))
-		const next = await read(client, signal)
+		await readBack(client, signal)
 		if (signal.aborted) return ""
-		outcomes.onReplaced(next)
 		// First-start setup loads the keys at once; later replacements apply after a restart.
 		showNotificationToast(loaded
 			? { tone: "success", title: "Keys loaded", message: "Your key file is in use." }

@@ -250,6 +250,11 @@ def test_removing_a_loaded_package_frees_its_labels_for_reimport(tmp_path, monke
     assert client.delete(URL + "/imports/bundle").status_code == 200
     assert upload(client, name="replacement").status_code == 200
     assert (tmp_path / "local/imports/replacement/robozium.json").is_file()
+    # Removed and imported again before a restart, its labels are free once more.
+    assert client.delete(URL + "/imports/replacement").status_code == 200
+    response = upload(client, name="again")
+    assert response.status_code == 200, response.text
+    assert (tmp_path / "local/imports/again/robozium.json").is_file()
 
 
 @pytest.mark.parametrize("name", ["missing", "%2E%2E", "bundle%2Fnested"])
@@ -729,6 +734,18 @@ def test_a_broken_import_is_reported_and_removable_while_others_load(tmp_path, m
     assert client.delete(URL + "/imports/legacy").status_code == 200
     assert not (tmp_path / "local/imports/legacy").exists()
     assert [item["name"] for item in client.get(URL).json()["imports"]] == ["bundle"]
+
+    # Removing imports frees only the names they loaded: a built-in name stays taken.
+    assert client.delete(URL + "/imports/bundle").status_code == 200
+    builtin = next(
+        row["name"] for row in client.get("/capabilities").json()
+        if row["kind"] == "tool" and row["name"] != "actual_tool"
+    )
+    source = TOOL.replace("from .nested import NAME", f"NAME = {builtin!r}")
+    response = upload(client, tool(source), name="clash")
+    assert response.status_code == 400
+    assert f"A capability named {builtin!r} already exists" in response.json()["detail"]
+    assert upload(client, name="bundle").status_code == 200
 
 
 def test_changes_that_apply_on_restart_lock_runs_and_dependency_checks(client, tmp_path):

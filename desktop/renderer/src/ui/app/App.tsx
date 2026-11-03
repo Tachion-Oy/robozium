@@ -44,15 +44,21 @@ interface AppProps {
 	connected: boolean
 	/** The startup screen covers the HUD. */
 	covered: boolean
+	/** A backend restart, recreate or the close runs under the startup screen; the backend may be down. */
+	operating: boolean
 	/** Backend restarts, covered by the startup screen. */
 	backend: BackendOperations
 }
 
-export function App({ client, connected, covered, backend }: AppProps) {
+export function App({ client, connected, covered, operating, backend }: AppProps) {
 	const [navigation, navigate] = useReducer(reduceHudNavigation, null, initialHudNavigation)
 	const [focusRunEditor, setFocusRunEditor] = useState(false)
 	const runSession = useRunSession(client)
 	const messageLog = useMessageLog()
+	// While a backend restart or the close runs, nothing polls the backend, so a poll that
+	// fails against a stopping backend never flashes an error. Under the launch animation the
+	// screens load as usual, so the HUD is drawn before the animation fades into it.
+	const polling = !operating
 	const credentials = useCredentials(client, connected, !covered)
 	const showRun = () => { setFocusRunEditor(true); navigate({ type: "screen_selected", screen: "run" }) }
 	const projectMutations = useProjectMutations(client, {
@@ -99,7 +105,7 @@ export function App({ client, connected, covered, backend }: AppProps) {
 	// Current Run shows and switches its live run's model; other screens set the default.
 	const modelRun = screen === "run" && session && !runEnded && !session.run.unavailable ? session.run.runId : null
 	const models = useModels(client, connected, modelRun)
-	const projectQuery = useProjectQuery(client, screen === "projects", projectMutations)
+	const projectQuery = useProjectQuery(client, screen === "projects" && polling, projectMutations)
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
 	// Each write's outcome goes to the draft declared below; it runs only after both exist.
 	const environmentMutations = useEnvironmentMutations(client, setupRequired, restartRequired, {
@@ -107,10 +113,11 @@ export function App({ client, connected, covered, backend }: AppProps) {
 		onImported: result => environmentDraft.imported(result),
 		onRemoved: name => environmentDraft.removed(name),
 		onReset: () => environmentDraft.reset(),
+		onUnread: () => environmentDraft.reset(),
 		// Keys that load end setup; a change that needs a restart locks the HUD. A write never changes the screen.
 		onSettled: credentials.refresh,
 	})
-	const environmentDraft = useEnvironmentDraft(client, screen === "environment", environmentMutations)
+	const environmentDraft = useEnvironmentDraft(client, screen === "environment" && polling, environmentMutations)
 	const hubFolder = useHubFolder()
 	const dependencies = useDependencies(client, screen === "dependencies")
 	// A launch, a disconnection or an unconfirmed model change locks navigation.
