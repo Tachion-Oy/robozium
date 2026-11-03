@@ -19,6 +19,8 @@ ENV PATH=/app/.venv/bin:$PATH \
     ROBOZIUM_CONFIG=/app/hub.config.py
 WORKDIR /app
 
+# gai.conf prefers IPv4: Python connects to the first address only, and a network
+# that advertises IPv6 without routing it would stall every provider call.
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
         ca-certificates \
@@ -34,8 +36,6 @@ RUN apt-get update \
     && useradd --uid 10001 --gid robozium --no-create-home --home-dir /nonexistent robozium \
     && mkdir -p /hub /logs \
     && chown -R robozium:robozium /hub /logs \
-    # Prefer IPv4: Python connects to the first address only, and a network
-    # that advertises IPv6 without routing it would stall every provider call.
     && echo 'precedence ::ffff:0:0/96 100' >> /etc/gai.conf
 
 # The desktop runs the API under another UID; keep LO's profile writable.
