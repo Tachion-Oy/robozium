@@ -94,10 +94,11 @@ jobs:
       - name: Check desktop backend isolation and restart recovery
         run: |
           npm --prefix desktop run test:backend
+          # The container check runs the real controller, which imports the main process's libraries.
+          npm --prefix desktop ci
           npm --prefix desktop run test:backend:container
       - name: Install Electron for backend lifecycle checks
         run: |
-          npm --prefix desktop ci
           # A stalled mirror otherwise hangs until the job limit; give it two tries of two minutes.
           sudo timeout 120 apt-get update || sudo timeout 120 apt-get update
           sudo apt-get install -y libgtk-3-0t64 libnss3 libasound2t64 libgbm1 xvfb

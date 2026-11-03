@@ -312,9 +312,10 @@ npm --prefix desktop run test:backend
 npm --prefix desktop run test:backend:container
 ```
 
-These dependency-free checks live under `desktop/backend-tests/` and run in the
-desktop backend lifecycle Full E2E job. They need neither Electron nor npm
-dependencies. Normal desktop builds/native tests still work from a desktop-only
+These checks live under `desktop/backend-tests/` and run in the desktop backend
+lifecycle Full E2E job without Electron. `test:backend` needs no npm
+dependencies; `test:backend:container` runs the real controller, so it needs
+`npm --prefix desktop ci` first. Normal desktop builds/native tests still work from a desktop-only
 checkout; backend builds also need the shared Python source, lockfile, and
 package metadata.
 
