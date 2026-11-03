@@ -37,6 +37,14 @@ test("a malformed project list or a refused request is an error, never an empty 
 	await assert.rejects(api({}).client.cancelProject("gone", signal()), /POST \/projects\/gone\/cancel returned 404/)
 })
 
+test("a failed answer's connection is released before the error", async () => {
+	let cancelled = false
+	const body = new ReadableStream({ cancel() { cancelled = true } })
+	const client = new BackendApi("http://127.0.0.1:18000", async () => new Response(body, { status: 503 }))
+	await assert.rejects(client.activeProjects(signal()), /returned 503/)
+	assert.equal(cancelled, true)
+})
+
 test("readiness is true only for a ready answer; a failure is not ready unless the caller aborted", async () => {
 	assert.equal(await api({ "/ready": { body: { status: "ready" } } }).client.ready(signal()), true)
 	assert.equal(await api({ "/ready": { body: { status: "starting" } } }).client.ready(signal()), false)

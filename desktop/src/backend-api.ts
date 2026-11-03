@@ -47,7 +47,10 @@ export class BackendApi {
 			headers: { Origin: "robozium://app" },
 			signal: AbortSignal.any([signal, AbortSignal.timeout(timeout)]),
 		})
-		if (!response.ok) throw new Error(`${method} ${route} returned ${response.status}`)
+		if (!response.ok) {
+			await response.body?.cancel()
+			throw new Error(`${method} ${route} returned ${response.status}`)
+		}
 		return response.json()
 	}
 }

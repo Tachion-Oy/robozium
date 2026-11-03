@@ -27,7 +27,7 @@ export function BackendStartup() {
 	const [hasOpenedHud, setHasOpenedHud] = useState(false)
 	const status = startup.state !== "ready" ? startup : readiness
 	const starting = startup.state !== "ready" ? startup : null
-	const screen = useStartupScreen(status.state === "ready", retryConnection)
+	const screen = useStartupScreen(status.state === "ready", startup.state === "stopping", retryConnection)
 
 	useEffect(() => {
 		// Once opened, keep the HUD mounted through outages to retain local UI state.

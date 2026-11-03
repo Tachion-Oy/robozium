@@ -27,12 +27,6 @@ const { profile, source, preload, renderer, hubFolder: hubFolderLocation } = des
 	profileOverride: process.env.ROBOZIUM_DESKTOP_TEST_DATA,
 })
 
-/** A later launch's arguments as its lock request passed them; anything else relaunches as this one. */
-function launchArguments(data: unknown): Electron.RelaunchOptions {
-	const args: unknown = typeof data === "object" && data !== null ? Reflect.get(data, "args") : undefined
-	return Array.isArray(args) && args.every(arg => typeof arg === "string") ? { args } : {}
-}
-
 async function start(): Promise<void> {
 	// A launch given a backend connects to it and leaves its lifecycle and hub to whoever started it.
 	const givenBackend = backendUrl(process.argv)
@@ -40,8 +34,7 @@ async function start(): Promise<void> {
 	mkdirSync(profile, { recursive: true, mode: 0o700 })
 	app.setPath("userData", profile)
 	// A second process must not take over or stop the same installation's backend.
-	// The first instance relaunches with these arguments if this launch arrives while it closes.
-	if (!app.requestSingleInstanceLock({ args: process.argv.slice(1) })) { app.exit(0); return }
+	if (!app.requestSingleInstanceLock()) { app.exit(0); return }
 	await app.whenReady()
 
 	const settings = readSettings(profile)
@@ -82,28 +75,26 @@ async function start(): Promise<void> {
 		}
 	}
 	let closing = false
-	/** How to start again after the exit: a restart's own arguments, or a later launch's. */
-	let relaunch: Electron.RelaunchOptions | null = null
+	/** Whether to start again after the exit, as Restart app asks. */
+	let relaunch = false
 	/**
-	 * Stop every run and the backend, then exit, starting again if asked. The window stays,
-	 * covered by the startup screen reading Stopping, until the exit.
+	 * Stop every run and the backend, then exit; a restart starts again only after a clean
+	 * stop. The window stays, covered by the startup screen reading Stopping, until the exit.
 	 */
 	const quit = async (restart = false) => {
 		if (closing) {
-			// The latest request wins: a close during a restart, or after a later launch, only exits.
-			if (!restart) relaunch = null
+			// Closing during a restart exits without starting again.
+			if (!restart) relaunch = false
 			return
 		}
 		closing = true
-		relaunch = restart ? {} : null
+		relaunch = restart
 		window.webContents.send("desktop:closing")
-		let code = 0
 		try {
 			await backend?.close()
-		} catch (error) { console.error("Backend shutdown failed:", error); code = 1 }
-		// A new start checks the backend's containers itself, so a failed stop still honours the request.
-		if (relaunch) app.relaunch(relaunch)
-		app.exit(code)
+			if (relaunch) app.relaunch()
+			app.exit(0)
+		} catch (error) { console.error("Backend shutdown failed:", error); app.exit(1) }
 	}
 	/** Preferences are conveniences: a failed save must not interrupt the window. */
 	const save = (changes: Partial<DesktopSettings>) => {
@@ -132,10 +123,8 @@ async function start(): Promise<void> {
 		resizeTimer = setTimeout(saveSize, 250)
 	})
 	window.on("close", event => { event.preventDefault(); clearTimeout(resizeTimer); saveSize(); void quit() })
-	// The lock above makes later launches exit; bring this window forward instead.
-	// A launch while the app closes starts it again once the backend has stopped.
-	app.on("second-instance", (_event, _argv, _directory, data) => {
-		if (closing) relaunch = launchArguments(data)
+	// The lock above makes later launches exit; bring this window forward instead, also while it closes.
+	app.on("second-instance", () => {
 		if (window.isMinimized()) window.restore()
 		window.show()
 		window.focus()

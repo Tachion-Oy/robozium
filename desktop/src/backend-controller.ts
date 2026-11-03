@@ -79,6 +79,7 @@ export class BackendController {
 	private buildId = ""
 	private readonly engine: ContainerEngine
 	private readonly hostServices: HostServices
+	private readonly api: BackendApi
 	private readonly options: BackendOptions
 
 	constructor(options: BackendOptions) {
@@ -86,10 +87,16 @@ export class BackendController {
 		this.settings = loadOrCreateBackendProfile(options.profile, options.mode, options.port)
 		this.engine = options.engine
 		this.hostServices = options.hostServices ?? new HostServices()
+		this.api = new BackendApi(this.connection().baseUrl, options.fetch)
 	}
 
 	snapshot(): BackendStatus {
 		return { ...this.status }
+	}
+
+	/** A startup step's status; once the app closes, Stopping stays whatever the step reports. */
+	private report(status: BackendStatus): void {
+		if (!this.closing) this.status = status
 	}
 
 	hostServiceStatus(): HostServiceStatus[] {
@@ -132,6 +139,7 @@ export class BackendController {
 	restart(): Promise<void> {
 		return this.manage("Restarting the backend…", async containers => {
 			if (containers.length !== 1) throw new Error("The backend container is missing. Restart the app.")
+			await this.stopRuns(containers)
 			await this.engine.restart(containers[0].id, backendStopTimeoutSeconds, this.call({ timeout: 120_000, log: this.log }))
 		})
 	}
@@ -139,6 +147,7 @@ export class BackendController {
 	/** Recreate the API container from the same image, so it reads `.env` again. Mounted data is kept. */
 	recreate(): Promise<void> {
 		return this.manage("Recreating the backend…", async containers => {
+			await this.stopRuns(containers)
 			await this.removeContainers(containers)
 			await this.runContainer()
 		})
@@ -203,9 +212,9 @@ export class BackendController {
 		const built = await this.ensureImage()
 
 		// Started first, so the backend's first dependency check finds them.
-		this.status = { state: "starting", message: "Starting host services…", ...built && { progress: STARTUP_PROGRESS.hostServices } }
+		this.report({ state: "starting", message: "Starting host services…", ...built && { progress: STARTUP_PROGRESS.hostServices } })
 		await this.hostServices.start(this.layout, this.options.mode, this.options.source, this.startupAbort.signal)
-		this.status = { state: "starting", message: "Starting the backend…", ...built && { progress: STARTUP_PROGRESS.backend } }
+		this.report({ state: "starting", message: "Starting the backend…", ...built && { progress: STARTUP_PROGRESS.backend } })
 		const containers = await this.ownedContainers()
 		// A running container from this image and these mounts is kept, such as one a crash left behind.
 		if (!(containers.length === 1 && containers[0].running && containers[0].current)) {
@@ -335,7 +344,7 @@ export class BackendController {
 				: { message: "Building the backend. The first launch requires internet and can take several minutes…" },
 			progress: STARTUP_PROGRESS.built * fraction,
 		})
-		this.status = building(0)
+		this.report(building(0))
 		await this.engine.build({
 			image,
 			context: this.options.source,
@@ -346,7 +355,7 @@ export class BackendController {
 			log: output => {
 				this.log(output)
 				// Output flushed after shutdown aborted startup must not overwrite its status.
-				if (!this.startupAbort.signal.aborted) this.status = building(progress.push(output))
+				this.report(building(progress.push(output)))
 			},
 		}))
 		return true
@@ -357,9 +366,9 @@ export class BackendController {
 
 		while (Date.now() < deadline) {
 			this.startupAbort.signal.throwIfAborted()
-			if (await this.api().ready(this.startupAbort.signal)) {
+			if (await this.api.ready(this.startupAbort.signal)) {
 				this.startupAbort.signal.throwIfAborted()
-				this.status = { state: "ready", message: "Backend ready" }
+				this.report({ state: "ready", message: "Backend ready" })
 				return
 			}
 			await this.failIfStopped()
@@ -390,13 +399,14 @@ export class BackendController {
 				return
 			}
 
-			// Shutdown has its own deadline; startup's signal is already cancelled.
-			const cleanup = { signal: AbortSignal.timeout(45_000), timeout: 45_000 }
-			const containers = await this.ownedContainers(cleanup)
-			if (runsPossible && containers.some(container => container.running)) await this.cancelRuns()
+			// Shutdown has its own deadlines; startup's signal is already cancelled.
+			const cleanup = () => ({ signal: AbortSignal.timeout(45_000), timeout: 45_000 })
+			const containers = await this.ownedContainers(cleanup())
+			if (runsPossible) await this.stopRuns(containers)
 			if (containers.length > 0) {
 				const ids = containers.map(container => container.id)
-				await this.engine.stop(ids, backendStopTimeoutSeconds, this.call(cleanup))
+				// The stop's deadline starts after the runs are cancelled, which can take its own 20 s.
+				await this.engine.stop(ids, backendStopTimeoutSeconds, this.call(cleanup()))
 			}
 		} finally {
 			// After the container, so no backend call is cut off mid-script.
@@ -405,23 +415,22 @@ export class BackendController {
 	}
 
 	/**
-	 * Stop every run as the HUD's Stop does and wait until each project is dormant. A run's
-	 * stream lasts until the run ends, and the API's own shutdown waits for open streams.
-	 * An unreachable API or a slow cancellation leaves the rest to the engine's stop.
+	 * Before a running container is stopped, stop every run as the HUD's Stop does and wait
+	 * until each project is dormant. A run's stream lasts until the run ends, and the API's
+	 * own shutdown waits for open streams. One project's failed cancel leaves the others'
+	 * alone; an unreachable API or a slow cancellation leaves the rest to the engine's stop.
 	 */
-	private async cancelRuns(): Promise<void> {
+	private async stopRuns(containers: OwnedContainer[]): Promise<void> {
+		if (!containers.some(container => container.running)) return
 		const signal = AbortSignal.timeout(20_000)
-		const api = this.api()
+		const failed = (error: unknown) => this.log(`Runs were not cancelled before the backend stopped: ${error instanceof Error ? error.message : String(error)}\n`)
 		try {
-			for (const slug of await api.activeProjects(signal)) await api.cancelProject(slug, signal)
-			while ((await api.activeProjects(signal)).length > 0) await delay(this.options.pollInterval ?? 250, undefined, { signal })
+			const cancels = await Promise.allSettled((await this.api.activeProjects(signal)).map(slug => this.api.cancelProject(slug, signal)))
+			for (const cancel of cancels) if (cancel.status === "rejected") failed(cancel.reason)
+			while ((await this.api.activeProjects(signal)).length > 0) await delay(this.options.pollInterval ?? 250, undefined, { signal })
 		} catch (error) {
-			this.log(`Runs were not cancelled before the backend stopped: ${error instanceof Error ? error.message : String(error)}\n`)
+			failed(error)
 		}
-	}
-
-	private api(): BackendApi {
-		return new BackendApi(this.connection().baseUrl, this.options.fetch)
 	}
 
 	/** Startup's cancellation unless overridden, as shutdown does with its own deadline. */

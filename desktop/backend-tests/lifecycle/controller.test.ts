@@ -37,6 +37,8 @@ interface FakePodman {
 	/** The API's projects; a cancel makes a project dormant after `cancelPolls` further listings. */
 	projects?: { slug: string; status: string }[]
 	cancelPolls?: number
+	/** Projects whose cancel answers 404, as a deleted one does; they leave the list. */
+	refuseCancel?: string[]
 	/** The API requests the controller made, in order. */
 	requests?: string[]
 }
@@ -106,7 +108,15 @@ function fixture(t: TestContext, options: FixtureOptions = {}) {
 				if (state.cancelPolls !== undefined && state.cancelPolls-- <= 0) state.projects = state.projects?.map(project => ({ ...project, status: "dormant" }))
 				return new globalThis.Response(JSON.stringify(state.projects ?? []))
 			}
-			if (/^\/projects\/[^/]+\/cancel$/.test(route)) { state.cancelPolls ??= 2; return new globalThis.Response(JSON.stringify({ ok: true })) }
+			const cancel = /^\/projects\/([^/]+)\/cancel$/.exec(route)
+			if (cancel) {
+				if (state.refuseCancel?.includes(cancel[1])) {
+					state.projects = state.projects?.filter(project => project.slug !== cancel[1])
+					return new globalThis.Response(JSON.stringify({ detail: "unknown project" }), { status: 404 })
+				}
+				state.cancelPolls ??= 2
+				return new globalThis.Response(JSON.stringify({ ok: true }))
+			}
 			throw new Error(`Unexpected API request: ${route}`)
 		},
 		readinessTimeout: 30, pollInterval: 1, ...options.controller })
@@ -197,6 +207,38 @@ test("closing stops each active run as Stop does and waits for it before stoppin
 	await close
 	assert.deepEqual(state.requests, ["GET /projects", "POST /projects/busy/cancel", "POST /projects/sync/cancel", "GET /projects", "GET /projects", "GET /projects"])
 	assert.deepEqual(commands(state).at(-1), ["stop", "--time", "30", id])
+})
+
+test("one project's refused cancel leaves the others cancelled and waited for", async t => {
+	const { controller, state, settings } = fixture(t, { exists: true, running: true, refuseCancel: ["gone"], projects: [
+		{ slug: "gone", status: "running" }, { slug: "busy", status: "running" },
+	] })
+	await controller.start()
+	await controller.close()
+	assert.deepEqual(state.requests, ["GET /projects", "POST /projects/gone/cancel", "POST /projects/busy/cancel", "GET /projects", "GET /projects", "GET /projects"])
+	assert.deepEqual(commands(state).at(-1), ["stop", "--time", "30", id])
+	assert.match(readFileSync(resolveBackendLayout(settings.runtime).containerLog, "utf8"), /not cancelled.*POST \/projects\/gone\/cancel returned 404/)
+})
+
+test("closing while a startup step finishes keeps the status at stopping", async t => {
+	let reached = () => {}
+	const started = new Promise<void>(resolve => { reached = resolve })
+	let release = () => {}
+	const released = new Promise<void>(resolve => { release = resolve })
+	// The image check answers after the close, as a command that had already finished does.
+	const { controller } = fixture(t, { intercept: async args => {
+		if (args[0] !== "image") return
+		reached()
+		await released
+		return hash
+	} })
+	const rejected = assert.rejects(controller.start(), /abort/i)
+	await started
+	const closed = controller.close()
+	release()
+	await closed
+	await rejected
+	assert.deepEqual(controller.snapshot(), { state: "stopping", message: "Stopping runs and the backend…" })
 })
 
 test("an unreachable API still lets closing stop the container", async t => {
@@ -440,6 +482,22 @@ test("a missing hub folder stops startup before Podman and offers choosing anoth
 const managed = (state: FakePodman) => async (args: string[]) => {
 	if (args[0] === "restart") { state.restarts = (state.restarts ?? 0) + 1; return "" }
 }
+
+test("Restart and Recreate stop the runs before the container, as closing does", async t => {
+	const { controller, state } = fixture(t, { projects: [{ slug: "busy", status: "running" }] })
+	await controller.start()
+	state.intercept = managed(state)
+	for (const operation of ["restart", "recreate"] as const) {
+		state.requests = []
+		state.cancelPolls = undefined
+		state.projects = [{ slug: "busy", status: "running" }]
+		const before = state.calls.length
+		await controller[operation]()
+		assert.deepEqual(state.requests, ["GET /projects", "POST /projects/busy/cancel", "GET /projects", "GET /projects", "GET /projects"])
+		assert.ok(state.calls.slice(before).some(call => ["restart", "stop"].includes(call.args[0])), `${operation} stopped the container`)
+	}
+	await controller.close()
+})
 
 for (const [operation, expected] of [
 	["restart", [["restart", "--time", "30", id]]],
