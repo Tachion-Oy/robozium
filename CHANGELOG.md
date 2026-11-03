@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## 0.5.2 - 2026-11-04
+
+- Dropping a tool and skill folder on the import row imports it. Before,
+  nothing happened. A folder that can't be read says why.
+- A refused **Encrypt and save**, such as a wrong password, closes the
+  password dialog and shows the reason. Before, the dialog stayed open with
+  the reason hidden behind it, and **Restart app** could not be reached.
+- Restarting or closing no longer flashes an error toast over **Stopping**.
+- Importing a folder again after removing it works every time. Before, a
+  second removal and re-import was refused as an existing capability.
+- A variable name that starts with a digit is told so, not about the
+  `_ENCRYPTED` suffix.
+- The Environment screen is laid out in sections, and an import or a save
+  shows its wait over the screen.
+- **Restart backend** and **Recreate backend** are removed. **Restart app**
+  starts a new container, which also rereads `.env`.
+
 ## 0.5.1 - 2026-11-03
 
 - Closing the window stops every run the way **Stop** does, then stops the
