@@ -1,7 +1,7 @@
 // Import a folder of tools and skills: drop it on the row or browse. Reading the folder
 // and uploading it can take a while, so the screen shows the wait (onBusy); the outcome
 // is a toast from the import itself.
-import { useEffect, useState, type SubmitEvent } from "react"
+import { useEffect, useRef, useState, type SubmitEvent } from "react"
 import { useDropzone, type FileWithPath } from "react-dropzone"
 import type { FolderFile } from "../../environment/environment-api"
 import { showErrorToast } from "../../feedback/notices"
@@ -17,6 +17,7 @@ export function EnvironmentFolderImport({ disabled, onImport, onBusy }: {
 	const [pending, setPending] = useState(false)
 	// The folder dialog closed and Chromium is reading the chosen folder, before any file arrives.
 	const [choosing, setChoosing] = useState(false)
+	const dialogOpen = useRef(false)
 	const importFiles = async (selected: FolderFile[]) => {
 		setChoosing(false)
 		if (disabled || pending) return
@@ -42,21 +43,38 @@ export function EnvironmentFolderImport({ disabled, onImport, onBusy }: {
 			file,
 			path: (file as FileWithPath).relativePath.replace(/^\//, ""),
 		}))),
-		onDropRejected: () => setChoosing(false),
+		// Every selection ends here, an empty folder included, before its files are accepted.
+		onDrop: () => {
+			dialogOpen.current = false
+			setChoosing(false)
+		},
 	})
 	// Browse: the window regains focus as the dialog closes, long before a large folder is
-	// read, so the wait starts there; cancelling the dialog ends it.
+	// read, so the wait starts there. The input's cancel event, which also answers an
+	// unchanged selection such as an empty folder, ends it whether it comes before or after.
 	const browse = () => {
-		window.addEventListener("focus", () => setChoosing(true), { once: true })
+		setFiles([])
+		dialogOpen.current = true
 		dropzone.open()
 	}
 	const { inputRef } = dropzone
 	useEffect(() => {
 		const input = inputRef.current
-		if (!input) return
-		const cancel = () => setChoosing(false)
-		input.addEventListener("cancel", cancel)
-		return () => input.removeEventListener("cancel", cancel)
+		const focus = () => {
+			if (!dialogOpen.current) return
+			dialogOpen.current = false
+			setChoosing(true)
+		}
+		const cancel = () => {
+			dialogOpen.current = false
+			setChoosing(false)
+		}
+		window.addEventListener("focus", focus)
+		input?.addEventListener("cancel", cancel)
+		return () => {
+			window.removeEventListener("focus", focus)
+			input?.removeEventListener("cancel", cancel)
+		}
 	}, [inputRef])
 	const reading = dropzone.isProcessing
 	const folder = files[0]?.path.split("/")[0] ?? null
@@ -70,7 +88,9 @@ export function EnvironmentFolderImport({ disabled, onImport, onBusy }: {
 	}
 	return (
 		<form
-			{...dropzone.getRootProps({ role: "form", "aria-label": "Import tool or skill" })}
+			{...dropzone.getRootProps({ role: "form", "aria-label": "Import tool or skill",
+				// A new folder replaces the last one, so the wait never names the previous folder.
+				onDrop: () => setFiles([]) })}
 			className="agent-hud__environment-controls"
 			data-drag-active={dropzone.isDragActive || undefined}
 			onSubmit={submit}>

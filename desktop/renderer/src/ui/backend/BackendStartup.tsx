@@ -25,7 +25,7 @@ export function BackendStartup() {
 	const [hasOpenedHud, setHasOpenedHud] = useState(false)
 	const status = startup.state !== "ready" ? startup : readiness
 	const starting = startup.state !== "ready" ? startup : null
-	const screen = useStartupScreen(status.state === "ready", startup.state === "stopping", retryConnection)
+	const screen = useStartupScreen(status.state === "ready", startup.state === "stopping")
 
 	useEffect(() => {
 		// Once opened, keep the HUD mounted through outages to retain local UI state.
@@ -33,7 +33,7 @@ export function BackendStartup() {
 	}, [status.state])
 
 	const backend: BackendOperations = {
-		restartApp: () => screen.cover(() => window.robozium.restartApp(), false),
+		restartApp: () => screen.cover(() => window.robozium.restartApp()),
 	}
 	// Failures show, with Retry, except during the expected outage while an operation runs
 	// or the app exits; a reconnect in progress shows only over the open HUD.

@@ -86,7 +86,7 @@ the PR that closes it.
 | Markdown and `<file src>` hub-file links, including sent images | W (new design for desktop) | Done (#131): web links open in the browser, hub files with their default application | 28 |
 | Dictation: Record, audio meter, `/transcribe`, microphone permission | E, W | Done (#131) | 21a |
 | Dependencies panel: sort, Check now, copy diagnostic | E, W | Done (#126) | 19 |
-| Backend restart/recreate (`BackendControls`) | E | Done (#126) | 19 |
+| Backend restart/recreate (`BackendControls`) | E | Done (#126); removed (#223), Restart app starts a new container | 19 |
 | Startup splash, handoff to the painted HUD, splash during restart | E | Done (#159): `ui/startup/StartupScreen.tsx` covers the app in the renderer | 21b |
 | Window 1260×780 default, 640×420 minimum, 90% of work area maximum, size saved | E | Done; the 90% cap applies to sizes the app picks, not to manual resizing | 22 |
 | Zoom ±0.1 within 0.5–3, saved | E | Done | 22 |
