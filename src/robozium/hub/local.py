@@ -107,7 +107,13 @@ def _check_examples(folder: Path, env: list[PurePosixPath]) -> None:
     for path in env:
         if path.name not in _ENV_EXAMPLE_NAMES:
             raise ValueError(f"{path} in {CATALOG_FILE} must be named env.example or .env.example")
-        _local_file(folder.resolve(), Path(path), f"environment example {path}")
+    missing = [path for path in env if not _inside_file(folder.resolve(), Path(path))]
+    if missing:
+        raise ValueError(_not_in_folder(missing))
+
+
+def _not_in_folder(paths: list[PurePosixPath]) -> str:
+    return f"listed in {CATALOG_FILE} but not in the folder: {', '.join(map(str, paths))}"
 
 
 @dataclass(frozen=True)
@@ -217,8 +223,9 @@ def _catalog_packages(root: Path, folder: Path, catalog: Catalog) -> _Packages:
     if folder.is_symlink() or not folder.resolve().is_relative_to(root):
         raise ValueError(f"imported folder must stay inside {root}: {folder}")
     base = folder.relative_to(root)
-    for path in catalog.packages:
-        _local_file(root, base / path / "__init__.py", f"{folder.name}: package {path}")
+    missing = [path / "__init__.py" for path in catalog.packages if not _inside_file(root, base / path / "__init__.py")]
+    if missing:
+        raise ValueError(f"{folder.name}: {_not_in_folder(missing)}")
     return {base / path: kind for path, kind in catalog.packages.items()}
 
 
@@ -298,11 +305,15 @@ def _import_capabilities(module_name: str, entrypoint: Path) -> tuple[Capability
         raise RuntimeError(f"{entrypoint}: {exc}") from exc
 
 
-def _local_file(root: Path, relative: Path, label: str) -> Path:
+def _inside_file(root: Path, relative: Path | PurePosixPath) -> bool:
     file = (root / relative).resolve()
-    if relative.is_absolute() or not file.is_relative_to(root) or not file.is_file():
+    return not relative.is_absolute() and file.is_relative_to(root) and file.is_file()
+
+
+def _local_file(root: Path, relative: Path, label: str) -> Path:
+    if not _inside_file(root, relative):
         raise ValueError(f"{label}: missing or invalid local file {relative}")
-    return file
+    return (root / relative).resolve()
 
 
 def _requirements(root: Path, packages: _Packages) -> list[Path]:
