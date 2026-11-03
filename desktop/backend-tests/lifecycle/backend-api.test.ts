@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { BackendApi } from "../src/backend-api.ts"
+import { BackendApi } from "../../src/backend-api.ts"
 
 /** An API answering each route with a fixed body and status, recording what was asked. */
 function api(routes: Record<string, { body: unknown; status?: number }>) {
