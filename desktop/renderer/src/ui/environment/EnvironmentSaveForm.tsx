@@ -3,7 +3,6 @@
 // Reset is confirmed in a toast, so the buttons never move. Save, the restart
 // controls the panel passes in, and Reset share one row.
 import { useState, type ReactNode, type SubmitEvent } from "react"
-import { showErrorToast } from "../../feedback/notices"
 import { Toast } from "../feedback/Toast"
 import { HudButton } from "../hud/HudButton"
 import { PasswordDialog } from "../hud/PasswordDialog"
@@ -16,8 +15,7 @@ type EnvironmentSaveFormProps = {
 	confirmPassword: boolean
 	canReset: boolean
 	onValidate: () => boolean
-	/** Resolves null once saved, otherwise the reason; "" when the save did not run. */
-	onSave: (password: string) => Promise<string | null>
+	onSave: (password: string) => Promise<boolean>
 	onReset: () => Promise<boolean>
 	children?: ReactNode
 }
@@ -35,16 +33,10 @@ export function EnvironmentSaveForm({
 		event.preventDefault()
 		if (!canSave || !onValidate()) return
 		if (needsPassword) setAsking(true)
-		else void saveWithoutPassword()
+		else void onSave("")
 	}
-	const saveWithoutPassword = async () => {
-		const failure = await onSave("")
-		if (failure) showErrorToast({ title: "Could not save settings", message: failure })
-	}
-	// The reason shows in the dialog, which stays open over the window until the user retries or cancels.
 	const save = async (password: string) => {
-		const failure = await onSave(password)
-		if (failure !== null) return failure || "The settings were not saved."
+		if (!await onSave(password)) return "The settings were not saved."
 		setAsking(false)
 		return null
 	}
