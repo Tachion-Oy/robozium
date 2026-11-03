@@ -1,5 +1,5 @@
-// Desktop import paths, the save reports whether it succeeded, and the
-// encryption password is entered in the password dialog instead of inline fields.
+// Desktop import paths: the save shows its own outcome, so the form only waits for it,
+// and the encryption password is entered in the password dialog instead of inline fields.
 // Reset is confirmed in a toast, so the buttons never move. Save, the restart
 // controls the panel passes in, and Reset share one row.
 import { useState, type ReactNode, type SubmitEvent } from "react"
@@ -15,7 +15,8 @@ type EnvironmentSaveFormProps = {
 	confirmPassword: boolean
 	canReset: boolean
 	onValidate: () => boolean
-	onSave: (password: string) => Promise<boolean>
+	/** Saves and reports the outcome itself; the form only waits for it. */
+	onSave: (password: string) => Promise<unknown>
 	onReset: () => Promise<boolean>
 	children?: ReactNode
 }

@@ -40,7 +40,9 @@ export function EnvironmentFolderImport({ disabled, onImport, onBusy }: {
 		noKeyboard: true,
 		disabled: disabled || pending,
 		// A folder that cannot be read reports why instead of doing nothing.
-		onError: error => showErrorToast({ title: "Import failed", message: error.message || "The folder could not be read." }),
+		onError: error => showErrorToast({ title: "Import failed", message: error.name === "NotAllowedError"
+			? "Robozium was not allowed to read the folder."
+			: `The folder could not be read: ${error.message || error.name}` }),
 		onDropAccepted: (selected: File[]) => void importFiles(selected.map(file => ({
 			file,
 			path: (file as FileWithPath).relativePath.replace(/^\//, ""),

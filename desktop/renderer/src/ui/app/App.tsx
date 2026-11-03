@@ -55,10 +55,10 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	const [focusRunEditor, setFocusRunEditor] = useState(false)
 	const runSession = useRunSession(client)
 	const messageLog = useMessageLog()
-	// While a backend restart or the close runs, nothing polls the backend, so a poll that
-	// fails against a stopping backend never flashes an error. Under the launch animation the
-	// screens load as usual, so the HUD is drawn before the animation fades into it.
-	const polling = !operating
+	// Polls wait for a connected backend and stop while a restart or the close runs, so a poll
+	// that fails against a stopping or starting backend never flashes an error. Under the launch
+	// animation the screens load as usual, so the HUD is drawn before the animation fades into it.
+	const polling = connected && !operating
 	const credentials = useCredentials(client, connected, !covered)
 	const showRun = () => { setFocusRunEditor(true); navigate({ type: "screen_selected", screen: "run" }) }
 	const projectMutations = useProjectMutations(client, {
@@ -113,7 +113,7 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 		onImported: result => environmentDraft.imported(result),
 		onRemoved: name => environmentDraft.removed(name),
 		onReset: () => environmentDraft.reset(),
-		onUnread: () => environmentDraft.reset(),
+		onUnread: () => environmentDraft.reload(),
 		// Keys that load end setup; a change that needs a restart locks the HUD. A write never changes the screen.
 		onSettled: credentials.refresh,
 	})

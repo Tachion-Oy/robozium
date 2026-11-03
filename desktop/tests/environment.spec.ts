@@ -142,11 +142,13 @@ test("a save refused as a conflict closes the dialog instead of asking for the p
 test("a save that the backend accepted is reported as saved even when reading the settings after it fails", async ({ desktop: { page }, backend }) => {
 	let fail = false
 	let saved = false
+	const suggestions = [{ name: "SUGGESTED", value: "x", secret: false, source: "tool" }]
 	backend.handlers.set("GET /credentials/environment", response => fail
 		? json(response, { detail: "Unavailable" }, 503)
-		: json(response, environment(saved ? { revision: "r2", entries: [entry("A", "2")] } : { entries: [entry("A", "1")] })))
+		: json(response, environment(saved ? { revision: "r2", entries: [entry("A", "2")], suggestions } : { entries: [entry("A", "1")], suggestions })))
 	backend.handlers.set("POST /credentials/environment", response => { saved = true; fail = true; json(response, { status: "saved" }) })
 	await openEnvironment(page, backend)
+	await panel(page).getByRole("button", { name: "Delete SUGGESTED" }).click()
 	await panel(page).getByRole("button", { name: "Change A" }).click()
 	await editor(page).getByLabel("Value for A").fill("2")
 	await editor(page).getByRole("button", { name: "Apply" }).click()
@@ -156,6 +158,8 @@ test("a save that the backend accepted is reported as saved even when reading th
 	// The settings are read again from scratch once the backend answers, so nothing reads as unsaved.
 	fail = false
 	await expect(panel(page).getByLabel("Current value for A")).toHaveText("2")
+	// The suggestion the user removed stays removed, so nothing reads as unsaved.
+	await expect(panel(page).getByRole("button", { name: "Delete SUGGESTED" })).toHaveCount(0)
 	await expect(saveForm(page).getByRole("button", { name: "Save" })).toBeDisabled()
 	expect(saves(backend)).toHaveLength(1)
 })
@@ -406,7 +410,7 @@ test("a dropped folder that cannot be read says so and uploads nothing", async (
 	const form = page.getByRole("form", { name: "Import tool or skill" })
 	await expect(form.getByRole("button", { name: "Browse folder" })).toBeEnabled()
 	await drop(form, { locked_tool: { "robozium.json": "{}" } }, "unreadable")
-	await expect(alert(page, "Import failed")).toContainText("Reading the folder was not allowed.")
+	await expect(alert(page, "Import failed")).toContainText("Robozium was not allowed to read the folder.")
 	expect(backend.requests.filter(request => request.path === "/credentials/environment/import")).toHaveLength(0)
 })
 
@@ -490,6 +494,23 @@ test("Restart app covers the HUD until the app exits, expects the outage, and a 
 	await expect(toast(page, "Backend unavailable")).toHaveCount(0)
 	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send("desktop:closing"))
 	await expect(page.locator(".startup .startup__label")).toHaveAttribute("data-label", "stopping")
+})
+
+test("while the backend is disconnected, Environment stops reading the settings", async ({ desktop: { page }, backend }) => {
+	backend.handlers.set("GET /credentials/environment", response => json(response, environment({ entries: [entry("A", "1")] })))
+	await page.clock.install()
+	await openEnvironment(page, backend)
+	await expect(panel(page).getByLabel("Current value for A")).toHaveText("1")
+	const reads = () => backend.requests.filter(request => request.path === "/credentials/environment").length
+	backend.handlers.set("GET /ready", response => json(response, { detail: "Backend gone" }, 503))
+	backend.handlers.set("GET /credentials/environment", response => json(response, { detail: "Backend gone" }, 503))
+	// The next readiness check fails, which disconnects the HUD.
+	await page.clock.fastForward(5001)
+	await expect(toast(page, "Backend unavailable")).toBeVisible()
+	const disconnected = reads()
+	// The settings poll every two seconds while connected; disconnected, they wait.
+	await page.clock.fastForward(10_000)
+	expect(reads()).toBe(disconnected)
 })
 
 test("Restart app confirms unsaved edits in the HUD before restarting", async ({ desktop: { app, page }, backend }) => {
