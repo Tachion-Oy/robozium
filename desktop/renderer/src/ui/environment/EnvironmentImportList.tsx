@@ -1,7 +1,6 @@
-// Each package has a Remove button.
+// Each import names its tools and skills and has a Remove button.
 import { useState } from "react"
 import type { EnvironmentImport } from "../../environment/environment-api"
-import { CapabilityItem } from "../hud/CapabilityItem"
 import { HudButton } from "../hud/HudButton"
 
 type EnvironmentImportListProps = {
@@ -9,6 +8,8 @@ type EnvironmentImportListProps = {
 	disabled: boolean
 	onRemove: (name: string) => Promise<boolean>
 }
+
+const KINDS = [["Tools", "tool"], ["Skills", "skill"]] as const
 
 function ImportRow({ item, disabled, onRemove }: { item: EnvironmentImport, disabled: boolean, onRemove: (name: string) => Promise<boolean> }) {
 	const [confirming, setConfirming] = useState(false)
@@ -37,24 +38,19 @@ function ImportRow({ item, disabled, onRemove }: { item: EnvironmentImport, disa
 				</div>
 			</div>
 			{item.error !== null && <p className="agent-hud__environment-value break-all">{item.error}</p>}
-			<ul className="flex flex-wrap gap-3">
-				{item.capabilities.map(capability => (
-					<li key={capability.name}><CapabilityItem capability={capability} /></li>
-				))}
-			</ul>
+			{KINDS.map(([label, kind]) => {
+				const names = item.capabilities.filter(capability => capability.kind === kind).map(capability => capability.name.replaceAll("_", " "))
+				return names.length > 0 && <p key={kind} className="break-words">{label}: {names.join(", ")}</p>
+			})}
 		</li>
 	)
 }
 
 export function EnvironmentImportList({ imported, disabled, onRemove }: EnvironmentImportListProps) {
+	if (imported.length === 0) return <p className="agent-hud__environment-value">No imports yet.</p>
 	return (
-		<section aria-label="Tools & skills" className="agent-hud__environment-imports flex flex-col gap-3 pt-4">
-			<h3 className="agent-hud__capability-group-heading">Tools &amp; skills</h3>
-			{imported.length === 0 ? <p className="agent-hud__environment-value">No imports yet.</p> : (
-				<ul className="flex flex-col">
-					{imported.map(item => <ImportRow key={item.name} item={item} disabled={disabled} onRemove={onRemove} />)}
-				</ul>
-			)}
-		</section>
+		<ul className="flex flex-col">
+			{imported.map(item => <ImportRow key={item.name} item={item} disabled={disabled} onRemove={onRemove} />)}
+		</ul>
 	)
 }

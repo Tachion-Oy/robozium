@@ -30,10 +30,6 @@ button.agent-hud__option:not(:disabled):hover {
   border-color: var(--term-green);
 }
 
-.agent-hud__capability-static {
-  cursor: default;
-}
-
 .agent-hud__row-tools {
   color: color-mix(in oklab, var(--term-blue) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
   border-color: color-mix(in oklab, var(--term-blue) clamp(0%, 62% * var(--tune-edge, 1), 100%), transparent);

@@ -194,13 +194,13 @@
   text-shadow: var(--notification-toast-glow);
 }
 
-/*  Light error toast variant  */
+/*  Light error toast variant: the tone's accent at the strength the row buttons use. */
 :root[data-theme="light"] .agent-error-toast {
     --notification-toast-bg: var(--hud-input-bg);
-    border: 1px solid
+    border: 2px solid
     color-mix(
       in oklab,
-      var(--notification-toast-accent) 52%,
+      var(--notification-toast-accent) clamp(0%, 62% * var(--tune-edge, 1), 100%),
       var(--hud-input-border)
     );
     border-radius: 0.48rem;
@@ -211,7 +211,7 @@
     ),
     color-mix(
       in oklab,
-      var(--notification-toast-accent) 8%,
+      var(--notification-toast-accent) clamp(0%, 20% * var(--tune-fill, 1), 100%),
       var(--hud-input-bg)
     );
     background-size: auto;
@@ -221,7 +221,10 @@
       color-mix(in oklab, var(--hud-control-ink) 18%, transparent);
     backdrop-filter: blur(8px)
 }
-:root[data-theme="light"] .agent-error-toast__title,
+:root[data-theme="light"] .agent-error-toast__title {
+    color: color-mix(in oklab, var(--notification-toast-accent) clamp(0%, 85% * var(--tune-text, 1), 100%), var(--hud-control-ink));
+    text-shadow: none
+}
 :root[data-theme="light"] .agent-error-toast__message {
     color: var(--hud-control-ink);
     text-shadow: none
@@ -234,13 +237,13 @@
 :root[data-theme="light"] :is(.agent-error-toast__dismiss, .agent-error-toast__action) {
     border-color: color-mix(
     in oklab,
-    var(--notification-toast-accent) 48%,
+    var(--notification-toast-accent) clamp(0%, 62% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
     border-radius: 0.32rem;
     background: color-mix(
     in oklab,
-    var(--notification-toast-accent) 10%,
+    var(--notification-toast-accent) clamp(0%, 18% * var(--tune-fill, 1), 100%),
     var(--hud-input-bg)
   );
     color: var(--hud-control-ink);

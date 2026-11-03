@@ -231,14 +231,16 @@ test("importing a folder uploads the files its catalog lists under their relativ
 	let pending: ServerResponse | undefined
 	backend.handlers.set("POST /credentials/environment/import", response => { pending = response })
 	await panel(page).getByRole("button", { name: "Import", exact: true }).click()
-	// The waiting button pulses until the outcome arrives.
-	await expect(panel(page).getByRole("button", { name: "Importing…" })).toHaveAttribute("aria-busy", "true")
+	// The screen shows the wait and takes no input until the outcome arrives.
+	await expect(panel(page).getByRole("status", { name: "Importing local_tool…" })).toBeVisible()
+	await expect(panel(page).locator(".agent-hud__busy-content").first()).toHaveAttribute("inert", "")
 	current = environment({ imports: [imported] })
 	// The catalog is read before the upload starts, so the request may arrive after the busy state.
 	await expect.poll(() => pending).toBeDefined()
 	status.restart = true
 	json(pending!, { imported, suggestions: [{ name: "LOCAL_TOOL_KEY", value: "", secret: false, source: "local_tool" }] })
-	await expect(panel(page).getByRole("button", { name: "Import", exact: true })).not.toHaveAttribute("aria-busy")
+	await expect(panel(page).getByRole("status", { name: "Importing local_tool…" })).toHaveCount(0)
+	await expect(panel(page).locator(".agent-hud__busy-content").first()).not.toHaveAttribute("inert")
 	await expect(page.getByRole("status").filter({ hasText: "Imported" })).toContainText("Tool local_tool found and imported. Available after restart.")
 	await expect(toast(page, "Restart required")).toContainText("Restart to apply your changes.")
 	await expect(panel(page)).toContainText("Available on next start")
@@ -303,6 +305,7 @@ test("a dropped folder uploads the files its catalog lists under their relative 
 		".venv": { "unlisted.py": "" },
 	} })
 	await expect(form.getByLabel("Selected tool or skill folder")).toHaveValue("dropped_tool")
+	await expect(panel(page).getByRole("status", { name: "Importing dropped_tool…" })).toBeVisible()
 	await expect.poll(() => pending).toBeDefined()
 	const imported = { name: "dropped_tool", active: false, error: null, variables: ["DROPPED_KEY"],
 		capabilities: [{ name: "search", kind: "tool", selectable: true, loading: null }] }
@@ -337,7 +340,7 @@ test("an import that did not load shows why and can be removed", async ({ deskto
 		json(response, { status: "removed" })
 	})
 	await openEnvironment(page, backend)
-	const imports = panel(page).getByRole("region", { name: "Tools & skills" })
+	const imports = panel(page).getByRole("region", { name: "Tools and skills" })
 	await expect(imports).toContainText("old_tool Not loaded")
 	await expect(imports).toContainText("robozium.json is missing at the folder root")
 	await expect(imports).not.toContainText("Available on next start")
@@ -354,11 +357,11 @@ test("removing an import asks for confirmation, keeps it on failure, and asks fo
 	backend.handlers.set("GET /credentials/environment", response => json(response, current))
 	backend.handlers.set("DELETE /credentials/environment/imports/local_tool", response => json(response, { detail: "Stop all runs first" }, 409))
 	await openEnvironment(page, backend)
-	const imports = panel(page).getByRole("region", { name: "Tools & skills" })
+	const imports = panel(page).getByRole("region", { name: "Tools and skills" })
 	await imports.getByRole("button", { name: "Remove local_tool" }).click()
 	await imports.getByRole("button", { name: "Confirm removing local_tool" }).click()
 	await expect(alert(page, "Remove failed")).toContainText("Stop all runs first")
-	await expect(imports.getByText("local tool", { exact: true })).toBeVisible()
+	await expect(imports).toContainText("Tools: local tool")
 	backend.handlers.set("DELETE /credentials/environment/imports/local_tool", response => {
 		current = environment()
 		status.restart = true
