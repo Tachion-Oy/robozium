@@ -150,6 +150,7 @@ def create_app(*, deployment: Hub, require_credentials: bool = False) -> FastAPI
     app.state.hub = deployment
     app.state.ready = False
     app.state.dependency_health = None
+    app.state.dependency_refreshes = set()
     app.state.run_manager = manager
     app.state.projects = projects
     app.state.transcription_endpoint = deployment.settings.transcription_endpoint

@@ -29,3 +29,8 @@ export async function getCredentialStatus(client: DesktopApiClient, signal: Abor
 export async function unlockCredentials(client: DesktopApiClient, password: string, signal: AbortSignal): Promise<CredentialStatus> {
 	return parseCredentialStatus(await client.request("/credentials/unlock", { method: "POST", json: { password }, signal }))
 }
+
+/** Forget loaded secrets in the backend process; the encrypted file stays. */
+export async function clearCredentials(client: DesktopApiClient, signal: AbortSignal): Promise<CredentialStatus> {
+	return parseCredentialStatus(await client.request("/credentials/clear", { method: "POST", signal }))
+}

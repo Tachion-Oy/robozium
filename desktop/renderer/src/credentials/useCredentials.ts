@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { useClientLifetime } from "../api/useClientLifetime"
-import { getCredentialStatus, unlockCredentials, type CredentialStatus } from "./credentials-api"
+import { clearCredentials, getCredentialStatus, unlockCredentials, type CredentialStatus } from "./credentials-api"
 
 export interface CredentialsState {
 	/** Null until the first read succeeds. */
@@ -18,6 +18,7 @@ export interface CredentialsState {
 	ensureUnlocked: () => Promise<boolean>
 	/** Resolves true once the backend unlocked and answers the prompt; a failure is never retried. */
 	unlock: (password: string) => Promise<boolean>
+	/** Lock the backend and answer the prompt: a cancelled password never leaves secrets loaded. */
 	cancel: () => void
 }
 
@@ -89,9 +90,24 @@ export function useCredentials(client: DesktopApiClient, connected: boolean, vis
 		}
 	}
 
+	// A lost unlock reply may still have loaded the secrets: Cancel always locks the backend.
+	const cancel = () => {
+		version.current += 1
+		setStatus(current => current && { ...current, locked: true })
+		answer(false)
+		const signal = lifetime()
+		void (async () => {
+			try {
+				await withDeadline(signal, requestSignal => clearCredentials(client, requestSignal))
+			} catch {
+				// The status stays locked: a launch asks again, and the backend refuses locked work.
+			}
+		})()
+	}
+
 	return {
 		status, refresh, asking, prompt, unlock,
 		ensureUnlocked: () => unlockable ? prompt() : Promise.resolve(!status?.locked),
-		cancel: () => answer(false),
+		cancel,
 	}
 }
