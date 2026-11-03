@@ -187,6 +187,25 @@ test("a reconnect that fails after a restart shows the error and Retry in a toas
 	await expect(backendButton(page, "Restart backend")).toBeVisible()
 })
 
+for (const outcome of ["fails", "succeeds"] as const) test(`a close during a restart keeps Stopping when the restart ${outcome}`, async ({ desktop: { app, page }, backend }) => {
+	const { calls, finish } = await holdBackendOperations(app)
+	await openEnvironment(page, backend)
+	await backendButton(page, "Restart backend").click()
+	await expect.poll(calls).toEqual(["restart"])
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send("desktop:closing"))
+	const label = page.locator(".startup .startup__label")
+	await expect(label).toHaveAttribute("data-label", "stopping")
+	backend.handlers.set("GET /ready", response => json(response, { detail: "Stopping" }, 503))
+	await finish(outcome === "fails" ? "Robozium is closing." : undefined)
+	// The five-second readiness poll fails on the stopping backend; a released screen would report it.
+	const before = backend.requests.filter(request => request.path === "/ready").length
+	await expect.poll(() => backend.requests.filter(request => request.path === "/ready").length, { timeout: 10_000 }).toBeGreaterThan(before)
+	await expect(label).toHaveAttribute("data-label", "stopping")
+	await expect(page.locator(".backend-startup__app")).toHaveAttribute("inert")
+	await expect(toast(page, "Backend unavailable")).toHaveCount(0)
+	await expect(page.getByRole("alert").filter({ hasText: "Backend operation failed" })).toHaveCount(0)
+})
+
 for (const theme of ["dark", "light"]) {
 	test(`long identifiers and diagnostics stay inside their cells in ${theme}`, async ({ desktop: { app, page }, backend }, testInfo) => {
 		await openDependencies(page, backend, [dependency("executable:libreoffice", { redacted_metadata: { display_name: "libreoffice", executable: "libreoffice" } }), {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 export type StartupScreenMode = "intro" | "loading"
 
@@ -16,23 +16,43 @@ export interface StartupScreenState {
 	/**
 	 * Show the loading screen while `operation` runs, then check readiness again; the
 	 * screen fades once the backend is ready. A failure removes the screen. `release: false`
-	 * keeps the screen after success, for an operation that ends the app.
+	 * keeps the screen after success, for an operation that ends the app. Once the app
+	 * closes, the operation's end changes nothing and the promise never settles.
 	 */
 	cover: <T>(operation: () => Promise<T>, release?: boolean) => Promise<T>
 }
+
+const untilExit = new Promise<never>(() => {})
 
 /** Own when the startup screen covers the application: at launch, during restarts and while the app closes. */
 export function useStartupScreen(backendReady: boolean, reconnect: () => void): StartupScreenState {
 	const [mode, setMode] = useState<StartupScreenMode | null>("intro")
 	const [busy, setBusy] = useState(false)
 	const [closing, setClosing] = useState(false)
+	const closingNow = useRef(false)
 
-	useEffect(() => window.robozium.onClosing(() => {
+	useEffect(() => {
+		let active = true
 		// Nothing follows the close but the exit, so the screen stays.
-		setClosing(true)
-		setMode("loading")
-		setBusy(true)
-	}), [])
+		const close = () => {
+			if (!active) return
+			closingNow.current = true
+			setClosing(true)
+			setMode("loading")
+			setBusy(true)
+		}
+		const unsubscribe = window.robozium.onClosing(close)
+		// A document loaded after the close began, such as a reload, reads it from the status.
+		const read = async () => {
+			try {
+				if ((await window.robozium.getBackendStatus()).state === "stopping") close()
+			} catch {
+				// Startup reports an unreadable status itself.
+			}
+		}
+		void read()
+		return () => { active = false; unsubscribe() }
+	}, [])
 
 	const dismiss = useCallback(() => setMode(null), [])
 	const cover = async <T>(operation: () => Promise<T>, release = true): Promise<T> => {
@@ -40,6 +60,7 @@ export function useStartupScreen(backendReady: boolean, reconnect: () => void): 
 		setBusy(true)
 		try {
 			const result = await operation()
+			if (closingNow.current) return await untilExit
 			if (release) {
 				// Readiness checks stop while the backend is down. Restarting them marks the
 				// backend not ready in the same render that ends the operation.
@@ -48,6 +69,8 @@ export function useStartupScreen(backendReady: boolean, reconnect: () => void): 
 			}
 			return result
 		} catch (error) {
+			// The close ends a pending restart; its failure must not uncover the window.
+			if (closingNow.current) return await untilExit
 			if (release) reconnect()
 			setMode(null)
 			setBusy(false)

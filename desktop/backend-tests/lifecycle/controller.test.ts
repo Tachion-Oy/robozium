@@ -34,6 +34,11 @@ interface FakePodman {
 	logs?: string
 	intercept?: (args: string[], command: CommandOptions) => Promise<string | void>
 	mutate?: (value: Inspection) => void
+	/** The API's projects; a cancel makes a project dormant after `cancelPolls` further listings. */
+	projects?: { slug: string; status: string }[]
+	cancelPolls?: number
+	/** The API requests the controller made, in order. */
+	requests?: string[]
 }
 type FixtureOptions = Partial<FakePodman> & { hub?: string; findPodman?: () => string | undefined; controller?: Partial<ControllerOptions> }
 const ranges = [{ size: 1 }, { size: 65536 }]
@@ -93,7 +98,17 @@ function fixture(t: TestContext, options: FixtureOptions = {}) {
 	}
 	const engine = new PodmanEngine({ run, findPodman: options.findPodman ?? (() => "/test/podman") })
 	const controller = new BackendController({ profile, source, mode: "mock", engine, checkPort: async () => state.available,
-		fetch: async url => { assert.equal(url, "http://127.0.0.1:18000/ready"); return new globalThis.Response(JSON.stringify({ status: state.ready ? "ready" : "starting" })) },
+		fetch: async (url, init) => {
+			const route = String(url).replace("http://127.0.0.1:18000", "")
+			if (route === "/ready") return new globalThis.Response(JSON.stringify({ status: state.ready ? "ready" : "starting" }))
+			state.requests = [...state.requests ?? [], `${init?.method ?? "GET"} ${route}`]
+			if (route === "/projects") {
+				if (state.cancelPolls !== undefined && state.cancelPolls-- <= 0) state.projects = state.projects?.map(project => ({ ...project, status: "dormant" }))
+				return new globalThis.Response(JSON.stringify(state.projects ?? []))
+			}
+			if (/^\/projects\/[^/]+\/cancel$/.test(route)) { state.cancelPolls ??= 2; return new globalThis.Response(JSON.stringify({ ok: true })) }
+			throw new Error(`Unexpected API request: ${route}`)
+		},
 		readinessTimeout: 30, pollInterval: 1, ...options.controller })
 	return { controller, state, settings, source, profile }
 }
@@ -172,6 +187,28 @@ test("reuses a matching image, attaches to its running API, and stops only verif
 	await assert.rejects(controller.start(), /closing/)
 })
 
+test("closing stops each active run as Stop does and waits for it before stopping the container", async t => {
+	const { controller, state } = fixture(t, { exists: true, running: true, projects: [
+		{ slug: "busy", status: "awaiting_user_input" }, { slug: "idle", status: "dormant" }, { slug: "sync", status: "syncing" },
+	] })
+	await controller.start()
+	const close = controller.close()
+	assert.deepEqual(controller.snapshot(), { state: "stopping", message: "Stopping runs and the backend…" })
+	await close
+	assert.deepEqual(state.requests, ["GET /projects", "POST /projects/busy/cancel", "POST /projects/sync/cancel", "GET /projects", "GET /projects", "GET /projects"])
+	assert.deepEqual(commands(state).at(-1), ["stop", "--time", "30", id])
+})
+
+test("an unreachable API still lets closing stop the container", async t => {
+	const { controller, state } = fixture(t, { exists: true, running: true, controller: { fetch: async url => {
+		if (String(url).endsWith("/ready")) return new globalThis.Response(JSON.stringify({ status: "ready" }))
+		throw new TypeError("fetch failed")
+	} } })
+	await controller.start()
+	await controller.close()
+	assert.deepEqual(commands(state).at(-1), ["stop", "--time", "30", id])
+})
+
 for (const cached of ["", "old-source-hash"]) test(`builds when the cached image identifier is ${cached || "absent"}`, async t => {
 	const { controller, state, settings, source } = fixture(t, { cached })
 	await controller.start()
@@ -236,12 +273,13 @@ test("build output flushed after shutdown aborts startup leaves the status alone
 		} })
 	const rejected = assert.rejects(controller.start(), /cancel/)
 	await started
-	const before = controller.snapshot()
 	const closed = controller.close()
+	const stopping = controller.snapshot()
+	assert.equal(stopping.state, "stopping")
 	flush()
 	await closed
 	await rejected
-	assert.deepEqual(controller.snapshot(), before)
+	assert.deepEqual(controller.snapshot(), stopping)
 })
 
 for (const phase of ["build", "run", "readiness"]) test(`closing during ${phase} cancels startup, waits, and uses a fresh cleanup signal`, async t => {
@@ -300,7 +338,7 @@ test("inherited Robozium settings cannot change ownership, mounts or mode", asyn
 	assert.ok(run.args.includes(`fi.tachion.robozium.desktop.project=${settings.project}`))
 	assert.ok(run.args.includes(`${path.join(settings.runtime, "hub")}:/hub`), "without a hub folder the runtime keeps its own hub")
 	assert.deepEqual(run.args.slice(run.args.indexOf(`localhost/${settings.project}-api`) + 1),
-		["uvicorn", "robozium.api.app:mock_app", "--factory", "--host", "127.0.0.1", "--port", "18000", "--workers", "1", "--timeout-graceful-shutdown", "2"])
+		["uvicorn", "robozium.api.app:mock_app", "--factory", "--host", "127.0.0.1", "--port", "18000", "--workers", "1"])
 	assert.match(state.environment ?? "", /^ROBOZIUM_MODE=mock$/m)
 	await controller.close()
 })

@@ -168,8 +168,11 @@ export class BackendController {
 		}
 
 		this.closing = true
+		// Runs exist only on a backend that became ready.
+		const runsPossible = this.status.state === "ready"
+		this.status = { state: "stopping", message: "Stopping runs and the backend…" }
 		this.startupAbort.abort()
-		this.pendingShutdown = this.stopBackend()
+		this.pendingShutdown = this.stopBackend(runsPossible)
 		return this.pendingShutdown
 	}
 
@@ -385,7 +388,7 @@ export class BackendController {
 		throw new Error(`The backend stopped during startup${reason ? `: ${reason}` : ". Check the desktop container log"}. Your data is preserved.`)
 	}
 
-	private async stopBackend(): Promise<void> {
+	private async stopBackend(runsPossible: boolean): Promise<void> {
 		try {
 			await this.pendingStartup
 		} catch {
@@ -399,6 +402,7 @@ export class BackendController {
 			// Shutdown has its own deadline; startup's signal is already cancelled.
 			const cleanup = { signal: AbortSignal.timeout(45_000), timeout: 45_000 }
 			const containers = await this.ownedContainers(cleanup)
+			if (runsPossible && containers.some(container => container.running)) await this.cancelRuns()
 			if (containers.length > 0) {
 				const ids = containers.map(container => container.id)
 				await this.engine.stop(ids, backendStopTimeoutSeconds, this.call(cleanup))
@@ -406,6 +410,31 @@ export class BackendController {
 		} finally {
 			// After the container, so no backend call is cut off mid-script.
 			await this.hostServices.stop()
+		}
+	}
+
+	/**
+	 * Stop every run as the HUD's Stop does and wait until each project is dormant. A run's
+	 * stream lasts until the run ends, and the API's own shutdown waits for open streams.
+	 * An unreachable API or a slow cancellation leaves the rest to the engine's stop.
+	 */
+	private async cancelRuns(): Promise<void> {
+		const signal = AbortSignal.timeout(20_000)
+		const request = async (route: string, method = "GET"): Promise<unknown> => {
+			const response = await (this.options.fetch ?? fetch)(`${this.connection().baseUrl}${route}`, {
+				method, headers: { Origin: "robozium://app" }, signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]),
+			})
+			if (!response.ok) throw new Error(`${method} ${route} returned ${response.status}`)
+			return response.json()
+		}
+		const active = async () => (await request("/projects") as { slug: string; status: string }[])
+			.filter(project => project.status !== "dormant")
+		try {
+			const projects = await active()
+			for (const project of projects) await request(`/projects/${encodeURIComponent(project.slug)}/cancel`, "POST")
+			while ((await active()).length > 0) await delay(this.options.pollInterval ?? 250, undefined, { signal })
+		} catch (error) {
+			this.log(`Runs were not cancelled before the backend stopped: ${error instanceof Error ? error.message : String(error)}\n`)
 		}
 	}
 
