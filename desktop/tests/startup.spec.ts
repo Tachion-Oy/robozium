@@ -173,3 +173,13 @@ test("closing during the launch animation still shows Stopping", async ({ fakeBa
 		await rm(directory, { recursive: true, force: true })
 	}
 })
+
+test("a document loaded during the close, such as a reload, shows Stopping from the status", async ({ desktop: { app, page } }) => {
+	await app.evaluate(({ ipcMain }) => {
+		ipcMain.removeHandler("desktop:backend-status")
+		ipcMain.handle("desktop:backend-status", () => ({ state: "stopping", message: "Stopping runs and the backend…" }))
+	})
+	await page.reload()
+	await expect(page.locator(`${screen} .startup__label`)).toHaveAttribute("data-label", "stopping")
+	await expect(page.getByRole("region", { name: "Notifications" }).locator(".agent-error-toast--visible")).toHaveCount(0)
+})

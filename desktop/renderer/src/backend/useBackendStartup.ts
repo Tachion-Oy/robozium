@@ -3,7 +3,7 @@ import type { BackendStatus } from "../../../src/bridge"
 import { DesktopApiClient } from "../api/client"
 
 type StartupState =
-	| { state: "starting" | "error"; message: string; action?: BackendStatus["action"]; stage?: BackendStatus["stage"]; progress?: number }
+	| { state: "starting" | "error" | "stopping"; message: string; action?: BackendStatus["action"]; stage?: BackendStatus["stage"]; progress?: number }
 	| { state: "ready"; client: DesktopApiClient }
 
 /** Own backend startup polling and discover the renderer's connection once ready. */

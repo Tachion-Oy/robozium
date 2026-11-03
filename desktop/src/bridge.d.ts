@@ -1,7 +1,8 @@
 // The desktop bridge contract shared by main, preload and the renderer. It imports nothing,
 // so the renderer's browser type check never sees Node or Electron types.
 export interface BackendStatus {
-	state: "starting" | "ready" | "error"
+	/** "stopping": the app is closing; it stops the runs and the backend, then exits. */
+	state: "starting" | "ready" | "error" | "stopping"
 	message: string
 	/** The failure is the hub folder's: the user can choose another one, then retry. */
 	action?: "choose-hub-folder"

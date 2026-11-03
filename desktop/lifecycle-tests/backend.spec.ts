@@ -324,17 +324,19 @@ test("a launch while the app closes starts the app again once the backend has st
 	await createAndLaunch(page, "Relaunch while closing")
 	await expect(page.getByRole("status", { name: "Run status" })).toContainText("Awaiting input")
 	await app.evaluate(({ app }, marker) => {
-		app.relaunch = () => process.getBuiltinModule("fs").writeFileSync(marker, "relaunch")
+		app.relaunch = options => process.getBuiltinModule("fs").writeFileSync(marker, JSON.stringify(options))
 	}, marker)
 	const exited = once(app.process(), "exit")
 	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())
 	await expect(page.locator(".startup .startup__label")).toHaveAttribute("data-label", "stopping")
-	execFileSync(app.process().spawnfile, [desktop, "--mock", "--ozone-platform=x11"], {
+	// The relaunch takes this launch's arguments, not the closing one's.
+	const args = [desktop, "--mock", "--ozone-platform=x11", "--relaunch-test"]
+	execFileSync(app.process().spawnfile, args, {
 		env: { ...process.env, ROBOZIUM_DESKTOP_TEST_DATA: runtime.profile },
 		cwd: runtime.directory, timeout: 15_000, stdio: "pipe",
 	})
 	expect(await exited).toEqual([0, null])
-	expect(await readFile(marker, "utf8")).toBe("relaunch")
+	expect(JSON.parse(await readFile(marker, "utf8"))).toEqual({ args })
 })
 
 test("closing and reopening preserves project data and reuses the backend image", async ({ runtime }) => {
@@ -355,16 +357,15 @@ test("closing and reopening preserves project data and reuses the backend image"
 	await writeFile(proof, "native data survives shutdown\n")
 	await test.step("Close the window during the run: Stopping shows, the run cancels and the API exits cleanly", async () => {
 		const exited = once(app.process(), "exit")
-		const started = Date.now()
 		await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())
 		await expect(page.locator(".startup .startup__label")).toHaveAttribute("data-label", "stopping")
 		expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(true)
 		expect(await exited).toEqual([0, null])
-		// Well inside the engine's stop timeout, after which it would kill the API.
-		expect(Date.now() - started).toBeLessThan(15_000)
 		expect(execFileSync(podman, ["inspect", "--format", "{{.State.Running}}", container], { encoding: "utf8" }).trim()).toBe("false")
-		// The API cancelled the run as Stop does and finished its own shutdown before exiting.
+		// The desktop pressed Stop on the run, and the API finished its own shutdown, which
+		// the engine's stop timeout would otherwise have cut short with a kill.
 		const { stdout, stderr } = spawnSync(podman, ["logs", container], { encoding: "utf8", timeout: 15_000 })
+		expect(stdout + stderr).toContain('"POST /projects/native-lifecycle/cancel HTTP/1.1" 200')
 		expect(stdout + stderr).toContain("Agent finished: orchestrator (status=cancelled)")
 		expect(stdout + stderr).toContain("Application shutdown complete.")
 		expect(stdout + stderr).not.toContain("Run shutdown timed out")
