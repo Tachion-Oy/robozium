@@ -1,6 +1,7 @@
 import { expect, test as base, type ElectronApplication, type Page } from "@playwright/test"
 import { execFileSync, spawnSync, type ChildProcess } from "node:child_process"
 import { once } from "node:events"
+import { existsSync } from "node:fs"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import net from "node:net"
 import { tmpdir } from "node:os"
@@ -318,25 +319,28 @@ test("a duplicate launch focuses the first window and cannot stop its backend", 
 	expect(execFileSync(podman, ["inspect", "--format", "{{.State.Running}}", container], { encoding: "utf8" }).trim()).toBe("true")
 })
 
-test("a launch while the app closes starts the app again once the backend has stopped", async ({ runtime }) => {
+test("a launch while the app closes brings the closing window forward and does not start the app again", async ({ runtime }) => {
 	const marker = path.join(runtime.directory, "relaunched")
 	const { app, page } = await launchConnected(runtime)
-	await createAndLaunch(page, "Relaunch while closing")
+	await createAndLaunch(page, "Launch while closing")
 	await expect(page.getByRole("status", { name: "Run status" })).toContainText("Awaiting input")
-	await app.evaluate(({ app }, marker) => {
-		app.relaunch = options => process.getBuiltinModule("fs").writeFileSync(marker, JSON.stringify(options))
+	await app.evaluate(({ app, BrowserWindow }, marker) => {
+		app.relaunch = () => process.getBuiltinModule("fs").writeFileSync(marker, "relaunch")
+		const window = BrowserWindow.getAllWindows()[0]
+		const focus = window.focus.bind(window)
+		Reflect.set(globalThis, "focusRequests", 0)
+		window.focus = () => { Reflect.set(globalThis, "focusRequests", Number(Reflect.get(globalThis, "focusRequests")) + 1); focus() }
 	}, marker)
 	const exited = once(app.process(), "exit")
 	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())
 	await expect(page.locator(".startup .startup__label")).toHaveAttribute("data-label", "stopping")
-	// The relaunch takes this launch's arguments, not the closing one's.
-	const args = [desktop, "--mock", "--ozone-platform=x11", "--relaunch-test"]
-	execFileSync(app.process().spawnfile, args, {
+	execFileSync(app.process().spawnfile, [desktop, "--mock", "--ozone-platform=x11"], {
 		env: { ...process.env, ROBOZIUM_DESKTOP_TEST_DATA: runtime.profile },
 		cwd: runtime.directory, timeout: 15_000, stdio: "pipe",
 	})
+	await expect.poll(() => app.evaluate(() => Reflect.get(globalThis, "focusRequests"))).toBe(1)
 	expect(await exited).toEqual([0, null])
-	expect(JSON.parse(await readFile(marker, "utf8"))).toEqual({ args })
+	expect(existsSync(marker)).toBe(false)
 })
 
 test("closing and reopening preserves project data and reuses the backend image", async ({ runtime }) => {

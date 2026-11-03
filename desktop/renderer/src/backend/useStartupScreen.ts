@@ -24,35 +24,26 @@ export interface StartupScreenState {
 
 const untilExit = new Promise<never>(() => {})
 
-/** Own when the startup screen covers the application: at launch, during restarts and while the app closes. */
-export function useStartupScreen(backendReady: boolean, reconnect: () => void): StartupScreenState {
+/**
+ * Own when the startup screen covers the application: at launch, during restarts and while
+ * the app closes. The close arrives as main's event, or as the status a document loaded
+ * during the close reads at startup.
+ */
+export function useStartupScreen(backendReady: boolean, stopping: boolean, reconnect: () => void): StartupScreenState {
 	const [mode, setMode] = useState<StartupScreenMode | null>("intro")
 	const [busy, setBusy] = useState(false)
 	const [closing, setClosing] = useState(false)
 	const closingNow = useRef(false)
 
-	useEffect(() => {
-		let active = true
-		// Nothing follows the close but the exit, so the screen stays.
-		const close = () => {
-			if (!active) return
-			closingNow.current = true
-			setClosing(true)
-			setMode("loading")
-			setBusy(true)
-		}
-		const unsubscribe = window.robozium.onClosing(close)
-		// A document loaded after the close began, such as a reload, reads it from the status.
-		const read = async () => {
-			try {
-				if ((await window.robozium.getBackendStatus()).state === "stopping") close()
-			} catch {
-				// Startup reports an unreadable status itself.
-			}
-		}
-		void read()
-		return () => { active = false; unsubscribe() }
+	// Nothing follows the close but the exit, so the screen stays.
+	const close = useCallback(() => {
+		closingNow.current = true
+		setClosing(true)
+		setMode("loading")
+		setBusy(true)
 	}, [])
+	useEffect(() => window.robozium.onClosing(close), [close])
+	useEffect(() => { if (stopping) close() }, [stopping, close])
 
 	const dismiss = useCallback(() => setMode(null), [])
 	const cover = async <T>(operation: () => Promise<T>, release = true): Promise<T> => {
