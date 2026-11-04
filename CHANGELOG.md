@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.5.5 - 2026-11-04
+
+- Update RoboZ to 0.15.1. The agent's system message carries the session's
+  start time, so the agent knows when the session began before its first
+  reply.
+
 ## 0.5.4 - 2026-11-04
 
 - The window opens at half the screen's width and height on every start, so
