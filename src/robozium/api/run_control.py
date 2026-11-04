@@ -17,7 +17,7 @@ from roboz.models import Str, StrImage
 from roboz.runtime.events import EventSink, PipeEvent, RunLifecycleEvent
 from roboz.runtime.pipe import EventPipe
 
-from robozium.api.attachments import AttachmentInfo, RunAttachments, UploadedImage
+from robozium.api.attachments import AttachmentInfo, RunAttachments, UploadedFile
 from robozium.api.projects import Project
 from robozium.api.run_events import RunEvents
 from robozium.api.state import CapabilitySelection, ProjectRunItem, RunState, RunStatus
@@ -295,35 +295,35 @@ class RunControl:
             if images and not self._prompt_accepts_images:
                 raise ValueError("The active prompt does not accept images")
 
-    def check_upload(self, prompt_id: str | None) -> None:
+    def check_upload(self, prompt_id: str | None, *, image: bool = False) -> None:
         with self._lock:
             if self._cancel_requested or self._status.is_terminal:
                 raise ValueError("run is cancelling or has finished")
             if prompt_id is not None:
-                self.check_reply(prompt_id, images=True)
+                self.check_reply(prompt_id, images=image)
 
-    def stage_image(
-        self, prompt_id: str | None, image: UploadedImage, upload_id: UUID | None = None
+    def stage_attachment(
+        self, prompt_id: str | None, file: UploadedFile, upload_id: UUID | None = None
     ) -> AttachmentInfo:
         with self._lock:
-            self.check_upload(prompt_id)
+            self.check_upload(prompt_id, image=file.is_image)
             if upload_id is not None and upload_id in self._upload_results:
                 previous = self._upload_results[upload_id]
                 if previous in self._attachments.pending():
                     return previous
                 raise ValueError("Upload has already been submitted or removed")
 
-            result = self._attachments.add(image, upload_id)
+            result = self._attachments.add(file, upload_id)
             if upload_id is not None:
                 # Remember results after send/delete until this run terminates.
                 self._upload_results[upload_id] = result
             return result
 
-    def pending_images(self) -> list[AttachmentInfo]:
+    def pending_attachments(self) -> list[AttachmentInfo]:
         with self._lock:
             return self._attachments.pending()
 
-    def delete_images(self, attachment_id: str | None = None) -> None:
+    def delete_attachments(self, attachment_id: str | None = None) -> None:
         with self._lock:
             if attachment_id is None:
                 self._attachments.clear_pending(delete_files=True)
@@ -334,7 +334,7 @@ class RunControl:
         with self._lock:
             self.check_reply(
                 prompt_id,
-                images=self._attachments.has_pending or isinstance(content, StrImage),
+                images=self._attachments.has_pending_images or isinstance(content, StrImage),
             )
             assert self._prompt_id is not None
             if not self._registry.resolve(
