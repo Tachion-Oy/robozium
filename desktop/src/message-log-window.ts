@@ -122,9 +122,4 @@ export class MessageLogWindow {
 		const { width, height } = this.contentSize()
 		if (width !== this.expected?.width || height !== this.expected?.height) this.manuallyResized = true
 	}
-
-	/** The size to remember: the window without the log. */
-	savedSize(): Size {
-		return this.open ? this.closedSize() : this.contentSize()
-	}
 }

@@ -6,7 +6,7 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import { HUD_MIN_WIDTH, LOG_MIN_WIDTH, LOG_SIDE_WIDTH, LOG_STACK_HEIGHT, MessageLogWindow, logWindowSize } from "../src/message-log-window"
 import { readSettings, saveSettings } from "../src/settings"
-import { boundedSize, nextZoom, windowLimits, zoomShortcut, type ZoomInput } from "../src/window"
+import { boundedSize, nextZoom, startupSize, windowLimits, zoomShortcut, type ZoomInput } from "../src/window"
 
 function fixture(area = { x: 0, y: 0, width: 1920, height: 1080 }) {
 	let size = { width: 900, height: 650 }
@@ -28,7 +28,6 @@ test("opening adds the log beside the HUD and closing restores the original size
 	const { dock, window } = fixture()
 	dock.setOpen(true)
 	expect(window.getContentSize(), "The log takes its 2fr share beside the 3fr HUD").toEqual([1500, 650])
-	expect(dock.savedSize(), "Temporary expansion is not persisted").toEqual({ width: 900, height: 650 })
 	expect(window.getBounds().x + window.getBounds().width).toBeLessThanOrEqual(1920)
 	dock.setOpen(false)
 	expect(window.getContentSize()).toEqual([900, 650])
@@ -50,11 +49,10 @@ test("a wide window grows only to the work area's limit and closing restores it"
 	expect(window.getContentSize()).toEqual([1260, 780])
 })
 
-test("after manual resizing while open, closing keeps the HUD's column, which is also persisted", () => {
+test("after manual resizing while open, closing keeps the HUD's column", () => {
 	const { dock, window } = fixture()
 	dock.setOpen(true)
 	window.setContentSize(1300, 720)
-	expect(dock.savedSize()).toEqual({ width: 780, height: 720 })
 	dock.setOpen(false)
 	expect(window.getContentSize()).toEqual([780, 720])
 })
@@ -111,6 +109,12 @@ test("window sizes stay within 640x420 and 90% of the work area", () => {
 	expect(() => boundedSize({ width: Number.NaN, height: 1 }, limits)).toThrow("Invalid window size.")
 })
 
+test("the app opens at half the work area, lifted to the minimum", () => {
+	expect(startupSize({ width: 1920, height: 1080 })).toEqual({ width: 960, height: 540 })
+	expect(startupSize({ width: 1366, height: 768 })).toEqual({ width: 683, height: 420 })
+	expect(startupSize({ width: 600, height: 400 })).toEqual({ width: 540, height: 360 })
+})
+
 test("zoom moves in tenths between 0.5 and 3 and resets to 1", () => {
 	expect(nextZoom(1, 1)).toBe(1.1)
 	expect(nextZoom(1.1, -1)).toBe(1)
@@ -139,17 +143,17 @@ test("settings keep other keys and fall back per preference", async () => {
 	const profile = await mkdtemp(path.join(tmpdir(), "robozium-settings-"))
 	try {
 		const file = path.join(profile, "settings.json")
-		expect(readSettings(profile)).toEqual({ theme: "dark", window: null, zoom: 1 })
-		await writeFile(file, JSON.stringify({ future: "kept", theme: "light", window: { width: 1000, height: 700 }, zoom: 1.2 }))
-		expect(readSettings(profile)).toEqual({ theme: "light", window: { width: 1000, height: 700 }, zoom: 1.2 })
+		expect(readSettings(profile)).toEqual({ theme: "dark", zoom: 1 })
+		await writeFile(file, JSON.stringify({ future: "kept", theme: "light", zoom: 1.2 }))
+		expect(readSettings(profile)).toEqual({ theme: "light", zoom: 1.2 })
 		saveSettings(profile, { zoom: 1.3 })
-		expect(JSON.parse(await readFile(file, "utf8"))).toEqual({ future: "kept", theme: "light", window: { width: 1000, height: 700 }, zoom: 1.3 })
-		await writeFile(file, JSON.stringify({ theme: "blue", window: { width: "wide", height: 700 }, zoom: 9 }))
-		expect(readSettings(profile)).toEqual({ theme: "dark", window: null, zoom: 1 })
-		await writeFile(file, JSON.stringify({ theme: "light", window: { width: -1, height: 700 }, zoom: 0.4 }))
-		expect(readSettings(profile)).toEqual({ theme: "light", window: null, zoom: 1 })
+		expect(JSON.parse(await readFile(file, "utf8"))).toEqual({ future: "kept", theme: "light", zoom: 1.3 })
+		await writeFile(file, JSON.stringify({ theme: "blue", zoom: 9 }))
+		expect(readSettings(profile)).toEqual({ theme: "dark", zoom: 1 })
+		await writeFile(file, JSON.stringify({ theme: "light", zoom: 0.4 }))
+		expect(readSettings(profile)).toEqual({ theme: "light", zoom: 1 })
 		await writeFile(file, "{ not json")
-		expect(readSettings(profile)).toEqual({ theme: "dark", window: null, zoom: 1 })
+		expect(readSettings(profile)).toEqual({ theme: "dark", zoom: 1 })
 		expect(() => saveSettings(profile, { zoom: 1.1 })).toThrow()
 		expect(await readFile(file, "utf8")).toBe("{ not json")
 	} finally { await rm(profile, { recursive: true, force: true }) }

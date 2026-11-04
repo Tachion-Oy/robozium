@@ -88,7 +88,7 @@ test("the log stays open across a renderer reload, since main owns it", async ({
 	expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isDestroyed())).toBe(false)
 })
 
-test("zoom steps by a tenth and zoom and window size survive a restart", async ({ desktop: { app, page }, fakeBackend }) => {
+test("zoom steps by a tenth and survives a restart; the window size does not", async ({ desktop: { app, page }, fakeBackend }) => {
 	const profile = await app.evaluate(({ app }) => app.getPath("userData"))
 	const settings = path.join(profile, "settings.json")
 	await pressZoom(app, "=")
@@ -99,28 +99,15 @@ test("zoom steps by a tenth and zoom and window size survive a restart", async (
 	await expect(page.locator(".agent-hud__box")).toBeVisible()
 	await expect.poll(() => zoomFactor(app)).toBeCloseTo(1.2)
 	await resize(app, 1000, 700)
-	await expect.poll(async () => JSON.parse(await readFile(settings, "utf8"))).toMatchObject({ zoom: 1.2, window: { width: 1000, height: 700 } })
+	await expect.poll(async () => JSON.parse(await readFile(settings, "utf8"))).toEqual({ zoom: 1.2 })
 
 	const reopened = await reopen(app, profile, fakeBackend.url)
 	try {
 		const window = await reopened.firstWindow()
 		await skipIntro(window)
 		await expect(window.locator(".agent-hud__box")).toBeVisible()
-		await expect.poll(() => contentSize(reopened)).toEqual([1000, 700])
+		// Half of the virtual display's 1280x1024, the width lifted to the 640 minimum.
+		await expect.poll(() => contentSize(reopened)).toEqual([640, 512])
 		await expect.poll(() => zoomFactor(reopened)).toBeCloseTo(1.2)
-	} finally { await reopened.close() }
-})
-
-test("a window grown by the log is remembered at its earlier size", async ({ desktop: { app, page }, fakeBackend }) => {
-	const profile = await app.evaluate(({ app }) => app.getPath("userData"))
-	await resize(app, 660, 650)
-	await page.getByRole("button", { name: "Show message log", exact: true }).click()
-	await expect.poll(() => contentSize(app)).toEqual([1140, 650])
-	const reopened = await reopen(app, profile, fakeBackend.url)
-	try {
-		const window = await reopened.firstWindow()
-		await skipIntro(window)
-		await expect(window.locator(".agent-hud__box")).toBeVisible()
-		await expect.poll(() => contentSize(reopened)).toEqual([660, 650])
 	} finally { await reopened.close() }
 })
