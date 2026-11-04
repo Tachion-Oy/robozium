@@ -40,7 +40,7 @@ async function start(): Promise<void> {
 	const settings = readSettings(profile)
 	const theme = settings.theme
 	nativeTheme.themeSource = theme
-	// Half the work area, within the minimum, so the app stays small; the user may resize further.
+	// Half the work area, so the app stays small; the user may resize further.
 	const size = startupSize(screen.getPrimaryDisplay().workArea)
 	const window = new BrowserWindow({
 		...size,

@@ -109,7 +109,7 @@ test("window sizes stay within 640x420 and 90% of the work area", () => {
 	expect(() => boundedSize({ width: Number.NaN, height: 1 }, limits)).toThrow("Invalid window size.")
 })
 
-test("the app opens at half the work area, lifted to the minimum", () => {
+test("the app opens at half the work area, within the window limits", () => {
 	expect(startupSize({ width: 1920, height: 1080 })).toEqual({ width: 960, height: 540 })
 	expect(startupSize({ width: 1366, height: 768 })).toEqual({ width: 683, height: 420 })
 	expect(startupSize({ width: 600, height: 400 })).toEqual({ width: 540, height: 360 })
