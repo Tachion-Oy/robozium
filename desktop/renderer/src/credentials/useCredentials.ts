@@ -95,12 +95,17 @@ export function useCredentials(client: DesktopApiClient, connected: boolean, vis
 		version.current += 1
 		setStatus(current => current && { ...current, locked: true })
 		answer(false)
+		const started = version.current
 		const signal = lifetime()
 		void (async () => {
 			try {
-				await withDeadline(signal, requestSignal => clearCredentials(client, requestSignal))
+				const next = await withDeadline(signal, requestSignal => clearCredentials(client, requestSignal))
+				if (!signal.aborted && started === version.current) setStatus(next)
 			} catch {
 				// The status stays locked: a launch asks again, and the backend refuses locked work.
+			} finally {
+				// A read that started before the clear landed may report the old unlock.
+				version.current += 1
 			}
 		})()
 	}

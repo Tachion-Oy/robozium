@@ -19,8 +19,8 @@ ENV PATH=/app/.venv/bin:$PATH \
     ROBOZIUM_CONFIG=/app/hub.config.py
 WORKDIR /app
 
-# gai.conf prefers IPv4: Python connects to the first address only, and a network
-# that advertises IPv6 without routing it would stall every provider call.
+# gai.conf prefers IPv4. Python tries each address in turn, so on a network that
+# advertises IPv6 without routing it, every call would first wait out a connect timeout.
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
         ca-certificates \
