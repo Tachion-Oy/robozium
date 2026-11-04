@@ -88,7 +88,7 @@ the PR that closes it.
 | Dependencies panel: sort, Check now, copy diagnostic | E, W | Done (#126) | 19 |
 | Backend restart/recreate (`BackendControls`) | E | Done (#126); removed (#223), Restart app starts a new container | 19 |
 | Startup splash, handoff to the painted HUD, splash during restart | E | Done (#159): `ui/startup/StartupScreen.tsx` covers the app in the renderer | 21b |
-| Window 1260×780 default, 640×420 minimum, 90% of work area maximum, size saved | E | Done; the 90% cap applies to sizes the app picks, not to manual resizing | 22 |
+| Window opens at half the work area, 640×420 minimum, 90% of work area maximum, size not saved | E | Done; the 90% cap applies to sizes the app picks, not to manual resizing | 22 |
 | Zoom ±0.1 within 0.5–3, saved | E | Done | 22 |
 | Second-instance focus | E | Done | 22 |
 | API-key onboarding and setup gate | W (#121) | Done; Environment also adopts an existing `.env.encrypt` | 26 |
@@ -270,7 +270,7 @@ Step 27 checklist (append further small findings here):
 
 | Step | Result |
 | --- | --- |
-| **22. Instance handling** | Duplicate-launch focus (`second-instance` handler), settings validation, independent test profiles. Window as in the experiment: 1260×780 default, 640×420 minimum, at most 90% of the screen work area, size saved. Zoom in steps of 0.1 between 0.5 and 3, saved. |
+| **22. Instance handling** | Duplicate-launch focus (`second-instance` handler), settings validation, independent test profiles. Window opens at half the screen work area, 640×420 minimum, at most 90% of the work area, size not saved. Zoom in steps of 0.1 between 0.5 and 3, saved. |
 | **23. Portable backend runtime** | Remove the Linux-only assumptions so the same code runs on macOS (details below). |
 | **24. Packaging** | **Linux now:** one `electron-builder` configuration, built with `npm run package:linux`, producing a `.deb`. The installed app keeps its profile in Electron's `userData` (`~/.config/Robozium`), not next to a checkout, and ships the staged backend and Compose files as plain resources for Docker. A `v<version>` tag publishes it as a signed apt repository on GitHub Releases, so users install with `apt install` and upgrade with `apt upgrade` without losing their profile or hub. **macOS later:** a `.dmg` for arm64 and x64 from the same configuration (`npm run package:mac`), unsigned at first, with signing/notarization as an opt-in follow-up driven by environment variables. |
 

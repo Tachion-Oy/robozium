@@ -362,13 +362,13 @@ Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset
 (Command on macOS). Zoom moves in 10% steps between 50% and 300%. The keypad +
 and - keys also work.
 
-The window opens at half the screen's width and height, at least 640×420, on
-every start; its size is not remembered, so the app stays small. Zoom is
-remembered. Opening the
-message log grows the window just enough to show both panes, side by side when
-the screen is wide enough and stacked otherwise; closing it restores the
-earlier size unless you resized the window meanwhile. Launching the app again
-brings the open window to the front.
+The window opens at half the screen's width and height on every start, no
+smaller than 640×420 unless the screen is tiny. Its size is not remembered, so
+the app stays small. Zoom is remembered. Opening the message log grows the
+window just enough to show both panes, side by side when the screen is wide
+enough and stacked otherwise; closing it restores the earlier size unless you
+resized the window meanwhile. Launching the app again brings the open window
+to the front.
 
 ## Host services
 

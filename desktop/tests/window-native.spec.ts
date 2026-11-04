@@ -2,6 +2,7 @@ import { expect, type ElectronApplication, type Page } from "@playwright/test"
 import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { test, reopen, skipIntro, reloadApp } from "./native"
+import { startupSize } from "../src/window"
 
 const contentSize = (app: ElectronApplication) =>
 	app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentSize())
@@ -106,8 +107,9 @@ test("zoom steps by a tenth and survives a restart; the window size does not", a
 		const window = await reopened.firstWindow()
 		await skipIntro(window)
 		await expect(window.locator(".agent-hud__box")).toBeVisible()
-		// Half of the virtual display's 1280x1024, the width lifted to the 640 minimum.
-		await expect.poll(() => contentSize(reopened)).toEqual([640, 512])
+		const workArea = await reopened.evaluate(({ screen }) => screen.getPrimaryDisplay().workArea)
+		const { width, height } = startupSize(workArea)
+		await expect.poll(() => contentSize(reopened)).toEqual([width, height])
 		await expect.poll(() => zoomFactor(reopened)).toBeCloseTo(1.2)
 	} finally { await reopened.close() }
 })
