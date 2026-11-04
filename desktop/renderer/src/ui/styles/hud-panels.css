@@ -782,6 +782,53 @@ button.agent-hud__image-preview {
   object-fit: contain;
 }
 
+.agent-hud__reply-document {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  width: 100%;
+  height: 100%;
+  padding: 0.35rem 0.3rem 0.25rem;
+  color: var(--hud-input-text);
+}
+
+.agent-hud__reply-document-icon {
+  flex: 1 1 0;
+  width: 100%;
+  min-height: 0;
+  overflow: visible;
+}
+
+.agent-hud__reply-document-page,
+.agent-hud__reply-document-fold {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+
+.agent-hud__reply-document-band {
+  fill: var(--term-red);
+}
+
+.agent-hud__reply-document-label {
+  fill: var(--term-bg);
+  font-size: 5.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.agent-hud__reply-document-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.6rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .agent-hud__reply-image-status {
   position: absolute;
   inset: 0;

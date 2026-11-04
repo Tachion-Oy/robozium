@@ -1,5 +1,5 @@
-// Stage images for a run's next reply (`/run/{id}/files`) and address hub files.
-// The reply image draft owns the queue; requests here have no local state.
+// Stage images and PDFs for a run's next reply (`/run/{id}/files`) and address hub files.
+// The reply attachment draft owns the queue; requests here have no local state.
 import { z } from "zod"
 import { type DesktopApiClient } from "../api/client"
 import { nonBlank, orNull, parsePayload } from "../api/payload"
@@ -18,7 +18,7 @@ const RunAttachment: z.ZodType<RunAttachment> = z.object({ id: nonBlank, name: z
 const RunAttachments = z.array(RunAttachment)
 
 const parse = <T>(schema: z.ZodType<T>, value: unknown): T =>
-	parsePayload(schema, value, "The backend returned an invalid image attachment.")
+	parsePayload(schema, value, "The backend returned an invalid attachment.")
 
 const filesPath = (runId: string) => `/run/${encodeURIComponent(runId)}/files`
 
@@ -34,7 +34,7 @@ export async function uploadRunAttachment(
 	return parse(RunAttachment, await client.request(`${filesPath(runId)}?${query}`, { method: "POST", bytes: file, signal }))
 }
 
-/** Without an attachment id, removes every pending image of the run. */
+/** Without an attachment id, removes every pending attachment of the run. */
 export async function deleteRunAttachments(
 	client: DesktopApiClient, runId: string, attachmentId: string | undefined, signal: AbortSignal,
 ): Promise<void> {

@@ -24,7 +24,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `dependencies/` | Dependency monitor records and Check Now requests and validation, and the view's owner. |
 | `environment/` | Saved settings and secrets requests and validation, the screen's owner and its editor state. |
 | `credentials/` | Secrets status, the unlock request and password prompt, and the locked-secrets notice. |
-| `attachments/` | Image staging requests for a run's next reply, and the reply's image queue. |
+| `attachments/` | Image and PDF staging requests for a run's next reply, and the reply's attachment queue. |
 | `dictation/` | Microphone recording, the audio level, and transcription requests. |
 | `links/` | Opening agent links through the desktop bridge, and reporting failures. |
 | `feedback/` | Notifications any owner can raise. |
@@ -42,7 +42,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `session/useRunSession` | The displayed run (`RunSession`) and its scope, which ends on open, retry, a new client or unmount | Stream and snapshot polling (`run/run-updates`) |
 | `session/useRunMutations` | One in-flight reply and one interruption of the displayed run, bound to the session scope; an accepted interruption stays pending until a snapshot shows a prompt or a stopped run | Reply, interrupt |
 | `dictation/useDictation` | One recording and its transcription; App joins the transcript to the reply draft, so a recording outlives view switches | Transcribe |
-| `attachments/useReplyAttachments` | The displayed run's staged reply images, from selection to acceptance; one queue orders uploads, removal, clearing and the reply that sends them, and a reopened run restores them from the backend | List, upload, delete |
+| `attachments/useReplyAttachments` | The displayed run's staged reply images and PDFs, from selection to acceptance; one queue orders uploads, removal, clearing and the reply that sends them, and a reopened run restores them from the backend | List, upload, delete |
 | `environment/useEnvironmentDraft` | The saved settings, polled while the screen is visible, with this app's unsaved edits and the open editor on top; App passes it each write's outcome | Read |
 | `environment/useEnvironmentMutations` | One write to the saved settings at a time, and whether a restart is needed | Save, import, remove, key file, reset |
 | `dependencies/useDependencies` | The monitor's records with the desktop's host-service states, loading and load failure, and one Check Now at a time | Records and host services (IPC) read when the view opens, check |
@@ -70,7 +70,7 @@ flowchart LR
   RunMutations -- "scope, acknowledge" --> Session
   RunMutations --> RunApi
   App --> ReplyAttachments["useReplyAttachments"] --> AttachmentsApi["attachments-api"]
-  App -- "image queue" --> RunMutations
+  App -- "attachment queue" --> RunMutations
   Mutations -- "run id" --> App
   Mutations --> ProjectsApi["projects-api"]
   Mutations --> CapabilitiesApi["capabilities-api"]

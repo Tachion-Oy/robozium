@@ -16,11 +16,16 @@ export const REPLY_ATTACHMENT_ACCEPT = {
 	"image/jpeg": [".jpg", ".jpeg"],
 	"image/webp": [".webp"],
 	"image/gif": [".gif"],
+	"application/pdf": [".pdf"],
 }
+
+/** Images preview as themselves; the agent reads a PDF through its link. */
+export type ReplyAttachmentKind = "image" | "pdf"
 
 export type ReplyAttachment = {
 	url: string
 	name: string
+	kind: ReplyAttachmentKind
 	serverId?: string
 	status: "queued" | "uploading" | "ready" | "removing" | "failed"
 }
@@ -50,9 +55,9 @@ const IDLE: ReplyAttachmentsState = { items: [], error: null, isBusy: false, isR
 function rejectionReason({ file, errors }: FileRejection): string {
 	const reasons = errors.map(({ code }) => {
 		switch (code) {
-			case "file-too-large": return "Images must be 10 MiB or smaller."
-			case "too-many-files": return "You can attach up to four images."
-			default: return "Use PNG, JPEG, WebP, or GIF images."
+			case "file-too-large": return "Files must be 10 MiB or smaller."
+			case "too-many-files": return "You can attach up to four files."
+			default: return "Use PNG, JPEG, WebP, or GIF images, or PDF documents."
 		}
 	})
 	return `${file.name}: ${[...new Set(reasons)].join(" ")}`
@@ -76,7 +81,7 @@ export function useReplyAttachments(client: DesktopApiClient, runId: string | nu
 	const onDrop = (files: File[], rejections: FileRejection[]) => {
 		const reasons = rejections.map(rejectionReason)
 		if (state.items.length + files.length > REPLY_ATTACHMENT_LIMIT) {
-			reasons.push("You can attach up to four images. Remove an image before adding more.")
+			reasons.push("You can attach up to four files. Remove one before adding more.")
 			files = []
 		}
 		queue.current?.add(files, [...new Set(reasons)].join(" ") || null)
@@ -90,6 +95,9 @@ export function useReplyAttachments(client: DesktopApiClient, runId: string | nu
 		submit: send => queue.current?.submit(send) ?? Promise.resolve(false),
 	}
 }
+
+/** The backend stores a PDF under a `.pdf` name; a dropped file may lack a type. */
+const kindOf = (name: string): ReplyAttachmentKind => /\.pdf$/i.test(name) ? "pdf" : "image"
 
 type AttachmentQueue = ReturnType<typeof startAttachmentQueue>
 
@@ -133,7 +141,7 @@ function startAttachmentQueue(client: DesktopApiClient, runId: string | null, se
 			// An attachment disappears once its removal starts, unless the removal failed.
 			items: entries
 				.filter(entry => !entry.discard || entry.status === "failed")
-				.map(({ url, name, serverId, status }) => ({ url, name, serverId, status })),
+				.map(({ url, name, kind, serverId, status }) => ({ url, name, kind, serverId, status })),
 			error,
 			isBusy,
 			isReady: inSync && !isBusy && entries.every(entry => entry.status === "ready" && !entry.discard),
@@ -149,7 +157,7 @@ function startAttachmentQueue(client: DesktopApiClient, runId: string | null, se
 		entries = entries.filter(item => item !== entry)
 	}
 	const fail = (cause: unknown) => {
-		error = cause instanceof Error ? cause.message : "Could not update images. Retry when connected."
+		error = cause instanceof Error ? cause.message : "Could not update attachments. Retry when connected."
 	}
 
 	const drain = async () => {
@@ -181,7 +189,7 @@ function startAttachmentQueue(client: DesktopApiClient, runId: string | null, se
 	}
 
 	const adopt = (attachment: RunAttachment): Entry => ({
-		name: attachment.name, serverId: attachment.id, status: "ready", discard: clearing,
+		name: attachment.name, kind: kindOf(attachment.path), serverId: attachment.id, status: "ready", discard: clearing,
 		url: hubFileUrl(client, attachment.path),
 	})
 	const restore = async () => {
@@ -265,7 +273,10 @@ function startAttachmentQueue(client: DesktopApiClient, runId: string | null, se
 			if (!viewState().canAdd) return
 			error = rejection
 			for (const file of files) {
-				const entry: Entry = { file, name: file.name, url: URL.createObjectURL(file), status: "queued", uploadId: crypto.randomUUID() }
+				const entry: Entry = {
+					file, name: file.name, kind: file.type === "application/pdf" ? "pdf" : kindOf(file.name),
+					url: URL.createObjectURL(file), status: "queued", uploadId: crypto.randomUUID(),
+				}
 				entries.push(entry)
 				enqueue(() => upload(entry))
 			}
@@ -316,7 +327,7 @@ function startAttachmentQueue(client: DesktopApiClient, runId: string | null, se
 					} catch (cause) {
 						if (submitted.length && active && (!(cause instanceof ApiError) || cause.kind !== "http" || (cause.status ?? 500) >= 500)) {
 							needsSync = true
-							fail(new Error("Reply acknowledgement was lost. Refresh images before retrying."))
+							fail(new Error("Reply acknowledgement was lost. Refresh attachments before retrying."))
 						}
 						reject(cause)
 					}
