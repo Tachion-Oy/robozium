@@ -12,7 +12,7 @@ import { HudEdgeButton } from "../hud/HudEdgeButton"
 type HudCopyControlsProps = {
 	agentMessage: AgentMessage | null
 	replyDraft: string
-	hasImages?: boolean
+	hasAttachments?: boolean
 	disabled?: boolean
 	onClearReply: () => void
 }
@@ -21,7 +21,7 @@ type HudCopyControlsProps = {
 export function HudCopyControls({
 	agentMessage,
 	replyDraft,
-	hasImages = false,
+	hasAttachments = false,
 	disabled = false,
 	onClearReply,
 }: HudCopyControlsProps) {
@@ -55,7 +55,7 @@ export function HudCopyControls({
 				variant="icon"
 				className="agent-hud__clear-reply"
 				onClick={onClearReply}
-				disabled={disabled || (!replyDraft && !hasImages)}
+				disabled={disabled || (!replyDraft && !hasAttachments)}
 				aria-label="Clear reply"
 				title="Clear reply">
 				<svg

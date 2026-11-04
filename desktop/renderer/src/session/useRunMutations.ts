@@ -12,16 +12,16 @@ import type { RunSessionState } from "./useRunSession"
 /** "ignored" means nothing was sent: no answerable prompt, an empty reply or one already in flight. */
 export type ReplyResult = "acknowledged" | "failed" | "ignored"
 
-/** The reply's staged images; their queue orders the send after its uploads and settles them. */
-export interface ReplyImages {
-	images: readonly unknown[]
-	submit: (send: (hasImages: boolean) => Promise<boolean>) => Promise<boolean>
+/** The reply's staged attachments; their queue orders the send after its uploads and settles them. */
+export interface ReplyAttachments {
+	items: readonly unknown[]
+	submit: (send: (hasAttachments: boolean) => Promise<boolean>) => Promise<boolean>
 }
 
 export interface RunMutations {
 	canReply: boolean
 	replying: boolean
-	reply: (content: string, images?: ReplyImages) => Promise<ReplyResult>
+	reply: (content: string, attachments?: ReplyAttachments) => Promise<ReplyResult>
 	canInterrupt: boolean
 	/** From the request until a snapshot shows a prompt or the run no longer running. */
 	interrupting: boolean
@@ -56,9 +56,9 @@ export function useRunMutations(client: DesktopApiClient, run: RunSessionState, 
 		if (synchronized && (prompt || !running)) setInterrupting(false)
 	}, [synchronized, prompt, running])
 
-	const reply = async (content: string, images?: ReplyImages): Promise<ReplyResult> => {
+	const reply = async (content: string, attachments?: ReplyAttachments): Promise<ReplyResult> => {
 		const trimmed = content.trim()
-		const hasContent = Boolean(trimmed || images?.images.length)
+		const hasContent = Boolean(trimmed || attachments?.items.length)
 		if (!session || !prompt || !scope || scope.aborted || !canReply || !hasContent || active.current) return "ignored"
 		const controller = new AbortController()
 		active.current = controller
@@ -75,8 +75,8 @@ export function useRunMutations(client: DesktopApiClient, run: RunSessionState, 
 				await withDeadline(signal, requestSignal => submitReply(client, session.run.runId, prompt.id, trimmed, requestSignal))
 				return true
 			}
-			// The backend attaches the run's staged images to the reply itself.
-			if (!await (images ? images.submit(send) : send())) return "ignored"
+			// The backend attaches the run's staged attachments to the reply itself.
+			if (!await (attachments ? attachments.submit(send) : send())) return "ignored"
 			acknowledge(prompt.id)
 			return "acknowledged"
 		} catch (error) {

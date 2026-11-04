@@ -1,5 +1,5 @@
 import { useState } from "react"
-import type { ReplyImagesModel } from "../../attachments/useReplyImages"
+import type { ReplyAttachmentsModel } from "../../attachments/useReplyAttachments"
 import type { LayoutMode } from "../hud/HudCornerControls"
 import { ReplyForm } from "../run/ReplyForm"
 import { AgentActivityState, type HudMessageNavigationDirection } from "../run/run-view"
@@ -7,8 +7,8 @@ import { ONBOARDING_PAGES } from "./pages"
 
 const ignore = () => {}
 
-const NO_IMAGES: ReplyImagesModel = {
-	images: [],
+const NO_ATTACHMENTS: ReplyAttachmentsModel = {
+	items: [],
 	error: null,
 	isBusy: false,
 	isReady: true,
@@ -54,7 +54,7 @@ export function OnboardingHud({ layoutMode, onExit }: OnboardingHudProps) {
 			message={{ ...page, contentType: "markdown", mode: "current" }}
 			composer={{
 				value: "",
-				images: NO_IMAGES,
+				attachments: NO_ATTACHMENTS,
 				isReplyAvailable: false,
 				isSubmitting: false,
 				onChange: ignore,

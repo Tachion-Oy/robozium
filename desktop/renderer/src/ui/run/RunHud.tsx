@@ -2,10 +2,10 @@
 // the desktop owners as props; their owners report failures. Dictation comes
 // from App, so a recording outlives view switches.
 import type { Dispatch, SetStateAction } from "react"
-import type { ReplyImagesModel } from "../../attachments/useReplyImages"
+import type { ReplyAttachmentsModel } from "../../attachments/useReplyAttachments"
 import type { UseDictationResult } from "../../dictation/useDictation"
 import type { HudDisplay } from "../../hud/hud-view"
-import type { ReplyImages, ReplyResult } from "../../session/useRunMutations"
+import type { ReplyAttachments, ReplyResult } from "../../session/useRunMutations"
 import type { LayoutMode } from "../hud/HudCornerControls"
 import type { AgentMessage } from "./AgentMessagePanel"
 import type { HudPendingAction } from "./HudControls"
@@ -15,7 +15,7 @@ import { AgentActivityState, type HudMessageNavigationDirection } from "./run-vi
 type RunHudProps = {
 	draft: string
 	onDraftChange: Dispatch<SetStateAction<string>>
-	images: ReplyImagesModel
+	attachments: ReplyAttachmentsModel
 	dictation: UseDictationResult
 	layoutMode: LayoutMode
 	display: HudDisplay
@@ -25,7 +25,7 @@ type RunHudProps = {
 	reply: {
 		available: boolean
 		submitting: boolean
-		submit: (content: string, images: ReplyImages) => Promise<ReplyResult>
+		submit: (content: string, attachments: ReplyAttachments) => Promise<ReplyResult>
 	}
 	cancel: HudPendingAction
 	interrupt: HudPendingAction
@@ -34,7 +34,7 @@ type RunHudProps = {
 export function RunHud({
 	draft,
 	onDraftChange,
-	images,
+	attachments,
 	dictation,
 	layoutMode,
 	display,
@@ -56,7 +56,7 @@ export function RunHud({
 	const handleSubmit = async () => {
 		const submittedDraft = draft
 		// The owner reports failures; an acknowledged reply clears only an unchanged draft.
-		if (await reply.submit(draft, images) === "acknowledged") {
+		if (await reply.submit(draft, attachments) === "acknowledged") {
 			onDraftChange((current) =>
 				current === submittedDraft ? "" : current,
 			)
@@ -76,7 +76,7 @@ export function RunHud({
 			layoutMode={layoutMode}
 			composer={{
 				value: draft,
-				images,
+				attachments,
 				isReplyAvailable: reply.available,
 				isSubmitting: reply.submitting,
 				focusOnOpen,
