@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.5.3 - 2026-11-04
+
+- **Cancel** in the password dialog locks the secrets again. Before, an unlock
+  whose answer came late showed as failed while the secrets were loaded, so a
+  run could still start after **Cancel**.
+- Unlocking answers as soon as the secrets load. Before, it waited for every
+  provider check, so on a slow network the HUD gave up after ten seconds.
+- The backend tries IPv4 first. On a network that announces IPv6 but does not
+  carry it, every model call waited about 30 seconds before starting.
+
 ## 0.5.2 - 2026-11-04
 
 - Dropping a tool and skill folder on the import row imports it. Before,
