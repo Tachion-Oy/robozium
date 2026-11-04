@@ -449,7 +449,7 @@ test("UI starts a project run, answers its prompts and returns to the overview a
 	await expect(output).toHaveText("Thanks. One more thing before I finish?")
 	await expect(reply).toHaveValue("")
 	// The last reply carries an image; the backend serves staged files to the renderer's previews.
-	await page.getByLabel("Choose images").setInputFiles({ name: "mock.png", mimeType: "image/png", buffer: png })
+	await page.getByLabel("Choose files").setInputFiles({ name: "mock.png", mimeType: "image/png", buffer: png })
 	await reply.fill("Finish the mock")
 	await expect(page.locator(".agent-hud__send")).toBeEnabled()
 	expect(await page.evaluate(async () => {

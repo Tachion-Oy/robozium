@@ -23,7 +23,7 @@ test("fixture history navigates without wrapping and retains selection with draf
 	// One row: jump, step, indicator, step, jump, each as tall as the indicator; the image plus is square.
 	const indicator = page.locator(".agent-hud__logo--actions")
 	const [firstBox, previousBox, markBox, nextBox, latestBox, plusBox] = await Promise.all(
-		[first, previous, indicator, next, latest, page.getByRole("button", { name: "Add images" })].map(async button => (await button.boundingBox())!))
+		[first, previous, indicator, next, latest, page.getByRole("button", { name: "Add files" })].map(async button => (await button.boundingBox())!))
 	const row = [firstBox, previousBox, markBox, nextBox, latestBox]
 	for (const [left, right] of row.slice(0, -1).map((box, index) => [box, row[index + 1]])) {
 		expect(left.x + left.width).toBeLessThanOrEqual(right.x + 0.5)
