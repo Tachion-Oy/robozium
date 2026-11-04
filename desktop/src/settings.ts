@@ -2,7 +2,7 @@ import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import { locations } from "./backend-layout.ts"
 import type { AppTheme } from "./bridge.d.ts"
-import { MAX_ZOOM, MIN_ZOOM, type Size } from "./window.ts"
+import { MAX_ZOOM, MIN_ZOOM } from "./window.ts"
 
 /** Native window colour behind the renderer, matching each theme's canvas. */
 export const themeBackground: Readonly<Record<AppTheme, string>> = { dark: "#07080a", light: "#f3f0e7" }
@@ -13,20 +13,11 @@ export const themeBackground: Readonly<Record<AppTheme, string>> = { dark: "#070
  */
 export interface DesktopSettings {
 	theme: AppTheme
-	/** Window content size, before the message log grew it; null opens at the default. */
-	window: Size | null
 	zoom: number
 }
 
 export function isAppTheme(value: unknown): value is AppTheme {
 	return value === "dark" || value === "light"
-}
-
-function isSize(value: unknown): value is Size {
-	if (typeof value !== "object" || value === null) return false
-	const { width, height } = value as Record<string, unknown>
-	return typeof width === "number" && typeof height === "number" && Number.isFinite(width) && Number.isFinite(height)
-		&& width > 0 && height > 0
 }
 
 export function isZoom(value: unknown): value is number {
@@ -48,7 +39,6 @@ export function readSettings(profile: string): DesktopSettings {
 	}
 	return {
 		theme: isAppTheme(saved.theme) ? saved.theme : "dark",
-		window: isSize(saved.window) ? { width: saved.window.width, height: saved.window.height } : null,
 		zoom: isZoom(saved.zoom) ? saved.zoom : 1,
 	}
 }

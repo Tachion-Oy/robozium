@@ -10,7 +10,7 @@ import { checkHubFolderChoice, recordedHubFolder, saveHubFolder } from "./hub-fo
 import { droppedFolderReadAllowed, permissionAllowed, permissionRequestAllowed } from "./security.ts"
 import { desktopLocations } from "./locations.ts"
 import { isAppTheme, readSettings, saveSettings, themeBackground, type DesktopSettings } from "./settings.ts"
-import { boundedSize, DEFAULT_SIZE, nextZoom, windowLimits, zoomShortcut } from "./window.ts"
+import { nextZoom, startupSize, zoomShortcut } from "./window.ts"
 
 protocol.registerSchemesAsPrivileged([
 	{ scheme: "robozium", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
@@ -40,8 +40,8 @@ async function start(): Promise<void> {
 	const settings = readSettings(profile)
 	const theme = settings.theme
 	nativeTheme.themeSource = theme
-	// The app picks at most 90% of the work area; the user may resize further.
-	const size = boundedSize(settings.window ?? DEFAULT_SIZE, windowLimits(screen.getPrimaryDisplay().workArea))
+	// Half the work area, within the minimum, so the app stays small; the user may resize further.
+	const size = startupSize(screen.getPrimaryDisplay().workArea)
 	const window = new BrowserWindow({
 		...size,
 		useContentSize: true,
@@ -103,26 +103,12 @@ async function start(): Promise<void> {
 		} catch (error) { console.error("Settings could not be saved:", error) }
 	}
 	const logWindow = new MessageLogWindow(window, bounds => screen.getDisplayMatching(bounds))
-	let savedSize = size
-	/** Write only real changes; startup's own sizing is not a preference. */
-	const saveSize = () => {
-		if (window.isDestroyed()) return
-		const next = logWindow.savedSize()
-		if (next.width === savedSize.width && next.height === savedSize.height) return
-		savedSize = next
-		save({ window: next })
-	}
-	let resizeTimer: NodeJS.Timeout | undefined
 	// GNOME's frame metrics settle when its native title bar is first shown.
 	window.once("show", () => window.setContentSize(size.width, size.height))
 	window.setMinimumSize(640, 420)
 	window.on("will-resize", () => { if (logWindow.open) logWindow.manuallyResized = true })
-	window.on("resize", () => {
-		logWindow.resized()
-		clearTimeout(resizeTimer)
-		resizeTimer = setTimeout(saveSize, 250)
-	})
-	window.on("close", event => { event.preventDefault(); clearTimeout(resizeTimer); saveSize(); void quit() })
+	window.on("resize", () => logWindow.resized())
+	window.on("close", event => { event.preventDefault(); void quit() })
 	// The lock above makes later launches exit; bring this window forward instead, also while it closes.
 	app.on("second-instance", () => {
 		if (window.isMinimized()) window.restore()

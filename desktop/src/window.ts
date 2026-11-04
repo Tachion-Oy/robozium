@@ -15,7 +15,6 @@ export interface ZoomInput {
 	isComposing: boolean
 }
 
-export const DEFAULT_SIZE: Size = { width: 1260, height: 780 }
 export const MIN_ZOOM = 0.5
 export const MAX_ZOOM = 3
 
@@ -31,6 +30,11 @@ export function boundedSize(size: Size, limits: WindowLimits): Size {
 		width: Math.round(Math.min(limits.maxWidth, Math.max(limits.minWidth, size.width))),
 		height: Math.round(Math.min(limits.maxHeight, Math.max(limits.minHeight, size.height))),
 	}
+}
+
+/** Every start opens at half the work area in both directions, within the limits; the size is never remembered. */
+export function startupSize(workArea: WorkArea): Size {
+	return boundedSize({ width: workArea.width / 2, height: workArea.height / 2 }, windowLimits(workArea))
 }
 
 /** 1 zooms in, -1 out, 0 resets; null leaves the input to the page. */

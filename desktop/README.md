@@ -45,7 +45,7 @@ app stops at startup and asks you to reconnect it or choose another, rather than
 starting with an empty hub. The app never moves or deletes a hub folder.
 
 The app's own data stays in `~/.config/Robozium/` (under `$XDG_CONFIG_HOME`
-when that is set): settings, window size and theme, the recorded hub folder,
+when that is set): settings such as theme and zoom, the recorded hub folder,
 and per mode (`live/`, `mock/`) logs and saved environment, including
 `.env.encrypt`. Checkouts and test profiles start with a throwaway hub inside
 their own data and can choose another folder the same way. Mock mode always keeps
@@ -125,7 +125,7 @@ the hub's mounts.
 Managed app data lives in `.artifacts/desktop/data/`, with separate `live/` and
 `mock/` runtime directories. The installation identifier in
 `backend-installation-id` scopes container ownership. `settings.json` holds
-only UI preferences (theme, window size, zoom); the backend is configured by the
+only UI preferences (theme, zoom); the backend is configured by the
 repository's `hub.config.py` and the runtime's `.env`.
 Defaults are live **18001** and mock **18000**.
 Set `ROBOZIUM_DESKTOP_API_PORT` to an unused port to override that mode's port.
@@ -362,8 +362,9 @@ Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset
 (Command on macOS). Zoom moves in 10% steps between 50% and 300%. The keypad +
 and - keys also work.
 
-The window opens at 1260×780, or at the size it had when the app last closed,
-within 640×420 and 90% of the screen. Zoom is remembered too. Opening the
+The window opens at half the screen's width and height, at least 640×420, on
+every start; its size is not remembered, so the app stays small. Zoom is
+remembered. Opening the
 message log grows the window just enough to show both panes, side by side when
 the screen is wide enough and stacked otherwise; closing it restores the
 earlier size unless you resized the window meanwhile. Launching the app again
