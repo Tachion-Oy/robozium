@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.5.6 - 2026-11-05
+
+- Update RoboZ to 0.15.2. The agent reads PDFs, and can attach the images
+  embedded in the pages it reads, up to 20 at a time. Models that cannot read
+  images get the text with a notice.
+
 ## 0.5.5 - 2026-11-04
 
 - Update RoboZ to 0.15.1. The agent's system message carries the session's

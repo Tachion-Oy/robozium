@@ -180,7 +180,8 @@ selection and starts the run. A row's **Launch** button reuses the saved
 choices directly. Relaunching keeps the project's memory while allowing a
 different set of capabilities.
 
-Filesystem, stop, compactification, and the Robozium skill are always included.
+Filesystem, PDF reading, stop, compactification, and the Robozium skill are
+always included.
 SafeScripts and imported capabilities are optional. New optional capabilities
 start unchecked, and newly selected skills follow their declared loading mode.
 Mock mode offers harmless **mock information** and **mock guidance** examples.
