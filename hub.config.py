@@ -26,8 +26,8 @@ LOGGING: Final = HubLoggingConfig(
 )
 DEPENDENCY_HEALTH: Final = DependencyHealthSettings(interval_s=60.0, timeout_s=20.0)
 ATTACHMENTS: Final = AttachmentSettings(
-    max_images=4,
-    max_image_bytes=10 * 1024 * 1024,
+    max_files=4,
+    max_file_bytes=10 * 1024 * 1024,
     max_pixels=25_000_000,
     max_run_bytes=100 * 1024 * 1024,
 )

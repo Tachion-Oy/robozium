@@ -1,4 +1,4 @@
-"""Validate image bytes and own temporary files for a single run."""
+"""Validate uploaded images and PDFs and own temporary files for a single run."""
 
 import shutil
 from dataclasses import dataclass
@@ -8,12 +8,17 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from PIL import Image as PillowImage
+from PIL import UnidentifiedImageError
 from roboz.models import Image, Str, StrImage
 
 from robozium.hub.application import AttachmentSettings
 
 DIRECTORY = ".robozium-attachments"
 FORMATS = {"PNG": "png", "JPEG": "jpeg", "WEBP": "webp", "GIF": "gif"}
+PDF = "pdf"
+# PDF readers accept a header anywhere in the first kilobyte.
+_PDF_HEADER, _PDF_HEADER_WINDOW = b"%PDF-", 1024
+_UNSUPPORTED = "Use static PNG, JPEG, WebP, or GIF images, or PDF documents"
 
 
 @dataclass(frozen=True)
@@ -25,27 +30,38 @@ class AttachmentInfo:
 
 
 @dataclass(frozen=True)
-class UploadedImage:
+class UploadedFile:
+    """An image sent to the model with its link, or a PDF the agent reads by link."""
+
     name: str
     data: bytes
     format: str
 
+    @property
+    def is_image(self) -> bool:
+        return self.format != PDF
+
     @classmethod
     def validate(
         cls, name: str, data: bytes, settings: AttachmentSettings
-    ) -> "UploadedImage":
-        if len(data) > settings.max_image_bytes:
-            raise ValueError("Image exceeds the configured byte limit")
+    ) -> "UploadedFile":
+        if len(data) > settings.max_file_bytes:
+            raise ValueError("File exceeds the configured byte limit")
+        # The PDF reader reports damaged or encrypted documents to the agent.
+        if _PDF_HEADER in data[:_PDF_HEADER_WINDOW]:
+            return cls(name, data, PDF)
         try:
             with PillowImage.open(BytesIO(data)) as image:
                 format = FORMATS.get(image.format or "")
                 if format is None or getattr(image, "is_animated", False):
-                    raise ValueError("Use static PNG, JPEG, WebP, or GIF images")
+                    raise ValueError(_UNSUPPORTED)
                 if image.width * image.height > settings.max_pixels:
                     raise ValueError("Image exceeds the configured pixel limit")
                 image.verify()
             with PillowImage.open(BytesIO(data)) as image:
                 image.load()
+        except UnidentifiedImageError as exc:
+            raise ValueError(_UNSUPPORTED) from exc
         except (OSError, SyntaxError, PillowImage.DecompressionBombError) as exc:
             raise ValueError("Invalid image upload") from exc
         return cls(name, data, format)
@@ -76,20 +92,20 @@ class RunAttachments:
         self._pending: dict[str, tuple[Path, AttachmentInfo, int]] = {}
 
     @property
-    def has_pending(self) -> bool:
-        return bool(self._pending)
+    def has_pending_images(self) -> bool:
+        return any(_is_image(path) for path, _, _ in self._pending.values())
 
     def pending(self) -> list[AttachmentInfo]:
         return [info for _, info, _ in self._pending.values()]
 
-    def add(self, image: UploadedImage, upload_id: UUID | None = None) -> AttachmentInfo:
+    def add(self, file: UploadedFile, upload_id: UUID | None = None) -> AttachmentInfo:
         """Save one new pending attachment while the caller holds the run lock."""
-        size = len(image.data)
+        size = len(file.data)
         self._check_capacity(size)
-        path = self._save_image(image)
+        path = self._save(file)
         info = AttachmentInfo(
             id=path.stem,
-            name=image.name,
+            name=file.name,
             path=path.relative_to(self._hub_root).as_posix(),
             upload_id=upload_id,
         )
@@ -98,25 +114,25 @@ class RunAttachments:
         return info
 
     def _check_capacity(self, size: int) -> None:
-        if len(self._pending) >= self._settings.max_images:
-            raise ValueError("Reply exceeds the configured image count limit")
+        if len(self._pending) >= self._settings.max_files:
+            raise ValueError("Reply exceeds the configured file count limit")
         if self._retained_bytes + size > self._settings.max_run_bytes:
-            raise ValueError("Temporary images exceed the configured run byte limit")
+            raise ValueError("Temporary attachments exceed the configured run byte limit")
 
-    def _save_image(self, image: UploadedImage) -> Path:
+    def _save(self, file: UploadedFile) -> Path:
         if self.path.resolve() != self.path or self.path.is_symlink():
             raise ValueError("Attachment directories must not use symbolic links")
         self.path.mkdir(parents=True, exist_ok=True)
-        image_path = self.path / f"{uuid4().hex}.{image.format}"
+        path = self.path / f"{uuid4().hex}.{file.format}"
         # Failed exclusive creation must not unlink an existing file.
-        file = image_path.open("xb")
+        stream = path.open("xb")
         try:
-            with file:
-                file.write(image.data)
+            with stream:
+                stream.write(file.data)
         except BaseException:
-            image_path.unlink(missing_ok=True)
+            path.unlink(missing_ok=True)
             raise
-        return image_path
+        return path
 
     def build_reply(self, content: Str | StrImage) -> Str | StrImage:
         if not self._pending:
@@ -126,13 +142,12 @@ class RunAttachments:
         for path, info, _ in self._pending.values():
             src = path.relative_to(self._hub_root).as_posix()
             links.append(f'<file src="{escape(src, quote=True)}">{escape(info.name)}</file>')
-            images.append(Image.from_bytes(
-                path.read_bytes(), media_type=f"image/{path.suffix[1:]}"
-            ))
-        return StrImage(
-            value="\n".join(([content.value] if content.value else []) + links),
-            images=images,
-        )
+            if _is_image(path):
+                images.append(Image.from_bytes(
+                    path.read_bytes(), media_type=f"image/{path.suffix[1:]}"
+                ))
+        value = "\n".join(([content.value] if content.value else []) + links)
+        return StrImage(value=value, images=images) if images else Str(value=value)
 
     def remove_pending(self, attachment_id: str) -> None:
         """Delete only a registered, unsent file while holding the run lock."""
@@ -157,3 +172,7 @@ class RunAttachments:
         remove_attachments(self.path)
         self._pending.clear()
         self._retained_bytes = 0
+
+
+def _is_image(path: Path) -> bool:
+    return path.suffix != f".{PDF}"

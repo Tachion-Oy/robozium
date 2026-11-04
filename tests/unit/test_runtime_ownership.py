@@ -18,7 +18,7 @@ from roboz.runtime.pipe import EventPipe
 from roboz.tools import stop
 
 from robozium.api.app import create_app
-from robozium.api.attachments import UploadedImage
+from robozium.api.attachments import UploadedFile
 from robozium.api.credentials import LoadedCredentials
 from robozium.api.errors import ProjectBusyError
 from robozium.api.project_service import ProjectService
@@ -476,7 +476,7 @@ def test_thread_start_failure_finishes_once_without_holding_control_lock(
     config, monkeypatch, failing_thread
 ):
     control = RunControl(config.project("demo"), _TEST_ENDPOINT, history_limit=10)
-    staged = control.stage_image(None, UploadedImage("image.png", b"image bytes", "png"))
+    staged = control.stage_attachment(None, UploadedFile("image.png", b"image bytes", "png"))
     path = config.settings.sandbox.resolved_root / staged.path
     assert path.exists()
     original_start = threading.Thread.start
@@ -502,7 +502,7 @@ def test_thread_start_failure_finishes_once_without_holding_control_lock(
         )
     assert observed == [RunStatus.FAILED]
     assert not invoked
-    assert control.pending_images() == []
+    assert control.pending_attachments() == []
     assert not path.parent.exists()
     state = control.snapshot()
     assert state["status"] == RunStatus.FAILED

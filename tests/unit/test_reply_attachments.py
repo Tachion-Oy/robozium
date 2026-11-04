@@ -1,4 +1,4 @@
-"""Image replies through HTTP, real agent prompts, and a scripted provider."""
+"""Image and PDF replies through HTTP, real agent prompts, and a scripted provider."""
 
 import base64
 import json
@@ -216,7 +216,7 @@ def test_invalid_uploads_leave_no_files_or_consumed_prompt(tmp_path, case):
         Image.new("1", (5001, 5000)).save(out, format="PNG")
         image = out.getvalue()
     elif case == "bytes":
-        image = b"x" * (AttachmentSettings().max_image_bytes + 1)
+        image = b"x" * (AttachmentSettings().max_file_bytes + 1)
     with image_run(tmp_path) as run:
         params = {"prompt_id": "stale" if case == "stale" else run.prompt}
         response = run.client.post(f"/run/{run.run_id}/files", params=params, content=image)
@@ -244,11 +244,11 @@ def test_json_reply_contract_and_stale_requests_preserve_current_images(tmp_path
 def test_run_budget_and_discarding_unsent_files(tmp_path):
     store = attachments.RunAttachments(tmp_path, tmp_path, "run")
     data = picture()
-    upload = attachments.UploadedImage("a.png", data, "png")
+    upload = attachments.UploadedFile("a.png", data, "png")
     store.add(upload)
     store.clear_pending(delete_files=True)
     assert list(store.path.iterdir()) == []
-    large = attachments.UploadedImage("a.png", b"x" * AttachmentSettings().max_image_bytes, "png")
+    large = attachments.UploadedFile("a.png", b"x" * AttachmentSettings().max_file_bytes, "png")
     for _ in range(10):
         store.add(large)
         store.clear_pending()
@@ -350,7 +350,7 @@ def test_body_limit_does_not_trust_content_length(tmp_path):
     with image_run(tmp_path) as run:
         response = run.client.post(f"/run/{run.run_id}/files", params={"prompt_id": run.prompt},
                                    headers={"content-length": "1"},
-                                   content=b"x" * (run.hub.settings.attachments.max_image_bytes + 1))
+                                   content=b"x" * (run.hub.settings.attachments.max_file_bytes + 1))
         assert response.status_code == 413
         assert wait_prompt(run.client, run.run_id) == run.prompt
 
@@ -379,7 +379,7 @@ def test_pending_images_survive_timeout_and_are_consumed_once(tmp_path):
 
 
 def test_pending_deletion_is_idempotent_isolated_and_preserves_accepted_files(tmp_path):
-    with image_run(tmp_path, limits=AttachmentSettings(max_images=2)) as run:
+    with image_run(tmp_path, limits=AttachmentSettings(max_files=2)) as run:
         url = f"/run/{run.run_id}/files"
         first, second = upload(run).json(), upload(run).json()
         assert first['id'] != second['id']
@@ -496,7 +496,7 @@ def test_upload_retry_before_original_validation_finishes_stages_and_submits_onc
             assert release.wait(5)
         return original(*args, **kwargs)
 
-    with image_run(tmp_path, limits=AttachmentSettings(max_images=1)) as run, ThreadPoolExecutor(max_workers=1) as pool:
+    with image_run(tmp_path, limits=AttachmentSettings(max_files=1)) as run, ThreadPoolExecutor(max_workers=1) as pool:
         monkeypatch.setattr(Image, "open", delayed_open)
         url = f"/run/{run.run_id}/files"
         params = {"upload_id": str(uuid4()), "filename": "one.png"}
@@ -568,7 +568,7 @@ def test_failure_cleans_accepted_uploads(tmp_path):
 
 
 @pytest.mark.parametrize("limit,value,status", [
-    ("max_image_bytes", 64, 413),
+    ("max_file_bytes", 64, 413),
     ("max_pixels", 5, 400),
     ("max_run_bytes", 64, 400),
 ])
@@ -583,9 +583,47 @@ def test_hub_config_controls_reply_limits(tmp_path, limit, value, status):
 
 
 def test_image_count_limit_preserves_previously_staged_image(tmp_path):
-    with image_run(tmp_path, limits=AttachmentSettings(max_images=1)) as run:
+    with image_run(tmp_path, limits=AttachmentSettings(max_files=1)) as run:
         path = upload(run).json()["path"]
         assert upload(run).status_code == 400
         assert list(run.path.iterdir()) == [run.hub.settings.sandbox.resolved_root / path]
         assert run.client.post(run.url, json={"content": ""}).status_code == 200
         wait_prompt(run.client, run.run_id, run.prompt)
+
+
+PDF = b"%PDF-1.7\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n"
+
+
+@pytest.mark.parametrize("accepts_images", [False, True])
+def test_pdfs_reach_the_agent_as_links_and_only_images_as_images(tmp_path, accepts_images):
+    with image_run(tmp_path, accepts_images=accepts_images) as run:
+        pdf = upload(run, PDF, "report.pdf")
+        assert pdf.status_code == 200
+        assert pdf.json()["path"].endswith(".pdf")
+        assert run.client.get(f"/files/{pdf.json()['path']}").content == PDF
+        if accepts_images:
+            assert upload(run).status_code == 200
+        assert run.client.post(run.url, json={"prompt_id": run.prompt, "content": "read"}).status_code == 200
+        wait_prompt(run.client, run.run_id, run.prompt)
+        sent = json.dumps(run.calls[0])
+        assert pdf.json()["path"] in sent and ">report.pdf</file>" in sent
+        urls = [part["image_url"]["url"] for message in run.calls[0]
+                if isinstance(message["content"], list) for part in message["content"]
+                if part["type"] == "image_url"]
+        assert [base64.b64decode(url.split(",", 1)[1]) for url in urls] == ([picture()] if accepts_images else [])
+
+
+def test_pdf_header_may_follow_leading_bytes_and_other_files_are_explained(tmp_path):
+    with image_run(tmp_path) as run:
+        assert upload(run, b"\n" * 1000 + PDF, "late.pdf").status_code == 200
+        response = upload(run, b"plain text", "notes.txt")
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Use static PNG, JPEG, WebP, or GIF images, or PDF documents"
+
+
+def test_pdfs_count_toward_the_file_limit(tmp_path):
+    with image_run(tmp_path, limits=AttachmentSettings(max_files=1)) as run:
+        assert upload(run, PDF, "report.pdf").status_code == 200
+        response = upload(run)
+        assert response.status_code == 400
+        assert "file count limit" in response.json()["detail"]

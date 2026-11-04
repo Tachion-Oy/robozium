@@ -1,4 +1,4 @@
-"""Serve hub files and stage pasted images for a run's next reply."""
+"""Serve hub files and stage pasted images and PDFs for a run's next reply."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,10 +24,10 @@ def files_get(path: str, request: Request) -> Response:
 
 @router.post("/run/{run_id}/files")
 async def files_upload(
-    run_id: str, request: Request, prompt_id: str | None = None, filename: str = "image",
+    run_id: str, request: Request, prompt_id: str | None = None, filename: str = "attachment",
     upload_id: UUID | None = None,
 ) -> AttachmentInfo:
-    """Upload one image as raw request bytes, before submitting the JSON reply.
+    """Upload one image or PDF as raw request bytes, before submitting the JSON reply.
 
     Reuse upload_id when retrying one selection; attachment IDs are server-generated.
     The returned path is readable through /files until the run's workers stop.
@@ -36,12 +36,12 @@ async def files_upload(
     manager: RunManager = request.app.state.run_manager
     data = bytearray()
     async for chunk in request.stream():
-        if len(data) + len(chunk) > hub.settings.attachments.max_image_bytes:
-            raise HTTPException(413, "Image exceeds the configured byte limit")
+        if len(data) + len(chunk) > hub.settings.attachments.max_file_bytes:
+            raise HTTPException(413, "File exceeds the configured byte limit")
         data.extend(chunk)
     try:
         return await run_in_threadpool(
-            manager.stage_image, run_id, prompt_id, filename, bytes(data), upload_id
+            manager.stage_attachment, run_id, prompt_id, filename, bytes(data), upload_id
         )
     except KeyError:
         raise HTTPException(404, "unknown run_id") from None
@@ -53,7 +53,7 @@ async def files_upload(
 def files_pending(run_id: str, request: Request) -> list[AttachmentInfo]:
     manager: RunManager = request.app.state.run_manager
     try:
-        return manager.pending_images(run_id)
+        return manager.pending_attachments(run_id)
     except KeyError:
         raise HTTPException(404, "unknown run_id") from None
 
@@ -69,7 +69,7 @@ def files_delete(
 ) -> Response:
     manager: RunManager = request.app.state.run_manager
     try:
-        manager.delete_images(run_id, attachment_id)
+        manager.delete_attachments(run_id, attachment_id)
     except KeyError:
         raise HTTPException(404, "unknown run_id") from None
     except ValueError as exc:
