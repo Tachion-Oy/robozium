@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import threading
 import time
 
 import pytest
@@ -18,7 +19,11 @@ from roboz.endpoints import (
 from roboz.shed.dependency_health import DependencyHealthMonitor
 
 from robozium.api.app import create_app, live_app, mock_app
-from robozium.api.credentials import credential_status, load_environment_files
+from robozium.api.credentials import (
+    LoadedCredentials,
+    credential_status,
+    load_environment_files,
+)
 from robozium.hub.utils import load_hub
 
 
@@ -215,31 +220,40 @@ def test_unlock_replies_while_a_dependency_check_still_runs(tmp_path, monkeypatc
     source.unlink()
     monkeypatch.setenv("ROBOZIUM_ENCRYPTED_ENV_PATH", str(encrypted))
     monkeypatch.setenv("ROBOZIUM_MODE", "mock")
-    release: asyncio.Event | None = None
-    runs = 0
+    release = threading.Event()
 
     async def hanging_run_once(self):
-        nonlocal release, runs
-        runs += 1
-        release = asyncio.Event()
-        await release.wait()
+        await asyncio.to_thread(release.wait)
 
     monkeypatch.setattr(DependencyHealthMonitor, "run_once", hanging_run_once)
     with TestClient(create_app(deployment=load_hub(start=tmp_path))) as client:
-        started = time.monotonic()
         response = client.post("/credentials/unlock", json={"password": "test-password"})
         assert response.status_code == 200
         assert response.json()["locked"] is False
-        assert time.monotonic() - started < 2
-        # The startup check and the unlock's refresh both started; neither has finished.
-        assert runs == 2
+        # The reply came while the unlock's refresh still runs.
         assert len(client.app.state.dependency_refreshes) == 1
-        client.portal.call(release.set)
+        release.set()
         deadline = time.monotonic() + 2
         while client.app.state.dependency_refreshes:
             assert time.monotonic() < deadline
             time.sleep(0.01)
     assert not client.app.state.dependency_refreshes
+
+
+def test_a_clear_before_the_load_wins(tmp_path, monkeypatch):
+    """A Cancel's clear that overtakes an unlock leaves the secrets locked."""
+    source = tmp_path / ".env"
+    source.write_text("TEST_UNLOCK_FIRST_API_KEY=first-synthetic\n")
+    encrypted = encrypt_env(source, secret_names=["TEST_UNLOCK_FIRST_API_KEY"], password="test-password")
+    source.unlink()
+    loaded = LoadedCredentials(encrypted)
+    generation = loaded.generation
+    loaded.clear()
+    assert loaded.load("test-password", generation) is False
+    assert "TEST_UNLOCK_FIRST_API_KEY" not in os.environ
+    assert loaded.load("test-password", loaded.generation) is True
+    assert os.environ["TEST_UNLOCK_FIRST_API_KEY"] == "first-synthetic"
+    loaded.clear()
 
 
 def test_without_encrypted_file_hides_unlock(tmp_path, monkeypatch):

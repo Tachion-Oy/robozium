@@ -38,6 +38,8 @@ class LoadedCredentials:
         # Set by an environment change that applies only after a restart; never cleared.
         self.restart_required = False
         self.lock = threading.RLock()
+        # Raised by every clear, so an unlock that a clear overtook loads nothing.
+        self.generation = 0
         self.keys: dict[str, bytes] = {}
         self.encrypted = {
             name: value for name, value in os.environ.items()
@@ -47,15 +49,21 @@ class LoadedCredentials:
     def clear(self) -> None:
         """Remove values unlocked by this process unless something replaced them."""
         with self.lock:
+            self.generation += 1
             for name, fingerprint in self.keys.items():
                 value = os.environ.get(name)
                 if value is not None and _fingerprint(value) == fingerprint:
                     os.environ.pop(name, None)
             self.keys.clear()
 
-    def load(self, password: str | None) -> None:
-        """Load saved settings into this process, tracking values it adds for clear()."""
+    def load(self, password: str | None, generation: int | None = None) -> bool:
+        """Load saved settings into this process, tracking values it adds for clear().
+
+        With ``generation``, load nothing and return False if a clear came after it.
+        """
         with self.lock:
+            if generation is not None and generation != self.generation:
+                return False
             before = {
                 name: os.environ.get(name)
                 for name in _credential_names(self.path) | {name.removesuffix(ENCRYPTED_SUFFIX) for name in self.encrypted}
@@ -68,6 +76,7 @@ class LoadedCredentials:
                     if (value := os.environ.get(name)) is not None and before[name] != value
                 }
             )
+            return True
 
     def reset(self) -> None:
         """Delete saved settings and forget loaded credentials without a password."""
@@ -209,7 +218,10 @@ def refresh_dependencies(request: Request) -> None:
     def finished(done: asyncio.Task[None]) -> None:
         refreshes.discard(done)
         if not done.cancelled() and done.exception() is not None:
-            logger.warning("Dependency refresh failed after loading API keys")
+            logger.warning(
+                "Dependency refresh failed after loading API keys",
+                exc_info=done.exception(),
+            )
 
     task.add_done_callback(finished)
 
@@ -222,7 +234,10 @@ def get_credentials(request: Request, response: Response) -> CredentialStatus:
 
 @router.post("/credentials/unlock", response_model=CredentialStatus)
 async def unlock_credentials(request: Request, response: Response) -> CredentialStatus:
-    if not credential_status(request.app.state.loaded_credentials).available:
+    loaded: LoadedCredentials = request.app.state.loaded_credentials
+    # A Cancel sends a clear; one that arrives before this unlock loads wins.
+    generation = loaded.generation
+    if not credential_status(loaded).available:
         raise HTTPException(
             status_code=404, detail="Encrypted secrets are unavailable"
         )
@@ -238,9 +253,9 @@ async def unlock_credentials(request: Request, response: Response) -> Credential
     password = payload.get("password") if isinstance(payload, dict) else None
     if not isinstance(password, str) or not password or len(password) > env.MAX_PASSWORD_CHARS:
         raise HTTPException(status_code=400, detail="A password is required")
-    loaded: LoadedCredentials = request.app.state.loaded_credentials
     try:
-        await asyncio.to_thread(loaded.load, password)
+        if not await asyncio.to_thread(loaded.load, password, generation):
+            raise HTTPException(status_code=409, detail="Secrets were locked during the unlock")
     except (UnicodeError, ValueError):
         raise HTTPException(
             status_code=400, detail="Could not unlock secrets"
