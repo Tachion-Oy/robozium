@@ -5,12 +5,12 @@
 // placeholder says "Enter", since a reply is typed or dictated.
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEventHandler } from "react"
 import type { DropzoneState } from "react-dropzone"
-import type { ReplyImage, ReplyImagesModel } from "../../attachments/useReplyImages"
+import type { ReplyAttachment, ReplyAttachmentsModel } from "../../attachments/useReplyAttachments"
 import { Toast } from "../feedback/Toast"
 
 type ReplyEditorProps = {
 	value: string
-	images?: ReplyImagesModel
+	attachments?: ReplyAttachmentsModel
 	dropzone?: DropzoneState
 	canSubmit: boolean
 	disabled?: boolean
@@ -20,7 +20,7 @@ type ReplyEditorProps = {
 
 export function ReplyEditor({
 	value,
-	images,
+	attachments,
 	dropzone,
 	canSubmit,
 	disabled = false,
@@ -29,17 +29,17 @@ export function ReplyEditor({
 }: ReplyEditorProps) {
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 	const lastLocalValueRef = useRef(value)
-	const imageListRef = useRef<HTMLUListElement>(null)
-	const previousImagesRef = useRef<readonly ReplyImage[]>([])
-	const attachments = images?.images
+	const attachmentListRef = useRef<HTMLUListElement>(null)
+	const previousAttachmentsRef = useRef<readonly ReplyAttachment[]>([])
+	const items = attachments?.items
 
 	useLayoutEffect(() => {
-		const previous = previousImagesRef.current
-		previousImagesRef.current = attachments ?? []
-		if (!attachments?.some((image) => !previous.some((old) => old.url === image.url))) return
+		const previous = previousAttachmentsRef.current
+		previousAttachmentsRef.current = items ?? []
+		if (!items?.some((image) => !previous.some((old) => old.url === image.url))) return
 		if (textareaRef.current) textareaRef.current.scrollTop = 0
-		if (imageListRef.current) imageListRef.current.scrollTop = imageListRef.current.scrollHeight
-	}, [attachments])
+		if (attachmentListRef.current) attachmentListRef.current.scrollTop = attachmentListRef.current.scrollHeight
+	}, [items])
 
 	useEffect(() => {
 		const wasChangedExternally = value !== lastLocalValueRef.current
@@ -67,8 +67,8 @@ export function ReplyEditor({
 			className="agent-hud__replyBox agent-hud__replyBox--user"
 			data-drag-active={dropzone?.isDragActive || undefined}
 			aria-disabled={disabled || undefined}>
-			{images?.error && <Toast tone="error" title="Images" message={images.error}
-				actions={images.canRetry ? [{ label: "Retry images", onClick: images.onRetry }] : []} />}
+			{attachments?.error && <Toast tone="error" title="Images" message={attachments.error}
+				actions={attachments.canRetry ? [{ label: "Retry images", onClick: attachments.onRetry }] : []} />}
 			{dropzone ? <input {...dropzone.getInputProps({ "aria-label": "Choose images" })} /> : null}
 			<div className="agent-hud__reply-text">
 				<textarea
@@ -86,11 +86,11 @@ export function ReplyEditor({
 					placeholder="Enter your reply..."
 				/>
 			</div>
-			{images?.images.length ? (
-				<ul className="agent-hud__reply-images" aria-label="Image previews" ref={imageListRef} tabIndex={0}>
-					{images.images.map((image) => (
-						<ReplyImagePreview key={image.url} image={image} onRemove={() => {
-							images.onRemove(image.url)
+			{items?.length ? (
+				<ul className="agent-hud__reply-images" aria-label="Image previews" ref={attachmentListRef} tabIndex={0}>
+					{items.map((image) => (
+						<ReplyAttachmentPreview key={image.url} image={image} onRemove={() => {
+							attachments?.onRemove(image.url)
 							textareaRef.current?.focus({ preventScroll: true })
 						}} />
 					))}
@@ -100,7 +100,7 @@ export function ReplyEditor({
 	)
 }
 
-function ReplyImagePreview({ image, onRemove }: { image: ReplyImage; onRemove: () => void }) {
+function ReplyAttachmentPreview({ image, onRemove }: { image: ReplyAttachment; onRemove: () => void }) {
 	const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading")
 	return (
 		<li className="agent-hud__reply-image" aria-busy={status === "loading" || image.status === "queued" || image.status === "uploading"}>

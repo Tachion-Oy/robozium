@@ -27,7 +27,7 @@ import { DependencyPanel } from "../dependencies/DependencyPanel"
 import { useDependencies } from "../../dependencies/useDependencies"
 import { useRunSession } from "../../session/useRunSession"
 import { useRunMutations } from "../../session/useRunMutations"
-import { useReplyImages } from "../../attachments/useReplyImages"
+import { useReplyAttachments } from "../../attachments/useReplyAttachments"
 import { hubFileUrl } from "../../attachments/attachments-api"
 import { useDictation } from "../../dictation/useDictation"
 import { runLabels } from "../../hud/hud-view"
@@ -69,11 +69,11 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	const runMutations = useRunMutations(client, runSession, credentials)
 	const session = runSession.session
 	const runEnded = Boolean(session?.run.synchronized && isTerminal(session.run.status))
-	// Above the screens, so switching views keeps the staged images.
-	const replyImages = useReplyImages(client, session?.run.runId ?? null, runEnded)
+	// Above the screens, so switching views keeps the staged attachments.
+	const replyAttachments = useReplyAttachments(client, session?.run.runId ?? null, runEnded)
 	const fileUrl = useMemo(() => (path: string) => hubFileUrl(client, path), [client])
 	const [draft, setDraft] = useState("")
-	// Like the images, the text belongs to one live run: opening another run or
+	// Like the attachments, the text belongs to one live run: opening another run or
 	// ending this one empties it, so old text never resurfaces in a later run.
 	const draftRun = runEnded ? null : session?.run.runId ?? null
 	const [draftOwner, setDraftOwner] = useState(draftRun)
@@ -134,7 +134,7 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 				return <div className="agent-hud__run-view">
 					{session && <p className="sr-only" role="status" aria-label="Run status">{session.run.project} · {status}</p>}
 					<HubFileUrlContext value={fileUrl}>
-						<RunHud key={session?.run.runId} draft={draft} onDraftChange={setDraft} images={replyImages} dictation={dictation}
+						<RunHud key={session?.run.runId} draft={draft} onDraftChange={setDraft} attachments={replyAttachments} dictation={dictation}
 							layoutMode={layout} display={display} awaitingInput={Boolean(session?.run.prompt)}
 							focusOnOpen={focusRunEditor} onSelect={runSession.select}
 							reply={{ available: runMutations.canReply, submitting: runMutations.replying, submit: runMutations.reply }}

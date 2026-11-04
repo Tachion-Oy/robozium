@@ -9,43 +9,43 @@ import { ApiError, type DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { deleteRunAttachments, hubFileUrl, listRunAttachments, uploadRunAttachment, type RunAttachment } from "./attachments-api"
 
-export const REPLY_IMAGE_LIMIT = 4
-export const REPLY_IMAGE_MAX_BYTES = 10 * 1024 * 1024
-export const REPLY_IMAGE_ACCEPT = {
+export const REPLY_ATTACHMENT_LIMIT = 4
+export const REPLY_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024
+export const REPLY_ATTACHMENT_ACCEPT = {
 	"image/png": [".png"],
 	"image/jpeg": [".jpg", ".jpeg"],
 	"image/webp": [".webp"],
 	"image/gif": [".gif"],
 }
 
-export type ReplyImage = {
+export type ReplyAttachment = {
 	url: string
 	name: string
 	serverId?: string
 	status: "queued" | "uploading" | "ready" | "removing" | "failed"
 }
 
-type ReplyImagesState = {
-	images: readonly ReplyImage[]
+type ReplyAttachmentsState = {
+	items: readonly ReplyAttachment[]
 	error: string | null
 	isBusy: boolean
-	/** Every image is uploaded and nothing is pending: a reply may be sent. */
+	/** Every attachment is uploaded and nothing is pending: a reply may be sent. */
 	isReady: boolean
 	canAdd: boolean
 	canRetry: boolean
 }
 
-export type ReplyImagesModel = ReplyImagesState & {
+export type ReplyAttachmentsModel = ReplyAttachmentsState & {
 	onDrop: (files: File[], rejections: FileRejection[]) => void
 	onRemove: (url: string) => void
 	onClear: () => void
 	/** Reload from the backend, then finish failed uploads and removals. */
 	onRetry: () => void
 	/** Send once ready; true only if the backend accepted the reply. */
-	submit: (send: (hasImages: boolean) => Promise<boolean>) => Promise<boolean>
+	submit: (send: (hasAttachments: boolean) => Promise<boolean>) => Promise<boolean>
 }
 
-const IDLE: ReplyImagesState = { images: [], error: null, isBusy: false, isReady: false, canAdd: false, canRetry: false }
+const IDLE: ReplyAttachmentsState = { items: [], error: null, isBusy: false, isReady: false, canAdd: false, canRetry: false }
 
 function rejectionReason({ file, errors }: FileRejection): string {
 	const reasons = errors.map(({ code }) => {
@@ -58,14 +58,14 @@ function rejectionReason({ file, errors }: FileRejection): string {
 	return `${file.name}: ${[...new Set(reasons)].join(" ")}`
 }
 
-/** Own the images above HUD screens; navigation never deletes server attachments. */
-export function useReplyImages(client: DesktopApiClient, runId: string | null, ended = false): ReplyImagesModel {
-	const [state, setState] = useState<ReplyImagesState>(IDLE)
-	const queue = useRef<ImageQueue | null>(null)
+/** Own the attachments above HUD screens; navigation never deletes server attachments. */
+export function useReplyAttachments(client: DesktopApiClient, runId: string | null, ended = false): ReplyAttachmentsModel {
+	const [state, setState] = useState<ReplyAttachmentsState>(IDLE)
+	const queue = useRef<AttachmentQueue | null>(null)
 	// A queue per run. Leaving or ending the run drops local state; server attachments stay.
 	useEffect(() => {
 		if (ended) return
-		const started = startImageQueue(client, runId, setState)
+		const started = startAttachmentQueue(client, runId, setState)
 		queue.current = started
 		return () => {
 			started.stop()
@@ -75,7 +75,7 @@ export function useReplyImages(client: DesktopApiClient, runId: string | null, e
 	}, [client, runId, ended])
 	const onDrop = (files: File[], rejections: FileRejection[]) => {
 		const reasons = rejections.map(rejectionReason)
-		if (state.images.length + files.length > REPLY_IMAGE_LIMIT) {
+		if (state.items.length + files.length > REPLY_ATTACHMENT_LIMIT) {
 			reasons.push("You can attach up to four images. Remove an image before adding more.")
 			files = []
 		}
@@ -91,9 +91,9 @@ export function useReplyImages(client: DesktopApiClient, runId: string | null, e
 	}
 }
 
-type ImageQueue = ReturnType<typeof startImageQueue>
+type AttachmentQueue = ReturnType<typeof startAttachmentQueue>
 
-type Entry = ReplyImage & {
+type Entry = ReplyAttachment & {
 	file?: File
 	/** Removal requested; the entry stays until the backend confirms. */
 	discard?: boolean
@@ -101,22 +101,22 @@ type Entry = ReplyImage & {
 }
 
 // A reopened composer waits for the previous queue's in-flight requests before
-// reading the backend's pending images.
+// reading the backend's pending attachments.
 const pendingQueues = new Map<string, Promise<void>>()
 
 /**
- * Run one run's image requests strictly in order, so uploads keep their order
+ * Run one run's attachment requests strictly in order, so uploads keep their order
  * and a reply waits for them. State lives in plain variables, not React state,
  * because each step reads the current values after its await; `refresh` hands
  * React a new copy after every change.
  */
-function startImageQueue(client: DesktopApiClient, runId: string | null, setState: (state: ReplyImagesState) => void) {
+function startAttachmentQueue(client: DesktopApiClient, runId: string | null, setState: (state: ReplyAttachmentsState) => void) {
 	const requests = new AbortController()
 	const call = <T>(operation: (signal: AbortSignal) => Promise<T>) => withDeadline(requests.signal, operation)
 	const hasRun = runId !== null
 	let active = true
 	let entries: Entry[] = []
-	/** The backend's pending images have been read. */
+	/** The backend's pending attachments have been read. */
 	let loaded = false
 	/** A request failed; read the backend again before continuing. */
 	let needsSync = false
@@ -126,12 +126,12 @@ function startImageQueue(client: DesktopApiClient, runId: string | null, setStat
 	let error: string | null = null
 	const operations: Array<() => Promise<void>> = []
 
-	const viewState = (): ReplyImagesState => {
+	const viewState = (): ReplyAttachmentsState => {
 		const isBusy = running || operations.length > 0
 		const inSync = loaded && !needsSync && !clearing
 		return {
-			// An image disappears once its removal starts, unless the removal failed.
-			images: entries
+			// An attachment disappears once its removal starts, unless the removal failed.
+			items: entries
 				.filter(entry => !entry.discard || entry.status === "failed")
 				.map(({ url, name, serverId, status }) => ({ url, name, serverId, status })),
 			error,
@@ -213,7 +213,7 @@ function startImageQueue(client: DesktopApiClient, runId: string | null, setStat
 		} catch (cause) {
 			if (!active) return
 			entry.status = entry.discard ? "removing" : "failed"
-			// Pause the rest of the batch so a retried image keeps its position.
+			// Pause the rest of the batch so a retried attachment keeps its position.
 			needsSync = true
 			fail(cause)
 		}
@@ -303,7 +303,7 @@ function startImageQueue(client: DesktopApiClient, runId: string | null, setStat
 				}
 			})
 		},
-		submit: (send: (hasImages: boolean) => Promise<boolean>): Promise<boolean> => {
+		submit: (send: (hasAttachments: boolean) => Promise<boolean>): Promise<boolean> => {
 			if (!viewState().isReady) return Promise.resolve(false)
 			const submitted = [...entries]
 			return new Promise((resolve, reject) => {

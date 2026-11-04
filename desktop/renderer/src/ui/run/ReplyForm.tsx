@@ -2,11 +2,11 @@
 import type { SubmitEventHandler } from "react"
 import { useDropzone } from "react-dropzone"
 import {
-	REPLY_IMAGE_ACCEPT,
-	REPLY_IMAGE_LIMIT,
-	REPLY_IMAGE_MAX_BYTES,
-	type ReplyImagesModel,
-} from "../../attachments/useReplyImages"
+	REPLY_ATTACHMENT_ACCEPT,
+	REPLY_ATTACHMENT_LIMIT,
+	REPLY_ATTACHMENT_MAX_BYTES,
+	type ReplyAttachmentsModel,
+} from "../../attachments/useReplyAttachments"
 import {
 	AgentMessagePanel,
 	type AgentMessage,
@@ -21,7 +21,7 @@ import { ReplyEditor } from "./ReplyEditor"
 
 export type ReplyComposerModel = {
 	value: string
-	images: ReplyImagesModel
+	attachments: ReplyAttachmentsModel
 	isReplyAvailable: boolean
 	isSubmitting: boolean
 	focusOnOpen?: boolean
@@ -48,18 +48,18 @@ export function ReplyForm({
 	locked = false,
 }: ReplyFormProps) {
 	const dropzone = useDropzone({
-		accept: REPLY_IMAGE_ACCEPT,
-		maxSize: REPLY_IMAGE_MAX_BYTES,
-		maxFiles: REPLY_IMAGE_LIMIT,
+		accept: REPLY_ATTACHMENT_ACCEPT,
+		maxSize: REPLY_ATTACHMENT_MAX_BYTES,
+		maxFiles: REPLY_ATTACHMENT_LIMIT,
 		noClick: true,
 		noKeyboard: true,
-		onDrop: composer.images.onDrop,
-		disabled: locked || !composer.images.canAdd || controls.cancel?.isPending,
+		onDrop: composer.attachments.onDrop,
+		disabled: locked || !composer.attachments.canAdd || controls.cancel?.isPending,
 	})
 	const canSubmit = Boolean(
 		!locked &&
-		(composer.value.trim() || composer.images.images.length) &&
-			composer.images.isReady &&
+		(composer.value.trim() || composer.attachments.items.length) &&
+			composer.attachments.isReady &&
 			composer.isReplyAvailable &&
 			!composer.isSubmitting &&
 			!controls.cancel?.isPending &&
@@ -84,7 +84,7 @@ export function ReplyForm({
 				<AgentMessagePanel message={message} />
 				<ReplyEditor
 					value={composer.value}
-					images={composer.images}
+					attachments={composer.attachments}
 					dropzone={dropzone}
 					canSubmit={canSubmit}
 					disabled={locked}
@@ -98,12 +98,12 @@ export function ReplyForm({
 				navigation={navigation}
 				locked={locked}
 				replyDraft={composer.value}
-				hasImages={composer.images.images.length > 0}
-				onAddImages={dropzone.open}
-				imagesDisabled={locked || !composer.images.canAdd || controls.cancel?.isPending}
+				hasAttachments={composer.attachments.items.length > 0}
+				onAddAttachments={dropzone.open}
+				attachmentsDisabled={locked || !composer.attachments.canAdd || controls.cancel?.isPending}
 				onClearReply={() => {
 					composer.onChange("")
-					composer.images.onClear()
+					composer.attachments.onClear()
 				}}
 				submission={{
 					canSubmit,

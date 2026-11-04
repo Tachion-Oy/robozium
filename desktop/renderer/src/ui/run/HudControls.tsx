@@ -39,9 +39,9 @@ type HudControlsProps = HudControlModel & {
 	/** Disable every control except message navigation. */
 	locked?: boolean
 	replyDraft: string
-	hasImages?: boolean
-	onAddImages?: () => void
-	imagesDisabled?: boolean
+	hasAttachments?: boolean
+	onAddAttachments?: () => void
+	attachmentsDisabled?: boolean
 	onClearReply: () => void
 	submission: {
 		canSubmit: boolean
@@ -55,9 +55,9 @@ export function HudControls({
 	navigation,
 	locked = false,
 	replyDraft,
-	hasImages = false,
-	onAddImages,
-	imagesDisabled,
+	hasAttachments = false,
+	onAddAttachments,
+	attachmentsDisabled,
 	onClearReply,
 	submission,
 	cancel,
@@ -113,18 +113,18 @@ export function HudControls({
 					<HudCopyControls
 						agentMessage={agentMessage}
 						replyDraft={replyDraft}
-						hasImages={hasImages}
+						hasAttachments={hasAttachments}
 						disabled={locked}
 						onClearReply={onClearReply}
 					/>,
 					copySlot,
 				)}
-				{onAddImages ? (
+				{onAddAttachments ? (
 					<button
 						type="button"
 						className="agent-hud__image"
-						onClick={onAddImages}
-						disabled={imagesDisabled}
+						onClick={onAddAttachments}
+						disabled={attachmentsDisabled}
 						aria-label="Add images"
 						title="Add images (PNG, JPEG, WebP, GIF; up to four, 10 MiB each)">
 						<svg className="agent-hud__image-icon" viewBox="0 0 16 16" aria-hidden="true">
