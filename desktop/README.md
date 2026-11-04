@@ -9,8 +9,7 @@ A run that completes, fails, is cancelled or goes missing returns to Runs
 Overview. Light/Dark switches the theme, which is kept for the next launch
 along with a matching window background. The window frame, header, overview,
 capability selector and run view use the accepted experiment's stylesheets and
-markup; credentials follow in a later
-[roadmap](../docs/plans/desktop-roadmap.md) step.
+markup.
 
 ## Install on Linux
 
@@ -248,8 +247,7 @@ snapshot reads keep polling. Only a failure that trying again cannot fix, such
 as invalid run data or a refused stream, is reported; **Retry output** then
 reconnects the known run ID without creating another run. Errors preserve output
 and drafts. Completed, failed, cancelled and unknown runs stop polling and
-return to Runs Overview. Writes are never retried. Restoring the run after the
-app reopens is the next roadmap step.
+return to Runs Overview. Writes are never retried.
 
 A launched run opens its latest message above an empty reply editor.
 Shift+Enter inserts a newline. When the run awaits input,
@@ -286,8 +284,8 @@ send a second request; a refusal or failure shows **Cancellation failed**.
 
 The run screen uses the experiment's markup and stylesheets. Agent messages and
 prompts render as sanitized Markdown; live text and script output stay literal.
-Links render but do not open yet: opening files and external pages needs a
-native privilege that arrives as its own roadmap item.
+Web links open in the default browser, and links to files inside the hub open
+in their default application.
 
 The run reducer owns run identity, durable event reconciliation, and backend
 status. Run protocol values and derived types live in `run/run-contracts.ts`;
@@ -497,7 +495,6 @@ also owns its installation identity and container log.
   `hud/hud-reducer.ts` coordinates live text, history and selection;
   `hud-history.ts`, `hud-view.ts` and `hud-messages.ts` own grouping/recovery,
   prompt/display composition and typed text extraction respectively.
-  [PR 8 notes](../docs/plans/desktop-run-output.md) record browser sources and adaptations.
 - `tsconfig.json` supplies Node types and module settings for every file in
   `src/`. Its standard name lets editors discover the same project the type check
   uses. The test and Vite configurations extend it.
