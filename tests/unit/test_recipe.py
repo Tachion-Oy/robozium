@@ -253,12 +253,12 @@ def test_recipe_owns_builtins_and_only_scripts_are_selectable(tmp_path):
     labels = {cap.label.name: cap.label for cap in definition.capabilities}
     assert {name for name, label in labels.items() if label.selectable} == {"safe_scripts"}
     assert set(labels) == {
-        "stop", "filesystem", "robozium", "compactification", "safe_scripts"
+        "stop", "filesystem", "pdf", "robozium", "compactification", "safe_scripts"
     }
     definition.set_capability_selection({})
     fixed, (maintenance,) = definition.build()
     assert {skill.name for skill in fixed.auto_loaded_skills} == {
-        "filesystem", "robozium"
+        "filesystem", "pdf", "robozium"
     }
     assert "run_shell_script" not in {tool.name for tool in fixed.tools}
     definition.set_capability_selection({"safe_scripts": True})
