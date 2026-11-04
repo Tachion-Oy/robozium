@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.5.4 - 2026-11-04
+
+- The window opens at half the screen's width and height on every start, so
+  the app no longer fills a laptop screen. Its size is not remembered; theme
+  and zoom still are.
+
 ## 0.5.3 - 2026-11-04
 
 - **Cancel** in the password dialog locks the secrets again. Before, an unlock
