@@ -126,7 +126,7 @@ export function HudControls({
 						onClick={onAddAttachments}
 						disabled={attachmentsDisabled}
 						aria-label="Add files"
-						title="Add images or PDFs (PNG, JPEG, WebP, GIF, PDF; up to four, 10 MiB each)">
+						title="Add files (images are sent to the model; up to four, 10 MiB each)">
 						<svg className="agent-hud__image-icon" viewBox="0 0 16 16" aria-hidden="true">
 							<path d="M8 1.2v13.6M1.2 8h13.6" />
 						</svg>

@@ -1,4 +1,4 @@
-// Stage images and PDFs for a run's next reply (`/run/{id}/files`) and address hub files.
+// Stage files for a run's next reply (`/run/{id}/files`) and address hub files.
 // The reply attachment draft owns the queue; requests here have no local state.
 import { z } from "zod"
 import { type DesktopApiClient } from "../api/client"
@@ -9,12 +9,14 @@ export interface RunAttachment {
 	name: string
 	/** Hub-relative; readable through /files until the run's workers stop. */
 	path: string
+	/** Images reach the model with the reply; other files only as links. */
+	kind: "image" | "file"
 	/** The client's upload identity, so a retried upload can be matched. */
 	uploadId: string | null
 }
 
-const RunAttachment: z.ZodType<RunAttachment> = z.object({ id: nonBlank, name: z.string(), path: nonBlank, upload_id: orNull(z.string()) })
-	.transform(({ id, name, path, upload_id: uploadId }) => ({ id, name, path, uploadId }))
+const RunAttachment: z.ZodType<RunAttachment> = z.object({ id: nonBlank, name: z.string(), path: nonBlank, kind: z.enum(["image", "file"]), upload_id: orNull(z.string()) })
+	.transform(({ id, name, path, kind, upload_id: uploadId }) => ({ id, name, path, kind, uploadId }))
 const RunAttachments = z.array(RunAttachment)
 
 const parse = <T>(schema: z.ZodType<T>, value: unknown): T =>
