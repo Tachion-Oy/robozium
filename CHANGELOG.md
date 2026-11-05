@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.5.8 - 2026-11-05
+
+- Update RoboZ to 0.16.0. The agent can read PDF pages as images, so it sees
+  layouts, tables and charts drawn as vector graphics. Reading text only stays
+  the default, and pasted PDFs are still read as text first.
+
 ## 0.5.7 - 2026-11-05
 
 - Replies take PDFs by paste, drop or the add button, next to images, up to
