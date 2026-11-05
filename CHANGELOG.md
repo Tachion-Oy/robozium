@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.5.7 - 2026-11-05
+
+- Replies take PDFs by paste, drop or the add button, next to images, up to
+  four files of 10 MiB each. The agent reads them with the text PDF reader, so
+  models without image input can use them. The `ATTACHMENTS` limits are now
+  named `max_files` and `max_file_bytes`.
+- The window opens at 960x640, shrunk only when the screen cannot fit it. On
+  GNOME under Wayland at 200% scaling it no longer opens maximized.
+
 ## 0.5.6 - 2026-11-05
 
 - Update RoboZ to 0.15.2. The agent reads PDFs, and can attach the images
