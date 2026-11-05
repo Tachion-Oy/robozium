@@ -5,6 +5,7 @@ import type { Backend } from "./selection-fixture"
 
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAECAIAAAA8r+mnAAAAEUlEQVR4nGNQOJCAFTFQTwIAyM0oAY5QpvwAAAAASUVORK5CYII=", "base64")
 const pdf = Buffer.from("%PDF-1.7\n%%EOF\n")
+const xlsx = Buffer.from("PK\u0003\u0004 workbook")
 const imageFile = (name: string, buffer = png, mimeType = "image/png") => ({ name, mimeType, buffer })
 const waiting = () => snapshot({ status: "awaiting_user_input", current_prompt_id: "p1", current_prompt: "Question p1" })
 const panel = (page: Page) => page.getByRole("group", { name: "Reply composer" })
@@ -14,7 +15,7 @@ const imageButton = (page: Page) => page.getByRole("button", { name: "Add files"
 const requestsTo = (backend: Backend, method: string, prefix: string) =>
 	backend.requests.filter(request => request.method === method && request.path.startsWith(prefix))
 
-interface Attachment { id: string; name: string; path: string; upload_id: string | null }
+interface Attachment { id: string; name: string; path: string; kind: "image" | "file"; upload_id: string | null }
 
 /** Stage uploads like the backend: one attachment per upload_id, readable through /files. */
 function stageImages(backend: Backend, pending: Attachment[] = []) {
@@ -25,13 +26,16 @@ function stageImages(backend: Backend, pending: Attachment[] = []) {
 	})
 	pending.forEach(serve)
 	backend.handlers.set("GET /run/run-one/files", response => json(response, pending))
-	backend.handlers.set("POST /run/run-one/files", response => {
+	backend.handlers.set("POST /run/run-one/files", (response, body) => {
 		const query = new URL(backend.requests.at(-1)!.path, "http://backend").searchParams
 		const uploadId = query.get("upload_id")
 		let attachment = pending.find(item => item.upload_id === uploadId)
 		if (!attachment) {
 			next += 1
-			attachment = { id: `a${next}`, name: query.get("filename")!, path: `.robozium-attachments/a${next}.${query.get("filename")!.endsWith(".pdf") ? "pdf" : "png"}`, upload_id: uploadId }
+			// Like the backend, decide the kind from the bytes: only real PNGs are images.
+			const name = query.get("filename")!
+			const kind = png.subarray(0, 8).equals((body as Buffer).subarray(0, 8)) ? "image" : "file"
+			attachment = { id: `a${next}`, name, path: `.robozium-attachments/a${next}.${name.split(".").pop()}`, kind, upload_id: uploadId }
 			pending.push(attachment)
 			serve(attachment)
 		}
@@ -127,8 +131,6 @@ test("removing and clearing delete staged images; rejected files are explained",
 	expect(requestsTo(backend, "DELETE", "/run/run-one/files").map(request => request.path)).toEqual(["/run/run-one/files/a1"])
 	await expect(replyBox(page)).toBeFocused()
 
-	await input.setInputFiles(imageFile("notes.txt", Buffer.from("text"), "text/plain"))
-	await expect(toast(page, "Attachments")).toContainText("notes.txt: Use PNG, JPEG, WebP, or GIF images, or PDF documents.")
 	await input.setInputFiles(imageFile("huge.png", Buffer.alloc(10 * 1024 * 1024 + 1)))
 	await expect(toast(page, "Attachments")).toContainText("huge.png: Files must be 10 MiB or smaller.")
 	await input.setInputFiles(["a", "b", "c", "d"].map(name => imageFile(`${name}.png`)))
@@ -170,8 +172,8 @@ test("a failed upload keeps its preview, blocks Send and retries with the same u
 
 test("staged attachments load from the backend, with the renderer's origin, and survive switching views", async ({ desktop: { page }, backend }) => {
 	stageImages(backend, [
-		{ id: "a1", name: "earlier.png", path: ".robozium-attachments/a1.png", upload_id: null },
-		{ id: "a2", name: "earlier.pdf", path: ".robozium-attachments/a2.pdf", upload_id: null },
+		{ id: "a1", name: "earlier.png", path: ".robozium-attachments/a1.png", kind: "image", upload_id: null },
+		{ id: "a2", name: "earlier.pdf", path: ".robozium-attachments/a2.pdf", kind: "file", upload_id: null },
 	])
 	const origins: (string | undefined)[] = []
 	const serve = backend.handlers.get("GET /files/.robozium-attachments/a1.png")!
@@ -190,11 +192,11 @@ test("staged attachments load from the backend, with the renderer's origin, and 
 	await expect(replyBox(page)).toHaveCount(0)
 	await view(page, "Current Run")
 	await expect(previews(page)).toHaveCount(2)
-	await expect(page.getByRole("img", { name: "earlier.pdf", exact: true })).toContainText("earlier.pdf")
+	await expect(page.getByRole("img", { name: "earlier.pdf", exact: true })).toContainText("PDFearlier.pdf")
 	expect(requestsTo(backend, "GET", "/run/run-one/files")).toHaveLength(1)
 })
 
-test("pasted and dropped PDFs show a document tile and send like images", async ({ desktop: { page }, backend }) => {
+test("pasted and dropped files of any type show a labelled document tile and send", async ({ desktop: { page }, backend }) => {
 	const pending = stageImages(backend)
 	const replies: unknown[] = []
 	backend.handlers.set("POST /run/run-one/reply", (response, body) => {
@@ -204,18 +206,31 @@ test("pasted and dropped PDFs show a document tile and send like images", async 
 	})
 	await openWaitingRun(page, backend)
 	await transferFile(panel(page), "report.pdf", "paste", pdf, "application/pdf")
-	await transferFile(replyBox(page), "notes.pdf", "drop", pdf, "application/pdf")
-	await expect(previews(page)).toHaveCount(2)
-	await expect(page.getByRole("img", { name: "report.pdf", exact: true })).toContainText("report.pdf")
+	await transferFile(replyBox(page), "budget.xlsx", "drop", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	await transferFile(panel(page), "notes", "paste", Buffer.from("plain text"), "")
+	await expect(previews(page)).toHaveCount(3)
+	await expect(page.getByRole("img", { name: "report.pdf", exact: true })).toContainText("PDFreport.pdf")
+	await expect(page.getByRole("img", { name: "budget.xlsx", exact: true })).toContainText("XLSXbudget.xlsx")
+	await expect(page.getByRole("img", { name: "notes", exact: true })).toContainText("FILEnotes")
 	await expect(panel(page).locator("img")).toHaveCount(0)
 	await expect(panel(page).getByRole("status")).toHaveCount(0)
-	expect(requestsTo(backend, "POST", "/run/run-one/files").map(upload => upload.body)).toEqual([pdf, pdf])
-	expect(pending.map(item => item.path)).toEqual([".robozium-attachments/a1.pdf", ".robozium-attachments/a2.pdf"])
+	expect(requestsTo(backend, "POST", "/run/run-one/files").map(upload => upload.body)).toEqual([pdf, xlsx, Buffer.from("plain text")])
 
-	await page.getByRole("button", { name: "Remove notes.pdf" }).click()
-	await expect(previews(page)).toHaveCount(1)
+	await page.getByRole("button", { name: "Remove budget.xlsx" }).click()
+	await expect(previews(page)).toHaveCount(2)
 	await replyBox(page).fill("Summarise this")
 	await replyBox(page).press("Enter")
 	await expect(previews(page)).toHaveCount(0)
 	expect(replies).toEqual([{ prompt_id: "p1", content: "Summarise this" }])
+})
+
+test("a pasted image the backend stores as a file turns into a document tile", async ({ desktop: { page }, backend }) => {
+	stageImages(backend)
+	await openWaitingRun(page, backend)
+	await transferFile(panel(page), "fake.png", "paste", Buffer.from("not an image"))
+	const tile = page.getByRole("img", { name: "fake.png", exact: true })
+	await expect(tile).toContainText("PNGfake.png")
+	await expect(panel(page).locator("img")).toHaveCount(0)
+	await expect(panel(page).getByRole("status")).toHaveCount(0)
+	await expect(send(page)).toBeEnabled()
 })

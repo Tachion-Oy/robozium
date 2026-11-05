@@ -260,7 +260,7 @@ running and why it is not.
 | `SUBAGENTS` | Specialist agent definitions. |
 | `TRANSCRIPTION_ENDPOINT` | Groq Whisper speech-to-text by default; `None` disables transcription. |
 | `ADDITIONAL_DEPENDENCIES`, `DEPENDENCY_HEALTH` | Extra monitored resources and health-check timing. |
-| `ATTACHMENTS` | Limits for images and PDFs attached to replies. |
+| `ATTACHMENTS` | Limits for files attached to replies. |
 | `LOGGING` | Technical log location. |
 
 Configuration is executable Python tracked by Git, and the installed app uses

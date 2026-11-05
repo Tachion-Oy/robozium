@@ -1,10 +1,12 @@
-"""Validate uploaded images and PDFs and own temporary files for a single run."""
+"""Validate uploaded files and own the temporary files of a single run."""
 
+import re
 import shutil
 from dataclasses import dataclass
 from html import escape
 from io import BytesIO
-from pathlib import Path
+from pathlib import Path, PurePath
+from typing import Literal
 from uuid import UUID, uuid4
 
 from PIL import Image as PillowImage
@@ -15,10 +17,9 @@ from robozium.hub.application import AttachmentSettings
 
 DIRECTORY = ".robozium-attachments"
 FORMATS = {"PNG": "png", "JPEG": "jpeg", "WEBP": "webp", "GIF": "gif"}
-PDF = "pdf"
-# PDF readers accept a header anywhere in the first kilobyte.
-_PDF_HEADER, _PDF_HEADER_WINDOW = b"%PDF-", 1024
-_UNSUPPORTED = "Use static PNG, JPEG, WebP, or GIF images, or PDF documents"
+AttachmentKind = Literal["image", "file"]
+# Other files keep a plain extension so the agent's readers recognise them.
+_EXTENSION = re.compile(r"[a-z0-9]{1,10}")
 
 
 @dataclass(frozen=True)
@@ -26,20 +27,22 @@ class AttachmentInfo:
     id: str
     name: str
     path: str
+    kind: AttachmentKind
     upload_id: UUID | None = None
 
 
 @dataclass(frozen=True)
 class UploadedFile:
-    """An image sent to the model with its link, or a PDF the agent reads by link."""
+    """An image sent to the model with its link, or any other file sent as a link."""
 
     name: str
     data: bytes
-    format: str
+    kind: AttachmentKind
+    suffix: str
 
     @property
     def is_image(self) -> bool:
-        return self.format != PDF
+        return self.kind == "image"
 
     @classmethod
     def validate(
@@ -47,24 +50,27 @@ class UploadedFile:
     ) -> "UploadedFile":
         if len(data) > settings.max_file_bytes:
             raise ValueError("File exceeds the configured byte limit")
-        # The PDF reader reports damaged or encrypted documents to the agent.
-        if _PDF_HEADER in data[:_PDF_HEADER_WINDOW]:
-            return cls(name, data, PDF)
         try:
             with PillowImage.open(BytesIO(data)) as image:
                 format = FORMATS.get(image.format or "")
+                # Formats models do not take stay files the agent can copy.
                 if format is None or getattr(image, "is_animated", False):
-                    raise ValueError(_UNSUPPORTED)
+                    return cls._file(name, data)
                 if image.width * image.height > settings.max_pixels:
                     raise ValueError("Image exceeds the configured pixel limit")
                 image.verify()
             with PillowImage.open(BytesIO(data)) as image:
                 image.load()
-        except UnidentifiedImageError as exc:
-            raise ValueError(_UNSUPPORTED) from exc
+        except UnidentifiedImageError:
+            return cls._file(name, data)
         except (OSError, SyntaxError, PillowImage.DecompressionBombError) as exc:
             raise ValueError("Invalid image upload") from exc
-        return cls(name, data, format)
+        return cls(name, data, "image", f".{format}")
+
+    @classmethod
+    def _file(cls, name: str, data: bytes) -> "UploadedFile":
+        extension = PurePath(name).suffix[1:].lower()
+        return cls(name, data, "file", f".{extension}" if _EXTENSION.fullmatch(extension) else "")
 
 
 def remove_attachments(path: Path) -> None:
@@ -93,7 +99,7 @@ class RunAttachments:
 
     @property
     def has_pending_images(self) -> bool:
-        return any(_is_image(path) for path, _, _ in self._pending.values())
+        return any(info.kind == "image" for _, info, _ in self._pending.values())
 
     def pending(self) -> list[AttachmentInfo]:
         return [info for _, info, _ in self._pending.values()]
@@ -107,6 +113,7 @@ class RunAttachments:
             id=path.stem,
             name=file.name,
             path=path.relative_to(self._hub_root).as_posix(),
+            kind=file.kind,
             upload_id=upload_id,
         )
         self._pending[info.id] = (path, info, size)
@@ -123,7 +130,7 @@ class RunAttachments:
         if self.path.resolve() != self.path or self.path.is_symlink():
             raise ValueError("Attachment directories must not use symbolic links")
         self.path.mkdir(parents=True, exist_ok=True)
-        path = self.path / f"{uuid4().hex}.{file.format}"
+        path = self.path / f"{uuid4().hex}{file.suffix}"
         # Failed exclusive creation must not unlink an existing file.
         stream = path.open("xb")
         try:
@@ -142,7 +149,7 @@ class RunAttachments:
         for path, info, _ in self._pending.values():
             src = path.relative_to(self._hub_root).as_posix()
             links.append(f'<file src="{escape(src, quote=True)}">{escape(info.name)}</file>')
-            if _is_image(path):
+            if info.kind == "image":
                 images.append(Image.from_bytes(
                     path.read_bytes(), media_type=f"image/{path.suffix[1:]}"
                 ))
@@ -172,7 +179,3 @@ class RunAttachments:
         remove_attachments(self.path)
         self._pending.clear()
         self._retained_bytes = 0
-
-
-def _is_image(path: Path) -> bool:
-    return path.suffix != f".{PDF}"

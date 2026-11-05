@@ -202,15 +202,11 @@ def test_text_only_prompts_reject_images_and_remain_pending(tmp_path, specialist
         wait_prompt(run.client, run.run_id, run.prompt)
 
 
-@pytest.mark.parametrize("case", ["invalid", "animated", "format", "pixels", "bytes", "stale"])
+@pytest.mark.parametrize("case", ["broken", "pixels", "bytes", "stale"])
 def test_invalid_uploads_leave_no_files_or_consumed_prompt(tmp_path, case):
     image = picture()
-    if case == "invalid":
-        image = b"not an image"
-    elif case == "animated":
-        image = picture("GIF", save_all=True, append_images=[Image.new("RGB", (3, 2), "blue")])
-    elif case == "format":
-        image = picture("BMP")
+    if case == "broken":
+        image = image[:-20]
     elif case == "pixels":
         out = BytesIO()
         Image.new("1", (5001, 5000)).save(out, format="PNG")
@@ -244,11 +240,11 @@ def test_json_reply_contract_and_stale_requests_preserve_current_images(tmp_path
 def test_run_budget_and_discarding_unsent_files(tmp_path):
     store = attachments.RunAttachments(tmp_path, tmp_path, "run")
     data = picture()
-    upload = attachments.UploadedFile("a.png", data, "png")
+    upload = attachments.UploadedFile("a.png", data, "image", ".png")
     store.add(upload)
     store.clear_pending(delete_files=True)
     assert list(store.path.iterdir()) == []
-    large = attachments.UploadedFile("a.png", b"x" * AttachmentSettings().max_file_bytes, "png")
+    large = attachments.UploadedFile("a.png", b"x" * AttachmentSettings().max_file_bytes, "image", ".png")
     for _ in range(10):
         store.add(large)
         store.clear_pending()
@@ -422,7 +418,7 @@ def test_queued_uploads_and_cancellation_before_worker_start(tmp_path):
         url = f"/run/{run_id}/files"
         response = client.post(url, params={"filename": "queued.png"}, content=picture())
         assert response.status_code == 200
-        assert set(response.json()) == {"id", "name", "path", "upload_id"}
+        assert set(response.json()) == {"id", "name", "path", "kind", "upload_id"}
         assert response.json()["upload_id"] is None
         assert client.get(url).json() == [response.json()]
         assert app.state.run_manager.cancel(run_id)
@@ -592,36 +588,52 @@ def test_image_count_limit_preserves_previously_staged_image(tmp_path):
 
 
 PDF = b"%PDF-1.7\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n"
+XLSX = b"PK\x03\x04\x14\x00\x00\x00\x08\x00" + bytes(range(256))
 
 
 @pytest.mark.parametrize("accepts_images", [False, True])
-def test_pdfs_reach_the_agent_as_links_and_only_images_as_images(tmp_path, accepts_images):
-    with image_run(tmp_path, accepts_images=accepts_images) as run:
-        pdf = upload(run, PDF, "report.pdf")
-        assert pdf.status_code == 200
-        assert pdf.json()["path"].endswith(".pdf")
-        assert run.client.get(f"/files/{pdf.json()['path']}").content == PDF
+def test_other_files_reach_the_agent_as_links_and_only_images_as_images(tmp_path, accepts_images):
+    files = [(PDF, "report.pdf", ".pdf"), (b'{"a": 1}', "data.JSON", ".json"),
+             (XLSX, "sheet.xlsx", ".xlsx"), (b"not an image", "fake.png", ".png")]
+    with image_run(tmp_path, accepts_images=accepts_images, limits=AttachmentSettings(max_files=5)) as run:
+        staged = []
+        for data, name, suffix in files:
+            response = upload(run, data, name)
+            assert response.status_code == 200
+            assert response.json()["kind"] == "file" and response.json()["path"].endswith(suffix)
+            assert run.client.get(f"/files/{response.json()['path']}").content == data
+            staged.append(response.json())
         if accepts_images:
-            assert upload(run).status_code == 200
+            image = upload(run)
+            assert image.json()["kind"] == "image"
+        assert run.client.get(f"/run/{run.run_id}/files").json() == staged + ([image.json()] if accepts_images else [])
         assert run.client.post(run.url, json={"prompt_id": run.prompt, "content": "read"}).status_code == 200
         wait_prompt(run.client, run.run_id, run.prompt)
         sent = json.dumps(run.calls[0])
-        assert pdf.json()["path"] in sent and ">report.pdf</file>" in sent
+        for attachment in staged:
+            assert attachment["path"] in sent and f">{attachment['name']}</file>" in sent
         urls = [part["image_url"]["url"] for message in run.calls[0]
                 if isinstance(message["content"], list) for part in message["content"]
                 if part["type"] == "image_url"]
         assert [base64.b64decode(url.split(",", 1)[1]) for url in urls] == ([picture()] if accepts_images else [])
 
 
-def test_pdf_header_may_follow_leading_bytes_and_other_files_are_explained(tmp_path):
-    with image_run(tmp_path) as run:
-        assert upload(run, b"\n" * 1000 + PDF, "late.pdf").status_code == 200
-        response = upload(run, b"plain text", "notes.txt")
-        assert response.status_code == 400
-        assert response.json()["detail"] == "Use static PNG, JPEG, WebP, or GIF images, or PDF documents"
+@pytest.mark.parametrize("data,name,suffix", [
+    (picture("BMP"), "scan.bmp", ".bmp"),
+    (picture("GIF", save_all=True, append_images=[Image.new("RGB", (3, 2), "blue")]), "loop.gif", ".gif"),
+    (b"notes", "README", ""),
+    (b"notes", "archive.tar.gz", ".gz"),
+    (b"notes", "odd.ex t", ""),
+])
+def test_images_models_cannot_take_and_odd_names_stage_as_files(tmp_path, data, name, suffix):
+    with image_run(tmp_path, accepts_images=False) as run:
+        response = upload(run, data, name)
+        assert response.status_code == 200
+        assert response.json()["kind"] == "file"
+        assert response.json()["path"] == f"{response.json()['path'].rsplit('/', 1)[0]}/{response.json()['id']}{suffix}"
 
 
-def test_pdfs_count_toward_the_file_limit(tmp_path):
+def test_files_count_toward_the_file_limit(tmp_path):
     with image_run(tmp_path, limits=AttachmentSettings(max_files=1)) as run:
         assert upload(run, PDF, "report.pdf").status_code == 200
         response = upload(run)

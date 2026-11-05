@@ -170,6 +170,12 @@ Save images intended for later viewing as project artifacts before presenting
 them. Pasted reply attachments are temporary and disappear after the run's workers
 stop; do not rely on those paths for lasting output. Remote URLs can also expire.
 
+A user reply carries each pasted file as a `<file>` link. Pasted images also
+arrive in the message itself. Read other attachments on demand: PDFs with the PDF
+reader, text formats such as TXT, JSON, CSV, or Markdown with `cat`. Formats
+you cannot read, such as spreadsheets, presentations, or archives, can still be
+copied. When the user wants an attachment kept, copy it into the project.
+
 ## HUD message formatting (markdown + HTML)
 
 HUD messages are rendered with GitHub-Flavored Markdown, and raw HTML is also

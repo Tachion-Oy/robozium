@@ -2,7 +2,6 @@
 import type { SubmitEventHandler } from "react"
 import { useDropzone } from "react-dropzone"
 import {
-	REPLY_ATTACHMENT_ACCEPT,
 	REPLY_ATTACHMENT_LIMIT,
 	REPLY_ATTACHMENT_MAX_BYTES,
 	type ReplyAttachmentsModel,
@@ -48,7 +47,6 @@ export function ReplyForm({
 	locked = false,
 }: ReplyFormProps) {
 	const dropzone = useDropzone({
-		accept: REPLY_ATTACHMENT_ACCEPT,
 		maxSize: REPLY_ATTACHMENT_MAX_BYTES,
 		maxFiles: REPLY_ATTACHMENT_LIMIT,
 		noClick: true,

@@ -48,7 +48,7 @@ class DependencyHealthSettings:
 
 @dataclass(frozen=True)
 class AttachmentSettings:
-    """Limits for images and PDFs attached to one reply and kept during one run."""
+    """Limits for files attached to one reply and kept during one run."""
 
     max_files: int = 4
     max_file_bytes: int = 10 * 1024 * 1024

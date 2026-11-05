@@ -476,7 +476,7 @@ def test_thread_start_failure_finishes_once_without_holding_control_lock(
     config, monkeypatch, failing_thread
 ):
     control = RunControl(config.project("demo"), _TEST_ENDPOINT, history_limit=10)
-    staged = control.stage_attachment(None, UploadedFile("image.png", b"image bytes", "png"))
+    staged = control.stage_attachment(None, UploadedFile("image.png", b"image bytes", "image", ".png"))
     path = config.settings.sandbox.resolved_root / staged.path
     assert path.exists()
     original_start = threading.Thread.start

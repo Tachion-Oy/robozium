@@ -1,4 +1,4 @@
-"""Serve hub files and stage pasted images and PDFs for a run's next reply."""
+"""Serve hub files and stage pasted files for a run's next reply."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,7 +27,7 @@ async def files_upload(
     run_id: str, request: Request, prompt_id: str | None = None, filename: str = "attachment",
     upload_id: UUID | None = None,
 ) -> AttachmentInfo:
-    """Upload one image or PDF as raw request bytes, before submitting the JSON reply.
+    """Upload one file as raw request bytes, before submitting the JSON reply.
 
     Reuse upload_id when retrying one selection; attachment IDs are server-generated.
     The returned path is readable through /files until the run's workers stop.

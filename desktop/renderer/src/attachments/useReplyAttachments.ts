@@ -11,16 +11,8 @@ import { deleteRunAttachments, hubFileUrl, listRunAttachments, uploadRunAttachme
 
 export const REPLY_ATTACHMENT_LIMIT = 4
 export const REPLY_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024
-export const REPLY_ATTACHMENT_ACCEPT = {
-	"image/png": [".png"],
-	"image/jpeg": [".jpg", ".jpeg"],
-	"image/webp": [".webp"],
-	"image/gif": [".gif"],
-	"application/pdf": [".pdf"],
-}
-
-/** Images preview as themselves; the agent reads a PDF through its link. */
-export type ReplyAttachmentKind = "image" | "pdf"
+/** Images reach the model and preview as themselves; other files reach the agent as links. */
+export type ReplyAttachmentKind = RunAttachment["kind"]
 
 export type ReplyAttachment = {
 	url: string
@@ -56,8 +48,7 @@ function rejectionReason({ file, errors }: FileRejection): string {
 	const reasons = errors.map(({ code }) => {
 		switch (code) {
 			case "file-too-large": return "Files must be 10 MiB or smaller."
-			case "too-many-files": return "You can attach up to four files."
-			default: return "Use PNG, JPEG, WebP, or GIF images, or PDF documents."
+			default: return "You can attach up to four files."
 		}
 	})
 	return `${file.name}: ${[...new Set(reasons)].join(" ")}`
@@ -96,8 +87,8 @@ export function useReplyAttachments(client: DesktopApiClient, runId: string | nu
 	}
 }
 
-/** The backend stores a PDF under a `.pdf` name; a dropped file may lack a type. */
-const kindOf = (name: string): ReplyAttachmentKind => /\.pdf$/i.test(name) ? "pdf" : "image"
+/** A guess until the backend, which decodes the file, returns its kind. */
+const MODEL_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"])
 
 type AttachmentQueue = ReturnType<typeof startAttachmentQueue>
 
@@ -189,7 +180,7 @@ function startAttachmentQueue(client: DesktopApiClient, runId: string | null, se
 	}
 
 	const adopt = (attachment: RunAttachment): Entry => ({
-		name: attachment.name, kind: kindOf(attachment.path), serverId: attachment.id, status: "ready", discard: clearing,
+		name: attachment.name, kind: attachment.kind, serverId: attachment.id, status: "ready", discard: clearing,
 		url: hubFileUrl(client, attachment.path),
 	})
 	const restore = async () => {
@@ -217,6 +208,7 @@ function startAttachmentQueue(client: DesktopApiClient, runId: string | null, se
 			const attachment = await call(signal => uploadRunAttachment(client, runId!, entry.file!, entry.uploadId!, signal))
 			if (!active) return
 			entry.serverId = attachment.id
+			entry.kind = attachment.kind
 			entry.status = "ready"
 		} catch (cause) {
 			if (!active) return
@@ -274,7 +266,7 @@ function startAttachmentQueue(client: DesktopApiClient, runId: string | null, se
 			error = rejection
 			for (const file of files) {
 				const entry: Entry = {
-					file, name: file.name, kind: file.type === "application/pdf" ? "pdf" : kindOf(file.name),
+					file, name: file.name, kind: MODEL_IMAGE_TYPES.has(file.type) ? "image" : "file",
 					url: URL.createObjectURL(file), status: "queued", uploadId: crypto.randomUUID(),
 				}
 				entries.push(entry)
