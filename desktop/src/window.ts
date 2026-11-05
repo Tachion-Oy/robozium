@@ -32,9 +32,15 @@ export function boundedSize(size: Size, limits: WindowLimits): Size {
 	}
 }
 
-/** Every start opens at half the work area in both directions, within the limits; the size is never remembered. */
+/**
+ * Every start opens at this content size, shrunk to fit a small work area; the size is never
+ * remembered. It is fixed, not a share of the screen, because Wayland may report the screen in
+ * physical pixels: on GNOME at 200% without fractional scaling a share would cover the screen.
+ */
+const STARTUP_SIZE: Size = { width: 960, height: 640 }
+
 export function startupSize(workArea: WorkArea): Size {
-	return boundedSize({ width: workArea.width / 2, height: workArea.height / 2 }, windowLimits(workArea))
+	return boundedSize(STARTUP_SIZE, windowLimits(workArea))
 }
 
 /** 1 zooms in, -1 out, 0 resets; null leaves the input to the page. */
