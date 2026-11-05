@@ -1,11 +1,11 @@
 <div align="center">
+  <img alt="" src="docs/assets/robozium-icon.svg" width="128"><br><br>
+
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/robozium-title-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/robozium-title-light.svg">
     <img alt="Robozium" src="docs/assets/robozium-title-light.svg" width="95%">
   </picture><br><br>
-
-  <img alt="" src="docs/assets/robozium-icon.svg" width="128"><br><br>
 
   <p><strong>Durable agentic projects with custom tools</strong></p>
 
