@@ -178,7 +178,7 @@ export const test = base.extend<{ launchSwitches: string[]; fakeBackend: FakeBac
 			// Actions wait for a stable element, and a reduced-motion change reaches the page
 			// only with its next rendering update, so both need drawn frames.
 			await waitForDrawing(app, page)
-			// The app opens at half the display; tests check the layout at a fixed 1260x780.
+			// The app opens at 960x640; tests check the layout at a fixed 1260x780.
 			await setNativeViewport(app, page, 1260, 780, 1)
 			await skipIntro(page)
 			await expect(page.locator(".agent-hud__box")).toBeVisible()

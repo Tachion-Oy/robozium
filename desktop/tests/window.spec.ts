@@ -109,10 +109,11 @@ test("window sizes stay within 640x420 and 90% of the work area", () => {
 	expect(() => boundedSize({ width: Number.NaN, height: 1 }, limits)).toThrow("Invalid window size.")
 })
 
-test("the app opens at half the work area, within the window limits", () => {
-	expect(startupSize({ width: 1920, height: 1080 })).toEqual({ width: 960, height: 540 })
-	expect(startupSize({ width: 1366, height: 768 })).toEqual({ width: 683, height: 420 })
-	expect(startupSize({ width: 600, height: 400 })).toEqual({ width: 540, height: 360 })
+test("the app opens at 960x640 whatever the screen reports, shrunk only to fit the window limits", () => {
+	expect(startupSize({ width: 1920, height: 1080 })).toEqual({ width: 960, height: 640 })
+	// GNOME on Wayland at 200% reports a 4K panel in physical pixels.
+	expect(startupSize({ width: 3840, height: 2160 })).toEqual({ width: 960, height: 640 })
+	expect(startupSize({ width: 1024, height: 600 })).toEqual({ width: 921, height: 540 })
 })
 
 test("zoom moves in tenths between 0.5 and 3 and resets to 1", () => {
