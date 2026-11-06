@@ -333,11 +333,11 @@ def test_encrypted_edit_stale_save_and_manual_override(client, tmp_path):
         ),
         (
             [{"name": "ROBOZIUM_ENCRYPTED_ENV_PATH", "value": "elsewhere"}],
-            "This setting is controlled by the application",
+            "ROBOZIUM_ENCRYPTED_ENV_PATH is controlled by the application. Delete it, then save.",
         ),
         (
             [{"name": "ROBOZIUM_HUB_ROOT", "value": "/hub"}],
-            "This setting is controlled by the application",
+            "ROBOZIUM_HUB_ROOT is controlled by the application. Delete it, then save.",
         ),
     ],
 )
@@ -678,10 +678,13 @@ def test_key_file_replaces_settings_only_when_its_password_opens_it(client, tmp_
     "content, error",
     [
         (b"A=1\nA=2\n", "Invalid or duplicate dotenv assignment"),
-        (b"ROBOZIUM_ENCRYPTED_ENV_PATH=elsewhere\n", "This setting is controlled by the application"),
+        (
+            b"ROBOZIUM_ENCRYPTED_ENV_PATH=elsewhere\n",
+            "ROBOZIUM_ENCRYPTED_ENV_PATH is controlled by the application. Remove it from the file.",
+        ),
         (
             key_file({"ROBOZIUM_HUB_ROOT": "/hub"}),
-            "This setting is controlled by the application",
+            "ROBOZIUM_HUB_ROOT is controlled by the application. Remove it from the file.",
         ),
         (b"TOKEN=\xff\n", "Environment file must be UTF-8"),
         (b"A" * (256 * 1024 + 1), "Environment file is too large"),
