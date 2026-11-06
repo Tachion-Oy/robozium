@@ -162,6 +162,19 @@
   font-weight: 600;
 }
 
+/* A variable still without a value stands out in the runs table's WAITING amber. */
+.agent-hud__environment-variable[data-missing],
+.agent-hud__environment-variable[data-missing] .agent-hud__environment-value {
+  color: var(--term-amber);
+  text-shadow: var(--term-glow-amber);
+}
+
+:root[data-theme="light"] .agent-hud__environment-variable[data-missing],
+:root[data-theme="light"] .agent-hud__environment-variable[data-missing] .agent-hud__environment-value {
+  color: var(--hud-status-waiting);
+  text-shadow: none;
+}
+
 .agent-hud__environment-save {
   border-top: 1px solid var(--term-blue);
 }

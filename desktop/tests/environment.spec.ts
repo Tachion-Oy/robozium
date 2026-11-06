@@ -149,6 +149,7 @@ test("a save that the backend accepted is reported as saved even when reading th
 	backend.handlers.set("POST /credentials/environment", response => { saved = true; fail = true; json(response, { status: "saved" }) })
 	await openEnvironment(page, backend)
 	await panel(page).getByRole("button", { name: "Delete SUGGESTED" }).click()
+	await panel(page).getByRole("button", { name: "Confirm deleting SUGGESTED" }).click()
 	await panel(page).getByRole("button", { name: "Change A" }).click()
 	await editor(page).getByLabel("Value for A").fill("2")
 	await editor(page).getByRole("button", { name: "Apply" }).click()
@@ -190,6 +191,7 @@ test("edits survive leaving the screen, and Escape closes the open editor", asyn
 	backend.handlers.set("GET /credentials/environment", response => json(response, environment({ entries: [entry("A", "1")] })))
 	await openEnvironment(page, backend)
 	await panel(page).getByRole("button", { name: "Delete A" }).click()
+	await panel(page).getByRole("button", { name: "Confirm deleting A" }).click()
 	await expect(panel(page).getByLabel("Current value for A")).toHaveCount(0)
 	await view(page, "Runs Overview")
 	await view(page, "Environment")
@@ -201,6 +203,44 @@ test("edits survive leaving the screen, and Escape closes the open editor", asyn
 	await page.keyboard.press("Escape")
 	await expect(editor(page)).toHaveCount(0)
 	await expect(add).toBeFocused()
+})
+
+test("Delete asks first, and Keep leaves the variable as it was", async ({ desktop: { page }, backend }) => {
+	backend.handlers.set("GET /credentials/environment", response => json(response, environment({ entries: [entry("API_KEY", null, true)] })))
+	await openEnvironment(page, backend)
+	await panel(page).getByRole("button", { name: "Delete API_KEY" }).click()
+	const confirm = panel(page).getByRole("button", { name: "Confirm deleting API_KEY" })
+	await expect(confirm).toHaveText("Yes, delete")
+	await expect(panel(page).getByRole("button", { name: "Change API_KEY" })).toHaveCount(0)
+	await panel(page).getByRole("button", { name: "Keep" }).click()
+	await expect(confirm).toHaveCount(0)
+	await expect(panel(page).getByLabel("Current value for API_KEY")).toHaveText("●●●●●●●●")
+	await expect(panel(page).getByRole("button", { name: "Change API_KEY" })).toBeEnabled()
+	await expect(saveForm(page).getByRole("button", { name: "Save" })).toBeDisabled()
+	await panel(page).getByRole("button", { name: "Delete API_KEY" }).click()
+	await confirm.click()
+	await expect(panel(page).getByLabel("Current value for API_KEY")).toHaveCount(0)
+	await expect(saveForm(page).getByRole("button", { name: "Save" })).toBeEnabled()
+	expect(saves(backend)).toHaveLength(0)
+})
+
+test("variables without a value are marked until one is applied", async ({ desktop: { page }, backend }) => {
+	const suggestions = [{ name: "NEEDED", value: "", secret: true, source: "tool" }]
+	backend.handlers.set("GET /credentials/environment", response => json(response,
+		environment({ entries: [entry("FILLED", "1"), entry("BLANK", ""), entry("API_KEY", null, true)], suggestions })))
+	await openEnvironment(page, backend)
+	const variable = (name: string) => panel(page).getByLabel(`Current value for ${name}`).locator("..")
+	await expect(panel(page).getByLabel("Current value for NEEDED")).toHaveText("Not set")
+	await expect(variable("NEEDED")).toHaveAttribute("data-missing", "")
+	await expect(panel(page).getByLabel("Current value for BLANK")).toHaveText("Empty")
+	await expect(variable("BLANK")).toHaveAttribute("data-missing", "")
+	await expect(variable("FILLED")).not.toHaveAttribute("data-missing")
+	await expect(variable("API_KEY")).not.toHaveAttribute("data-missing")
+	await panel(page).getByRole("button", { name: "Change NEEDED" }).click()
+	await editor(page).getByLabel("Value for NEEDED").fill("secret")
+	await editor(page).getByRole("button", { name: "Apply" }).click()
+	await expect(panel(page).getByLabel("Current value for NEEDED")).toHaveText("●●●●●●●●")
+	await expect(variable("NEEDED")).not.toHaveAttribute("data-missing")
 })
 
 test("reset deletes the saved settings on its click, once", async ({ desktop: { page }, backend }) => {
@@ -548,6 +588,7 @@ test("Restart app refuses unsaved edits and restarts once they are saved", async
 	})
 	await openEnvironment(page, backend)
 	await panel(page).getByRole("button", { name: "Delete A" }).click()
+	await panel(page).getByRole("button", { name: "Confirm deleting A" }).click()
 	const restart = panel(page).getByRole("button", { name: "Restart app" })
 	await restart.click()
 	// The toast only informs; the button stays live and nothing is remembered.

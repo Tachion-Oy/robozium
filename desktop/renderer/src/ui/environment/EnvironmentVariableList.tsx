@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import type { EnvironmentVariable } from "../../environment/useEnvironmentDraft"
 import type { EnvironmentEntry } from "../../environment/environment-api"
 import { HudButton } from "../hud/HudButton"
@@ -11,11 +11,17 @@ type EnvironmentVariableListProps = {
 	children: ReactNode
 }
 
-function currentValue({ entry, assigned }: EnvironmentVariable): string {
+/** The row holds no value yet: a suggestion nobody filled in, or a saved empty value. */
+function missingValue({ entry, assigned }: EnvironmentVariable): boolean {
+	if (!entry.configured && !assigned) return !entry.overridden
+	return entry.secret ? entry.value === "" : !entry.value
+}
+
+function currentValue(variable: EnvironmentVariable): string {
+	const { entry, assigned } = variable
 	if (!entry.configured && !assigned) return entry.overridden ? "Set in .env" : "Not set"
-	if (entry.secret && entry.value === "") return "Empty"
-	if (entry.secret) return "●●●●●●●●"
-	return entry.value || "Empty"
+	if (missingValue(variable)) return "Empty"
+	return entry.secret ? "●●●●●●●●" : entry.value ?? ""
 }
 
 function VariableRow({ variable, editing, disabled, onEdit, onDelete, children }: {
@@ -27,10 +33,15 @@ function VariableRow({ variable, editing, disabled, onEdit, onDelete, children }
 	children: ReactNode
 }) {
 	const { name } = variable.entry
+	// Delete asks first: a deleted key is costly to fetch again. Editing elsewhere ends the question.
+	const [confirming, setConfirming] = useState(false)
+	useEffect(() => { if (disabled) setConfirming(false) }, [disabled])
 	return (
 		<li className="agent-hud__environment-row">
 			<div className="flex flex-wrap items-center justify-between gap-3 py-2">
-				<div className="agent-hud__environment-variable flex min-w-0 flex-1 flex-wrap items-baseline gap-x-6 gap-y-1">
+				<div
+					className="agent-hud__environment-variable flex min-w-0 flex-1 flex-wrap items-baseline gap-x-6 gap-y-1"
+					data-missing={missingValue(variable) ? "" : undefined}>
 					<span className="min-w-0 break-all">
 						{name}
 						{variable.sources.length > 0 && <span className="agent-hud__environment-value"> [{variable.sources.join(", ")}]</span>}
@@ -40,12 +51,19 @@ function VariableRow({ variable, editing, disabled, onEdit, onDelete, children }
 					</span>
 				</div>
 				<div className="flex gap-2">
-					<HudButton aria-label={`Change ${name}`} disabled={disabled} onClick={event => onEdit(event.currentTarget)}>
-						Change
-					</HudButton>
-					<HudButton variant="danger" aria-label={`Delete ${name}`} disabled={disabled && !editing} onClick={onDelete}>
-						Delete
-					</HudButton>
+					{confirming ? <>
+						<HudButton variant="danger-confirm" aria-label={`Confirm deleting ${name}`} onClick={onDelete}>
+							Yes, delete
+						</HudButton>
+						<HudButton variant="warning" onClick={() => setConfirming(false)}>Keep</HudButton>
+					</> : <>
+						<HudButton aria-label={`Change ${name}`} disabled={disabled} onClick={event => onEdit(event.currentTarget)}>
+							Change
+						</HudButton>
+						<HudButton variant="danger" aria-label={`Delete ${name}`} disabled={disabled && !editing} onClick={() => setConfirming(true)}>
+							Delete
+						</HudButton>
+					</>}
 				</div>
 			</div>
 			{editing && children}

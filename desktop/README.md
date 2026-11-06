@@ -326,7 +326,9 @@ Divider controls remain visible but disabled outside Current Run.
 **Environment** lists the runtime's saved settings and secrets, with the
 variables that the application and imported tools need. **Add variable** and
 **Change** open an inline editor; **Secret** stores the value encrypted, and
-stored secrets are shown masked and can be kept or replaced. Saving replaces the
+stored secrets are shown masked and can be kept or replaced. A variable that
+still has no value is shown in amber, like a waiting run. **Delete** asks first.
+Saving replaces the
 saved file once: secrets need an encryption password, confirmed the first time.
 A refused save, for example after the settings changed elsewhere, keeps the edits.
 **Reset environment** asks first, then deletes the saved settings and secrets.
