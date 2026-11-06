@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.5.9 - 2026-11-06
+
+- Replies take any file. Static PNG, JPEG, WebP and GIF images still go to the
+  model with the reply. Every other file, PDFs included, reaches the agent as a
+  link, so it reads PDFs and text on demand and can copy any file into the
+  project. The composer shows these files as a tile labelled with their
+  extension.
+- The window opens at 1080×720 instead of 960×640, so the runs overview keeps
+  each project's buttons on one row beside it when the app is zoomed in. It
+  still shrinks to fit a small screen.
+
 ## 0.5.8 - 2026-11-05
 
 - Update RoboZ to 0.16.0. The agent can read PDF pages as images, so it sees
