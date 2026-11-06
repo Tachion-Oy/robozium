@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.5.12 - 2026-11-07
+
+- Dark mode's waiting insignia glows in the HUD's blue instead of lime, at the
+  same ring width and glow strength.
+- Environment shows a variable or secret that still has no value in the amber
+  the runs overview uses for waiting runs, so the keys an imported tool or
+  skill needs stand out until they are filled in.
+- Delete on an environment variable asks first, with Yes, delete and Keep in
+  the row, so one stray click cannot drop an API key.
+
 ## 0.5.11 - 2026-11-06
 
 - **Restart app** and **Reset environment** answer every click. Restart app
