@@ -37,7 +37,7 @@ export function boundedSize(size: Size, limits: WindowLimits): Size {
  * remembered. It is fixed, not a share of the screen, because Wayland may report the screen in
  * physical pixels: on GNOME at 200% without fractional scaling a share would cover the screen.
  */
-const STARTUP_SIZE: Size = { width: 960, height: 640 }
+const STARTUP_SIZE: Size = { width: 1080, height: 720 }
 
 export function startupSize(workArea: WorkArea): Size {
 	return boundedSize(STARTUP_SIZE, windowLimits(workArea))
