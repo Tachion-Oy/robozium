@@ -70,7 +70,6 @@ test("a successful environment reset uses a polite success toast", async ({ desk
 	await backend.open()
 	await view(page, "Environment")
 	await page.getByRole("button", { name: "Reset environment" }).click()
-	await page.getByRole("button", { name: "Yes, reset" }).click()
 	const notice = page.getByRole("status").filter({ hasText: "Environment reset" })
 	await expect(notice).toHaveClass(/agent-error-toast--success/)
 	await expect(notice).toHaveAttribute("aria-live", "polite")
