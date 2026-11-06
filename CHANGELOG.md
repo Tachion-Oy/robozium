@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.5.10 - 2026-11-06
+
+- A save that Environment refuses because the saved settings still hold a
+  variable the app controls, such as `ROBOZIUM_HUB_ROOT`, now names that
+  variable and says to delete it. Before, every save failed with no hint
+  which row to remove.
+
 ## 0.5.9 - 2026-11-06
 
 - Replies take any file. Static PNG, JPEG, WebP and GIF images still go to the
