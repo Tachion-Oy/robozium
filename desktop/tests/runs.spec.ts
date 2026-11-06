@@ -15,13 +15,16 @@ test("launch requires a confirmed model, blocks overlapping writes and duplicate
 	// The overview stays locked until the default model is confirmed.
 	const launch = launchButton(page, "existing-project")
 	await expect(launch).toBeDisabled()
+	await expect.poll(() => models).toBeDefined()
 	json(models!, catalogue)
 	await expect(launch).toBeEnabled()
 	let write: ServerResponse | undefined
 	backend.handlers.set("POST /models", response => { write = response })
 	const model = modelTrigger(page)
+	// Launch locks as soon as a model is chosen; the write reaches the backend after.
 	await chooseModel(page, "Second model")
 	await expect(launch).toBeDisabled()
+	await expect.poll(() => write).toBeDefined()
 	json(write!, { ...catalogue, selected_model_id: "two" })
 	await expect(launch).toBeEnabled()
 	await launch.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click() })
