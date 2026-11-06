@@ -171,6 +171,7 @@ def test_explicit_config_path_wins_over_environment(config_file, monkeypatch):
     with pytest.raises(RuntimeError, match="Missing hub config"):
         load_hub()
     monkeypatch.setenv("ROBOZIUM_CONFIG", str(config_file))
+    monkeypatch.delenv("ROBOZIUM_HUB_ROOT")
     expected = (config_file.parent / "../Robozium-Hub").resolve()
     assert load_hub().settings.sandbox.root == expected
 
