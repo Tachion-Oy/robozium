@@ -203,20 +203,17 @@ test("edits survive leaving the screen, and Escape closes the open editor", asyn
 	await expect(add).toBeFocused()
 })
 
-test("reset asks first, then deletes the saved settings once", async ({ desktop: { page }, backend }) => {
+test("reset deletes the saved settings on its click, once", async ({ desktop: { page }, backend }) => {
 	let pending: ServerResponse | undefined
 	backend.handlers.set("GET /credentials/environment", response => json(response, environment({ requires_password: true, entries: [entry("API_KEY", null, true)] })))
 	backend.handlers.set("DELETE /credentials/environment", response => { pending = response })
 	await openEnvironment(page, backend)
-	await saveForm(page).getByRole("button", { name: "Reset environment" }).click()
-	const confirm = toast(page, "Reset environment?")
-	await expect(confirm).toContainText("This permanently deletes all saved settings and secrets.")
-	await confirm.getByRole("button", { name: "Keep settings" }).click()
-	await expect(confirm).toHaveCount(0)
-	await saveForm(page).getByRole("button", { name: "Reset environment" }).click()
-	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
-	await confirm.getByRole("button", { name: "Yes, reset" }).click()
+	const reset = saveForm(page).getByRole("button", { name: "Reset environment" })
+	await reset.click()
 	await expect.poll(() => pending).toBeDefined()
+	// A second click while the reset runs is not another reset.
+	await expect(reset).toBeDisabled()
+	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
 	json(pending!, { status: "reset" })
 	await expect(page.getByRole("status").filter({ hasText: "Environment reset" })).toBeVisible()
 	await expect(panel(page).getByLabel("Current value for API_KEY")).toHaveCount(0)
@@ -538,22 +535,28 @@ test("while the backend is disconnected, Environment stops reading the settings"
 	expect(reads()).toBe(disconnected)
 })
 
-test("Restart app confirms unsaved edits in the HUD before restarting", async ({ desktop: { app, page }, backend }) => {
+test("Restart app refuses unsaved edits and restarts once they are saved", async ({ desktop: { app, page }, backend }) => {
 	await app.evaluate(({ ipcMain }) => {
 		ipcMain.removeHandler("desktop:relaunch")
 		ipcMain.handle("desktop:relaunch", () => { Reflect.set(globalThis, "relaunches", (Reflect.get(globalThis, "relaunches") ?? 0) + 1) })
 	})
 	const relaunches = () => app.evaluate(() => Reflect.get(globalThis, "relaunches") ?? 0)
 	backend.handlers.set("GET /credentials/environment", response => json(response, environment({ entries: [entry("A", "1")] })))
+	backend.handlers.set("POST /credentials/environment", response => {
+		backend.handlers.set("GET /credentials/environment", reply => json(reply, environment({ revision: "r2" })))
+		json(response, { status: "saved" })
+	})
 	await openEnvironment(page, backend)
 	await panel(page).getByRole("button", { name: "Delete A" }).click()
-	await panel(page).getByRole("button", { name: "Restart app" }).click()
-	const confirm = toast(page, "Unsaved changes")
-	await expect(confirm).toContainText("Restart without saving your environment changes? Unsaved changes will be lost.")
-	await confirm.getByRole("button", { name: "Keep editing" }).click()
+	const restart = panel(page).getByRole("button", { name: "Restart app" })
+	await restart.click()
+	// The toast only informs; the button stays live and nothing is remembered.
+	await expect(toast(page, "Unsaved changes")).toContainText("Save or undo your changes before restarting.")
 	expect(await relaunches()).toBe(0)
-	await panel(page).getByRole("button", { name: "Restart app" }).click()
-	await confirm.getByRole("button", { name: "Restart", exact: true }).click()
+	await expect(restart).toBeEnabled()
+	await saveForm(page).getByRole("button", { name: "Save" }).click()
+	await expect(page.getByRole("status").filter({ hasText: "Settings saved" })).toBeVisible()
+	await restart.click()
 	await expect.poll(relaunches).toBe(1)
 	await expect(panel(page).getByRole("button", { name: "Restarting…" })).toBeDisabled()
 	// The loading screen stays until the app exits; this stub never does.

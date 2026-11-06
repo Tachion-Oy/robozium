@@ -583,7 +583,6 @@ test("a secret saved in Environment applies after Restart app and a reset remove
 	await test.step("Reset the environment and restart without secrets", async () => {
 		await chooseView(page, "Environment")
 		await save(page).getByRole("button", { name: "Reset environment" }).click()
-		await toast(page, "Reset environment?").getByRole("button", { name: "Yes, reset" }).click()
 		await expect(page.getByRole("status").filter({ hasText: "Environment reset" })).toBeVisible()
 		;({ app, page } = await restartApp(app, page))
 		// No password is asked for: the HUD under the startup screen stays usable.
