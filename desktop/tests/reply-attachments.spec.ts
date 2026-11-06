@@ -126,9 +126,10 @@ test("removing and clearing delete staged images; rejected files are explained",
 	await expect(previews(page)).toHaveCount(2)
 	await expect.poll(() => pending.length).toBe(2)
 
+	// A removal hides its preview at once; the request reaches the backend after.
 	await page.getByRole("button", { name: "Remove one.png" }).click()
 	await expect(previews(page)).toHaveCount(1)
-	expect(requestsTo(backend, "DELETE", "/run/run-one/files").map(request => request.path)).toEqual(["/run/run-one/files/a1"])
+	await expect.poll(() => requestsTo(backend, "DELETE", "/run/run-one/files").map(request => request.path)).toEqual(["/run/run-one/files/a1"])
 	await expect(replyBox(page)).toBeFocused()
 
 	await input.setInputFiles(imageFile("huge.png", Buffer.alloc(10 * 1024 * 1024 + 1)))
@@ -139,7 +140,7 @@ test("removing and clearing delete staged images; rejected files are explained",
 
 	await page.getByRole("button", { name: "Clear reply" }).click()
 	await expect(previews(page)).toHaveCount(0)
-	expect(requestsTo(backend, "DELETE", "/run/run-one/files").map(request => request.path).at(-1)).toBe("/run/run-one/files")
+	await expect.poll(() => requestsTo(backend, "DELETE", "/run/run-one/files").map(request => request.path).at(-1)).toBe("/run/run-one/files")
 	expect(pending).toEqual([])
 	await expect(page.getByRole("button", { name: "Clear reply" })).toBeDisabled()
 })
