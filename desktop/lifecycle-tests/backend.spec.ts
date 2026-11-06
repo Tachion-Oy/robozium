@@ -560,7 +560,7 @@ test("a secret saved in Environment applies after Restart app and a reset remove
 		const editor = page.getByRole("form", { name: "Variable editor" })
 		await editor.getByLabel("Name").fill("DESKTOP_RESTART_SECRET")
 		await editor.getByLabel("Value for DESKTOP_RESTART_SECRET").fill("throwaway-value")
-		await editor.getByRole("checkbox", { name: "Secret" }).click()
+		await editor.getByRole("switch", { name: "Secret" }).click()
 		await editor.getByRole("button", { name: "Apply" }).click()
 		await save(page).getByRole("button", { name: "Encrypt and save" }).click()
 		const prompt = page.getByRole("dialog", { name: "Encrypt and save" })
@@ -616,7 +616,7 @@ test("a save refused for a wrong password closes the dialog and says why, and Re
 		const editor = page.getByRole("form", { name: "Variable editor" })
 		await editor.getByLabel("Name").fill(name)
 		await editor.getByLabel(`Value for ${name}`).fill("value")
-		await editor.getByRole("checkbox", { name: "Secret" }).click()
+		await editor.getByRole("switch", { name: "Secret" }).click()
 		await editor.getByRole("button", { name: "Apply" }).click()
 	}
 	const restartApp = async () => {

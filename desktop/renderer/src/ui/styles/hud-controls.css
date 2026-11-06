@@ -153,14 +153,16 @@
 
 .agent-hud__logo[data-agent-state="awaiting-input"] {
   color: color-mix(in oklab, white clamp(0%, 84% * var(--tune-sheen, 1), 100%), var(--term-lime));
-  box-shadow: 0 0 9px color-mix(in oklab, var(--term-blue) clamp(0%, 52% * var(--tune-glow, 1), 100%), transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--term-lime) clamp(0%, 35% * var(--tune-edge, 1), 100%), transparent),
+    0 0 12px color-mix(in oklab, var(--term-lime) clamp(0%, 55% * var(--tune-glow, 1), 100%), transparent);
 }
 
 .agent-hud__logo[data-agent-state="awaiting-input"] > .robozium-mark {
   filter:
-    drop-shadow(0 0 2px color-mix(in oklab, white clamp(0%, 68% * var(--tune-sheen, 1), 100%), transparent))
-    drop-shadow(0 0 6px color-mix(in oklab, white clamp(0%, 52% * var(--tune-sheen, 1), 100%), transparent))
-    drop-shadow(0 0 12px color-mix(in oklab, var(--term-lime) clamp(0%, 80% * var(--tune-glow, 1), 100%), transparent));
+    drop-shadow(0 0 2px color-mix(in oklab, white clamp(0%, 80% * var(--tune-sheen, 1), 100%), transparent))
+    drop-shadow(0 0 6px color-mix(in oklab, white clamp(0%, 60% * var(--tune-sheen, 1), 100%), transparent))
+    drop-shadow(0 0 14px color-mix(in oklab, var(--term-lime) clamp(0%, 100% * var(--tune-glow, 1), 100%), transparent));
 }
 
 /* While the agent works, both indicators pulse distinctly in the stream's
@@ -799,7 +801,7 @@
 
 :root[data-theme="light"] .agent-hud__logo[data-agent-state="working"],
 :root[data-theme="light"] .agent-hud__logo[data-agent-state="awaiting-input"] {
-  color: var(--term-amber);
+  color: var(--term-green);
   box-shadow: none;
   animation: none;
 }
@@ -1016,28 +1018,29 @@
   border: 1px solid color-mix(in oklab, var(--hud-input-border) clamp(0%, 78% * var(--tune-line, 1), 100%), transparent);
   filter: none;
   clip-path: none;
-  color: color-mix(in oklab, var(--term-amber) clamp(0%, 84% * var(--tune-text, 1), 100%), var(--hud-input-text));
+  color: color-mix(in oklab, var(--term-green) clamp(0%, 84% * var(--tune-text, 1), 100%), var(--hud-input-text));
   border-color: color-mix(
     in oklab,
-    var(--term-amber) clamp(0%, 42% * var(--tune-edge, 1), 100%),
+    var(--term-green) clamp(0%, 42% * var(--tune-edge, 1), 100%),
     var(--hud-input-border)
   );
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 52% * var(--tune-sheen, 1), 100%), transparent),
     0 0.18rem 0.55rem
-      color-mix(in oklab, var(--term-amber) clamp(0%, 18% * var(--tune-glow, 1), 100%), transparent);
+      color-mix(in oklab, var(--term-green) clamp(0%, 18% * var(--tune-glow, 1), 100%), transparent);
 }
-/* The light pulse fades from the inverted amber indicator to the light one. The
-   light end is the indicator itself, with its outer ring and shadow on ::after
-   so they fade out under the inverted layer. */
+/* The light pulse fades from the inverted green indicator to the light one;
+   working and waiting share the theme's green. The light end is the indicator
+   itself, with its outer ring and shadow on ::after so they fade out under the
+   inverted layer. */
 :root[data-theme="light"] .agent-hud__logo-pulse > .robozium-mark {
   filter: none;
 }
 @media (prefers-reduced-motion: no-preference) {
   :root[data-theme="light"]
     .agent-hud__logo[data-agent-state="working"] {
-    color: color-mix(in oklab, var(--term-amber) clamp(0%, 86% * var(--tune-text, 1), 100%), var(--hud-control-ink));
+    color: color-mix(in oklab, var(--term-green) clamp(0%, 86% * var(--tune-text, 1), 100%), var(--hud-control-ink));
     background: color-mix(in oklab, var(--hud-input-bg) 94%, white 6%);
-    border-color: color-mix(in oklab, var(--term-amber) clamp(0%, 46% * var(--tune-edge, 1), 100%), var(--hud-input-border));
+    border-color: color-mix(in oklab, var(--term-green) clamp(0%, 46% * var(--tune-edge, 1), 100%), var(--hud-input-border));
     box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 55% * var(--tune-sheen, 1), 100%), transparent);
   }
   :root[data-theme="light"]
@@ -1047,22 +1050,22 @@
     inset: -1px;
     border-radius: inherit;
     box-shadow:
-      0 0 0 0.16rem color-mix(in oklab, var(--term-amber) clamp(0%, 13% * var(--tune-glow, 1), 100%), transparent),
+      0 0 0 0.16rem color-mix(in oklab, var(--term-green) clamp(0%, 13% * var(--tune-glow, 1), 100%), transparent),
       0 0.2rem 0.7rem
-        color-mix(in oklab, var(--term-amber) clamp(0%, 18% * var(--tune-glow, 1), 100%), transparent);
+        color-mix(in oklab, var(--term-green) clamp(0%, 18% * var(--tune-glow, 1), 100%), transparent);
     pointer-events: none;
     animation: hud-agent-working-fade-in 1.15s ease-in-out infinite alternate;
   }
   :root[data-theme="light"]
     .agent-hud__logo[data-agent-state="working"] > .agent-hud__logo-pulse {
     inset: -1px;
-    color: color-mix(in oklab, white clamp(0%, 92% * var(--tune-sheen, 1), 100%), var(--term-amber));
-    background: color-mix(in oklab, var(--term-amber) clamp(0%, 82% * var(--tune-text, 1), 100%), var(--hud-control-ink));
-    border: 1px solid color-mix(in oklab, var(--term-amber) clamp(0%, 70% * var(--tune-edge, 1), 100%), var(--hud-control-ink));
+    color: color-mix(in oklab, white clamp(0%, 92% * var(--tune-sheen, 1), 100%), var(--term-green));
+    background: color-mix(in oklab, var(--term-green) clamp(0%, 82% * var(--tune-text, 1), 100%), var(--hud-control-ink));
+    border: 1px solid color-mix(in oklab, var(--term-green) clamp(0%, 70% * var(--tune-edge, 1), 100%), var(--hud-control-ink));
     box-shadow:
       inset 0 1px 0 color-mix(in oklab, white clamp(0%, 35% * var(--tune-sheen, 1), 100%), transparent),
       0 0.18rem 0.55rem
-        color-mix(in oklab, var(--term-amber) clamp(0%, 22% * var(--tune-glow, 1), 100%), transparent);
+        color-mix(in oklab, var(--term-green) clamp(0%, 22% * var(--tune-glow, 1), 100%), transparent);
     animation: hud-agent-working-fade-out 1.15s ease-in-out infinite alternate;
   }
 }
@@ -1371,4 +1374,14 @@
 
 .agent-hud__busy-host[data-busy][data-window] > .agent-hud__busy-content > * {
   opacity: 1;
+}
+
+/* The mark centres on the HUD pane, so an open message log does not move it
+   off the HUD; without the pane it centres on the window. */
+.agent-hud__busy--window > .agent-hud__logo {
+  position: fixed;
+  position-anchor: --hud-pane;
+  top: anchor(center, 50%);
+  left: anchor(center, 50%);
+  translate: -50% -50%;
 }

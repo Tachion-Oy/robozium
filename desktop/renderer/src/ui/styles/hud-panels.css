@@ -1033,6 +1033,13 @@ button.agent-hud__image-preview {
     var(--hud-input-border) 38%
   );
 }
+/* The light theme's muted blue is too faint for text: links take a deeper blue. */
+:root[data-theme="light"] .agent-hud__markdown-link {
+  color: #2c5596;
+}
+:root[data-theme="light"] .agent-hud__markdown-link:hover {
+  color: #1f4278;
+}
 :root[data-theme="light"] .agent-hud__markdown:empty::before {
   display: inline-block;
   color: var(--hud-input-placeholder);
