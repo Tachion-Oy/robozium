@@ -360,7 +360,7 @@ Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset
 (Command on macOS). Zoom moves in 10% steps between 50% and 300%. The keypad +
 and - keys also work.
 
-The window opens at 960×640 on every start, smaller only when the screen
+The window opens at 1080×720 on every start, smaller only when the screen
 cannot fit it. Its size is not remembered, so the app stays small and leaves
 the windows beneath it visible. Zoom is remembered. Opening the message log grows the
 window just enough to show both panes, side by side when the screen is wide
