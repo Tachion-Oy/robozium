@@ -191,6 +191,8 @@ html[data-theme="light"] .desktop-workspace {
   --desktop-divider-shadow-blur: 3px; --desktop-divider-shadow-offset: 1px;
 }
 .desktop-workspace__panes { display: grid; width: 100%; height: 100%; }
+/* A wait over the whole window centres its mark on the HUD pane (HudBusy). */
+.desktop-workspace__panes > .agent-hud { anchor-name: --hud-pane; }
 html[data-desktop] .desktop-workspace .agent-hud {
   position: relative; inset: auto; min-width: 0; min-height: 0;
   container: hud-pane / size;

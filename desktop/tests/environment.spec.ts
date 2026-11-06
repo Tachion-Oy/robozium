@@ -78,7 +78,7 @@ test("a new secret is validated, encrypted with a confirmed password and saved o
 	await expect(alert(page, "Invalid variable")).toContainText("starting with a letter or an underscore")
 	await expect(alert(page, "Invalid variable")).not.toContainText("_ENCRYPTED")
 	await editor(page).getByLabel("Name").fill("API_KEY")
-	await editor(page).getByRole("checkbox", { name: "Secret" }).click()
+	await editor(page).getByRole("switch", { name: "Secret" }).click()
 	await expect(editor(page).getByLabel("Value for API_KEY")).toHaveAttribute("type", "password")
 	await editor(page).getByRole("button", { name: "Apply" }).click()
 	await expect(panel(page).getByLabel("Current value for API_KEY")).toHaveText("●●●●●●●●")
@@ -244,6 +244,31 @@ for (const theme of ["dark", "light"]) {
 		}
 	})
 }
+
+test("an import's wait mark centres on the HUD, not on the window, while the message log is open", async ({ desktop: { app, page }, backend }, testInfo) => {
+	const folder = testInfo.outputPath("local_tool")
+	await mkdir(path.join(folder, "tools", "search"), { recursive: true })
+	await writeFile(path.join(folder, "robozium.json"), JSON.stringify({ tools: ["tools/search"] }))
+	await writeFile(path.join(folder, "tools", "search", "__init__.py"), "")
+	credentials(backend)
+	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
+	// The upload stays pending, so the wait lasts.
+	backend.handlers.set("POST /credentials/environment/import", () => undefined)
+	await openEnvironment(page, backend)
+	await page.getByRole("button", { name: "Show message log" }).click()
+	await expect(panel(page).getByRole("button", { name: "Browse folder" })).toBeEnabled()
+	await panel(page).getByLabel("Choose tool or skill folder").setInputFiles(folder)
+	const wait = page.getByRole("status", { name: "Importing local_tool…" })
+	await expect(wait).toBeVisible()
+	// Side by side, then stacked under the HUD.
+	for (const width of [1260, 1000]) {
+		await setNativeViewport(app, page, width, 780, 1)
+		const [mark, hud] = await Promise.all([wait.locator(".agent-hud__logo"), page.locator(".desktop-workspace__panes > .agent-hud")]
+			.map(async locator => (await locator.boundingBox())!))
+		expect(Math.abs(mark.x + mark.width / 2 - hud.x - hud.width / 2)).toBeLessThan(1)
+		expect(Math.abs(mark.y + mark.height / 2 - hud.y - hud.height / 2)).toBeLessThan(1)
+	}
+})
 
 test("importing a folder uploads the files its catalog lists under their relative paths and asks for a restart", async ({ desktop: { page }, backend }, testInfo) => {
 	const folder = testInfo.outputPath("local_tool")

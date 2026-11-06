@@ -93,7 +93,7 @@ test("the first save during setup loads the keys and unlocks the HUD", async ({ 
 	const editor = page.getByRole("form", { name: "Variable editor" })
 	await editor.getByLabel("Name").fill("OPENROUTER_API_KEY")
 	await editor.getByLabel("Value for OPENROUTER_API_KEY").fill("synthetic")
-	await editor.getByRole("checkbox", { name: "Secret" }).click()
+	await editor.getByRole("switch", { name: "Secret" }).click()
 	await editor.getByRole("button", { name: "Apply" }).click()
 	const save = page.getByRole("form", { name: "Save environment settings" })
 	await save.getByRole("button", { name: "Encrypt and save" }).click()
