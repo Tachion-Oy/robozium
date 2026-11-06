@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 0.5.11 - 2026-11-06
+
+- **Restart app** and **Reset environment** answer every click. Restart app
+  was disabled while its "Unsaved changes" question was up, and dismissing that
+  toast, or saving the edits meanwhile, left the button dead. A click with
+  unsaved edits now shows a toast asking to save or undo them, and once they
+  are saved the click restarts. Reset environment resets on its click.
+- Links in light mode take a deeper blue, readable on the cream panel.
+- Secret is a switch: a pill whose knob slides right and fills red when on,
+  instead of a button whose two states looked alike.
+- An import's pulsing mark stays centred on the HUD pane while the message log
+  is open.
+- Light mode's working indicator pulses in the theme's green; dark mode's
+  waiting state glows a little brighter, with a lime ring.
+
 ## 0.5.10 - 2026-11-06
 
 - A save that Environment refuses because the saved settings still hold a
