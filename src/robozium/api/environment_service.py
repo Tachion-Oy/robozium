@@ -148,7 +148,9 @@ class EnvironmentService:
         for name in stored:
             base = name.removesuffix(ENCRYPTED_SUFFIX)
             if base in env.CONTROLLED_NAMES:
-                raise ValueError("This setting is controlled by the application")
+                raise ValueError(
+                    f"{base} is controlled by the application. Remove it from the file."
+                )
         decrypt_env_values(stored, password=password)
         with self._projects.stopped_runs():
             original = self._read_text(self._path)
@@ -339,7 +341,9 @@ class EnvironmentService:
             if entry.name in values:
                 raise ValueError("Variable names must be unique")
             if entry.name in env.CONTROLLED_NAMES:
-                raise ValueError("This setting is controlled by the application")
+                raise ValueError(
+                    f"{entry.name} is controlled by the application. Delete it, then save."
+                )
             if (
                 entry.value is None
                 and not entry.secret

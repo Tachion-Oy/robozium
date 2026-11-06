@@ -50,7 +50,6 @@ assert callable(robozium.api.app.mock_app)
     env = {
         **os.environ,
         "ROBOZIUM_CONFIG": str(tmp_path / "missing.json"),
-        "ROBOZIUM_ROOT": str(tmp_path),
         "PYTHONDONTWRITEBYTECODE": "1",
     }
     subprocess.run(
