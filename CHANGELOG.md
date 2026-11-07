@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.5.13 - 2026-11-07
+
+- The backend container uses the same DNS servers as the computer it runs on,
+  loopback resolver included, instead of a copy of the upstream list taken at
+  launch. Turning a VPN on or off after launch no longer leaves every model,
+  search tool and dictation unavailable until the app restarts.
+- A failed dictation says why: the error toast names the provider and the
+  failure, such as a connection error, and the backend logs the cause.
+
 ## 0.5.12 - 2026-11-07
 
 - Dark mode's waiting insignia glows in the HUD's blue instead of lime, at the
