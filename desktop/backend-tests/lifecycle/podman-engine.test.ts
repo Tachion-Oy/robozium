@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import process from "node:process"
@@ -13,10 +13,15 @@ const rootless = { host: { security: { rootless: true }, idMappings: { uidmap: r
 const call = () => ({ signal: new globalThis.AbortController().signal })
 
 /** An engine whose Podman answers from `respond`, recording every call. */
-function fakePodman(respond: (args: string[], options: CommandOptions) => string = () => "", findPodman = (): string | undefined => "/test/podman") {
+function fakePodman(
+	respond: (args: string[], options: CommandOptions) => string = () => "",
+	findPodman = (): string | undefined => "/test/podman",
+	resolverFile = "/nonexistent/resolv.conf",
+) {
 	const calls: { args: string[]; options: CommandOptions }[] = []
 	const engine = new PodmanEngine({
 		findPodman,
+		resolverFile,
 		run: async (executable, args, options) => {
 			assert.equal(executable, "/test/podman")
 			calls.push({ args, options })
@@ -132,8 +137,11 @@ test("a listed ID that is not a container ID is refused", async () => {
 	await assert.rejects(engine.list("label", "value", call()), /Invalid container identity/)
 })
 
-test("the container runs rootless on the host's loopback, with its variables in a private file that is removed after", async t => {
+test("the container runs rootless on the host's loopback and DNS servers, with its variables in a private file that is removed after", async t => {
 	const backend = container(t)
+	// The host's resolver list as systemd-resolved and a router both write it; a scoped address is left out.
+	const resolverFile = path.join(path.dirname(backend.environmentFile), "resolv.conf")
+	writeFileSync(resolverFile, "# Generated\nnameserver 127.0.0.53\noptions edns0\nnameserver fe80::1%3\nnameserver 192.168.1.1\nsearch home\n")
 	let environment = ""
 	const { engine, calls } = fakePodman((args, options) => {
 		if (args[0] === "info") return JSON.stringify(rootless)
@@ -142,13 +150,14 @@ test("the container runs rootless on the host's loopback, with its variables in 
 		environment = readFileSync(file, "utf8")
 		assert.equal(options.timeout, 1000)
 		return ""
-	})
+	}, undefined, resolverFile)
 	await engine.prepare(call())
 	await engine.run(backend, { ...call(), timeout: 1000 })
 	assert.deepEqual(calls.at(-1)!.args, [
 		"run", "--detach", "--pull", "never", "--name", backend.name,
 		"--label", "fi.tachion.robozium.desktop.project=robozium-desktop-abcdefabcdef-mock",
-		"--network", "host", "--init", "--user", "0:0", "--cap-drop", "all", "--security-opt", "no-new-privileges",
+		"--network", "host", "--dns", "127.0.0.53", "--dns", "192.168.1.1",
+		"--init", "--user", "0:0", "--cap-drop", "all", "--security-opt", "no-new-privileges",
 		"--stop-timeout", "30", "--env-file", backend.environmentFile,
 		"--volume", "/runtime with spaces/hub:/hub", "--volume", "/runtime with spaces/.runtime/host-socket:/host-scripts:ro",
 		`localhost/${backend.image}`, "uvicorn", "robozium.api.app:mock_app", "--host", "127.0.0.1", "--port", "18000",
@@ -156,6 +165,14 @@ test("the container runs rootless on the host's loopback, with its variables in 
 	assert.equal(environment, "ROBOZIUM_MODE=mock\nEXAMPLE_VALUE=plain copy\n")
 	assert.equal(existsSync(backend.environmentFile), false)
 	assert.equal(calls.at(-1)!.args.some(arg => arg.includes("plain copy")), false, "values stay off the command line")
+})
+
+test("a host without a resolver file leaves DNS to Podman", async t => {
+	const backend = container(t)
+	const { engine, calls } = fakePodman(args => args[0] === "info" ? JSON.stringify(rootless) : "")
+	await engine.prepare(call())
+	await engine.run(backend, call())
+	assert.equal(calls.at(-1)!.args.includes("--dns"), false)
 })
 
 test("the environment file is removed when the container fails to start", async t => {
