@@ -69,13 +69,13 @@ test("a missing key is a notice, a provider failure an error, and both keep the 
 	await expect(page.getByRole("alert")).toHaveCount(0)
 	await notice.getByRole("button", { name: "Dismiss info notification" }).click()
 
-	backend.handlers.set("POST /transcribe", response => json(response, { detail: "transcription failed" }, 502))
+	const reason = "Groq transcription failed: APIConnectionError: Connection error."
+	backend.handlers.set("POST /transcribe", response => json(response, { detail: reason }, 502))
 	await record(page).click()
 	await expect(record(page)).toHaveAttribute("aria-pressed", "true")
 	await page.waitForTimeout(500)
 	await record(page).click()
-	await expect(page.getByRole("alert").filter({ hasText: "Transcription failed" }))
-		.toContainText("API request failed (502): transcription failed")
+	await expect(page.getByRole("alert").filter({ hasText: "Transcription failed" })).toContainText(reason)
 	await expect(replyBox(page)).toHaveValue("Keep me")
 	await expect(record(page)).toBeEnabled()
 })
