@@ -239,11 +239,14 @@ export function useDictation({
 				// Locked, missing or disabled keys are setup to finish, not failures.
 				showNotificationToast({ tone: "info", title: "Dictation unavailable", message: error.detail })
 			} else {
+				// The server's own reason, when it gave one, names the provider and the failure.
 				showErrorToast({
 					title: "Transcription failed",
-					message: error instanceof ApiError || error instanceof RequestTimeoutError
-						? error.message
-						: "Could not transcribe audio. Try again.",
+					message: error instanceof ApiError && error.detail
+						? error.detail
+						: error instanceof ApiError || error instanceof RequestTimeoutError
+							? error.message
+							: "Could not transcribe audio. Try again.",
 				})
 			}
 		} finally {

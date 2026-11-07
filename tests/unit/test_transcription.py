@@ -116,6 +116,9 @@ def test_transcribe_route_maps_provider_error_to_502(tmp_path: Path) -> None:
     )
 
     assert response.status_code == 502
+    detail = response.json()["detail"]
+    assert detail.startswith("Transcription failed: ")
+    assert len(detail) > len("Transcription failed: ")
 
 
 def test_transcribe_route_rejects_unsupported_content_type(tmp_path: Path) -> None:

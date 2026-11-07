@@ -335,7 +335,17 @@ def create_app(*, deployment: Hub, require_credentials: bool = False) -> FastAPI
                 content_type=content_type,
             )
         except Exception as exc:
-            raise HTTPException(status_code=502, detail="transcription failed") from exc
+            # The toast shows this detail, so it names the provider and the failure.
+            what = (
+                f"{endpoint.api_name} transcription"
+                if isinstance(endpoint, TranscriptionEndpoint)
+                else "Transcription"
+            )
+            reason = f"{type(exc).__name__}: {exc}"[:200]
+            logger.warning("%s failed: %s", what, reason, exc_info=exc)
+            raise HTTPException(
+                status_code=502, detail=f"{what} failed: {reason}"
+            ) from exc
         return {"text": text}
 
     @app.get("/run/{run_id}/stream")
