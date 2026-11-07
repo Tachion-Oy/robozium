@@ -1,10 +1,36 @@
-import { rmSync, writeFileSync } from "node:fs"
+import { readFileSync, rmSync, writeFileSync } from "node:fs"
 import type { BackendContainer, ContainerEngine, ContainerInspection, EngineCall, ImageBuild } from "./container-engine.ts"
 import { findExecutable, runCommand } from "./host-command.ts"
 
 interface PodmanOptions {
 	run?: typeof runCommand
 	findPodman?: () => string | undefined
+	/** Where the host names its DNS servers; the container is given the same ones. */
+	resolverFile?: string
+}
+
+const HOST_RESOLVER_FILE = "/etc/resolv.conf"
+
+/**
+ * The host's DNS servers, for the container to use as they are. Left to itself,
+ * Podman drops a loopback stub such as systemd-resolved's 127.0.0.53 and copies
+ * that stub's upstream servers instead: a one-time snapshot that a VPN
+ * connecting or dropping later makes wrong, so every lookup in the container
+ * fails until the app restarts. The container shares the host's network, so it
+ * reaches every server the host does, the stub included, and the stub follows
+ * such changes live. Podman refuses an address with an interface scope (`%`).
+ */
+function hostNameservers(file: string): string[] {
+	let text: string
+	try {
+		text = readFileSync(file, "utf8")
+	} catch {
+		return []
+	}
+	return text.split("\n").flatMap(line => {
+		const match = /^\s*nameserver\s+(\S+)/.exec(line)
+		return match && !match[1].includes("%") ? [match[1]] : []
+	})
 }
 
 /**
@@ -23,15 +49,16 @@ interface PodmanInfo {
 
 /**
  * Rootless Podman on Linux: containers run as the user who starts the app, with
- * no daemon and no privileged group. The container shares the user's network,
- * so the API's 127.0.0.1 listener is the host's loopback. Container root is the
- * user's own account, so files in the hub stay theirs.
+ * no daemon and no privileged group. The container shares the user's network
+ * and DNS servers, so the API's 127.0.0.1 listener is the host's loopback.
+ * Container root is the user's own account, so files in the hub stay theirs.
  */
 export class PodmanEngine implements ContainerEngine {
 	readonly name = "Podman"
 	private executable = ""
 	private readonly execute: typeof runCommand
 	private readonly findPodman: () => string | undefined
+	private readonly resolverFile: string
 	/**
 	 * The user's environment once, for every call: always this machine's own
 	 * rootless Podman, never a remote connection or another tool's settings.
@@ -46,6 +73,7 @@ export class PodmanEngine implements ContainerEngine {
 	constructor(options: PodmanOptions = {}) {
 		this.execute = options.run ?? runCommand
 		this.findPodman = options.findPodman ?? (() => findExecutable("podman"))
+		this.resolverFile = options.resolverFile ?? HOST_RESOLVER_FILE
 	}
 
 	async prepare(call: EngineCall): Promise<void> {
@@ -127,6 +155,7 @@ export class PodmanEngine implements ContainerEngine {
 				"run", "--detach", "--pull", "never", "--name", container.name,
 				...Object.entries(container.labels).flatMap(([name, value]) => ["--label", `${name}=${value}`]),
 				"--network", "host",
+				...hostNameservers(this.resolverFile).flatMap(server => ["--dns", server]),
 				"--init",
 				"--user", "0:0",
 				"--cap-drop", "all",
