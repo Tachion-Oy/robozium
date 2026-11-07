@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.5.14 - 2026-11-07
+
+- Dependencies no longer shows cat, grep and the other local tools as timed
+  out while the network is down. Local checks run ahead of the network ones,
+  and a check is only timed once it runs, so only the network dependencies go
+  red (RoboZ 0.16.1).
+
 ## 0.5.13 - 2026-11-07
 
 - The backend container uses the same DNS servers as the computer it runs on,
