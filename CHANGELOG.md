@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## 0.5.15 - 2026-11-08
+
+- Web images show in the HUD. An agent's `![alt](https://…)` renders the
+  picture inline, with click-to-view and **Open original** kept, where every
+  web image used to arrive as a "Remote image" link. A failed load or a plain
+  http address still shows the link.
+- The run says when its model cannot read images: switching to a text-only
+  model mid-run raises one toast with the runtime's message. Every runtime
+  error reaches the user the same way, as a toast and a row in the message
+  log, instead of being dropped.
+- Imported tools can save web files. A downloading tool, such as robozify's
+  `download_web_file`, writes into the run's attachment folder, where pasted
+  files already land and the HUD serves them; the folder goes when the run
+  stops, so the agent moves a file into the project to keep it. The
+  inline-image instructions now say which images render and that attachment
+  files are temporary.
+
 ## 0.5.14 - 2026-11-07
 
 - Dependencies no longer shows cat, grep and the other local tools as timed
