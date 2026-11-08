@@ -202,9 +202,9 @@ what to import:
 
 Each `tools` or `skills` path is a self-contained Python package inside the
 folder: it may import only its own modules and its requirements. `env` lists
-optional example settings files. Only these paths are uploaded, without hidden
-entries such as `.venv` or `.git` and without `__pycache__`, so the folder can
-be a whole checkout. Avoid symbolic links to folders: the app reads each
+optional example settings files. Only these paths are read and uploaded, without
+hidden entries such as `.venv` or `.git` and without `__pycache__`, so the folder
+can be a whole checkout, virtual environment included. Avoid symbolic links to folders: the app reads each
 folder once, so of two paths to the same folder only the first is uploaded,
 and the folder a link points to is copied in even when it is outside the
 imported folder. A listed file that is not uploaded refuses the import, but a
@@ -235,7 +235,7 @@ imports: a broken one still stops startup.
 To update an import, select **Remove** next to it, import the new version,
 then restart. Removing deletes only the copy; its saved settings remain.
 Imported code runs as part of the application, so import only trusted packages.
-[Robozify](https://github.com/Tachion-Oy/robozify) offers email and timesheets.
+[Robozify](https://github.com/Tachion-Oy/robozify) offers email, timesheets and web research.
 
 ## Host scripts
 

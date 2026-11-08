@@ -345,8 +345,9 @@ at once, without a restart; otherwise they apply after **Restart app**.
 
 Dropping a folder on the import row, or **Browse folder**, imports the tools
 and skills listed in its `robozium.json`; only the listed packages and example
-files are uploaded, each with its path inside the folder, their variables join
-the list, and it is available after a restart. Saved settings, imports and resets apply after
+files are read and uploaded, each with its path inside the folder, so a dropped
+checkout's `.venv` or `.git` is never opened; their variables join the list, and
+it is available after a restart. Saved settings, imports and resets apply after
 **Restart app**, which stops the backend and starts the app again on Runs
 Overview, where the app asks for the password of encrypted secrets. Until then
 the HUD stays on Environment and the backend refuses new runs and Check

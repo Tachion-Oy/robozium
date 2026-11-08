@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
-import { mkdir, writeFile } from "node:fs/promises"
+import { chmod, mkdir, symlink, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { test, json, view } from "./run-fixture"
 import { captureNative, setNativeViewport, toast, viewTrigger } from "./native"
@@ -373,36 +373,62 @@ test("importing a folder uploads the files its catalog lists under their relativ
 	}
 })
 
-type Tree = { [name: string]: string | Tree }
+/** A folder's files and subfolders; `null` is a folder Chromium refuses to read, as one with links out of the tree. */
+type Tree = { [name: string]: string | Tree | null }
 
 /**
  * Synthetic drags cannot hold a real folder, so the drop carries a fake directory per top
  * folder. A real drop in the app offers a directory handle, which is read first; `entries`
- * leaves it out to test the entry reader, and `unreadable` makes reading the handle fail as
- * a refused permission does.
+ * leaves it out to test the entry reader. Both fakes answer by name only, as the reader asks,
+ * and a `null` folder refuses every read.
  */
-async function drop(target: Locator, folders: Tree, reader: "handle" | "entries" | "unreadable" = "handle") {
+async function drop(target: Locator, folders: Tree, reader: "handle" | "entries" = "handle") {
 	await target.evaluate((element, { folders, reader }) => {
-		type Tree = { [name: string]: string | Tree }
-		const handle = (name: string, node: string | Tree): object => typeof node === "string"
+		type Tree = { [name: string]: string | Tree | null }
+		type Node = string | Tree | null
+		const refused = () => new DOMException("Reading the folder was not allowed.", "NotAllowedError")
+		const missing = (name: string) => new DOMException(`${name} is not in the folder.`, "NotFoundError")
+		const child = (node: Tree | null, name: string, kind: "file" | "directory"): Node => {
+			if (node === null) throw refused()
+			const value = node[name]
+			if (value === undefined || (kind === "file") !== (typeof value === "string")) throw missing(name)
+			return value
+		}
+		const handle = (name: string, node: Node): object => typeof node === "string"
 			? { kind: "file", name, getFile: async () => new File([node], name) }
-			: { kind: "directory", name, values: async function* () {
-				if (reader === "unreadable") throw new DOMException("Reading the folder was not allowed.", "NotAllowedError")
-				for (const [child, value] of Object.entries(node)) yield handle(child, value)
-			} }
-		const entry = (name: string, fullPath: string, node: string | Tree): object => typeof node === "string"
-			? { isFile: true, isDirectory: false, name, fullPath, file: (done: (file: File) => void) => done(new File([node], name)) }
-			: { isFile: false, isDirectory: true, name, fullPath, createReader: () => {
-				let read = false
-				return { readEntries: (done: (entries: object[]) => void) => {
-					const batch = read ? [] : Object.entries(node).map(([child, value]) => entry(child, `${fullPath}/${child}`, value))
-					read = true
-					done(batch)
+			: { kind: "directory", name,
+				getFileHandle: async (file: string) => handle(file, child(node, file, "file")),
+				getDirectoryHandle: async (folder: string) => handle(folder, child(node, folder, "directory")),
+				values: async function* () {
+					if (node === null) throw refused()
+					for (const [name, value] of Object.entries(node)) yield handle(name, value)
 				} }
-			} }
+		type Done = (entry: object) => void
+		type Fail = (error: DOMException) => void
+		const answer = (node: Tree | null, name: string, kind: "file" | "directory", done: Done, fail: Fail) => {
+			try {
+				done(entry(name, child(node, name, kind)))
+			} catch (error) {
+				fail(error as DOMException)
+			}
+		}
+		const entry = (name: string, node: Node): object => typeof node === "string"
+			? { isFile: true, isDirectory: false, name, file: (done: (file: File) => void) => done(new File([node], name)) }
+			: { isFile: false, isDirectory: true, name,
+				getFile: (file: string, _options: unknown, done: Done, fail: Fail) => answer(node, file, "file", done, fail),
+				getDirectory: (folder: string, _options: unknown, done: Done, fail: Fail) => answer(node, folder, "directory", done, fail),
+				createReader: () => {
+					let read = false
+					return { readEntries: (done: (entries: object[]) => void, fail: Fail) => {
+						if (node === null) return fail(refused())
+						const batch = read ? [] : Object.entries(node).map(([name, value]) => entry(name, value))
+						read = true
+						done(batch)
+					} }
+				} }
 		const items = Object.entries(folders).map(([name, node]) => ({
-			kind: "file", type: "", getAsFile: () => null, webkitGetAsEntry: () => entry(name, `/${name}`, node),
-			...reader !== "entries" && { getAsFileSystemHandle: async () => handle(name, node) },
+			kind: "file", type: "", getAsFile: () => null, webkitGetAsEntry: () => entry(name, node),
+			...reader === "handle" && { getAsFileSystemHandle: async () => handle(name, node) },
 		}))
 		const data = { types: ["Files"], items, files: [], dropEffect: "copy" }
 		for (const type of ["dragenter", "drop"]) {
@@ -413,67 +439,104 @@ async function drop(target: Locator, folders: Tree, reader: "handle" | "entries"
 	}, { folders, reader })
 }
 
-test("a dropped folder uploads the files its catalog lists under their relative paths", async ({ desktop: { page }, backend }) => {
-	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
-	let pending: ServerResponse | undefined
-	backend.handlers.set("POST /credentials/environment/import", response => { pending = response })
-	await openEnvironment(page, backend)
-	const form = page.getByRole("form", { name: "Import tool or skill" })
-	await expect(form.getByRole("button", { name: "Browse folder" })).toBeEnabled()
-	await drop(form, { dropped_tool: {
-		"robozium.json": JSON.stringify({ tools: ["tools/search"], env: [".env.example"] }),
-		".env.example": "DROPPED_KEY=\n",
-		tools: { search: { "__init__.py": "" } },
-		".venv": { "unlisted.py": "" },
-	} })
-	await expect(form.getByLabel("Selected tool or skill folder")).toHaveValue("dropped_tool")
-	await expect(page.getByRole("status", { name: "Importing dropped_tool…" })).toBeVisible()
-	await expect.poll(() => pending).toBeDefined()
-	const imported = { name: "dropped_tool", active: false, error: null, variables: ["DROPPED_KEY"],
-		capabilities: [{ name: "search", kind: "tool", selectable: true, loading: null }] }
-	json(pending!, { imported, suggestions: [] })
-	await expect(page.getByRole("status").filter({ hasText: "Imported" })).toContainText("Tool search found and imported.")
-	const [upload] = backend.requests.filter(request => request.path === "/credentials/environment/import")
-	for (const name of ["dropped_tool/robozium.json", "dropped_tool/.env.example", "dropped_tool/tools/search/__init__.py"]) {
-		expect(upload.body).toContain(`name="files"; filename="${name}"`)
-	}
-	expect(upload.body).not.toContain("unlisted.py")
-})
+/** A checkout: the catalog's packages beside files, caches and virtual environments the import leaves alone. */
+const checkout: Tree = {
+	"robozium.json": JSON.stringify({ tools: ["tools/search"], env: [".env.example"] }),
+	".env.example": "DROPPED_KEY=\n",
+	"README.md": "",
+	tools: { search: {
+		"__init__.py": "", nested: { "helper.py": "" }, __pycache__: { "helper.cpython-313.pyc": "" }, ".env": "SECRET=value\n",
+		// Hidden entries inside a package are skipped by name, never opened.
+		".venv": null,
+	} },
+	// A virtual environment whose links point out of the tree: Chromium refuses to read it, and the drop never asks.
+	".venv": null,
+}
+const uploaded = ["dropped_tool/robozium.json", "dropped_tool/.env.example", "dropped_tool/tools/search/__init__.py", "dropped_tool/tools/search/nested/helper.py"]
+const leftAlone = ["dropped_tool/README.md", "dropped_tool/tools/search/__pycache__/helper.cpython-313.pyc", "dropped_tool/tools/search/.env"]
 
-test("a folder dropped without a directory handle is read from its entries", async ({ desktop: { page }, backend }) => {
-	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
-	let pending: ServerResponse | undefined
-	backend.handlers.set("POST /credentials/environment/import", response => { pending = response })
-	await openEnvironment(page, backend)
-	const form = page.getByRole("form", { name: "Import tool or skill" })
-	await expect(form.getByRole("button", { name: "Browse folder" })).toBeEnabled()
-	await drop(form, { dropped_tool: {
-		"robozium.json": JSON.stringify({ tools: ["tools/search"], env: [".env.example"] }),
-		".env.example": "DROPPED_KEY=\n",
-		tools: { search: { "__init__.py": "" } },
-		".venv": { "unlisted.py": "" },
-	} }, "entries")
-	await expect(form.getByLabel("Selected tool or skill folder")).toHaveValue("dropped_tool")
-	await expect.poll(() => pending).toBeDefined()
-	const imported = { name: "dropped_tool", active: false, error: null, variables: ["DROPPED_KEY"],
-		capabilities: [{ name: "search", kind: "tool", selectable: true, loading: null }] }
-	json(pending!, { imported, suggestions: [] })
-	await expect(page.getByRole("status").filter({ hasText: "Imported" })).toContainText("Tool search found and imported.")
-	const [upload] = backend.requests.filter(request => request.path === "/credentials/environment/import")
-	for (const name of ["dropped_tool/robozium.json", "dropped_tool/.env.example", "dropped_tool/tools/search/__init__.py"]) {
-		expect(upload.body).toContain(`name="files"; filename="${name}"`)
-	}
-	expect(upload.body).not.toContain("unlisted.py")
-})
+for (const reader of ["handle", "entries"] as const) {
+	test(`a dropped folder read from its ${reader === "handle" ? "directory handle" : "entries"} uploads only the files its catalog lists, under their relative paths`, async ({ desktop: { page }, backend }) => {
+		backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
+		let pending: ServerResponse | undefined
+		backend.handlers.set("POST /credentials/environment/import", response => { pending = response })
+		await openEnvironment(page, backend)
+		const form = page.getByRole("form", { name: "Import tool or skill" })
+		await expect(form.getByRole("button", { name: "Browse folder" })).toBeEnabled()
+		await drop(form, { dropped_tool: checkout }, reader)
+		await expect(form.getByLabel("Selected tool or skill folder")).toHaveValue("dropped_tool")
+		await expect(page.getByRole("status", { name: "Importing dropped_tool…" })).toBeVisible()
+		await expect.poll(() => pending).toBeDefined()
+		const imported = { name: "dropped_tool", active: false, error: null, variables: ["DROPPED_KEY"],
+			capabilities: [{ name: "search", kind: "tool", selectable: true, loading: null }] }
+		json(pending!, { imported, suggestions: [] })
+		await expect(page.getByRole("status").filter({ hasText: "Imported" })).toContainText("Tool search found and imported.")
+		const [upload] = backend.requests.filter(request => request.path === "/credentials/environment/import")
+		for (const name of uploaded) expect(upload.body).toContain(`name="files"; filename="${name}"`)
+		for (const name of leftAlone) expect(upload.body).not.toContain(`filename="${name}"`)
+		expect(upload.body).not.toContain(".venv")
+	})
+}
 
 test("a dropped folder that cannot be read says so and uploads nothing", async ({ desktop: { page }, backend }) => {
 	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
 	await openEnvironment(page, backend)
 	const form = page.getByRole("form", { name: "Import tool or skill" })
 	await expect(form.getByRole("button", { name: "Browse folder" })).toBeEnabled()
-	await drop(form, { locked_tool: { "robozium.json": "{}" } }, "unreadable")
+	await drop(form, { locked_tool: null })
 	await expect(alert(page, "Import failed")).toContainText("Robozium was not allowed to read the folder.")
 	expect(backend.requests.filter(request => request.path === "/credentials/environment/import")).toHaveLength(0)
+})
+
+test("a drop without a catalog, or of more than one folder, is refused before anything is uploaded", async ({ desktop: { page }, backend }) => {
+	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
+	await openEnvironment(page, backend)
+	const form = page.getByRole("form", { name: "Import tool or skill" })
+	await expect(form.getByRole("button", { name: "Browse folder" })).toBeEnabled()
+	await drop(form, { loose_tool: { "__init__.py": "" } })
+	await expect(page.getByRole("alert").filter({ hasText: "robozium.json is missing at the folder root" })).toBeVisible()
+	await drop(form, { one: { "robozium.json": "{}" }, two: { "robozium.json": "{}" } })
+	await expect(page.getByRole("alert").filter({ hasText: "Drop one folder." })).toBeVisible()
+	expect(backend.requests.filter(request => request.path === "/credentials/environment/import")).toHaveLength(0)
+})
+
+test("dropping a real checkout reads only the catalog paths and never its virtual environment", async ({ desktop: { page }, backend }, testInfo) => {
+	const folder = testInfo.outputPath("real_tool")
+	await mkdir(path.join(folder, "tools", "search"), { recursive: true })
+	await mkdir(path.join(folder, ".venv", "bin"), { recursive: true })
+	await mkdir(path.join(folder, ".venv", "locked"))
+	await writeFile(path.join(folder, "robozium.json"), JSON.stringify({ tools: ["tools/search"], env: [".env.example"] }))
+	await writeFile(path.join(folder, ".env.example"), "REAL_KEY=\n")
+	await writeFile(path.join(folder, "tools", "search", "__init__.py"), "")
+	await writeFile(path.join(folder, "README.md"), "")
+	// A virtual environment as uv makes one: its interpreter links out of the tree. A folder
+	// nobody may list stands for whatever else Chromium refuses to read; the import never asks.
+	await symlink("/usr/bin/env", path.join(folder, ".venv", "bin", "python"))
+	await chmod(path.join(folder, ".venv", "locked"), 0)
+	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
+	let pending: ServerResponse | undefined
+	backend.handlers.set("POST /credentials/environment/import", response => { pending = response })
+	await openEnvironment(page, backend)
+	const form = page.getByRole("form", { name: "Import tool or skill" })
+	await expect(form.getByRole("button", { name: "Browse folder" })).toBeEnabled()
+	// The DevTools protocol drops the real folder as the desktop does, so Chromium offers its handle.
+	const box = (await form.boundingBox())!
+	const at = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+	const data = { items: [], files: [folder], dragOperationsMask: 1 }
+	const session = await page.context().newCDPSession(page)
+	for (const type of ["dragEnter", "dragOver", "drop"] as const) await session.send("Input.dispatchDragEvent", { type, ...at, data })
+	await expect(form.getByLabel("Selected tool or skill folder")).toHaveValue("real_tool")
+	await expect.poll(() => pending).toBeDefined()
+	const imported = { name: "real_tool", active: false, error: null, variables: ["REAL_KEY"],
+		capabilities: [{ name: "search", kind: "tool", selectable: true, loading: null }] }
+	json(pending!, { imported, suggestions: [] })
+	await expect(page.getByRole("status").filter({ hasText: "Imported" })).toContainText("Tool search found and imported.")
+	const [upload] = backend.requests.filter(request => request.path === "/credentials/environment/import")
+	for (const name of ["real_tool/robozium.json", "real_tool/.env.example", "real_tool/tools/search/__init__.py"]) {
+		expect(upload.body).toContain(`name="files"; filename="${name}"`)
+	}
+	expect(upload.body).not.toContain("README.md")
+	expect(upload.body).not.toContain(".venv")
 })
 
 test("a folder without robozium.json is refused before anything is uploaded", async ({ desktop: { page }, backend }, testInfo) => {
@@ -602,15 +665,4 @@ test("Restart app refuses unsaved edits and restarts once they are saved", async
 	await expect(panel(page).getByRole("button", { name: "Restarting…" })).toBeDisabled()
 	// The loading screen stays until the app exits; this stub never does.
 	await expect(page.locator(".startup[data-stage='loading']")).toBeVisible()
-})
-
-
-test("dropping several folders asks for one and uploads nothing", async ({ desktop: { page }, backend }) => {
-	backend.handlers.set("GET /credentials/environment", response => json(response, environment()))
-	await openEnvironment(page, backend)
-	const form = page.getByRole("form", { name: "Import tool or skill" })
-	await expect(form.getByRole("button", { name: "Browse folder" })).toBeEnabled()
-	await drop(form, { first_tool: { "robozium.json": "{}" }, second_tool: { "robozium.json": "{}" } })
-	await expect(alert(page, "Import failed")).toContainText("Drop or choose one folder that contains files.")
-	expect(backend.requests.filter(request => request.path === "/credentials/environment/import")).toHaveLength(0)
 })

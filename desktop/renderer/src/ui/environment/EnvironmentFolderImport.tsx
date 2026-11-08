@@ -2,29 +2,30 @@
 // and uploading it can take a while, so the screen shows the wait (onBusy); the outcome
 // is a toast from the import itself.
 import { useEffect, useRef, useState, type SubmitEvent } from "react"
-import { useDropzone, type FileWithPath } from "react-dropzone"
-import type { FolderFile } from "../../environment/environment-api"
+import { useDropzone } from "react-dropzone"
+import { catalogFiles } from "../../environment/catalog-files"
 import { showErrorToast } from "../../feedback/notices"
 import { HudButton } from "../hud/HudButton"
 
+/** Chromium may refuse a read; other failures, the catalog's own included, name their cause. */
+const readFailure = (error: Error) => error instanceof DOMException
+	? error.name === "NotAllowedError" ? "Robozium was not allowed to read the folder." : `The folder could not be read: ${error.message || error.name}`
+	: error.message
+
 export function EnvironmentFolderImport({ disabled, onImport, onBusy }: {
 	disabled: boolean
-	onImport: (files: FolderFile[]) => Promise<boolean>
+	onImport: (files: File[]) => Promise<boolean>
 	/** The folder being read or uploaded, null while its name is not known yet, undefined when idle. */
 	onBusy: (folder: string | null | undefined) => void
 }) {
-	const [files, setFiles] = useState<FolderFile[]>([])
+	const [files, setFiles] = useState<File[]>([])
 	const [pending, setPending] = useState(false)
 	// The folder dialog closed and Chromium is reading the chosen folder, before any file arrives.
 	const [choosing, setChoosing] = useState(false)
 	const dialogOpen = useRef(false)
-	const importFiles = async (selected: FolderFile[]) => {
+	const importFiles = async (selected: File[]) => {
 		setChoosing(false)
 		if (disabled || pending) return
-		if (new Set(selected.map(({ path }) => path.split("/")[0])).size !== 1) {
-			showErrorToast({ title: "Import failed", message: "Drop or choose one folder that contains files." })
-			return
-		}
 		setFiles(selected)
 		setPending(true)
 		try {
@@ -33,20 +34,16 @@ export function EnvironmentFolderImport({ disabled, onImport, onBusy }: {
 			setPending(false)
 		}
 	}
-	// Dropped and browsed files both arrive here. file-selector gives each a relativePath,
-	// "/folder/…" for a drop and "folder/…" for Browse; react-dropzone types them as File.
+	// Dropped and browsed files both arrive here, already reduced to what the folder's catalog
+	// imports, each with its path inside the folder as webkitRelativePath.
 	const dropzone = useDropzone({
 		noClick: true,
 		noKeyboard: true,
 		disabled: disabled || pending,
-		// A folder that cannot be read reports why instead of doing nothing.
-		onError: error => showErrorToast({ title: "Import failed", message: error.name === "NotAllowedError"
-			? "Robozium was not allowed to read the folder."
-			: `The folder could not be read: ${error.message || error.name}` }),
-		onDropAccepted: (selected: File[]) => void importFiles(selected.map(file => ({
-			file,
-			path: (file as FileWithPath).relativePath.replace(/^\//, ""),
-		}))),
+		getFilesFromEvent: catalogFiles,
+		// A folder that cannot be imported reports why instead of doing nothing.
+		onError: error => showErrorToast({ title: "Import failed", message: readFailure(error) }),
+		onDropAccepted: (selected: File[]) => void importFiles(selected),
 		// Every selection ends here, an empty folder included, before its files are accepted.
 		onDrop: () => {
 			dialogOpen.current = false
@@ -81,7 +78,7 @@ export function EnvironmentFolderImport({ disabled, onImport, onBusy }: {
 		}
 	}, [inputRef])
 	const reading = dropzone.isProcessing
-	const folder = files[0]?.path.split("/")[0] ?? null
+	const folder = files[0]?.webkitRelativePath.split("/")[0] ?? null
 	useEffect(() => {
 		onBusy(choosing || reading || pending ? folder : undefined)
 	}, [choosing, reading, pending, folder, onBusy])
