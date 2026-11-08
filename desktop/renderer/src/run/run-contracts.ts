@@ -8,15 +8,19 @@ export const RunFrameKind = {
 	MessageDelta: "message_delta",
 	ScriptOutput: "script_output",
 	Lifecycle: "run_lifecycle",
-	// Control frames the parser derives from LLM runtime events.
+	// Frames the parser derives from runtime events: a model retry, and a notice the user should see.
 	LlmRetry: "llm_retry",
-	ImagesOmitted: "images_omitted",
+	RuntimeNotice: "runtime_notice",
 } as const
 
 export const MessageRole = {
 	Assistant: "assistant", User: "user", System: "system", Error: "error",
 } as const
 export type MessageRole = typeof MessageRole[keyof typeof MessageRole]
+
+/** Severity the runtime attaches to each of its events. */
+export const RuntimeLevel = { Debug: "debug", Info: "info", Warning: "warning", Error: "error" } as const
+export type RuntimeLevel = typeof RuntimeLevel[keyof typeof RuntimeLevel]
 
 export const LifecyclePhase = { Started: "started", Stopped: "stopped" } as const
 export type LifecyclePhase = typeof LifecyclePhase[keyof typeof LifecyclePhase]
@@ -49,8 +53,8 @@ export type RunFrame = { sequence: number } & (
 	| { type: typeof RunFrameKind.Message; id: string | null; role: MessageRole; content: string; kind: string | null; caller: string | null }
 	| { type: typeof RunFrameKind.MessageDelta; id: string; delta: string; chunk: number; agent: string }
 	| { type: typeof RunFrameKind.LlmRetry; agent: string }
-	/** The model cannot read the conversation's images; the runtime's message says so. */
-	| { type: typeof RunFrameKind.ImagesOmitted; agent: string; message: string }
+	/** A runtime event meant for the user, shown as the runtime wrote it. */
+	| { type: typeof RunFrameKind.RuntimeNotice; agent: string; level: RuntimeLevel; message: string }
 	| { type: typeof RunFrameKind.ScriptOutput; content: string }
 	| {
 		type: typeof RunFrameKind.Lifecycle

@@ -30,8 +30,9 @@ test("the log projects messages, grouped script output and lifecycle banners fro
 		wire("user", "unlabelled", 7),
 		wire("user", JSON.stringify({ status: "ok", agent: "librarian" }), 8, null, "run_file_command"),
 		wire("error", "Boom", 9),
-		{ type: "runtime_event", sequence: 10, payload: { category: "llm", kind: "images_omitted", agent_name: "orchestrator", message: "Images are omitted for text-model because it cannot read them." } },
-		lifecycle(11, "stopped", { status: "completed" }),
+		{ type: "runtime_event", sequence: 10, payload: { category: "llm", kind: "images_omitted", level: "info", agent_name: "orchestrator", message: "Images are omitted for text-model because it cannot read them." } },
+		{ type: "runtime_event", sequence: 11, payload: { category: "tool", kind: "failed", level: "error", agent_name: "orchestrator", message: "Tool broke" } },
+		lifecycle(12, "stopped", { status: "completed" }),
 	))
 	expect(items).toEqual([
 		{ kind: "lifecycle", role: "lifecycle", phase: "started", agentName: "orchestrator", details: { model_name: "mock" } },
@@ -44,8 +45,9 @@ test("the log projects messages, grouped script output and lifecycle banners fro
 		{ kind: "message", role: "tool", content: JSON.stringify({ status: "ok", agent: "librarian" }),
 			parsed: { kind: "user", caller: "run_file_command", extra: { status: "ok", agent: "librarian" } } },
 		{ kind: "message", role: "error", content: "Boom", parsed: { kind: "error", value: "Boom" } },
-		// The runtime's diagnosis is shown as it was written; the HUD only raises a notice for it.
+		// Runtime notices are shown as written: informational ones as system rows, error-level ones as errors.
 		{ kind: "message", role: "system", content: "Images are omitted for text-model because it cannot read them." },
+		{ kind: "message", role: "error", content: "Tool broke" },
 		{ kind: "lifecycle", role: "lifecycle", phase: "stopped", agentName: "orchestrator", status: "completed",
 			details: { parent_agent_name: "null", status: "completed", model_name: "mock" } },
 	])

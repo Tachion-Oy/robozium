@@ -1,6 +1,6 @@
 // Project the displayed run's retained events into message log rows. No log state:
 // the log pane computes this only while it is mounted.
-import { LifecyclePhase, MessageRole, RunFrameKind, type RunRecord } from "../run/run-contracts"
+import { LifecyclePhase, MessageRole, RunFrameKind, RuntimeLevel, type RunRecord } from "../run/run-contracts"
 import { isAssistantContent, parseContentObject, type ParsedMessageContent } from "./normalize"
 import { StreamLogItemKind, StreamLogRole, type LifecycleLogItem, type MessageLogItem, type StreamLogItem } from "./view-model"
 
@@ -92,9 +92,13 @@ export function selectLogItems(events: readonly RunRecord[]): StreamLogItem[] {
 				script = null
 				items.push(lifecycleItem(event))
 				break
-			case RunFrameKind.ImagesOmitted:
+			case RunFrameKind.RuntimeNotice:
 				script = null
-				items.push({ kind: StreamLogItemKind.Message, role: StreamLogRole.System, content: event.message })
+				items.push({
+					kind: StreamLogItemKind.Message,
+					role: event.level === RuntimeLevel.Error ? StreamLogRole.Error : StreamLogRole.System,
+					content: event.message,
+				})
 				break
 			case RunFrameKind.LlmRetry:
 				break
