@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.5.16 - 2026-11-08
+
+- Dropping a whole checkout on the import row works, whatever else the folder
+  holds. The drop read every file under the folder before keeping the ones its
+  `robozium.json` lists, so a checkout with a virtual environment took its time
+  and failed as soon as Chromium refused one entry, such as a symbolic link,
+  while **Browse folder** on the same folder worked. A drop now opens only the
+  catalog, the example files and the listed packages. Dropping several items,
+  or a folder without a catalog, says so.
+
 ## 0.5.15 - 2026-11-08
 
 - Web images show in the HUD. An agent's `![alt](https://…)` renders the
