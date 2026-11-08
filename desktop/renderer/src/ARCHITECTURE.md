@@ -22,7 +22,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `session/` | The displayed run's subscription lifetime, the atomic composition of run data with HUD state, and the notices live updates raise. |
 | `hud/` | Message projection, history, display selection and layout logic. |
 | `dependencies/` | Dependency monitor records and Check Now requests and validation, and the view's owner. |
-| `environment/` | Saved settings and secrets requests and validation, the screen's owner and its editor state. |
+| `environment/` | Saved settings and secrets requests and validation, the files an import folder's catalog names, the screen's owner and its editor state. |
 | `credentials/` | Secrets status, the unlock request and password prompt, and the locked-secrets notice. |
 | `attachments/` | Image and PDF staging requests for a run's next reply, and the reply's attachment queue. |
 | `dictation/` | Microphone recording, the audio level, and transcription requests. |

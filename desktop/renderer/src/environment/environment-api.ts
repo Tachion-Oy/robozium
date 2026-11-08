@@ -81,45 +81,10 @@ export async function saveEnvironment(client: DesktopApiClient, edit: Environmen
 /** The backend may install a tool's dependencies first; it gives up after 180 seconds. */
 export const IMPORT_TIMEOUT_MS = 200_000
 
-const CATALOG_FILE = "robozium.json"
-
-/** A file of a browsed or dropped folder; `path` starts with the folder's name. */
-export interface FolderFile { file: File; path: string }
-
-/**
- * Keeps the folder's robozium.json and only the packages and example files it lists,
- * so a whole checkout (virtual environments, builds, tests) is never uploaded.
- * The backend validates the catalog itself; unreadable entries are left for it to reject.
- */
-async function listedFiles(files: FolderFile[]): Promise<FolderFile[]> {
-	const inFolder = ({ path }: FolderFile) => path.split("/").slice(1).join("/")
-	const catalog = files.find(file => inFolder(file) === CATALOG_FILE)?.file
-	if (!catalog) throw new Error(`${CATALOG_FILE} is missing at the folder root`)
-	let declared: unknown
-	try {
-		declared = JSON.parse(await catalog.text())
-	} catch {
-		throw new Error(`${CATALOG_FILE} is not valid JSON`)
-	}
-	const paths = (key: string) => {
-		const value = typeof declared === "object" && declared !== null ? (declared as Record<string, unknown>)[key] : undefined
-		return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []
-	}
-	const packages = [...paths("tools"), ...paths("skills")]
-	const listed = new Set([CATALOG_FILE, ...paths("env")])
-	// Keep the catalog and its example files by exact path, and everything inside a
-	// listed package folder except hidden entries (.venv, .git, .env) and compiled caches:
-	// the backend installs each package's pinned requirements itself.
-	const skipped = (part: string) => part.startsWith(".") || part === "__pycache__"
-	const insidePackage = (relative: string) =>
-		packages.some(folder => relative.startsWith(`${folder}/`)) && !relative.split("/").some(skipped)
-	return files.filter(file => listed.has(inFolder(file)) || insidePackage(inFolder(file)))
-}
-
-/** Uploads the parts of one folder its catalog lists; each file keeps its path inside the folder. */
-export async function importEnvironment(client: DesktopApiClient, files: FolderFile[], signal: AbortSignal): Promise<EnvironmentImportResult> {
+/** Uploads a folder's catalog files, each under its path inside the folder. */
+export async function importEnvironment(client: DesktopApiClient, files: File[], signal: AbortSignal): Promise<EnvironmentImportResult> {
 	const form = new FormData()
-	for (const { file, path } of await listedFiles(files)) form.append("files", file, path)
+	for (const file of files) form.append("files", file, file.webkitRelativePath)
 	return parse(EnvironmentImportResult, await client.request("/credentials/environment/import", { method: "POST", form, signal }))
 }
 
