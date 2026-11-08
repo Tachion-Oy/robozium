@@ -209,8 +209,9 @@ selector draft and reusing the created project, Tools restoring saved choices,
 Escape and Cancel, inline capability load errors with Retry, rows that are not
 buttons, Open on active runs and the current one, stop and delete settling through listings
 with their refusal and failure alerts, and long names in both themes at
-normal/narrow sizes and 125% zoom. `backend-ipc.spec.ts` checks that the CSP adds
-only `img-src 'self'` and that the overview's display art loads.
+normal/narrow sizes and 125% zoom. `backend-ipc.spec.ts` checks that the CSP's
+`img-src` admits only bundled art, local previews, https web images and the
+backend's hub images, and that the overview's display art loads.
 
 Connected reply tests in `desktop/tests/replies.spec.ts` cover Enter and Send
 posting one trimmed reply, Shift+Enter and IME composition not sending, the draft

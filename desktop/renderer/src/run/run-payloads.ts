@@ -49,6 +49,8 @@ const RunLifecycleEvent = z.object({
 const RuntimeEvent = z.object({ payload: z.object({ category: z.unknown(), kind: z.unknown() }) })
 const LlmRetryEvent = z.object({ sequence, payload: z.object({ agent_name: nonBlank }) })
 	.transform(({ sequence, payload }) => ({ type: RunEventType.LlmRetry, sequence, agent: payload.agent_name }))
+const ImagesOmittedEvent = z.object({ sequence, payload: z.object({ agent_name: nonBlank, message: nonBlank }) })
+	.transform(({ sequence, payload }) => ({ type: RunEventType.ImagesOmitted, sequence, agent: payload.agent_name, message: payload.message }))
 
 /** Unconsumed event kinds are ignored; malformed consumed fields are errors. */
 export function parseRunEvent(value: unknown): RunFrame | null {
@@ -59,8 +61,10 @@ export function parseRunEvent(value: unknown): RunFrame | null {
 		case RunEventType.RunLifecycle: return parse(RunLifecycleEvent, value)
 		case RunEventType.RuntimeEvent: {
 			const { payload } = parse(RuntimeEvent, value)
-			if (payload.category !== RuntimeEventCategory.Llm || payload.kind !== RuntimeEventKind.Retrying) return null
-			return parse(LlmRetryEvent, value)
+			if (payload.category !== RuntimeEventCategory.Llm) return null
+			if (payload.kind === RuntimeEventKind.Retrying) return parse(LlmRetryEvent, value)
+			if (payload.kind === RuntimeEventKind.ImagesOmitted) return parse(ImagesOmittedEvent, value)
+			return null
 		}
 		default:
 			return null

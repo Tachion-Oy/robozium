@@ -5,8 +5,9 @@ export const RunEventType = {
 	ScriptOutput: "script_output",
 	RunLifecycle: "run_lifecycle",
 	RuntimeEvent: "runtime_event",
-	// Desktop control event normalized from an LLM retry runtime event.
+	// Desktop control events normalized from LLM runtime events.
 	LlmRetry: "llm_retry",
+	ImagesOmitted: "images_omitted",
 } as const
 
 export const MessageRole = {
@@ -15,7 +16,7 @@ export const MessageRole = {
 export type MessageRole = typeof MessageRole[keyof typeof MessageRole]
 
 export const RuntimeEventCategory = { Llm: "llm" } as const
-export const RuntimeEventKind = { Retrying: "retrying" } as const
+export const RuntimeEventKind = { Retrying: "retrying", ImagesOmitted: "images_omitted" } as const
 export const MessageKind = { UserNotification: "user_notification" } as const
 export const AgentAction = { PromptUser: "prompt_user" } as const
 
@@ -50,6 +51,8 @@ export type RunFrame = { sequence: number } & (
 	| { type: typeof RunEventType.Message; id: string | null; role: MessageRole; content: string; kind: string | null; caller: string | null }
 	| { type: typeof RunEventType.MessageDelta; id: string; delta: string; chunk: number; agent: string }
 	| { type: typeof RunEventType.LlmRetry; agent: string }
+	/** The model cannot read the conversation's images; the runtime's message says so. */
+	| { type: typeof RunEventType.ImagesOmitted; agent: string; message: string }
 	| { type: typeof RunEventType.ScriptOutput; content: string }
 	| {
 		type: typeof RunEventType.RunLifecycle
