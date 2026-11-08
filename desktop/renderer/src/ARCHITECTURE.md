@@ -19,7 +19,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `capabilities/` | Capability catalogue and saved-selection requests, the selector's reads, and selection resolution. |
 | `models/` | Model requests and validation, and the acknowledged backend selection. |
 | `run/` | Run contracts, requests, payload decoding, event reconciliation and live updates. |
-| `session/` | The displayed run's subscription lifetime and the atomic composition of run data with HUD state. |
+| `session/` | The displayed run's subscription lifetime, the atomic composition of run data with HUD state, and the notices live updates raise. |
 | `hud/` | Message projection, history, display selection and layout logic. |
 | `dependencies/` | Dependency monitor records and Check Now requests and validation, and the view's owner. |
 | `environment/` | Saved settings and secrets requests and validation, the screen's owner and its editor state. |

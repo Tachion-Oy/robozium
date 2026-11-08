@@ -3,9 +3,16 @@
 import { z } from "zod"
 import { nonBlank, orNull, parsePayload } from "../api/payload"
 import {
-	LIFECYCLE_DETAIL_KEYS, LifecycleStatus, MessageRole, RunEventType, RunLifecycleKind, RunStatus, RuntimeEventCategory, RuntimeEventKind,
-	type RunFrame, type RunView,
+	LIFECYCLE_DETAIL_KEYS, LifecyclePhase, LifecycleStatus, MessageRole, RunFrameKind, RunStatus, type RunFrame, type RunView,
 } from "./run-contracts"
+
+/** The `type` of every SSE frame and snapshot trace entry the backend sends. */
+const WireFrameType = {
+	Message: "message", MessageDelta: "message_delta", ScriptOutput: "script_output", RunLifecycle: "run_lifecycle", RuntimeEvent: "runtime_event",
+} as const
+/** The LLM runtime events turned into control frames; every other runtime event is ignored. */
+const LLM_CATEGORY = "llm"
+const LlmRuntimeSignal = { Retrying: "retrying", ImagesOmitted: "images_omitted" } as const
 
 const parse = <T>(schema: z.ZodType<T>, value: unknown): T => parsePayload(schema, value, "The backend returned invalid run data.")
 
@@ -13,24 +20,24 @@ const sequence = z.number().int().min(0)
 const Envelope = z.object({ type: z.string() })
 
 const MessageEvent = z.object({
-	type: z.literal(RunEventType.Message),
+	type: z.literal(WireFrameType.Message),
 	sequence,
 	message_id: orNull(nonBlank),
 	payload: z.object({ role: z.enum(MessageRole), content: z.string(), message_kind: orNull(z.string()), caller: orNull(z.string()) }),
-}).transform(({ type, sequence, message_id, payload }) => ({
-	type, sequence, id: message_id, role: payload.role, content: payload.content, kind: payload.message_kind, caller: payload.caller,
+}).transform(({ sequence, message_id, payload }) => ({
+	type: RunFrameKind.Message, sequence, id: message_id, role: payload.role, content: payload.content, kind: payload.message_kind, caller: payload.caller,
 }))
 
 const MessageDeltaEvent = z.object({
-	type: z.literal(RunEventType.MessageDelta),
+	type: z.literal(WireFrameType.MessageDelta),
 	sequence,
 	payload: z.object({ message_id: nonBlank, delta: z.string(), chunk_index: sequence, agent_name: nonBlank }),
-}).transform(({ type, sequence, payload }) => ({
-	type, sequence, id: payload.message_id, delta: payload.delta, chunk: payload.chunk_index, agent: payload.agent_name,
+}).transform(({ sequence, payload }) => ({
+	type: RunFrameKind.MessageDelta, sequence, id: payload.message_id, delta: payload.delta, chunk: payload.chunk_index, agent: payload.agent_name,
 }))
 
-const ScriptOutputEvent = z.object({ type: z.literal(RunEventType.ScriptOutput), sequence, payload: z.object({ content: z.string() }) })
-	.transform(({ type, sequence, payload }) => ({ type, sequence, content: payload.content }))
+const ScriptOutputEvent = z.object({ type: z.literal(WireFrameType.ScriptOutput), sequence, payload: z.object({ content: z.string() }) })
+	.transform(({ sequence, payload }) => ({ type: RunFrameKind.ScriptOutput, sequence, content: payload.content }))
 
 /** Detail fields are display-only scalars; absent fields stay absent. */
 const detail = z.union([z.string(), z.number()]).nullable().optional()
@@ -38,33 +45,35 @@ const LifecycleDetails = z.object(
 	Object.fromEntries(LIFECYCLE_DETAIL_KEYS.map(key => [key, detail])) as Record<typeof LIFECYCLE_DETAIL_KEYS[number], typeof detail>,
 )
 const RunLifecycleEvent = z.object({
-	type: z.literal(RunEventType.RunLifecycle),
+	type: z.literal(WireFrameType.RunLifecycle),
 	payload: LifecycleDetails.extend({
-		sequence, kind: z.enum(RunLifecycleKind), agent_name: z.string(), status: z.enum(LifecycleStatus).nullish(),
+		sequence, kind: z.enum(LifecyclePhase), agent_name: z.string(), status: z.enum(LifecycleStatus).nullish(),
 	}),
-}).transform(({ type, payload: { sequence, kind, agent_name, ...details } }) => ({
-	type, sequence, kind, agent: agent_name, status: details.status ?? null, details,
+}).transform(({ payload: { sequence, kind, agent_name, ...details } }) => ({
+	type: RunFrameKind.Lifecycle, sequence, phase: kind, agent: agent_name, status: details.status ?? null, details,
 }))
 
 const RuntimeEvent = z.object({ payload: z.object({ category: z.unknown(), kind: z.unknown() }) })
 const LlmRetryEvent = z.object({ sequence, payload: z.object({ agent_name: nonBlank }) })
-	.transform(({ sequence, payload }) => ({ type: RunEventType.LlmRetry, sequence, agent: payload.agent_name }))
+	.transform(({ sequence, payload }) => ({ type: RunFrameKind.LlmRetry, sequence, agent: payload.agent_name }))
 const ImagesOmittedEvent = z.object({ sequence, payload: z.object({ agent_name: nonBlank, message: nonBlank }) })
-	.transform(({ sequence, payload }) => ({ type: RunEventType.ImagesOmitted, sequence, agent: payload.agent_name, message: payload.message }))
+	.transform(({ sequence, payload }) => ({ type: RunFrameKind.ImagesOmitted, sequence, agent: payload.agent_name, message: payload.message }))
 
-/** Unconsumed event kinds are ignored; malformed consumed fields are errors. */
+/** Unconsumed wire frames are ignored; malformed consumed fields are errors. */
 export function parseRunEvent(value: unknown): RunFrame | null {
 	switch (parse(Envelope, value).type) {
-		case RunEventType.Message: return parse(MessageEvent, value)
-		case RunEventType.MessageDelta: return parse(MessageDeltaEvent, value)
-		case RunEventType.ScriptOutput: return parse(ScriptOutputEvent, value)
-		case RunEventType.RunLifecycle: return parse(RunLifecycleEvent, value)
-		case RunEventType.RuntimeEvent: {
+		case WireFrameType.Message: return parse(MessageEvent, value)
+		case WireFrameType.MessageDelta: return parse(MessageDeltaEvent, value)
+		case WireFrameType.ScriptOutput: return parse(ScriptOutputEvent, value)
+		case WireFrameType.RunLifecycle: return parse(RunLifecycleEvent, value)
+		case WireFrameType.RuntimeEvent: {
 			const { payload } = parse(RuntimeEvent, value)
-			if (payload.category !== RuntimeEventCategory.Llm) return null
-			if (payload.kind === RuntimeEventKind.Retrying) return parse(LlmRetryEvent, value)
-			if (payload.kind === RuntimeEventKind.ImagesOmitted) return parse(ImagesOmittedEvent, value)
-			return null
+			if (payload.category !== LLM_CATEGORY) return null
+			switch (payload.kind) {
+				case LlmRuntimeSignal.Retrying: return parse(LlmRetryEvent, value)
+				case LlmRuntimeSignal.ImagesOmitted: return parse(ImagesOmittedEvent, value)
+				default: return null
+			}
 		}
 		default:
 			return null

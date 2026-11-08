@@ -4,9 +4,8 @@
 // writes to the displayed run belong to useRunMutations, bound to this hook's scope.
 import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
-import { showErrorToast, showNotificationToast } from "../feedback/notices"
-import { RunEventType, RunStatus } from "../run/run-contracts"
 import { watchRun } from "../run/run-updates"
+import { announceRunUpdate } from "./run-notices"
 import { reduceRunSession, type RunSession } from "./session-reducer"
 
 export interface RunSessionState {
@@ -44,13 +43,7 @@ export function useRunSession(client: DesktopApiClient): RunSessionState {
 		dispose.current = watchRun(client, runId, project, action => {
 			if (generation.current !== current) return
 			dispatch(action)
-			if (action.type === "snapshot" && action.view.status === RunStatus.Failed) {
-				showErrorToast({ title: "Run failed", message: `Could not run "${project}".`, detail: action.view.error })
-			}
-			// The runtime reports this once per model that cannot see images; replayed history stays quiet.
-			if (action.type === "frame" && action.frame.type === RunEventType.ImagesOmitted) {
-				showNotificationToast({ tone: "warning", title: "Images omitted", message: action.frame.message })
-			}
+			announceRunUpdate(action, project)
 		})
 	}
 	const open = (runId: string, project: string) => {

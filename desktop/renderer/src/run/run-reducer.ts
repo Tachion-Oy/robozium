@@ -1,6 +1,6 @@
 // Reconcile SSE and snapshots into run data: events, status, prompt and stream cursors.
 // Return accepted updates for consumers; this module has no HUD state or display rules.
-import { isTerminal, RunEventType, RunStatus, type RunDelta, type RunFrame, type RunRecord, type RunView } from "./run-contracts"
+import { isTerminal, RunFrameKind, RunStatus, type RunDelta, type RunFrame, type RunRecord, type RunView } from "./run-contracts"
 
 export interface RunPrompt {
 	id: string
@@ -57,14 +57,14 @@ function recordEvents(state: RunState, events: readonly RunRecord[], added: read
 	let retrySequences: Map<string, number> | null = null
 	let streamMessage = state.streamMessage
 	for (const event of added) {
-		if (event.type === RunEventType.Message && event.id !== null) {
+		if (event.type === RunFrameKind.Message && event.id !== null) {
 			if (!state.completedMessageIds.has(event.id)) {
 				completedMessageIds ??= new Set(state.completedMessageIds)
 				completedMessageIds.add(event.id)
 			}
 			if (streamMessage?.id === event.id) streamMessage = null
 		}
-		if (event.type === RunEventType.LlmRetry) {
+		if (event.type === RunFrameKind.LlmRetry) {
 			retrySequences ??= new Map(state.retrySequences)
 			retrySequences.set(event.agent, Math.max(retrySequences.get(event.agent) ?? -1, event.sequence))
 			if (streamMessage?.agent === event.agent && event.sequence >= streamMessage.sequence) streamMessage = null
@@ -130,7 +130,7 @@ function applyReply(state: RunState, promptId: string): RunUpdate {
 
 function applySnapshot(state: RunState, view: RunView): RunUpdate {
 	// Token fragments are transient and cannot be recovered from history.
-	const receivedEvents = view.frames.filter(frame => frame.type !== RunEventType.MessageDelta)
+	const receivedEvents = view.frames.filter(frame => frame.type !== RunFrameKind.MessageDelta)
 	const next = mergeEvents(state, receivedEvents)
 	// A snapshot still awaiting an answered prompt was taken before the reply.
 	const answered = view.promptId !== null && state.acknowledgedPrompts.has(view.promptId)
@@ -154,7 +154,7 @@ export function reduceRun(state: RunState, action: RunAction): RunUpdate {
 		case "replied": return applyReply(state, action.promptId)
 		case "snapshot": return applySnapshot(state, action.view)
 		case "frame": {
-			if (action.frame.type === RunEventType.MessageDelta) return applyDelta(state, action.frame)
+			if (action.frame.type === RunFrameKind.MessageDelta) return applyDelta(state, action.frame)
 			const next = mergeEvents(state, [action.frame])
 			return {
 				type: "events", receivedEvents: [action.frame],

@@ -3,7 +3,7 @@ import {
 	StreamLogRole,
 	type StreamLogItem,
 } from "../../log/view-model"
-import { RunLifecycleKind } from "../../run/run-contracts"
+import { LifecyclePhase } from "../../run/run-contracts"
 
 /**
  * Visual fixture data for the home page. Structured exactly like the live
@@ -127,7 +127,7 @@ export const placeholderLogItems: StreamLogItem[] = [
 	{
 		kind: StreamLogItemKind.Lifecycle,
 		role: StreamLogRole.Lifecycle,
-		phase: RunLifecycleKind.Started,
+		phase: LifecyclePhase.Started,
 		agentName: "NOVA-Ω∞ ∮ Prime Intelligence",
 		details: {
 			model_name: "Scalaron-Ω・Δ9 (ℏ-tuned)",

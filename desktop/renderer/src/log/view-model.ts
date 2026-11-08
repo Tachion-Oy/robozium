@@ -1,5 +1,5 @@
 // Lifecycle kinds come from the desktop run contracts, which use const objects.
-import type { LifecycleStatus, RunLifecycleKind } from "../run/run-contracts"
+import type { LifecycleStatus, LifecyclePhase } from "../run/run-contracts"
 import type { ParsedMessageContent } from "./normalize"
 
 /** UI stream item role understood by terminal message rows. */
@@ -46,7 +46,7 @@ export enum StreamLogItemKind {
 export type LifecycleStartedLogItem = {
 	kind: StreamLogItemKind.Lifecycle
 	role: StreamLogRole.Lifecycle
-	phase: typeof RunLifecycleKind.Started
+	phase: typeof LifecyclePhase.Started
 	agentName: string
 	/** API lifecycle payload entries rendered in the process banner. */
 	details: Record<string, string>
@@ -55,7 +55,7 @@ export type LifecycleStartedLogItem = {
 export type LifecycleStoppedLogItem = {
 	kind: StreamLogItemKind.Lifecycle
 	role: StreamLogRole.Lifecycle
-	phase: typeof RunLifecycleKind.Stopped
+	phase: typeof LifecyclePhase.Stopped
 	agentName: string
 	status: LifecycleStatus | null
 	/** API lifecycle payload entries rendered in the process banner. */

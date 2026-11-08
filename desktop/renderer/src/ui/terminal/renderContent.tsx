@@ -5,7 +5,7 @@ import {
 	type MessageLogItem,
 	type StreamLogItem,
 } from "../../log/view-model"
-import { RunLifecycleKind } from "../../run/run-contracts"
+import { LifecyclePhase } from "../../run/run-contracts"
 import { stringifyValue } from "../../log/run-log"
 import { renderDemoContent } from "./demo/renderDemoContent"
 import { TerminalBanner, bannerRevealText } from "./TerminalBanner"
@@ -169,7 +169,7 @@ export function isMessageTruncated(item: MessageLogItem): boolean {
 }
 
 function lifecycleBannerTitle(item: LifecycleLogItem): string {
-	return item.phase === RunLifecycleKind.Stopped
+	return item.phase === LifecyclePhase.Stopped
 		? "PROCESS STOPPED"
 		: "NEW PROCESS"
 }
@@ -196,14 +196,14 @@ export function renderLifecycleWithReveal(
 
 function renderLifecycleContent(item: LifecycleLogItem): ReactNode {
 	switch (item.phase) {
-		case RunLifecycleKind.Started:
+		case LifecyclePhase.Started:
 			return (
 				<TerminalBanner
 					agentName={item.agentName}
 					details={item.details}
 				/>
 			)
-		case RunLifecycleKind.Stopped:
+		case LifecyclePhase.Stopped:
 			return (
 				<TerminalBanner
 					agentName={item.agentName}
