@@ -339,6 +339,7 @@ def test_effective_selection_controls_the_build(launch_api, selection, email, op
         project.sandbox,
         project.slug,
         endpoint_getter=lambda: hub.settings.default_model,
+        downloads_dir=project.attachments_dir,
     )
     definition.set_capability_selection(manager.get_run(run_id)["capabilities"])
     root, (maintenance,) = definition.build()

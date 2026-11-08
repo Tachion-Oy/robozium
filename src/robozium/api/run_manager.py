@@ -168,6 +168,7 @@ class RunManager:
             control.project.sandbox,
             control.project.slug,
             endpoint_getter=control.endpoint,
+            downloads_dir=control.attachments_dir,
         )
         definition.set_capability_selection(control.capabilities)
         return definition.build(

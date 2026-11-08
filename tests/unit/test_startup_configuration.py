@@ -142,10 +142,12 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
         default_model=root,
         memory_endpoint=memory,
     )
+    demo = hub.project("demo")
     agent, _ = hub.configure_deployment(
-        hub.project("demo").sandbox,
+        demo.sandbox,
         "demo",
         endpoint_getter=lambda: hub.model_selector.selected_endpoint,
+        downloads_dir=demo.attachments_dir,
     ).build()
     bound = (*agent.external_dependencies(), *hub.settings.models.values())
     assert {
@@ -158,9 +160,10 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
     assert hub.model_selector.selected_endpoint is root
     hub.model_selector.select(spare.dependency_id)
     configured = hub.configure_deployment(
-        hub.project("demo").sandbox,
+        demo.sandbox,
         "demo",
         endpoint_getter=lambda: hub.model_selector.selected_endpoint,
+        downloads_dir=demo.attachments_dir,
     ).build()
     assert configured[1][0].agent_endpoint is memory
 
@@ -343,7 +346,8 @@ SUBAGENTS = (REVIEWER,)
     hub = load_hub(config_file=config_file)
     project = hub.project("custom")
     deployment = hub.configure_deployment(
-        project.sandbox, project.slug, endpoint_getter=lambda: hub.settings.default_model
+        project.sandbox, project.slug, endpoint_getter=lambda: hub.settings.default_model,
+        downloads_dir=project.attachments_dir,
     ).build()
     assert tuple(hub.settings.models) == ("Alternate",)
     assert hub.model_selector.selected_endpoint is hub.settings.models["Alternate"]

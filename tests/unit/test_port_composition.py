@@ -133,7 +133,7 @@ def test_orchestrator_controls_reach_compaction_provider(tmp_path, control):
         stream=False,
     )
     definition = load_hub().configure_deployment(
-        project.sandbox, project.slug, endpoint_getter=lambda: endpoint,
+        project.sandbox, project.slug, endpoint_getter=lambda: endpoint, downloads_dir=project.attachments_dir,
     )
     compactification = next(
         cap for cap in definition.capabilities if isinstance(cap, Compactification)

@@ -12,6 +12,9 @@ from roboz.shed.sandbox import Sandbox
 
 from robozium.api.state import ProjectRunItem, RunStatus
 
+# Temporary files of a project's runs: pasted and downloaded, one folder per run.
+ATTACHMENTS_DIRECTORY = ".robozium-attachments"
+
 
 @dataclass(frozen=True)
 class Project:
@@ -28,6 +31,11 @@ class Project:
     @property
     def root(self) -> Path:
         return self.sandbox.project_dir()
+
+    @property
+    def attachments_dir(self) -> Path:
+        """Where this project's runs keep their temporary files, one folder per run."""
+        return self.root / ATTACHMENTS_DIRECTORY
 
     @property
     def logs(self) -> Path:

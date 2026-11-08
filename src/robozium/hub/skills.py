@@ -160,15 +160,17 @@ Present images alongside your explanation using Markdown image syntax:
 
 Use the actual hub-relative path, derived from the file tool base just like a
 `<file>` link. For paths containing spaces, enclose the destination in angle
-brackets: `![Chart](<projects/example/images/my chart.png>)`. External sources
-must be direct HTTP/HTTPS image URLs, not web pages. Describe each image in its
-alternative text. Multiple images can appear in one response; users can click
-each preview to open a larger view. A sanitized `<img src="..." alt="...">` also
-works. Ordinary file links remain links rather than automatically becoming images.
+brackets: `![Chart](<projects/example/images/my chart.png>)`. A direct HTTPS
+image URL renders too, for as long as its host serves it; plain HTTP and web
+page URLs do not. Describe each image in its alternative text.
+Multiple images can appear in one response; users can click each preview to
+open a larger view. A sanitized `<img src="..." alt="...">` also works. Ordinary
+file links remain links rather than automatically becoming images.
 
-Save images intended for later viewing as project artifacts before presenting
-them. Pasted reply attachments are temporary and disappear after the run's workers
-stop; do not rely on those paths for lasting output. Remote URLs can also expire.
+Files in the run's attachment folder, whether the user pasted them or a tool
+downloaded them, disappear when the run's workers stop. Their hub-relative
+paths render until then. To keep a file or show it in later runs, copy or move
+it into the project first and present that path.
 
 A user reply carries each pasted file as a `<file>` link. Pasted images also
 arrive in the message itself. Read other attachments on demand: PDFs with the PDF

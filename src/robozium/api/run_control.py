@@ -8,6 +8,7 @@ import threading
 import time
 from collections.abc import Callable
 from contextvars import copy_context
+from pathlib import Path
 from types import MappingProxyType
 from uuid import UUID, uuid4
 
@@ -64,7 +65,7 @@ class RunControl:
         self._agent_status: RunStatus | None = None
         self._prompt_accepts_images = False
         self._attachments = RunAttachments(
-            project.root, project.sandbox.resolved_root, run_id or str(uuid4()),
+            project.attachments_dir, project.sandbox.resolved_root, run_id or str(uuid4()),
             attachment_settings,
         )
         self._upload_results: dict[UUID, AttachmentInfo] = {}
@@ -77,6 +78,11 @@ class RunControl:
     @property
     def project(self) -> Project:
         return self._project
+
+    @property
+    def attachments_dir(self) -> Path:
+        """This run's temporary folder for pasted and downloaded files."""
+        return self._attachments.path
 
     @property
     def model_id(self) -> str:

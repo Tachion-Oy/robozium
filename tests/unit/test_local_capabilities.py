@@ -63,9 +63,11 @@ def test_cli_packages_are_selectable_and_execute_through_live_deployment(tmp_pat
     skill = labels["simpsons_quotes_skill"]
     assert skill.selectable and skill.kind == "skill"
     assert skill.loading == SkillLoading.ON_DEMAND
+    quotes = hub.project("quotes")
     for selected in ("simpsons_quotes", "simpsons_quotes_skill"):
         definition = hub.configure_deployment(
-            hub.project("quotes").sandbox, "quotes", endpoint_getter=lambda: hub.settings.default_model
+            quotes.sandbox, "quotes", endpoint_getter=lambda: hub.settings.default_model,
+            downloads_dir=quotes.attachments_dir,
         )
         definition.set_capability_selection({selected: True})
         responses = []
@@ -79,6 +81,44 @@ def test_cli_packages_are_selectable_and_execute_through_live_deployment(tmp_pat
         excluded, _ = definition.build()
         assert not any(tool.name.startswith("get_simpsons") for tool in excluded.tools)
         assert not excluded.skills
+
+
+_DOWNLOADER = (
+    "from pathlib import Path\n"
+    "from roboz.deployment import Capability, ToolLabel\n"
+    "from roboz.tools import stop\n"
+    "class Downloader(Capability):\n"
+    "    def __init__(self):\n"
+    "        super().__init__(label=ToolLabel('downloader', selectable=True))\n"
+    "    @property\n"
+    "    def required_attributes(self):\n"
+    "        return {'downloads_dir': Path}\n"
+    "    def build(self, agent, pipe):\n"
+    "        return (stop.copy(name='downloads_marker', description=str(agent.downloads_dir)),)\n"
+)
+
+
+def test_imported_capabilities_get_the_download_folder_at_inspection_and_per_run(tmp_path):
+    """The host names the run's folder; RoboZ enforces the capability's declaration."""
+    config = write_config(tmp_path)
+    _package(tmp_path, source=_DOWNLOADER)
+    hub = load_hub(config_file=config)
+    assert "downloader" in {label.name for label in hub.capabilities()}
+    # Dependency inspection builds every capability without a run.
+    hub.definition.external_dependencies()
+    project = hub.project("quotes")
+    definition = hub.configure_deployment(
+        project.sandbox,
+        project.slug,
+        endpoint_getter=lambda: hub.settings.default_model,
+        downloads_dir=project.attachments_dir / "run1",
+    )
+    definition.set_capability_selection({"downloader": True})
+    definition.set_agent_endpoint(MockLLMEndpoint([]))
+    agent = foreground_agent(definition.build())
+    marker = next(tool for tool in agent.tools if tool.name == "downloads_marker")
+    assert marker.description == str(project.attachments_dir / "run1")
+    assert project.attachments_dir == project.root / ".robozium-attachments"
 
 
 def test_config_relative_discovery_order_and_relative_imports_ignore_parent_code(

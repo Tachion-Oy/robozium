@@ -313,6 +313,7 @@ def test_host_receives_each_mock_event_once(tmp_path):
     root, _ = hub.configure_deployment(
         project.sandbox, project.slug,
         endpoint_getter=_endpoint_getter,
+        downloads_dir=project.attachments_dir,
     ).build(event_sinks=(events.append,))
     root.pipe.emit_script_output("once")
     assert [event.content for event in events] == ["once"]

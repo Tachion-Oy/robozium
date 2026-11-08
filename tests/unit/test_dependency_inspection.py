@@ -93,10 +93,12 @@ def _deployment_with_check(root, name, check):
 
 
 def _inspect(hub, slug):
+    project = hub.project(slug)
     agent, _ = hub.configure_deployment(
-        hub.project(slug).sandbox,
+        project.sandbox,
         slug,
         endpoint_getter=lambda: hub.model_selector.selected_endpoint,
+        downloads_dir=project.attachments_dir,
     ).build()
     from roboz.dependencies import dedupe_external_dependencies
 
@@ -137,6 +139,7 @@ def test_standard_deployment_discovers_tools_and_every_selectable_model() -> Non
                 project.sandbox,
                 project.slug,
                 endpoint_getter=lambda: deployment.model_selector.selected_endpoint,
+                downloads_dir=project.attachments_dir,
             ).build()[1][0].agent_endpoint,
         )
     }

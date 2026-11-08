@@ -34,6 +34,7 @@ from roboz.llm import LLMEndpoint, call_llm_api, get_completion, with_request_op
 from roboz.models import Image, Message, Role
 from roboz.shed.sandbox import Sandbox
 
+from robozium.api.projects import Project
 from robozium.hub.utils import load_hub
 
 OPENROUTER = "openrouter"
@@ -289,10 +290,15 @@ def configured_models() -> dict[str, LLMEndpoint]:
 def build_orchestrator(endpoint: LLMEndpoint) -> Agent:
     """Build the application's orchestrator for one model in a throwaway project."""
     with _build_lock, tempfile.TemporaryDirectory(prefix="model-check-") as hub_dir:
+        sandbox = Sandbox(Path(hub_dir)).for_project(CHECK_PROJECT)
+        project = Project(sandbox=sandbox, slug=CHECK_PROJECT)
         root, _ = (
             _hub()
             .configure_deployment(
-                Sandbox(Path(hub_dir)), CHECK_PROJECT, endpoint_getter=lambda: endpoint
+                sandbox,
+                CHECK_PROJECT,
+                endpoint_getter=lambda: endpoint,
+                downloads_dir=project.attachments_dir,
             )
             .build()
         )

@@ -228,6 +228,48 @@ def test_manager_builds_a_route_that_closes_over_its_run_state() -> None:
     assert resolved_models == ["first", "second"]
 
 
+def test_manager_names_the_run_attachment_folder_for_capabilities() -> None:
+    """Capabilities that download files learn the folder pasted files land in."""
+    folders: list[Path] = []
+
+    def configure(
+        sandbox: Sandbox,
+        project_slug: str,
+        *,
+        endpoint_getter: Callable[[], LLMEndpoint],
+        downloads_dir: Path,
+    ) -> DeployableAgent:
+        del sandbox, project_slug, endpoint_getter
+        folders.append(downloads_dir)
+
+        class Definition(DeployableAgent):
+            def build(self, **kwargs: Any) -> Any:
+                del kwargs
+
+                class DoneAgent:
+                    def __init__(self) -> None:
+                        self.pipe = EventPipe()
+
+                    def invoke(self) -> None:
+                        return None
+
+                return BuiltAgents(agent=cast(Agent, DoneAgent()), background_agents=())
+
+        return Definition(name="test")
+
+    manager = RunManager(
+        configure,
+        definition=DeployableAgent(name="test"),
+        hub_name="TestHub",
+        default_orchestrator_endpoint=lambda: _manager_endpoint("first"),
+    )
+    project = _project()
+    run_id = manager.create(project)
+    assert manager.start_run(run_id)
+    assert _wait_status(manager, run_id, {"completed"})["status"] == "completed"
+    assert folders == [project.attachments_dir / run_id]
+
+
 def test_run_manager_api_user_io_unblocks_on_resolve() -> None:
     def factory(
         sandbox: Sandbox,

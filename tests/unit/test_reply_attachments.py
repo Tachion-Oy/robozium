@@ -143,7 +143,7 @@ def image_run(tmp_path, *, vision=True, specialist=False, accepts_images=True, b
         prompt = wait_prompt(client, run_id)
         yield SimpleNamespace(client=client, run_id=run_id, prompt=prompt, calls=calls,
                               endpoint=endpoint, app=app, hub=hub,
-                              path=hub.project("alpha").root / attachments.DIRECTORY / run_id,
+                              path=hub.project("alpha").attachments_dir / run_id,
                               url=f"/run/{run_id}/reply")
     finally:
         if processing is not None:
@@ -276,7 +276,7 @@ def test_hub_startup_removes_abandoned_temporary_files(tmp_path):
                          models={"mock": endpoint}, default_model=endpoint,
                          transcription_endpoint=None)
     project = hub.project("alpha")
-    folder = project.root / attachments.DIRECTORY / "abandoned-run"
+    folder = project.attachments_dir / "abandoned-run"
     folder.mkdir(parents=True)
     (folder / "image.png").write_bytes(picture())
     saved = project.root / "saved.png"
@@ -425,7 +425,7 @@ def test_queued_uploads_and_cancellation_before_worker_start(tmp_path):
         assert client.get(url).json() == []
         assert client.get(f"/files/{response.json()['path']}").status_code == 404
         assert client.post(url, content=picture()).status_code == 400
-        assert not (hub.project("queued").root / attachments.DIRECTORY / run_id).exists()
+        assert not (hub.project("queued").attachments_dir / run_id).exists()
 
 
 def test_upload_during_processing_is_ready_for_the_next_prompt(tmp_path):
