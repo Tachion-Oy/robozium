@@ -80,8 +80,8 @@ class RunControl:
         return self._project
 
     @property
-    def attachments_dir(self) -> Path:
-        """This run's temporary folder for pasted and downloaded files."""
+    def downloads_dir(self) -> Path:
+        """This run's temporary folder: pasted files land here, and so do downloads."""
         return self._attachments.path
 
     @property
