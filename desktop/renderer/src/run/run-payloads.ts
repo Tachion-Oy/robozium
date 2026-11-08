@@ -3,14 +3,17 @@
 import { z } from "zod"
 import { nonBlank, orNull, parsePayload } from "../api/payload"
 import {
-	LIFECYCLE_DETAIL_KEYS, LifecyclePhase, LifecycleStatus, MessageRole, RunFrameKind, RunStatus, type RunFrame, type RunView,
+	LIFECYCLE_DETAIL_KEYS, LifecyclePhase, LifecycleStatus, MessageRole, RunFrameKind, RunStatus, RuntimeLevel, type RunFrame, type RunView,
 } from "./run-contracts"
 
 /** The `type` of every SSE frame and snapshot trace entry the backend sends. */
 const WireFrameType = {
 	Message: "message", MessageDelta: "message_delta", ScriptOutput: "script_output", RunLifecycle: "run_lifecycle", RuntimeEvent: "runtime_event",
 } as const
-/** The LLM runtime events turned into control frames; every other runtime event is ignored. */
+// Runtime events reach the HUD by two rules, the same ones RoboZ's own terminal sink applies:
+// every error-level event is a notice, and so is the one informational LLM event the runtime
+// addresses to the user, images omitted for a model that cannot read them. An LLM retry becomes a
+// control frame. Everything else is ignored.
 const LLM_CATEGORY = "llm"
 const LlmRuntimeSignal = { Retrying: "retrying", ImagesOmitted: "images_omitted" } as const
 
@@ -53,11 +56,19 @@ const RunLifecycleEvent = z.object({
 	type: RunFrameKind.Lifecycle, sequence, phase: kind, agent: agent_name, status: details.status ?? null, details,
 }))
 
-const RuntimeEvent = z.object({ payload: z.object({ category: z.unknown(), kind: z.unknown() }) })
+// The probe reads the routing fields; only a consumed event is validated, and it requires its level.
+const RuntimeEvent = z.object({ payload: z.object({ category: z.unknown(), kind: z.unknown(), level: z.unknown().optional() }) })
 const LlmRetryEvent = z.object({ sequence, payload: z.object({ agent_name: nonBlank }) })
 	.transform(({ sequence, payload }) => ({ type: RunFrameKind.LlmRetry, sequence, agent: payload.agent_name }))
-const ImagesOmittedEvent = z.object({ sequence, payload: z.object({ agent_name: nonBlank, message: nonBlank }) })
-	.transform(({ sequence, payload }) => ({ type: RunFrameKind.ImagesOmitted, sequence, agent: payload.agent_name, message: payload.message }))
+const RuntimeNoticeEvent = z.object({ sequence, payload: z.object({ agent_name: nonBlank, level: z.enum(RuntimeLevel), message: nonBlank }) })
+	.transform(({ sequence, payload }) => ({
+		type: RunFrameKind.RuntimeNotice, sequence, agent: payload.agent_name, level: payload.level, message: payload.message,
+	}))
+
+function isNotice(payload: { category: unknown; kind: unknown; level?: unknown }): boolean {
+	return payload.level === RuntimeLevel.Error
+		|| (payload.category === LLM_CATEGORY && payload.kind === LlmRuntimeSignal.ImagesOmitted)
+}
 
 /** Unconsumed wire frames are ignored; malformed consumed fields are errors. */
 export function parseRunEvent(value: unknown): RunFrame | null {
@@ -68,12 +79,8 @@ export function parseRunEvent(value: unknown): RunFrame | null {
 		case WireFrameType.RunLifecycle: return parse(RunLifecycleEvent, value)
 		case WireFrameType.RuntimeEvent: {
 			const { payload } = parse(RuntimeEvent, value)
-			if (payload.category !== LLM_CATEGORY) return null
-			switch (payload.kind) {
-				case LlmRuntimeSignal.Retrying: return parse(LlmRetryEvent, value)
-				case LlmRuntimeSignal.ImagesOmitted: return parse(ImagesOmittedEvent, value)
-				default: return null
-			}
+			if (payload.category === LLM_CATEGORY && payload.kind === LlmRuntimeSignal.Retrying) return parse(LlmRetryEvent, value)
+			return isNotice(payload) ? parse(RuntimeNoticeEvent, value) : null
 		}
 		default:
 			return null

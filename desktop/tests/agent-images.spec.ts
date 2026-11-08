@@ -88,7 +88,7 @@ test("hub and https images load inline, failed and unsafe sources keep a link, a
 test("a model that cannot read images is announced once live, while replayed history stays quiet", async ({ desktop: { page }, backend }) => {
 	const text = "Images are omitted for text-model because it cannot read them."
 	const omitted = (sequence: number) => ({
-		type: "runtime_event", sequence, payload: { category: "llm", kind: "images_omitted", agent_name: "orchestrator", message: text },
+		type: "runtime_event", sequence, payload: { category: "llm", kind: "images_omitted", level: "info", agent_name: "orchestrator", message: text },
 	})
 	const run = prepareRun(backend)
 	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ message_trace: [omitted(1), message(2, "Recovered history")] })))
@@ -96,7 +96,7 @@ test("a model that cannot read images is announced once live, while replayed his
 	await expect.poll(() => run.streams.length).toBe(1)
 	const panel = page.locator(".agent-hud__replyBox--agent")
 	await expect(panel).toContainText("Recovered history")
-	const notice = page.getByRole("status").filter({ hasText: "Images omitted" })
+	const notice = page.getByRole("status").filter({ hasText: "Runtime notice" })
 	await expect(notice).toHaveCount(0)
 	emit(run.streams[0], omitted(3))
 	await expect(notice).toBeVisible()
