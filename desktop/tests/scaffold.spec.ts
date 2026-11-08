@@ -583,6 +583,8 @@ test("rejects the version request from a different window", async ({ desktop: { 
 
 test("rejects the version request from a different document in the main window", async ({ desktop: { app, page } }) => {
 	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].loadURL("about:blank"))
+	// Main sees the load finish before the page's new document is ready for script.
+	await page.waitForURL("about:blank")
 	expect(await page.evaluate(async () => {
 		try {
 			await window.robozium.getVersion()

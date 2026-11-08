@@ -305,6 +305,8 @@ test("clipboard rejects other windows and documents without altering clipboard",
 	}, { preload, documentUrl })
 	expect(result).toBe("denied")
 	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].loadURL("about:blank"))
+	// Main sees the load finish before the page's new document is ready for script.
+	await page.waitForURL("about:blank")
 	expect(await page.evaluate(async () => {
 		try {
 			await window.robozium.writeClipboardText("untrusted")
