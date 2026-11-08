@@ -1,11 +1,11 @@
 // Project the displayed run's retained events into message log rows. No log state:
 // the log pane computes this only while it is mounted.
-import { MessageRole, RunEventType, RunLifecycleKind, type RunRecord } from "../run/run-contracts"
+import { LifecyclePhase, MessageRole, RunFrameKind, type RunRecord } from "../run/run-contracts"
 import { isAssistantContent, parseContentObject, type ParsedMessageContent } from "./normalize"
 import { StreamLogItemKind, StreamLogRole, type LifecycleLogItem, type MessageLogItem, type StreamLogItem } from "./view-model"
 
-type MessageEvent = Extract<RunRecord, { type: typeof RunEventType.Message }>
-type LifecycleEvent = Extract<RunRecord, { type: typeof RunEventType.RunLifecycle }>
+type MessageEvent = Extract<RunRecord, { type: typeof RunFrameKind.Message }>
+type LifecycleEvent = Extract<RunRecord, { type: typeof RunFrameKind.Lifecycle }>
 
 const ASSISTANT_KNOWN_KEYS = new Set(["action", "rationale"])
 
@@ -63,15 +63,15 @@ function messageItem(event: MessageEvent): MessageLogItem {
 
 /** Started banners omit empty fields; stopped banners show them as null. */
 function lifecycleItem(event: LifecycleEvent): LifecycleLogItem {
-	const includeNull = event.kind === RunLifecycleKind.Stopped
+	const includeNull = event.phase === LifecyclePhase.Stopped
 	const details: Record<string, string> = {}
 	for (const [key, value] of Object.entries(event.details)) {
 		if (value !== null || includeNull) details[key] = stringifyValue(value)
 	}
 	const base = { kind: StreamLogItemKind.Lifecycle, role: StreamLogRole.Lifecycle, agentName: event.agent, details } as const
-	return event.kind === RunLifecycleKind.Started
-		? { ...base, phase: RunLifecycleKind.Started }
-		: { ...base, phase: RunLifecycleKind.Stopped, status: event.status }
+	return event.phase === LifecyclePhase.Started
+		? { ...base, phase: LifecyclePhase.Started }
+		: { ...base, phase: LifecyclePhase.Stopped, status: event.status }
 }
 
 /** Consecutive script output forms one row; a displayed message or banner closes it. */
@@ -80,23 +80,23 @@ export function selectLogItems(events: readonly RunRecord[]): StreamLogItem[] {
 	let script: MessageLogItem | null = null
 	for (const event of events) {
 		switch (event.type) {
-			case RunEventType.ScriptOutput:
+			case RunFrameKind.ScriptOutput:
 				if (script) script.content += event.content
 				else items.push(script = { kind: StreamLogItemKind.Message, role: StreamLogRole.Script, content: event.content })
 				break
-			case RunEventType.Message:
+			case RunFrameKind.Message:
 				script = null
 				items.push(messageItem(event))
 				break
-			case RunEventType.RunLifecycle:
+			case RunFrameKind.Lifecycle:
 				script = null
 				items.push(lifecycleItem(event))
 				break
-			case RunEventType.ImagesOmitted:
+			case RunFrameKind.ImagesOmitted:
 				script = null
 				items.push({ kind: StreamLogItemKind.Message, role: StreamLogRole.System, content: event.message })
 				break
-			case RunEventType.LlmRetry:
+			case RunFrameKind.LlmRetry:
 				break
 		}
 	}

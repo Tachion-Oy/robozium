@@ -1,6 +1,6 @@
 // Coordinate HUD history, live text and selection from accepted run updates.
 // History owns grouping/recovery; the view owns prompt composition and display selection.
-import { RunEventType, type RunDelta, type RunRecord } from "../run/run-contracts"
+import { RunFrameKind, type RunDelta, type RunRecord } from "../run/run-contracts"
 import type { RunState, RunUpdate } from "../run/run-reducer"
 import { initialHistory, updateHudHistory, type HudHistory } from "./hud-history"
 import { messageText, type HudLiveText } from "./hud-messages"
@@ -43,12 +43,12 @@ function settleLiveText(live: HudLiveText | null, events: readonly RunRecord[]):
 		if (!live) break
 		if (event.sequence < live.sequence) continue
 		switch (event.type) {
-			case RunEventType.LlmRetry:
+			case RunFrameKind.LlmRetry:
 				if (event.agent === live.agent) return { live: null, discarded: true }
 				break
-			case RunEventType.ScriptOutput:
+			case RunFrameKind.ScriptOutput:
 				return { live: null, discarded: false }
-			case RunEventType.Message:
+			case RunFrameKind.Message:
 				// A completion without HUD text, such as a tool action, leaves its text visible.
 				if (messageText(event) !== null) return { live: null, discarded: false }
 				break

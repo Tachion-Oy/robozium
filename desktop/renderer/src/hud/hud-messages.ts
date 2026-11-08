@@ -1,9 +1,14 @@
 // Interpret validated message content for the plain-text HUD. No history or selection state.
 // Backend payload validation lives in run/run-payloads; these types describe display content.
-import { AgentAction, MessageKind, MessageRole, RunEventType, type RunRecord } from "../run/run-contracts"
+import { MessageRole, RunFrameKind, type RunRecord } from "../run/run-contracts"
 
-type MessageEvent = Extract<RunRecord, { type: typeof RunEventType.Message }>
-type ScriptEvent = Extract<RunRecord, { type: typeof RunEventType.ScriptOutput }>
+type MessageEvent = Extract<RunRecord, { type: typeof RunFrameKind.Message }>
+type ScriptEvent = Extract<RunRecord, { type: typeof RunFrameKind.ScriptOutput }>
+
+/** The assistant action whose value is a question for the user. */
+const PROMPT_ACTION = "prompt_user"
+/** The message kind whose content the HUD shows as written; other assistant messages are tool calls. */
+const HUD_MESSAGE_KIND = "user_notification"
 
 interface MessageContent { id: string; text: string }
 export interface HudAgentMessage extends MessageContent { source: "message" }
@@ -33,14 +38,14 @@ function promptText(content: string): string | null {
 		return null
 	}
 	if (!action || typeof action !== "object") return null
-	if (!("action" in action) || action.action !== AgentAction.PromptUser) return null
+	if (!("action" in action) || action.action !== PROMPT_ACTION) return null
 	if (!("value" in action) || typeof action.value !== "string") return null
 	return action.value
 }
 
 export function messageText(event: MessageEvent): string | null {
 	if (event.role !== MessageRole.Assistant) return null
-	if (event.kind === MessageKind.UserNotification) return event.content
+	if (event.kind === HUD_MESSAGE_KIND) return event.content
 	return promptText(event.content)
 }
 

@@ -283,7 +283,7 @@ test("run parsing preserves the wire contract while normalizing retry controls",
 	expect(parseRunEvent({ type: "run_lifecycle", payload: {
 		kind: "stopped", agent_name: "root", sequence: 4, parent_agent_name: null, status: "completed",
 		model_name: "model", max_context_tokens: 8000, output_format: "text", unknown: "ignored",
-	} })).toEqual({ type: "run_lifecycle", sequence: 4, kind: "stopped", agent: "root", status: "completed", details: {
+	} })).toEqual({ type: "run_lifecycle", sequence: 4, phase: "stopped", agent: "root", status: "completed", details: {
 		parent_agent_name: null, status: "completed", model_name: "model", max_context_tokens: 8000,
 	} })
 	expect(parseRunEvent({ type: "runtime_event", sequence: 5, payload: { category: "llm", kind: "retrying", agent_name: "root" } }))

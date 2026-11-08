@@ -1,6 +1,6 @@
 // Build completed HUD history, group script chunks and preserve identities during recovery.
 // Live append and recovered history use the same event projection; breaks belong only to display.
-import { RunEventType, type RunRecord } from "../run/run-contracts"
+import { RunFrameKind, type RunRecord } from "../run/run-contracts"
 import { extendScriptMessage, toHudMessage, toScriptMessage, type HudScriptMessage, type RecordedHudMessage } from "./hud-messages"
 
 export interface HudHistory {
@@ -20,16 +20,16 @@ export function initialHistory(): HudHistory {
 
 function projectEvent(event: RunRecord, script: HudScriptMessage | null): EventProjection {
 	switch (event.type) {
-		case RunEventType.ScriptOutput: {
+		case RunFrameKind.ScriptOutput: {
 			const message = script ? extendScriptMessage(script, event) : toScriptMessage(event)
 			return { message, openScript: message }
 		}
-		case RunEventType.Message:
+		case RunFrameKind.Message:
 			return { message: toHudMessage(event), openScript: null }
-		case RunEventType.LlmRetry:
-		case RunEventType.ImagesOmitted:
+		case RunFrameKind.LlmRetry:
+		case RunFrameKind.ImagesOmitted:
 			return { message: null, openScript: script }
-		case RunEventType.RunLifecycle:
+		case RunFrameKind.Lifecycle:
 			return { message: null, openScript: null }
 	}
 }
