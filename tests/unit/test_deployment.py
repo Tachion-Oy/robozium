@@ -29,7 +29,8 @@ def test_configured_models_apply_per_use_request_policy(monkeypatch):
     endpoints = list(models.values())
     project = hub.project("policy-test")
     deployment = hub.configure_deployment(
-        project.sandbox, project.slug, endpoint_getter=lambda: hub.settings.default_model
+        project.sandbox, project.slug, endpoint_getter=lambda: hub.settings.default_model,
+        downloads_dir=project.attachments_dir,
     ).build()
     memory = deployment[1][0].agent_endpoint
     assert all(isinstance(endpoint, LLMEndpoint) for endpoint in endpoints)
@@ -187,6 +188,7 @@ def test_route_discovery_and_compaction_follow_model_switch_without_rebuild(tmp_
         project.sandbox,
         project.slug,
         endpoint_getter=lambda: selected,
+        downloads_dir=project.attachments_dir,
     ).build()
     agent, (background,) = deployment
     route = agent.agent_endpoint
@@ -211,7 +213,8 @@ def test_project_binding_cannot_disagree_with_the_sandbox():
         Project(project.sandbox, "two")
     with pytest.raises(ValueError, match="match the sandbox scope"):
         hub.configure_deployment(
-            project.sandbox, "two", endpoint_getter=lambda: hub.settings.default_model
+            project.sandbox, "two", endpoint_getter=lambda: hub.settings.default_model,
+            downloads_dir=project.attachments_dir,
         )
 
 

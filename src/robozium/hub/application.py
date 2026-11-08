@@ -143,10 +143,13 @@ class Hub:
     def definition(self) -> DeployableAgent:
         """Keep one definition for dependency and capability inspection."""
         project = self.project(self.settings.name)
+        # Inspection builds every capability without a run; downloads would land
+        # under the project's attachments folder, as each run's own folder does.
         return self.configure_deployment(
             project.sandbox,
             project.slug,
             endpoint_getter=lambda: self.model_selector.selected_endpoint,
+            downloads_dir=project.attachments_dir,
         )
 
     def configure_deployment(
@@ -156,8 +159,13 @@ class Hub:
         /,
         *,
         endpoint_getter: Callable[[], LLMEndpoint],
+        downloads_dir: Path,
     ) -> DeployableAgent:
-        """Describe fresh agents with this Hub's choices and run inputs."""
+        """Describe fresh agents with this Hub's choices and run inputs.
+
+        ``downloads_dir`` is the agent attribute capabilities declare through
+        RoboZ's ``required_attributes`` when they save files for the run.
+        """
         if sandbox.scope is not None and sandbox.scope != project_slug:
             raise ValueError("deployment project must match the sandbox scope")
         sandbox = sandbox.for_project(project_slug)
@@ -166,6 +174,7 @@ class Hub:
             root.capabilities, self.additional_capabilities
         )
         root.add_capabilities(*self.additional_capabilities)
+        root.set_attributes(downloads_dir=downloads_dir)
         return root
 
     def _root(

@@ -22,7 +22,9 @@ class BuiltAgents(NamedTuple):
 
 def deferred_deployment(factory):
     """Keep controlled runtime construction in build(), as real definitions do."""
-    def configure(sandbox, project_slug, *, endpoint_getter):
+    # As Hub.deployment the folder is set by configure_deployment afterwards; as
+    # RunManager's configure it arrives here, as the run's own folder.
+    def configure(sandbox, project_slug, *, endpoint_getter, downloads_dir=None):
         class Definition(DeployableAgent):
             def build(self, **kwargs):
                 return factory(
@@ -32,7 +34,10 @@ def deferred_deployment(factory):
                     event_sinks=kwargs.get("event_sinks", ()),
                 )
 
-        return Definition(name="test")
+        definition = Definition(name="test")
+        if downloads_dir is not None:
+            definition.set_attributes(downloads_dir=downloads_dir)
+        return definition
 
     return configure
 
@@ -82,6 +87,7 @@ def configured_deployment(project, endpoint, **choices):
         project.sandbox,
         project.slug,
         endpoint_getter=lambda: endpoint,
+        downloads_dir=project.attachments_dir,
     )
     return definition.build(
         event_sinks=event_sinks,

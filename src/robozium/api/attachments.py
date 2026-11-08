@@ -15,7 +15,6 @@ from roboz.models import Image, Str, StrImage
 
 from robozium.hub.application import AttachmentSettings
 
-DIRECTORY = ".robozium-attachments"
 FORMATS = {"PNG": "png", "JPEG": "jpeg", "WEBP": "webp", "GIF": "gif"}
 AttachmentKind = Literal["image", "file"]
 # Other files keep a plain extension so the agent's readers recognise them.
@@ -86,12 +85,12 @@ def remove_attachments(path: Path) -> None:
 class RunAttachments:
     def __init__(
         self,
-        project_root: Path,
+        attachments_root: Path,
         hub_root: Path,
         run_id: str,
         settings: AttachmentSettings = AttachmentSettings(),
     ) -> None:
-        self.path = project_root / DIRECTORY / run_id
+        self.path = attachments_root / run_id
         self._hub_root = hub_root
         self._retained_bytes = 0
         self._settings = settings
