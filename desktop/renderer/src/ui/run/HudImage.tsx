@@ -1,15 +1,13 @@
-// Hub images load from the backend, which requires the renderer's
-// Origin. Remote images never load without a click: the CSP admits only the
-// backend, and "Open original" opens either kind outside the window. The viewer
-// outlives message changes and returns focus to the panel when its trigger is gone.
+// Hub images load from the backend, which requires the renderer's Origin;
+// web images load from their https host without a referrer. "Open original"
+// opens either kind outside the window. The viewer outlives message changes
+// and returns focus to the panel when its trigger is gone.
 import { createContext, useContext, useEffect, useRef, useState, type MouseEvent, type ReactNode, type Ref, type RefObject } from "react"
 import { resolveHudImageSource } from "../../links/hud-images"
 import { openExternalLink, openHubFile } from "../../links/open-link"
 
 type ResolvedImage = {
 	src: string
-	/** Agent output must not make the window fetch from other hosts. */
-	remote: boolean
 	openOriginal: () => void
 }
 
@@ -41,10 +39,10 @@ function useResolvedImage(src: string | undefined): ResolvedImage | null {
 	const hubFileUrl = useContext(HubFileUrlContext)
 	const source = src ? resolveHudImageSource(src) : null
 	if (source?.kind === "web") {
-		return { src: source.url, remote: true, openOriginal: () => openExternalLink(source.url) }
+		return { src: source.url, openOriginal: () => openExternalLink(source.url) }
 	}
 	if (source?.kind === "hub" && hubFileUrl) {
-		return { src: hubFileUrl(source.path), remote: false, openOriginal: () => openHubFile(source.path) }
+		return { src: hubFileUrl(source.path), openOriginal: () => openHubFile(source.path) }
 	}
 	return null
 }
@@ -124,15 +122,6 @@ export function HudImage({ src, alt }: { src?: string; alt?: string }) {
 	const [status, setStatus] = useState<"loading" | "loaded" | "failed">("loading")
 	const description = alt?.trim() || "Image"
 	if (!image) return <span className="agent-hud__image-unavailable">{description} — Image unavailable</span>
-	if (image.remote) {
-		return (
-			<span className="agent-hud__image-unavailable">
-				{description} — Remote image{" "}
-				{!linked ? <OriginalLink image={image} /> : null}
-			</span>
-		)
-	}
-
 	if (status === "failed") {
 		return (
 			<span className="agent-hud__image-unavailable" role="status">

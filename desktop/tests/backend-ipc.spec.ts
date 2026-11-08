@@ -64,8 +64,8 @@ test("the CSP admits bundled images, which the overview's display art uses, loca
 	}, documentUrl)
 	const directives = csp!.split("; ")
 	expect(directives).toContain("default-src 'none'")
-	// Bundled art, local reply previews and the backend's hub images load; nothing else does.
-	expect(directives.filter(directive => directive.startsWith("img-src"))).toEqual([`img-src 'self' blob: ${fakeBackend.url}`])
+	// Bundled art, local reply previews, https web images and the backend's hub images load; nothing else does.
+	expect(directives.filter(directive => directive.startsWith("img-src"))).toEqual([`img-src 'self' blob: https: ${fakeBackend.url}`])
 	expect(svg).toEqual({ status: 200, type: "image/svg+xml" })
 	const art = page.locator(".display-art--new-project")
 	await expect(art).toBeVisible()

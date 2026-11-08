@@ -27,6 +27,7 @@ function projectEvent(event: RunRecord, script: HudScriptMessage | null): EventP
 		case RunEventType.Message:
 			return { message: toHudMessage(event), openScript: null }
 		case RunEventType.LlmRetry:
+		case RunEventType.ImagesOmitted:
 			return { message: null, openScript: script }
 		case RunEventType.RunLifecycle:
 			return { message: null, openScript: null }

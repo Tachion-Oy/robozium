@@ -92,6 +92,10 @@ export function selectLogItems(events: readonly RunRecord[]): StreamLogItem[] {
 				script = null
 				items.push(lifecycleItem(event))
 				break
+			case RunEventType.ImagesOmitted:
+				script = null
+				items.push({ kind: StreamLogItemKind.Message, role: StreamLogRole.System, content: event.message })
+				break
 			case RunEventType.LlmRetry:
 				break
 		}
