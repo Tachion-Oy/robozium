@@ -29,6 +29,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `links/` | Opening agent links through the desktop bridge, and reporting failures. |
 | `feedback/` | Notifications any owner can raise. |
 | `theme/` | The document theme and saving it through the bridge. |
+| `zoom/` | Stepping the window zoom through the bridge, and which way it can still move. |
 | `api/` | Shared HTTP/SSE transport, request deadlines, client lifetimes and React request state. |
 
 ## Owners
@@ -49,6 +50,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `credentials/useCredentials` | The backend's secrets status (available, locked), whether first-start setup or a restart is required (each locks the HUD: setup on the guide and Environment, a pending restart on Environment), and the open password prompt | Status read, unlock |
 | `feedback/notices` | Notifications and their pause/dismiss lifetimes | None |
 | `theme/theme` | The document's theme, applied before first render from the bridge's saved value | Save through `setTheme` (IPC) |
+| `zoom/useZoom` | Whether the zoom can move in or out; main owns the factor and resets it to 100% on every start | Read on each window resize and step through `getZoom`/`zoom` (IPC) |
 
 `ui/app/App.tsx` composes the owners and keeps navigation (`app/hud-navigation`:
 the screen and the selector's launch draft), the reply draft, divider layout and

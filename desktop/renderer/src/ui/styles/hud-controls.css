@@ -651,9 +651,9 @@
   filter: none;
 }
 
-/* Only the divider buttons follow the column's disabled state; the theme toggle stays usable. */
-.agent-hud__corner-controls[data-disabled]
-  .agent-hud__layout-controls .agent-hud__corner-control {
+/* Only the divider buttons follow the HUD's disabled state; the theme toggle and
+   the zoom buttons stay usable. */
+.agent-hud__layout-controls[data-disabled] .agent-hud__corner-control {
   --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 30% * var(--tune-edge, 1), 100%), transparent);
   --btn-fill-strength: 5%;
   cursor: default;
@@ -661,8 +661,7 @@
   filter: none;
 }
 
-.agent-hud__corner-controls[data-disabled]
-  .agent-hud__layout-wedge {
+.agent-hud__layout-controls[data-disabled] .agent-hud__layout-wedge {
   color: color-mix(in oklab, var(--term-blue) clamp(0%, 62% * var(--tune-text, 1), 100%), white);
   opacity: 0.55;
   filter: none;
@@ -728,13 +727,20 @@
   transform: rotate(180deg);
 }
 
+/* The zoom glyphs are square, unlike the wedges. */
+.agent-hud__layout-wedge.agent-hud__zoom-glyph {
+  width: 0.78rem;
+  height: 0.78rem;
+}
+
 .agent-hud__layout-controls .agent-hud__layout-direction:not(:disabled):hover,
 .agent-hud__edge-toggle:not(:disabled):hover {
   --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
   --btn-fill-strength: 24%;
 }
 
-.agent-hud__layout-direction:not(:disabled):hover .agent-hud__layout-wedge {
+.agent-hud__layout-direction:not(:disabled):hover .agent-hud__layout-wedge,
+.agent-hud__edge-toggle:not(:disabled):hover .theme-toggle__glyph {
   filter:
     drop-shadow(0 0 2px var(--term-blue))
     drop-shadow(0 0 6px color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-glow, 1), 100%), transparent))

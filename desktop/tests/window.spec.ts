@@ -140,22 +140,20 @@ test("zoom shortcuts use Command on macOS and Control elsewhere", () => {
 	expect(zoomShortcut(key("a", { control: true }), "linux")).toBeNull()
 })
 
-test("settings keep other keys and fall back per preference", async () => {
+test("settings keep other keys, including a zoom, and fall back to dark", async () => {
 	const profile = await mkdtemp(path.join(tmpdir(), "robozium-settings-"))
 	try {
 		const file = path.join(profile, "settings.json")
-		expect(readSettings(profile)).toEqual({ theme: "dark", zoom: 1 })
+		expect(readSettings(profile)).toEqual({ theme: "dark" })
 		await writeFile(file, JSON.stringify({ future: "kept", theme: "light", zoom: 1.2 }))
-		expect(readSettings(profile)).toEqual({ theme: "light", zoom: 1.2 })
-		saveSettings(profile, { zoom: 1.3 })
-		expect(JSON.parse(await readFile(file, "utf8"))).toEqual({ future: "kept", theme: "light", zoom: 1.3 })
-		await writeFile(file, JSON.stringify({ theme: "blue", zoom: 9 }))
-		expect(readSettings(profile)).toEqual({ theme: "dark", zoom: 1 })
-		await writeFile(file, JSON.stringify({ theme: "light", zoom: 0.4 }))
-		expect(readSettings(profile)).toEqual({ theme: "light", zoom: 1 })
+		expect(readSettings(profile)).toEqual({ theme: "light" })
+		saveSettings(profile, { theme: "dark" })
+		expect(JSON.parse(await readFile(file, "utf8"))).toEqual({ future: "kept", theme: "dark", zoom: 1.2 })
+		await writeFile(file, JSON.stringify({ theme: "blue" }))
+		expect(readSettings(profile)).toEqual({ theme: "dark" })
 		await writeFile(file, "{ not json")
-		expect(readSettings(profile)).toEqual({ theme: "dark", zoom: 1 })
-		expect(() => saveSettings(profile, { zoom: 1.1 })).toThrow()
+		expect(readSettings(profile)).toEqual({ theme: "dark" })
+		expect(() => saveSettings(profile, { theme: "light" })).toThrow()
 		expect(await readFile(file, "utf8")).toBe("{ not json")
 	} finally { await rm(profile, { recursive: true, force: true }) }
 })

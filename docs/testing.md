@@ -115,7 +115,8 @@ fades only over a drawn HUD, and that startup failures show on the loading
 screen with Retry. Other native tests emulate reduced motion, which settles the
 animation at once (`skipIntro` in `desktop/tests/native.ts`).
 
-`desktop/tests/theme.spec.ts` checks that the chosen theme and native window
+`desktop/tests/theme.spec.ts` checks that the toggle shows the moon in dark and
+the sun in light, that the chosen theme and native window
 background survive a restart without dropping other `settings.json` keys, that
 an unreadable settings file opens dark and is never overwritten (the switch
 still applies, with a warning), and that `setTheme` accepts only dark or light
@@ -147,7 +148,10 @@ and composer-expanded layouts at that size/zoom in both themes. The eight frame
 screenshots show a started mock run with the default message-expanded layout.
 Native key-input checks cover Ctrl-plus/equal/minus/zero and keypad zoom in/out,
 including focus retention and a single zoom step per key press while a selector
-is open.
+is open. `desktop/tests/window-native.spec.ts` checks that zoom survives a reload
+but a restart opens at 100% with nothing saved, and that the left-edge zoom
+buttons step the zoom, stay usable while the divider buttons are disabled, and
+disable at 50% and 300%, also after a shortcut reaches the limit.
 
 Footer checks exercise all four history directions, disabled boundaries,
 retained selection/draft/divider state, and Clear keeping the same textarea.

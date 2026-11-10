@@ -1,4 +1,6 @@
-// The theme toggle heads the column, above the panel divider buttons; no Minimize.
+// The theme toggle heads the column, above the panel divider buttons and the zoom
+// buttons; no Minimize. Only the divider buttons follow `disabled`.
+import { useZoom } from "../../zoom/useZoom"
 import { ThemeToggle } from "../theme/ThemeToggle"
 import { HudEdgeButton } from "./HudEdgeButton"
 
@@ -33,13 +35,13 @@ export function HudCornerControls({
 	layout: HudLayoutControls
 	disabled?: boolean
 }) {
+	const zoom = useZoom()
 	return (
-		<div
-			className="agent-hud__corner-controls"
-			data-disabled={disabled || undefined}>
+		<div className="agent-hud__corner-controls">
 			<ThemeToggle />
 			<div
 				className="agent-hud__layout-controls"
+				data-disabled={disabled || undefined}
 				role="group"
 				aria-label={`Panel divider: ${layout.mode}`}>
 				<HudEdgeButton
@@ -66,6 +68,30 @@ export function HudCornerControls({
 						viewBox="0 0 16 14"
 						aria-hidden="true">
 						<path d="M8 1.25 14.75 12.75H1.25Z" />
+					</svg>
+				</HudEdgeButton>
+			</div>
+			<div className="agent-hud__layout-controls" role="group" aria-label="Zoom">
+				<HudEdgeButton
+					variant="arrow"
+					className="agent-hud__corner-control"
+					onClick={() => zoom.step(1)}
+					disabled={!zoom.canZoomIn}
+					aria-label="Zoom in"
+					title="Zoom in">
+					<svg className="agent-hud__layout-wedge agent-hud__zoom-glyph" viewBox="0 0 16 16" aria-hidden="true">
+						<path d="M6.75 2h2.5v4.75H14v2.5H9.25V14h-2.5V9.25H2v-2.5h4.75Z" />
+					</svg>
+				</HudEdgeButton>
+				<HudEdgeButton
+					variant="arrow"
+					className="agent-hud__corner-control"
+					onClick={() => zoom.step(-1)}
+					disabled={!zoom.canZoomOut}
+					aria-label="Zoom out"
+					title="Zoom out">
+					<svg className="agent-hud__layout-wedge agent-hud__zoom-glyph" viewBox="0 0 16 16" aria-hidden="true">
+						<path d="M2 6.75h12v2.5H2Z" />
 					</svg>
 				</HudEdgeButton>
 			</div>
