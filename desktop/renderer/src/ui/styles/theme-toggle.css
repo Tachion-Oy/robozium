@@ -1,22 +1,21 @@
-/* The theme toggle heads the left edge, shaped as the message log toggle on the
-   right (.agent-hud__edge-toggle); it shows only a glowing dot with a crisp core. */
-.theme-toggle__indicator {
-  width: 0.75rem;
-  height: 0.75rem;
-  border-radius: 50%;
-  background: color-mix(in oklab, var(--term-blue) clamp(0%, 45% * var(--tune-text, 1), 100%), white);
-  box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--term-blue) clamp(0%, 80% * var(--tune-edge, 1), 100%), white),
-    0 0 6px 1px color-mix(in oklab, var(--term-blue) clamp(0%, 85% * var(--tune-glow, 1), 100%), transparent),
-    0 0 16px 3px color-mix(in oklab, var(--term-blue) clamp(0%, 45% * var(--tune-glow, 1), 100%), transparent);
+/* The theme toggle is the centre of the left edge, shaped as the message log
+   toggle on the right (.agent-hud__edge-toggle). Its glyph is lit as the divider wedges are
+   (.agent-hud__layout-wedge) and shows the current theme: the moon in dark, the sun
+   in light. */
+.agent-hud__layout-wedge.theme-toggle__glyph {
+  width: 1.3rem;
+  height: 1.3rem;
 }
 
-/* Light: the dark ink of the other buttons' glyphs, inside a soft blue halo. */
-:root[data-theme="light"] .theme-toggle__indicator {
-  background: var(--hud-control-ink);
-  box-shadow:
-    0 0 0 2px color-mix(in oklab, var(--term-blue) clamp(0%, 35% * var(--tune-glow, 1), 100%), transparent),
-    0 0 8px 3px color-mix(in oklab, var(--term-blue) clamp(0%, 30% * var(--tune-glow, 1), 100%), transparent);
+/* The crescent fills its box, so it is drawn smaller to clear the button's cut corners. */
+.agent-hud__layout-wedge.theme-toggle__moon {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+:root[data-theme="light"] .theme-toggle__moon,
+:root:not([data-theme="light"]) .theme-toggle__sun {
+  display: none;
 }
 
 /* A theme switch fades the old view out to the new theme's background, then the

@@ -265,7 +265,7 @@ test("exposes the version bridge when launched outside the checkout", async ({ d
 		process: typeof Reflect.get(window, "process"),
 		ipcRenderer: typeof Reflect.get(window, "ipcRenderer"),
 		bridge: Object.keys(window.robozium),
-	}))).toEqual({ require: "undefined", process: "undefined", ipcRenderer: "undefined", bridge: ["theme", "setTheme", "getBackendConnection", "getBackendStatus", "getHostServices", "retryBackend", "restartApp", "onClosing", "getVersion", "painted", "writeClipboardText", "getMessageLog", "setMessageLog", "openExternal", "openHubFile", "getHubFolder", "chooseHubFolder", "useHubFolder", "openHubFolder"] })
+	}))).toEqual({ require: "undefined", process: "undefined", ipcRenderer: "undefined", bridge: ["theme", "setTheme", "getBackendConnection", "getBackendStatus", "getHostServices", "retryBackend", "restartApp", "onClosing", "getVersion", "painted", "writeClipboardText", "getMessageLog", "setMessageLog", "getZoom", "zoom", "openExternal", "openHubFile", "getHubFolder", "chooseHubFolder", "useHubFolder", "openHubFolder"] })
 	// Playwright disables Chromium sandboxing unless explicitly told otherwise.
 	expect(await app.evaluate(({ app }) => app.commandLine.hasSwitch("no-sandbox"))).toBe(false)
 })
@@ -302,11 +302,18 @@ test("switches themes with the keyboard and mouse while retaining focus", async 
 	const toggle = page.getByRole("button", { name: "Toggle color theme" })
 	expect(await page.locator(".agent-hud__header button").evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label"))))
 		.toEqual(["Mock model", "Runs Overview"])
-	// The toggle heads the left edge's column and shows only its dot.
-	await expect(page.locator(".agent-hud__corner-controls button").first()).toHaveAccessibleName("Toggle color theme")
+	// The left edge's column: the zoom buttons, the toggle at its centre showing only
+	// its glyph, then the divider buttons.
+	expect(await page.locator(".agent-hud__corner-controls button").evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label"))))
+		.toEqual(["Zoom in", "Zoom out", "Toggle color theme", "Move panel divider up", "Move panel divider down"])
 	await expect(toggle).toHaveText("")
 	await expect(root).toHaveAttribute("data-theme", "dark")
-	// The left edge, then the right edge (its copy buttons are disabled here), then the header.
+	// The left edge (its divider buttons are disabled here, its zoom buttons are not),
+	// then the right edge (its copy buttons are disabled here), then the header.
+	await page.keyboard.press("Tab")
+	await expect(page.getByRole("button", { name: "Zoom in", exact: true })).toBeFocused()
+	await page.keyboard.press("Tab")
+	await expect(page.getByRole("button", { name: "Zoom out", exact: true })).toBeFocused()
 	await page.keyboard.press("Tab")
 	await expect(toggle).toBeFocused()
 	await page.keyboard.press("Space")
@@ -317,8 +324,7 @@ test("switches themes with the keyboard and mouse while retaining focus", async 
 	await expect(page.getByRole("button", { name: "Show message log", exact: true })).toBeFocused()
 	await page.keyboard.press("Tab")
 	await expect(modelTrigger(page)).toBeFocused()
-	await page.keyboard.press("Shift+Tab")
-	await page.keyboard.press("Shift+Tab")
+	for (let step = 0; step < 2; step++) await page.keyboard.press("Shift+Tab")
 	await expect(toggle).toBeFocused()
 	await page.keyboard.press("Enter")
 	await expect(root).toHaveAttribute("data-theme", "dark")

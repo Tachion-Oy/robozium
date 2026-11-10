@@ -9,7 +9,7 @@ import { externalUrl, hubFilePath } from "./links.ts"
 import { checkHubFolderChoice, recordedHubFolder, saveHubFolder } from "./hub-folder.ts"
 import { droppedFolderReadAllowed, permissionAllowed, permissionRequestAllowed } from "./security.ts"
 import { desktopLocations } from "./locations.ts"
-import { isAppTheme, readSettings, saveSettings, themeBackground, type DesktopSettings } from "./settings.ts"
+import { isAppTheme, readSettings, saveSettings, themeBackground } from "./settings.ts"
 import { nextZoom, startupSize, zoomShortcut } from "./window.ts"
 
 protocol.registerSchemesAsPrivileged([
@@ -37,8 +37,7 @@ async function start(): Promise<void> {
 	if (!app.requestSingleInstanceLock()) { app.exit(0); return }
 	await app.whenReady()
 
-	const settings = readSettings(profile)
-	const theme = settings.theme
+	const theme = readSettings(profile).theme
 	nativeTheme.themeSource = theme
 	// A fixed size that leaves other windows visible; the user may resize further.
 	const size = startupSize(screen.getPrimaryDisplay().workArea)
@@ -51,7 +50,6 @@ async function start(): Promise<void> {
 		webPreferences: {
 			preload,
 			additionalArguments: [`--robozium-theme=${theme}`],
-			zoomFactor: settings.zoom,
 			sandbox: true,
 			contextIsolation: true,
 			nodeIntegration: false,
@@ -96,12 +94,6 @@ async function start(): Promise<void> {
 			app.exit(0)
 		} catch (error) { console.error("Backend shutdown failed:", error); app.exit(1) }
 	}
-	/** Preferences are conveniences: a failed save must not interrupt the window. */
-	const save = (changes: Partial<DesktopSettings>) => {
-		try {
-			saveSettings(profile, changes)
-		} catch (error) { console.error("Settings could not be saved:", error) }
-	}
 	const logWindow = new MessageLogWindow(window, bounds => screen.getDisplayMatching(bounds))
 	// GNOME's frame metrics settle when its native title bar is first shown.
 	window.once("show", () => window.setContentSize(size.width, size.height))
@@ -118,16 +110,25 @@ async function start(): Promise<void> {
 	app.on("before-quit", event => { event.preventDefault(); void quit() })
 	window.setMenuBarVisibility(false)
 	const contents = window.webContents
-	let zoom = settings.zoom
+	// Every start opens at 100%, as it opens at one size; the zoom is never remembered.
+	let zoom = 1
+	/** Which way the zoom can still move; the edge buttons disable at the limits. */
+	const zoomState = () => {
+		const factor = contents.getZoomFactor()
+		return { canZoomIn: nextZoom(factor, 1) !== factor, canZoomOut: nextZoom(factor, -1) !== factor }
+	}
+	/** The shortcuts and the edge buttons zoom the same way. */
+	const changeZoom = (direction: 1 | -1 | 0) => {
+		zoom = nextZoom(contents.getZoomFactor(), direction)
+		contents.setZoomFactor(zoom)
+		if (logWindow.open) logWindow.expand()
+	}
 	contents.on("before-input-event", (event, input) => {
 		const direction = zoomShortcut(input, process.platform)
 		if (direction === null) return
 		// Match logical keys across layouts/keypads and suppress the menu's second step.
 		event.preventDefault()
-		zoom = nextZoom(contents.getZoomFactor(), direction)
-		contents.setZoomFactor(zoom)
-		if (logWindow.open) logWindow.expand()
-		save({ zoom })
+		changeZoom(direction)
 	})
 	// A reload resets the document's zoom; keep the chosen one.
 	contents.on("dom-ready", () => contents.setZoomFactor(zoom))
@@ -191,6 +192,16 @@ async function start(): Promise<void> {
 	ipcMain.handle("desktop:set-message-log", (event, open: unknown) => {
 		requireTrustedDocument(event)
 		return logWindow.setOpen(open)
+	})
+	ipcMain.handle("desktop:zoom-state", event => {
+		requireTrustedDocument(event)
+		return zoomState()
+	})
+	ipcMain.handle("desktop:zoom", (event, direction: unknown) => {
+		requireTrustedDocument(event)
+		if (direction !== 1 && direction !== -1) throw new TypeError("Zoom direction must be 1 or -1.")
+		changeZoom(direction)
+		return zoomState()
 	})
 	ipcMain.handle("desktop:write-clipboard-text", (event, text: unknown) => {
 		requireTrustedDocument(event)

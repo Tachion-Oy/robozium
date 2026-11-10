@@ -276,8 +276,8 @@ html[data-desktop] .desktop-edge-controls {
   z-index: 21; display: flex; flex-direction: column; align-items: center; gap: var(--hud-corner-control-gap);
 }
 html[data-desktop] .desktop-edge-controls__copy { display: contents; }
-/* Both edges are headed by a toggle taller than wide: the message log on the right,
-   the theme on the left. */
+/* Each edge has a toggle taller than wide: the message log heads the right edge,
+   the theme sits at the centre of the left. */
 html[data-desktop][data-theme] .agent-hud__edge-toggle {
   height: calc(1.6 * var(--hud-corner-control-size)); min-height: calc(1.6 * var(--hud-corner-control-size));
 }

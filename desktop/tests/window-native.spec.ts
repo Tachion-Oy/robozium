@@ -89,7 +89,7 @@ test("the log stays open across a renderer reload, since main owns it", async ({
 	expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isDestroyed())).toBe(false)
 })
 
-test("zoom steps by a tenth and survives a restart; the window size does not", async ({ desktop: { app, page }, fakeBackend }) => {
+test("zoom steps by a tenth and survives a reload; a restart opens at 100% and the startup size", async ({ desktop: { app, page }, fakeBackend }) => {
 	const profile = await app.evaluate(({ app }) => app.getPath("userData"))
 	const settings = path.join(profile, "settings.json")
 	await pressZoom(app, "=")
@@ -100,7 +100,8 @@ test("zoom steps by a tenth and survives a restart; the window size does not", a
 	await expect(page.locator(".agent-hud__box")).toBeVisible()
 	await expect.poll(() => zoomFactor(app)).toBeCloseTo(1.2)
 	await resize(app, 1000, 700)
-	await expect.poll(async () => JSON.parse(await readFile(settings, "utf8"))).toEqual({ zoom: 1.2 })
+	// Neither the zoom nor the size is saved.
+	await expect(readFile(settings, "utf8")).rejects.toThrow()
 
 	const reopened = await reopen(app, profile, fakeBackend.url)
 	try {
@@ -110,6 +111,31 @@ test("zoom steps by a tenth and survives a restart; the window size does not", a
 		const workArea = await reopened.evaluate(({ screen }) => screen.getPrimaryDisplay().workArea)
 		const { width, height } = startupSize(workArea)
 		await expect.poll(() => contentSize(reopened)).toEqual([width, height])
-		await expect.poll(() => zoomFactor(reopened)).toBeCloseTo(1.2)
+		expect(await zoomFactor(reopened)).toBe(1)
 	} finally { await reopened.close() }
+})
+
+test("the edge zoom buttons step the zoom, stay usable on the overview and disable at the limits", async ({ desktop: { app, page } }) => {
+	const zoomIn = page.getByRole("button", { name: "Zoom in", exact: true })
+	const zoomOut = page.getByRole("button", { name: "Zoom out", exact: true })
+	// The overview disables the divider buttons, never the zoom buttons.
+	await expect(page.getByRole("button", { name: "Move panel divider up" })).toBeDisabled()
+	await zoomIn.click()
+	await zoomIn.click()
+	await expect.poll(() => zoomFactor(app)).toBeCloseTo(1.2)
+	await zoomOut.click()
+	await expect.poll(() => zoomFactor(app)).toBeCloseTo(1.1)
+	// A shortcut moves the same zoom, and the buttons follow it to each limit.
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(2.9))
+	await pressZoom(app, "=")
+	await expect.poll(() => zoomFactor(app)).toBeCloseTo(3)
+	await expect(zoomIn).toBeDisabled()
+	await expect(zoomOut).toBeEnabled()
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(0.6))
+	await pressZoom(app, "-")
+	await expect.poll(() => zoomFactor(app)).toBeCloseTo(0.5)
+	await expect(zoomOut).toBeDisabled()
+	await zoomIn.click()
+	await expect.poll(() => zoomFactor(app)).toBeCloseTo(0.6)
+	await expect(zoomOut).toBeEnabled()
 })

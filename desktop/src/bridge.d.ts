@@ -34,6 +34,9 @@ export type HubFolderPick = { folder: string; needsConfirmation: boolean } | nul
 
 export type AppTheme = "dark" | "light"
 
+/** Whether another zoom step fits between 50% and 300%. */
+export type ZoomState = { canZoomIn: boolean; canZoomOut: boolean }
+
 export interface DesktopBridge {
 	/** The saved theme at launch, so the renderer can apply it before first paint. */
 	readonly theme: AppTheme
@@ -56,6 +59,10 @@ export interface DesktopBridge {
 	getMessageLog(): Promise<{ open: boolean }>
 	/** Open or close the message log, growing the window to fit it and restoring it afterwards. */
 	setMessageLog(open: boolean): Promise<{ open: boolean }>
+	/** Which way the zoom can still move; zoom resets to 100% on every start. */
+	getZoom(): Promise<ZoomState>
+	/** Zoom in (1) or out (-1) by a tenth, as the zoom shortcuts do. */
+	zoom(direction: 1 | -1): Promise<ZoomState>
 	/** Open an http(s) link in the default browser. */
 	openExternal(url: string): Promise<void>
 	/** Open a hub-relative file or folder with its default application; targets outside the hub are refused. */
