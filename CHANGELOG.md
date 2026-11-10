@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.5.17 - 2026-11-10
+
+- The app opens at 100% zoom on every start, as it already opens at one window
+  size. A zoom remembered from an earlier session made the window open too
+  large, so each project's buttons wrapped onto lines of their own. A reload
+  still keeps the session's zoom.
+- Zoom in and out from the left edge: **+** and **−** buttons sit above the
+  theme toggle and step the zoom as Ctrl+plus and Ctrl+minus do, disabling at
+  50% and 300%.
+- The theme toggle shows a sun in light mode and a crescent moon in dark mode,
+  lit like the other edge buttons, instead of a dot that always glowed.
+
 ## 0.5.16 - 2026-11-08
 
 - Dropping a whole checkout on the import row works, whatever else the folder
