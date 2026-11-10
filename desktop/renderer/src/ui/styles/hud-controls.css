@@ -631,7 +631,8 @@
 /* Shell-level controls form a compact rail immediately above the visible
    resize face. Keeping them outside the action row leaves that row balanced. */
 
-/* The column is centred on the left edge: the theme toggle above the divider buttons. */
+/* The column is centred on the left edge: the zoom buttons, the theme toggle, then
+   the divider buttons. */
 .agent-hud__corner-controls {
   position: absolute;
   top: 50%;

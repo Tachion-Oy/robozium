@@ -1,6 +1,6 @@
 // The theme owner saves the choice natively; one window needs no cookie or channel.
-// The toggle is a left-edge button above the panel divider buttons, shaped as the
-// message log toggle on the right edge. It shows the current theme: a sun in light,
+// The toggle is the centre of the left edge, between the zoom and panel divider
+// buttons, shaped as the message log toggle on the right edge. It shows the current theme: a sun in light,
 // a moon in dark. Both glyphs stay in the document and CSS shows one, so the glyph
 // changes inside the theme switch's fade.
 import { toggleTheme } from "../../theme/theme"

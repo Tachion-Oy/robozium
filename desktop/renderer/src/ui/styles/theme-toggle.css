@@ -1,10 +1,16 @@
-/* The theme toggle heads the left edge, shaped as the message log toggle on the
-   right (.agent-hud__edge-toggle). Its glyph is lit as the divider wedges are
+/* The theme toggle is the centre of the left edge, shaped as the message log
+   toggle on the right (.agent-hud__edge-toggle). Its glyph is lit as the divider wedges are
    (.agent-hud__layout-wedge) and shows the current theme: the moon in dark, the sun
    in light. */
 .agent-hud__layout-wedge.theme-toggle__glyph {
   width: 1.3rem;
   height: 1.3rem;
+}
+
+/* The crescent fills its box, so it is drawn smaller to clear the button's cut corners. */
+.agent-hud__layout-wedge.theme-toggle__moon {
+  width: 1.05rem;
+  height: 1.05rem;
 }
 
 :root[data-theme="light"] .theme-toggle__moon,

@@ -360,8 +360,8 @@ view keeps the other header controls in place. They shrink with the window;
 truncated labels retain their full hover tooltips.
 
 Use Ctrl++ or Ctrl+= to zoom in, Ctrl+- to zoom out, and Ctrl+0 to reset
-(Command on macOS), or the + and − buttons on the left edge below the panel
-divider buttons. Zoom moves in 10% steps between 50% and 300%. The keypad + and -
+(Command on macOS), or the + and − buttons at the top of the left edge, above the
+theme toggle. Zoom moves in 10% steps between 50% and 300%. The keypad + and -
 keys also work. Every start opens at 100%; the zoom is not remembered.
 
 The window opens at 1080×720 on every start, smaller only when the screen
