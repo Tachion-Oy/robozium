@@ -72,6 +72,10 @@
       {
         "from": ".stage/backend",
         "to": "backend/stage"
+      },
+      {
+        "from": "renderer/src/ui/onboarding/onboarding.md",
+        "to": "onboarding.md"
       }
     ],
     "linux": {

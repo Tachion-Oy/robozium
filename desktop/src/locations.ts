@@ -34,6 +34,8 @@ export interface DesktopLocations {
 	preload: string
 	/** The built interface the window loads, beside the main process. */
 	renderer: string
+	/** The onboarding guide's markdown, which the user can open: packaged as a plain file, else its source. */
+	onboarding: string
 	/** Where a live launch records its chosen hub folder; null for mock mode. */
 	hubFolder: HubFolderLocation | null
 }
@@ -63,6 +65,7 @@ export function desktopLocations(inputs: LocationInputs): DesktopLocations {
 		source: path.join(backend, packaged ? locations.installedSource : locations.checkoutSource),
 		preload: path.join(appDirectory, locations.preload),
 		renderer: path.join(appDirectory, locations.renderer),
+		onboarding: packaged ? path.join(resourcesPath, locations.installedOnboarding) : path.join(appDirectory, locations.checkoutOnboarding),
 		hubFolder: mode === "live"
 			? {
 				file: path.join(profile, locations.hubFolder),

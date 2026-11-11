@@ -1,5 +1,5 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme, protocol, screen, shell, type IpcMainInvokeEvent } from "electron"
-import { mkdirSync } from "node:fs"
+import { existsSync, mkdirSync } from "node:fs"
 import { BackendController } from "./backend-controller.ts"
 import { platformEngine } from "./platform-engine.ts"
 import { backendUrl } from "./backend-url.ts"
@@ -21,7 +21,7 @@ app.setName("Robozium")
 const PAINT_TIMEOUT_MS = 5000
 const UNMANAGED = "This launch uses a backend it does not manage."
 const mode = process.argv.includes("--mock") ? "mock" : "live"
-const { profile, source, preload, renderer, hubFolder: hubFolderLocation } = desktopLocations({
+const { profile, source, preload, renderer, onboarding, hubFolder: hubFolderLocation } = desktopLocations({
 	packaged: app.isPackaged, appDirectory: import.meta.dirname, resourcesPath: process.resourcesPath,
 	userData: app.getPath("userData"), home: app.getPath("home"), mode,
 	profileOverride: process.env.ROBOZIUM_DESKTOP_TEST_DATA,
@@ -217,6 +217,11 @@ async function start(): Promise<void> {
 		if (!backend) throw new Error(UNMANAGED)
 		const failure = await shell.openPath(await hubFilePath(backend.hubDirectory, file))
 		if (failure) throw new Error(failure)
+	})
+	ipcMain.handle("desktop:show-onboarding-file", event => {
+		requireTrustedDocument(event)
+		if (!existsSync(onboarding)) throw new Error(`The onboarding file is missing: ${onboarding}`)
+		shell.showItemInFolder(onboarding)
 	})
 	ipcMain.handle("desktop:open-project-folder", async (event, project: unknown) => {
 		requireTrustedDocument(event)
