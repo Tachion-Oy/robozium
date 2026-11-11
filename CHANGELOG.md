@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.5.18 - 2026-11-12
+
+- A folder button beside the project name, top left during a run, opens the
+  project's folder in your file manager, so the files a run makes are one click
+  away.
+- The onboarding guide is now one markdown file that ships with the app. Its
+  header reads **onboarding**, and the same button shows `onboarding.md` in your
+  file manager.
+- The guide's stale text is refreshed: where the Environment button sits, how to
+  import a key file, the current default model, and where a run's files live.
+
 ## 0.5.17 - 2026-11-10
 
 - The app opens at 100% zoom on every start, as it already opens at one window
