@@ -5,7 +5,7 @@ import { platformEngine } from "./platform-engine.ts"
 import { backendUrl } from "./backend-url.ts"
 import { registerRendererProtocol, rendererUrl } from "./renderer-protocol.ts"
 import { MessageLogWindow } from "./message-log-window.ts"
-import { externalUrl, hubFilePath } from "./links.ts"
+import { externalUrl, hubFilePath, projectFolderPath } from "./links.ts"
 import { checkHubFolderChoice, recordedHubFolder, saveHubFolder } from "./hub-folder.ts"
 import { droppedFolderReadAllowed, permissionAllowed, permissionRequestAllowed } from "./security.ts"
 import { desktopLocations } from "./locations.ts"
@@ -216,6 +216,12 @@ async function start(): Promise<void> {
 		requireTrustedDocument(event)
 		if (!backend) throw new Error(UNMANAGED)
 		const failure = await shell.openPath(await hubFilePath(backend.hubDirectory, file))
+		if (failure) throw new Error(failure)
+	})
+	ipcMain.handle("desktop:open-project-folder", async (event, project: unknown) => {
+		requireTrustedDocument(event)
+		if (!backend) throw new Error(UNMANAGED)
+		const failure = await shell.openPath(await projectFolderPath(backend.hubDirectory, project))
 		if (failure) throw new Error(failure)
 	})
 	const currentHub = () => {

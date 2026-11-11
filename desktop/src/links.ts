@@ -1,7 +1,8 @@
 // Validate link targets from the renderer before the shell opens them.
-// Main owns the hub directory; the renderer only names a hub-relative path.
+// Main owns the hub directory; the renderer only names a hub-relative path or a project.
 import { realpath } from "node:fs/promises"
 import path from "node:path"
+import { locations } from "./backend-layout.ts"
 
 /** Only web pages leave the app; any other scheme could run a local handler. */
 export function externalUrl(value: unknown): string {
@@ -38,4 +39,10 @@ export async function hubFilePath(hub: string, value: unknown): Promise<string> 
 		throw new Error("The file is outside the hub.")
 	}
 	return target
+}
+
+/** Resolve a project's folder in the hub; a project is named by its folder name alone. */
+export async function projectFolderPath(hub: string, project: unknown): Promise<string> {
+	if (typeof project !== "string" || !project || project.includes("/")) throw new TypeError("A project must be named by its folder.")
+	return hubFilePath(hub, `${locations.hubProjects}/${project}`)
 }

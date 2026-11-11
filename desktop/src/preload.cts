@@ -26,6 +26,7 @@ const bridge: DesktopBridge = {
 	zoom: direction => ipcRenderer.invoke("desktop:zoom", direction),
 	openExternal: url => ipcRenderer.invoke("desktop:open-external", url),
 	openHubFile: file => ipcRenderer.invoke("desktop:open-hub-file", file),
+	openProjectFolder: project => ipcRenderer.invoke("desktop:open-project-folder", project),
 	getHubFolder: () => ipcRenderer.invoke("desktop:hub-folder"),
 	chooseHubFolder: () => ipcRenderer.invoke("desktop:choose-hub-folder"),
 	useHubFolder: () => ipcRenderer.invoke("desktop:use-hub-folder"),
