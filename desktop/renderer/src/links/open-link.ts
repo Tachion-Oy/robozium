@@ -20,6 +20,11 @@ export function openProjectFolder(project: string): void {
 	void report(() => window.robozium.openProjectFolder(project), "project folder")
 }
 
+/** Show the onboarding guide's markdown file in the file manager. */
+export function showOnboardingFile(): void {
+	void report(() => window.robozium.showOnboardingFile(), "onboarding file")
+}
+
 /** Open a hub-relative file or folder with its default application. */
 export function openHubFile(path: string): void {
 	void report(() => window.robozium.openHubFile(path))
