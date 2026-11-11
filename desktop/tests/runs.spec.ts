@@ -618,3 +618,21 @@ test("agent Markdown renders sanitized and its links open outside the window", a
 		.toContainText("This launch uses a backend it does not manage.")
 	expect(await page.title()).not.toBe("injected")
 })
+
+test("the folder button beside the project name opens the run's project folder", async ({ desktop: { app, page }, backend }) => {
+	prepareRun(backend)
+	await start(page, backend)
+	const folder = page.getByRole("button", { name: "Open project folder", exact: true })
+	// A launch given a backend has no hub of its own, so the real handler refuses.
+	await folder.click()
+	await expect(page.getByRole("alert").filter({ hasText: "Could not open project folder" }))
+		.toContainText("This launch uses a backend it does not manage.")
+	await app.evaluate(({ ipcMain }) => {
+		const opened: unknown[] = []
+		Reflect.set(globalThis, "openedProjects", opened)
+		ipcMain.removeHandler("desktop:open-project-folder")
+		ipcMain.handle("desktop:open-project-folder", (_event, project: unknown) => { opened.push(project) })
+	})
+	await folder.click()
+	await expect.poll(() => app.evaluate(() => Reflect.get(globalThis, "openedProjects"))).toEqual(["existing-project"])
+})

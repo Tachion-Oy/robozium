@@ -67,6 +67,10 @@ export interface DesktopBridge {
 	openExternal(url: string): Promise<void>
 	/** Open a hub-relative file or folder with its default application; targets outside the hub are refused. */
 	openHubFile(file: string): Promise<void>
+	/** Open a project's folder in the file manager. */
+	openProjectFolder(project: string): Promise<void>
+	/** Show the onboarding guide's markdown file in the file manager. */
+	showOnboardingFile(): Promise<void>
 	getHubFolder(): Promise<HubFolderStatus>
 	/** Pick a hub folder with the native folder dialog; null when cancelled. Errors explain a refused folder. */
 	chooseHubFolder(): Promise<HubFolderPick>

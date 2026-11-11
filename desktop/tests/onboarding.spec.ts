@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test"
+import { existsSync } from "node:fs"
 import { viewTrigger } from "./native"
 import { test, json, view, launchButton } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
@@ -19,7 +20,7 @@ function setUp(backend: Backend) {
 	return state
 }
 
-test("a live start without keys locks the HUD on Start Here and the guide pages with the message arrows", async ({ desktop: { page }, backend }) => {
+test("a live start without keys locks the HUD on Start Here and the guide pages with the message arrows", async ({ desktop: { app, page }, backend }) => {
 	setUp(backend)
 	await backend.open({ awaitOverview: false })
 	await expect(startHere(page)).toBeVisible()
@@ -42,6 +43,18 @@ test("a live start without keys locks the HUD on Start Here and the guide pages 
 	await startHere(page).click()
 	await expect(guide(page)).toContainText("Welcome to Robozium")
 	await expect(guide(page).getByRole("img", { name: "A key next to the Robozium window" })).toBeVisible()
+	// The guide is named onboarding, and its button shows the guide's own markdown file.
+	await expect(page.locator(".agent-hud__header .agent-hud__event-text")).toHaveText("onboarding")
+	await app.evaluate(({ shell }) => {
+		const shown: string[] = []
+		Reflect.set(globalThis, "shownFiles", shown)
+		shell.showItemInFolder = file => { shown.push(file) }
+	})
+	await page.getByRole("button", { name: "Show onboarding file", exact: true }).click()
+	await expect.poll(() => app.evaluate(() => Reflect.get(globalThis, "shownFiles") as string[])).toHaveLength(1)
+	const [file] = await app.evaluate(() => Reflect.get(globalThis, "shownFiles") as string[])
+	expect(file).toMatch(/[/]onboarding\.md$/)
+	expect(existsSync(file)).toBe(true)
 	await arrow(page, "Next agent message").click()
 	await expect(guide(page)).toContainText("Already have your keys?")
 	await expect(page.locator(".agent-hud__send")).toBeDisabled()

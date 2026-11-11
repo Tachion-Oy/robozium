@@ -43,6 +43,8 @@
       "checkoutBackend": "..",
       "installedSource": "stage",
       "checkoutSource": ".stage/backend",
+      "installedOnboarding": "onboarding.md",
+      "checkoutOnboarding": "../renderer/src/ui/onboarding/onboarding.md",
       "preload": "preload.cjs",
       "renderer": "renderer",
       "settings": "settings.json",

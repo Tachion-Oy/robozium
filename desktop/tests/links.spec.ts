@@ -2,7 +2,7 @@ import { expect } from "@playwright/test"
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { hubFilePath } from "../src/links"
+import { hubFilePath, projectFolderPath } from "../src/links"
 import { test, documentUrl, preload } from "./native"
 
 test("only http(s) links open, and only for the app's own document", async ({ desktop: { app, page } }) => {
@@ -54,6 +54,13 @@ test("hub file paths resolve inside the hub only, through symlinks too", async (
 		await expect(hubFilePath(hub, "escape.txt")).rejects.toThrow("The file is outside the hub.")
 		await expect(hubFilePath(hub, "outside/secret.txt")).rejects.toThrow("The file is outside the hub.")
 		await expect(hubFilePath(hub, "projects/missing.txt")).rejects.toThrow("The file does not exist.")
+
+		// A project is its folder's name alone, so it never reaches another hub folder.
+		expect(await projectFolderPath(hub, "demo")).toBe(path.join(hub, "projects/demo"))
+		for (const value of ["demo/documents", "", "..", ".", 42, null]) {
+			await expect(projectFolderPath(hub, value)).rejects.toThrow(/named by its folder|relative path inside the hub/)
+		}
+		await expect(projectFolderPath(hub, "missing")).rejects.toThrow("The file does not exist.")
 	} finally {
 		await rm(root, { recursive: true, force: true })
 	}

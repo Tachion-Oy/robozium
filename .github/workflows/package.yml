@@ -48,6 +48,8 @@ jobs:
           sudo apt-get install -y xvfb ./desktop/release/robozium-desktop_*_amd64.deb
           # apt installs the rootless container engine with the app; nothing else needs setting up.
           dpkg-deb --field ./desktop/release/robozium-desktop_*_amd64.deb Depends | grep -qw podman
+          # The onboarding guide ships as a plain file the user can open from the HUD.
+          dpkg -L robozium-desktop | grep '/resources/onboarding\.md$' >/dev/null || { echo "The package does not ship onboarding.md."; exit 1; }
           test "$(podman info --format '{{.Host.Security.Rootless}}')" = true
           mkdir -p "$ROBOZIUM_HOME"
           # A fresh home: the installed app keeps its profile in ~/.config/Robozium.

@@ -11,6 +11,7 @@ test("an installed app keeps its profile in the user's config directory and read
 		source: "/opt/Robozium/resources/backend/stage",
 		preload: "/repo/desktop/dist/preload.cjs",
 		renderer: "/repo/desktop/dist/renderer",
+		onboarding: "/opt/Robozium/resources/onboarding.md",
 		hubFolder: {
 			file: "/home/user/.config/Robozium/hub-folder", defaultFolder: "/home/user/Robozium-Hub",
 			earlierFolder: "/home/user/.config/Robozium/live/hub",
@@ -20,7 +21,8 @@ test("an installed app keeps its profile in the user's config directory and read
 
 test("a checkout keeps its own profile beside it and reads the staged backend from the checkout", () => {
 	const checkout = desktopLocations({ ...base, packaged: false })
-	assert.deepEqual([checkout.profile, checkout.source], ["/repo/.artifacts/desktop/data", "/repo/desktop/.stage/backend"])
+	assert.deepEqual([checkout.profile, checkout.source, checkout.onboarding],
+		["/repo/.artifacts/desktop/data", "/repo/desktop/.stage/backend", "/repo/desktop/renderer/src/ui/onboarding/onboarding.md"])
 })
 
 test("an explicit profile wins in both, resolved to an absolute path", () => {

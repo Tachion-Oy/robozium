@@ -1,5 +1,5 @@
 // A run that has ended is passed as runEnded instead of its RunHudPhase, and
-// the project badge shows on Current Run only.
+// the project badge shows on Current Run and, named onboarding, on the guide.
 import type { HudScreen } from "../../app/hud-navigation"
 
 export type { HudScreen }
@@ -97,8 +97,9 @@ export function resolveHudPresentation({
 		screenOptions,
 		modelScope: context === "active-run" && screen !== "launch" ? "run" : "default",
 		headerVariant: screen === "projects" || screen === "launch" ? "overview" : "row",
-		// The project name labels the run on Current Run only; elsewhere it would look like the screen's subject.
-		showProjectBadge: context === "active-run" && screen === "run" && !locked,
+		// The project name labels the run on Current Run; elsewhere it would look like the screen's subject.
+		// The guide is its own subject: its badge leads to the guide's file.
+		showProjectBadge: (context === "active-run" && screen === "run" && !locked) || screen === "onboarding",
 		enableCornerControls: context === "active-run" && screen === "run" && !locked,
 		locked,
 	}
