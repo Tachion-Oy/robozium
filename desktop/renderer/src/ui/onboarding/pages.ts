@@ -12,7 +12,7 @@ export const ONBOARDING_PAGES: readonly OnboardingPage[] = [
 
 Robozium runs its agents on hosted models, so it needs **at least one provider API key** before projects can start. Setup takes about two minutes, all in this window.
 
-Use the arrows beside the **A** below to move through the steps.
+Use the arrows beside the Robozium mark below to move through the steps.
 
 Just exploring? Start Robozium in mock mode instead to try it with scripted replies and no keys.`,
 		illustration: { name: "keys", alt: "A key next to the Robozium window" },
@@ -21,7 +21,7 @@ Just exploring? Start Robozium in mock mode instead to try it with scripted repl
 		id: "key-file",
 		content: `## Already have your keys?
 
-If you saved keys in Robozium before, in the browser app or another install, you have a \`.env.encrypt\` file. Open **HUD view → Environment**, drop it on **Key file** and enter the password you encrypted it with. Your keys load at once; no restart and nothing to type again.
+If you saved keys in Robozium before, on another computer or an earlier install, you have a \`.env.encrypt\` file. Open **HUD view → Environment**, drop it on **Key file** or choose **Browse file**, and enter the password you encrypted it with. Your keys load at once; no restart and nothing to type again.
 
 No key file yet? Use the arrows to set up a key in a few steps.`,
 	},
@@ -35,7 +35,7 @@ No key file yet? Use the arrows to set up a key in a few steps.`,
 
 Optional extras:
 
-- [Cerebras keys](https://cloud.cerebras.ai/): enables the *GPT-OSS-120B · Cerebras* model.
+- [Cerebras keys](https://cloud.cerebras.ai/): enables the *GPT-OSS-120B · Fast · Cerebras* model.
 - [Groq keys](https://console.groq.com/keys): enables voice dictation with **Record**.
 
 Copy the key; you paste it in the next step.`,
@@ -63,6 +63,6 @@ After a later restart, the app asks for the password when it starts. Keep the pa
 
 Once the keys are saved, this guide disappears and **New Project** on **Runs Overview** starts your first run.
 
-Prefer files? A plain \`.env\` in the app's \`live\` folder (\`~/.config/Robozium/live\` when installed), copied from \`.env.example\`, also works and overrides saved settings after a restart.`,
+Everything a run makes stays in its project folder inside your hub folder, \`~/Robozium-Hub\` unless you chose another under **Environment → Hub folder**. During a run, the folder button next to the project name opens that folder in your file manager.`,
 	},
 ]
