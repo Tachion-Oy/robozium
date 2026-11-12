@@ -1,8 +1,8 @@
 // The theme owner saves the choice natively; one window needs no cookie or channel.
 // The toggle is the centre of the left edge, between the zoom and panel divider
-// buttons, shaped as the message log toggle on the right edge. It shows the current theme: a sun in light,
-// a moon in dark. Both glyphs stay in the document and CSS shows one, so the glyph
-// changes inside the theme switch's fade.
+// buttons, shaped as the message log toggle on the right edge. It shows the theme a
+// click switches to: a sun in dark, a moon in light. Both glyphs stay in the document
+// and CSS shows one, so the glyph changes inside the theme switch's fade.
 import { toggleTheme } from "../../theme/theme"
 import { HudEdgeButton } from "../hud/HudEdgeButton"
 
