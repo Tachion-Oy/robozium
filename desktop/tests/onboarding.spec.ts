@@ -43,6 +43,8 @@ test("a live start without keys locks the HUD on Start Here and the guide pages 
 	await startHere(page).click()
 	await expect(guide(page)).toContainText("Welcome to Robozium")
 	await expect(guide(page).getByRole("img", { name: "A key next to the Robozium window" })).toBeVisible()
+	// The right edge holds one set of copy and clear buttons, the guide's own.
+	await expect(page.getByRole("group", { name: "Reply text actions" })).toHaveCount(1)
 	// The guide is named onboarding, and its button shows the guide's own markdown file.
 	await expect(page.locator(".agent-hud__header .agent-hud__event-text")).toHaveText("onboarding")
 	await app.evaluate(({ shell }) => {

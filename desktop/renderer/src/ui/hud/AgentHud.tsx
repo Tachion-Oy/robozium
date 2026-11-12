@@ -75,7 +75,8 @@ export function AgentHud({ presentation, layoutMode, onLayoutModeChange, message
 								</svg>
 							</HudEdgeButton>
 							<div ref={setCopySlot} className="desktop-edge-controls__copy" />
-							{presentation.screen !== "run" && (
+							{/* Current Run and the guide fill the slot from their reply form. */}
+							{presentation.screen !== "run" && presentation.screen !== "onboarding" && (
 								<HudCopyControls agentMessage={null} replyDraft="" disabled onClearReply={() => {}} />
 							)}
 						</div>
