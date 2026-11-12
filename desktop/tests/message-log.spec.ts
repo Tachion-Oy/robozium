@@ -69,9 +69,9 @@ test("the toggle opens the reference placeholder before a run and the run's rows
 	expect(await app.evaluate(async ({ net }) => (await net.fetch("robozium://app/branding/robozium.svg")).status)).toBe(200)
 	await expect(log(page).locator(".term-msg-badge")).not.toHaveCount(0)
 	await expect(log(page).locator(".term-prompt")).toHaveText("robozium@local:~$START AN AGENT TO SEE THE LIVE MESSAGES !")
-	// Rows fade out at both edges of the pane rather than being cut off.
+	// Rows fade out at both edges of the pane rather than being cut off; the scrollbar gutter is not faded.
 	expect(await log(page).locator(".term-log").evaluate(element => getComputedStyle(element).maskImage))
-		.toMatch(/^linear-gradient\(rgba\(0, 0, 0, 0\), .*, rgba\(0, 0, 0, 0\)\)$/)
+		.toMatch(/^linear-gradient\(rgba\(0, 0, 0, 0\), .*, rgba\(0, 0, 0, 0\)\), linear-gradient\(rgb\(0, 0, 0\), rgb\(0, 0, 0\)\)$/)
 	await toggle(page, "Hide message log").click()
 	await expect(log(page)).toHaveCount(0)
 
@@ -185,20 +185,75 @@ test("scrolled up, the row being read stays put while messages arrive", async ({
 	await expect.poll(() => run.streams.length).toBe(1)
 	await setNativeViewport(app, page, 1260, 780, 1)
 	await toggle(page, "Show message log").click()
-	for (let i = 1; i <= 80; i++) emit(run.streams[0], wire("user", JSON.stringify({ value: `Row ${i}` }), i, null, "status"))
-	await expect(log(page)).toContainText("Row 80")
+	for (let i = 1; i <= 40; i++) emit(run.streams[0], wire("user", JSON.stringify({ value: `Row ${i}` }), i, null, "status"))
+	await expect(log(page)).toContainText("Row 40")
 	// A tool row names its tool as a tag and emphasises its keys.
-	const last = log(page).locator(".term-msg", { hasText: "Row 80" })
+	const last = log(page).locator(".term-msg", { hasText: "Row 40" })
 	await expect(last.locator(".intro-emph__rich .term-tag-label")).toHaveText("status")
 	await expect(last.locator(".intro-emph__rich .term-emph")).toHaveText("value")
 	// One GPU layer per label exhausts the tile budget in a long log, and labels then paint blank.
 	expect(await log(page).locator(".term-tag-label").first().evaluate(label => getComputedStyle(label).willChange)).toBe("auto")
 	const scroller = log(page).locator(".term-log")
 	await scroller.evaluate(box => { box.scrollTop = -(box.scrollHeight - box.clientHeight) / 2 })
-	const row = log(page).locator(".term-msg", { hasText: "Row 40" })
+	const row = log(page).locator(".term-msg", { hasText: "Row 20" })
 	await row.scrollIntoViewIfNeeded()
 	const before = (await row.boundingBox())!.y
-	for (let i = 81; i <= 90; i++) emit(run.streams[0], wire("user", JSON.stringify({ value: `Row ${i}` }), i, null, "status"))
-	await expect(log(page)).toContainText("Row 90")
+	for (let i = 41; i <= 50; i++) emit(run.streams[0], wire("user", JSON.stringify({ value: `Row ${i}` }), i, null, "status"))
+	await expect(log(page)).toContainText("Row 50")
 	await expect.poll(async () => Math.abs((await row.boundingBox())!.y - before)).toBeLessThanOrEqual(1)
+})
+
+test("the log shows one page of 50 rows, follows the newest page and holds an older one", async ({ desktop: { app, page }, backend }) => {
+	const run = prepareRun(backend)
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	await setNativeViewport(app, page, 1260, 780, 1)
+	await toggle(page, "Show message log").click()
+	const row = (i: number) => message(i, `Row ${i}.`)
+	const rows = log(page).locator(".term-msg")
+	const pager = log(page).getByRole("navigation", { name: "Message log pages" })
+	const older = pager.getByRole("button", { name: "‹ OLDER" })
+	const newer = pager.getByRole("button", { name: "NEWER ›" })
+	const scroller = log(page).locator(".term-log")
+	for (let i = 1; i <= 50; i++) emit(run.streams[0], row(i))
+	await expect(log(page)).toContainText("Row 50.")
+	await expect(pager).toHaveCount(0)
+
+	for (let i = 51; i <= 120; i++) emit(run.streams[0], row(i))
+	// Only the newest page is in the window: rows 101-120.
+	await expect(pager).toContainText("PAGE 3 / 3")
+	await expect(rows).toHaveCount(20)
+	await expect(rows.first()).toContainText("Row 101.")
+	await expect(rows.last()).toContainText("Row 120.")
+	await expect(newer).toBeDisabled()
+
+	await older.click()
+	await expect(pager).toContainText("PAGE 2 / 3")
+	await expect(rows).toHaveCount(50)
+	await expect(rows.first()).toContainText("Row 51.")
+	await expect(rows.last()).toContainText("Row 100.")
+	// Stepping back opens the older page at its tail.
+	expect(await scroller.evaluate(box => box.scrollTop)).toBe(0)
+	// New rows only add pages while an older page is held.
+	for (let i = 121; i <= 151; i++) emit(run.streams[0], row(i))
+	await expect(pager).toContainText("PAGE 2 / 4")
+	await expect(rows.first()).toContainText("Row 51.")
+	await expect(rows.last()).toContainText("Row 100.")
+
+	await older.click()
+	await expect(pager).toContainText("PAGE 1 / 4")
+	await expect(older).toBeDisabled()
+	await newer.click()
+	await expect(pager).toContainText("PAGE 2 / 4")
+	// Stepping forward opens the newer page at its top.
+	await expect.poll(() => scroller.evaluate(box => box.scrollTop + box.scrollHeight - box.clientHeight)).toBeLessThanOrEqual(1)
+	await newer.click()
+	await newer.click()
+	await expect(pager).toContainText("PAGE 4 / 4")
+	await expect(rows).toHaveCount(1)
+	// Back on the newest page, the log follows again and rolls over to the next page.
+	for (let i = 152; i <= 201; i++) emit(run.streams[0], row(i))
+	await expect(pager).toContainText("PAGE 5 / 5")
+	await expect(rows).toHaveCount(1)
+	await expect(rows.first()).toContainText("Row 201.")
 })

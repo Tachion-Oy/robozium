@@ -25,6 +25,9 @@ type TerminalStreamProps = {
 
 const REVEAL_CHARS_PER_SECOND = 240
 
+/** Rows per log page. Only the shown page is mounted, so its glow is all a scroll repaints. */
+const LOG_PAGE_SIZE = 50
+
 type TerminalStreamRowProps = {
 	item: StreamLogItem
 	index: number
@@ -60,6 +63,11 @@ export function getRevealText(item: MessageLogItem): string {
 export function TerminalStream({ items, readable = false }: TerminalStreamProps) {
 	const [reveal, setReveal] = useState({ index: -1, chars: 0 })
 	const [expandedRows, setExpandedRows] = useState<Set<number>>(() => new Set())
+	// Pages are fixed from the run's first row. Null follows the newest page;
+	// a held older page keeps its rows while new ones arrive.
+	const [heldPage, setHeldPage] = useState<number | null>(null)
+	// Stepping to a newer page starts reading at its top.
+	const [topOfPage, setTopOfPage] = useState<number | null>(null)
 	// A dedicated log panel is readable while the surrounding HUD remains open.
 	const scrollable = readable
 	const messagesInteractive = readable
@@ -111,6 +119,15 @@ export function TerminalStream({ items, readable = false }: TerminalStreamProps)
 		: reveal.index === latestRevealIndex
 			? reveal.chars
 			: 0
+	const pageCount = Math.max(1, Math.ceil(items.length / LOG_PAGE_SIZE))
+	const lastPage = pageCount - 1
+	const shownPage = heldPage ?? lastPage
+	const pageStart = shownPage * LOG_PAGE_SIZE
+	const showPage = (next: number) => {
+		setHeldPage(next === lastPage ? null : next)
+		setTopOfPage(next > shownPage ? next : null)
+	}
+
 	const toggleRow = useCallback((index: number) => {
 		setExpandedRows((rows) => {
 			const next = new Set(rows)
@@ -121,52 +138,66 @@ export function TerminalStream({ items, readable = false }: TerminalStreamProps)
 	}, [])
 
 	return (
-		<TerminalLog clamp enter scrollable={scrollable}>
-			{items.map((item, index) => {
-				const expanded = messagesInteractive && expandedRows.has(index)
-				const interactive = Boolean(
-					messagesInteractive &&
-					item.kind === StreamLogItemKind.Message &&
-					isMessageTruncated(item),
-				)
-				const messageOptions = {
-					maxChars: expanded
-						? EXPANDED_MESSAGE_MAX_CHARS
-						: LIVE_MESSAGE_MAX_CHARS,
-					interactive,
-					// Only rows that can actually open advertise hover affordance.
-					hoverable: interactive,
-					expanded,
-					onToggle: interactive ? () => toggleRow(index) : undefined,
-				}
-				if (index === latestRevealIndex && latestRevealItem) {
-					return (
-						<Fragment key={index}>
-							{renderRevealItem(
-								item,
-								latestRevealText,
-								revealChars,
-								"live",
-								{
-									settledCaret:
-										item.kind === StreamLogItemKind.Message,
-									messageOptions,
-								},
-							)}
-						</Fragment>
+		<div className="flex flex-1 min-h-0 w-full flex-col">
+			<TerminalLog key={shownPage} clamp enter scrollable={scrollable} startAtTop={topOfPage === shownPage}>
+				{items.slice(pageStart, pageStart + LOG_PAGE_SIZE).map((item, offset) => {
+					const index = pageStart + offset
+					const expanded = messagesInteractive && expandedRows.has(index)
+					const interactive = Boolean(
+						messagesInteractive &&
+						item.kind === StreamLogItemKind.Message &&
+						isMessageTruncated(item),
 					)
-				}
-				return (
-					<TerminalStreamRow
-						key={index}
-						item={item}
-						index={index}
-						expanded={expanded}
-						interactive={interactive}
-						onToggle={toggleRow}
-					/>
-				)
-			})}
-		</TerminalLog>
+					const messageOptions = {
+						maxChars: expanded
+							? EXPANDED_MESSAGE_MAX_CHARS
+							: LIVE_MESSAGE_MAX_CHARS,
+						interactive,
+						// Only rows that can actually open advertise hover affordance.
+						hoverable: interactive,
+						expanded,
+						onToggle: interactive ? () => toggleRow(index) : undefined,
+					}
+					if (index === latestRevealIndex && latestRevealItem) {
+						return (
+							<Fragment key={index}>
+								{renderRevealItem(
+									item,
+									latestRevealText,
+									revealChars,
+									"live",
+									{
+										settledCaret:
+											item.kind === StreamLogItemKind.Message,
+										messageOptions,
+									},
+								)}
+							</Fragment>
+						)
+					}
+					return (
+						<TerminalStreamRow
+							key={index}
+							item={item}
+							index={index}
+							expanded={expanded}
+							interactive={interactive}
+							onToggle={toggleRow}
+						/>
+					)
+				})}
+			</TerminalLog>
+			{pageCount > 1 && (
+				<nav className="term-log-pager" aria-label="Message log pages">
+					<button type="button" className="term-msg-badge" disabled={shownPage === 0} onClick={() => showPage(shownPage - 1)}>
+						<span className="term-msg-badge-label">‹ OLDER</span>
+					</button>
+					<span className="term-log-pager__count">PAGE {shownPage + 1} / {pageCount}</span>
+					<button type="button" className="term-msg-badge" disabled={shownPage === lastPage} onClick={() => showPage(shownPage + 1)}>
+						<span className="term-msg-badge-label">NEWER ›</span>
+					</button>
+				</nav>
+			)}
+		</div>
 	)
 }
