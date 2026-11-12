@@ -115,8 +115,8 @@ fades only over a drawn HUD, and that startup failures show on the loading
 screen with Retry. Other native tests emulate reduced motion, which settles the
 animation at once (`skipIntro` in `desktop/tests/native.ts`).
 
-`desktop/tests/theme.spec.ts` checks that the toggle shows the moon in dark and
-the sun in light, that the chosen theme and native window
+`desktop/tests/theme.spec.ts` checks that the toggle shows the sun in dark and
+the moon in light, that the chosen theme and native window
 background survive a restart without dropping other `settings.json` keys, that
 an unreadable settings file opens dark and is never overwritten (the switch
 still applies, with a warning), and that `setTheme` accepts only dark or light
