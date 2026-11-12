@@ -49,24 +49,28 @@ async function expectSettledHeaderRow(page: Page) {
 
 /**
  * The header is one row inside the window: the project badge (on Current Run) where
- * the row starts, then the model and view selectors together on the right. Long
- * labels ellipsize. The badge matches the selectors' height.
+ * the row starts, then the model and view selectors together on the right, and the
+ * project folder button where the row ends. Long labels ellipsize. The badge and the
+ * square folder button match the selectors' height.
  */
 async function headerRow(page: Page) {
 	return page.locator(".agent-hud__header").evaluate(header => {
 		const badge = header.querySelector(".agent-hud__event-edge")
 		const selectors = [...header.querySelectorAll("button.agent-hud__selector-trigger")]
-		const controls = [...badge ? [badge] : [], ...selectors].map(control => control.getBoundingClientRect())
+		const folder = header.querySelector(".agent-hud__project-folder")
+		const controls = [...badge ? [badge] : [], ...selectors, ...folder ? [folder] : []]
+			.map(control => control.getBoundingClientRect())
 		const labels = [...header.querySelectorAll<HTMLElement>(".agent-hud__model-trigger > span, .agent-hud__event-text")]
 			.filter(label => label.getClientRects().length > 0)
 		const middle = (rect: DOMRect) => rect.y + rect.height / 2
 		const row = header.getBoundingClientRect()
 		return {
-			ordered: selectors.length === 2 && controls.every((rect, index) => index === 0 || rect.x >= controls[index - 1].right)
+			ordered: selectors.length === 2 && !badge === !folder && controls.every((rect, index) => index === 0 || rect.x >= controls[index - 1].right)
 				&& Math.abs(controls.at(-1)!.right - row.right) < 1 && (!badge || Math.abs(controls[0].x - row.x) < 1),
-			// The badge is as tall as the selectors beside it.
+			// The badge and the folder button are as tall as the selectors; the button is square.
 			centred: controls.every(rect => Math.abs(middle(rect) - middle(controls[0])) < 1
-				&& Math.abs(rect.height - controls.at(-1)!.height) < 1),
+				&& Math.abs(rect.height - controls.at(-1)!.height) < 1)
+				&& (!folder || Math.abs(controls.at(-1)!.width - controls.at(-1)!.height) < 1),
 			contained: controls.every(rect => rect.x >= 0 && rect.right <= innerWidth && rect.y >= 0)
 				&& document.documentElement.scrollWidth === innerWidth,
 			readable: labels.every(label => {

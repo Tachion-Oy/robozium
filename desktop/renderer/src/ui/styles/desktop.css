@@ -17,8 +17,9 @@ html[data-desktop] .agent-hud__mini { display: none; }
 .desktop-terminal .app-nav__brand { cursor: default; }
 
 /* One header row: the project badge where the row starts, the model and view
-   selectors together on the right. Each shares the available row; a full label
-   remains available through its accessible name and tooltip when shortened. */
+   selectors together on the right, then the project folder button. Each shares the
+   available row; a full label remains available through its accessible name and
+   tooltip when shortened. */
 html[data-desktop] .agent-hud__header {
   flex-wrap: nowrap; align-items: center; gap: clamp(0.35rem, 1.5cqw, 1.4rem);
 }
@@ -27,12 +28,22 @@ html[data-desktop] .agent-hud__header {
    buttons; in light a raised plate in the frame's own tones and bevel. */
 html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-edge {
   position: static; transform: none; display: flex; flex: 0 1 auto; align-self: stretch;
-  min-width: 0; max-width: none; gap: 0.5rem;
+  min-width: 0; max-width: none;
 }
-/* The project folder button is a square as tall as the badge beside it. */
+/* The project folder button ends the selector row: a square as tall as the selectors,
+   framed like them; in dark the same cut, edge and fill, in light the same corners. */
 html[data-desktop][data-theme] .agent-hud__header .agent-hud__project-folder {
   flex: none; align-self: stretch; width: auto; height: auto; min-width: 0; min-height: 0; aspect-ratio: 1;
 }
+html[data-desktop][data-theme="dark"] .agent-hud__header .agent-hud__project-folder {
+  --btn-cut: 0.5625rem; --btn-fill-strength: 10%;
+  --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 62% * var(--tune-edge, 1), 100%), transparent);
+}
+html[data-desktop][data-theme="dark"] .agent-hud__header .agent-hud__project-folder:not(:disabled):hover {
+  --btn-fill-strength: 26%;
+  --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
+}
+html[data-desktop][data-theme="light"] .agent-hud__header .agent-hud__project-folder { border-radius: 0.26rem; }
 html[data-desktop][data-theme] :is(.agent-hud__header, .agent-hud__environment) .agent-hud__event-label {
   display: flex; min-width: 0;
   /* A clip removes box shadows, so the octagon glows through a filter on its parent. */
@@ -75,7 +86,7 @@ html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-text {
   display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 html[data-desktop] .agent-hud__header-actions {
-  flex: 0 1 auto; min-width: 0; margin-inline-start: auto; align-items: center; gap: inherit;
+  flex: 0 1 auto; min-width: 0; margin-inline-start: auto; align-self: stretch; align-items: center; gap: inherit;
 }
 html[data-desktop][data-theme] .agent-hud__header .agent-hud__model-selector {
   flex: 0 1 auto; width: max-content; min-width: 0; max-width: 100%; margin: 0;
