@@ -51,4 +51,4 @@ After a later restart, the app asks for the password when it starts. Keep the pa
 
 Once the keys are saved, this guide disappears and **New Project** on **Runs Overview** starts your first run.
 
-Everything a run makes stays in its project folder inside your hub folder, `~/Robozium-Hub` unless you chose another under **Environment → Hub folder**. During a run, the folder button next to the project name opens that folder in your file manager.
+Everything a run makes stays in its project folder inside your hub folder, `~/Robozium-Hub` unless you chose another under **Environment → Hub folder**. During a run, the folder button in the top right corner opens that folder in your file manager.

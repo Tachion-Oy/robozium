@@ -619,7 +619,7 @@ test("agent Markdown renders sanitized and its links open outside the window", a
 	expect(await page.title()).not.toBe("injected")
 })
 
-test("the folder button beside the project name opens the run's project folder", async ({ desktop: { app, page }, backend }) => {
+test("the folder button at the end of the header opens the run's project folder", async ({ desktop: { app, page }, backend }) => {
 	prepareRun(backend)
 	await start(page, backend)
 	const folder = page.getByRole("button", { name: "Open project folder", exact: true })
