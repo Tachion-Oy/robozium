@@ -592,26 +592,18 @@
     color-mix(in oklab, var(--term-blue) 65%, transparent)
     color-mix(in oklab, var(--term-blue) 12%, transparent);
   overflow-anchor: none;
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 8vh,
-    #000 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 8vh,
-    #000 100%
-  );
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
+  /* Rows fade in from the top; the second layer keeps the scrollbar gutter
+     unmasked, so the fade never dims the scrollbar. */
+  --term-scrollbar-size: 12px;
+  --term-log-fade: linear-gradient(to bottom, transparent, #000 8vh);
+  mask-image: var(--term-log-fade), linear-gradient(#000, #000);
+  mask-size: calc(100% - var(--term-scrollbar-size)) 100%, var(--term-scrollbar-size) 100%;
+  mask-position: left, right;
   mask-repeat: no-repeat;
 }
 
 .term-log::-webkit-scrollbar {
-  width: 12px;
+  width: var(--term-scrollbar-size);
 }
 
 .term-log::-webkit-scrollbar-track {

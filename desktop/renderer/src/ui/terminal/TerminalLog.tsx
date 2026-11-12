@@ -8,6 +8,8 @@ type TerminalLogProps = {
 	enter?: boolean
 	/** Let the user scroll back through history (landing or HUD minimized). */
 	scrollable?: boolean
+	/** Open at the first row instead of the tail (a newer page, read from its top). */
+	startAtTop?: boolean
 }
 
 /** How long a newly appended row takes to slide the tail up into place. */
@@ -38,6 +40,7 @@ export function TerminalLog({
 	clamp = false,
 	enter = false,
 	scrollable = false,
+	startAtTop = false,
 }: TerminalLogProps) {
 	const boxRef = useRef<HTMLDivElement>(null)
 	const lastHeight = useRef(0)
@@ -73,9 +76,8 @@ export function TerminalLog({
 			const mounted = lastHeight.current > 0
 			lastHeight.current = height
 			if (!scrollable) box.scrollTop = 0
-			// Scrolled up: rows above and below the view change height (appends,
-			// offscreen rows laying out for the first time); keep the row being
-			// read where it is.
+			// Scrolled up: rows around the view change height (appends, the
+			// newest row typing out); keep the row being read where it is.
 			if (anchor?.row.isConnected) {
 				box.scrollTop += anchor.row.getBoundingClientRect().top - anchor.top
 				rememberAnchor()
@@ -94,6 +96,7 @@ export function TerminalLog({
 		}
 
 		preserveScrollPosition()
+		if (scrollable && startAtTop) box.scrollTop = box.clientHeight - box.scrollHeight
 		box.addEventListener("scroll", rememberAnchor, { passive: true })
 		const observer = "ResizeObserver" in window ? new ResizeObserver(preserveScrollPosition) : null
 		observer?.observe(content)
@@ -102,7 +105,7 @@ export function TerminalLog({
 			box.removeEventListener("scroll", rememberAnchor)
 			slide?.cancel()
 		}
-	}, [scrollable])
+	}, [scrollable, startAtTop])
 
 	const logClasses = [
 		"term-log",
