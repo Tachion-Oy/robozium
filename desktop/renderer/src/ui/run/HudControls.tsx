@@ -1,8 +1,8 @@
 // `available: false` shows an action disabled until its owner arrives;
 // a pending action is busy under its own label, which a span can truncate.
-// The copy controls render into the
-// right edge's copy column (hud/AgentHud), not the footer.
-import { use } from "react"
+// The copy controls render into the right edge's copy column (hud/AgentHud), not the
+// footer, and mark it filled so the column drops its disabled placeholder.
+import { use, useLayoutEffect } from "react"
 import { createPortal } from "react-dom"
 import { CopyControlsSlot } from "../hud/AgentHud"
 import { useDesktopActionLayout } from "./useDesktopActionLayout"
@@ -64,7 +64,11 @@ export function HudControls({
 	interrupt,
 }: HudControlsProps) {
 	const actionsRef = useDesktopActionLayout()
-	const copySlot = use(CopyControlsSlot)
+	const { element: copySlot, setFilled } = use(CopyControlsSlot)
+	useLayoutEffect(() => {
+		setFilled(true)
+		return () => setFilled(false)
+	}, [setFilled])
 	const dictationLabel = dictation.isTranscribing
 		? "Text…"
 		: dictation.isRecording

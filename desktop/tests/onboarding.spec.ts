@@ -40,6 +40,8 @@ test("a live start without keys locks the HUD on Start Here and the guide pages 
 	await expect(menu.getByRole("option", { name: "Environment", exact: true })).toBeEnabled()
 	await page.keyboard.press("Escape")
 
+	// Without a reply form the right edge shows its copy and clear buttons disabled.
+	await expect(page.getByRole("group", { name: "Reply text actions" }).getByRole("button", { name: "Clear reply" })).toBeDisabled()
 	await startHere(page).click()
 	await expect(guide(page)).toContainText("Welcome to Robozium")
 	await expect(guide(page).getByRole("img", { name: "A key next to the Robozium window" })).toBeVisible()
