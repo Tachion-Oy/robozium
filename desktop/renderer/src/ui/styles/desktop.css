@@ -351,7 +351,11 @@ html[data-desktop] .desktop-message-log .term-frame { position: relative; top: a
 .desktop-message-log .term-log-pager .term-msg-badge:disabled { opacity: 0.35; cursor: default; }
 .desktop-message-log .term-log-pager .term-msg-badge:not(:disabled):hover { filter: brightness(1.2); }
 .desktop-message-log .term-log-pager__count { white-space: nowrap; }
-html[data-desktop][data-theme="light"] .desktop-message-log .term-log-pager { --term-msg-glow: none; }
+/* In light, the page count is printed in the rows' ink; the buttons keep the blue fill. */
+html[data-desktop][data-theme="light"] .desktop-message-log .term-log-pager {
+  --term-msg-color: var(--stream-ink);
+  --term-msg-glow: 0 0 var(--stream-ink-bleed) color-mix(in oklab, var(--stream-ink) 65%, transparent);
+}
 .desktop-message-log .term-log > div { max-width: none; padding-block: 2.5rem; }
 /* Without the title, the live log keeps the same margin above as below. */
 .desktop-message-log[data-live] .term-frame { padding-top: 3vh; }
