@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.5.19 - 2026-11-12
+
+- The message log shows a long run 50 messages at a time, so scrolling stays
+  smooth however long the run gets. The newest page follows new messages; a
+  bar under the log steps to older pages, which stay put while the run goes
+  on. The top and bottom fade no longer dims the scrollbar.
+- The project folder button sits at the end of the header, after the model and
+  view selectors, framed and sized like them.
+- The theme toggle shows the theme a click switches to: the sun in dark, the
+  moon in light.
+- The onboarding guide shows one set of copy and clear buttons instead of two.
+
 ## 0.5.18 - 2026-11-12
 
 - A folder button beside the project name, top left during a run, opens the
