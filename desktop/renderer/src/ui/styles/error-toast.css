@@ -203,7 +203,7 @@
       var(--notification-toast-accent) clamp(0%, 62% * var(--tune-edge, 1), 100%),
       var(--hud-input-border)
     );
-    border-radius: 0.48rem;
+    border-radius: var(--hud-card-radius);
     background: linear-gradient(
       180deg,
       color-mix(in oklab, white 18%, transparent),
@@ -216,9 +216,7 @@
     );
     background-size: auto;
     color: var(--hud-control-ink);
-    box-shadow: inset 0 1px 0 color-mix(in oklab, white 58%, transparent),
-    0 0.65rem 1.6rem
-      color-mix(in oklab, var(--hud-control-ink) 18%, transparent);
+    box-shadow: var(--hud-float-shadow);
     backdrop-filter: blur(8px)
 }
 :root[data-theme="light"] .agent-error-toast__title {

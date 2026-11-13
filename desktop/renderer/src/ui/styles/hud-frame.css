@@ -768,31 +768,22 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   animation: none;
   max-width: min(32rem, 54cqw);
 }
+/* The light HUD's text is a step heavier than regular, for contrast with its
+   screens. Set where dark sets its own text (above), the password dialog being
+   outside the shell. */
+:root[data-theme="light"] :is(.agent-hud__box, .agent-hud__password-dialog) {
+  font-weight: 500;
+}
+/* The case's face: one flat colour inside the rail. */
 :root[data-theme="light"] .agent-hud__box::before {
   content: "";
   position: absolute;
   z-index: 0;
   pointer-events: none;
-  background-size: auto, 3rem 3rem, 3rem 3rem, auto;
   clip-path: none;
   inset: 0.68rem;
   border-radius: 0.27rem;
-  background: repeating-linear-gradient(
-      0deg,
-      transparent 0 3px,
-      color-mix(in oklab, var(--hud-input-text) clamp(0%, 1.4% * var(--tune-shadow, 1), 100%), transparent) 3px 4px
-    ),
-    linear-gradient(
-      180deg,
-      color-mix(in oklab, white clamp(0%, 10% * var(--tune-sheen, 1), 100%), var(--hud-light-center-bg)),
-      var(--hud-light-center-bg) 22%,
-      color-mix(
-        in oklab,
-        var(--hud-input-text) clamp(0%, 2% * var(--tune-text, 1), 100%),
-        var(--hud-light-center-bg)
-      )
-    ),
-    var(--hud-light-center-bg);
+  background: var(--hud-box-bg);
   box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 44% * var(--tune-sheen, 1), 100%), transparent);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -868,16 +859,8 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
     0.61rem + var(--hud-light-inner-rail) / 2
   );
   clip-path: none;
-  --hud-light-rail-bg: color-mix(
-    in oklab,
-    var(--hud-control-ink) clamp(0%, 13% * var(--tune-text, 1), 100%),
-    var(--hud-box-bg)
-  );
-  --hud-light-center-bg: color-mix(
-    in oklab,
-    var(--hud-control-ink) clamp(0%, 8% * var(--tune-text, 1), 100%),
-    var(--hud-box-bg)
-  );
+  /* The rail round the case's face is a little darker than the face. */
+  --hud-light-rail-bg: color-mix(in oklab, var(--hud-control-ink) 7%, var(--hud-box-bg));
   border: 1px solid
     color-mix(in oklab, var(--hud-input-border) clamp(0%, 74% * var(--tune-line, 1), 100%), var(--hud-control-ink));
   border-radius: 0.58rem;

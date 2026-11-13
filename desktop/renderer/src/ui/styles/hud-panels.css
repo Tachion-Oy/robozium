@@ -1254,13 +1254,6 @@ button.agent-hud__image-preview {
 
 /* Light theme */
 
-:root[data-theme="light"] .agent-hud__replyBox--user {
-  --panel-fill-bg: color-mix(
-    in oklab,
-    var(--hud-box-bg) 72%,
-    var(--hud-input-bg) 28%
-  );
-}
 :root[data-theme="light"] .agent-hud__replySection {
   position: relative;
   z-index: 1;
@@ -1283,19 +1276,30 @@ button.agent-hud__image-preview {
     var(--hud-box-bg) 8%
   );
 }
-:root[data-theme="light"] .agent-hud__replyBox:focus-within {
-  --panel-edge: color-mix(
-    in oklab,
-    var(--term-blue) 62%,
-    var(--hud-input-border) 38%
-  );
+/* What an agent message holds takes tints of the accent: a band behind a table's
+   heading row and behind code, rules between cells, the quote's bar, links. */
+:root[data-theme="light"] .agent-hud__markdown-table :is(th, td) {
+  border-color: var(--hud-rule);
 }
-/* The light theme's muted blue is too faint for text: links take a deeper blue. */
+:root[data-theme="light"] :is(.agent-hud__markdown-table th, .agent-hud__markdown-inline-code, .agent-hud__markdown-pre) {
+  background: var(--hud-band);
+}
+:root[data-theme="light"] :is(.agent-hud__markdown-inline-code, .agent-hud__markdown-pre) {
+  border-color: var(--hud-rule);
+  border-radius: 0.3rem;
+}
+:root[data-theme="light"] .agent-hud__markdown-blockquote {
+  border-left-color: var(--hud-accent);
+}
 :root[data-theme="light"] .agent-hud__markdown-link {
-  color: #2c5596;
+  color: var(--hud-link);
 }
-:root[data-theme="light"] .agent-hud__markdown-link:hover {
-  color: #1f4278;
+/* The scroll bars are the accent's too, not the tools' blue. */
+:root[data-theme="light"] :is(.agent-hud__replyBox-scroll, .agent-hud__markdown-table-scroll) {
+  scrollbar-color: color-mix(in oklab, var(--hud-accent) 62%, var(--hud-input-bg)) var(--hud-band);
+}
+:root[data-theme="light"] :is(.agent-hud__textarea, .agent-hud__table-scroll):is(:hover, :focus-within) {
+  scrollbar-color: color-mix(in oklab, var(--hud-accent) 55%, transparent) transparent;
 }
 :root[data-theme="light"] .agent-hud__markdown:empty::before {
   display: inline-block;
@@ -1314,13 +1318,24 @@ button.agent-hud__image-preview {
 :root[data-theme="light"] .agent-hud__panel-label {
   display: none;
 }
+/* A light panel is a screen: ::before is its paper and ::after its edge, sunk
+   into the case. */
 :root[data-theme="light"] .agent-hud__replyBox::after {
   z-index: -1;
-  border: var(--panel-ring) solid var(--panel-edge);
-  border-radius: 0.42rem;
+  border: 1px solid var(--panel-edge);
+  border-radius: var(--hud-screen-radius);
   background: none;
   box-sizing: border-box;
   clip-path: none;
+  box-shadow: var(--hud-screen-shadow);
+}
+/* The reply panel's edge takes the accent, in a ring of it, while the user is in
+   the panel. The agent's panel never lights: nothing is typed there. */
+:root[data-theme="light"] .agent-hud__replyBox--user:focus-within {
+  --panel-edge: var(--hud-accent);
+}
+:root[data-theme="light"] .agent-hud__replyBox--user:focus-within::after {
+  box-shadow: var(--hud-screen-shadow), 0 0 0 2px color-mix(in oklab, var(--hud-accent) 34%, transparent);
 }
 :root[data-theme="light"] .agent-hud__status-view {
   position: relative;
@@ -1346,18 +1361,6 @@ button.agent-hud__image-preview {
   box-shadow: inset 0 1px 0 color-mix(in oklab, white 48%, transparent);
   text-shadow: none;
 }
-:root[data-theme="light"] .agent-hud__replyBox--user::before {
-  background: repeating-linear-gradient(
-      0deg,
-      transparent 0 3px,
-      color-mix(in oklab, var(--hud-input-text) 1.2%, transparent) 3px 4px
-    ),
-    linear-gradient(
-      180deg,
-      color-mix(in oklab, white 12%, var(--panel-fill-bg)),
-      var(--panel-fill-bg) 24%
-    );
-}
 :root[data-theme="light"] .agent-hud__table-scroll {
   padding: 0.2rem 0.35rem 0.55rem;
 }
@@ -1370,35 +1373,15 @@ button.agent-hud__image-preview {
   background: color-mix(in oklab, var(--term-blue) 3%, transparent);
 }
 :root[data-theme="light"] .agent-hud__replyBox {
-  --panel-cut: 0.72rem;
-  --panel-edge: color-mix(
-    in oklab,
-    var(--hud-input-border) 78%,
-    transparent
-  );
-  --panel-fill-bg: color-mix(
-    in oklab,
-    var(--hud-input-bg) 96%,
-    transparent
-  );
-  --panel-ring: 1px;
+  --panel-edge: var(--hud-screen-edge);
+  --panel-fill-bg: var(--hud-input-bg);
 }
 :root[data-theme="light"] .agent-hud__replyBox::before {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-  background: repeating-linear-gradient(
-      0deg,
-      transparent 0 3px,
-      color-mix(in oklab, var(--hud-input-text) 1.2%, transparent) 3px 4px
-    ),
-    linear-gradient(
-      180deg,
-      color-mix(in oklab, white 12%, var(--panel-fill-bg)),
-      var(--panel-fill-bg) 24%
-    );
+  background: var(--panel-fill-bg);
   inset: 0;
   z-index: -2;
   clip-path: none;
-  border-radius: 0.42rem;
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white 42%, transparent);
+  border-radius: var(--hud-screen-radius);
 }

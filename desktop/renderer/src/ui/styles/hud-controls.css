@@ -43,9 +43,17 @@
   font-size: inherit;
 }
 
-:root[data-theme="light"] .agent-hud__password-dialog .agent-hud__project-input:focus-visible {
-  outline: 2px solid var(--term-blue);
-  outline-offset: 2px;
+/* Light: the dialog is a piece of the case, floating over the HUD dimmed with
+   the ink. */
+:root[data-theme="light"] .agent-hud__password-dialog {
+  border-color: var(--hud-screen-edge);
+  border-radius: var(--hud-card-radius);
+  background: var(--hud-box-bg);
+  box-shadow: var(--hud-float-shadow);
+}
+
+:root[data-theme="light"] .agent-hud__password-dialog::backdrop {
+  background: var(--hud-dialog-dim);
 }
 
 /* Dark: the dialog is a panel (hud-panels.css). The body's face draws a typed
