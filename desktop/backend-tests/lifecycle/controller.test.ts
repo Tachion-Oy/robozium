@@ -39,6 +39,8 @@ interface FakePodman {
 	refuseCancel?: string[]
 	/** The API requests the controller made, in order. */
 	requests?: string[]
+	/** Each exit guard the controller armed: its commands, how many Podman calls preceded it, and whether it was called off. */
+	guards: { commands: string[][]; after: number; disarmed: boolean }[]
 }
 type FixtureOptions = Partial<FakePodman> & { hub?: string; findPodman?: () => string | undefined; controller?: Partial<ControllerOptions> }
 const ranges = [{ size: 1 }, { size: 65536 }]
@@ -55,7 +57,7 @@ function fixture(t: TestContext, options: FixtureOptions = {}) {
 	mkdirSync(source)
 	writeFileSync(path.join(source, "build-id.json"), JSON.stringify({ id: hash }))
 	const settings = loadOrCreateBackendProfile(profile, "mock")
-	const state: FakePodman = { exists: false, running: false, cached: hash, ready: true, available: true, calls: [], ...options }
+	const state: FakePodman = { exists: false, running: false, cached: hash, ready: true, available: true, calls: [], guards: [], ...options }
 	const layout = resolveBackendLayout(settings.runtime, options.hub)
 	const inspection = (): Inspection => ({
 		labels: { "fi.tachion.robozium.desktop.project": settings.project, "fi.tachion.robozium.desktop.build": hash,
@@ -98,6 +100,11 @@ function fixture(t: TestContext, options: FixtureOptions = {}) {
 	}
 	const engine = new PodmanEngine({ run, findPodman: options.findPodman ?? (() => "/test/podman") })
 	const controller = new BackendController({ profile, source, mode: "mock", engine, checkPort: async () => state.available,
+		runAfterExit: commands => {
+			const guard = { commands, after: state.calls.length, disarmed: false }
+			state.guards.push(guard)
+			return () => { guard.disarmed = true }
+		},
 		fetch: async (url, init) => {
 			const route = String(url).replace("http://127.0.0.1:18000", "")
 			if (route === "/ready") return new globalThis.Response(JSON.stringify({ status: state.ready ? "ready" : "starting" }))
@@ -193,6 +200,28 @@ test("reuses a matching image, attaches to its running API, and stops only verif
 	assert.equal(state.calls.at(-1)!.command.signal?.aborted, false)
 	assert.equal(readFileSync(path.join(settings.runtime, "hub/proof.txt"), "utf8"), "preserved")
 	await assert.rejects(controller.start(), /closing/)
+})
+
+test("an exit guard for the recorded container is armed before the container starts, once, and called off by a clean close", async t => {
+	const { controller, state, settings } = fixture(t, { ready: false })
+	await assert.rejects(controller.start(), /readiness timed out/)
+	state.ready = true
+	await controller.start()
+	assert.equal(state.guards.length, 1)
+	const [guard] = state.guards
+	assert.deepEqual(guard.commands.map(command => command.slice(-3)), [[resolveBackendLayout(settings.runtime).containerId, "/test/podman", "30"]])
+	assert.ok(guard.after <= state.calls.findIndex(call => call.args[0] === "run"))
+	assert.equal(guard.disarmed, false)
+	await controller.close()
+	assert.equal(guard.disarmed, true)
+})
+
+test("a close that fails to stop the container leaves the exit guard armed", async t => {
+	const { controller, state } = fixture(t)
+	await controller.start()
+	state.intercept = async args => { if (args[0] === "stop") throw new Error("podman failed") }
+	await assert.rejects(controller.close(), /podman failed/)
+	assert.equal(state.guards[0].disarmed, false)
 })
 
 test("closing stops each active run as Stop does and waits for it before stopping the container", async t => {

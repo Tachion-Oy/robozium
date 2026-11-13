@@ -61,6 +61,8 @@ export interface BackendLayout {
 	containerLog: string
 	/** A private file an engine may hand the backend's variables over in, while it starts the container. */
 	containerEnvironment: string
+	/** Where an engine records the container it created, so the exit guard can stop it once the app is gone. */
+	containerId: string
 	/** The Python environment every host service runs from, and the log of building it. */
 	hostEnvironment: { directory: string; log: string }
 	hostServices: HostServiceLayout[]
@@ -147,6 +149,7 @@ export function resolveBackendLayout(runtime: string, hub = path.join(runtime, l
 		directories: [...directories],
 		containerLog: path.join(mountSource(desktop.containerLog.mount), desktop.containerLog.filename),
 		containerEnvironment: path.join(runtime, desktop.containerEnvironment),
+		containerId: path.join(runtime, desktop.containerId),
 		hostEnvironment: {
 			directory: path.join(runtime, desktop.hostServices.environment),
 			log: path.join(mountSource(desktop.hostServices.environmentLog.mount), desktop.hostServices.environmentLog.filename),

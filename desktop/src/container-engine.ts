@@ -16,6 +16,8 @@ export interface BackendContainer {
 	environment: Record<string, string>
 	/** A private file an engine may write the variables to while it starts the container; it must remove it after. */
 	environmentFile: string
+	/** A file the engine records the created container's ID in; `stopRecorded` reads it. */
+	idFile: string
 	/** The command, with `{address}` left for the engine to fill with the address the API listens on. */
 	command: string[]
 	/** The API listens on this port of the host's loopback interface only. */
@@ -63,6 +65,10 @@ export interface ContainerEngine {
 	/** Create and start the container in the background, with the API reachable on the host's loopback interface only. */
 	run(container: BackendContainer, call: EngineCall): Promise<void>
 	stop(ids: string[], timeoutSeconds: number, call: EngineCall): Promise<void>
+	/** The command, with its environment, that stops the container `run` last recorded in `idFile`.
+	 * The exit guard runs it once the app is gone and can no longer call `stop`; a missing container is no error.
+	 */
+	stopRecorded(idFile: string, timeoutSeconds: number): { command: string[]; env: NodeJS.ProcessEnv }
 	remove(ids: string[], call: EngineCall): Promise<void>
 	logs(id: string, lines: number, call: EngineCall): Promise<string>
 }

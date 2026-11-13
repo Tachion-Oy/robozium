@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { spawnSync } from "node:child_process"
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
@@ -44,6 +45,7 @@ function container(t: TestContext, overrides: Partial<BackendContainer> = {}): B
 		],
 		environment: { ROBOZIUM_MODE: "mock", EXAMPLE_VALUE: "plain copy" },
 		environmentFile: path.join(directory, "container.env"),
+		idFile: path.join(directory, "container.id"),
 		command: ["uvicorn", "robozium.api.app:mock_app", "--host", "{address}", "--port", "18000"],
 		port: 18000,
 		stopTimeoutSeconds: 30,
@@ -154,7 +156,7 @@ test("the container runs rootless on the host's loopback and DNS servers, with i
 	await engine.prepare(call())
 	await engine.run(backend, { ...call(), timeout: 1000 })
 	assert.deepEqual(calls.at(-1)!.args, [
-		"run", "--detach", "--pull", "never", "--name", backend.name,
+		"run", "--detach", "--pull", "never", "--name", backend.name, "--cidfile", backend.idFile,
 		"--label", "fi.tachion.robozium.desktop.project=robozium-desktop-abcdefabcdef-mock",
 		"--network", "host", "--dns", "127.0.0.53", "--dns", "192.168.1.1",
 		"--init", "--user", "0:0", "--cap-drop", "all", "--security-opt", "no-new-privileges",
@@ -165,6 +167,41 @@ test("the container runs rootless on the host's loopback and DNS servers, with i
 	assert.equal(environment, "ROBOZIUM_MODE=mock\nEXAMPLE_VALUE=plain copy\n")
 	assert.equal(existsSync(backend.environmentFile), false)
 	assert.equal(calls.at(-1)!.args.some(arg => arg.includes("plain copy")), false, "values stay off the command line")
+})
+
+test("a run clears an earlier container's record, so Podman can record the new one", async t => {
+	const backend = container(t)
+	writeFileSync(backend.idFile, "a".repeat(64))
+	const { engine } = fakePodman(args => {
+		if (args[0] === "run") assert.equal(existsSync(backend.idFile), false)
+		return args[0] === "info" ? JSON.stringify(rootless) : ""
+	})
+	await engine.prepare(call())
+	await engine.run(backend, call())
+})
+
+test("the recorded container is stopped by a command that needs no app; a missing one is no error and a malformed record stops nothing", async t => {
+	const backend = container(t)
+	const directory = path.dirname(backend.idFile)
+	// A stand-in Podman that records how it was called, with the engine's environment.
+	const podman = path.join(directory, "podman"), calls = path.join(directory, "calls")
+	writeFileSync(podman, `#!/bin/sh\nprintf '%s\\n' "$* CONTAINER_HOST=\${CONTAINER_HOST-unset}" >> '${calls}'\n`, { mode: 0o700 })
+	process.env.CONTAINER_HOST = "ssh://remote"
+	t.after(() => { delete process.env.CONTAINER_HOST })
+	const engine = new PodmanEngine({ findPodman: () => podman, run: async () => JSON.stringify(rootless) })
+	await engine.prepare(call())
+	const { command, env } = engine.stopRecorded(backend.idFile, 30)
+	const id = "c".repeat(64)
+
+	writeFileSync(backend.idFile, `${id}\n`)
+	assert.equal(spawnSync(command[0], command.slice(1), { env }).status, 0)
+	// Twice: a start still in flight when the app died is caught by the second stop.
+	const stop = `stop --ignore --time 30 ${id} CONTAINER_HOST=unset`
+	assert.deepEqual(readFileSync(calls, "utf8").trim().split("\n"), [stop, stop])
+
+	writeFileSync(backend.idFile, "--all\n")
+	assert.equal(spawnSync(command[0], command.slice(1), { env }).status, 0)
+	assert.equal(readFileSync(calls, "utf8").trim().split("\n").length, 2)
 })
 
 test("a host without a resolver file leaves DNS to Podman", async t => {

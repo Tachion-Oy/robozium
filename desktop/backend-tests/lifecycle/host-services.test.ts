@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { spawn } from "node:child_process"
+import { spawn, spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import net from "node:net"
 import { tmpdir } from "node:os"
@@ -120,6 +120,30 @@ test("a service left running by a crashed launch is stopped before a new one sta
 	await exited
 	assert.equal(services.status()[0].message, "Running.")
 	assert.notEqual(readFileSync(service.pidFile, "utf8"), String(leftover.pid))
+})
+
+for (const mode of ["serve", "stubborn"]) test(`the exit guard's command stops a recorded ${mode === "serve" ? "service" : "service that ignores SIGTERM"}`, async t => {
+	const { layout, service, address, services } = fixture(t, mode)
+	const recorded = spawn(service.executable, service.arguments, { detached: true, stdio: "ignore" })
+	const exited = new Promise(resolve => recorded.once("exit", resolve))
+	writeFileSync(service.pidFile, String(recorded.pid))
+	while (!existsSync(address)) await delay(10)
+	const [command] = services.stopRecorded(layout, "live")
+	spawnSync(command[0], command.slice(1))
+	await exited
+})
+
+test("the exit guard's commands leave other modes' services and a reused PID alone", async t => {
+	const { layout, service, services } = fixture(t)
+	assert.deepEqual(services.stopRecorded(layout, "mock"), [])
+	// The recorded PID now runs something else: this test, not the service's script.
+	const other = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { detached: true, stdio: "ignore" })
+	t.after(() => other.kill("SIGKILL"))
+	writeFileSync(service.pidFile, String(other.pid))
+	const [command] = services.stopRecorded({ ...layout, hostServices: [{ ...service, executable: "/another/program" }] }, "live")
+	spawnSync(command[0], command.slice(1))
+	assert.equal(other.exitCode, null)
+	assert.equal(other.kill(0), true)
 })
 
 test("a socket left by a killed service is replaced", async t => {

@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process"
 import { accessSync, constants } from "node:fs"
+import type { Socket } from "node:net"
 import { homedir } from "node:os"
 import path from "node:path"
 
@@ -40,6 +41,27 @@ export function signalProcessGroup(pid: number | undefined, signal: NodeJS.Signa
 	} catch {
 		// The process already exited.
 	}
+}
+
+const shellQuote = (word: string): string => `'${word.replaceAll("'", "'\\''")}'`
+
+/**
+ * Run `commands` in order once this process is gone, however it ends: an exit, a crash
+ * or a kill. A guard process waits on a pipe from this one, which the operating system
+ * closes with this process. The guard leads its own session and ignores the signals a
+ * terminal, a logout or a quit send, so what ends the app does not end the guard too.
+ * Returns a function that calls the guard off. Linux and macOS only, as `signalProcessGroup`.
+ */
+export function runAfterExit(commands: string[][], env: NodeJS.ProcessEnv): () => void {
+	const script = ["trap '' HUP INT TERM", "cat >/dev/null", ...commands.map(command => command.map(shellQuote).join(" "))].join("\n")
+	const guard = spawn("/bin/sh", ["-c", script], { cwd: "/", env, detached: true, stdio: ["pipe", "ignore", "ignore"] })
+	// A guard that cannot start leaves shutdown to the app itself, as before.
+	guard.on("error", () => {})
+	guard.stdin.on("error", () => {})
+	// Neither the guard nor its pipe keeps this process alive.
+	guard.unref()
+	;(guard.stdin as Socket).unref()
+	return () => signalProcessGroup(guard.pid, "SIGKILL")
 }
 
 export interface CommandOptions {
