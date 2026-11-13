@@ -335,8 +335,10 @@
   font-size: 1rem;
 }
 
-/* The overview is a screen, as the run view's panels are (hud-panels.css). */
+/* The overview is a screen, as the run view's panels are (hud-panels.css), and
+   wears the same stripes. */
 :root[data-theme="light"] .agent-hud__project-view {
+  --stripe-strength: var(--hud-stripe-strength);
   position: relative;
   z-index: 1;
   color: var(--hud-input-text);
@@ -345,7 +347,8 @@
   padding: 0.8rem;
   border: 1px solid var(--hud-screen-edge);
   border-radius: var(--hud-screen-radius);
-  background: var(--hud-input-bg);
+  background: var(--stripes) fixed, var(--hud-input-bg);
+  background-blend-mode: multiply, normal;
   box-shadow: var(--hud-screen-shadow);
 }
 /* Environment and Dependencies sit on the HUD itself: an inner panel would leave

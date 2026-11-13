@@ -4,7 +4,7 @@ import { locations } from "./backend-layout.ts"
 import type { AppTheme } from "./bridge.d.ts"
 
 /** Native window colour behind the renderer, matching each theme's canvas. */
-export const themeBackground: Readonly<Record<AppTheme, string>> = { dark: "#07080a", light: "#f3f0e7" }
+export const themeBackground: Readonly<Record<AppTheme, string>> = { dark: "#07080a", light: "#fffdf6" }
 
 /**
  * settings.json holds only these UI preferences. Backend configuration lives in

@@ -25,7 +25,7 @@ test("the chosen theme and window background survive a restart, keeping other se
 	await expect(button.locator(".theme-toggle__moon")).toBeVisible()
 	await expect(button.locator(".theme-toggle__sun")).toBeHidden()
 	await expect.poll(async () => JSON.parse(await readFile(settings, "utf8"))).toEqual({ future: "kept", theme: "light" })
-	expect(await backgroundColor(app)).toBe("#f3f0e7")
+	expect(await backgroundColor(app)).toBe("#fffdf6")
 
 	const reopened = await reopen(app, profile, fakeBackend.url)
 	try {
@@ -33,7 +33,7 @@ test("the chosen theme and window background survive a restart, keeping other se
 		await skipIntro(window)
 		await expect(window.locator(".agent-hud__box")).toBeVisible()
 		expect(await window.evaluate(() => [document.documentElement.dataset.theme, document.documentElement.style.colorScheme])).toEqual(["light", "light"])
-		expect(await backgroundColor(reopened)).toBe("#f3f0e7")
+		expect(await backgroundColor(reopened)).toBe("#fffdf6")
 		expect(await reopened.evaluate(({ nativeTheme }) => nativeTheme.themeSource)).toBe("light")
 	} finally { await reopened.close() }
 })
@@ -127,6 +127,23 @@ test("both themes name the run view's panels", async ({ desktop: { page } }) => 
 	await expect(page.locator('html[data-theme="light"]:not([data-theme-switching])')).toHaveCount(1)
 	await expect(labels.first()).toBeVisible()
 	await expect(labels.last()).toBeVisible()
+})
+
+test("the light stripes keep their width on the screen when the zoom changes", async ({ desktop: { app, page } }) => {
+	await page.getByRole("button", { name: toggle }).click()
+	// The message log wears the stripes at full strength.
+	await page.getByRole("button", { name: "Show message log" }).click()
+	await expect(page.locator(".desktop-message-log .term-scanlines")).toBeVisible()
+	// One set of three stripes, in screen pixels: the widest of the stripes' own stops.
+	const stripes = () => page.evaluate(() => {
+		const image = getComputedStyle(document.querySelector(".desktop-message-log .term-scanlines")!, "::after").backgroundImage
+		const stops = [...image.matchAll(/([\d.]+)px/g)].slice(0, 6).map(stop => parseFloat(stop[1]))
+		return Math.max(...stops) * devicePixelRatio
+	})
+	expect(await stripes()).toBeCloseTo(5.1, 3)
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1.25))
+	await expect.poll(() => page.evaluate(() => devicePixelRatio)).toBe(1.25)
+	await expect.poll(stripes).toBeCloseTo(5.1, 3)
 })
 
 test("in light only the reply panel lights its edge while the user is in it", async ({ desktop: { page } }) => {

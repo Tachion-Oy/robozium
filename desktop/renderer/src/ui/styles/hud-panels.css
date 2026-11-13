@@ -1407,10 +1407,15 @@ button.agent-hud__image-preview {
   --panel-edge: var(--hud-screen-edge);
   --panel-fill-bg: var(--hud-input-bg);
 }
+/* The paper wears the stream's stripes, faintly, under the text. They are counted
+   from the window's edge, as the stream's are, so every screen has the stream's
+   pattern wherever it starts. */
 :root[data-theme="light"] .agent-hud__replyBox::before {
+  --stripe-strength: var(--hud-stripe-strength);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-  background: var(--panel-fill-bg);
+  background: var(--stripes) fixed, var(--panel-fill-bg);
+  background-blend-mode: multiply, normal;
   inset: 0;
   z-index: -2;
   clip-path: none;
