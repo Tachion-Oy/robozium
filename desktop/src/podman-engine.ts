@@ -46,7 +46,7 @@ const SUBORDINATE_IDS = 65536
  * after a pause and stops a second time. The ID is read once: a later launch's
  * container is never touched.
  */
-const STOP_RECORDED = [
+const STOP_RECORDED_CONTAINER = [
 	'id=$(cat "$1" 2>/dev/null) || { sleep 5; id=$(cat "$1" 2>/dev/null) || exit 0; }',
 	'case $id in ""|*[!a-f0-9]*) exit 0 ;; esac',
 	'"$2" stop --ignore --time "$3" "$id"',
@@ -193,7 +193,7 @@ export class PodmanEngine implements ContainerEngine {
 	}
 
 	stopRecorded(idFile: string, timeoutSeconds: number): { command: string[]; env: NodeJS.ProcessEnv } {
-		return { command: ["/bin/sh", "-c", STOP_RECORDED, "sh", idFile, this.executable, String(timeoutSeconds)], env: this.environment }
+		return { command: ["/bin/sh", "-c", STOP_RECORDED_CONTAINER, "sh", idFile, this.executable, String(timeoutSeconds)], env: this.environment }
 	}
 
 	async remove(ids: string[], call: EngineCall): Promise<void> {
