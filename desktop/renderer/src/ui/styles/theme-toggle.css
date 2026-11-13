@@ -13,10 +13,20 @@
   height: 0.95rem;
 }
 
-/* The crescent fills its box, so it is drawn smaller to clear the button's cut corners. */
-.agent-hud__layout-wedge.theme-toggle__moon {
-  width: 1.05rem;
-  height: 1.05rem;
+/* The moon, which only light shows, is a disc drawn as a line, with one half dark. */
+:root[data-theme="light"] .agent-hud__layout-wedge.theme-toggle__moon {
+  width: 1.2rem;
+  height: 1.2rem;
+  opacity: 1;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:root[data-theme="light"] .theme-toggle__moon-dark {
+  fill: currentColor;
 }
 
 :root[data-theme="light"] .theme-toggle__sun,

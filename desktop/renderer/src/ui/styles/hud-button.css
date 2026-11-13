@@ -1,4 +1,5 @@
-/* Shared HUD action buttons, including light-theme and checked states. */
+/* Shared HUD action buttons: the row buttons and chips in both themes, and the
+   key every light button is. */
 
 .agent-hud__row-action {
   border: 1px solid transparent;
@@ -175,86 +176,155 @@
     0 0 20px color-mix(in oklab, var(--accent) 70%, transparent);
 }
 
-/* Light row buttons carry their tone in the edge and fill, strongly enough to
-   tell apart at rest; hover strengthens it again. Labels keep the text ink. */
-:root[data-theme="light"] .agent-hud__row-tools {
-  color: var(--hud-control-ink);
-  border-color: color-mix(in oklab, var(--term-blue) clamp(0%, 65% * var(--tune-edge, 1), 100%), var(--hud-input-border));
-  background: color-mix(in oklab, var(--term-blue) clamp(0%, 18% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+/* Light buttons that have no colour of their own in dark name one here: the large
+   start buttons are green, the launch chooser's Cancel, which stands beside its
+   Launch, amber, and a toast's buttons the toast's. */
+:root[data-theme="light"] :is(.agent-hud__start, .agent-hud__status-view .app-nav__cta) {
+  --accent: var(--term-green);
 }
 
-:root[data-theme="light"] .agent-hud__row-launch {
-  color: var(--hud-control-ink);
-  border-color: color-mix(in oklab, var(--term-green) clamp(0%, 65% * var(--tune-edge, 1), 100%), var(--hud-input-border));
-  background: color-mix(in oklab, var(--term-green) clamp(0%, 18% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
+:root[data-theme="light"] .agent-hud__start + .agent-hud__start {
+  --accent: var(--term-amber);
 }
 
-:root[data-theme="light"] .agent-hud__row-tools:not(:disabled, .agent-hud__capability-static):hover,
-:root[data-theme="light"] .agent-hud__row-tools:not(:disabled, .agent-hud__capability-static):focus-visible {
-  color: var(--hud-control-ink);
-  border-color: var(--term-blue);
-  background: color-mix(in oklab, var(--term-blue) clamp(0%, 30% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
+:root[data-theme="light"] :is(.agent-error-toast__dismiss, .agent-error-toast__action) {
+  --accent: var(--notification-toast-accent);
+}
+
+/* Light: every button is a key, a cap standing on a lip. One rule draws it from
+   the variables below; a kind of button and a state only change variables, so
+   every key answers the pointer the same way. Nothing moves when a key is
+   pressed: its lip closes and its cap darkens where it stands. The rules for a
+   kind and a state are nested, so the list of buttons is written once. */
+:root[data-theme="light"] :is(
+  .agent-hud__send, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__dictate, .agent-hud__image,
+  .agent-hud__corner-control, .agent-hud__copy-text, .agent-hud__layout, .agent-hud__layout-direction,
+  .agent-hud__expand, .agent-hud__minimize, .agent-hud__project-folder, .agent-hud__model-trigger,
+  .agent-hud__row-action:not(.agent-hud__capability-static), .agent-hud__start,
+  .agent-hud__status-view .app-nav__cta, .agent-error-toast__dismiss, .agent-error-toast__action
+) {
+  /* A utility key: a neutral cap on a lip mixed from the case. */
+  --key-tone: var(--hud-key-cap);
+  --key-stand: var(--hud-box-bg);
+  --key-lip-mix: 55%;
+  --key-face-rest: var(--hud-key-cap);
+  --key-face-hover: color-mix(in oklab, var(--hud-accent) 24%, var(--hud-key-cap));
+  --key-face: var(--key-face-rest);
+  --key-lip: color-mix(in oklab, var(--key-stand) var(--key-lip-mix), var(--hud-control-ink));
+  --key-rim: color-mix(in oklab, var(--key-stand) 40%, var(--hud-control-ink));
+  --key-lip-height: 0.2rem;
+  --key-legend: var(--hud-control-ink);
+  --key-gloss: linear-gradient(180deg, rgb(255 255 255 / 0.34), rgb(255 255 255 / 0) 62%);
+  --key-sheen: inset 0 1px 0 rgb(255 255 255 / 0.72), inset 0 -1px 0 rgb(0 0 0 / 0.08);
+  --key-sink: 0 0 0 0 transparent;
+  --key-drop: color-mix(in oklab, var(--hud-control-ink) 20%, transparent);
+  --key-outline: 0 solid transparent;
+  /* Laid over the cap; only a selector has one. */
+  --key-bay: linear-gradient(transparent, transparent);
+  border: 1px solid var(--key-rim);
+  border-radius: 0.42rem;
+  background: var(--key-bay), var(--key-gloss), var(--key-face);
+  color: var(--key-legend);
+  font-weight: 500;
+  box-shadow:
+    var(--key-sheen),
+    var(--key-sink),
+    0 var(--key-lip-height) 0 var(--key-lip),
+    0 calc(var(--key-lip-height) + 0.18rem) 0.32rem var(--key-drop);
+  outline: var(--key-outline);
+  outline-offset: 2px;
+  /* The octagon buttons' own states fade, glow and lift; a key does none of it. */
+  opacity: 1;
+  filter: none;
+  transform: none;
   text-shadow: none;
+  clip-path: none;
+
+  /* A key that acts is tinted with its colour, pale at rest and full under the
+     pointer, on a lip of the same colour. A button names its colour as --accent
+     or, an octagon in dark, as --btn-accent. */
+  &:is(
+    .agent-hud__send, .agent-hud__dictate, .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt,
+    .agent-hud__row-launch, .agent-hud__row-tools, .agent-hud__row-cancel, .agent-hud__row-delete,
+    .agent-hud__option[aria-checked="true"], .agent-hud__start, .agent-hud__status-view .app-nav__cta,
+    .agent-hud__copy-text[data-copied], .desktop-message-log-toggle[aria-expanded="true"],
+    .agent-error-toast__dismiss, .agent-error-toast__action
+  ) {
+    --key-tone: var(--accent, var(--btn-accent));
+    --key-stand: var(--key-tone);
+    --key-lip-mix: 62%;
+    --key-face-rest: color-mix(in oklab, var(--key-tone) 48%, white);
+    --key-face-hover: color-mix(in oklab, var(--key-tone) 80%, white);
+  }
+
+  /* A selector is a utility key on a lip of its own colour. Its caret has a bay
+     at the key's right end, tinted with that colour behind a hairline. */
+  &.agent-hud__model-trigger {
+    --key-lip: color-mix(in oklab, var(--selector-accent) 78%, var(--hud-control-ink));
+    --key-face-hover: color-mix(in oklab, var(--selector-accent) 30%, var(--hud-key-cap));
+    --key-bay: linear-gradient(
+      90deg,
+      transparent 0 calc(100% - 2.36rem),
+      var(--key-rim) calc(100% - 2.36rem) calc(100% - 2.3rem),
+      color-mix(in oklab, var(--selector-accent) 26%, transparent) calc(100% - 2.3rem) 100%
+    );
+  }
+
+  /* A switch that is off is paler than a button of its colour; on, it is latched
+     at the full colour. */
+  &[role="switch"][aria-checked="false"] {
+    --key-face-rest: color-mix(in oklab, var(--key-tone) 24%, white);
+    --key-face-hover: color-mix(in oklab, var(--key-tone) 48%, white);
+  }
+
+  &:not(:disabled):is(:hover, :focus-visible) {
+    --key-face: var(--key-face-hover);
+  }
+
+  /* Focused from the keyboard, or armed to delete. */
+  &:focus-visible,
+  &.agent-hud__row-delete--confirm:not([role="switch"]) {
+    --key-outline: 2px solid var(--hud-control-ink);
+  }
+
+  /* Pressed, or latched on. */
+  &:not(:disabled):is(:active, [aria-pressed="true"], [aria-checked="true"], [aria-expanded="true"]) {
+    --key-lip-height: 1px;
+    --key-face: color-mix(in oklab, var(--key-face-hover) 88%, var(--hud-control-ink));
+    --key-sink: inset 0 0.2rem 0.26rem color-mix(in oklab, var(--hud-control-ink) 44%, transparent);
+  }
+
+  /* Disabled: flat and grey, with a trace of its colour. */
+  &:disabled {
+    --key-face: color-mix(in oklab, var(--key-tone) 12%, var(--hud-box-bg));
+    --key-lip-height: 0rem;
+    --key-rim: color-mix(in oklab, var(--hud-box-bg) 72%, var(--hud-control-ink));
+    --key-legend: color-mix(in oklab, var(--hud-control-ink) 38%, var(--hud-box-bg));
+    --key-gloss: linear-gradient(transparent, transparent);
+    --key-sheen: inset 0 0 0 0 transparent, inset 0 0 0 0 transparent;
+    --key-drop: transparent;
+  }
+
+  /* A capability every launch has: chosen, and locked. */
+  &.agent-hud__option[aria-checked="true"]:disabled {
+    --key-face: color-mix(in oklab, var(--term-green) 30%, var(--hud-card-bg));
+    --key-rim: color-mix(in oklab, var(--term-green) 55%, var(--hud-control-ink));
+    --key-legend: var(--hud-control-ink);
+  }
 }
 
-:root[data-theme="light"] .agent-hud__row-launch:not(:disabled):hover,
-:root[data-theme="light"] .agent-hud__row-launch:not(:disabled):focus-visible {
+/* A listed tool or skill is a chip, not a key: flat, in the tools' blue. */
+:root[data-theme="light"] .agent-hud__capability-static {
+  border-color: color-mix(in oklab, var(--term-blue) 55%, var(--hud-control-ink));
+  border-radius: 0.42rem;
+  background: color-mix(in oklab, var(--term-blue) 20%, var(--hud-card-bg));
   color: var(--hud-control-ink);
-  border-color: var(--term-green);
-  background: color-mix(in oklab, var(--term-green) clamp(0%, 30% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
-  text-shadow: none;
-}
-
-:root[data-theme="light"] .agent-hud__row-cancel {
-  color: var(--hud-control-ink);
-  border-color: color-mix(
-    in oklab,
-    var(--term-amber) clamp(0%, 65% * var(--tune-edge, 1), 100%),
-    var(--hud-input-border)
-  );
-  background: color-mix(in oklab, var(--term-amber) clamp(0%, 18% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
-}
-
-:root[data-theme="light"] .agent-hud__row-delete {
-  color: var(--hud-control-ink);
-  border-color: color-mix(
-    in oklab,
-    var(--term-red) clamp(0%, 65% * var(--tune-edge, 1), 100%),
-    var(--hud-input-border)
-  );
-  background: color-mix(in oklab, var(--term-red) clamp(0%, 18% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
-}
-
-:root[data-theme="light"] .agent-hud__row-delete--confirm,
-:root[data-theme="light"] .agent-hud__row-action[role="switch"][aria-checked="true"] {
-  color: var(--hud-control-ink);
-  border-color: var(--term-red);
-  background: color-mix(in oklab, var(--term-red) clamp(0%, 24% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
-}
-
-:root[data-theme="light"] .agent-hud__row-cancel:not(:disabled):hover,
-:root[data-theme="light"] .agent-hud__row-cancel:not(:disabled):focus-visible {
-  color: var(--hud-control-ink);
-  border-color: var(--term-amber);
-  background: color-mix(in oklab, var(--term-amber) clamp(0%, 30% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
-  text-shadow: none;
-}
-
-:root[data-theme="light"] .agent-hud__row-delete:not(:disabled):hover,
-:root[data-theme="light"] .agent-hud__row-delete:not(:disabled):focus-visible {
-  color: var(--hud-control-ink);
-  border-color: var(--term-red);
-  background: color-mix(in oklab, var(--term-red) clamp(0%, 26% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
-  text-shadow: none;
 }
 
 :root[data-theme="light"] .agent-hud__row-action {
-  border-radius: 0.3rem;
-  text-shadow: none;
   backdrop-filter: none;
   min-width: 5.75rem;
   padding: 0.48rem 0.82rem;
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 58% * var(--tune-sheen, 1), 100%), transparent);
 }
 
 /* Desktop: trim the uppercase label to its capitals and add the trimmed space
@@ -262,39 +332,4 @@
 :root[data-theme="light"] .agent-hud__row-action:not(.agent-hud__option) {
   text-box: trim-both cap alphabetic;
   padding-block: calc(0.48rem + (1lh - 1cap) / 2);
-}
-
-:root[data-theme="light"] .agent-hud__row-action:not(:disabled):hover,
-:root[data-theme="light"] .agent-hud__row-action:not(:disabled):focus-visible {
-  transform: translateY(-1px);
-  filter: saturate(1.18);
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 70% * var(--tune-sheen, 1), 100%), transparent),
-    0 0.22rem 0.42rem
-      color-mix(in oklab, currentColor clamp(0%, 28% * var(--tune-hover-glow, 1), 100%), transparent);
-  outline: none;
-}
-
-:root[data-theme="light"] .agent-hud__row-action:not(:disabled):active {
-  transform: translateY(0);
-}
-
-:root[data-theme="light"] .agent-hud__option {
-  color: var(--hud-input-text);
-  border-color: var(--hud-input-border);
-  background: var(--hud-input-bg);
-}
-
-:root[data-theme="light"] button.agent-hud__option:not(:disabled):hover {
-  border-color: var(--term-green);
-}
-
-:root[data-theme="light"] .agent-hud__option[aria-checked="true"] {
-  color: var(--term-green);
-  border-color: var(--term-green);
-  background: color-mix(in oklab, var(--term-green) clamp(0%, 15% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
-}
-
-:root[data-theme="light"] .agent-hud__option:focus-visible {
-  outline: 2px solid var(--term-blue);
-  outline-offset: 2px;
 }

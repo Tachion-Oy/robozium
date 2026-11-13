@@ -232,18 +232,3 @@
     text-shadow: none;
     opacity: 0.72
 }
-:root[data-theme="light"] :is(.agent-error-toast__dismiss, .agent-error-toast__action) {
-    border-color: color-mix(
-    in oklab,
-    var(--notification-toast-accent) clamp(0%, 62% * var(--tune-edge, 1), 100%),
-    var(--hud-input-border)
-  );
-    border-radius: 0.32rem;
-    background: color-mix(
-    in oklab,
-    var(--notification-toast-accent) clamp(0%, 18% * var(--tune-fill, 1), 100%),
-    var(--hud-input-bg)
-  );
-    color: var(--hud-control-ink);
-    text-shadow: none
-}

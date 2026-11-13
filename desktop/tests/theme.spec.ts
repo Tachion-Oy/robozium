@@ -88,13 +88,17 @@ test("setTheme accepts only dark or light from the trusted window and document",
 	expect(await backgroundColor(app)).toBe("#07080a")
 })
 
-test("light tuning knobs scale the accent mixed into buttons", async ({ desktop: { page } }) => {
+test("light tuning knobs scale the accent mixed into the run indicator", async ({ desktop: { page } }) => {
+	await page.getByRole("button", { name: "Launch", exact: true }).click()
 	await page.getByRole("button", { name: toggle }).click()
+	// The switch fades through a view transition; read the colours once it has settled.
+	await expect(page.locator('html[data-theme="light"]:not([data-theme-switching])')).toHaveCount(1)
 	await page.mouse.move(0, 0)
-	const start = page.locator(".agent-hud__start").first()
-	// The button eases its colours, so read once two samples agree.
+	// The preview run awaits a reply, so the indicator is tinted with the theme's green.
+	const indicator = page.locator('.agent-hud__logo--actions[data-agent-state="awaiting-input"]')
+	// The indicator eases its colours, so read once two samples agree.
 	const settled = async () => {
-		const read = () => start.evaluate(element => `${getComputedStyle(element).backgroundColor} ${getComputedStyle(element).color}`)
+		const read = () => indicator.evaluate(element => `${getComputedStyle(element).backgroundColor} ${getComputedStyle(element).color}`)
 		let previous = await read()
 		for (;;) {
 			await page.waitForTimeout(150)

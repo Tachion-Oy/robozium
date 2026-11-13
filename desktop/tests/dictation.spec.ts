@@ -52,6 +52,22 @@ test("Record dictates into the draft: recording, transcribing, then the text joi
 	await expect(record(page)).toBeEnabled()
 })
 
+test("light Record is as wide while it records as at rest, and stays where it is", async ({ desktop: { page }, backend }) => {
+	prepareRun(backend)
+	backend.handlers.set("GET /run/run-one", response => json(response, waiting()))
+	await start(page, backend)
+	await page.getByRole("button", { name: "Toggle color theme" }).click()
+	await expect(page.locator('html[data-theme="light"]:not([data-theme-switching])')).toHaveCount(1)
+	const box = () => record(page).evaluate(button => {
+		const { left, top, width, height } = button.getBoundingClientRect()
+		return { left, top, width, height }
+	})
+	const resting = await box()
+	await record(page).click()
+	await expect(page.locator(".agent-hud__dictate-meter")).toBeVisible()
+	expect(await box()).toEqual(resting)
+})
+
 test("a missing key is a notice, a provider failure an error, and both keep the draft", async ({ desktop: { page }, backend }) => {
 	prepareRun(backend)
 	backend.handlers.set("GET /run/run-one", response => json(response, waiting()))

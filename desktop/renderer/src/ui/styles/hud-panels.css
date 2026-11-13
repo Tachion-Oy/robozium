@@ -1352,14 +1352,7 @@ button.agent-hud__image-preview {
   font-size: 1rem;
 }
 :root[data-theme="light"] .agent-hud__status-view .app-nav__cta {
-  border: 0.08rem solid
-    color-mix(in oklab, var(--term-green) 58%, var(--hud-input-border));
-  border-radius: 0.38rem;
-  background: color-mix(in oklab, var(--term-green) 13%, var(--hud-input-bg));
-  color: color-mix(in oklab, var(--term-green) 68%, var(--hud-input-text));
   font-size: 1rem;
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white 48%, transparent);
-  text-shadow: none;
 }
 :root[data-theme="light"] .agent-hud__table-scroll {
   padding: 0.2rem 0.35rem 0.55rem;

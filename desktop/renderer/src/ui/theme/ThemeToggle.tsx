@@ -1,7 +1,7 @@
 // The theme owner saves the choice natively; one window needs no cookie or channel.
 // The toggle is the centre of the left edge, between the zoom and panel divider
 // buttons, shaped as the message log toggle on the right edge. It shows the theme a
-// click switches to: a sun in dark, a moon in light. Both glyphs stay in the document
+// click switches to: a sun in dark, a half-dark moon in light. Both glyphs stay in the document
 // and CSS shows one, so the glyph changes inside the theme switch's fade.
 import { toggleTheme } from "../../theme/theme"
 import { HudEdgeButton } from "../hud/HudEdgeButton"
@@ -23,8 +23,8 @@ export function ThemeToggle() {
 				<path transform="rotate(45 12 12)" d="M10.5 5.6h3L12 1.6ZM10.5 18.4h3L12 22.4ZM5.6 10.5v3L1.6 12ZM18.4 10.5v3l4 -1.5Z" />
 			</svg>
 			<svg className="agent-hud__layout-wedge theme-toggle__glyph theme-toggle__moon" viewBox="0 0 24 24" aria-hidden="true">
-				<path d="M9.5 3.62 3.61 7.03 1.51 13.5 4.28 19.72 10.5 22.49 16.97 20.39 20.38 14.5 15.39 15.42 10.84 13.16 8.58 8.61Z" />
-				<path d="M17.5 2.9 18.2 4.8 20.1 5.5 18.2 6.2 17.5 8.1 16.8 6.2 14.9 5.5 16.8 4.8Z" />
+				<circle cx="12" cy="12" r="10" />
+				<path className="theme-toggle__moon-dark" d="M12 18a6 6 0 0 0 0-12v12z" />
 			</svg>
 		</HudEdgeButton>
 	)
