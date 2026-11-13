@@ -83,6 +83,8 @@
       ) 135%
     );
     --hud-lab-canvas: var(--light-stream-canvas);
+    /* The HUD's face. The message log keeps the terminal's. */
+    --font-agent-input: var(--font-sono), ui-monospace, SFMono-Regular, Menlo, monospace;
     /* The HUD is a beige case with near-white screens set into it; its ink is a
        dark purple and its accent, for focus, links and scroll bars, a violet. */
     --hud-box-bg: #d9d5cc;

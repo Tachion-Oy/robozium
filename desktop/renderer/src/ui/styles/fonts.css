@@ -26,6 +26,14 @@
   font-display: swap;
 }
 
+/* The file with both of Sono's axes, weight and MONO. */
+@font-face {
+  font-family: "Sono";
+  src: url("../../../../node_modules/@fontsource-variable/sono/files/sono-latin-full-normal.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: swap;
+}
+
 /* Keep the SCAN axis available for the nav and brand. */
 @font-face {
   font-family: "Sixtyfour Variable";
