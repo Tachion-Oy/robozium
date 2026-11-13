@@ -774,6 +774,14 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
 :root[data-theme="light"] :is(.agent-hud__box, .agent-hud__password-dialog) {
   font-weight: 500;
 }
+/* Sono is set with every letter as wide as the next (its MONO axis), and with
+   its small letters as tall as Source Code Pro's, 0.486 of the type size: the
+   face every size in the HUD was chosen for. Dialogs and toasts stand outside
+   the shell. */
+:root[data-theme="light"] :is(.agent-hud, .agent-hud__password-dialog, .agent-hud__image-dialog, .agent-error-toast) {
+  font-size-adjust: 0.486;
+  font-variation-settings: "MONO" 1;
+}
 /* The case's face: one flat colour inside the rail. */
 :root[data-theme="light"] .agent-hud__box::before {
   content: "";
