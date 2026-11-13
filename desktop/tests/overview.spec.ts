@@ -35,6 +35,12 @@ test("the overview shows backend statuses and polls every three seconds only whi
 		// Only the resting state is regular weight, so active states stand out in either theme.
 		await expect(status).toHaveCSS("font-weight", slug === "dormant" ? "400" : "700")
 	}
+	// Dark marks a live project with a lit lamp and one at rest with a hollow one.
+	await expect(row(page, "running-project").locator(".agent-hud__row-status")).toHaveAttribute("data-live")
+	await expect(row(page, "dormant-project").locator(".agent-hud__row-status")).not.toHaveAttribute("data-live")
+	// A hovered row's text takes no filter: one is redrawn off screen with its glow on every hover.
+	await row(page, "running-project").hover()
+	await expect(row(page, "running-project").locator(".agent-hud__project-summary")).toHaveCSS("filter", "none")
 	await expect(row(page, "running-project")).toContainText("2m ago")
 	// A live run opens, a dormant project launches; Launch or Open comes first.
 	await expect(row(page, "running-project").getByRole("button")).toHaveText(["Open", "Tools", "Stop", "Delete"])

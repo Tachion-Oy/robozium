@@ -3,3 +3,8 @@
 .agent-hud__status-view .agent-hud__markdown-table .whitespace-nowrap {
   white-space: nowrap;
 }
+
+/* Dark: one face throughout the table, the panel's. */
+:root[data-theme="dark"] .agent-hud__status-view :is(table, pre, code) {
+  font-family: inherit;
+}

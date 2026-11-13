@@ -51,6 +51,39 @@
   min-height: 2.2rem;
 }
 
+/* Dark: each section is a panel (hud-panels.css) named by its badge on the top
+   edge, clear of the cut corner. A quieter one than a view's: a smaller cut, a
+   dimmer edge without lit corners, no halo, and the plain dark as its fill, so
+   the fields inside stand out. */
+:root[data-theme="dark"] .agent-hud__environment-sections {
+  gap: 2.4rem;
+}
+
+:root[data-theme="dark"] .agent-hud__environment-sections:not(fieldset) {
+  padding-top: 1.2rem;
+}
+
+:root[data-theme="dark"] .agent-hud__environment-section {
+  --panel-cut: 1.2rem;
+  --panel-edge: color-mix(in oklab, var(--term-blue) 60%, transparent);
+  --panel-corner: transparent;
+  --panel-halo: none;
+  --panel-sheen: none;
+  padding: 2.2rem 1.3rem 1.3rem;
+}
+
+:root[data-theme="dark"] .agent-hud__environment-heading {
+  position: absolute;
+  top: 0;
+  left: calc(var(--panel-cut) + 0.6rem);
+  translate: 0 -50%;
+}
+
+/* The variable editor groups two fields, so it keeps the panel's dark and they stand out. */
+:root[data-theme="dark"] .agent-hud__environment-editor {
+  --field-fill: var(--hud-input-bg);
+}
+
 /* A row of one input and its buttons, the same in every section. */
 .agent-hud__environment-controls {
   display: flex;
@@ -65,10 +98,9 @@
 }
 
 /* A file or folder held over the row lights its input up in the HUD's blue. */
-.agent-hud__environment-controls[data-drag-active] .agent-hud__project-input {
-  border-color: color-mix(in oklab, var(--term-blue) clamp(0%, 80% * var(--tune-hover-edge, 1), 100%), transparent);
-  background: color-mix(in oklab, var(--term-blue) clamp(0%, 12% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
-  box-shadow: var(--term-glow-blue);
+:root[data-theme="dark"] .agent-hud__environment-controls[data-drag-active] .agent-hud__project-input {
+  --field-edge: color-mix(in oklab, var(--term-blue) 85%, white);
+  --field-fill: color-mix(in oklab, var(--term-blue) 24%, var(--hud-input-bg));
 }
 
 /* On the light background a glow barely shows: a solid blue edge and ring instead. */

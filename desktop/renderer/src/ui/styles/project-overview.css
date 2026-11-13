@@ -49,6 +49,44 @@
   color: var(--hud-input-placeholder);
 }
 
+/* Dark fields: what the user types or drops into, a lighter shade than the dark
+   round it. An octagon drawn by the element alone, as an input takes no pseudo
+   element: it is clipped to the shape; its border is transparent over a layer
+   of the edge's colour, which so shows along the straight sides; a layer of the
+   fill covers the inside; and a triangle of the edge's colour in each corner
+   turns the fill's square corner into the cut one. The edge's colour is opaque,
+   so it is the same over the fill and beside it. */
+:root[data-theme="dark"] :is(.agent-hud__project-input, .agent-hud__environment-import, .agent-hud__environment-editor) {
+  --field-cut: 0.6rem;
+  /* Wider than a hairline: at a zoom between whole pixels 1px comes out uneven. */
+  --field-ring: 1.5px;
+  --field-edge: color-mix(in oklab, var(--term-blue) 45%, var(--hud-input-bg));
+  --field-fill: color-mix(in oklab, var(--term-blue) 13%, var(--hud-input-bg));
+  /* The triangle's side, for an edge as wide on the cut as on the straight sides. */
+  --field-corner: calc(var(--field-cut) + var(--field-ring) * 1.4142);
+  --field-slope: var(--field-edge) calc(50% - 0.4px), transparent calc(50% + 0.4px);
+  border: var(--field-ring) solid transparent;
+  border-radius: 0;
+  background:
+    linear-gradient(135deg, var(--field-slope)) top left / var(--field-corner) var(--field-corner) no-repeat border-box,
+    linear-gradient(225deg, var(--field-slope)) top right / var(--field-corner) var(--field-corner) no-repeat border-box,
+    linear-gradient(315deg, var(--field-slope)) bottom right / var(--field-corner) var(--field-corner) no-repeat border-box,
+    linear-gradient(45deg, var(--field-slope)) bottom left / var(--field-corner) var(--field-corner) no-repeat border-box,
+    linear-gradient(var(--field-fill), var(--field-fill)) padding-box,
+    linear-gradient(var(--field-edge), var(--field-edge)) border-box;
+  clip-path: polygon(
+    var(--field-cut) 0, calc(100% - var(--field-cut)) 0,
+    100% var(--field-cut), 100% calc(100% - var(--field-cut)),
+    calc(100% - var(--field-cut)) 100%, var(--field-cut) 100%,
+    0 calc(100% - var(--field-cut)), 0 var(--field-cut)
+  );
+}
+
+/* A focused field's edge lights up; an outline would be cut off by its shape. */
+:root[data-theme="dark"] .agent-hud__project-input:focus-visible {
+  --field-edge: color-mix(in oklab, var(--term-blue) 85%, white);
+}
+
 .agent-hud__project-view {
   animation: hud-view-in 150ms cubic-bezier(0.22, 1, 0.36, 1) both;
   transform-origin: center;
@@ -130,14 +168,54 @@
    follow a button to its project name. The row itself does nothing on click,
    so the cursor stays an arrow. */
 .agent-hud__project-row {
-  border-radius: 0.25rem;
+  padding-block: 0.3rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--term-blue) 20%, transparent);
   cursor: default;
 }
 .agent-hud__project-row:hover {
   background: rgba(64, 200, 255, 0.1);
 }
-.agent-hud__project-row:hover .agent-hud__project-summary {
-  filter: brightness(1.25);
+
+/* The status column's width. Dark's is wider, for the lamp before each status. */
+.agent-hud__projects-table {
+  --status-column: 9.5rem;
+}
+
+/* Dark: a lamp before each status, hollow for a project at rest and lit in the
+   status colour for one that is live. The column's heading clears it. */
+:root[data-theme="dark"] .agent-hud__row-status::before {
+  content: "";
+  display: inline-block;
+  box-sizing: border-box;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-right: 0.65rem;
+  border: 1px solid currentColor;
+  translate: 0 -0.05rem;
+}
+
+:root[data-theme="dark"] .agent-hud__row-status[data-live]::before {
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+}
+
+:root[data-theme="dark"] .agent-hud__status-heading {
+  padding-left: 1.25rem;
+}
+
+/* Dark: the table sits in a panel (hud-panels.css). Its scrollbar is always
+   there, at one strength: one that shows only on hover vanishes when reached
+   for, since the pointer over the bar itself does not hover the list. Its space
+   is kept whether the list overflows or not, so the rows never shift, and it
+   stands off from the buttons. */
+:root[data-theme="dark"] .agent-hud__project-view.agent-hud__panel {
+  padding: 1.6rem 1.4rem 1.3rem;
+}
+
+:root[data-theme="dark"] .agent-hud__project-view > .agent-hud__table-scroll {
+  padding-right: 1rem;
+  scrollbar-gutter: stable;
+  scrollbar-color: color-mix(in oklab, var(--term-blue) 50%, transparent) transparent;
 }
 
 .agent-hud__capability-selector,
@@ -291,6 +369,9 @@
   background: none;
   box-shadow: none;
 }
+:root[data-theme="light"] .agent-hud__projects-table {
+  --status-column: 8rem;
+}
 :root[data-theme="light"] .agent-hud__project-row {
   min-height: 3.4rem;
   padding: 0.42rem 0.62rem;
@@ -302,9 +383,6 @@
 }
 :root[data-theme="light"] .agent-hud__project-row:hover {
   background: color-mix(in oklab, var(--term-blue) clamp(0%, 9% * var(--tune-hover-fill, 1), 100%), var(--hud-input-bg));
-}
-:root[data-theme="light"] .agent-hud__project-row:hover .agent-hud__project-summary {
-  filter: none;
 }
 :root[data-theme="light"] .agent-hud__project-row + .agent-hud__project-row {
   margin-top: 0.62rem;
