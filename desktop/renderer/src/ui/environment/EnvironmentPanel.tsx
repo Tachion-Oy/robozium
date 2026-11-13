@@ -54,7 +54,7 @@ export function EnvironmentPanel({ draft, mutations, hub, restartRequired, onRes
 			<HudBusy window busy={importing !== undefined} label={importing ? `Importing ${importing}…` : "Importing…"} className="flex min-h-0 flex-1 flex-col gap-4">
 				{loading && slowLoad && <Toast tone="info" title="Environment" message="Loading settings…" />}
 				{loadError !== null && <Toast tone="error" title="Could not load settings" message={loadError} actions={[{ label: "Retry", onClick: draft.retry }]} />}
-				{draft.paused && <Toast tone="info" title="Editing paused" message="Stop all runs and background work before editing." />}
+				{draft.editingPaused && <Toast tone="info" title="Editing paused" message="Stop all runs and background work before editing." />}
 				<h2 className="text-center">Environment</h2>
 				<div className="agent-hud__table-scroll min-h-0 flex-1 overflow-auto px-3 [scrollbar-gutter:stable]">
 					<div className="agent-hud__environment-sections pb-4">

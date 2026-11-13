@@ -55,8 +55,8 @@ function entryError({ entry, original, originalName }: Editor, entries: Environm
 export interface EnvironmentDraft {
 	view: EnvironmentView | null
 	editable: boolean
-	/** Runs or background work block editing, as read since the screen was last shown. */
-	paused: boolean
+	/** A current reading says runs or background work block editing; the panel shows the Editing paused toast. */
+	editingPaused: boolean
 	loadFailed: boolean
 	/** Why the last read failed; the panel shows it in a toast with Retry. */
 	loadError: string | null
@@ -95,8 +95,8 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 	const loadFailed = loadError !== null
 	const lastLoadError = useRef("")
 	const [refreshVersion, setRefreshVersion] = useState(0)
-	/** The settings were read since the screen was last shown; work may have stopped since an earlier reading. */
-	const [readThisVisit, setReadThisVisit] = useState(false)
+	/** The kept settings were read before the screen was last left; runs may have stopped since. */
+	const [viewIsStale, setViewIsStale] = useState(false)
 	const dirtyRef = useRef(false)
 	const editingRef = useRef(false)
 	// The write checks read refs, so the first render's functions stay current.
@@ -116,7 +116,7 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 				const preserve = dirtyRef.current || editingRef.current
 				setView(previous => preserve && previous ? { ...next, entries: previous.entries, revision: previous.revision } : next)
 				if (!preserve) setChangedEntries(next.entries)
-				setReadThisVisit(true)
+				setViewIsStale(false)
 				setLoadError(null)
 				const message = next.example_errors.join("\n")
 				if (message && lastLoadError.current !== message) {
@@ -134,7 +134,7 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 		return () => {
 			controller.abort()
 			window.clearInterval(timer)
-			setReadThisVisit(false)
+			setViewIsStale(true)
 		}
 	}, [client, visible, refreshVersion])
 	// A new client starts from its own settings, discarding the previous client's edits.
@@ -147,7 +147,7 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 	}, [client])
 
 	const editable = Boolean(view?.editable && !writes.pending && !loadFailed)
-	const paused = readThisVisit && view !== null && !view.editable
+	const editingPaused = view !== null && !viewIsStale && !view.editable
 	const canReset = !writes.pending && (view?.editable ?? loadFailed)
 	const newEntry = (name = "", value = "", secret = false): EnvironmentEntry => ({
 		name, value, secret, configured: false,
@@ -234,7 +234,7 @@ export function useEnvironmentDraft(client: DesktopApiClient, visible: boolean, 
 	}
 
 	return {
-		view, editable, paused, loadFailed, loadError, canReset,
+		view, editable, editingPaused, loadFailed, loadError, canReset,
 		editor, currentEntries, dirty, needsPassword,
 		variables: [...variables.values()],
 		openEditor, closeEditor, updateEditor, applyEditor, removeVariable,
