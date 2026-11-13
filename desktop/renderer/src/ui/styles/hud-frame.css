@@ -226,6 +226,16 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   --hud-text-glow: 0 0 0.6em color-mix(in oklab, var(--term-blue) 50%, transparent);
 }
 
+/* Dark HUD tuning: how strongly the accent is mixed into every edge, fill, label
+   and glow of the HUD's controls (light-theme.css describes each knob). */
+:root[data-theme="dark"] .agent-hud__box {
+  --tune-edge: 1.8;
+  --tune-fill: 1.6;
+  --tune-text: 1.25;
+  --tune-glow: 2.2;
+  --tune-hover-glow: 1.6;
+}
+
 /* Fine and major ticks along the whole of the dark shell's top and bottom edges,
    at the grid's own strength. */
 :root[data-theme="dark"] .agent-hud__box::after {

@@ -45,16 +45,11 @@ export function EnvironmentVariableEditor({
 			</div>
 			{entry.overridden && <p>Overridden by .env</p>}
 			<div className="flex flex-wrap items-center gap-3">
-				<label className="agent-hud__switch">
-					<input
-						type="checkbox"
-						role="switch"
-						checked={entry.secret}
-						disabled={disabled}
-						onChange={event => onChange({ ...entry, secret: event.target.checked })}
-					/>
+				{/* Red, and lit while on, so it is plain that the value will be kept secret. */}
+				<HudButton variant="danger" role="switch" aria-checked={entry.secret} disabled={disabled}
+					onClick={() => onChange({ ...entry, secret: !entry.secret })}>
 					Secret
-				</label>
+				</HudButton>
 				<HudButton type="submit" variant="success" disabled={disabled}>Apply</HudButton>
 				<HudButton variant="warning" onClick={onCancel}>Cancel</HudButton>
 			</div>

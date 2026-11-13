@@ -10,7 +10,7 @@ export function CapabilityItem({ capability, selection }: CapabilityItemProps) {
 	const name = capability.name.replaceAll("_", " ")
 	const content = <>
 		<span className="agent-hud__capability-name">{name}</span>
-		{capability.kind === "skill" && <span className="agent-hud__capability-badge">Skill</span>}
+		<span className="agent-hud__capability-badge">{capability.kind === "skill" ? "Skill" : "Tool"}</span>
 	</>
 
 	return selection ? (

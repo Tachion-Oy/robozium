@@ -276,6 +276,24 @@
   gap: var(--hud-actions-gap);
 }
 
+/* Dark footer labels are spaced capitals, centred on the capitals as the small
+   buttons' are (hud-button.css): the label's line is trimmed to their height and
+   the padding gives the trimmed space back. */
+:root[data-theme="dark"] .agent-hud__actions button {
+  font-size: 0.92em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+:root[data-theme="dark"] .agent-hud__actions :is(.agent-hud__dictate, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__send) {
+  padding-block: calc(var(--hud-control-pad-y) + (1lh - 1cap) / 2);
+}
+
+:root[data-theme="dark"] .agent-hud__actions :is(.agent-hud__dictate, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__send),
+:root[data-theme="dark"] .agent-hud__actions :is(.agent-hud__dictate, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__send) > span:not(.agent-hud__dictate-meter) {
+  text-box: trim-both cap alphabetic;
+}
+
 /* Octagon button chrome: two solid, nested polygons form a continuous accent
    shell and inset surface. Unlike separate 1px gradient strips, these shapes do
    not lose individual edges when browser zoom places the control on fractional
@@ -309,6 +327,31 @@
   z-index: 0;
   border: 0;
   background: transparent;
+}
+
+/* Dark: a narrower edge at the accent's full strength, in a quiet halo of the
+   button's colour that hover brightens. The halo is the button's own shadow, on
+   a box rounded to its cut corners (hud-button.css says why it is no filter). */
+:where(:root[data-theme="dark"]) :is(.agent-hud__expand, .agent-hud__minimize, .agent-hud__corner-control, .agent-hud__copy-text, .agent-hud__dictate, .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__layout-controls .agent-hud__layout-direction, .agent-hud__send, .agent-hud__selector-trigger) {
+  --btn-ring: 1.5px;
+  /* A narrow edge needs the accent's full strength to hold its colour. */
+  --tune-edge: 2.7;
+  --halo-lift: 1;
+  border-radius: calc(var(--btn-cut) * 1.7);
+  box-shadow:
+    0 0 2px color-mix(in oklab, var(--btn-accent) calc(45% * var(--halo-lift)), transparent),
+    0 0 10px color-mix(in oklab, var(--btn-accent) calc(24% * var(--halo-lift)), transparent);
+}
+
+:where(:root[data-theme="dark"]) :is(.agent-hud__expand, .agent-hud__minimize, .agent-hud__corner-control, .agent-hud__copy-text, .agent-hud__dictate, .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__layout-controls .agent-hud__layout-direction, .agent-hud__send, .agent-hud__selector-trigger):not(:disabled):hover {
+  --halo-lift: 1.6;
+}
+
+/* Their labels glow in the button's colour. */
+:where(:root[data-theme="dark"]) :is(.agent-hud__dictate, .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__send, .agent-hud__selector-trigger):not(:disabled) {
+  text-shadow:
+    0 0 3px color-mix(in oklab, var(--btn-accent) 70%, transparent),
+    0 0 12px color-mix(in oklab, var(--btn-accent) 45%, transparent);
 }
 
 .agent-hud__expand::before,

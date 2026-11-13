@@ -14,20 +14,16 @@
      line up whichever label (Open or Launch) comes first. */
   min-width: calc(6ch + 6 * 0.08em + 1.1rem + 2px);
   cursor: pointer;
-  border-radius: 0.2rem;
 }
 
+/* A tool or skill to choose for a launch. */
 .agent-hud__option {
-  padding: 0.6rem 0.75rem;
   white-space: normal;
   text-align: left;
-  color: var(--hud-input-text);
-  border-color: var(--hud-input-border);
-  background: var(--hud-input-bg);
 }
 
-button.agent-hud__option:not(:disabled):hover {
-  border-color: var(--term-green);
+.agent-hud__option[aria-checked="true"]:disabled {
+  opacity: 0.8;
 }
 
 /* A listed tool or skill wears a button's colours but is not one: no hover. */
@@ -35,85 +31,146 @@ button.agent-hud__option:not(:disabled):hover {
   cursor: default;
 }
 
-.agent-hud__row-tools {
-  color: color-mix(in oklab, var(--term-blue) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
-  border-color: color-mix(in oklab, var(--term-blue) clamp(0%, 62% * var(--tune-edge, 1), 100%), transparent);
-  background: color-mix(in oklab, var(--term-blue) clamp(0%, 10% * var(--tune-fill, 1), 100%), transparent);
-}
-
-.agent-hud__row-tools:not(:disabled, .agent-hud__capability-static):hover,
-.agent-hud__row-tools:not(:disabled, .agent-hud__capability-static):focus-visible {
-  color: color-mix(in oklab, var(--term-blue) clamp(0%, 72% * var(--tune-text, 1), 100%), white);
-  border-color: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
-  background: color-mix(in oklab, var(--term-blue) clamp(0%, 26% * var(--tune-hover-fill, 1), 100%), transparent);
-  text-shadow: var(--term-glow-blue);
-}
-
-.agent-hud__row-launch {
-  color: color-mix(in oklab, var(--term-green) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
-  border-color: color-mix(in oklab, var(--term-green) clamp(0%, 62% * var(--tune-edge, 1), 100%), transparent);
-  background: color-mix(in oklab, var(--term-green) clamp(0%, 10% * var(--tune-fill, 1), 100%), transparent);
-}
-
-.agent-hud__row-launch:not(:disabled):hover,
-.agent-hud__row-launch:not(:disabled):focus-visible {
-  color: color-mix(in oklab, var(--term-green) clamp(0%, 72% * var(--tune-text, 1), 100%), white);
-  border-color: color-mix(in oklab, var(--term-green) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
-  background: color-mix(in oklab, var(--term-green) clamp(0%, 26% * var(--tune-hover-fill, 1), 100%), transparent);
-  text-shadow: var(--term-glow-green);
-}
-
-.agent-hud__option[aria-checked="true"] {
-  color: var(--term-green);
-  border-color: var(--term-green);
-  background: color-mix(in oklab, var(--term-green) clamp(0%, 15% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
-}
-
-.agent-hud__option[aria-checked="true"]:disabled {
-  opacity: 0.8;
-}
-
-.agent-hud__option:focus-visible {
-  outline: 2px solid var(--term-blue);
-  outline-offset: 2px;
-}
-
-.agent-hud__row-cancel {
-  color: color-mix(in oklab, var(--term-amber) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
-  border-color: color-mix(in oklab, var(--term-amber) clamp(0%, 45% * var(--tune-edge, 1), 100%), transparent);
-  background: color-mix(in oklab, var(--term-amber) clamp(0%, 8% * var(--tune-fill, 1), 100%), transparent);
-}
-
-.agent-hud__row-cancel:not(:disabled):hover {
-  color: color-mix(in oklab, var(--term-amber) clamp(0%, 80% * var(--tune-text, 1), 100%), white);
-  border-color: color-mix(in oklab, var(--term-amber) clamp(0%, 80% * var(--tune-hover-edge, 1), 100%), white);
-  background: color-mix(in oklab, var(--term-amber) clamp(0%, 18% * var(--tune-hover-fill, 1), 100%), transparent);
-  text-shadow: var(--term-glow-amber);
-}
-
-.agent-hud__row-delete {
-  color: color-mix(in oklab, var(--term-red) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
-  border-color: color-mix(in oklab, var(--term-red) clamp(0%, 45% * var(--tune-edge, 1), 100%), transparent);
-  background: color-mix(in oklab, var(--term-red) clamp(0%, 8% * var(--tune-fill, 1), 100%), transparent);
-}
-
-.agent-hud__row-delete:not(:disabled):hover {
-  color: color-mix(in oklab, var(--term-red) clamp(0%, 82% * var(--tune-text, 1), 100%), white);
-  border-color: color-mix(in oklab, var(--term-red) clamp(0%, 82% * var(--tune-hover-edge, 1), 100%), white);
-  background: color-mix(in oklab, var(--term-red) clamp(0%, 18% * var(--tune-hover-fill, 1), 100%), transparent);
-  text-shadow: var(--term-glow-red);
-}
-
-.agent-hud__row-delete--confirm {
-  color: color-mix(in oklab, var(--term-red) clamp(0%, 88% * var(--tune-text, 1), 100%), white);
-  border-color: color-mix(in oklab, var(--term-red) clamp(0%, 88% * var(--tune-edge, 1), 100%), white);
-  background: color-mix(in oklab, var(--term-red) clamp(0%, 24% * var(--tune-fill, 1), 100%), transparent);
-  text-shadow: var(--term-glow-red);
-}
-
 .agent-hud__row-action:disabled {
   opacity: 0.55;
   cursor: default;
+}
+
+/* Each kind of button has one colour, from which a theme draws its edge, fill,
+   label and glow. A tool or skill is blue, as listed in Environment, and green
+   once chosen. */
+.agent-hud__row-tools,
+.agent-hud__option {
+  --accent: var(--term-blue);
+}
+
+.agent-hud__row-launch,
+.agent-hud__option[aria-checked="true"] {
+  --accent: var(--term-green);
+}
+
+.agent-hud__row-cancel {
+  --accent: var(--term-amber);
+}
+
+.agent-hud__row-delete {
+  --accent: var(--term-red);
+}
+
+/* Dark: a cut-corner outline in a quiet halo of the button's colour. The fill is
+   an octagon drawn by ::before and the edge by ::after, as one even-odd shape, so
+   it is equally wide on its straight and cut sides. The button itself is not
+   clipped, so its own shadow is the halo: a shadow follows a rounded box, and
+   1.7 times the cut puts the curve on the middle of each cut corner and nowhere
+   outside the octagon. A filter would be blurred again whenever a row is redrawn. */
+:root[data-theme="dark"] .agent-hud__row-action {
+  --ring-cut: 0.42rem;
+  /* Wider than a hairline: at a zoom between whole pixels 1px comes out uneven. */
+  --ring-width: 1.5px;
+  --edge: color-mix(in oklab, var(--accent) 90%, transparent);
+  --fill: color-mix(in oklab, var(--accent) 14%, transparent);
+  --halo-lift: 1;
+  position: relative;
+  z-index: 0;
+  border-radius: calc(var(--ring-cut) * 1.7);
+  /* The label is centred on its capitals: its line is trimmed to their height
+     and the padding gives the trimmed space back. Untrimmed, the room a line
+     keeps for descenders leaves the capitals sitting high. */
+  padding-block: calc(0.2rem + (1lh - 1cap) / 2);
+  color: color-mix(in oklab, var(--accent) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
+  text-box: trim-both cap alphabetic;
+  box-shadow:
+    0 0 2px color-mix(in oklab, var(--accent) calc(45% * var(--halo-lift)), transparent),
+    0 0 10px color-mix(in oklab, var(--accent) calc(24% * var(--halo-lift)), transparent),
+    inset 0 0 6px color-mix(in oklab, var(--accent) calc(12% * var(--halo-lift)), transparent);
+}
+
+:root[data-theme="dark"] .agent-hud__row-action::before {
+  content: "";
+  position: absolute;
+  /* Out over the button's own 1px border. */
+  inset: -1px;
+  z-index: -2;
+  pointer-events: none;
+  background: var(--fill);
+  clip-path: polygon(
+    var(--ring-cut) 0, calc(100% - var(--ring-cut)) 0,
+    100% var(--ring-cut), 100% calc(100% - var(--ring-cut)),
+    calc(100% - var(--ring-cut)) 100%, var(--ring-cut) 100%,
+    0 calc(100% - var(--ring-cut)), 0 var(--ring-cut)
+  );
+}
+
+:root[data-theme="dark"] .agent-hud__row-action::after {
+  inset: -1px;
+  background: var(--edge);
+}
+
+/* The cut-corner outline: an octagon and one inset by the edge's width, as a
+   single even-odd shape. The panels' labels (hud-panels.css) wear it too. */
+:root[data-theme="dark"] .agent-hud__row-action::after,
+.agent-hud__panel-label::after {
+  /* Where the inner outline's cut meets its straight side, for an even width. */
+  --ring-inner: calc(var(--ring-cut) + var(--ring-width) * 0.4142);
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  clip-path: polygon(
+    evenodd,
+    var(--ring-cut) 0, calc(100% - var(--ring-cut)) 0,
+    100% var(--ring-cut), 100% calc(100% - var(--ring-cut)),
+    calc(100% - var(--ring-cut)) 100%, var(--ring-cut) 100%,
+    0 calc(100% - var(--ring-cut)), 0 var(--ring-cut),
+    var(--ring-cut) 0,
+    var(--ring-inner) var(--ring-width), calc(100% - var(--ring-inner)) var(--ring-width),
+    calc(100% - var(--ring-width)) var(--ring-inner), calc(100% - var(--ring-width)) calc(100% - var(--ring-inner)),
+    calc(100% - var(--ring-inner)) calc(100% - var(--ring-width)), var(--ring-inner) calc(100% - var(--ring-width)),
+    var(--ring-width) calc(100% - var(--ring-inner)), var(--ring-width) var(--ring-inner),
+    var(--ring-inner) var(--ring-width)
+  );
+}
+
+/* A chip names its capability and its kind; each of the two is centred as a label is. */
+:root[data-theme="dark"] :is(.agent-hud__capability-static, .agent-hud__option) > span {
+  text-box: trim-both cap alphabetic;
+}
+
+/* A tool or skill not yet chosen is paler; chosen, it has a fuller fill. */
+:root[data-theme="dark"] .agent-hud__option {
+  color: color-mix(in oklab, var(--accent) 60%, white);
+}
+
+:root[data-theme="dark"] .agent-hud__option[aria-checked="true"] {
+  --fill: color-mix(in oklab, var(--accent) 24%, transparent);
+  color: color-mix(in oklab, var(--accent) 75%, white);
+}
+
+/* Lit: under the pointer, focused from the keyboard, or armed to delete. */
+:root[data-theme="dark"] .agent-hud__row-action:is(.agent-hud__row-delete--confirm, :not(:disabled, .agent-hud__capability-static):hover, :not(:disabled):focus-visible) {
+  --edge: color-mix(in oklab, var(--accent) 88%, white);
+  --fill: color-mix(in oklab, var(--accent) 30%, transparent);
+  --halo-lift: 1.6;
+  color: color-mix(in oklab, var(--accent) clamp(0%, 72% * var(--tune-text, 1), 100%), white);
+  text-shadow:
+    0 0 1px var(--accent),
+    0 0 4px color-mix(in oklab, var(--accent) 82%, transparent),
+    0 0 12px color-mix(in oklab, var(--accent) 55%, transparent),
+    0 0 24px color-mix(in oklab, var(--accent) 38%, transparent),
+    0 0 40px color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+/* A switch that is on: filled in its colour with dark letters, in a halo no
+   other small button has. */
+:root[data-theme="dark"] .agent-hud__row-action[role="switch"][aria-checked="true"] {
+  --edge: var(--accent);
+  --fill: color-mix(in oklab, var(--accent) 88%, transparent);
+  color: color-mix(in oklab, var(--term-bg) 82%, var(--accent));
+  -webkit-text-stroke: 0.04em currentColor;
+  text-shadow: none;
+  box-shadow:
+    0 0 4px var(--accent),
+    0 0 20px color-mix(in oklab, var(--accent) 70%, transparent);
 }
 
 /* Light row buttons carry their tone in the edge and fill, strongly enough to
@@ -166,7 +223,8 @@ button.agent-hud__option:not(:disabled):hover {
   background: color-mix(in oklab, var(--term-red) clamp(0%, 18% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 
-:root[data-theme="light"] .agent-hud__row-delete--confirm {
+:root[data-theme="light"] .agent-hud__row-delete--confirm,
+:root[data-theme="light"] .agent-hud__row-action[role="switch"][aria-checked="true"] {
   color: var(--hud-control-ink);
   border-color: var(--term-red);
   background: color-mix(in oklab, var(--term-red) clamp(0%, 24% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
@@ -216,6 +274,22 @@ button.agent-hud__option:not(:disabled):hover {
 
 :root[data-theme="light"] .agent-hud__row-action:not(:disabled):active {
   transform: translateY(0);
+}
+
+:root[data-theme="light"] .agent-hud__option {
+  color: var(--hud-input-text);
+  border-color: var(--hud-input-border);
+  background: var(--hud-input-bg);
+}
+
+:root[data-theme="light"] button.agent-hud__option:not(:disabled):hover {
+  border-color: var(--term-green);
+}
+
+:root[data-theme="light"] .agent-hud__option[aria-checked="true"] {
+  color: var(--term-green);
+  border-color: var(--term-green);
+  background: color-mix(in oklab, var(--term-green) clamp(0%, 15% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 
 :root[data-theme="light"] .agent-hud__option:focus-visible {

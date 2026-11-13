@@ -78,6 +78,9 @@ test("New Project creates once, saves the chosen capabilities, then launches and
 	await expect(launch).toHaveAccessibleName("Launch")
 	await expect(capability(page, "base tool")).toBeDisabled()
 	await expect(capability(page, "base tool")).toHaveAttribute("aria-checked", "true")
+	// Each capability is badged with its kind.
+	await expect(capability(page, "base tool").locator(".agent-hud__capability-badge")).toHaveText("Tool")
+	await expect(capability(page, "notes").locator(".agent-hud__capability-badge")).toHaveText("Skill")
 	await expect(launch).toBeDisabled()
 	await page.getByRole("textbox", { name: "Project name" }).fill("Fresh work")
 	await capability(page, "web search").click()
