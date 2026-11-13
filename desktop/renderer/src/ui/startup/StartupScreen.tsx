@@ -97,8 +97,7 @@ export function StartupScreen({ mode, ready, status, label, progress, onFaded }:
 									{shownProgress !== undefined && <StartupProgress fraction={shownProgress} label={label === "updating" ? "Updating" : "Loading"} />}
 								</div>}>
 								<svg className="startup__outline" viewBox="0 0 100 100" aria-hidden="true">
-									<polygon points={octagonPoints} strokeWidth="1" vectorEffect="non-scaling-stroke" />
-									<polygon points={octagonPoints} transform="translate(1.5 1.5) scale(0.97)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+									<polygon points={octagonPoints} />
 								</svg>
 							</MinimizedHudFrame>
 						</div>

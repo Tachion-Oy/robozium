@@ -62,8 +62,10 @@
    it is equally wide on its straight and cut sides. The button itself is not
    clipped, so its own shadow is the halo: a shadow follows a rounded box, and
    1.7 times the cut puts the curve on the middle of each cut corner and nowhere
-   outside the octagon. A filter would be blurred again whenever a row is redrawn. */
-:root[data-theme="dark"] .agent-hud__row-action {
+   outside the octagon. A filter would be blurred again whenever a row is redrawn.
+   The enlarged image's two controls wear this dress too; they are not given the
+   buttons' class, since light keeps their plain look. */
+:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__image-toolbar > :is(a, button)) {
   --ring-cut: 0.42rem;
   /* Wider than a hairline: at a zoom between whole pixels 1px comes out uneven. */
   --ring-width: 1.5px;
@@ -85,7 +87,7 @@
     inset 0 0 6px color-mix(in oklab, var(--accent) calc(12% * var(--halo-lift)), transparent);
 }
 
-:root[data-theme="dark"] .agent-hud__row-action::before {
+:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__image-toolbar > :is(a, button))::before {
   content: "";
   position: absolute;
   /* Out over the button's own 1px border. */
@@ -101,14 +103,14 @@
   );
 }
 
-:root[data-theme="dark"] .agent-hud__row-action::after {
+:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__image-toolbar > :is(a, button))::after {
   inset: -1px;
   background: var(--edge);
 }
 
 /* The cut-corner outline: an octagon and one inset by the edge's width, as a
    single even-odd shape. The panels' labels (hud-panels.css) wear it too. */
-:root[data-theme="dark"] .agent-hud__row-action::after,
+:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__image-toolbar > :is(a, button))::after,
 .agent-hud__panel-label::after {
   /* Where the inner outline's cut meets its straight side, for an even width. */
   --ring-inner: calc(var(--ring-cut) + var(--ring-width) * 0.4142);
@@ -147,7 +149,7 @@
 }
 
 /* Lit: under the pointer, focused from the keyboard, or armed to delete. */
-:root[data-theme="dark"] .agent-hud__row-action:is(.agent-hud__row-delete--confirm, :not(:disabled, .agent-hud__capability-static):hover, :not(:disabled):focus-visible) {
+:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__image-toolbar > :is(a, button)):is(.agent-hud__row-delete--confirm, :not(:disabled, .agent-hud__capability-static):hover, :not(:disabled):focus-visible) {
   --edge: color-mix(in oklab, var(--accent) 88%, white);
   --fill: color-mix(in oklab, var(--accent) 30%, transparent);
   --halo-lift: 1.6;

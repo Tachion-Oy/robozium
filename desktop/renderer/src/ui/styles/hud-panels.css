@@ -132,6 +132,55 @@ button.agent-hud__image-preview {
   outline-offset: 2px;
 }
 
+/* Dark: a picture has a square frame, a dim blue line in a quiet halo, a little
+   clear of the text round it. */
+:root[data-theme="dark"] :is(.agent-hud__image-preview, .agent-hud__reply-image) {
+  border: 2px solid var(--image-edge);
+  border-radius: 0;
+  background: var(--term-bg);
+  box-shadow: var(--image-glow);
+}
+
+:root[data-theme="dark"] .agent-hud__image-preview {
+  margin: 0.6rem 0;
+}
+
+/* Dark: the enlarged picture is a panel. An outline frames the picture, so that
+   it keeps the size the dialog worked out for it. Its two controls are dressed
+   as small buttons (hud-button.css): the link in the HUD's blue, Close in the
+   amber of a dialog's Cancel; focus lights their edge. */
+:root[data-theme="dark"] .agent-hud__image-dialog {
+  padding: 1.4rem 1.7rem 1.7rem;
+}
+
+:root[data-theme="dark"] .agent-hud__image-dialog[open] {
+  gap: 1.1rem;
+}
+
+:root[data-theme="dark"] .agent-hud__image-stage {
+  outline: 2px solid var(--image-edge);
+  background: var(--term-bg);
+  box-shadow: var(--image-glow);
+}
+
+:root[data-theme="dark"] .agent-hud__image-toolbar > :is(a, button) {
+  --accent: var(--term-blue);
+  padding-inline: 0.6rem;
+  border: 1px solid transparent;
+  outline: none;
+  background: transparent;
+  font-size: 0.95rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+:root[data-theme="dark"] .agent-hud__image-toolbar > button {
+  --accent: var(--term-amber);
+}
+
 /* Base */
 
 .agent-hud__run-view > .agent-hud__replySection {
@@ -348,9 +397,12 @@ button.agent-hud__image-preview {
 /* The dark HUD's headings. Its face has one weight, so headings, bold text and
    table headers thicken its regular glyphs with a stroke in the text's own
    colour. A message's headings are told apart by size and colour, the fourth
-   level and below sharing one look; a view's title is set as a first-level one. */
+   level and below sharing one look; a view's title is set as a first-level one
+   and a dialog's as a second-level one. */
 :root[data-theme="dark"] :is(.agent-hud__markdown-h1, .agent-hud__markdown-h2, .agent-hud__markdown-h3, .agent-hud__markdown-h4),
-:root[data-theme="dark"] :is(.agent-hud__settings-view, .agent-hud__capability-selector) h2 {
+:root[data-theme="dark"] :is(.agent-hud__settings-view, .agent-hud__capability-selector) h2,
+:root[data-theme="dark"] .agent-hud__password-dialog h3,
+:root[data-theme="dark"] .agent-hud__image-toolbar > span {
   font-family: inherit;
   font-weight: 400;
   line-height: 1.25;
@@ -375,6 +427,15 @@ button.agent-hud__image-preview {
   margin: 1.1rem 0 0.45rem;
   color: color-mix(in oklab, var(--term-blue) 58%, white);
   font-size: 1.25em;
+}
+
+/* A dialog's title is written as it is, not in small capitals. */
+:root[data-theme="dark"] .agent-hud__password-dialog h3,
+:root[data-theme="dark"] .agent-hud__image-toolbar > span {
+  color: color-mix(in oklab, var(--term-blue) 30%, white);
+  font-size: 1.25em;
+  letter-spacing: inherit;
+  text-transform: none;
 }
 
 :root[data-theme="dark"] .agent-hud__markdown-h3 {
@@ -594,6 +655,21 @@ button.agent-hud__image-preview {
     radial-gradient(circle at 100% 100%, var(--panel-corner), transparent 5rem),
     radial-gradient(circle at 0 100%, var(--panel-corner), transparent 5rem),
     var(--panel-edge);
+}
+
+/* Dark: a dialog is a panel over the dimmed HUD, in a stronger halo. Its edge is
+   opaque, and nothing in it scrolls: a scroller would cut the edge's corners. */
+:root[data-theme="dark"] :is(.agent-hud__password-dialog, .agent-hud__image-dialog) {
+  --panel-edge: color-mix(in oklab, var(--term-blue) 90%, var(--term-bg));
+  --panel-halo:
+    0 0 6px color-mix(in oklab, var(--term-blue) 70%, transparent),
+    0 0 30px color-mix(in oklab, var(--term-blue) 38%, transparent);
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: var(--panel-halo);
+  letter-spacing: 0.035em;
+  text-shadow: var(--hud-text-glow);
 }
 
 .agent-hud__replyBox {
@@ -1008,6 +1084,24 @@ button.agent-hud__image-preview {
   font: inherit;
   line-height: 1;
   cursor: pointer;
+}
+
+/* Dark: the tile's remove button is a square in the frame's colour, in its
+   corner, and the list is padded so a tile's halo is not cut at its edge. */
+:root[data-theme="dark"] .agent-hud__remove-image {
+  border: 1.5px solid var(--image-edge);
+  border-radius: 0;
+  background: var(--term-bg);
+  color: color-mix(in oklab, var(--term-blue) 40%, white);
+}
+
+:root[data-theme="dark"] .agent-hud__remove-image:hover {
+  background: color-mix(in oklab, var(--term-red) 80%, var(--term-bg));
+  color: white;
+}
+
+:root[data-theme="dark"] .agent-hud__reply-images {
+  padding: 0.4rem 0.7rem 0.4rem 1rem;
 }
 
 .agent-hud__remove-image:focus-visible,

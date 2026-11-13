@@ -80,7 +80,7 @@ function ImageDialog({ image, returnFocus, onClose }: {
 	return (
 		<dialog
 			ref={dialogRef}
-			className="agent-hud__image-dialog"
+			className="agent-hud__panel agent-hud__image-dialog"
 			aria-label={image.description}
 			onCancel={onClose}
 			onKeyDownCapture={(event) => {

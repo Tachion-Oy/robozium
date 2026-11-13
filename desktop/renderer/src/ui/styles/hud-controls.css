@@ -43,9 +43,20 @@
   font-size: inherit;
 }
 
-.agent-hud__password-dialog .agent-hud__project-input:focus-visible {
+:root[data-theme="light"] .agent-hud__password-dialog .agent-hud__project-input:focus-visible {
   outline: 2px solid var(--term-blue);
   outline-offset: 2px;
+}
+
+/* Dark: the dialog is a panel (hud-panels.css). The body's face draws a typed
+   password as specks; the system face draws round dots. */
+:root[data-theme="dark"] .agent-hud__password-dialog {
+  padding: 1.8rem 1.9rem 1.6rem;
+}
+
+:root[data-theme="dark"] .agent-hud__password-dialog input[type="password"]:not(:placeholder-shown) {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.15em;
 }
 
 /* Base */
