@@ -697,7 +697,8 @@ button.agent-hud__image-preview {
 /* A panel's name, on a tab astride its top edge beside the cut corner, where the
    corner takes room anyway: a dark plate in a bright edge with the word lit, as
    the small buttons are. It takes the panel's corner colour, so the reply
-   panel's tab lights with the panel while the user is in it. Light has none. */
+   panel's tab lights with the panel while the user is in it. Light dresses the
+   tab as a plate (below). */
 .agent-hud__panel-label {
   --ring-cut: 0.3rem;
   --ring-width: 1.5px;
@@ -1315,8 +1316,34 @@ button.agent-hud__image-preview {
   color: var(--hud-input-text);
   text-shadow: none;
 }
+/* A light panel's name is on a plate, which sits a little more inside the panel
+   than out of it. The panel's clip is let out for the part outside. */
+:root[data-theme="light"] .agent-hud__replyBox {
+  overflow: clip;
+  overflow-clip-margin: 1.2rem;
+}
 :root[data-theme="light"] .agent-hud__panel-label {
-  display: none;
+  top: 0;
+  right: 1.4rem;
+  translate: 0 -36%;
+  padding: 0.34rem 0.62rem 0.34rem 0.76rem;
+  border: 1px solid var(--hud-plate-bg);
+  border-radius: var(--hud-field-radius);
+  background: var(--hud-plate-bg);
+  box-shadow: none;
+  color: var(--hud-plate-ink);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-shadow: none;
+  -webkit-text-stroke: 0;
+}
+:root[data-theme="light"] .agent-hud__panel-label::after {
+  content: none;
+}
+/* The reply panel's plate wears the panel's ring while the user is in it. */
+:root[data-theme="light"] .agent-hud__replyBox--user:focus-within > .agent-hud__panel-label {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--hud-accent) 34%, transparent);
 }
 /* A light panel is a screen: ::before is its paper and ::after its edge, sunk
    into the case. */
@@ -1357,13 +1384,24 @@ button.agent-hud__image-preview {
 :root[data-theme="light"] .agent-hud__table-scroll {
   padding: 0.2rem 0.35rem 0.55rem;
 }
+/* A table's column names are on a plate as wide as its rows. Their text starts
+   where the rows' text starts: a row has a 1px edge, and its text 0.3rem more
+   inset, than the header (project-overview.css). */
 :root[data-theme="light"] .agent-hud__table-header {
-  border-bottom: 0.08rem solid
-    color-mix(in oklab, var(--term-blue) 34%, var(--hud-input-border));
   margin-bottom: 0.62rem;
-  padding: 0.48rem 0.62rem 0.72rem;
-  border-bottom-width: 1px;
-  background: color-mix(in oklab, var(--term-blue) 3%, transparent);
+  padding: 0.5rem calc(0.92rem + 1px);
+  border: 0;
+  border-radius: var(--hud-card-radius);
+  background: var(--hud-plate-bg);
+  /* Keeps the plate's edge solid where it lands between pixels. */
+  box-shadow: inset 0 0 0 1px var(--hud-plate-bg);
+}
+:root[data-theme="light"] .agent-hud__table-header > span:first-child {
+  color: var(--hud-plate-ink);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  opacity: 1;
 }
 :root[data-theme="light"] .agent-hud__replyBox {
   --panel-edge: var(--hud-screen-edge);

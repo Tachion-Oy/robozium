@@ -135,7 +135,8 @@
 }
 
 /* A chip names its capability and its kind; each of the two is centred as a label is. */
-:root[data-theme="dark"] :is(.agent-hud__capability-static, .agent-hud__option) > span {
+:root[data-theme="dark"] :is(.agent-hud__capability-static, .agent-hud__option) > span,
+:root[data-theme="light"] :is(.agent-hud__capability-static, .agent-hud__option) > span {
   text-box: trim-both cap alphabetic;
 }
 
@@ -313,8 +314,31 @@
   }
 }
 
+/* The "Skill" or "Tool" tag on a chip has the chip's colours flipped, as dark's
+   has: filled with the chip's colour, darkened, under pale letters. On a chip
+   not yet chosen it is a plate; on a chosen one, green. */
+:root[data-theme="light"] .agent-hud__option {
+  --tag-bg: var(--hud-plate-bg);
+}
+
+:root[data-theme="light"] .agent-hud__option[aria-checked="true"] {
+  --tag-bg: color-mix(in oklab, var(--term-green) 52%, var(--hud-control-ink));
+}
+
+:root[data-theme="light"] .agent-hud__capability-badge {
+  padding: 0.42em 0.6em;
+  border: 0;
+  border-radius: 0.24rem;
+  background: var(--tag-bg);
+  color: var(--hud-plate-ink);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  opacity: 1;
+}
+
 /* A listed tool or skill is a chip, not a key: flat, in the tools' blue. */
 :root[data-theme="light"] .agent-hud__capability-static {
+  --tag-bg: color-mix(in oklab, var(--term-blue) 58%, var(--hud-control-ink));
   border-color: color-mix(in oklab, var(--term-blue) 55%, var(--hud-control-ink));
   border-radius: 0.42rem;
   background: color-mix(in oklab, var(--term-blue) 20%, var(--hud-card-bg));

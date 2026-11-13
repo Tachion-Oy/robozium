@@ -64,22 +64,15 @@ html[data-desktop][data-theme] :is(.agent-hud__header, .agent-hud__environment) 
   font-weight: 600; -webkit-text-stroke: 0; text-shadow: none; filter: none;
 }
 html[data-desktop][data-theme="light"] :is(.agent-hud__header, .agent-hud__environment) .agent-hud__event-label { filter: none; }
+/* Light: a flat plate. It names, and is not pressed, so it has no body as a key has.
+   An inner line of its own colour keeps its edge solid where it lands between pixels. */
 html[data-desktop][data-theme="light"] :is(.agent-hud__header, .agent-hud__environment) .agent-hud__event-label .term-msg-badge {
   padding: 0 0.9rem; font-size: 1.1rem; letter-spacing: 0.04em;
-  clip-path: none; border-radius: 0.42rem;
-  border: 1px solid color-mix(in oklab, var(--hud-input-border) clamp(0%, 78% * var(--tune-line, 1), 100%), transparent);
-  background: linear-gradient(
-    180deg,
-    color-mix(in oklab, white clamp(0%, 46% * var(--tune-sheen, 1), 100%), var(--hud-input-bg)),
-    color-mix(in oklab, var(--hud-control-ink) clamp(0%, 5% * var(--tune-fill, 1), 100%), var(--hud-input-bg))
-  );
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 75% * var(--tune-sheen, 1), 100%), transparent),
-    inset 0 -2px 0 color-mix(in oklab, var(--hud-control-ink) clamp(0%, 10% * var(--tune-shadow, 1), 100%), transparent),
-    0 1px 1px color-mix(in oklab, var(--hud-control-ink) clamp(0%, 14% * var(--tune-shadow, 1), 100%), transparent),
-    0 0.22rem 0.5rem color-mix(in oklab, var(--hud-control-ink) clamp(0%, 10% * var(--tune-shadow, 1), 100%), transparent);
+  clip-path: none; border-radius: var(--hud-plate-radius); background: var(--hud-plate-bg);
+  box-shadow: inset 0 0 0 1px var(--hud-plate-bg);
 }
 html[data-desktop][data-theme="light"] :is(.agent-hud__header, .agent-hud__environment) .agent-hud__event-label .term-msg-badge-label {
-  color: var(--hud-control-ink); font-weight: 600; text-transform: none; text-shadow: none;
+  color: var(--hud-plate-ink); font-weight: 600; text-transform: none; text-shadow: none;
 }
 html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-text {
   display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
