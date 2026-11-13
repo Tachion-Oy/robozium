@@ -117,15 +117,16 @@ test("light tuning knobs scale the accent mixed into the run indicator", async (
 	expect(await settled()).not.toBe(initial)
 })
 
-test("dark names the run view's panels and light does not", async ({ desktop: { page } }) => {
+test("both themes name the run view's panels", async ({ desktop: { page } }) => {
 	await page.getByRole("button", { name: "Launch", exact: true }).click()
 	const labels = page.locator(".agent-hud__panel-label")
 	await expect(labels).toHaveText(["Agent", "User"])
 	await expect(labels.first()).toBeVisible()
 	await expect(labels.last()).toBeVisible()
 	await page.getByRole("button", { name: toggle }).click()
-	await expect(labels.first()).toBeHidden()
-	await expect(labels.last()).toBeHidden()
+	await expect(page.locator('html[data-theme="light"]:not([data-theme-switching])')).toHaveCount(1)
+	await expect(labels.first()).toBeVisible()
+	await expect(labels.last()).toBeVisible()
 })
 
 test("in light only the reply panel lights its edge while the user is in it", async ({ desktop: { page } }) => {

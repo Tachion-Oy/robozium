@@ -117,6 +117,10 @@
     --hud-band: color-mix(in oklab, var(--hud-accent) 9%, var(--hud-input-bg));
     --hud-rule: color-mix(in oklab, var(--hud-accent) 26%, var(--hud-input-bg));
     --hud-link: color-mix(in oklab, var(--hud-accent) 70%, var(--hud-control-ink));
+    /* A plate names something: the project, a panel, a section, a table's columns. */
+    --hud-plate-bg: #3d2a85;
+    --hud-plate-ink: #fffdf6;
+    --hud-plate-radius: 0.34rem;
     /* The cap of a key that only tends the view: zoom, copy, a selector. */
     --hud-key-cap: #f1eee7;
     /* A dialog dims the HUD behind it with the ink. */
