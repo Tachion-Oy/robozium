@@ -23,6 +23,7 @@ function unsupportedEngine(os: string): ContainerEngine {
 		inspect: async () => unsupported(),
 		run: async () => unsupported(),
 		stop: async () => unsupported(),
+		stopRecorded: () => unsupported(),
 		remove: async () => unsupported(),
 		logs: async () => unsupported(),
 	}

@@ -391,6 +391,26 @@ test("closing and reopening preserves project data and reuses the backend image"
 	})
 })
 
+test("ending the app without closing it still stops its backend, and the app starts again", async ({ runtime }) => {
+	const { app } = await launchConnected(runtime)
+	const { container } = await ownedBackend(runtime.profile)
+	const running = () => execFileSync(podman, ["inspect", "--format", "{{.State.Running}}", container], { encoding: "utf8" }).trim()
+	const listening = () => new Promise<boolean>(resolve => {
+		const socket = net.connect(runtime.port, "127.0.0.1")
+		socket.once("connect", () => { socket.destroy(); resolve(true) })
+		socket.once("error", () => resolve(false))
+	})
+	expect(running()).toBe("true")
+	// A kill lets nothing in the app run on its way out: only its exit guard is left to stop the backend.
+	const exited = once(app.process(), "exit")
+	app.process().kill("SIGKILL")
+	await exited
+	await expect.poll(running, { timeout: 45_000 }).toBe("false")
+	await expect.poll(listening).toBe(false)
+	const reopened = await launchConnected(runtime)
+	await closeWindow(reopened.app)
+})
+
 test("closing the native window cancels an in-progress build client", async ({ runtime }) => {
 	const marker = path.join(runtime.directory, "build-pid")
 	await writeFile(path.join(runtime.directory, "bin/podman"), `#!/bin/sh\ncase "$1" in\n  build) echo $$ > ${shellQuote(marker)}; exec sleep 120;;\nesac\nexec ${shellQuote(podman)} "$@"\n`, { mode: 0o700 })

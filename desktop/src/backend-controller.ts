@@ -8,6 +8,7 @@ import { loadOrCreateBackendProfile } from "./backend-profile.ts"
 import { BuildProgress } from "./build-progress.ts"
 import { backendBuildTarget, backendCommand, backendEnvironment, backendStopTimeoutSeconds, isInside, prepareBackendRuntime, resolveBackendLayout, type BackendLayout } from "./backend-layout.ts"
 import type { BackendContainer, ContainerEngine, ContainerInspection, EngineCall } from "./container-engine.ts"
+import { runAfterExit } from "./host-command.ts"
 import { HostServices } from "./host-services.ts"
 import { HubFolderError, resolveHubFolder } from "./hub-folder.ts"
 import type { HubFolderLocation } from "./locations.ts"
@@ -24,6 +25,7 @@ interface BackendOptions {
 	fetch?: typeof fetch
 	checkPort?: typeof portAvailable
 	hostServices?: HostServices
+	runAfterExit?: typeof runAfterExit
 	readinessTimeout?: number
 	pollInterval?: number
 }
@@ -72,6 +74,11 @@ export class BackendController {
 	private startupAbort = new AbortController()
 	private closing = false
 	private ownershipVerified = false
+	/**
+	 * Calls off the exit guard. The app stops its container and host services as it closes;
+	 * the guard does it when the app ends any other way, so neither outlives the app.
+	 */
+	private disarmExitGuard?: () => void
 	private readonly settings: ReturnType<typeof loadOrCreateBackendProfile>
 	/** Resolved at each launch, so a newly chosen hub folder applies on retry or restart. */
 	private launchedLayout?: BackendLayout
@@ -172,6 +179,7 @@ export class BackendController {
 		this.buildId = this.readBuildId()
 
 		await this.verifyRuntimeOwnership()
+		this.disarmExitGuard ??= this.armExitGuard()
 		const built = await this.ensureImage()
 
 		// Started first, so the backend's first dependency check finds them.
@@ -198,11 +206,18 @@ export class BackendController {
 			mounts: this.layout.mounts,
 			environment: backendEnvironment(this.options.mode, port),
 			environmentFile: this.layout.containerEnvironment,
+			idFile: this.layout.containerId,
 			command: backendCommand(this.options.mode, port),
 			port,
 			stopTimeoutSeconds: backendStopTimeoutSeconds,
 		}
 		await this.engine.run(container, this.call({ timeout: 120_000, log: this.log }))
+	}
+
+	/** Before any container or host service starts: once this process is gone, stop the recorded container, then the services. */
+	private armExitGuard(): () => void {
+		const { command, env } = this.engine.stopRecorded(this.layout.containerId, backendStopTimeoutSeconds)
+		return (this.options.runAfterExit ?? runAfterExit)([command, ...this.hostServices.stopRecorded(this.layout, this.options.mode)], env)
 	}
 
 	/** Stop and remove containers whose ownership was verified. */
@@ -375,6 +390,9 @@ export class BackendController {
 			// After the container, so no backend call is cut off mid-script.
 			await this.hostServices.stop()
 		}
+		// Everything stopped, so nothing is left for the guard; a failed stop leaves it armed.
+		this.disarmExitGuard?.()
+		this.disarmExitGuard = undefined
 	}
 
 	/**

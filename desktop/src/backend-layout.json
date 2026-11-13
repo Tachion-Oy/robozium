@@ -5,6 +5,7 @@
       "filename": "container.log"
     },
     "containerEnvironment": ".runtime/container.env",
+    "containerId": ".runtime/container.id",
     "hostServices": {
       "environment": ".runtime/host-environment",
       "processes": ".runtime/host-services",

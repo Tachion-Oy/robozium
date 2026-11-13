@@ -40,6 +40,20 @@ function hostNameservers(file: string): string[] {
  */
 const SUBORDINATE_IDS = 65536
 
+/**
+ * Stops the container whose ID `run` recorded. A run that was still in flight when the
+ * app died has not recorded or started its container yet, so the script looks again
+ * after a pause and stops a second time. The ID is read once: a later launch's
+ * container is never touched.
+ */
+const STOP_RECORDED = [
+	'id=$(cat "$1" 2>/dev/null) || { sleep 5; id=$(cat "$1" 2>/dev/null) || exit 0; }',
+	'case $id in ""|*[!a-f0-9]*) exit 0 ;; esac',
+	'"$2" stop --ignore --time "$3" "$id"',
+	"sleep 5",
+	'"$2" stop --ignore --time "$3" "$id"',
+].join("\n")
+
 interface PodmanInfo {
 	host?: {
 		security?: { rootless?: boolean }
@@ -150,9 +164,12 @@ export class PodmanEngine implements ContainerEngine {
 		const environment = Object.entries(container.environment).map(([name, value]) => `${name}=${value}\n`).join("")
 		rmSync(container.environmentFile, { force: true })
 		writeFileSync(container.environmentFile, environment, { mode: 0o600, flag: "wx" })
+		// Podman refuses to overwrite the record of an earlier container.
+		rmSync(container.idFile, { force: true })
 		try {
 			await this.command([
 				"run", "--detach", "--pull", "never", "--name", container.name,
+				"--cidfile", container.idFile,
 				...Object.entries(container.labels).flatMap(([name, value]) => ["--label", `${name}=${value}`]),
 				"--network", "host",
 				...hostNameservers(this.resolverFile).flatMap(server => ["--dns", server]),
@@ -173,6 +190,10 @@ export class PodmanEngine implements ContainerEngine {
 
 	async stop(ids: string[], timeoutSeconds: number, call: EngineCall): Promise<void> {
 		await this.command(["stop", "--time", String(timeoutSeconds), ...ids], call)
+	}
+
+	stopRecorded(idFile: string, timeoutSeconds: number): { command: string[]; env: NodeJS.ProcessEnv } {
+		return { command: ["/bin/sh", "-c", STOP_RECORDED, "sh", idFile, this.executable, String(timeoutSeconds)], env: this.environment }
 	}
 
 	async remove(ids: string[], call: EngineCall): Promise<void> {

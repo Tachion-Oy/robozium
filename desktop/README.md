@@ -115,6 +115,9 @@ startup, waits for its Podman command to exit, and stops only the installation's
 verified API containers. Closing during runs stops each run as **Stop** does; the
 window shows **Stopping** until the backend has exited. Containers, images,
 credentials, and host data remain.
+If the app ends any other way, such as a crash, a kill or a logout, an exit guard
+stops its container and host services: a small process the app starts before
+them, which waits on a pipe that the operating system closes with the app.
 A second managed launch using the same profile exits without changing its backend,
 also while the app closes.
 The app always uses this machine's own rootless Podman; it ignores
@@ -466,7 +469,8 @@ also owns its installation identity and container log.
   engine that runs it, and the operations the controller needs from an engine.
   `src/podman-engine.ts` provides them with rootless Podman on Linux.
 - `src/host-command.ts` finds host programs and runs one command, handling its
-  output, timeout, and cancellation.
+  output, timeout, and cancellation; its exit guard runs commands once the app
+  process is gone.
 - `src/host-services.ts` starts, supervises, and stops the layout's
   [host services](#host-services); `src/host-endpoints.ts` defines how each
   endpoint type is addressed and probed; `src/host-environment.ts` prepares the
@@ -529,7 +533,9 @@ values, and command. The layout says what the backend needs, not how an engine
 provides it; `src/podman-engine.ts` turns it into Podman commands. The app
 passes only those values, with the selected mode and port, in
 `.runtime/container.env`, readable only by you and removed as soon as the
-container starts. At each start the backend reads the runtime's `.env.encrypt`
+container starts. Podman records the container it created in
+`.runtime/container.id`, which the exit guard reads to stop exactly that
+container. At each start the backend reads the runtime's `.env.encrypt`
 and then `.env` itself, with plaintext entries overriding matching encrypted
 ones; the container's own values always win. Keys and decryption remain the
 Python backend's responsibility; the desktop only sends the unlock password to
