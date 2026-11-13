@@ -264,108 +264,13 @@
     color: var(--hud-control-ink);
     fill: currentColor
 }
+/* A selector's trigger is a key (hud-button.css). */
 :root[data-theme="light"] .agent-hud__model-trigger {
-    --btn-tone: var(--selector-accent);
-    --btn-ring: 1px;
-    --btn-edge: color-mix(
-    in oklab,
-    var(--selector-accent) clamp(0%, 48% * var(--tune-edge, 1), 100%),
-    var(--hud-input-border)
-  );
-    --btn-fill: color-mix(
-    in oklab,
-    var(--selector-accent) clamp(0%, 7% * var(--tune-fill, 1), 100%),
-    var(--hud-input-bg)
-  );
     min-height: 2.35rem;
     padding: 0.5rem 0.32rem 0.5rem 0.78rem;
-    border-radius: 0.26rem;
-    letter-spacing: 0.045em;
-    filter: drop-shadow(
-    0 0.16rem 0.16rem
-      color-mix(in oklab, var(--hud-control-ink) clamp(0%, 10% * var(--tune-shadow, 1), 100%), transparent)
-  );
-    color: var(--hud-control-ink);
-    border: 1px solid var(--btn-edge);
-    --selector-bay-divider: color-mix(
-    in oklab,
-    var(--hud-control-ink) clamp(0%, 24% * var(--tune-text, 1), 100%),
-    var(--hud-input-border)
-  );
-    --selector-bay-bg: color-mix(
-    in oklab,
-    white clamp(0%, 14% * var(--tune-sheen, 1), 100%),
-    var(--hud-input-bg)
-  );
-    background: linear-gradient(
-      90deg,
-      transparent 0 calc(100% - 2.36rem),
-      var(--selector-bay-divider) calc(100% - 2.36rem)
-        calc(100% - 2.3rem),
-      var(--selector-bay-bg) calc(100% - 2.3rem) 100%
-    ),
-    linear-gradient(
-      180deg,
-      color-mix(in oklab, white clamp(0%, 30% * var(--tune-sheen, 1), 100%), var(--btn-fill)),
-      color-mix(in oklab, var(--btn-fill) clamp(0%, 88% * var(--tune-fill, 1), 100%), var(--hud-input-bg))
-    );
-    box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 68% * var(--tune-sheen, 1), 100%), transparent),
-    inset 0 -0.16rem 0 color-mix(in oklab, var(--btn-tone) clamp(0%, 68% * var(--tune-glow, 1), 100%), transparent),
-    0 0.13rem 0.2rem
-      color-mix(in oklab, var(--hud-control-ink) clamp(0%, 11% * var(--tune-shadow, 1), 100%), transparent);
+    letter-spacing: 0.045em
 }
 :root[data-theme="light"] .agent-hud__model-trigger::before,
 :root[data-theme="light"] .agent-hud__model-trigger::after {
     content: none
-}
-:root[data-theme="light"]
-  .agent-hud__model-trigger:not(:disabled):hover {
-    text-shadow: none;
-    transform: translateY(-1px);
-    --btn-edge: color-mix(
-    in oklab,
-    var(--selector-accent) clamp(0%, 72% * var(--tune-hover-edge, 1), 100%),
-    var(--hud-control-ink)
-  );
-    --btn-fill: color-mix(
-    in oklab,
-    var(--selector-accent) clamp(0%, 14% * var(--tune-hover-fill, 1), 100%),
-    var(--hud-input-bg)
-  );
-    border-color: var(--btn-edge);
-    color: var(--hud-control-ink);
-    box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 76% * var(--tune-sheen, 1), 100%), transparent),
-    inset 0 -0.18rem 0
-      color-mix(in oklab, var(--selector-accent) clamp(0%, 78% * var(--tune-hover-glow, 1), 100%), transparent),
-    0 0.28rem 0.48rem
-      color-mix(in oklab, var(--selector-accent) clamp(0%, 22% * var(--tune-hover-glow, 1), 100%), transparent);
-    filter: none;
-    outline: none
-}
-:root[data-theme="light"]
-  .agent-hud__model-trigger:not(:disabled):focus-visible {
-    transform: translateY(-1px);
-    --btn-edge: color-mix(
-    in oklab,
-    var(--selector-accent) clamp(0%, 72% * var(--tune-hover-edge, 1), 100%),
-    var(--hud-control-ink)
-  );
-    --btn-fill: color-mix(
-    in oklab,
-    var(--selector-accent) clamp(0%, 14% * var(--tune-hover-fill, 1), 100%),
-    var(--hud-input-bg)
-  );
-    border-color: var(--btn-edge);
-    color: var(--hud-control-ink);
-    box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 76% * var(--tune-sheen, 1), 100%), transparent),
-    inset 0 -0.18rem 0
-      color-mix(in oklab, var(--selector-accent) clamp(0%, 78% * var(--tune-hover-glow, 1), 100%), transparent),
-    0 0.28rem 0.48rem
-      color-mix(in oklab, var(--selector-accent) clamp(0%, 22% * var(--tune-hover-glow, 1), 100%), transparent);
-    filter: none;
-    outline: none
-}
-:root[data-theme="light"]
-  .agent-hud__model-trigger:not(:disabled):active {
-    transform: translateY(0)
 }

@@ -31,7 +31,7 @@ html[data-desktop][data-theme] .agent-hud__header .agent-hud__event-edge {
   min-width: 0; max-width: none;
 }
 /* The project folder button ends the selector row: a square as tall as the selectors,
-   framed like them; in dark the same cut, edge and fill, in light the same corners. */
+   framed like them: in dark the same cut, edge and fill; in light a key, as they are. */
 html[data-desktop][data-theme] .agent-hud__header .agent-hud__project-folder {
   flex: none; align-self: stretch; width: auto; height: auto; min-width: 0; min-height: 0; aspect-ratio: 1;
 }
@@ -43,7 +43,6 @@ html[data-desktop][data-theme="dark"] .agent-hud__header .agent-hud__project-fol
   --btn-fill-strength: 26%;
   --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
 }
-html[data-desktop][data-theme="light"] .agent-hud__header .agent-hud__project-folder { border-radius: 0.26rem; }
 html[data-desktop][data-theme] :is(.agent-hud__header, .agent-hud__environment) .agent-hud__event-label {
   display: flex; min-width: 0;
   /* A clip removes box shadows, so the octagon glows through a filter on its parent. */
@@ -309,10 +308,6 @@ html[data-desktop][data-theme="dark"] .agent-hud__edge-toggle {
 html[data-desktop] .desktop-message-log-toggle[aria-expanded="true"] {
   --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
   --btn-fill-strength: 24%;
-}
-html[data-desktop][data-theme="light"] .desktop-message-log-toggle[aria-expanded="true"] {
-  --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 72% * var(--tune-hover-edge, 1), 100%), var(--hud-control-ink));
-  --btn-fill: color-mix(in oklab, var(--term-blue) clamp(0%, 24% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
 }
 html[data-desktop] .desktop-edge-controls .agent-hud__copy-controls {
   flex-direction: column; align-items: center; gap: var(--hud-corner-control-gap);
