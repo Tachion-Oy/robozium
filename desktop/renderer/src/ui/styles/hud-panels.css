@@ -181,6 +181,85 @@ button.agent-hud__image-preview {
   --accent: var(--term-amber);
 }
 
+/* Light: a picture is a sticker, in a violet outline over a flat offset shadow:
+   one the agent shows in its message, and the tiles of pasted files in the reply
+   panel. */
+:root[data-theme="light"] :is(.agent-hud__image-preview, .agent-hud__reply-image) {
+  overflow: hidden;
+  border: 1.5px solid var(--hud-edge-ink);
+  border-radius: 0.5rem;
+  background: #ffffff;
+  box-shadow: 0.2rem 0.2rem 0 color-mix(in oklab, var(--hud-accent) 30%, transparent);
+}
+
+/* The message's picture is a little clear of the text round it, with room for its
+   shadow. */
+:root[data-theme="light"] .agent-hud__image-preview {
+  margin: 0.6rem 0.3rem 0.7rem 1px;
+}
+
+:root[data-theme="light"] :is(.agent-hud__image-preview, .agent-hud__image-dialog :is(a, button)):focus-visible {
+  outline: 2px solid var(--hud-control-ink);
+}
+
+/* Light: the enlarged picture is a piece of the case over the HUD dimmed with the
+   ink, the picture on a card set into it, its name and two controls above. */
+:root[data-theme="light"] .agent-hud__image-dialog {
+  padding: 0.85rem 1rem 1rem;
+  border-color: var(--hud-screen-edge);
+  border-radius: 0.6rem;
+  background: var(--hud-box-bg);
+  box-shadow: var(--hud-float-shadow);
+  color: var(--hud-control-ink);
+  font-family: var(--font-agent-input);
+  font-weight: 500;
+}
+
+:root[data-theme="light"] .agent-hud__image-dialog[open] {
+  gap: 0.8rem;
+}
+
+:root[data-theme="light"] .agent-hud__image-dialog::backdrop {
+  background: var(--hud-dialog-dim);
+}
+
+/* An outline, so the picture keeps the size the dialog worked out for it. */
+:root[data-theme="light"] .agent-hud__image-stage {
+  overflow: hidden;
+  outline: 1px solid var(--hud-screen-edge);
+  border-radius: var(--hud-card-radius);
+  background: var(--hud-card-bg);
+  box-shadow: 0 1px 0 1px rgb(255 255 255 / 0.75);
+}
+
+:root[data-theme="light"] .agent-hud__image-toolbar {
+  gap: 0.5rem 1.2rem;
+  padding-left: 0.15rem;
+}
+
+:root[data-theme="light"] .agent-hud__image-toolbar > span {
+  font-weight: 700;
+}
+
+:root[data-theme="light"] .agent-hud__image-toolbar .agent-hud__markdown-link {
+  color: var(--hud-link);
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-underline-offset: 0.2em;
+}
+
+/* Close is a key (hud-button.css), in the amber of a dialog's Cancel; the margin
+   is the room its lip stands in. */
+:root[data-theme="light"] .agent-hud__image-toolbar > button {
+  margin-bottom: 0.2rem;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.88rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 /* Base */
 
 .agent-hud__run-view > .agent-hud__replySection {
@@ -1099,6 +1178,35 @@ button.agent-hud__image-preview {
 :root[data-theme="dark"] .agent-hud__remove-image:hover {
   background: color-mix(in oklab, var(--term-red) 80%, var(--term-bg));
   color: white;
+}
+
+/* Light: the tiles start below the panel's label and stand clear of one another,
+   in room for their shadows, which the list's scroller would cut. Two pixels of
+   the screens' edge part them from the text: a hairline is lost among the stripes. */
+:root[data-theme="light"] .agent-hud__reply-images {
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+  padding: 0.2rem 0.5rem 0.4rem 1rem;
+  border-left: 2px solid var(--hud-screen-edge);
+}
+
+/* A light tile's remove button is a small round plate in its corner, red under
+   the pointer. */
+:root[data-theme="light"] .agent-hud__remove-image {
+  top: 0.15rem;
+  right: 0.15rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-color: var(--hud-plate-bg);
+  border-radius: 999px;
+  background: var(--hud-plate-bg);
+  color: var(--hud-plate-ink);
+}
+
+:root[data-theme="light"] .agent-hud__remove-image:is(:hover, :focus-visible) {
+  border-color: color-mix(in oklab, var(--term-red) 60%, var(--hud-control-ink));
+  background: var(--term-red);
+  color: #ffffff;
 }
 
 :root[data-theme="dark"] .agent-hud__reply-images {
