@@ -23,7 +23,8 @@ type ProjectOverviewPanelProps = {
 	onDeleteProject: (project: ProjectRow) => void
 }
 
-const COLS = "grid-cols-[8rem_minmax(8rem,16rem)_5rem]"
+// The status column's width is the theme's (project-overview.css).
+const COLS = "grid-cols-[var(--status-column)_minmax(8rem,16rem)_5rem]"
 const HUD_TEXT =
 	"font-[family-name:var(--font-agent-input)] text-[color:var(--hud-input-text)]"
 
@@ -177,6 +178,8 @@ function ProjectRowItem({
 	onDeleteProject: (project: ProjectRow) => void
 }) {
 	const display = statusDisplay(project.status, locked)
+	// A project at rest has a hollow lamp before its status in dark; any other a lit one.
+	const live = !locked && project.status !== ProjectStatus.Dormant
 	// A live run opens; a dormant project launches.
 	const canOpen = isActiveRunStatus(project.status) && project.runId !== null
 
@@ -185,7 +188,7 @@ function ProjectRowItem({
 			<div
 				className={`agent-hud__project-summary ${HUD_TEXT} text-[1.3rem] leading-tight tracking-[0.03em] py-1 pl-1`}>
 				<span className={`grid ${COLS} gap-3 items-baseline`}>
-					<span className={display.className}>{display.label}</span>
+					<span className={`agent-hud__row-status ${display.className}`} data-live={live || undefined}>{display.label}</span>
 					<span className={`${HUD_TEXT} truncate`}>{project.slug}</span>
 					<span className={`${HUD_TEXT} opacity-80 text-[1rem]`}>
 						{project.createdAt !== null
@@ -229,7 +232,7 @@ function ProjectsTable({
 			<div className="agent-hud__table-header flex items-center gap-2 pb-2 mb-2">
 				<span
 					className={`grid ${COLS} gap-3 flex-1 min-w-0 pl-1 ${HUD_TEXT} text-[1.1rem] uppercase tracking-[0.12em] opacity-85`}>
-					<span>Status</span>
+					<span className="agent-hud__status-heading">Status</span>
 					<span>Project</span>
 					<span>Started</span>
 				</span>
@@ -269,7 +272,7 @@ export function ProjectOverviewPanel({
 	onDeleteProject,
 }: ProjectOverviewPanelProps) {
 	return (
-		<div className="agent-hud__project-view flex min-h-0 w-full flex-1 flex-col gap-8">
+		<div className="agent-hud__panel agent-hud__project-view flex min-h-0 w-full flex-1 flex-col gap-8">
 			<fieldset
 				disabled={navigationPending || locked}
 				aria-busy={navigationPending}

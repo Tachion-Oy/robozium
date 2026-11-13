@@ -345,43 +345,45 @@ button.agent-hud__image-preview {
   color: color-mix(in oklab, var(--term-blue) 78%, white 22%);
 }
 
-/* The dark message's text. Its face has one weight, so headings, bold text and
+/* The dark HUD's headings. Its face has one weight, so headings, bold text and
    table headers thicken its regular glyphs with a stroke in the text's own
-   colour. Headings are told apart by size and colour; the fourth level and
-   below share one look. */
-:where(:root[data-theme="dark"]) :is(.agent-hud__markdown-h1, .agent-hud__markdown-h2, .agent-hud__markdown-h3, .agent-hud__markdown-h4) {
+   colour. A message's headings are told apart by size and colour, the fourth
+   level and below sharing one look; a view's title is set as a first-level one. */
+:root[data-theme="dark"] :is(.agent-hud__markdown-h1, .agent-hud__markdown-h2, .agent-hud__markdown-h3, .agent-hud__markdown-h4),
+:root[data-theme="dark"] :is(.agent-hud__settings-view, .agent-hud__capability-selector) h2 {
+  font-family: inherit;
   font-weight: 400;
   line-height: 1.25;
   -webkit-text-stroke: 0.045em currentColor;
   text-shadow: 0 0 0.25em color-mix(in oklab, var(--term-blue) 60%, transparent), 0 0 0.9em color-mix(in oklab, var(--term-blue) 35%, transparent);
 }
 
-:where(:root[data-theme="dark"]) .agent-hud__markdown-h1 {
-  margin: 0.2rem 0 0.75rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid color-mix(in oklab, var(--term-blue) 45%, transparent);
+:root[data-theme="dark"] .agent-hud__markdown-h1,
+:root[data-theme="dark"] :is(.agent-hud__settings-view, .agent-hud__capability-selector) h2 {
   color: color-mix(in oklab, var(--term-blue) 30%, white);
   font-size: 1.5em;
 }
 
-/* A leading title keeps a little air above its glow. */
-:where(:root[data-theme="dark"]) .agent-hud__markdown > .agent-hud__markdown-h1:first-child {
-  margin-top: 0.2rem;
+/* A title keeps its margins where it opens or closes a message too. */
+:root[data-theme="dark"] .agent-hud__markdown-h1 {
+  margin: 0.2rem 0 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--term-blue) 45%, transparent);
 }
 
-:where(:root[data-theme="dark"]) .agent-hud__markdown-h2 {
+:root[data-theme="dark"] .agent-hud__markdown-h2 {
   margin: 1.1rem 0 0.45rem;
   color: color-mix(in oklab, var(--term-blue) 58%, white);
   font-size: 1.25em;
 }
 
-:where(:root[data-theme="dark"]) .agent-hud__markdown-h3 {
+:root[data-theme="dark"] .agent-hud__markdown-h3 {
   margin: 0.9rem 0 0.35rem;
   color: color-mix(in oklab, var(--term-blue) 76%, white);
   font-size: 1.1em;
 }
 
-:where(:root[data-theme="dark"]) .agent-hud__markdown-h4 {
+:root[data-theme="dark"] .agent-hud__markdown-h4 {
   margin: 0.8rem 0 0.3rem;
   color: color-mix(in oklab, var(--term-blue) 90%, white);
   font-size: 1em;
@@ -565,6 +567,10 @@ button.agent-hud__image-preview {
   --panel-halo:
     0 0 6px color-mix(in oklab, var(--term-blue) 55%, transparent),
     0 0 24px color-mix(in oklab, var(--term-blue) 28%, transparent);
+  /* Scan lines and a bloom over the fill, behind the text. */
+  --panel-sheen:
+    var(--scanlines),
+    radial-gradient(ellipse 75% 70% at 50% 45%, color-mix(in oklab, var(--term-blue) 10%, transparent), transparent 80%);
   border-radius: calc(var(--panel-cut) * 1.7);
   box-shadow: var(--panel-halo);
 }
@@ -577,12 +583,8 @@ button.agent-hud__image-preview {
   will-change: transform;
 }
 
-/* Scan lines and a bloom over the fill, behind the text. */
 :where(:root[data-theme="dark"]) .agent-hud__panel::before {
-  background:
-    var(--scanlines),
-    radial-gradient(ellipse 75% 70% at 50% 45%, color-mix(in oklab, var(--term-blue) 10%, transparent), transparent 80%),
-    var(--panel-fill-bg, var(--hud-input-bg));
+  background: var(--panel-sheen), var(--panel-fill-bg, var(--hud-input-bg));
 }
 
 :where(:root[data-theme="dark"]) .agent-hud__panel::after {

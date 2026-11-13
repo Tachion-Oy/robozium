@@ -346,11 +346,11 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   width: 100%;
 }
 
-/* The overview's table keeps a clear gap from the selectors above it. */
+/* What follows the selectors sits as close under them as the run view's panels do. */
 
 .agent-hud__header--overview {
   flex: 0 0 auto;
-  margin-bottom: 3.75rem;
+  margin-bottom: var(--hud-section-gap);
 }
 
 /* Run and status controls stay in normal flow, so their rendered height
