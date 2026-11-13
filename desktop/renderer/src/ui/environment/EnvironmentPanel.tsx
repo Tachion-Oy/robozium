@@ -85,7 +85,7 @@ export function EnvironmentPanel({ draft, mutations, hub, restartRequired, onRes
 									onRemove={mutations.removeImport}
 								/>
 							</section>
-							<section aria-label="Variables" className="agent-hud__panel agent-hud__environment-section">
+							<section aria-label="Variables" className="agent-hud__panel agent-hud__environment-section agent-hud__environment-section--variables">
 								<h3 className="agent-hud__environment-heading"><HudBadge>Variables</HudBadge></h3>
 								<EnvironmentVariableList
 									variables={draft.variables}
