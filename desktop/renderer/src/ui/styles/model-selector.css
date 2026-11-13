@@ -218,38 +218,30 @@
 }
 
 /*  Light model and view selector variants  */
+/* A menu is a floating card. Its entries are in the ink; the chosen one's mark
+   and the pointer's tint are in the selector's colour. */
 :root[data-theme="light"] .agent-hud__model-menu {
     padding: 0.35rem;
-    border: 0.08rem solid
-    color-mix(in oklab, var(--selector-accent) clamp(0%, 48% * var(--tune-edge, 1), 100%), var(--hud-input-border));
-    border-radius: 0.42rem;
-    background: color-mix(in oklab, var(--hud-input-bg) 94%, white 6%);
-    background-image: none;
-    box-shadow: 0 0.45rem 1.2rem
-      color-mix(in oklab, var(--hud-input-text) 14%, transparent),
-    inset 0 1px 0 color-mix(in oklab, white 58%, transparent)
+    border: 1px solid var(--hud-card-edge);
+    border-radius: var(--hud-card-radius);
+    background: var(--hud-card-bg);
+    box-shadow: var(--hud-float-shadow)
 }
 :root[data-theme="light"] .agent-hud__model-menu::before,
 :root[data-theme="light"] .agent-hud__model-menu::after {
     content: none
 }
 :root[data-theme="light"] .agent-hud__model-option {
-    border-radius: 0.25rem;
-    color: color-mix(
-    in oklab,
-    var(--selector-accent) 58%,
-    var(--hud-input-text)
-  )
+    border-radius: 0.4rem;
+    color: var(--hud-control-ink)
 }
 :root[data-theme="light"] .agent-hud__model-option:hover,
 :root[data-theme="light"] .agent-hud__model-option:focus-visible {
-    background: color-mix(
-    in oklab,
-    var(--selector-accent) clamp(0%, 14% * var(--tune-hover-fill, 1), 100%),
-    var(--hud-input-bg)
-  );
-    color: var(--hud-input-text);
+    background: color-mix(in oklab, var(--selector-accent) 24%, var(--hud-card-bg));
     text-shadow: none
+}
+:root[data-theme="light"] .agent-hud__model-option > span[aria-hidden="true"] {
+    color: color-mix(in oklab, var(--selector-accent) 80%, var(--hud-control-ink))
 }
 :root[data-theme="light"] .agent-hud__model-selector {
     width: min(14rem, 38%)

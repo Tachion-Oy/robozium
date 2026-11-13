@@ -119,8 +119,20 @@
   background: var(--hud-input-bg);
 }
 
+/* Light: the list of imports and the variable editor are cards. */
+:root[data-theme="light"] :is(.agent-hud__environment-import, .agent-hud__environment-editor) {
+  border-color: var(--hud-card-edge);
+  border-radius: var(--hud-card-radius);
+  background: var(--hud-card-bg);
+  box-shadow: var(--hud-card-shadow);
+}
+
 .agent-hud__environment-row {
   border-bottom: 1px solid var(--hud-input-border);
+}
+
+:root[data-theme="light"] .agent-hud__environment-row {
+  border-bottom-color: color-mix(in oklab, var(--hud-box-bg) 62%, var(--hud-control-ink));
 }
 
 /* A variable's name, sources and value read in bold; its buttons keep theirs. */
@@ -143,4 +155,8 @@
 
 .agent-hud__environment-save {
   border-top: 1px solid var(--term-blue);
+}
+
+:root[data-theme="light"] .agent-hud__environment-save {
+  border-top-color: color-mix(in oklab, var(--hud-box-bg) 50%, var(--hud-control-ink));
 }

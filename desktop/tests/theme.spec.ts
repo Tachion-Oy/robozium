@@ -124,6 +124,20 @@ test("dark names the run view's panels and light does not", async ({ desktop: { 
 	await expect(labels.last()).toBeHidden()
 })
 
+test("in light only the reply panel lights its edge while the user is in it", async ({ desktop: { page } }) => {
+	await page.getByRole("button", { name: "Launch", exact: true }).click()
+	await page.getByRole("button", { name: toggle }).click()
+	await expect(page.locator('html[data-theme="light"]:not([data-theme-switching])')).toHaveCount(1)
+	const edge = (panel: string) => page.locator(`.agent-hud__replyBox--${panel}`).evaluate(element => getComputedStyle(element, "::after").borderTopColor)
+	// Clicking the agent's message focuses its scroller, which must not light the panel.
+	const resting = await edge("agent")
+	await page.locator(".agent-hud__replyBox--agent .agent-hud__replyBox-scroll").click()
+	await expect(page.locator(".agent-hud__replyBox--agent .agent-hud__replyBox-scroll")).toBeFocused()
+	expect(await edge("agent")).toBe(resting)
+	await page.getByRole("textbox", { name: "Reply text" }).click()
+	expect(await edge("user")).not.toBe(resting)
+})
+
 test("the scan lines' row stays one screen pixel when the zoom changes", async ({ desktop: { app, page } }) => {
 	const row = () => page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--screen-row")) * devicePixelRatio)
 	expect(await row()).toBeCloseTo(1, 5)
