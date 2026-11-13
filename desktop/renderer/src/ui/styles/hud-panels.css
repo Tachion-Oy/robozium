@@ -621,10 +621,8 @@ button.agent-hud__image-preview {
    the small buttons are. It takes the panel's corner colour, so the reply
    panel's tab lights with the panel while the user is in it. Light has none. */
 .agent-hud__panel-label {
-  --label-cut: 0.3rem;
-  --label-ring: 1.5px;
-  /* Where the inner outline's cut meets its straight side, for an edge of even width. */
-  --label-inner: calc(var(--label-cut) + var(--label-ring) * 0.4142);
+  --ring-cut: 0.3rem;
+  --ring-width: 1.5px;
   position: absolute;
   top: 1px;
   right: calc(var(--panel-cut) + 0.7rem);
@@ -634,7 +632,7 @@ button.agent-hud__image-preview {
   pointer-events: none;
   /* The plate hides the panel's edge behind the tab. Its halo is its shadow, on a
      box rounded to the edge's cut corners. */
-  border-radius: calc(var(--label-cut) * 1.7);
+  border-radius: calc(var(--ring-cut) * 1.7);
   background: var(--term-bg);
   box-shadow:
     0 0 4px color-mix(in oklab, var(--panel-corner) 60%, transparent),
@@ -651,27 +649,10 @@ button.agent-hud__image-preview {
   text-box: trim-both cap alphabetic;
 }
 
-/* The tab's edge: an octagon and one inset by the edge's width, as a single
-   even-odd shape. */
+/* The tab's edge, the cut-corner outline of the small buttons (hud-button.css). */
 .agent-hud__panel-label::after {
-  content: "";
-  position: absolute;
   inset: 0;
-  z-index: -1;
   background: var(--panel-corner);
-  clip-path: polygon(
-    evenodd,
-    var(--label-cut) 0, calc(100% - var(--label-cut)) 0,
-    100% var(--label-cut), 100% calc(100% - var(--label-cut)),
-    calc(100% - var(--label-cut)) 100%, var(--label-cut) 100%,
-    0 calc(100% - var(--label-cut)), 0 var(--label-cut),
-    var(--label-cut) 0,
-    var(--label-inner) var(--label-ring), calc(100% - var(--label-inner)) var(--label-ring),
-    calc(100% - var(--label-ring)) var(--label-inner), calc(100% - var(--label-ring)) calc(100% - var(--label-inner)),
-    calc(100% - var(--label-inner)) calc(100% - var(--label-ring)), var(--label-inner) calc(100% - var(--label-ring)),
-    var(--label-ring) calc(100% - var(--label-inner)), var(--label-ring) var(--label-inner),
-    var(--label-inner) var(--label-ring)
-  );
 }
 
 

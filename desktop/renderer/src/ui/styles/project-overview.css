@@ -195,6 +195,18 @@
   opacity: 0.85;
 }
 
+/* Dark: a filled block in the chip's colour with dark letters, as the project badge. */
+:root[data-theme="dark"] .agent-hud__capability-badge {
+  padding: 0.2em 0.5em;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in oklab, var(--accent) 80%, white);
+  color: color-mix(in oklab, var(--term-bg) 78%, var(--accent));
+  opacity: 1;
+  text-shadow: none;
+  -webkit-text-stroke: 0.04em currentColor;
+}
+
 .agent-hud__capability-actions {
   display: flex;
   justify-content: center;

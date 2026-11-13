@@ -7,6 +7,12 @@
   height: 1.3rem;
 }
 
+/* The sun's rays reach its box's edge, so it is drawn smaller still to clear the button's. */
+.agent-hud__layout-wedge.theme-toggle__sun {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
 /* The crescent fills its box, so it is drawn smaller to clear the button's cut corners. */
 .agent-hud__layout-wedge.theme-toggle__moon {
   width: 1.05rem;
