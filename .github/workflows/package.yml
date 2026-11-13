@@ -80,6 +80,14 @@ jobs:
         run: |
           old="$(ls previous-release/*.deb 2>/dev/null || ls desktop/release/robozium-desktop_*_amd64.deb)"
           node desktop/packaging/check-upgrade.mjs "$old" desktop/release/robozium-desktop_*_amd64.deb
+      - name: Print the app's and the backend's logs
+        if: ${{ failure() }}
+        shell: bash
+        # The cause of a backend that never became ready is in these files, not in the steps above.
+        run: |
+          tail -v -n 200 "$RUNNER_TEMP/robozium.log" || true
+          find "$RUNNER_TEMP/robozium-home" /tmp/robozium-upgrade-* -path '*/.runtime/logs/*.log' \
+            -exec tail -v -n 200 {} + 2>/dev/null || true
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ failure() }}
         with:
