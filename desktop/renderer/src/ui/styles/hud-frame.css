@@ -219,11 +219,15 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
 }
 
 /* The dark HUD's text: Share Tech Mono in a pale blue with a soft glow. Set on
-   the shell, so the message log and the toasts keep their own. */
-:root[data-theme="dark"] .agent-hud__box {
+   the shell, so the message log and the toasts keep their own, and on the
+   password dialog, which is outside the shell. A picture's frame is a dim blue
+   line in a quiet halo. */
+:root[data-theme="dark"] :is(.agent-hud__box, .agent-hud__password-dialog) {
   --font-agent-input: var(--font-terminal-alt);
   --hud-input-text: color-mix(in oklab, var(--term-blue) 24%, white);
   --hud-text-glow: 0 0 0.6em color-mix(in oklab, var(--term-blue) 50%, transparent);
+  --image-edge: color-mix(in oklab, var(--term-blue) 45%, var(--term-bg));
+  --image-glow: 0 0 4px color-mix(in oklab, var(--term-blue) 50%, transparent), 0 0 14px color-mix(in oklab, var(--term-blue) 22%, transparent);
 }
 
 /* Dark HUD tuning: how strongly the accent is mixed into every edge, fill, label
@@ -446,7 +450,7 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   --mini-size: 9.75rem;
   --mini-cut: calc(var(--mini-size) / (2 + 1.41421356));
   --mini-edge: var(--hud-box-border);
-  --mini-fill: color-mix(in oklab, var(--hud-input-bg) 40%, transparent);
+  --mini-ring: 2px;
   --mini-line: 1px;
   --mini-gap: 2px;
   --mini-band: calc(2 * var(--mini-line) + var(--mini-gap));
@@ -487,28 +491,30 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   pointer-events: none;
 }
 
-/* Translucent blurred fill, clipped to the octagon (drawn behind the outline). */
-
+/* The fill: the panels' scan lines and bloom over the dark, an octagon inset by
+   the edge's width. The edge and its halo are the octagon behind it, which the
+   startup screen draws (startup.css). */
 .agent-hud__mini-box::before {
+  --mini-inner-cut: calc(var(--mini-cut) - var(--mini-ring) * 0.586);
   content: "";
   position: absolute;
-  inset: 0;
-  z-index: -2;
+  inset: var(--mini-ring);
+  z-index: -1;
   clip-path: polygon(
-    var(--mini-cut) 0,
-    calc(100% - var(--mini-cut)) 0,
-    100% var(--mini-cut),
-    100% calc(100% - var(--mini-cut)),
-    calc(100% - var(--mini-cut)) 100%,
-    var(--mini-cut) 100%,
-    0 calc(100% - var(--mini-cut)),
-    0 var(--mini-cut)
+    var(--mini-inner-cut) 0,
+    calc(100% - var(--mini-inner-cut)) 0,
+    100% var(--mini-inner-cut),
+    100% calc(100% - var(--mini-inner-cut)),
+    calc(100% - var(--mini-inner-cut)) 100%,
+    var(--mini-inner-cut) 100%,
+    0 calc(100% - var(--mini-inner-cut)),
+    0 var(--mini-inner-cut)
   );
-  background: var(--mini-fill);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
+  background:
+    var(--scanlines),
+    radial-gradient(ellipse 75% 70% at 50% 45%, color-mix(in oklab, var(--term-blue) 10%, transparent), transparent 80%),
+    var(--hud-input-bg);
 }
-
 /* Double-line octagon outline: eight painted bands (4 straight edges + 4 bevel
    cuts), same construction as the HUD panels/buttons but each band carries two
    parallel edge lines instead of one. --mini-stripe is the two-line pattern for

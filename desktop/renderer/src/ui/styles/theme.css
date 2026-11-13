@@ -230,10 +230,15 @@
 /* Scan lines of the dark theme: lit rows behind a surface's text, in bands of
    three single and two doubled rows every 21 rows of the screen. They are drawn
    in whole screen rows (--screen-row, kept by theme/screen-row.ts), so the bands
-   are the same at every zoom. The ink is read where the pattern is declared: a
-   surface of another tint joins this rule and sets its own --scanline-ink. */
+   are the same at every zoom. The ink is read where the pattern is declared, so
+   the message log and the startup screen, whose ink is their own violet
+   (desktop.css), declare it again. */
 :root[data-theme="dark"] {
   --scanline-ink: color-mix(in oklab, var(--term-blue) 4.5%, transparent);
+}
+
+:root[data-theme="dark"],
+:root[data-theme="dark"] :is(.desktop-message-log, .startup > .desktop-terminal) {
   --scanline-row: var(--screen-row, 1px);
   --scanlines: repeating-linear-gradient(
     to bottom,

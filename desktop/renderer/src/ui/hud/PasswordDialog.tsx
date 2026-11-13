@@ -63,7 +63,7 @@ export function PasswordDialog({ open, title, children, label, confirm = false, 
 	return (
 		<dialog
 			ref={dialog}
-			className="agent-hud__password-dialog"
+			className="agent-hud__panel agent-hud__password-dialog"
 			aria-label={title}
 			onCancel={event => { event.preventDefault(); cancel() }}>
 			<form aria-label={title} onSubmit={event => void submit(event)}>

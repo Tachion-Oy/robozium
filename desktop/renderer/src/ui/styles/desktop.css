@@ -328,6 +328,14 @@ html[data-desktop][data-theme] .desktop-edge-controls .agent-hud__copy-text {
 }
 @keyframes desktop-log-appear { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .desktop-message-log { animation: none; } }
+/* Dark: lit rows behind the log's text and behind the startup screen, in their
+   own tint and as far above the background as the panels' lines are above
+   theirs. The CRT darkening (crt.css) still lies over everything, so the rows
+   and their badges look as they did. */
+:root[data-theme="dark"] :is(.desktop-message-log, .startup > .desktop-terminal) {
+  --scanline-ink: rgb(from var(--term-bloom-color) r g b / 7%);
+  background: var(--scanlines), var(--term-bg);
+}
 
 /* The terminal's fonts and CRT treatment, with local pane geometry. */
 html[data-desktop] .desktop-message-log .term-frame { position: relative; top: auto; bottom: auto; }
@@ -351,7 +359,9 @@ html[data-desktop] .desktop-message-log .term-frame { position: relative; top: a
 }
 .desktop-message-log .term-log-pager .term-msg-badge { border: 0; font: inherit; cursor: pointer; }
 .desktop-message-log .term-log-pager .term-msg-badge:disabled { opacity: 0.35; cursor: default; }
-.desktop-message-log .term-log-pager .term-msg-badge:not(:disabled):hover { filter: brightness(1.2); }
+/* A hovered page button brightens: by its colour in dark, where a filter would be redrawn with the badge's glow. */
+html[data-desktop][data-theme="dark"] .desktop-message-log .term-log-pager .term-msg-badge:not(:disabled):hover { background: color-mix(in oklab, var(--term-msg-color) 80%, white); }
+html[data-desktop][data-theme="light"] .desktop-message-log .term-log-pager .term-msg-badge:not(:disabled):hover { filter: brightness(1.2); }
 .desktop-message-log .term-log-pager__count { white-space: nowrap; }
 /* In light, the page count is printed in the rows' ink; the buttons keep the blue fill. */
 html[data-desktop][data-theme="light"] .desktop-message-log .term-log-pager {
@@ -364,11 +374,11 @@ html[data-desktop][data-theme="light"] .desktop-message-log .term-log-pager {
 /* A leading banner's own separation would add to that margin. */
 .desktop-message-log .term-log > div > :first-child { margin-top: 0; }
 .desktop-message-log .term-msg { overflow-wrap: anywhere; }
-/* Dark text punched out of a filled tag or badge keeps the CRT smudge of
-   terminal.css, toned down slightly so small glyphs stay legible. Outlined
-   script and system badges keep their own glowing text. */
+/* Dark text punched out of a filled tag, badge or page button keeps the CRT
+   smudge of terminal.css, toned down slightly so small glyphs stay legible.
+   Outlined script and system badges keep their own glowing text. */
 html[data-desktop]:not([data-theme="light"]) .desktop-message-log
-  :is(.term-msg:not([data-role="script"], [data-role="system"]) .term-msg-badge-label, .term-tag-label) {
+  :is(.term-msg:not([data-role="script"], [data-role="system"]) .term-msg-badge-label, .term-log-pager .term-msg-badge-label, .term-tag-label) {
   -webkit-text-stroke: 0.7px color-mix(in oklab, var(--term-bg) 78%, var(--term-msg-color) 22%);
   text-shadow:
     0 0 1px color-mix(in oklab, var(--term-msg-color) 70%, transparent),
