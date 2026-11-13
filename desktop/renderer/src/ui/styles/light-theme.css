@@ -212,7 +212,9 @@
    their stylesheets. */
 :root[data-theme="light"] .term-scanlines::after,
 :root[data-theme="light"] .agent-hud__replyBox::before,
-:root[data-theme="light"] .agent-hud__project-view {
+:root[data-theme="light"] .agent-hud__project-view,
+:root[data-theme="light"] .agent-hud__environment-section,
+:root[data-theme="light"] .agent-hud__environment-editor {
     --stripes: repeating-linear-gradient(
       to right,
       rgb(255 120 150 / var(--stripe-strength)) 0

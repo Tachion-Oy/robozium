@@ -79,6 +79,40 @@
   translate: 0 -50%;
 }
 
+/* Light: each section is a screen named by its plate on the top edge. Its paper
+   wears the screens' stripes, and the fields the user works in are plain white
+   on it. */
+:root[data-theme="light"] .agent-hud__environment-sections {
+  gap: 2.2rem;
+}
+
+:root[data-theme="light"] .agent-hud__environment-sections:not(fieldset) {
+  padding-top: 1.1rem;
+}
+
+:root[data-theme="light"] .agent-hud__environment-section {
+  --stripe-strength: var(--hud-stripe-strength);
+  position: relative;
+  padding: 2rem 1.1rem 1.1rem;
+  border: 1px solid var(--hud-screen-edge);
+  border-radius: var(--hud-screen-radius);
+  background: var(--stripes) fixed, var(--hud-input-bg);
+  background-blend-mode: multiply, normal;
+  box-shadow: var(--hud-screen-shadow);
+}
+
+/* Variables is a list the user edits, so its screen has the fields' plain paper. */
+:root[data-theme="light"] .agent-hud__environment-section--variables {
+  background: var(--hud-field-bg);
+}
+
+:root[data-theme="light"] .agent-hud__environment-heading {
+  position: absolute;
+  top: 0;
+  left: 1rem;
+  translate: 0 -50%;
+}
+
 /* The variable editor groups two fields, so it keeps the panel's dark and they stand out. */
 :root[data-theme="dark"] .agent-hud__environment-editor {
   --field-fill: var(--hud-input-bg);
@@ -125,6 +159,14 @@
   border-radius: var(--hud-card-radius);
   background: var(--hud-card-bg);
   box-shadow: var(--hud-card-shadow);
+}
+
+/* The variable editor stands on Variables' plain paper and holds two fields, so
+   it wears the stripes itself. */
+:root[data-theme="light"] .agent-hud__environment-editor {
+  --stripe-strength: var(--hud-stripe-strength);
+  background: var(--stripes) fixed, var(--hud-input-bg);
+  background-blend-mode: multiply, normal;
 }
 
 .agent-hud__environment-row {
