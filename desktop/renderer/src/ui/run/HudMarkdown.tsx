@@ -242,6 +242,10 @@ const HUD_MARKDOWN_COMPONENTS: Record<
 	h1: ({ children }) => <h1 className="agent-hud__markdown-h1">{children}</h1>,
 	h2: ({ children }) => <h2 className="agent-hud__markdown-h2">{children}</h2>,
 	h3: ({ children }) => <h3 className="agent-hud__markdown-h3">{children}</h3>,
+	// The fourth level and below share one look.
+	h4: ({ children }) => <h4 className="agent-hud__markdown-h4">{children}</h4>,
+	h5: ({ children }) => <h5 className="agent-hud__markdown-h4">{children}</h5>,
+	h6: ({ children }) => <h6 className="agent-hud__markdown-h4">{children}</h6>,
 	ul: ({ children }) => <ul className="agent-hud__markdown-ul">{children}</ul>,
 	ol: ({ children }) => <ol className="agent-hud__markdown-ol">{children}</ol>,
 	li: ({ children }) => <li>{children}</li>,

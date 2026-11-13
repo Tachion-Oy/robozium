@@ -245,6 +245,10 @@ for (const theme of ["dark", "light"]) {
 		await expect.poll(() => page.evaluate(() => innerWidth)).toBe(1260)
 		await page.clock.resume()
 		await copy.blur()
+		// The footer places its buttons a frame after a resize, and the frames were held
+		// with the clock: wait until Send is back at the right edge before the capture.
+		await expect.poll(() => page.locator(".agent-hud__actions").evaluate(footer =>
+			Math.abs(footer.getBoundingClientRect().right - footer.querySelector(".agent-hud__send")!.getBoundingClientRect().right))).toBeLessThan(1)
 		const full = await captureNative(app, page, 1260, 780)
 		const top = await page.locator(".agent-hud__replyBox--user").evaluate(panel => Math.floor(panel.getBoundingClientRect().top) - 4)
 		const cropped = await app.evaluate(({ nativeImage }, { png, top }) =>

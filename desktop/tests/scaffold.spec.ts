@@ -276,7 +276,7 @@ test("exposes the version bridge when launched outside the checkout", async ({ d
 
 test("loads the built React script, stylesheet, and fonts through the local protocol", async ({ desktop: { page } }) => {
 	const fontResponse = page.waitForResponse(response =>
-		/^robozium:\/\/app\/assets\/source-code-pro-latin-400-normal-.+\.woff2$/.test(response.url()))
+		/^robozium:\/\/app\/assets\/share-tech-mono-latin-400-normal-.+\.woff2$/.test(response.url()))
 	await reloadApp(page)
 	expect((await fontResponse).ok()).toBe(true)
 	await expect(page.locator("script[src]")).toHaveAttribute("src", /^\/assets\/.+\.js$/)
@@ -284,8 +284,8 @@ test("loads the built React script, stylesheet, and fonts through the local prot
 	await page.evaluate(async () => { await document.fonts.ready })
 	expect(await page.evaluate(() => [...document.fonts]
 		.filter(font => font.status === "loaded").map(font => `${font.family} ${font.weight}`).sort()))
-		.toEqual(expect.arrayContaining(["Source Code Pro 400", "VT323 400"]))
-	await expect(modelTrigger(page)).toHaveCSS("font-family", /^"Source Code Pro"/)
+		.toEqual(expect.arrayContaining(["Share Tech Mono 400", "VT323 400"]))
+	await expect(modelTrigger(page)).toHaveCSS("font-family", /^"Share Tech Mono"/)
 })
 
 test("starting and reading backend data causes no Content Security Policy violation", async ({ desktop: { page } }) => {

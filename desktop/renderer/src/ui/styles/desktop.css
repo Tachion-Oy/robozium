@@ -183,6 +183,8 @@ html[data-desktop] .agent-hud__panels[data-layout="bottom"] > .agent-hud__replyB
     --hud-reply-pad-block-start: 0.4rem; --hud-reply-pad-block-end: 0.4rem;
     --hud-pad-bottom: 0.75rem; --hud-panel-gap: 0.6rem; --hud-section-gap: 0.65rem;
   }
+  /* Dark keeps room for its edge ticks above the header and below the footer. */
+  html[data-desktop][data-theme="dark"] .agent-hud__box { --hud-pad-top: 1.7rem; --hud-pad-bottom: 1.7rem; }
   html[data-desktop] .agent-hud__replySection { gap: var(--hud-section-gap); }
 }
 
