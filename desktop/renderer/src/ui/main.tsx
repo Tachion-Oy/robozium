@@ -4,6 +4,7 @@ import { BackendStartup } from "./backend/BackendStartup"
 import { ViewportBounds } from "./app/ViewportBounds"
 import { applyTheme } from "../theme/theme"
 import { trackScreenRow } from "../theme/screen-row"
+import { trackZoom } from "../theme/zoom"
 import "./styles/globals.css"
 
 const root = document.getElementById("root")
@@ -12,6 +13,7 @@ if (!root) throw new Error("The application root element is missing.")
 // intro has painted in its own fonts rather than fallbacks.
 applyTheme(window.robozium.theme)
 trackScreenRow()
+trackZoom()
 async function loadFont(face: FontFace): Promise<void> {
 	try {
 		await face.load()

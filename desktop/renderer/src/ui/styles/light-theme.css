@@ -31,9 +31,8 @@
     --light-stream-shade-color: 31 36 44;
     --light-stream-shade-without-hud-opacity: 0.1;
     --light-stream-shade-with-hud-opacity: 0.5;
-    /* Base stream brightness. Move this toward #fff to brighten beyond what
-       removing the shade overlays can achieve. */
-    --light-stream-canvas: #f3f0e7;
+    /* The stream's paper, under its stripes and scan lines. */
+    --light-stream-canvas: #fffdf6;
     --stream-ink: #242b45;
     --stream-ink-bleed: 1px;
     --term-agent: #b9872f;
@@ -67,9 +66,17 @@
     --term-scanline-color: rgb(
     49 55 70 / calc(0.56 * var(--term-scanline-opacity))
   );
-    --term-scanline-size: 4px;
-    --term-rgb-mask-opacity: 0.2;
-    --term-rgb-mask-size: 2px;
+    /* The stream's screen effect: thin pink, mint and blue stripes over the paper,
+       and faint scan lines. Drawn in the page's pixels they would grow with the
+       zoom, and their colours would beat against the screen's pixels differently
+       at each one. So they are divided by the zoom (--zoom, kept by
+       theme/zoom.ts) and keep one width on the screen: the width three page
+       pixels to a set of stripes, and four to a scan line, have at 170%. */
+    --term-scanline-size: calc(4px * 1.7 / var(--zoom, 1));
+    --term-rgb-mask-opacity: 0.22;
+    --term-rgb-mask-size: calc(3px * 1.7 / var(--zoom, 1));
+    /* The HUD's screens wear the stripes at a third of that strength. */
+    --hud-stripe-strength: calc(var(--term-rgb-mask-opacity) * 0.33);
     --term-bloom-color: rgba(255, 255, 255, 0.16);
     --term-vignette: radial-gradient(
       ellipse at center,
@@ -200,18 +207,27 @@
     --term-glow-lime: var(--term-glow-green);
     --term-glow-lime-strong: var(--term-glow-green);
 }
-:root[data-theme="light"] .term-scanlines::after {
-    background: repeating-linear-gradient(
+/* The stripes are named on each thing that wears them, which says how strong its
+   own are (--stripe-strength): the stream's overlay here, the HUD's screens in
+   their stylesheets. */
+:root[data-theme="light"] .term-scanlines::after,
+:root[data-theme="light"] .agent-hud__replyBox::before,
+:root[data-theme="light"] .agent-hud__project-view {
+    --stripes: repeating-linear-gradient(
       to right,
-      rgb(140 60 60 / var(--term-rgb-mask-opacity)) 0
+      rgb(255 120 150 / var(--stripe-strength)) 0
         calc(var(--term-rgb-mask-size) / 3),
-      rgb(58 126 96 / var(--term-rgb-mask-opacity))
+      rgb(80 220 170 / var(--stripe-strength))
         calc(var(--term-rgb-mask-size) / 3)
         calc(var(--term-rgb-mask-size) * 2 / 3),
-      rgb(62 80 142 / var(--term-rgb-mask-opacity))
+      rgb(110 150 255 / var(--stripe-strength))
         calc(var(--term-rgb-mask-size) * 2 / 3)
         var(--term-rgb-mask-size)
-    ),
+    )
+}
+:root[data-theme="light"] .term-scanlines::after {
+    --stripe-strength: var(--term-rgb-mask-opacity);
+    background: var(--stripes),
     repeating-linear-gradient(
       to bottom,
       transparent 0,

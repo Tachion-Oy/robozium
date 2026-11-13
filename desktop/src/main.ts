@@ -112,10 +112,10 @@ async function start(): Promise<void> {
 	const contents = window.webContents
 	// Every start opens at 100%, as it opens at one size; the zoom is never remembered.
 	let zoom = 1
-	/** Which way the zoom can still move; the edge buttons disable at the limits. */
+	/** The zoom and which way it can still move; the edge buttons disable at the limits. */
 	const zoomState = () => {
 		const factor = contents.getZoomFactor()
-		return { canZoomIn: nextZoom(factor, 1) !== factor, canZoomOut: nextZoom(factor, -1) !== factor }
+		return { factor, canZoomIn: nextZoom(factor, 1) !== factor, canZoomOut: nextZoom(factor, -1) !== factor }
 	}
 	/** The shortcuts and the edge buttons zoom the same way. */
 	const changeZoom = (direction: 1 | -1 | 0) => {

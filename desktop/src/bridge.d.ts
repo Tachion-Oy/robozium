@@ -34,8 +34,8 @@ export type HubFolderPick = { folder: string; needsConfirmation: boolean } | nul
 
 export type AppTheme = "dark" | "light"
 
-/** Whether another zoom step fits between 50% and 300%. */
-export type ZoomState = { canZoomIn: boolean; canZoomOut: boolean }
+/** The zoom (1 is 100%), and whether another step fits between 50% and 300%. */
+export type ZoomState = { factor: number; canZoomIn: boolean; canZoomOut: boolean }
 
 export interface DesktopBridge {
 	/** The saved theme at launch, so the renderer can apply it before first paint. */

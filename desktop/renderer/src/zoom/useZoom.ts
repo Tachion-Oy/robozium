@@ -14,7 +14,7 @@ function failureDetail(cause: unknown): string {
 }
 
 export function useZoom(): Zoom {
-	const [state, setState] = useState<ZoomState>({ canZoomIn: true, canZoomOut: true })
+	const [state, setState] = useState<ZoomState>({ factor: 1, canZoomIn: true, canZoomOut: true })
 
 	useEffect(() => {
 		let cancelled = false
