@@ -40,7 +40,7 @@ async function stopLeftover(service: HostServiceLayout, timeout: number, signal:
 }
 
 /** Stops the process a pid file records, while it still runs the given executable: `stopLeftover` for the exit guard. */
-const STOP_RECORDED = [
+const STOP_RECORDED_SERVICE = [
 	'pid=$(cat "$1" 2>/dev/null) || exit 0',
 	'ps -o args= -p "$pid" | grep -qF -- "$2" || exit 0',
 	'kill -TERM "-$pid"',
@@ -135,7 +135,7 @@ export class HostServices {
 	stopRecorded(layout: BackendLayout, mode: "live" | "mock"): string[][] {
 		const platform = this.options.platform ?? process.platform
 		return layout.hostServices.filter(service => service.modes.includes(mode) && service.platforms.includes(platform))
-			.map(service => ["/bin/sh", "-c", STOP_RECORDED, "sh", service.pidFile, service.executable, String((this.options.stopTimeout ?? 10_000) / 1000)])
+			.map(service => ["/bin/sh", "-c", STOP_RECORDED_SERVICE, "sh", service.pidFile, service.executable, String((this.options.stopTimeout ?? 10_000) / 1000)])
 	}
 
 	/** Ask every service to quit, forcing those that outlast the stop timeout. */
