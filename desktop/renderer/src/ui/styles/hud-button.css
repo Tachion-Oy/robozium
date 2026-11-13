@@ -178,13 +178,14 @@
 }
 
 /* Light buttons that have no colour of their own in dark name one here: the large
-   start buttons are green, the launch chooser's Cancel, which stands beside its
-   Launch, amber, and a toast's buttons the toast's. */
+   start buttons are green; the launch chooser's Cancel, which stands beside its
+   Launch, and the enlarged picture's Close are amber; a toast's buttons are the
+   toast's. */
 :root[data-theme="light"] :is(.agent-hud__start, .agent-hud__status-view .app-nav__cta) {
   --accent: var(--term-green);
 }
 
-:root[data-theme="light"] .agent-hud__start + .agent-hud__start {
+:root[data-theme="light"] :is(.agent-hud__start + .agent-hud__start, .agent-hud__image-toolbar > button) {
   --accent: var(--term-amber);
 }
 
@@ -202,7 +203,8 @@
   .agent-hud__corner-control, .agent-hud__copy-text, .agent-hud__layout, .agent-hud__layout-direction,
   .agent-hud__expand, .agent-hud__minimize, .agent-hud__project-folder, .agent-hud__model-trigger,
   .agent-hud__row-action:not(.agent-hud__capability-static), .agent-hud__start,
-  .agent-hud__status-view .app-nav__cta, .agent-error-toast__dismiss, .agent-error-toast__action
+  .agent-hud__status-view .app-nav__cta, .agent-error-toast__dismiss, .agent-error-toast__action,
+  .agent-hud__image-toolbar > button
 ) {
   /* A utility key: a neutral cap on a lip mixed from the case. */
   --key-tone: var(--hud-key-cap);
@@ -249,7 +251,7 @@
     .agent-hud__row-launch, .agent-hud__row-tools, .agent-hud__row-cancel, .agent-hud__row-delete,
     .agent-hud__option[aria-checked="true"], .agent-hud__start, .agent-hud__status-view .app-nav__cta,
     .agent-hud__copy-text[data-copied], .desktop-message-log-toggle[aria-expanded="true"],
-    .agent-error-toast__dismiss, .agent-error-toast__action
+    .agent-error-toast__dismiss, .agent-error-toast__action, .agent-hud__image-toolbar > button
   ) {
     --key-tone: var(--accent, var(--btn-accent));
     --key-stand: var(--key-tone);
