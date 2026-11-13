@@ -58,6 +58,26 @@ test("editing is unavailable while runs or background work are active", async ({
 	await expect(saveForm(page).getByRole("button", { name: "Reset environment" })).toBeDisabled()
 })
 
+test("returning after the work stopped shows no paused toast from the earlier reading", async ({ desktop: { page }, backend }) => {
+	let editable = false
+	let pending: ServerResponse | undefined
+	const answer = (response: ServerResponse) => json(response, environment({ editable, entries: [entry("A", "1")] }))
+	backend.handlers.set("GET /credentials/environment", answer)
+	await openEnvironment(page, backend)
+	await expect(toast(page, "Editing paused")).toBeVisible()
+	await view(page, "Runs Overview")
+	// The work stops while another screen shows, and the first reading on return is slow.
+	editable = true
+	backend.handlers.set("GET /credentials/environment", response => { pending = response })
+	await view(page, "Environment")
+	await expect.poll(() => pending).toBeDefined()
+	await expect(toast(page, "Editing paused")).toHaveCount(0)
+	backend.handlers.set("GET /credentials/environment", answer)
+	answer(pending!)
+	await expect(panel(page).getByRole("button", { name: "Add variable" })).toBeEnabled()
+	await expect(toast(page, "Editing paused")).toHaveCount(0)
+})
+
 test("a new secret is validated, encrypted with a confirmed password and saved once", async ({ desktop: { page }, backend }) => {
 	let current = environment()
 	backend.handlers.set("GET /credentials/environment", response => json(response, current))

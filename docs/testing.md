@@ -497,7 +497,8 @@ keeping the rows, and Checking while a check runs. Long identifiers, metadata an
 both themes at 1260×780 and at 640×420 with 125% zoom; captures are attached.
 
 `desktop/tests/environment.spec.ts` covers a failed load with Retry and masked
-secrets, editing disabled while work is active, validation of a new secret, the
+secrets, editing disabled while work is active with no paused toast from an
+earlier reading on return, validation of a new secret, the
 encryption password and its confirmation with the exact save body, a refused
 save keeping edits that polling does not overwrite, edits surviving a screen
 change and Escape closing the editor, the two-step reset, and both themes at
