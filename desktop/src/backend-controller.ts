@@ -25,7 +25,8 @@ interface BackendOptions {
 	fetch?: typeof fetch
 	checkPort?: typeof portAvailable
 	hostServices?: HostServices
-	runAfterExit?: typeof runAfterExit
+	/** Starts the exit guard; tests pass a stand-in, so they start no guard process. */
+	startExitGuard?: typeof runAfterExit
 	readinessTimeout?: number
 	pollInterval?: number
 }
@@ -179,7 +180,10 @@ export class BackendController {
 		this.buildId = this.readBuildId()
 
 		await this.verifyRuntimeOwnership()
-		this.disarmExitGuard ??= this.armExitGuard()
+		// One guard for the app's lifetime, also when startup is retried.
+		if (this.disarmExitGuard === undefined) {
+			this.disarmExitGuard = this.armExitGuard()
+		}
 		const built = await this.ensureImage()
 
 		// Started first, so the backend's first dependency check finds them.
@@ -216,8 +220,22 @@ export class BackendController {
 
 	/** Before any container or host service starts: once this process is gone, stop the recorded container, then the services. */
 	private armExitGuard(): () => void {
-		const { command, env } = this.engine.stopRecorded(this.layout.containerId, backendStopTimeoutSeconds)
-		return (this.options.runAfterExit ?? runAfterExit)([command, ...this.hostServices.stopRecorded(this.layout, this.options.mode)], env)
+		let startGuard = runAfterExit
+		if (this.options.startExitGuard !== undefined) {
+			startGuard = this.options.startExitGuard
+		}
+
+		const stopContainer = this.engine.stopRecorded(this.layout.containerId, backendStopTimeoutSeconds)
+		const stopServices = this.hostServices.stopRecorded(this.layout, this.options.mode)
+
+		const commands = [stopContainer.command]
+		for (const stopService of stopServices) {
+			commands.push(stopService)
+		}
+
+		// Starting the guard returns the function that calls it off.
+		const disarm = startGuard(commands, stopContainer.env)
+		return disarm
 	}
 
 	/** Stop and remove containers whose ownership was verified. */

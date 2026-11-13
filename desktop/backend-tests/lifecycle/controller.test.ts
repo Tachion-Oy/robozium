@@ -100,7 +100,7 @@ function fixture(t: TestContext, options: FixtureOptions = {}) {
 	}
 	const engine = new PodmanEngine({ run, findPodman: options.findPodman ?? (() => "/test/podman") })
 	const controller = new BackendController({ profile, source, mode: "mock", engine, checkPort: async () => state.available,
-		runAfterExit: commands => {
+		startExitGuard: commands => {
 			const guard = { commands, after: state.calls.length, disarmed: false }
 			state.guards.push(guard)
 			return () => { guard.disarmed = true }
