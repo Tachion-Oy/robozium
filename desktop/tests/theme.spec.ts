@@ -112,3 +112,22 @@ test("light tuning knobs scale the accent mixed into buttons", async ({ desktop:
 	await page.evaluate(() => document.documentElement.style.setProperty("--tune-text", "0.5"))
 	expect(await settled()).not.toBe(initial)
 })
+
+test("dark names the run view's panels and light does not", async ({ desktop: { page } }) => {
+	await page.getByRole("button", { name: "Launch", exact: true }).click()
+	const labels = page.locator(".agent-hud__panel-label")
+	await expect(labels).toHaveText(["Agent", "User"])
+	await expect(labels.first()).toBeVisible()
+	await expect(labels.last()).toBeVisible()
+	await page.getByRole("button", { name: toggle }).click()
+	await expect(labels.first()).toBeHidden()
+	await expect(labels.last()).toBeHidden()
+})
+
+test("the scan lines' row stays one screen pixel when the zoom changes", async ({ desktop: { app, page } }) => {
+	const row = () => page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--screen-row")) * devicePixelRatio)
+	expect(await row()).toBeCloseTo(1, 5)
+	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1.25))
+	await expect.poll(() => page.evaluate(() => devicePixelRatio)).toBe(1.25)
+	await expect.poll(row).toBeCloseTo(1, 5)
+})

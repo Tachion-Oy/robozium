@@ -227,6 +227,24 @@
 
 }
 
+/* Scan lines of the dark theme: lit rows behind a surface's text, in bands of
+   three single and two doubled rows every 21 rows of the screen. They are drawn
+   in whole screen rows (--screen-row, kept by theme/screen-row.ts), so the bands
+   are the same at every zoom. The ink is read where the pattern is declared: a
+   surface of another tint joins this rule and sets its own --scanline-ink. */
+:root[data-theme="dark"] {
+  --scanline-ink: color-mix(in oklab, var(--term-blue) 4.5%, transparent);
+  --scanline-row: var(--screen-row, 1px);
+  --scanlines: repeating-linear-gradient(
+    to bottom,
+    var(--scanline-ink) 0 var(--scanline-row), transparent var(--scanline-row) calc(var(--scanline-row) * 4),
+    var(--scanline-ink) calc(var(--scanline-row) * 4) calc(var(--scanline-row) * 5), transparent calc(var(--scanline-row) * 5) calc(var(--scanline-row) * 8),
+    var(--scanline-ink) calc(var(--scanline-row) * 8) calc(var(--scanline-row) * 9), transparent calc(var(--scanline-row) * 9) calc(var(--scanline-row) * 12),
+    var(--scanline-ink) calc(var(--scanline-row) * 12) calc(var(--scanline-row) * 14), transparent calc(var(--scanline-row) * 14) calc(var(--scanline-row) * 16),
+    var(--scanline-ink) calc(var(--scanline-row) * 16) calc(var(--scanline-row) * 18), transparent calc(var(--scanline-row) * 18) calc(var(--scanline-row) * 21)
+  );
+}
+
 /* Preserve readable text and touch targets once the layout reaches the compact
    mobile breakpoint. Viewport structure and CRT raster effects stay unscaled. */
 @media (max-width: 48rem) {

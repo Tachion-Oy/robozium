@@ -33,7 +33,7 @@ export function AgentMessagePanel({ message }: AgentMessagePanelProps) {
 	}, [message.content, message.id, message.mode])
 
 	return (
-		<div className="agent-hud__replyBox agent-hud__replyBox--agent">
+		<div className="agent-hud__panel agent-hud__replyBox agent-hud__replyBox--agent">
 			<div
 				className="agent-hud__replyBox-scroll"
 				tabIndex={-1}
@@ -61,6 +61,7 @@ export function AgentMessagePanel({ message }: AgentMessagePanelProps) {
 					</HudImageViewer>
 				)}
 			</div>
+			<span className="agent-hud__panel-label" aria-hidden="true">Agent</span>
 		</div>
 	)
 }

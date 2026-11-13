@@ -64,7 +64,7 @@ export function ReplyEditor({
 	return (
 		<div
 			{...dropzone?.getRootProps({ role: "group", "aria-label": "Reply composer", tabIndex: 0 })}
-			className="agent-hud__replyBox agent-hud__replyBox--user"
+			className="agent-hud__panel agent-hud__replyBox agent-hud__replyBox--user"
 			data-drag-active={dropzone?.isDragActive || undefined}
 			aria-disabled={disabled || undefined}>
 			{attachments?.error && <Toast tone="error" title="Attachments" message={attachments.error}
@@ -96,6 +96,7 @@ export function ReplyEditor({
 					))}
 				</ul>
 			) : null}
+			<span className="agent-hud__panel-label" aria-hidden="true">User</span>
 		</div>
 	)
 }

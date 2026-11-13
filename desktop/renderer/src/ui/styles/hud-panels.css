@@ -145,7 +145,7 @@ button.agent-hud__image-preview {
   max-width: 100%;
   margin: 0;
   color: var(--hud-input-text);
-  text-shadow: none;
+  text-shadow: var(--hud-text-glow);
   font-family: inherit;
   line-height: var(--term-line-height);
   letter-spacing: var(--term-letter-spacing);
@@ -208,8 +208,11 @@ button.agent-hud__image-preview {
 
 
 
+/* A number needs more room than a bullet: at the bullets' indent it hangs outside
+   the panel's scroller and is cut off. */
 .agent-hud__markdown-ol {
   list-style: decimal;
+  padding-left: 2.5rem;
 }
 
 
@@ -342,6 +345,58 @@ button.agent-hud__image-preview {
   color: color-mix(in oklab, var(--term-blue) 78%, white 22%);
 }
 
+/* The dark message's text. Its face has one weight, so headings, bold text and
+   table headers thicken its regular glyphs with a stroke in the text's own
+   colour. Headings are told apart by size and colour; the fourth level and
+   below share one look. */
+:where(:root[data-theme="dark"]) :is(.agent-hud__markdown-h1, .agent-hud__markdown-h2, .agent-hud__markdown-h3, .agent-hud__markdown-h4) {
+  font-weight: 400;
+  line-height: 1.25;
+  -webkit-text-stroke: 0.045em currentColor;
+  text-shadow: 0 0 0.25em color-mix(in oklab, var(--term-blue) 60%, transparent), 0 0 0.9em color-mix(in oklab, var(--term-blue) 35%, transparent);
+}
+
+:where(:root[data-theme="dark"]) .agent-hud__markdown-h1 {
+  margin: 0.2rem 0 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--term-blue) 45%, transparent);
+  color: color-mix(in oklab, var(--term-blue) 30%, white);
+  font-size: 1.5em;
+}
+
+/* A leading title keeps a little air above its glow. */
+:where(:root[data-theme="dark"]) .agent-hud__markdown > .agent-hud__markdown-h1:first-child {
+  margin-top: 0.2rem;
+}
+
+:where(:root[data-theme="dark"]) .agent-hud__markdown-h2 {
+  margin: 1.1rem 0 0.45rem;
+  color: color-mix(in oklab, var(--term-blue) 58%, white);
+  font-size: 1.25em;
+}
+
+:where(:root[data-theme="dark"]) .agent-hud__markdown-h3 {
+  margin: 0.9rem 0 0.35rem;
+  color: color-mix(in oklab, var(--term-blue) 76%, white);
+  font-size: 1.1em;
+}
+
+:where(:root[data-theme="dark"]) .agent-hud__markdown-h4 {
+  margin: 0.8rem 0 0.3rem;
+  color: color-mix(in oklab, var(--term-blue) 90%, white);
+  font-size: 1em;
+}
+
+:where(:root[data-theme="dark"]) .agent-hud__markdown :is(strong, th) {
+  font-weight: 400;
+  -webkit-text-stroke: 0.05em currentColor;
+}
+
+/* Code keeps the panel's face instead of the browser's monospace. */
+:where(:root[data-theme="dark"]) .agent-hud__markdown code {
+  font-family: inherit;
+}
+
 
 
 .agent-hud__replySection {
@@ -439,35 +494,25 @@ button.agent-hud__image-preview {
 
 
 
-.agent-hud__replyBox {
-  /* Octagon plate, same dimensions/padding as the old rectangle. The border is
-     an octagon in the edge colour drawn by ::after; the interior fill is drawn
-     by ::before, inset by the ring width — so the element itself is NOT
-     clipped, leaving the corner triangles visible for the glow to bloom into.
-     Both panels share this, so the streaming and interactive states read as the
-     same shape. */
+/* A panel: an octagon plate that frames a view's content. Its edge is an octagon
+   in the edge colour drawn by ::after; its fill is drawn by ::before, inset by
+   the edge's width, so the element itself is not clipped and a shadow can bloom
+   round it. The reply boxes are panels in both themes (light restyles them
+   below); every other panel is an octagon in dark only. */
+.agent-hud__replyBox,
+:where(:root[data-theme="dark"]) .agent-hud__panel {
   /* Shape-locked: 1.5rem is the original 24px cut at 100% density and scales
      with the compact root size instead of becoming proportionally oversized. */
   --panel-cut: 1.5rem;
   --panel-ring: 2px;
-  --panel-edge: var(--hud-input-border);
+  --panel-edge: color-mix(in oklab, var(--term-blue) 90%, transparent);
   position: relative;
   z-index: 0;
   background: transparent;
-  color: var(--hud-input-text);
-  padding: var(--hud-reply-pad-block-start) var(--hud-reply-pad-inline)
-    var(--hud-reply-pad-block-end);
-  font-family: var(--font-agent-input);
-  line-height: var(--term-line-height);
-  letter-spacing: var(--term-letter-spacing);
-  display: flex;
-  min-height: 0;
-  overflow: hidden;
 }
 
-
-
-.agent-hud__replyBox::before {
+.agent-hud__replyBox::before,
+:where(:root[data-theme="dark"]) .agent-hud__panel::before {
   content: "";
   position: absolute;
   inset: var(--panel-ring);
@@ -488,15 +533,9 @@ button.agent-hud__image-preview {
   background: var(--panel-fill-bg, var(--hud-input-bg));
 }
 
-
-
-/* The octagon outline, drawn as the buttons draw theirs: an octagon in the edge
-   colour beneath the fill, which is inset by the ring width. The ring is one
-   shape, so its bevels join the straight edges without seams. No glow. */
-
-
-
-.agent-hud__replyBox::after {
+/* The edge is one shape, so its bevels join the straight sides without seams. */
+.agent-hud__replyBox::after,
+:where(:root[data-theme="dark"]) .agent-hud__panel::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -515,6 +554,126 @@ button.agent-hud__image-preview {
   background: var(--panel-edge);
 }
 
+/* The dark panel's dress. Its halo is a shadow, not a filter: a filter on a panel
+   is worked out again for the whole panel whenever anything inside it changes.
+   A shadow follows a rounded box, so the panel is rounded as far as its cut
+   corners reach: 1.7 times the cut puts the curve on the middle of each cut and
+   nowhere outside the octagon. */
+:where(:root[data-theme="dark"]) .agent-hud__panel {
+  /* The colour the edge brightens to at each corner, so the cuts read as brackets. */
+  --panel-corner: var(--term-blue);
+  --panel-halo:
+    0 0 6px color-mix(in oklab, var(--term-blue) 55%, transparent),
+    0 0 24px color-mix(in oklab, var(--term-blue) 28%, transparent);
+  border-radius: calc(var(--panel-cut) * 1.7);
+  box-shadow: var(--panel-halo);
+}
+
+/* The edge and the fill are gradients over the whole panel. Each gets a layer of
+   its own, drawn once, so a hovered row or a typed letter redraws only itself
+   and not the gradients under it. */
+:where(:root[data-theme="dark"]) .agent-hud__panel::before,
+:where(:root[data-theme="dark"]) .agent-hud__panel::after {
+  will-change: transform;
+}
+
+/* Scan lines and a bloom over the fill, behind the text. */
+:where(:root[data-theme="dark"]) .agent-hud__panel::before {
+  background:
+    var(--scanlines),
+    radial-gradient(ellipse 75% 70% at 50% 45%, color-mix(in oklab, var(--term-blue) 10%, transparent), transparent 80%),
+    var(--panel-fill-bg, var(--hud-input-bg));
+}
+
+:where(:root[data-theme="dark"]) .agent-hud__panel::after {
+  background:
+    radial-gradient(circle at 0 0, var(--panel-corner), transparent 5rem),
+    radial-gradient(circle at 100% 0, var(--panel-corner), transparent 5rem),
+    radial-gradient(circle at 100% 100%, var(--panel-corner), transparent 5rem),
+    radial-gradient(circle at 0 100%, var(--panel-corner), transparent 5rem),
+    var(--panel-edge);
+}
+
+.agent-hud__replyBox {
+  color: var(--hud-input-text);
+  padding: var(--hud-reply-pad-block-start) var(--hud-reply-pad-inline)
+    var(--hud-reply-pad-block-end);
+  font-family: var(--font-agent-input);
+  line-height: var(--term-line-height);
+  letter-spacing: var(--term-letter-spacing);
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* In dark the text is a little larger and wider set. The halo and the label
+   reach past the box: `clip` with a margin lets them out, where `hidden` would
+   cut them off. */
+:where(:root[data-theme="dark"]) .agent-hud__replyBox {
+  font-size: 1.07em;
+  letter-spacing: 0.035em;
+  overflow: clip;
+  overflow-clip-margin: 1.2rem;
+}
+
+/* A panel's name, on a tab astride its top edge beside the cut corner, where the
+   corner takes room anyway: a dark plate in a bright edge with the word lit, as
+   the small buttons are. It takes the panel's corner colour, so the reply
+   panel's tab lights with the panel while the user is in it. Light has none. */
+.agent-hud__panel-label {
+  --label-cut: 0.3rem;
+  --label-ring: 1.5px;
+  /* Where the inner outline's cut meets its straight side, for an edge of even width. */
+  --label-inner: calc(var(--label-cut) + var(--label-ring) * 0.4142);
+  position: absolute;
+  top: 1px;
+  right: calc(var(--panel-cut) + 0.7rem);
+  z-index: 2;
+  translate: 0 -50%;
+  padding: 0.4rem 0.7rem 0.4rem 0.85rem;
+  pointer-events: none;
+  /* The plate hides the panel's edge behind the tab. Its halo is its shadow, on a
+     box rounded to the edge's cut corners. */
+  border-radius: calc(var(--label-cut) * 1.7);
+  background: var(--term-bg);
+  box-shadow:
+    0 0 4px color-mix(in oklab, var(--panel-corner) 60%, transparent),
+    0 0 12px color-mix(in oklab, var(--panel-corner) 28%, transparent);
+  color: color-mix(in oklab, var(--panel-corner) 65%, white);
+  font-size: 0.8rem;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow: 0 0 0.5em color-mix(in oklab, var(--panel-corner) 75%, transparent);
+  -webkit-text-stroke: 0.03em currentColor;
+  /* The word is centred on its capitals. */
+  text-box: trim-both cap alphabetic;
+}
+
+/* The tab's edge: an octagon and one inset by the edge's width, as a single
+   even-odd shape. */
+.agent-hud__panel-label::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--panel-corner);
+  clip-path: polygon(
+    evenodd,
+    var(--label-cut) 0, calc(100% - var(--label-cut)) 0,
+    100% var(--label-cut), 100% calc(100% - var(--label-cut)),
+    calc(100% - var(--label-cut)) 100%, var(--label-cut) 100%,
+    0 calc(100% - var(--label-cut)), 0 var(--label-cut),
+    var(--label-cut) 0,
+    var(--label-inner) var(--label-ring), calc(100% - var(--label-inner)) var(--label-ring),
+    calc(100% - var(--label-ring)) var(--label-inner), calc(100% - var(--label-ring)) calc(100% - var(--label-inner)),
+    calc(100% - var(--label-inner)) calc(100% - var(--label-ring)), var(--label-inner) calc(100% - var(--label-ring)),
+    var(--label-ring) calc(100% - var(--label-inner)), var(--label-ring) var(--label-inner),
+    var(--label-inner) var(--label-ring)
+  );
+}
+
 
 
 .agent-hud__replyBox-scroll {
@@ -530,6 +689,14 @@ button.agent-hud__image-preview {
   scrollbar-color:
     color-mix(in oklab, var(--term-blue) 65%, transparent)
     color-mix(in oklab, var(--term-blue) 12%, transparent);
+}
+
+/* A scroller cuts off what reaches past its edge. In dark the message's scroller
+   is let out to the left by the room it takes back as padding, so a picture's
+   halo is not cut at the picture's edge. */
+:where(:root[data-theme="dark"]) .agent-hud__replyBox--agent .agent-hud__replyBox-scroll {
+  margin-left: -0.75rem;
+  padding-left: 0.75rem;
 }
 
 
@@ -720,6 +887,7 @@ button.agent-hud__image-preview {
   letter-spacing: inherit;
   line-height: inherit;
   text-decoration: none;
+  text-shadow: var(--hud-text-glow);
   resize: none;
   scrollbar-width: thin;
   scrollbar-gutter: stable;
@@ -908,6 +1076,11 @@ button.agent-hud__image-preview {
   color: var(--hud-input-placeholder);
 }
 
+:where(:root[data-theme="dark"]) .agent-hud__textarea::placeholder {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
 
 
 /* Soft swap for project badge text that changes in place. */
@@ -927,8 +1100,15 @@ button.agent-hud__image-preview {
 
 
 
-.agent-hud__replyBox:focus-within {
-  --panel-edge: color-mix(in oklab, var(--term-blue) 80%, transparent);
+/* The reply panel while the user is in it: a whiter edge, a lighter fill and a
+   little more halo. */
+:where(:root[data-theme="dark"]) .agent-hud__replyBox--user:focus-within {
+  --panel-edge: color-mix(in oklab, var(--term-blue) 68%, white);
+  --panel-corner: color-mix(in oklab, var(--term-blue) 68%, white);
+  --panel-fill-bg: color-mix(in oklab, var(--term-blue) 6%, var(--hud-input-bg));
+  --panel-halo:
+    0 0 6px color-mix(in oklab, var(--term-blue) 72%, transparent),
+    0 0 28px color-mix(in oklab, var(--term-blue) 38%, transparent);
 }
 
 
@@ -1053,6 +1233,9 @@ button.agent-hud__image-preview {
 :root[data-theme="light"] .agent-hud__textarea {
   color: var(--hud-input-text);
   text-shadow: none;
+}
+:root[data-theme="light"] .agent-hud__panel-label {
+  display: none;
 }
 :root[data-theme="light"] .agent-hud__replyBox::after {
   z-index: -1;

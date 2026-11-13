@@ -109,6 +109,9 @@ test("the viewer opens from the keyboard, returns focus and opens the original o
 	const opened = await recordOpened(app)
 	const { panel } = await showImages(page, backend)
 	const trigger = panel.getByRole("button", { name: "Expand Landscape" })
+	// The viewer takes the picture's size from its preview, which loads only once it is near the view.
+	await trigger.scrollIntoViewIfNeeded()
+	await expect.poll(() => trigger.locator("img").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(8)
 	await trigger.focus()
 	await page.keyboard.press("Enter")
 	const dialog = page.getByRole("dialog", { name: "Landscape" })
