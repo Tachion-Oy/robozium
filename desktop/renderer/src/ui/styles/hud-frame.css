@@ -662,8 +662,10 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   --term-msg-accent: var(--term-blue);
   --term-msg-glow: none;
 }
+/* The Agent and User labels stand half out of their panels' top edge: these gaps
+   leave room above them, below the selectors' lip and the agent panel. */
 :root[data-theme="light"] .agent-hud__header--row {
-  margin-bottom: 0.85rem;
+  margin-bottom: 1.45rem;
 }
 :root[data-theme="light"] .agent-hud__header--overview {
   margin-bottom: 3rem;
@@ -889,6 +891,8 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   backdrop-filter: none;
   --hud-pad-x: 3.2rem;
   --hud-section-gap: 1.2rem;
+  /* Room above the User label (see the header row's margin). */
+  --hud-panel-gap: 1.3rem;
 }
 :root[data-theme="light"] .agent-hud__resize-icon {
   width: 1rem;
