@@ -17,7 +17,7 @@ from roboz.deployment import SkillLoading
 from roboz.llm import MockLLMEndpoint
 
 from robozium.api.app import create_app
-from robozium.hub.application import TOOL_DATA_DIRECTORY
+from robozium.hub import environment as env
 from robozium.hub.local import LocalPackages, load_local_packages
 from robozium.hub.utils import load_hub
 
@@ -137,7 +137,7 @@ _KEEPER = (
 
 
 def test_imported_capabilities_get_the_hub_folder_for_what_they_save(tmp_path):
-    """One folder for every project and run, in the hub and outside the imported copy."""
+    """One folder for every project and run, the one the backend layout names."""
     config = write_config(tmp_path)
     _package(tmp_path, source=_KEEPER)
     hub = load_hub(config_file=config)
@@ -153,7 +153,7 @@ def test_imported_capabilities_get_the_hub_folder_for_what_they_save(tmp_path):
     definition.set_agent_endpoint(MockLLMEndpoint([]))
     agent = foreground_agent(definition.build())
     marker = next(tool for tool in agent.tools if tool.name == "tool_data_marker")
-    assert marker.description == str(tmp_path / "sandbox" / TOOL_DATA_DIRECTORY)
+    assert marker.description == str(Path(os.environ[env.TOOL_DATA_DIR]).resolve())
     assert project.attachments_dir == project.root / ".robozium-attachments"
 
 

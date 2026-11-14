@@ -9,7 +9,7 @@ from roboz.shed.models import ActionVerdict, GuardFileSingle, Operation
 from roboz.shed.tools.contexts import GuardContext
 from roboz.shed.tools.guard import guard_items
 
-from robozium.hub.application import TOOL_DATA_DIRECTORY
+from robozium.hub import environment as env
 from robozium.hub.utils import load_hub
 
 
@@ -44,12 +44,19 @@ def test_sandbox_rejects_absolute_area_name(tmp_path):
         replace(hub.settings.sandbox, readonly="/etc")
 
 
-def test_no_sandbox_area_takes_the_tool_data_folder(tmp_path):
-    """A writable area named after it would let file commands change what tools saved."""
-    config = write_config(tmp_path)
-    with config.open("a") as file:
-        file.write(f"\nSANDBOX = replace(SANDBOX, shared={TOOL_DATA_DIRECTORY!r})\n")
-    with pytest.raises(RuntimeError, match="tools and skills save in"):
+@pytest.mark.parametrize("area", ["workspace", "projects/demo"])
+def test_the_tool_data_folder_stays_out_of_writable_areas(tmp_path, monkeypatch, area):
+    """There, file commands could change what tools saved."""
+    write_config(tmp_path)
+    monkeypatch.setenv(env.TOOL_DATA_DIR, str(tmp_path / "sandbox" / area / "tool-data"))
+    with pytest.raises(RuntimeError, match="outside the folders file tools write"):
+        load_hub(start=tmp_path)
+
+
+def test_the_hub_requires_the_tool_data_folder(tmp_path, monkeypatch):
+    write_config(tmp_path)
+    monkeypatch.delenv(env.TOOL_DATA_DIR)
+    with pytest.raises(RuntimeError, match="must name the folder tools and skills save in"):
         load_hub(start=tmp_path)
 
 
@@ -98,11 +105,14 @@ def test_unknown_file_error_policy_is_rejected(tmp_path, on_error):
 
 
 def test_orchestrator_sandbox_permits_writes_at_project_root(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Configured project paths match the shared permission boundaries."""
     write_config(tmp_path)
-    project = load_hub(start=tmp_path).project("My Project")
+    # In the hub, as the backend layout places it.
+    monkeypatch.setenv(env.TOOL_DATA_DIR, str(tmp_path / "sandbox" / "tool-data"))
+    hub = load_hub(start=tmp_path)
+    project = hub.project("My Project")
     sandbox = project.sandbox
     assert sandbox.root == project.sandbox.resolved_root
     assert sandbox.root != project.root
@@ -133,7 +143,7 @@ def test_orchestrator_sandbox_permits_writes_at_project_root(
     assert _verdict(in_project, Operation.CREATE) == ActionVerdict.allow
     assert _verdict(in_readonly, Operation.CREATE) == ActionVerdict.deny
     # File commands may read what tools and skills saved; only those tools change it.
-    saved = sandbox.resolved_root / TOOL_DATA_DIRECTORY / "email" / "signature.json"
+    saved = hub.tool_data_dir / "email" / "signature.json"
     assert _verdict(saved, Operation.READ) == ActionVerdict.allow
     assert _verdict(saved, Operation.CREATE) == ActionVerdict.deny
     assert _verdict(saved, Operation.DELETE) == ActionVerdict.deny
