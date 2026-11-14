@@ -30,7 +30,6 @@
        flat shade behind an open HUD. Keep the values between 0 and 1. */
     --light-stream-shade-color: 31 36 44;
     --light-stream-shade-without-hud-opacity: 0.1;
-    --light-stream-shade-with-hud-opacity: 0.5;
     /* The stream's paper, under its stripes and scan lines. */
     --light-stream-canvas: #fffdf6;
     --stream-ink: #242b45;
@@ -150,10 +149,6 @@
     --term-glow-lime-strong: var(--term-glow-green);
     color: var(--hud-input-text);
     background: var(--hud-lab-canvas);
-    --hud-dim-bg: rgb(
-      var(--light-stream-shade-color) /
-        var(--light-stream-shade-with-hud-opacity)
-    )
 }
 /* The message log and the startup backdrop keep their own muted colours. They read
    several of the HUD's names, so they name their own values for those again. */

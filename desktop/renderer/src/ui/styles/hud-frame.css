@@ -6,111 +6,17 @@
  * Agent HUD
  * ------------------------------------------------------------------------- */
 
+/* The HUD fills its pane: the whole window, or its side when the message log is
+   open. The shell takes the pointer; the wrapper lets it through. */
 .agent-hud {
-  /* The full-viewport CRT wrapper is the containing block. Fixed positioning
-     would create a stacking context even with z-index:auto. */
   position: absolute;
   inset: 0;
-  /* The title sits between the dim backdrop and the interactive shell. Keep
-     this wrapper out of its own stacking context so the shell can cover it. */
-  z-index: auto;
-  pointer-events: none;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.agent-hud::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 50;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
-  background: var(--hud-dim-bg);
-}
-
-/* The landing page can exceed the visible viewport when a keyboard appears.
-   Keep the HUD in page flow so document scrolling reaches its entire shell. */
-body:has(.agent-hud--landing) {
-  --landing-page-min-height: calc(
-    var(--landing-viewport-top) + var(--landing-hud-clearance-top) +
-    var(--landing-hud-min-height) + var(--landing-hud-clearance-bottom) +
-    2 * var(--landing-hud-edge-gap)
-  );
-  /* Root scrolling still uses the layout viewport when a keyboard only
-     shrinks the visual viewport. Reserve its obscured part below the page so
-     scrolling can bring the bottom of the HUD into the visible area. */
-  --landing-page-scroll-tail: max(
-    0px,
-    calc(100dvh - var(--landing-viewport-height) - var(--landing-viewport-top))
-  );
-  min-height: calc(var(--landing-page-min-height) + var(--landing-page-scroll-tail));
-  height: calc(
-    max(
-      calc(var(--landing-viewport-top) + var(--landing-viewport-height)),
-      var(--landing-page-min-height)
-    ) + var(--landing-page-scroll-tail)
-  );
-  padding-bottom: var(--landing-page-scroll-tail);
-  overflow: auto;
-}
-
-body:has(.agent-hud--landing) .term-frame {
-  position: absolute;
-  top: calc(var(--landing-viewport-top) + var(--landing-nav-height));
-  bottom: 0;
-}
-
-.agent-hud--landing {
-  position: relative;
-  inset: auto;
-  flex: 1 0 auto;
-  margin-top: calc(-1 * var(--landing-nav-height));
-  margin-left: var(--landing-viewport-left);
-  width: var(--landing-viewport-width);
-  padding-top: var(--landing-hud-clearance-top);
-  padding-bottom: var(--landing-hud-clearance-bottom);
-}
-
-.agent-hud--landing .agent-hud__box {
-  max-width: calc(var(--landing-viewport-width) * 0.78);
-  min-height: var(--landing-hud-min-height);
-  max-height: calc(var(--landing-viewport-height) - 2 * (var(--landing-nav-height) + var(--landing-hud-edge-gap)));
-}
-
-/* A finished run keeps its enlarged shell while the title returns. Cover the
-   title behind the transparent dark shell with a soft edge. */
-body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
-  --hud-title-cover: rgb(var(--hud-shell-rgb));
-  --hud-title-shadow: 0 calc(-0.5 * var(--landing-hud-edge-gap))
-    var(--landing-hud-edge-gap)
-    color-mix(in oklab, var(--hud-box-bg) 85%, transparent);
-}
-
-@media (max-height: 800px) {
-  :root {
-    --landing-hud-clearance-bottom: 0px;
-  }
-
-  .agent-hud--landing .agent-hud__box {
-    max-height: calc(var(--landing-viewport-height) - var(--landing-nav-height) - var(--landing-hud-edge-gap));
-  }
-}
-
-/* Live run modal: fade the dim backdrop + box in/out across streaming ↔ passive
-   instead of mounting/unmounting, so a quick stream → tool-call → stream
-   succession doesn't flicker. */
-
-.agent-hud--fade::before {
-  transition: background-color 220ms ease;
-}
-
-.agent-hud--fade .agent-hud__box {
-  transition:
-    width 200ms ease,
-    height 200ms ease,
-    opacity 220ms ease,
-    transform 220ms ease;
 }
 
 .agent-hud__box {
@@ -135,34 +41,21 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   --hud-corner-control-left: 0.9rem;
   position: relative;
   z-index: 70;
-  /* The landing route starts compact; run entry expands through the shared
-     resize state after hydration. */
-  width: 68rem;
-  height: 40rem;
-  border: 3px double var(--hud-box-border);
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
   --hud-grid-line: 2px;
   --hud-grid-color: rgba(64, 200, 255, 0.085);
-  background:
-    linear-gradient(
-      var(--hud-grid-color) 0 var(--hud-grid-line),
-      transparent var(--hud-grid-line)
-    ),
-    linear-gradient(
-      90deg,
-      var(--hud-grid-color) 0 var(--hud-grid-line),
-      transparent var(--hud-grid-line)
-    ),
-    linear-gradient(
-      to bottom,
-      var(--hud-title-cover, transparent) var(--landing-nav-height),
-      transparent calc(var(--landing-nav-height) + var(--landing-hud-edge-gap))
-    ),
-    rgb(var(--hud-shell-rgb) / 0.72);
-  background-size: 3.5rem 3.5rem, 3.5rem 3.5rem, auto, auto;
+  background-color: rgb(var(--hud-shell-rgb));
+  background-image:
+    linear-gradient(var(--hud-grid-color) 0 var(--hud-grid-line), transparent var(--hud-grid-line)),
+    linear-gradient(90deg, var(--hud-grid-color) 0 var(--hud-grid-line), transparent var(--hud-grid-line));
+  background-size: 3.5rem 3.5rem;
   /* Built here (not from a:root var) so --hud-glow-scale resolves against this
      element -- letting .agent-hud__box--inactive dim it. */
   box-shadow:
-    var(--hud-title-shadow, 0 0 0 transparent),
     0 0 10px rgba(64, 200, 255, calc(0.38 * var(--hud-glow-scale))),
     0 0 28px rgba(64, 200, 255, calc(0.18 * var(--hud-glow-scale))),
     0 0 52px rgba(64, 200, 255, calc(0.08 * var(--hud-glow-scale)));
@@ -172,9 +65,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition:
-    width 200ms ease,
-    height 200ms ease;
 }
 
 /* The dark HUD's text: Share Tech Mono in a pale blue with a soft glow. Set on
@@ -677,9 +567,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   clip-path: none;
   /* The rail round the case's face is a little darker than the face. */
   --hud-light-rail-bg: color-mix(in oklab, var(--hud-control-ink) 7%, var(--hud-box-bg));
-  border: 1px solid
-    color-mix(in oklab, var(--hud-input-border) clamp(0%, 74% * var(--tune-line, 1), 100%), var(--hud-control-ink));
-  border-radius: 0.58rem;
   /* A solid base prevents the dark stream beneath the HUD from leaking
      through antialiased pixels where the rounded inner surface meets the
      inset rail. */
