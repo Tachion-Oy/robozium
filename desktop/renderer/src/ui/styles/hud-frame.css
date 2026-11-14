@@ -131,13 +131,50 @@
 /* Model selection and view mode share the HUD's top edge. Its open menus cover
    the edge control columns (z-index 21). */
 
+/* One header row: the project badge where the row starts, the model and view
+   selectors together on the right, then the project folder button. Each shares the
+   row; a shortened label stays available through its accessible name and tooltip. */
 .agent-hud__header {
   position: relative;
   z-index: 22;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
+  gap: clamp(0.35rem, 1.5cqw, 1.4rem);
   width: 100%;
+}
+
+.agent-hud__header-actions {
+  display: flex;
+  flex: 0 1 auto;
+  align-self: stretch;
+  align-items: center;
+  gap: inherit;
+  min-width: 0;
+  margin-inline-start: auto;
+}
+
+/* The project folder button ends the row: a square as tall as the selectors. */
+.agent-hud__header .agent-hud__project-folder {
+  flex: none;
+  align-self: stretch;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: 1;
+}
+
+/* In dark it is framed as the selectors are: the same cut, edge and fill. */
+:root[data-theme="dark"] .agent-hud__header .agent-hud__project-folder {
+  --btn-cut: 0.5625rem;
+  --btn-fill-strength: 10%;
+  --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 62% * var(--tune-edge, 1), 100%), transparent);
+}
+
+:root[data-theme="dark"] .agent-hud__header .agent-hud__project-folder:not(:disabled):hover {
+  --btn-fill-strength: 26%;
+  --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
 }
 
 /* What follows the selectors sits as close under them as the run view's panels do. */
@@ -163,12 +200,12 @@
   width: 100%;
 }
 
+/* The project badge starts the header row and stretches to the selectors' height. */
 .agent-hud__event-edge {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%) translateY(-50%);
-  max-width: calc(100% - 2.3rem);
+  display: flex;
+  flex: 0 1 auto;
+  align-self: stretch;
+  min-width: 0;
   z-index: 1;
   user-select: none;
   white-space: nowrap;
@@ -179,24 +216,49 @@
   transition: filter 160ms ease;
 }
 
+/* The badge names the project in the header and Environment's sections. It is a
+   label, not a button: in dark a glowing blue octagon with dark, unblurred text, cut
+   like the buttons. A clip removes box shadows, so the glow is a filter on the
+   label around it. */
 .agent-hud__event-label {
   --term-msg-color: var(--term-blue);
   --term-msg-glow: var(--term-glow-blue);
-  display: inline-block;
+  display: flex;
+  min-width: 0;
   max-width: 100%;
+  filter: drop-shadow(0 0 1.5px var(--term-blue))
+    drop-shadow(0 0 6px color-mix(in oklab, var(--term-blue) clamp(0%, 45% * var(--tune-glow, 1), 100%), transparent));
 }
 
 .agent-hud__event-label .term-msg-badge {
+  --btn-cut: 0.5625rem;
   box-sizing: border-box;
-  font-size: 1.08rem;
-  font-family: var(--font-agent-input);
-  letter-spacing: 0.10em;
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  min-width: 0;
   max-width: 100%;
-  padding: 0 0.6ch;
+  padding: 0 1rem;
+  font-family: var(--font-agent-input);
+  font-size: 1.2rem;
+  letter-spacing: 0.06em;
+  border: 0;
+  border-radius: 0;
+  background: var(--term-blue);
+  box-shadow: none;
+  clip-path: polygon(
+    var(--btn-cut) 0, calc(100% - var(--btn-cut)) 0, 100% var(--btn-cut), 100% calc(100% - var(--btn-cut)),
+    calc(100% - var(--btn-cut)) 100%, var(--btn-cut) 100%, 0 calc(100% - var(--btn-cut)), 0 var(--btn-cut)
+  );
 }
 
 .agent-hud__event-label .term-msg-badge-label {
   max-width: 100%;
+  color: color-mix(in oklab, var(--term-bg) 82%, var(--term-blue));
+  font-weight: 600;
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+  filter: none;
 }
 
 /* All the widget's knobs live here, once. --mini-size drives a REGULAR octagon:
@@ -362,6 +424,15 @@
   }
 }
 
+/* In the header a long project name ends in an ellipsis. */
+.agent-hud__header .agent-hud__event-text {
+  display: block;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Light theme */
 
 /*  Light HUD shell, panels, controls, matrices and minimized state  */
@@ -369,6 +440,7 @@
   --term-msg-color: var(--term-blue);
   --term-msg-accent: var(--term-blue);
   --term-msg-glow: none;
+  filter: none;
 }
 /* The Agent and User labels stand half out of their panels' top edge: these gaps
    leave room above them, below the selectors' lip and the agent panel. */
@@ -379,32 +451,21 @@
   margin-bottom: 3rem;
 }
 :root[data-theme="light"] .agent-hud__event-edge {
-  max-width: calc(100% - 4.5rem);
-  /* Place the badge over the shell's inset rail. */
-  top: 0.6rem;
   z-index: 24;
   filter: none;
 }
+/* Light: a flat plate. It names, and is not pressed, so it has no body as a key has.
+   An inner line of its own colour keeps its edge solid where it lands between pixels. */
 :root[data-theme="light"] .agent-hud__event-label .term-msg-badge {
-  display: inline-flex;
-  align-items: center;
   gap: 0.75rem;
   color: var(--hud-input-text);
-  font-size: 0.83rem;
-  letter-spacing: 0.075em;
-  padding: 0.28rem 0.72rem 0.32rem;
-  border: 1px solid
-    color-mix(in oklab, var(--term-green) clamp(0%, 26% * var(--tune-edge, 1), 100%), var(--hud-input-border));
-  border-radius: 0.26rem;
-  background: linear-gradient(
-    180deg,
-    color-mix(in oklab, white clamp(0%, 38% * var(--tune-sheen, 1), 100%), var(--hud-input-bg)),
-    color-mix(in oklab, var(--term-green) clamp(0%, 6% * var(--tune-fill, 1), 100%), var(--hud-input-bg))
-  );
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white clamp(0%, 64% * var(--tune-sheen, 1), 100%), transparent),
-    inset 0 -0.14rem 0 color-mix(in oklab, var(--term-green) clamp(0%, 62% * var(--tune-glow, 1), 100%), transparent),
-    0 0.16rem 0.24rem
-      color-mix(in oklab, var(--hud-control-ink) clamp(0%, 11% * var(--tune-shadow, 1), 100%), transparent);
+  padding: 0 0.9rem;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+  border-radius: var(--hud-plate-radius);
+  background: var(--hud-plate-bg);
+  box-shadow: inset 0 0 0 1px var(--hud-plate-bg);
+  clip-path: none;
 }
 :root[data-theme="light"]
   .agent-hud__event-label
@@ -419,9 +480,9 @@
 :root[data-theme="light"]
   .agent-hud__event-label
   .term-msg-badge-label {
-  font-weight: 500;
-  text-transform: uppercase;
-  color: var(--hud-control-ink);
+  font-weight: 600;
+  text-transform: none;
+  color: var(--hud-plate-ink);
   -webkit-text-stroke: 0;
   text-shadow: none;
   filter: none;

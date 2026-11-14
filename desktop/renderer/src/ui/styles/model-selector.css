@@ -1,9 +1,14 @@
 /* Shared model/view dropdown surface. Each selector supplies its signature
    accent; both menus hang from the trigger's right edge. */
+/* Selectors take the width of their label and shrink with the header row. */
 .agent-hud__model-selector {
   --selector-accent: var(--term-green);
   position: relative;
-  width: min(15rem, 50cqw);
+  flex: 0 1 auto;
+  width: max-content;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
 }
 
 .agent-hud__view-selector {
@@ -32,7 +37,9 @@
   justify-content: space-between;
   gap: 0.55rem;
   width: 100%;
+  min-width: 0;
   max-width: 100%;
+  height: 100%;
   color: color-mix(in oklab, var(--selector-accent) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
 }
 
@@ -47,6 +54,8 @@
 }
 
 .agent-hud__model-trigger > span {
+  min-width: 0;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   /* The clip box reaches below descenders (g, p, q) without changing the height. */
@@ -242,14 +251,6 @@
 }
 :root[data-theme="light"] .agent-hud__model-option > span[aria-hidden="true"] {
     color: color-mix(in oklab, var(--selector-accent) 80%, var(--hud-control-ink))
-}
-:root[data-theme="light"] .agent-hud__model-selector {
-    width: min(14rem, 38%)
-}
-:root[data-theme="light"]
-  .agent-hud__header-actions
-  .agent-hud__view-selector {
-    width: min(14rem, 38cqw)
 }
 :root[data-theme="light"] .agent-hud__model-caret {
     filter: none;
