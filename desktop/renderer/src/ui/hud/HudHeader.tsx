@@ -43,7 +43,7 @@ export function HudHeader({
 					.filter(Boolean)
 					.join(" ")}>
 			{presentation.showProjectBadge ? <HudProjectBadge name={badge.name} /> : null}
-			<div className="agent-hud__header-actions flex shrink-0 items-start gap-(--hud-actions-gap)">
+			<div className="agent-hud__header-actions">
 				{modelSelector}
 				<HudScreenSelector
 					screen={presentation.screen}

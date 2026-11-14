@@ -891,10 +891,6 @@
 }
 /* The copy and clear buttons keep their glyph; a key (hud-button.css) replaces
    the octagon. */
-:root[data-theme="light"] .agent-hud__copy-text {
-  width: 2.25rem;
-  height: 2.8rem;
-}
 :root[data-theme="light"] .agent-hud__copy-text::before,
 :root[data-theme="light"] .agent-hud__copy-text::after {
   content: none;
@@ -1045,9 +1041,17 @@
   .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__send
 ),
 :root[data-theme="light"] .agent-hud__layout-controls .agent-hud__layout-direction {
-  min-height: 2.8rem;
   font-size: 0.88rem;
   letter-spacing: 0.025em;
+}
+/* Copy buttons take their size where they stand: on the right edge, and as the
+   folder button in the header. */
+:root[data-theme="light"] :is(
+  .agent-hud__corner-control, .agent-hud__dictate,
+  .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__send
+),
+:root[data-theme="light"] .agent-hud__layout-controls .agent-hud__layout-direction {
+  min-height: 2.8rem;
 }
 /* The footer's legends are spaced capitals, as the row buttons' are. */
 :root[data-theme="light"] .agent-hud__actions :is(.agent-hud__send, .agent-hud__dictate, .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt) {
@@ -1063,11 +1067,6 @@
   min-width: var(--hud-corner-control-size);
   min-height: var(--hud-corner-control-size);
   padding: 0;
-}
-:root[data-theme="light"] .agent-hud__copy-text {
-  width: 2.25rem;
-  min-width: 2.25rem;
-  min-height: 2.8rem;
 }
 :root[data-theme="light"] .agent-hud__copy-text-icon {
   width: 1.2rem;
