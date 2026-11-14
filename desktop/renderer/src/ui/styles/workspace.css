@@ -137,10 +137,14 @@ html[data-theme="light"] .workspace .workspace__panes[data-log-open]::after {
 /* Dark: lit rows behind the log's text and behind the startup screen, in their
    own tint and as far above the background as the panels' lines are above
    theirs. The CRT darkening (crt.css) still lies over everything, so the rows
-   and their badges look as they did. */
+   and their badges look as they did. A vignette of the background over the
+   rows fades them out towards the edges. */
 :root[data-theme="dark"] :is(.message-log, .startup > .terminal-backdrop) {
   --scanline-ink: rgb(from var(--term-bloom-color) r g b / 7%);
-  background: var(--scanlines), var(--term-bg);
+  background:
+    radial-gradient(ellipse closest-side at center, transparent 35%, color-mix(in oklab, var(--term-bg) 90%, transparent) 100%),
+    var(--scanlines),
+    var(--term-bg);
 }
 
 /* The terminal's fonts and CRT treatment, with local pane geometry. */
