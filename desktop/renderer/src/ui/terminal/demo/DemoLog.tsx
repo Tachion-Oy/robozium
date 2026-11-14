@@ -47,13 +47,12 @@ function introRevealText(item: StreamLogItem): string {
 }
 
 /**
- * The static demo log, with the trailing shell prompt. `fadeIn` is false right
- * as the boot intro hands off to this (same content already visible, so no
- * fade is wanted there) and true when returning to landing after a run.
+ * The static demo log, with the trailing shell prompt. It shows without a fade:
+ * when the boot intro hands off to it, the same rows are already on screen.
  */
-export function PlaceholderLog({ fadeIn = false, scrollable = false, command }: { fadeIn?: boolean; scrollable?: boolean; command?: string }) {
+export function PlaceholderLog({ scrollable = false, command }: { scrollable?: boolean; command?: string }) {
 	return (
-		<TerminalLog enter={fadeIn} scrollable={scrollable}>
+		<TerminalLog scrollable={scrollable}>
 			{placeholderLogItems.map((item, i) => (
 				<Fragment key={i}>{renderContent(item, "demo")}</Fragment>
 			))}

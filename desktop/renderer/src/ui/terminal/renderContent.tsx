@@ -217,7 +217,6 @@ function renderLifecycleContent(item: LifecycleLogItem): ReactNode {
 export function renderContent(
 	item: StreamLogItem,
 	mode: "live" | "demo" = "live",
-	showCaret = false,
 	messageOptions: MessageRenderOptions = {},
 ): ReactNode {
 	switch (item.kind) {
@@ -237,7 +236,6 @@ export function renderContent(
 						mode,
 						messageOptions.maxChars,
 					)}
-					{showCaret ? <TerminalCursor role={item.role} /> : null}
 				</TerminalMessage>
 			)
 	}

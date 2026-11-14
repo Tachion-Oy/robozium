@@ -3,7 +3,6 @@ import { Fragment, memo, useCallback, useEffect, useState } from "react"
 import {
 	isPromptUserAssistantMessage,
 	StreamLogItemKind,
-	type MessageLogItem,
 	type StreamLogItem,
 } from "../../log/view-model"
 import { TerminalLog } from "./TerminalLog"
@@ -19,8 +18,6 @@ import {
 
 type TerminalStreamProps = {
 	items: readonly StreamLogItem[]
-	/** Allow scrolling and message expansion in a dedicated log panel. */
-	readable?: boolean
 }
 
 const REVEAL_CHARS_PER_SECOND = 240
@@ -44,7 +41,7 @@ const TerminalStreamRow = memo(function TerminalStreamRow({
 	interactive,
 	onToggle,
 }: TerminalStreamRowProps) {
-	return renderContent(item, "live", false, {
+	return renderContent(item, "live", {
 		maxChars: expanded
 			? EXPANDED_MESSAGE_MAX_CHARS
 			: LIVE_MESSAGE_MAX_CHARS,
@@ -55,12 +52,7 @@ const TerminalStreamRow = memo(function TerminalStreamRow({
 	})
 })
 
-/** Flat text of a message item, used as the typewriter timing reference. */
-export function getRevealText(item: MessageLogItem): string {
-	return messageRevealText(item)
-}
-
-export function TerminalStream({ items, readable = false }: TerminalStreamProps) {
+export function TerminalStream({ items }: TerminalStreamProps) {
 	const [reveal, setReveal] = useState({ index: -1, chars: 0 })
 	const [expandedRows, setExpandedRows] = useState<Set<number>>(() => new Set())
 	// Pages are fixed from the run's first row. Null follows the newest page;
@@ -68,15 +60,11 @@ export function TerminalStream({ items, readable = false }: TerminalStreamProps)
 	const [heldPage, setHeldPage] = useState<number | null>(null)
 	// Stepping to a newer page starts reading at its top.
 	const [topOfPage, setTopOfPage] = useState<number | null>(null)
-	// A dedicated log panel is readable while the surrounding HUD remains open.
-	const scrollable = readable
-	const messagesInteractive = readable
 
 	const latestRevealIndex = items.length - 1
 	const latestRevealItem =
 		latestRevealIndex >= 0 ? items[latestRevealIndex] : null
 	const latestExpanded =
-		messagesInteractive &&
 		latestRevealItem?.kind === StreamLogItemKind.Message &&
 		expandedRows.has(latestRevealIndex)
 	const latestMessageMaxChars = latestExpanded
@@ -139,15 +127,12 @@ export function TerminalStream({ items, readable = false }: TerminalStreamProps)
 
 	return (
 		<div className="flex flex-1 min-h-0 w-full flex-col">
-			<TerminalLog key={shownPage} clamp enter scrollable={scrollable} startAtTop={topOfPage === shownPage}>
+			<TerminalLog key={shownPage} clamp enter scrollable startAtTop={topOfPage === shownPage}>
 				{items.slice(pageStart, pageStart + LOG_PAGE_SIZE).map((item, offset) => {
 					const index = pageStart + offset
-					const expanded = messagesInteractive && expandedRows.has(index)
-					const interactive = Boolean(
-						messagesInteractive &&
-						item.kind === StreamLogItemKind.Message &&
-						isMessageTruncated(item),
-					)
+					const expanded = expandedRows.has(index)
+					const interactive =
+						item.kind === StreamLogItemKind.Message && isMessageTruncated(item)
 					const messageOptions = {
 						maxChars: expanded
 							? EXPANDED_MESSAGE_MAX_CHARS

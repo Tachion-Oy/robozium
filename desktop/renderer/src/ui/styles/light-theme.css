@@ -43,15 +43,8 @@
     --term-amber: #f2aa1f;
     --term-red: #e4574c;
     --term-blue: #6f8fe6;
-    --term-dim-green: #477172;
     --term-dim-amber: #765f3c;
-    --term-dim-red: #7e4e49;
     --term-dim-blue: #596982;
-    --term-agent-ink: var(--stream-ink);
-    --term-tool-ink: var(--stream-ink);
-    --term-system-ink: var(--stream-ink);
-    --term-error-ink: var(--stream-ink);
-    --term-lifecycle-ink: var(--stream-ink);
     --term-agent-accent: var(--term-agent);
     --term-tool-accent: var(--term-tool);
     --term-system-accent: var(--term-system);
@@ -61,7 +54,6 @@
     color-mix(in oklab, var(--stream-ink) 65%, transparent);
     --term-glow-tool: var(--term-glow-agent);
     --term-glow-error: var(--term-glow-agent);
-    --term-glow-system: var(--term-glow-agent);
     --term-scanline-opacity: 0.1;
     --term-scanline-color: rgb(
     49 55 70 / calc(0.56 * var(--term-scanline-opacity))
@@ -133,9 +125,6 @@
     /* A dialog dims the HUD behind it with the ink. */
     --hud-dialog-dim: color-mix(in oklab, var(--hud-control-ink) 50%, transparent);
     --hud-grid-color: #8e9695;
-    --hud-lab-surface-opacity: 98%;
-    --hud-lab-grid-opacity: 0%;
-    --hud-lab-shadow-opacity: 20%;
     --hud-control-ink: #21103d;
     /* A project's status keeps the dark theme's order of colours, deep enough
        to read as text on a screen. */
@@ -147,20 +136,8 @@
     --term-bg: var(--hud-lab-canvas);
     --term-bg-elev: var(--hud-input-bg);
     --term-lime: var(--term-green);
-    --hud-text: var(--hud-input-text);
     --hud-text-glow: none;
     --hud-logo-bg: color-mix(in oklab, var(--hud-input-bg) 82%, transparent);
-    --hud-chip-bg: color-mix(in oklab, var(--hud-input-bg) 82%, transparent);
-    --hud-chip-bg-strong: color-mix(in oklab, var(--hud-input-bg) 94%, transparent);
-    --hud-row-bg: color-mix(in oklab, var(--hud-input-bg) 62%, transparent);
-    --hud-mini-shadow: drop-shadow(
-    0 6px 12px
-      color-mix(
-        in oklab,
-        var(--hud-box-border) var(--hud-lab-shadow-opacity),
-        transparent
-      )
-  );
     --term-glow-blue: 0 0 1px
     color-mix(in oklab, var(--term-blue) 40%, transparent);
     --term-glow-green: 0 0 1px
@@ -173,9 +150,6 @@
     --term-glow-lime-strong: var(--term-glow-green);
     color: var(--hud-input-text);
     background: var(--hud-lab-canvas);
-    --hud-send-bg: color-mix(in oklab, var(--term-blue) 16%, var(--hud-box-bg));
-    --hud-send-border: color-mix(in oklab, var(--term-blue) 58%, var(--hud-input-text));
-    --hud-send-text: var(--hud-input-text);
     --hud-dim-bg: rgb(
       var(--light-stream-shade-color) /
         var(--light-stream-shade-with-hud-opacity)
@@ -302,9 +276,6 @@
 }
 :root[data-theme="light"] .term-banner {
     color: var(--term-lifecycle-accent)
-}
-:root[data-theme="light"] .term-banner-logo {
-    display: none
 }
 :root[data-theme="light"] .term-banner-card {
     border: 1px solid

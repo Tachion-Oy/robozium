@@ -200,8 +200,8 @@
    kind and a state are nested, so the list of buttons is written once. */
 :root[data-theme="light"] :is(
   .agent-hud__send, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__dictate, .agent-hud__image,
-  .agent-hud__corner-control, .agent-hud__copy-text, .agent-hud__layout, .agent-hud__layout-direction,
-  .agent-hud__expand, .agent-hud__minimize, .agent-hud__project-folder, .agent-hud__model-trigger,
+  .agent-hud__corner-control, .agent-hud__copy-text, .agent-hud__layout-direction,
+  .agent-hud__project-folder, .agent-hud__model-trigger,
   .agent-hud__row-action:not(.agent-hud__capability-static), .agent-hud__start,
   .agent-hud__status-view .app-nav__cta, .agent-error-toast__dismiss, .agent-error-toast__action,
   .agent-hud__image-toolbar > button
