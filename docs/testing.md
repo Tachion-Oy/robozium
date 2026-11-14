@@ -297,11 +297,10 @@ scaling cannot bypass Xvfb or change the baseline dimensions.
 
 The native CI job checks out only desktop and root files and installs desktop's
 own dependencies.
-CI sets `DEBUG=pw:browser` and saves combined command output in
-`.artifacts/desktop/electron-launch.log`, uploaded with failure reports. This
-includes native errors before Playwright's Electron launch resolves; the
-fixture's per-test log cannot capture that stage. For local launch debugging,
-use `DEBUG=pw:browser npm --prefix desktop run test:electron`.
+CI saves combined command output in `.artifacts/desktop/electron-launch.log`,
+uploaded with failure reports. Native errors before Playwright's Electron launch
+resolves are not in it, and the fixture's per-test log cannot capture that stage
+either; to see them, run `DEBUG=pw:browser npm --prefix desktop run test:electron`.
 
 CI checks desktop lint, types, and compilation. Full E2E runs the native suite on
 Ubuntu with Chromium sandboxing enabled, split across two Electron scaffold shards

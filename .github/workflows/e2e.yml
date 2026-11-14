@@ -147,8 +147,6 @@ jobs:
           sudo chmod 4755 desktop/node_modules/electron/dist/chrome-sandbox
       - name: Exercise the native application with sandboxing enabled
         shell: bash
-        env:
-          DEBUG: pw:browser
         run: |
           set -o pipefail
           mkdir -p .artifacts/desktop
