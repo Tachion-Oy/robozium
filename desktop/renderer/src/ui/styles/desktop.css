@@ -1,17 +1,3 @@
-/* The copied desktop frontend uses the HUD as its entire client area. */
-html[data-desktop], html[data-desktop] body { margin: 0; height: 100%; min-height: 0; padding: 0; overflow: hidden; }
-html[data-desktop] { --app-ui-root-font-size: 75%; --hud-stream-agent-opacity: 1; --hud-stream-agent-fill: 100%; }
-html[data-desktop] .agent-hud, html[data-desktop] .agent-hud--landing {
-  position: absolute; inset: 0; margin: 0; padding: 0; width: 100%; height: 100%; display: flex;
-}
-html[data-desktop] .agent-hud::before { display: none; }
-html[data-desktop] .agent-hud__box {
-  box-sizing: border-box; width: 100%; height: 100%; min-height: 0; max-width: none; max-height: none;
-}
-/* Exterior only: the inset rails and panel borders keep their existing shape. */
-html[data-desktop][data-theme="dark"] .agent-hud__box { border: 0; background-color: rgb(var(--hud-shell-rgb)); }
-html[data-desktop][data-theme="light"] .agent-hud__box { border: 0; border-radius: 0; }
-
 .desktop-terminal { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
 .desktop-terminal .app-nav__brand { cursor: default; }
 
@@ -199,15 +185,13 @@ html[data-theme="light"] .desktop-workspace {
   --desktop-divider-shadow-blur: 3px; --desktop-divider-shadow-offset: 1px;
 }
 .desktop-workspace__panes { display: grid; width: 100%; height: 100%; }
-/* A wait over the whole window centres its mark on the HUD pane (HudBusy). */
-.desktop-workspace__panes > .agent-hud { anchor-name: --hud-pane; }
-html[data-desktop] .desktop-workspace .agent-hud {
+/* The HUD is the panes' grid cell. A wait over the whole window centres its mark on
+   it (HudBusy). */
+.desktop-workspace__panes > .agent-hud {
   position: relative; inset: auto; min-width: 0; min-height: 0;
-  container: hud-pane / size;
+  container: hud-pane / size; anchor-name: --hud-pane;
 }
-html[data-desktop] .desktop-workspace .agent-hud__box {
-  --hud-pad-x: var(--desktop-panel-inset); transition: none;
-}
+.desktop-workspace .agent-hud__box { --hud-pad-x: var(--desktop-panel-inset); }
 .desktop-workspace__panes[data-log-open] {
   grid-template-columns: minmax(640px, 3fr) minmax(480px, 2fr);
 }
@@ -325,7 +309,6 @@ html[data-desktop][data-theme] .desktop-edge-controls .agent-hud__copy-text {
 }
 
 /* The terminal's fonts and CRT treatment, with local pane geometry. */
-html[data-desktop] .desktop-message-log .term-frame { position: relative; top: auto; bottom: auto; }
 .desktop-message-log .term-log {
   max-width: none;
   /* Mirror the distance from the split to the HUD panel border. */

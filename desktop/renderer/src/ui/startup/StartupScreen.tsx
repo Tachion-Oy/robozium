@@ -82,7 +82,7 @@ export function StartupScreen({ mode, ready, status, label, progress, onFaded }:
 			</TerminalBackdrop>
 			{loadingStarted && (
 				<div
-					className={`agent-hud agent-hud--landing startup__hud${skipIntro ? "" : " startup__hud--enter"}`}>
+					className={`agent-hud startup__hud${skipIntro ? "" : " startup__hud--enter"}`}>
 					<div className="agent-hud__box">
 						<div className="startup__loading">
 							<MinimizedHudFrame

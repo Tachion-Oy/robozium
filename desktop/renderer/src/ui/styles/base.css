@@ -2,8 +2,14 @@
  * Base layer
  * ------------------------------------------------------------------------- */
 
+/* The HUD is the window's whole client area: the page itself never scrolls. */
 html,
 body {
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
   background: var(--term-bg);
   color: var(--term-green);
   font-family: var(--font-terminal);

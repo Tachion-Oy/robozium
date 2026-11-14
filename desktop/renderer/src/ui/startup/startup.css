@@ -3,6 +3,8 @@
 .startup { --startup-loading-art-width: 142px; --startup-label-gap: 46px; --startup-progress-offset: 14px; --startup-progress-width: 166px; --startup-loader-size: calc(var(--startup-loading-art-width) + 4.5rem); position: fixed; inset: 0; z-index: 10000; background: var(--term-bg); opacity: 1; transition: opacity var(--intro-hud-box-fade) ease; }
 .startup--revealing { opacity: 0; }
 .startup__hud { --startup-loader-top: 50%; z-index: 70; }
+/* The terminal starts below the title row. */
+.startup .term-frame { position: absolute; top: calc(var(--landing-viewport-top) + var(--landing-nav-height)); bottom: 0; }
 /* A failure keeps the loader centred unless the window is too short for its message
    and actions below it; then the loader rises only by the difference. */
 /* Loading and run surfaces let the terminal show through. The whole startup

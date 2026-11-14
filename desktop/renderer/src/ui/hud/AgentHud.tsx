@@ -31,19 +31,11 @@ export function AgentHud({ presentation, layoutMode, onLayoutModeChange, message
 	const copySlotValue = useMemo(() => ({ element: copySlot, setFilled: setCopySlotFilled }), [copySlot])
 	const hud = useRef<HTMLDivElement>(null)
 	const resizing = messageLog.resizingWidth
-	const isLanding = presentation.context === "landing"
 	const hudBoxClassName = `agent-hud__box${
 		presentation.headerVariant === "overview"
 			? " agent-hud__box--overview"
 			: ""
 	}${presentation.context === "recovery" ? " agent-hud__box--inactive" : ""}`
-	const hudClassName = [
-		"agent-hud",
-		isLanding ? "agent-hud--landing" : "",
-		!isLanding ? "agent-hud--fade" : "",
-	]
-		.filter(Boolean)
-		.join(" ")
 
 	return (
 		<div className="desktop-workspace">
@@ -54,7 +46,7 @@ export function AgentHud({ presentation, layoutMode, onLayoutModeChange, message
 				style={resizing === null ? undefined : { "--desktop-hud-width": `${resizing}px` } as CSSProperties}>
 				<div
 					ref={hud}
-					className={hudClassName}
+					className="agent-hud"
 					aria-live="polite">
 					<div className={hudBoxClassName}>
 						<HudCornerControls

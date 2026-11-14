@@ -37,9 +37,6 @@
     calc(var(--landing-title-size) * 1.48 + 2 * var(--landing-hud-edge-gap))
   );
   --landing-hud-edge-gap: 12px;
-  --landing-hud-min-height: 40rem;
-  --landing-hud-clearance-top: var(--landing-nav-height);
-  --landing-hud-clearance-bottom: var(--landing-hud-clearance-top);
 
   /* Base surface */
   --term-bg: #07080a;
@@ -169,7 +166,6 @@
 
   /* HUD */
   --hud-shell-rgb: 9 20 38;
-  --hud-dim-bg: rgba(4, 10, 18, 0.78);
   --hud-box-bg: rgba(6, 14, 26, 0.82);
   --hud-box-border: color-mix(in oklab, var(--term-blue) 65%, var(--term-bg) 35%);
   /* Edge-glow intensity multiplier. 1 = full glow; the inactive HUD dims it
@@ -192,8 +188,8 @@
   --hud-logo-bg: color-mix(in oklab, var(--term-blue) 35%, black);
   /* Error toast opacity knob (lower = more see-through). */
   --error-toast-bg-opacity: 90%;
-  --hud-stream-agent-opacity: 0.9;
-  --hud-stream-agent-fill: 40%;
+  --hud-stream-agent-opacity: 1;
+  --hud-stream-agent-fill: 100%;
   --hud-stream-text-color: color-mix(in oklab, var(--hud-input-text) 90%, black 10%);
   --hud-stream-text-opacity: 0.7;
 
@@ -227,14 +223,6 @@
     var(--scanline-ink) calc(var(--scanline-row) * 12) calc(var(--scanline-row) * 14), transparent calc(var(--scanline-row) * 14) calc(var(--scanline-row) * 16),
     var(--scanline-ink) calc(var(--scanline-row) * 16) calc(var(--scanline-row) * 18), transparent calc(var(--scanline-row) * 18) calc(var(--scanline-row) * 21)
   );
-}
-
-/* Preserve readable text and touch targets once the layout reaches the compact
-   mobile breakpoint. Viewport structure and CRT raster effects stay unscaled. */
-@media (max-width: 48rem) {
-  :root {
-    --app-ui-root-font-size: 100%;
-  }
 }
 
 /* ---------------------------------------------------------------------------
