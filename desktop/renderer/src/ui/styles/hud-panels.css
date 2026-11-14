@@ -624,14 +624,11 @@ button.agent-hud__image-preview {
 
 
 
-.agent-hud__panels[data-layout="top"] > .agent-hud__replyBox--user {
-  flex: 0 0 var(--hud-compact-panel-height);
-}
-
-
-
+/* The small panel keeps four lines, but at most 45% of the panels, so both the
+   message and the reply keep usable room in the smallest window. */
+.agent-hud__panels[data-layout="top"] > .agent-hud__replyBox--user,
 .agent-hud__panels[data-layout="bottom"] > .agent-hud__replyBox--agent {
-  flex: 0 0 var(--hud-compact-panel-height);
+  flex: 0 0 min(var(--hud-compact-panel-height), 45%);
 }
 
 
@@ -1528,4 +1525,22 @@ button.agent-hud__image-preview {
   z-index: -2;
   clip-path: none;
   border-radius: var(--hud-screen-radius);
+}
+
+/* A short pane, rather than a short window, tightens the spacing. Dark keeps room
+   for its edge ticks above the header and below the footer. These follow the
+   themes' own spacing, which they replace. */
+@container hud-pane (height < 360px) {
+  :root[data-theme] .agent-hud__box {
+    --hud-reply-pad-block-start: 0.4rem;
+    --hud-reply-pad-block-end: 0.4rem;
+    --hud-pad-bottom: 0.75rem;
+    --hud-panel-gap: 0.6rem;
+    --hud-section-gap: 0.65rem;
+  }
+
+  :root[data-theme="dark"] .agent-hud__box {
+    --hud-pad-top: 1.7rem;
+    --hud-pad-bottom: 1.7rem;
+  }
 }

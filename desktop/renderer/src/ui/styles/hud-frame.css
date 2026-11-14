@@ -494,11 +494,8 @@
   --hud-logo-font-size: 2.5rem;
 }
 :root[data-theme="light"] .agent-hud__mini-box {
-  width: 7.15rem;
-  height: auto;
-  min-height: 7.9rem;
-  gap: 0.62rem;
-  padding: 0.72rem;
+  padding-inline: 0.72rem;
+  padding-bottom: 0.72rem;
   border: 1px solid
     color-mix(in oklab, var(--term-blue) clamp(0%, 28% * var(--tune-edge, 1), 100%), var(--hud-input-border));
   border-radius: 0.64rem;

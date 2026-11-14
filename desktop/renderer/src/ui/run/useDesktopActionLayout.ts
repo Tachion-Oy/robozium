@@ -22,7 +22,7 @@ export function useDesktopActionLayout() {
 
 	useLayoutEffect(() => {
 		const root = ref.current
-		if (!root || !document.documentElement.hasAttribute("data-desktop")) return
+		if (!root) return
 		const navigation = root.querySelector<HTMLElement>(".agent-hud__message-nav")
 		if (!navigation) return
 		let frame = 0
