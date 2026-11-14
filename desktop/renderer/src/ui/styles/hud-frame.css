@@ -240,6 +240,15 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   --tune-hover-glow: 1.6;
 }
 
+/* The Agent and User labels sit centred on their panels' top edge: the header
+   row's margin and the panel gap leave room above them. */
+:root[data-theme="dark"] .agent-hud__box {
+  --hud-panel-gap: 1.25rem;
+}
+:root[data-theme="dark"] .agent-hud__header--row {
+  margin-bottom: 1.25rem;
+}
+
 /* Fine and major ticks along the whole of the dark shell's top and bottom edges,
    at the grid's own strength. */
 :root[data-theme="dark"] .agent-hud__box::after {
