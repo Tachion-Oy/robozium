@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.6.1 - 2026-11-14
+
+- Tools and skills keep what they save for themselves in `tool-data/` in the
+  hub, one folder each, so removing or importing them again no longer deletes
+  it. Robozify's email skill keeps its signature there once it is updated, so
+  the signature is set once and stays. The agent's file commands can read the
+  folder but not change it.
+
 ## 0.6.0 - 2026-11-14
 
 - Both themes have a new look.
