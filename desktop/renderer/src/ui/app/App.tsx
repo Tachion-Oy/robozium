@@ -1,4 +1,4 @@
-// Compose feature state into the reference HUD frame; keep navigation and draft ownership here.
+// Compose feature state into the HUD; keep navigation and draft ownership here.
 import { useMemo, useReducer, useState } from "react"
 import { RunHud } from "../run/RunHud"
 import { HubFileUrlContext } from "../run/HudImage"
@@ -81,7 +81,7 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 		setDraftOwner(draftRun)
 		setDraft("")
 	}
-	// As in the reference, a transcript joins the draft after a space.
+	// A transcript joins the draft after a space.
 	const dictation = useDictation({ client, onTranscript: text =>
 		setDraft(current => current.trim() ? `${current.trimEnd()} ${text}` : text) })
 	const [layout, setLayout] = useState<LayoutMode>("top")
@@ -91,7 +91,7 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	const setupRequired = Boolean(credentials.status?.setupRequired)
 	// A change that applies after a restart locks the HUD on Environment until Restart app.
 	const restartRequired = Boolean(credentials.status?.restartRequired)
-	// As in the reference, a run that ends or goes missing leaves Current Run for the overview.
+	// A run that ends or goes missing leaves Current Run for the overview.
 	const presentation = resolveHudPresentation({
 		hasRun: session !== null,
 		runEnded,

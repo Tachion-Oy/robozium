@@ -10,7 +10,7 @@ export function isSecretsLocked(error: unknown): boolean {
 	return error instanceof ApiError && error.status === 423
 }
 
-/** The reference notice, for a password request the user cancelled. */
+/** The notice for a password request the user cancelled. */
 export function showSecretsLocked(message: string): void {
 	showErrorToast({ title: "Secrets locked", message })
 }

@@ -4,7 +4,7 @@ import type { HudScreen } from "../../app/hud-navigation"
 
 export type { HudScreen }
 
-export type HudContext = "landing" | "active-run" | "recovery"
+export type HudContext = "idle" | "active-run" | "recovery"
 
 export type HudScreenOption = {
 	value: HudScreen
@@ -26,7 +26,7 @@ export type HudPresentation = {
 }
 
 const SCREEN_OPTIONS: Record<HudContext, readonly HudScreenOption[]> = {
-	landing: [
+	idle: [
 		{ value: "projects", label: "Runs Overview" },
 		{ value: "dependencies", label: "Dependencies" },
 		{ value: "environment", label: "Environment" },
@@ -51,11 +51,11 @@ const SETUP_SCREENS: readonly HudScreen[] = ["projects", "onboarding", "environm
 const RESTART_SCREENS: readonly HudScreen[] = ["environment"]
 
 function restartScreenOptions(): readonly HudScreenOption[] {
-	return SCREEN_OPTIONS.landing.map((option) => ({ ...option, disabled: !RESTART_SCREENS.includes(option.value) }))
+	return SCREEN_OPTIONS.idle.map((option) => ({ ...option, disabled: !RESTART_SCREENS.includes(option.value) }))
 }
 
 function setupScreenOptions(screen: HudScreen): readonly HudScreenOption[] {
-	return SCREEN_OPTIONS.landing.map((option) => ({
+	return SCREEN_OPTIONS.idle.map((option) => ({
 		...option,
 		disabled: option.value === "dependencies" || (option.value === "projects" && screen !== "environment"),
 	}))
@@ -79,7 +79,7 @@ export function resolveHudPresentation({
 	restartRequired?: boolean
 }): HudPresentation {
 	const context: HudContext = !hasRun
-		? "landing"
+		? "idle"
 		: runEnded || runUnavailable
 			? "recovery"
 			: "active-run"

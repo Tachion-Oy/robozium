@@ -8,8 +8,7 @@ Run, answer its prompts, **Interrupt** the working agent or **Cancel** the run.
 A run that completes, fails, is cancelled or goes missing returns to Runs
 Overview. Light/Dark switches the theme, which is kept for the next launch
 along with a matching window background. The window frame, header, overview,
-capability selector and run view use the accepted experiment's stylesheets and
-markup.
+capability selector and run view share one dark and one light look.
 
 ## Install on Linux
 
@@ -243,8 +242,8 @@ and carries its own actions, such as **Retry**, instead of **Dismiss**.
 
 Opening the event stream starts the prepared run. A snapshot is read immediately,
 then every two seconds after the previous read settles, with ten-second deadlines.
-Snapshots and events merge by sequence/message identity. As in the reference,
-reads recover quietly: a closed or failed stream takes a fresh snapshot and
+Snapshots and events merge by sequence/message identity.
+Reads recover quietly: a closed or failed stream takes a fresh snapshot and
 reconnects after 0.5, 1, 2 and then 4 seconds until a frame arrives, and failed
 snapshot reads keep polling. Only a failure that trying again cannot fix, such
 as invalid run data or a refused stream, is reported; **Retry output** then
@@ -285,10 +284,9 @@ failed** and offers it again. A pending **Cancel** pulses the same way. **Cancel
 uses the same per-project cancellation as the overview row, so the two never
 send a second request; a refusal or failure shows **Cancellation failed**.
 
-The run screen uses the experiment's markup and stylesheets. Agent messages and
-prompts render as sanitized Markdown; live text and script output stay literal.
-Web links open in the default browser, and links to files inside the hub open
-in their default application.
+Agent messages and prompts render as sanitized Markdown; live text and script
+output stay literal. Web links open in the default browser, and links to files
+inside the hub open in their default application.
 
 The run reducer owns run identity, durable event reconciliation, and backend
 status. Run protocol values and derived types live in `run/run-contracts.ts`;

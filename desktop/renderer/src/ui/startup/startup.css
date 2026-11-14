@@ -4,7 +4,7 @@
 .startup--revealing { opacity: 0; }
 .startup__hud { --startup-loader-top: 50%; z-index: 70; }
 /* The terminal starts below the title row. */
-.startup .term-frame { position: absolute; top: calc(var(--landing-viewport-top) + var(--landing-nav-height)); bottom: 0; }
+.startup .term-frame { position: absolute; top: var(--title-row-height); bottom: 0; }
 /* A failure keeps the loader centred unless the window is too short for its message
    and actions below it; then the loader rises only by the difference. */
 /* Loading and run surfaces let the terminal show through. The whole startup
@@ -16,8 +16,8 @@
 @keyframes startup-hud-in { from { opacity: 0; } to { opacity: 1; } }
 .startup__loading { position: absolute; top: var(--startup-loader-top); left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 18px; z-index: 1; }
 /* The padding lowers the label and mark, away from the octagon's upper cuts. */
-.startup__loading .agent-hud__mini-box { --mini-size: var(--startup-loader-size); width: var(--mini-size); height: var(--mini-size); min-height: 0; gap: var(--startup-label-gap); box-sizing: border-box; padding-top: 1.25rem; }
-.startup__loading .agent-hud__mini-box::after { content: none; }
+.startup__loading .agent-hud__loader { --loader-size: var(--startup-loader-size); width: var(--loader-size); height: var(--loader-size); min-height: 0; gap: var(--startup-label-gap); box-sizing: border-box; padding-top: 1.25rem; }
+.startup__loading .agent-hud__loader::after { content: none; }
 /* The loader's edge and halo: the octagon behind its fill (hud-frame.css), in the
    panels' blue. The halo is a filter on this still shape, not on the loader, whose
    progress bar would have it worked out again on every step. */

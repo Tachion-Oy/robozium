@@ -8,7 +8,7 @@ import {
 	isCurrentRunRow,
 	ProjectStatus,
 	type ProjectRow,
-} from "../../projects/landing"
+} from "../../projects/project-rows"
 import type { ProjectQueryState } from "../../projects/useProjectQuery"
 import type { ProjectMutations } from "../../projects/useProjectMutations"
 import type { LaunchDraft } from "../../app/hud-navigation"

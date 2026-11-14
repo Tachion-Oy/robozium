@@ -16,27 +16,21 @@
   --font-source-code-pro: "Source Code Pro";
   --font-sono: "Sono";
 
-  /* Desktop density. Keep the unitless value paired with the root percentage:
-     CSS uses the percentage to scale every rem-based surface, while viewport-
-     based HUD bounds read the numeric value in HudResizeHandle. */
+  /* Density: the root font size scales every rem-based surface. */
   --app-ui-root-font-size: 75%;
-  --landing-nav-compact-height: 96px;
-  --landing-viewport-height: 100dvh;
-  --landing-viewport-top: 0px;
-  --landing-viewport-width: 100dvw;
-  --landing-viewport-left: 0px;
-  --landing-nav-inset: min(3rem, calc(var(--landing-viewport-width) * 0.05));
-  --landing-title-size: min(
-    clamp(28px, calc(var(--landing-viewport-width) * 0.0384), 40px),
-    calc((var(--landing-viewport-width) - 2 * var(--landing-nav-inset)) / 13.97),
-    calc(var(--landing-viewport-height) * 0.2)
+  --title-row-compact-height: 96px;
+  --title-row-inset: min(3rem, calc(100dvw * 0.05));
+  --title-size: min(
+    clamp(28px, calc(100dvw * 0.0384), 40px),
+    calc((100dvw - 2 * var(--title-row-inset)) / 13.97),
+    calc(100dvh * 0.2)
   );
   /* The title's 0.24em downward offset needs 0.48em of centered row clearance. */
-  --landing-nav-height: max(
-    calc(var(--landing-viewport-height) * 0.08),
-    calc(var(--landing-title-size) * 1.48 + 2 * var(--landing-hud-edge-gap))
+  --title-row-height: max(
+    calc(100dvh * 0.08),
+    calc(var(--title-size) * 1.48 + 2 * var(--title-row-padding))
   );
-  --landing-hud-edge-gap: 12px;
+  --title-row-padding: 12px;
 
   /* Base surface */
   --term-bg: #07080a;
@@ -138,7 +132,7 @@
   --font-terminal: var(--font-vt323), ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-terminal-alt: var(--font-share-tech-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-agent-input: var(--font-source-code-pro), ui-monospace, SFMono-Regular, Menlo, monospace;
-  /* Display face is reserved for chrome (nav, brand, future callouts). It is
+  /* Display face is reserved for chrome (title, callouts). It is
      deliberately unusable at body sizes -- the pixel bleed makes it loud. */
   --term-letter-spacing: 0.02em;
   --term-line-height: 1.35;
@@ -162,7 +156,7 @@
   --term-glow-error: var(--term-glow-red);
 
   /* Default desktop split color; each theme controls the shadow depth. */
-  --desktop-divider-default-color: #000000;
+  --workspace-divider-default-color: #000000;
 
   /* HUD */
   --hud-shell-rgb: 9 20 38;
@@ -193,12 +187,12 @@
   --hud-stream-text-color: color-mix(in oklab, var(--hud-input-text) 90%, black 10%);
   --hud-stream-text-opacity: 0.7;
 
-  /* Landing-intro fade durations (stream speed / pause knobs live at the top of
-     TerminalRunView.tsx) */
+  /* Startup intro fade durations (stream speed / pause knobs live at the top of
+     DemoLog.tsx) */
   --intro-emphasis-fade: 1620ms;       /* tag/emphasis fade-in when a message settles */
   --live-emphasis-fade: 810ms;         /* faster settle fade for the live stream log */
   --intro-hud-box-fade: 500ms;    /* HUD box fade/rise-in */
-  --intro-nav-fade: 4000ms;       /* title opacity fade while the landing stream starts */
+  --intro-title-fade: 4000ms;       /* title opacity fade while the startup intro starts */
 
 }
 
@@ -213,7 +207,7 @@
 }
 
 :root[data-theme="dark"],
-:root[data-theme="dark"] :is(.desktop-message-log, .startup > .desktop-terminal) {
+:root[data-theme="dark"] :is(.message-log, .startup > .terminal-backdrop) {
   --scanline-row: var(--screen-row, 1px);
   --scanlines: repeating-linear-gradient(
     to bottom,

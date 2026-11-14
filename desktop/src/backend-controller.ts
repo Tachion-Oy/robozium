@@ -66,7 +66,7 @@ export function portAvailable(port: number): Promise<boolean> {
 	})
 }
 
-/** API-only adaptation of the ownership and cancellation boundaries in experiment 076b2c9. */
+/** Starts, watches and stops the API container: one owner, and cancellation at each step. */
 export class BackendController {
 	private status: BackendStatus = { state: "starting", message: "Checking the container engine…" }
 	/** Startup; shutdown waits for it. */

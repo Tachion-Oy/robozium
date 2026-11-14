@@ -162,7 +162,7 @@ async function startRecordingSession({
 	{ session: RecordingSession } | { error: string }
 > {
 	if (!navigator.mediaDevices?.getUserMedia) {
-		return { error: "Microphone is not available in this browser." }
+		return { error: "Microphone is not available." }
 	}
 
 	let stream: MediaStream
@@ -177,7 +177,7 @@ async function startRecordingSession({
 		recorder = new MediaRecorder(stream)
 	} catch {
 		stopTracks(stream)
-		return { error: "Audio recording is not available in this browser." }
+		return { error: "Audio recording is not available." }
 	}
 
 	const session = { recorder, stream }
@@ -191,9 +191,8 @@ async function startRecordingSession({
 }
 
 /**
- * Browser-native push-to-toggle dictation. Records the mic with MediaRecorder,
- * then POSTs the clip to the hub for transcription. No streaming: one clip in,
- * one transcript out. Requires a secure context (HTTPS, or localhost in dev).
+ * Push-to-toggle dictation. Records the mic with MediaRecorder, then POSTs the
+ * clip to the API for transcription. No streaming: one clip in, one transcript out.
  */
 export function useDictation({
 	client,

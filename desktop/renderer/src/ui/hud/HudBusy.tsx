@@ -17,7 +17,7 @@ export function HudBusy({ busy, label, window = false, className = "", children 
 }) {
 	const indicator = (
 		<div className={`agent-hud__busy${window ? " agent-hud__busy--window" : ""}`} role="status" aria-label={label}>
-			<AgentIndicator className="agent-hud__logo--mini" agentActivityState={AgentActivityState.Working} />
+			<AgentIndicator className="agent-hud__logo--inline" agentActivityState={AgentActivityState.Working} />
 		</div>
 	)
 	return (

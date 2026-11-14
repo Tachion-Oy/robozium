@@ -1,5 +1,4 @@
-// Adapted from robozium-electron/desktop/tests/message-log-window.test.cjs at 076b2c9:
-// Playwright instead of node:test, plus window limits, zoom, shortcuts and settings.
+// The message log's window sizes, window limits, zoom, shortcuts and settings.
 import { expect, test } from "@playwright/test"
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -92,10 +91,10 @@ test("repeated toggles are idempotent and invalid IPC payloads cannot resize the
 	expect(window.getContentSize()).toEqual([900, 650])
 })
 
-test("the log's window minima match the desktop.css pane layout", async () => {
-	const css = await readFile(path.join(import.meta.dirname, "../renderer/src/ui/styles/desktop.css"), "utf8")
+test("the log's window minima match the workspace.css pane layout", async () => {
+	const css = await readFile(path.join(import.meta.dirname, "../renderer/src/ui/styles/workspace.css"), "utf8")
 	expect(css).toContain(`grid-template-columns: minmax(${HUD_MIN_WIDTH}px, 3fr) minmax(${LOG_MIN_WIDTH}px, 2fr)`)
-	expect(css).toContain(`@container desktop-workspace (width < ${LOG_SIDE_WIDTH}px)`)
+	expect(css).toContain(`@container workspace (width < ${LOG_SIDE_WIDTH}px)`)
 	expect(css).toContain("grid-template-rows: minmax(336px, 3fr) minmax(224px, 2fr)")
 	expect(css).toContain(`min-height: ${LOG_STACK_HEIGHT}px`)
 })

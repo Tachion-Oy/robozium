@@ -2,7 +2,7 @@
 
 /*  Light theme tuning
     Strength multipliers for the places that still mix an accent by hand: the run
-    indicator, the minimized HUD, the project badge and the toasts. Each scales
+    indicator, the startup loader, the project badge and the toasts. Each scales
     the percentage of colour mixed in at that spot, so 1 keeps today's look,
     1.3 is 30% stronger and 0.7 is 30% weaker (capped at 100%). Keys, selectors,
     rows and panels take their colours from the names in the next block and do
@@ -25,11 +25,10 @@
 
 :root[data-theme="light"] {
     color-scheme: light;
-    /* Stream shading knobs. The first is visible whenever the HUD is absent
-       (during the landing reveal and after minimizing); the second is the
-       flat shade behind an open HUD. Keep the values between 0 and 1. */
+    /* The shade the vignette darkens the terminal's edges with. Keep the
+       opacity between 0 and 1. */
     --light-stream-shade-color: 31 36 44;
-    --light-stream-shade-without-hud-opacity: 0.1;
+    --light-stream-shade-opacity: 0.1;
     /* The stream's paper, under its stripes and scan lines. */
     --light-stream-canvas: #fffdf6;
     --stream-ink: #242b45;
@@ -74,7 +73,7 @@
       transparent 54%,
       rgb(
         var(--light-stream-shade-color) /
-          var(--light-stream-shade-without-hud-opacity)
+          var(--light-stream-shade-opacity)
       ) 135%
     );
     --hud-lab-canvas: var(--light-stream-canvas);
@@ -152,7 +151,7 @@
 }
 /* The message log and the startup backdrop keep their own muted colours. They read
    several of the HUD's names, so they name their own values for those again. */
-:root[data-theme="light"] :is(.desktop-message-log, .desktop-terminal) {
+:root[data-theme="light"] :is(.message-log, .terminal-backdrop) {
     --hud-box-bg: #dcd8cf;
     --hud-input-bg: #f1ede5;
     --hud-input-text: #505762;
@@ -355,21 +354,20 @@
       0 0 1px color-mix(in oklab, var(--term-msg-accent) 62%, transparent),
       0 0 7px color-mix(in oklab, var(--term-msg-accent) 22%, transparent);
 }
-:root[data-theme="light"] .app-nav__brand {
+:root[data-theme="light"] .term-title__brand {
     color: color-mix(in oklab, var(--stream-ink) 88%, black 12%);
-    --nav-brand-filter:
+    --title-brand-filter:
       drop-shadow(-0.018em -0.018em 0 color-mix(in oklab, white 82%, transparent))
       drop-shadow(0.025em 0.025em 0 color-mix(in oklab, var(--term-tool) 54%, transparent))
       drop-shadow(0.052em 0.052em 0 color-mix(in oklab, var(--term-agent) 30%, transparent))
       drop-shadow(0 0.09em 0.18em color-mix(in oklab, var(--stream-ink) 14%, transparent));
-    --nav-brand-filter-hover:
+    --title-brand-filter-hover:
       drop-shadow(-0.025em -0.025em 0 color-mix(in oklab, white 88%, transparent))
       drop-shadow(0.035em 0.035em 0 color-mix(in oklab, var(--term-tool) 62%, transparent))
       drop-shadow(0.065em 0.065em 0 color-mix(in oklab, var(--term-agent) 36%, transparent))
       drop-shadow(0 0.1em 0.2em color-mix(in oklab, var(--stream-ink) 17%, transparent));
 }
-:root[data-theme="light"] .app-nav__brand:hover,
-:root[data-theme="light"] .app-nav__brand:focus-visible {
+:root[data-theme="light"] .term-title__brand:hover {
     color: color-mix(in oklab, var(--stream-ink) 82%, var(--term-tool) 18%);
 }
 :root[data-theme="light"] .intro-emph__plain .term-tag {

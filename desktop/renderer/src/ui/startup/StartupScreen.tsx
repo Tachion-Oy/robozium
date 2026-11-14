@@ -85,7 +85,7 @@ export function StartupScreen({ mode, ready, status, label, progress, onFaded }:
 					className={`agent-hud startup__hud${skipIntro ? "" : " startup__hud--enter"}`}>
 					<div className="agent-hud__box">
 						<div className="startup__loading">
-							<div className="agent-hud__mini-box">
+							<div className="agent-hud__loader">
 								<div className="startup__heading">
 									<p className="startup__label" role="status" data-label={label}>
 										<span className="startup__loading-art" aria-hidden="true" />
@@ -95,7 +95,7 @@ export function StartupScreen({ mode, ready, status, label, progress, onFaded }:
 									</p>
 									{shownProgress !== undefined && <StartupProgress fraction={shownProgress} label={label === "updating" ? "Updating" : "Loading"} />}
 								</div>
-								<AgentIndicator className="agent-hud__logo--mini" agentActivityState={AgentActivityState.Working} />
+								<AgentIndicator className="agent-hud__logo--inline" agentActivityState={AgentActivityState.Working} />
 								<svg className="startup__outline" viewBox="0 0 100 100" aria-hidden="true">
 									<polygon points={octagonPoints} />
 								</svg>

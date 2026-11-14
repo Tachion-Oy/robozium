@@ -16,8 +16,8 @@ function laneWidth(actions: HTMLElement[], gap: number, scale: number) {
 		Math.max(0, actions.length - 1) * gap
 }
 
-/** Keep desktop navigation centred and move all actions below it when the side lanes are too narrow. */
-export function useDesktopActionLayout() {
+/** Keep the message navigation centred and move all actions below it when the side lanes are too narrow. */
+export function useFooterActionLayout() {
 	const ref = useRef<HTMLDivElement>(null)
 
 	useLayoutEffect(() => {

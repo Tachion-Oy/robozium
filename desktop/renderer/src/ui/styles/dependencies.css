@@ -1,5 +1,5 @@
 /* Markdown tables wrap their cells (hud-panels.css); status labels and check
-   times keep the reference's single line. */
+   times keep to one line. */
 .agent-hud__status-view .agent-hud__markdown-table .whitespace-nowrap {
   white-space: nowrap;
 }

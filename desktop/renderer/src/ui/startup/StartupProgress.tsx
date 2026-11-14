@@ -1,5 +1,5 @@
-// Copied from desktop/renderer/src/ui/run/AudioLevelMeter.tsx at e1dc07f.
-// Adapted: the segments show how far a startup that rebuilds the backend has come.
+// The Record level meter's segments, showing how far a startup that rebuilds the
+// backend has come.
 import type { ReactNode } from "react"
 import "./startup-progress.css"
 

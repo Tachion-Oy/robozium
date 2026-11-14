@@ -249,9 +249,9 @@ type MessageRenderOptions = {
 	onToggle?: () => void
 }
 
-/** Per-message reveal options shared by the landing intro and the live log. */
+/** Per-message reveal options shared by the startup intro and the live log. */
 export type RevealOpts = {
-	/** Reveal right-to-left (the landing intro alternates direction per row). */
+	/** Reveal right-to-left (the startup intro alternates direction per row). */
 	reversed?: boolean
 	/** Keep delayed cascade carets hidden until their row starts. */
 	caretVisible?: boolean
@@ -352,7 +352,7 @@ function renderInProgressMessage(
 }
 
 /**
- * The single per-item reveal mechanism shared by the landing intro
+ * The single per-item reveal mechanism shared by the startup intro
  * (`IntroStream`) and the live stream log (`TerminalStream`): caret reveal over
  * a non-reflowing full layout, then a highlight cross-fade once settled.
  */

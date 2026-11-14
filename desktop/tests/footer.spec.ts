@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test"
 import { test, captureNative, chooseModel, chooseView, documentUrl, preload, previewMessages, waitForPanelLayout, reloadApp } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
-// The reference renames a copy button to "... copied" while it confirms, so
+// A copy button is renamed "... copied" while it confirms, so
 // these locate the buttons by position: agent output (top panel) first, user reply second.
 const copyButtons = (page: Page) => page.locator(".agent-hud__copy-text:not(.agent-hud__clear-reply)")
 const copyAgentButton = (page: Page) => copyButtons(page).nth(0)
@@ -229,8 +229,8 @@ for (const theme of ["dark", "light"]) {
 			expect(await copy.evaluate(element => element === Reflect.get(window, "originalCopy"))).toBe(true)
 			placements.add(await page.locator(".agent-hud__image").getAttribute("data-hud-action-placement") ?? "")
 			// The copy buttons stay in the right edge's column, beneath the message log toggle.
-			expect(await page.locator(".desktop-edge-controls").evaluate(column => {
-				const toggle = column.querySelector(".desktop-message-log-toggle")!.getBoundingClientRect()
+			expect(await page.locator(".edge-controls").evaluate(column => {
+				const toggle = column.querySelector(".message-log-toggle")!.getBoundingClientRect()
 				const copies = [...column.querySelectorAll(".agent-hud__copy-controls button")].map(button => button.getBoundingClientRect())
 				return copies.length === 3 && copies.every((rect, index) => rect.top >= (index ? copies[index - 1] : toggle).bottom
 					&& Math.abs(rect.x + rect.width / 2 - toggle.x - toggle.width / 2) < 1)

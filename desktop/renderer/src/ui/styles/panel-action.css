@@ -1,0 +1,43 @@
+/* Text-style action buttons inside panels: Copy diagnostic, Launch, Install. */
+.agent-hud__panel-action {
+  --panel-action-ink: color-mix(in oklab, var(--term-lime) clamp(0%, 80% * var(--tune-fill, 1), 100%), white);
+  -webkit-appearance: none;
+  appearance: none;
+  font-size: clamp(2rem, 2.7vw, 2.1rem);
+  line-height: 1;
+  padding: 0.7rem 1.6rem;
+  color: var(--panel-action-ink);
+  background: transparent;
+  background-image: none;
+  background-color: transparent;
+  border: none;
+  text-decoration: none;
+  text-shadow: var(--term-glow-lime);
+  box-shadow: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.agent-hud__panel-action .display-art {
+  font-size: 0.55em;
+  filter: drop-shadow(0 0 0.28em var(--term-lime));
+}
+
+.agent-hud__panel-action:hover,
+.agent-hud__panel-action:focus-visible {
+  outline: none;
+  --panel-action-ink: color-mix(in oklab, var(--term-lime) clamp(0%, 70% * var(--tune-hover-fill, 1), 100%), white);
+  color: var(--panel-action-ink);
+  background-image: none;
+  background-color: transparent;
+  text-shadow: var(--term-glow-lime-strong);
+  box-shadow: none;
+}
+
+.agent-hud__panel-action:active {
+  color: var(--panel-action-ink);
+  background-image: none;
+  background-color: transparent;
+  text-shadow: none;
+  box-shadow: none;
+}

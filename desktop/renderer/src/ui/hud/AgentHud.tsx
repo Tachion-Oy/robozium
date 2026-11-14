@@ -1,4 +1,4 @@
-// The HUD frame has no intro, minimize or resize handle. The caller supplies the message log pane and owns whether it is open.
+// The HUD fills its pane. The caller supplies the message log pane and owns whether it is open.
 // The right edge holds the message log toggle with the copy controls beneath it.
 import { createContext, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import type { MessageLogState } from "../../log/useMessageLog"
@@ -38,12 +38,12 @@ export function AgentHud({ presentation, layoutMode, onLayoutModeChange, message
 	}${presentation.context === "recovery" ? " agent-hud__box--inactive" : ""}`
 
 	return (
-		<div className="desktop-workspace">
+		<div className="workspace">
 			<div
-				className="desktop-workspace__panes"
+				className="workspace__panes"
 				data-log-open={messageLog.open || undefined}
 				data-log-resizing={resizing !== null || undefined}
-				style={resizing === null ? undefined : { "--desktop-hud-width": `${resizing}px` } as CSSProperties}>
+				style={resizing === null ? undefined : { "--workspace-hud-width": `${resizing}px` } as CSSProperties}>
 				<div
 					ref={hud}
 					className="agent-hud"
@@ -57,21 +57,21 @@ export function AgentHud({ presentation, layoutMode, onLayoutModeChange, message
 									onLayoutModeChange(moveLayoutMode(layoutMode, direction)),
 							}}
 						/>
-						<div className="desktop-edge-controls">
+						<div className="edge-controls">
 							<HudEdgeButton
 								variant="toggle"
-								className="desktop-message-log-toggle"
+								className="message-log-toggle"
 								aria-label={messageLog.open ? "Hide message log" : "Show message log"}
 								title={messageLog.open ? "Hide message log" : "Show message log"}
 								aria-expanded={messageLog.open}
-								aria-controls="desktop-message-log"
+								aria-controls="message-log"
 								disabled={resizing !== null}
 								onClick={() => { if (hud.current) messageLog.toggle(hud.current.getBoundingClientRect().width) }}>
-								<svg className="desktop-message-log-toggle__icon" viewBox="0 0 16 16" aria-hidden="true">
+								<svg className="message-log-toggle__icon" viewBox="0 0 16 16" aria-hidden="true">
 									<path d="M3 4.5h10M3 8h10M3 11.5h10" />
 								</svg>
 							</HudEdgeButton>
-							<div ref={setCopySlot} className="desktop-edge-controls__copy" />
+							<div ref={setCopySlot} className="edge-controls__copy" />
 							{!copySlotFilled && (
 								<HudCopyControls agentMessage={null} replyDraft="" disabled onClearReply={() => {}} />
 							)}

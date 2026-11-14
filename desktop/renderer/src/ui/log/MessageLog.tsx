@@ -10,7 +10,7 @@ import type { RunRecord } from "../../run/run-contracts"
 export function MessageLog({ active, events }: { active: boolean; events: readonly RunRecord[] }) {
 	const items = useMemo(() => selectLogItems(events), [events])
 	return (
-		<section id="desktop-message-log" aria-label="Message log" className="desktop-message-log" data-live={active || undefined}>
+		<section id="message-log" aria-label="Message log" className="message-log" data-live={active || undefined}>
 			<TerminalBackdrop title={!active}>
 				{active ? <TerminalStream items={items} /> : <PlaceholderLog scrollable command="START AN AGENT TO SEE THE LIVE MESSAGES !" />}
 			</TerminalBackdrop>

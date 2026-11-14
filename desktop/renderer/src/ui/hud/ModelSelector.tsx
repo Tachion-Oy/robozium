@@ -41,8 +41,8 @@ export function ModelSelector({ models, disabled = false }: {
 			renderLabel={(label) => <ModelLabel label={label} />}
 			disabled={disabled}
 			onOpen={() => {
-				// As in the reference, plus after a failed request or an empty catalogue,
-				// so opening the selector replaces the removed manual refresh.
+				// Load the catalogue on first open, after a failed request or when it is
+				// empty, so opening the selector stands in for a manual refresh.
 				if (!selection?.models.length || models.error) models.refresh()
 			}}
 			onSelect={(modelId) => {

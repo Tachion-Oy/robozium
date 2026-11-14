@@ -133,10 +133,10 @@ test("the light stripes keep their width on the screen when the zoom changes", a
 	await page.getByRole("button", { name: toggle }).click()
 	// The message log wears the stripes at full strength.
 	await page.getByRole("button", { name: "Show message log" }).click()
-	await expect(page.locator(".desktop-message-log .term-scanlines")).toBeVisible()
+	await expect(page.locator(".message-log .term-scanlines")).toBeVisible()
 	// One set of three stripes, in screen pixels: the widest of the stripes' own stops.
 	const stripes = () => page.evaluate(() => {
-		const image = getComputedStyle(document.querySelector(".desktop-message-log .term-scanlines")!, "::after").backgroundImage
+		const image = getComputedStyle(document.querySelector(".message-log .term-scanlines")!, "::after").backgroundImage
 		const stops = [...image.matchAll(/([\d.]+)px/g)].slice(0, 6).map(stop => parseFloat(stop[1]))
 		return Math.max(...stops) * devicePixelRatio
 	})

@@ -20,7 +20,7 @@ type RunSnapshotLoader = () => Promise<RunView | null>
 export function errorMessage(error: unknown) { return error instanceof Error ? error.message : "Run output unavailable." }
 
 // SSE supplies live output; snapshots recover history, status and prompts independently.
-// As in the reference, transient failures reconnect quietly; only a failure that
+// Transient failures reconnect quietly; only a failure that
 // trying again cannot fix is reported, and it ends the watch.
 export function watchRun(
 	client: DesktopApiClient,

@@ -33,7 +33,7 @@
   box-shadow: var(--term-glow-error);
 }
 
-/* Landing-intro reveal: each animating message renders its full text so the
+/* Startup intro reveal: each animating message renders its full text so the
    line wrapping is fixed from the start; the untyped tail stays in layout but
    invisible, and the caret paints with zero layout width so it can't push the
    wrapping around. Result: text reveals in place with no reflow. */
@@ -67,7 +67,7 @@
   left: auto;
 }
 
-/* Landing intro: when a message settles, fade its tag / emphasis decoration in
+/* Startup intro: when a message settles, fade its tag / emphasis decoration in
    over a plain-looking, pixel-aligned copy of the same content underneath — so
    the styling materialises instead of popping and the glyphs never move. */
 .intro-emph {
@@ -87,7 +87,7 @@
   animation: intro-emph-fade var(--intro-emphasis-fade) ease both;
 }
 
-/* Live stream log settles faster than the landing intro. */
+/* Live stream log settles faster than the startup intro. */
 .intro-emph--fast .intro-emph__rich {
   animation-duration: var(--live-emphasis-fade);
 }
@@ -234,7 +234,7 @@
    and double spacing cram into flowing text (`white-space: normal` inherits into
    the cross-fade layers). Length is bounded to ~3 lines by character budget in
    `renderMessageContent` rather than a height clip — clipping would slice the
-   phosphor glow at a hard edge. Scoped to the live log only; the landing demo
+   phosphor glow at a hard edge. Scoped to the live log only; the startup intro
    keeps its multi-line layout. */
 .term-log--clamp .term-msg-content {
   white-space: normal;
@@ -551,10 +551,9 @@
  * Terminal log scroll clip
  *
  * Overflow is hidden at the top (old lines scroll off upward). A mask keeps
- * the clip edge soft so copy fades under the nav instead of shearing against
+ * the clip edge soft so copy fades under the title instead of shearing against
  * a hard rectangle. The fade is tied to the log box top, which sits flush
- * under the nav in the flex column -- same as a viewport-anchored fade for
- * this layout. Bottom stays fully opaque so the live tail reads at full strength.
+ * under the title row in the flex column. Bottom stays fully opaque so the live tail reads at full strength.
  * ------------------------------------------------------------------------- */
 
 /* Live-log entry: fade the whole log in once its data has hydrated, so the

@@ -1,0 +1,203 @@
+.terminal-backdrop { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+.workspace {
+  --workspace-panel-inset: 3.6rem;
+  --workspace-divider-color: var(--workspace-divider-default-color);
+  --workspace-divider-opacity: 1; --workspace-divider-thickness: 12px;
+  --workspace-divider-glow: 3; --workspace-divider-spread: 40px;
+  --workspace-divider-shadow: 100%;
+  --workspace-divider-shadow-color: var(--workspace-divider-color);
+  --workspace-divider-shadow-blur: 24px;
+  --workspace-divider-shadow-offset: 12px; --workspace-divider-shadow-cross-offset: 12px;
+  position: absolute; inset: 0; container: workspace / size;
+  overflow: auto; background: rgb(var(--hud-shell-rgb));
+}
+html[data-theme="light"] .workspace {
+  --workspace-panel-inset: 3.2rem;
+  --workspace-divider-opacity: 0.15; --workspace-divider-thickness: 1px;
+  --workspace-divider-glow: 0; --workspace-divider-spread: 3px;
+  --workspace-divider-shadow-cross-offset: 0px;
+  --workspace-divider-shadow-blur: 3px; --workspace-divider-shadow-offset: 1px;
+}
+.workspace__panes { display: grid; width: 100%; height: 100%; }
+/* The HUD is the panes' grid cell. A wait over the whole window centres its mark on
+   it (HudBusy). */
+.workspace__panes > .agent-hud {
+  position: relative; inset: auto; min-width: 0; min-height: 0;
+  container: hud-pane / size; anchor-name: --hud-pane;
+}
+.workspace .agent-hud__box { --hud-pad-x: var(--workspace-panel-inset); }
+.workspace__panes[data-log-open] {
+  grid-template-columns: minmax(640px, 3fr) minmax(480px, 2fr);
+}
+/* While the window resizes for the log, the HUD keeps its measured width instead of
+   briefly filling the window around the change. */
+.workspace__panes[data-log-resizing] > .agent-hud {
+  justify-self: start; width: min(100%, var(--workspace-hud-width));
+}
+/* Contain the existing HUD halo so it cannot become a divider over the log. */
+.workspace__panes[data-log-open] > .agent-hud {
+  grid-column: 1; grid-row: 1; overflow: clip;
+}
+.workspace__panes[data-log-open] > .message-log { grid-column: 2; grid-row: 1; }
+/* Keep the accepted dark shadow depth and soften its core's two edges.
+   The light preset casts a faint shadow from the HUD without a solid strip. */
+.workspace__panes[data-log-open]::after {
+  --workspace-divider-direction: 90deg;
+  --workspace-divider-shadow-reach: calc(var(--workspace-divider-shadow-offset) + 2 * var(--workspace-divider-shadow-blur));
+  --workspace-divider-shadow-x: var(--workspace-divider-shadow-offset);
+  --workspace-divider-shadow-y: var(--workspace-divider-shadow-cross-offset);
+  content: ""; grid-column: 2; grid-row: 1; justify-self: start;
+  width: var(--workspace-divider-thickness); opacity: var(--workspace-divider-opacity);
+  z-index: 30; pointer-events: none;
+  background: linear-gradient(
+      var(--workspace-divider-direction),
+      color-mix(in oklab, var(--workspace-divider-color) 70%, transparent),
+      var(--workspace-divider-color) 35% 65%,
+      color-mix(in oklab, var(--workspace-divider-color) 70%, transparent)
+    );
+  box-shadow:
+    0 0 calc(var(--workspace-divider-spread) / 8)
+      color-mix(in oklab, var(--workspace-divider-color) clamp(0%, calc(75% * var(--workspace-divider-glow)), 100%), transparent),
+    0 0 calc(var(--workspace-divider-spread) / 3)
+      color-mix(in oklab, var(--workspace-divider-color) clamp(0%, calc(50% * var(--workspace-divider-glow)), 100%), transparent),
+    0 0 var(--workspace-divider-spread)
+      color-mix(in oklab, var(--workspace-divider-color) clamp(0%, calc(16% * var(--workspace-divider-glow)), 100%), transparent),
+    var(--workspace-divider-shadow-x) var(--workspace-divider-shadow-y) var(--workspace-divider-shadow-blur)
+      color-mix(in oklab, var(--workspace-divider-shadow-color) var(--workspace-divider-shadow), transparent);
+}
+/* Draw above the HUD shell (z-index 70) so it cannot cover the left fade.
+   Feather the dark core into both panes without changing their geometry. */
+html[data-theme="dark"] .workspace__panes[data-log-open]::after {
+  z-index: 71; filter: blur(3px);
+}
+/* Shadow-only uses the full HUD surface as its source, with no colored line.
+   Clip the cast shadow to the adjoining pane's side of that surface. */
+html[data-theme="light"] .workspace .workspace__panes[data-log-open]::after {
+  grid-column: 1; grid-row: 1; justify-self: stretch; align-self: stretch;
+  width: auto; height: auto; background: none; clip-path: inset(0 calc(-1 * var(--workspace-divider-shadow-reach)) 0 0);
+}
+@container workspace (width < 1120px) {
+  .workspace__panes[data-log-open] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(336px, 3fr) minmax(224px, 2fr);
+    min-height: 560px;
+  }
+  .workspace__panes[data-log-open] > .message-log { grid-column: 1; grid-row: 2; }
+  .workspace__panes[data-log-open]::after {
+    --workspace-divider-direction: 180deg;
+    --workspace-divider-shadow-x: var(--workspace-divider-shadow-cross-offset);
+    --workspace-divider-shadow-y: var(--workspace-divider-shadow-offset);
+    grid-column: 1; grid-row: 2; justify-self: stretch; align-self: start;
+    width: auto; height: var(--workspace-divider-thickness);
+  }
+  html[data-theme="light"] .workspace .workspace__panes[data-log-open]::after {
+    clip-path: inset(0 0 calc(-1 * var(--workspace-divider-shadow-reach)) 0);
+  }
+}
+/* The right edge mirrors the left one: the message log toggle, taller than wide,
+   with the clear and copy buttons beneath it. Buttons that cannot act are disabled,
+   never hidden, as the panel divider buttons are. */
+.edge-controls {
+  position: absolute; right: var(--hud-corner-control-left); top: 50%; transform: translateY(-50%);
+  z-index: 21; display: flex; flex-direction: column; align-items: center; gap: var(--hud-corner-control-gap);
+}
+.edge-controls__copy { display: contents; }
+/* Each edge has a toggle taller than wide: the message log heads the right edge,
+   the theme sits at the centre of the left. */
+.agent-hud__edge-toggle {
+  height: calc(1.6 * var(--hud-corner-control-size)); min-height: calc(1.6 * var(--hud-corner-control-size));
+}
+:root[data-theme="dark"] .agent-hud__edge-toggle {
+  color: color-mix(in oklab, var(--term-blue) clamp(0%, 76% * var(--tune-text, 1), 100%), white);
+}
+.message-log-toggle__icon {
+  display: block; width: 0.95rem; height: 0.95rem; overflow: visible;
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: square;
+}
+/* While the log is open the toggle stays lit, as on hover. */
+.message-log-toggle[aria-expanded="true"] {
+  --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
+  --btn-fill-strength: 24%;
+}
+.edge-controls .agent-hud__copy-controls {
+  flex-direction: column; align-items: center; gap: var(--hud-corner-control-gap);
+}
+.edge-controls .agent-hud__copy-text {
+  width: var(--hud-corner-control-size); height: var(--hud-corner-control-size);
+  min-width: var(--hud-corner-control-size); min-height: var(--hud-corner-control-size);
+}
+.message-log {
+  position: relative; min-width: 0; min-height: 0; overflow: hidden;
+  isolation: isolate; background: var(--term-bg); container: message-log / inline-size;
+  animation: message-log-appear 180ms ease-out;
+}
+@keyframes message-log-appear { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .message-log { animation: none; } }
+/* Dark: lit rows behind the log's text and behind the startup screen, in their
+   own tint and as far above the background as the panels' lines are above
+   theirs. The CRT darkening (crt.css) still lies over everything, so the rows
+   and their badges look as they did. */
+:root[data-theme="dark"] :is(.message-log, .startup > .terminal-backdrop) {
+  --scanline-ink: rgb(from var(--term-bloom-color) r g b / 7%);
+  background: var(--scanlines), var(--term-bg);
+}
+
+/* The terminal's fonts and CRT treatment, with local pane geometry. */
+.message-log .term-log {
+  max-width: none;
+  /* Mirror the distance from the split to the HUD panel border. */
+  padding-inline: var(--workspace-panel-inset);
+  /* Rows fade out at both edges as they scroll past; equal padding keeps the
+     first and newest rows clear of the fades. */
+  --term-log-fade: linear-gradient(to bottom, transparent, black 2.5rem, black calc(100% - 2.5rem), transparent);
+}
+/* Pages of the log, under the rows and centred on them. */
+.message-log .term-log-pager {
+  --term-msg-color: var(--term-blue);
+  --term-msg-glow: var(--term-glow-blue);
+  --term-msg-accent: var(--term-blue);
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 0.75rem 1.5rem;
+  padding: 0 var(--workspace-panel-inset) 3vh;
+  font-family: var(--font-terminal); line-height: var(--term-line-height); letter-spacing: var(--term-letter-spacing);
+  color: var(--term-msg-color); text-shadow: var(--term-msg-glow);
+}
+.message-log .term-log-pager .term-msg-badge { border: 0; font: inherit; cursor: pointer; }
+.message-log .term-log-pager .term-msg-badge:disabled { opacity: 0.35; cursor: default; }
+/* A hovered page button brightens: by its colour in dark, where a filter would be redrawn with the badge's glow. */
+:root[data-theme="dark"] .message-log .term-log-pager .term-msg-badge:not(:disabled):hover { background: color-mix(in oklab, var(--term-msg-color) 80%, white); }
+:root[data-theme="light"] .message-log .term-log-pager .term-msg-badge:not(:disabled):hover { filter: brightness(1.2); }
+.message-log .term-log-pager__count { white-space: nowrap; }
+/* In light, the page count is printed in the rows' ink; the buttons keep the blue fill. */
+:root[data-theme="light"] .message-log .term-log-pager {
+  --term-msg-color: var(--stream-ink);
+  --term-msg-glow: 0 0 var(--stream-ink-bleed) color-mix(in oklab, var(--stream-ink) 65%, transparent);
+}
+.message-log .term-log > div { max-width: none; padding-block: 2.5rem; }
+/* Without the title, the live log keeps the same margin above as below. */
+.message-log[data-live] .term-frame { padding-top: 3vh; }
+/* A leading banner's own separation would add to that margin. */
+.message-log .term-log > div > :first-child { margin-top: 0; }
+.message-log .term-msg { overflow-wrap: anywhere; }
+/* Dark text punched out of a filled tag, badge or page button keeps the CRT
+   smudge of terminal.css, toned down slightly so small glyphs stay legible.
+   Outlined script and system badges keep their own glowing text. */
+:root:not([data-theme="light"]) .message-log
+  :is(.term-msg:not([data-role="script"], [data-role="system"]) .term-msg-badge-label, .term-log-pager .term-msg-badge-label, .term-tag-label) {
+  -webkit-text-stroke: 0.7px color-mix(in oklab, var(--term-bg) 78%, var(--term-msg-color) 22%);
+  text-shadow:
+    0 0 1px color-mix(in oklab, var(--term-msg-color) 70%, transparent),
+    0 0 2.5px color-mix(in oklab, var(--term-msg-color) 42%, transparent),
+    0 0 5px color-mix(in oklab, var(--term-msg-color) 22%, transparent);
+  filter: blur(0.3px);
+}
+/* A typed command after the prompt, wrapping in a narrow pane. */
+.message-log .term-prompt-command { min-width: 0; margin-left: 0.5ch; overflow-wrap: anywhere; }
+.message-log .term-msg pre { max-width: 100%; overflow-x: auto; }
+.message-log .term-title {
+  width: 100%; height: 6rem;
+}
+.message-log .term-title__brand {
+  width: min(100%, 32rem); font-size: 2rem; transform: none;
+}
+.message-log .term-title > div { padding-inline: 1.5rem; }

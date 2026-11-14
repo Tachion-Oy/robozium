@@ -1,7 +1,6 @@
 import { flushSync } from "react-dom"
 import { createRoot } from "react-dom/client"
 import { BackendStartup } from "./backend/BackendStartup"
-import { ViewportBounds } from "./app/ViewportBounds"
 import { applyTheme } from "../theme/theme"
 import { trackScreenRow } from "../theme/screen-row"
 import { trackZoom } from "../theme/zoom"
@@ -24,10 +23,7 @@ async function loadFont(face: FontFace): Promise<void> {
 
 async function start(element: HTMLElement): Promise<void> {
 	await Promise.all(Array.from(document.fonts, loadFont))
-	flushSync(() => createRoot(element).render(<>
-		<ViewportBounds />
-		<BackendStartup />
-	</>))
+	flushSync(() => createRoot(element).render(<BackendStartup />))
 	// A hidden window may draw no frames, so lay the render out at once. That requests the
 	// fonts it uses: Chromium may have replaced the faces loaded above, but their files are cached.
 	document.body.getBoundingClientRect()

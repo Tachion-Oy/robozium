@@ -146,7 +146,7 @@ test("settings.json is UI preferences only and never configures the backend", t 
 	const file = path.join(profile, "settings.json")
 	for (const content of [
 		JSON.stringify({ theme: "light" }),
-		// Keys the experiment kept here no longer select an identity or a port.
+		// Keys that earlier versions kept here no longer select an identity or a port.
 		JSON.stringify({ installationId: "abcdefabcdef", ports: { live: { api: 23001 } }, theme: "light" }),
 		"not json",
 	]) {

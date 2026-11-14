@@ -261,35 +261,35 @@
   filter: none;
 }
 
-/* All the widget's knobs live here, once. --mini-size drives a REGULAR octagon:
+/* All the widget's knobs live here, once. --loader-size drives a REGULAR octagon:
    a square box whose corner cut = size / (2 + √2) gives eight equal-length
-   sides. The border is two thin lines (--mini-line) with a gap (--mini-gap)
+   sides. The border is two thin lines (--loader-line) with a gap (--loader-gap)
    between them -- the HUD box's `double` border colour (--hud-box-border) on an
    octagon. The fill borrows the HUD input tint at low opacity, blurred.
    --hud-logo-* / --hud-control-pad-* mirror .agent-hud__box so the reused seam
    logo and Expand button render at exactly their HUD size. */
 
 /* The startup mark's size; a wait elsewhere (.agent-hud__busy) shows the same mark. */
-.agent-hud__mini-box,
+.agent-hud__loader,
 .agent-hud__busy {
   --hud-logo-size: 3.85rem;
   --hud-logo-font-size: 3.3rem;
 }
 
-.agent-hud__mini-box {
-  --mini-size: 9.75rem;
-  --mini-cut: calc(var(--mini-size) / (2 + 1.41421356));
-  --mini-edge: var(--hud-box-border);
-  --mini-ring: 2px;
-  --mini-line: 1px;
-  --mini-gap: 2px;
-  --mini-band: calc(2 * var(--mini-line) + var(--mini-gap));
+.agent-hud__loader {
+  --loader-size: 9.75rem;
+  --loader-cut: calc(var(--loader-size) / (2 + 1.41421356));
+  --loader-edge: var(--hud-box-border);
+  --loader-ring: 2px;
+  --loader-line: 1px;
+  --loader-gap: 2px;
+  --loader-band: calc(2 * var(--loader-line) + var(--loader-gap));
   --hud-control-pad-y: 0.48rem;
   --hud-control-pad-x: 0.72rem;
   --hud-corner-control-size: calc(1.15rem + 2 * var(--hud-control-pad-y));
   position: relative;
-  width: var(--mini-size);
-  height: var(--mini-size);
+  width: var(--loader-size);
+  height: var(--loader-size);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -308,21 +308,21 @@
 /* The fill: the panels' scan lines and bloom over the dark, an octagon inset by
    the edge's width. The edge and its halo are the octagon behind it, which the
    startup screen draws (startup.css). */
-.agent-hud__mini-box::before {
-  --mini-inner-cut: calc(var(--mini-cut) - var(--mini-ring) * 0.586);
+.agent-hud__loader::before {
+  --loader-inner-cut: calc(var(--loader-cut) - var(--loader-ring) * 0.586);
   content: "";
   position: absolute;
-  inset: var(--mini-ring);
+  inset: var(--loader-ring);
   z-index: -1;
   clip-path: polygon(
-    var(--mini-inner-cut) 0,
-    calc(100% - var(--mini-inner-cut)) 0,
-    100% var(--mini-inner-cut),
-    100% calc(100% - var(--mini-inner-cut)),
-    calc(100% - var(--mini-inner-cut)) 100%,
-    var(--mini-inner-cut) 100%,
-    0 calc(100% - var(--mini-inner-cut)),
-    0 var(--mini-inner-cut)
+    var(--loader-inner-cut) 0,
+    calc(100% - var(--loader-inner-cut)) 0,
+    100% var(--loader-inner-cut),
+    100% calc(100% - var(--loader-inner-cut)),
+    calc(100% - var(--loader-inner-cut)) 100%,
+    var(--loader-inner-cut) 100%,
+    0 calc(100% - var(--loader-inner-cut)),
+    0 var(--loader-inner-cut)
   );
   background:
     var(--scanlines),
@@ -331,35 +331,35 @@
 }
 /* Double-line octagon outline: eight painted bands (4 straight edges + 4 bevel
    cuts), same construction as the HUD panels/buttons but each band carries two
-   parallel edge lines instead of one. --mini-stripe is the two-line pattern for
-   the straight edges; --mini-bevel the same for the 45deg corners. */
+   parallel edge lines instead of one. --loader-stripe is the two-line pattern for
+   the straight edges; --loader-bevel the same for the 45deg corners. */
 
-.agent-hud__mini-box::after {
+.agent-hud__loader::after {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  --mini-stripe: var(--mini-edge) 0 var(--mini-line),
-    transparent var(--mini-line) calc(var(--mini-line) + var(--mini-gap)),
-    var(--mini-edge) calc(var(--mini-line) + var(--mini-gap)) var(--mini-band);
-  --mini-bevel: transparent calc(50% - var(--mini-band) / 2),
-    var(--mini-edge) calc(50% - var(--mini-band) / 2),
-    var(--mini-edge) calc(50% - var(--mini-band) / 2 + var(--mini-line)),
-    transparent calc(50% - var(--mini-band) / 2 + var(--mini-line)),
-    transparent calc(50% + var(--mini-band) / 2 - var(--mini-line)),
-    var(--mini-edge) calc(50% + var(--mini-band) / 2 - var(--mini-line)),
-    var(--mini-edge) calc(50% + var(--mini-band) / 2),
-    transparent calc(50% + var(--mini-band) / 2);
+  --loader-stripe: var(--loader-edge) 0 var(--loader-line),
+    transparent var(--loader-line) calc(var(--loader-line) + var(--loader-gap)),
+    var(--loader-edge) calc(var(--loader-line) + var(--loader-gap)) var(--loader-band);
+  --loader-bevel: transparent calc(50% - var(--loader-band) / 2),
+    var(--loader-edge) calc(50% - var(--loader-band) / 2),
+    var(--loader-edge) calc(50% - var(--loader-band) / 2 + var(--loader-line)),
+    transparent calc(50% - var(--loader-band) / 2 + var(--loader-line)),
+    transparent calc(50% + var(--loader-band) / 2 - var(--loader-line)),
+    var(--loader-edge) calc(50% + var(--loader-band) / 2 - var(--loader-line)),
+    var(--loader-edge) calc(50% + var(--loader-band) / 2),
+    transparent calc(50% + var(--loader-band) / 2);
   background-image:
-    linear-gradient(to bottom, var(--mini-stripe)),
-    linear-gradient(to bottom, var(--mini-stripe)),
-    linear-gradient(to right, var(--mini-stripe)),
-    linear-gradient(to right, var(--mini-stripe)),
-    linear-gradient(135deg, var(--mini-bevel)),
-    linear-gradient(45deg, var(--mini-bevel)),
-    linear-gradient(135deg, var(--mini-bevel)),
-    linear-gradient(45deg, var(--mini-bevel));
+    linear-gradient(to bottom, var(--loader-stripe)),
+    linear-gradient(to bottom, var(--loader-stripe)),
+    linear-gradient(to right, var(--loader-stripe)),
+    linear-gradient(to right, var(--loader-stripe)),
+    linear-gradient(135deg, var(--loader-bevel)),
+    linear-gradient(45deg, var(--loader-bevel)),
+    linear-gradient(135deg, var(--loader-bevel)),
+    linear-gradient(45deg, var(--loader-bevel));
   background-position:
     top center,
     bottom center,
@@ -370,14 +370,14 @@
     bottom right,
     bottom left;
   background-size:
-    calc(100% - 2 * var(--mini-cut)) var(--mini-band),
-    calc(100% - 2 * var(--mini-cut)) var(--mini-band),
-    var(--mini-band) calc(100% - 2 * var(--mini-cut)),
-    var(--mini-band) calc(100% - 2 * var(--mini-cut)),
-    var(--mini-cut) var(--mini-cut),
-    var(--mini-cut) var(--mini-cut),
-    var(--mini-cut) var(--mini-cut),
-    var(--mini-cut) var(--mini-cut);
+    calc(100% - 2 * var(--loader-cut)) var(--loader-band),
+    calc(100% - 2 * var(--loader-cut)) var(--loader-band),
+    var(--loader-band) calc(100% - 2 * var(--loader-cut)),
+    var(--loader-band) calc(100% - 2 * var(--loader-cut)),
+    var(--loader-cut) var(--loader-cut),
+    var(--loader-cut) var(--loader-cut),
+    var(--loader-cut) var(--loader-cut),
+    var(--loader-cut) var(--loader-cut);
   background-repeat: no-repeat;
   /* Blue edge glow tracing the octagon outline -- the same cyan bloom the HUD
      box carries at rest (full strength, not the dimmed inactive variant). */
@@ -391,14 +391,14 @@
    remains clear of the flowing message-content column. */
 
 @media (max-width: 96rem) {
-  .agent-hud__mini-box,
+  .agent-hud__loader,
   .agent-hud__busy {
     --hud-logo-size: 2.35rem;
     --hud-logo-font-size: 2rem;
   }
 
-  .agent-hud__mini-box {
-    --mini-size: 6.5rem;
+  .agent-hud__loader {
+    --loader-size: 6.5rem;
     --hud-control-pad-y: 0.28rem;
     --hud-control-pad-x: 0.42rem;
     gap: 0.2rem;
@@ -435,7 +435,7 @@
 
 /* Light theme */
 
-/*  Light HUD shell, panels, controls, matrices and minimized state  */
+/*  Light HUD shell, panels, controls and matrices  */
 :root[data-theme="light"] .agent-hud__event-label {
   --term-msg-color: var(--term-blue);
   --term-msg-accent: var(--term-blue);
@@ -489,11 +489,11 @@
   max-width: none;
   overflow: hidden;
 }
-:root[data-theme="light"] :is(.agent-hud__mini-box, .agent-hud__busy) {
+:root[data-theme="light"] :is(.agent-hud__loader, .agent-hud__busy) {
   --hud-logo-size: 3.1rem;
   --hud-logo-font-size: 2.5rem;
 }
-:root[data-theme="light"] .agent-hud__mini-box {
+:root[data-theme="light"] .agent-hud__loader {
   padding-inline: 0.72rem;
   padding-bottom: 0.72rem;
   border: 1px solid
@@ -510,7 +510,7 @@
       color-mix(in oklab, var(--hud-control-ink) clamp(0%, 19% * var(--tune-shadow, 1), 100%), transparent);
   filter: none;
 }
-:root[data-theme="light"] .agent-hud__mini-box::before {
+:root[data-theme="light"] .agent-hud__loader::before {
   inset: 0.34rem;
   clip-path: none;
   border: 1px solid
@@ -519,7 +519,7 @@
   background: transparent;
   backdrop-filter: none;
 }
-:root[data-theme="light"] .agent-hud__mini-box::after {
+:root[data-theme="light"] .agent-hud__loader::after {
   content: none;
 }
 :root[data-theme="light"] .agent-hud__event-text {

@@ -1,5 +1,5 @@
 // Records and Check Now come from the dependencies owner, the diagnostic is
-// copied through the native clipboard bridge, and cells wrap.
+// copied through the clipboard bridge to the main process, and cells wrap.
 // A failed read is a toast with Check now; the table area stays empty.
 import { Fragment, useMemo, useState, type ReactElement } from "react"
 import type { DependencyRecord, DependencyStatus } from "../../dependencies/dependencies-api"
@@ -106,7 +106,7 @@ function DependencyDiagnostic({ dependency }: { dependency: DependencyRecord }) 
 					<pre className="min-w-0 flex-1 basis-80 select-text whitespace-pre-wrap wrap-anywhere text-sm">
 						{diagnostic}
 					</pre>
-					<button type="button" className="app-nav__cta" onClick={copyDiagnostic}>
+					<button type="button" className="agent-hud__panel-action" onClick={copyDiagnostic}>
 						{copied ? "Copied" : "Copy diagnostic"}
 					</button>
 				</div>
@@ -306,7 +306,7 @@ export function DependencyPanel({ dependencies: state }: {
 						</p>
 						<button
 							type="button"
-							className="app-nav__cta disabled:cursor-wait disabled:opacity-50"
+							className="agent-hud__panel-action disabled:cursor-wait disabled:opacity-50"
 							disabled={isLoading || isChecking}
 							onClick={() => void state.check()}>
 							<DisplayArt name={isChecking ? "checking" : "check-now"} />

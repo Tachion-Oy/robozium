@@ -320,7 +320,7 @@ test("an import's wait mark centres on the HUD, not on the window, while the mes
 	// Side by side, then stacked under the HUD.
 	for (const width of [1260, 1000]) {
 		await setNativeViewport(app, page, width, 780, 1)
-		const [mark, hud] = await Promise.all([wait.locator(".agent-hud__logo"), page.locator(".desktop-workspace__panes > .agent-hud")]
+		const [mark, hud] = await Promise.all([wait.locator(".agent-hud__logo"), page.locator(".workspace__panes > .agent-hud")]
 			.map(async locator => (await locator.boundingBox())!))
 		expect(Math.abs(mark.x + mark.width / 2 - hud.x - hud.width / 2)).toBeLessThan(1)
 		expect(Math.abs(mark.y + mark.height / 2 - hud.y - hud.height / 2)).toBeLessThan(1)

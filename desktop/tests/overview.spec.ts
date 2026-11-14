@@ -359,18 +359,18 @@ for (const theme of ["dark", "light"]) {
 	})
 }
 
-test("light-theme row actions center their uppercase labels at the reference height", async ({ desktop: { app, page }, backend }) => {
+test("light-theme row actions center their uppercase labels at the untrimmed height", async ({ desktop: { app, page }, backend }) => {
 	await backend.open()
 	if (await page.locator("html").getAttribute("data-theme") !== "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 	await expect(page.locator("html")).toHaveAttribute("data-theme", "light")
 	const button = row(page, "existing-project").getByRole("button", { name: "Delete", exact: true })
-	// The fix keeps the reference height: compare free-standing copies, outside the row's
-	// flex layout that stretches its buttons, with and without the reference rule.
-	const [actual, reference] = await button.evaluate(element => {
-		const measure = (reference: boolean) => {
+	// The trim keeps the untrimmed height: compare free-standing copies, outside the row's
+	// flex layout that stretches its buttons, with and without the trim.
+	const [actual, untrimmed] = await button.evaluate(element => {
+		const measure = (untrimmed: boolean) => {
 			const copy = element.cloneNode(true) as HTMLElement
 			copy.style.setProperty("position", "absolute")
-			if (reference) {
+			if (untrimmed) {
 				copy.style.setProperty("text-box", "normal")
 				copy.style.setProperty("padding-block", "0.48rem")
 			}
@@ -381,7 +381,7 @@ test("light-theme row actions center their uppercase labels at the reference hei
 		}
 		return [measure(false), measure(true)]
 	})
-	expect(actual).toBeCloseTo(reference, 1)
+	expect(actual).toBeCloseTo(untrimmed, 1)
 	const png = await button.screenshot({ animations: "disabled" })
 	const { height, inkRows } = await app.evaluate(({ nativeImage }, data) => {
 		const image = nativeImage.createFromBuffer(Buffer.from(data, "base64"))

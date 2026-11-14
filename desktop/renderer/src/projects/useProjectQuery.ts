@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { listProjects } from "./projects-api"
-import { markProjectsCancelling, markProjectsDeleting, markProjectOpening, mergeProjects, type ProjectRow } from "./landing"
+import { markProjectsCancelling, markProjectsDeleting, markProjectOpening, mergeProjects, type ProjectRow } from "./project-rows"
 import type { PendingMutation, ProjectMutationKind } from "./useProjectMutations"
 
 const DEFAULT_POLL_INTERVAL_MS = 3000

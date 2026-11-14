@@ -158,7 +158,7 @@ function renderValue(key: string, value: unknown): ReactNode {
 }
 
 /**
- * Placeholder-only rich content rendering for the landing demo.
+ * Placeholder-only rich content rendering for the startup intro.
  */
 export function renderDemoContent(item: MessageLogItem): ReactNode {
   try {

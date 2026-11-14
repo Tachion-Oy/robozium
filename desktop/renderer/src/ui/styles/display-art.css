@@ -54,7 +54,7 @@
   --display-art-ratio: 10.79;
 }
 
-:root[data-theme="light"] .app-nav__cta .display-art {
+:root[data-theme="light"] .agent-hud__panel-action .display-art {
   font-size: 0.95em;
   filter: none;
 }
