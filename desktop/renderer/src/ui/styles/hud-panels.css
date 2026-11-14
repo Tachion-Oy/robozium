@@ -1158,9 +1158,16 @@ button.agent-hud__image-preview {
   border-radius: 2px;
   color: var(--hud-input-text);
   background: var(--hud-input-bg);
-  font: inherit;
-  line-height: 1;
   cursor: pointer;
+}
+
+.agent-hud__remove-image > svg {
+  width: 0.5rem;
+  height: 0.5rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
 }
 
 /* Dark: the tile's remove button is a square in the frame's colour, in its
