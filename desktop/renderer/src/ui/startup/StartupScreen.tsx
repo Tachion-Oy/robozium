@@ -3,7 +3,7 @@
 // moves, and reduced motion requested during the introduction settles it.
 import { useEffect, useState, type ReactNode } from "react"
 import { AgentActivityState } from "../run/run-view"
-import { MinimizedHudFrame } from "../hud/MinimizedHudFrame"
+import { AgentIndicator } from "../branding/RoboziumMark"
 import { TerminalBackdrop } from "../terminal/TerminalBackdrop"
 import { IntroStream, PlaceholderLog } from "../terminal/demo/DemoLog"
 import type { StartupScreenMode } from "../../backend/useStartupScreen"
@@ -85,9 +85,8 @@ export function StartupScreen({ mode, ready, status, label, progress, onFaded }:
 					className={`agent-hud startup__hud${skipIntro ? "" : " startup__hud--enter"}`}>
 					<div className="agent-hud__box">
 						<div className="startup__loading">
-							<MinimizedHudFrame
-								agentActivityState={AgentActivityState.Working}
-								heading={<div className="startup__heading">
+							<div className="agent-hud__mini-box">
+								<div className="startup__heading">
 									<p className="startup__label" role="status" data-label={label}>
 										<span className="startup__loading-art" aria-hidden="true" />
 										<span className="startup__updating-art" aria-hidden="true" />
@@ -95,11 +94,12 @@ export function StartupScreen({ mode, ready, status, label, progress, onFaded }:
 										<span className="sr-only">{status}</span>
 									</p>
 									{shownProgress !== undefined && <StartupProgress fraction={shownProgress} label={label === "updating" ? "Updating" : "Loading"} />}
-								</div>}>
+								</div>
+								<AgentIndicator className="agent-hud__logo--mini" agentActivityState={AgentActivityState.Working} />
 								<svg className="startup__outline" viewBox="0 0 100 100" aria-hidden="true">
 									<polygon points={octagonPoints} />
 								</svg>
-							</MinimizedHudFrame>
+							</div>
 						</div>
 					</div>
 				</div>
