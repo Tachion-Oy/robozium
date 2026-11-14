@@ -6,7 +6,7 @@ type TerminalLogProps = {
 	clamp?: boolean
 	/** Play a one-shot fade-in (the live log, once its data has hydrated). */
 	enter?: boolean
-	/** Let the user scroll back through history (landing or HUD minimized). */
+	/** Let the user scroll back through history (the message log). */
 	scrollable?: boolean
 	/** Open at the first row instead of the tail (a newer page, read from its top). */
 	startAtTop?: boolean

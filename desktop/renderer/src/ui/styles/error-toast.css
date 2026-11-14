@@ -2,7 +2,7 @@
  * Global error toast
  * ------------------------------------------------------------------------- */
 
-/* Top nav-overlap toast for runtime errors. Layout lives in JSX;
+/* Toast for runtime errors, over the top of the window. Layout lives in JSX;
    this block owns only visual treatment + motion. */
 .agent-error-toast {
   --notification-toast-accent: var(--term-error);

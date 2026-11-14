@@ -5,7 +5,7 @@
 import { use, useLayoutEffect } from "react"
 import { createPortal } from "react-dom"
 import { CopyControlsSlot } from "../hud/AgentHud"
-import { useDesktopActionLayout } from "./useDesktopActionLayout"
+import { useFooterActionLayout } from "./useFooterActionLayout"
 import { AudioLevelMeter } from "./AudioLevelMeter"
 import type { AgentMessage } from "./AgentMessagePanel"
 import { HudCopyControls } from "./HudCopyControls"
@@ -63,7 +63,7 @@ export function HudControls({
 	cancel,
 	interrupt,
 }: HudControlsProps) {
-	const actionsRef = useDesktopActionLayout()
+	const actionsRef = useFooterActionLayout()
 	const { element: copySlot, setFilled } = use(CopyControlsSlot)
 	useLayoutEffect(() => {
 		setFilled(true)

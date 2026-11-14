@@ -2,7 +2,7 @@
 import type { Project } from "./projects-api"
 
 /**
- * The landing is project-centric: every project is one row. "Running"/"waiting"
+ * Runs Overview is project-centric: every project is one row. "Running"/"waiting"
  * is just the status of a project that currently has a live run; everything else
  * is "dormant" — it exists on disk and can be resumed (its memory is loaded when
  * a new run starts). Clicking a dormant row opens the capability selector.

@@ -1,6 +1,4 @@
-// Converted from robozium-electron/desktop/electron/security.cjs at 076b2c9.
-// Adapted: only the permission rules, keyed to the bundled document's URL like
-// main's IPC check. Clipboard writes go through IPC, so only two permissions are
+// Permission rules, keyed to the bundled document's URL like main's IPC check. Clipboard writes go through IPC, so only two permissions are
 // granted: microphone audio for the main frame, and reading a folder the user dropped.
 import type { BrowserWindow, WebContents } from "electron"
 

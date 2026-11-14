@@ -6,7 +6,7 @@ export type { AppTheme }
 
 export function applyTheme(theme: AppTheme): void {
 	document.documentElement.dataset.theme = theme
-	// The reference sets this inline; the renderer CSP permits only scripted styles.
+	// Set from script: the renderer CSP refuses inline style attributes in the markup.
 	document.documentElement.style.colorScheme = theme
 }
 

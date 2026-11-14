@@ -117,7 +117,7 @@
 }
 
 /* Brand initial in the action row. It is a passive status indicator, not a
-   control. State-specific treatments are shared with the minimized copy. */
+   control. The startup loader and busy overlays show the same mark. */
 
 .agent-hud__logo {
   position: absolute;
@@ -271,7 +271,7 @@
    only flowed in the stack instead of absolutely positioned on a seam. Rest and
    pulse styling are inherited from .agent-hud__logo. */
 
-.agent-hud__logo--mini {
+.agent-hud__logo--inline {
   position: relative;
   inset: auto;
   transform: none;
@@ -279,7 +279,7 @@
 
 /* The footer's first row reserves the geometric centre for the four arrows and the
    indicator. When every action fits its side lane, the actions stand there, placed
-   by useDesktopActionLayout; otherwise they all share one row below, shortening
+   by useFooterActionLayout; otherwise they all share one row below, shortening
    their labels instead of wrapping. The buttons stay mounted either way, so a
    resize keeps focus, clipboard feedback and a recording. */
 .agent-hud__actions {
@@ -363,12 +363,12 @@
 /* A pending action keeps its label and pulses until its outcome arrives. On the
    light background an opacity pulse alone is barely visible: it adds a blue ring. */
 @media (prefers-reduced-motion: no-preference) {
-  @keyframes desktop-action-busy {
+  @keyframes action-busy {
     from { opacity: 0.55; }
     to { opacity: 1; }
   }
 
-  @keyframes desktop-action-busy-light {
+  @keyframes action-busy-light {
     from { opacity: 0.35; box-shadow: 0 0 0 0 transparent; }
     to {
       opacity: 1;
@@ -378,11 +378,11 @@
   }
 
   :is(.agent-hud__actions button, .agent-hud__row-action)[aria-busy="true"] {
-    animation: desktop-action-busy 0.9s ease-in-out infinite alternate;
+    animation: action-busy 0.9s ease-in-out infinite alternate;
   }
 
   :root[data-theme="light"] :is(.agent-hud__actions button, .agent-hud__row-action)[aria-busy="true"] {
-    animation: desktop-action-busy-light 0.7s ease-in-out infinite alternate;
+    animation: action-busy-light 0.7s ease-in-out infinite alternate;
   }
 }
 
@@ -963,7 +963,7 @@
 :root[data-theme="light"] .agent-hud__copy-text::after {
   content: none;
 }
-:root[data-theme="light"] .agent-hud__logo--mini {
+:root[data-theme="light"] .agent-hud__logo--inline {
   color: color-mix(in oklab, var(--term-green) clamp(0%, 78% * var(--tune-text, 1), 100%), var(--hud-control-ink));
   border-color: color-mix(
     in oklab,

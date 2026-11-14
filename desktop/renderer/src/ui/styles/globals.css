@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
- * ToastViewport supplies the notification stack without injected inline styles.
+ * Stylesheets, in cascade order: later files win ties.
  *
  *   CSS owns LOOK   -- color, background, border colour, text/box-shadow glow,
  *                      @keyframes/animation/transition, clip-path shapes,
@@ -28,8 +28,9 @@
 @import "./dependencies.css";
 @import "./error-toast.css";
 @import "./terminal.css";
-@import "./nav.css";
+@import "./terminal-title.css";
+@import "./panel-action.css";
 @import "./light-theme.css";
 @import "./model-selector.css";
 @import "./theme-toggle.css";
-@import "./desktop.css";
+@import "./workspace.css";

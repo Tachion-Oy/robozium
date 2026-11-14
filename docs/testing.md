@@ -125,7 +125,7 @@ from the trusted window and document. It also checks that the light
 
 Frame checks cover the bundled fonts, mouse/keyboard theme switching, retained
 focus, the model/theme/view Tab order, and both themes at 1260×780 and 640×420
-client sizes with native zoom 1 and 1.25. The reference HUD box must fill the
+client sizes with native zoom 1 and 1.25. The HUD must fill the
 window; header checks verify one ordered, centred row inside the window with
 ellipsized labels and full-name tooltips. Divider checks verify square buttons
 and centered, contained arrows in both themes and zoom levels, including
@@ -276,8 +276,8 @@ The container native suite creates/selects a project through the UI, starts it,
 observes both mock prompts, and verifies completed history. Its test helper submits
 required replies over HTTP; desktop Send remains disabled in this increment.
 
-Linux screenshot baselines live beside the native tests. Review visual changes
-against the experiment before explicitly updating them:
+Linux screenshot baselines live beside the native tests. Review each changed
+image before explicitly updating them:
 
 ```sh
 npm --prefix desktop run test:electron -- --update-snapshots=all --grep 'frame fits|footer keeps'

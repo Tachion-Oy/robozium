@@ -11,7 +11,7 @@ const zoomFactor = (app: ElectronApplication) =>
 const resize = (app: ElectronApplication, width: number, height: number) =>
 	app.evaluate(({ BrowserWindow }, { width, height }) => BrowserWindow.getAllWindows()[0].setContentSize(width, height), { width, height })
 const hudWidth = (page: Page) =>
-	page.locator(".desktop-workspace .agent-hud").evaluate(element => element.getBoundingClientRect().width)
+	page.locator(".workspace .agent-hud").evaluate(element => element.getBoundingClientRect().width)
 async function pressZoom(app: ElectronApplication, keyCode: string) {
 	await app.evaluate(({ BrowserWindow }, keyCode) => {
 		const window = BrowserWindow.getAllWindows()[0]

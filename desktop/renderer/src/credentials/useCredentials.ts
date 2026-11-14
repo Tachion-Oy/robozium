@@ -41,7 +41,7 @@ export function useCredentials(client: DesktopApiClient, connected: boolean, vis
 				const next = await withDeadline(signal, requestSignal => getCredentialStatus(client, requestSignal))
 				if (!signal.aborted && started === version.current) setStatus(next)
 			} catch {
-				// Reads stay quiet, as in the reference; the last status stays.
+				// A failed read stays quiet; the last status stays.
 			}
 		})()
 	}, [client, lifetime])

@@ -15,7 +15,7 @@ import { isSecretsLocked, promptAfterRefusal, showSecretsLocked, type SecretsGat
 import { showErrorToast } from "../feedback/notices"
 import { createRun } from "../run/run-api"
 import { cancelProject, createProject, deleteProject } from "./projects-api"
-import { ProjectStatus, type ProjectRow } from "./landing"
+import { ProjectStatus, type ProjectRow } from "./project-rows"
 
 export type ProjectMutationKind = "cancel" | "delete"
 

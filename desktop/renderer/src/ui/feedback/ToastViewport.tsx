@@ -2,7 +2,7 @@ import { useEffect, useRef, type ReactElement } from "react"
 import { dismiss, pause, resume, useNotices } from "../../feedback/notices"
 import { ErrorToastContent } from "./ErrorToast"
 
-/** The reference top-centre stack, using stylesheet classes under the renderer CSP. */
+/** The top-centre toast stack, styled by stylesheet classes under the renderer CSP. */
 export function ToastViewport(): ReactElement {
 	const notices = useNotices()
 	const viewport = useRef<HTMLDivElement>(null)

@@ -1,5 +1,5 @@
 // The column's centre is the theme toggle, with the zoom buttons above it and the
-// panel divider buttons below; no Minimize. Only the divider buttons follow `disabled`.
+// panel divider buttons below. Only the divider buttons follow `disabled`.
 import { useZoom } from "../../zoom/useZoom"
 import { ThemeToggle } from "../theme/ThemeToggle"
 import { HudEdgeButton } from "./HudEdgeButton"

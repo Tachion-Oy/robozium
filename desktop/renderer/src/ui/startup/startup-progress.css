@@ -1,6 +1,5 @@
-/* Copied from desktop/renderer/src/ui/styles/hud-controls.css at e1dc07f.
-   Adapted: the Record level meter, widened under the loader label and a little
-   taller. It takes the label's colour, and its unlit segments form a faint track
+/* The Record level meter's segments, widened under the loader label and a
+   little taller. It takes the label's colour, and its unlit segments form a faint track
    that shows how much remains. It sits in the gap between the label and the mark,
    so showing it moves nothing. */
 .startup__progress {

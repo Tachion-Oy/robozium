@@ -1,10 +1,9 @@
-// Copied from robozium-electron/desktop/electron/message-log-window.cjs at 076b2c9.
-// Adapted: TypeScript, the log is added beside the HUD instead of taking part of
-// its width, and the pane minima are named so tests can match them against the
-// desktop.css layout.
+// The message log is added beside the HUD instead of taking part of its width.
+// The pane minima are named so tests can match them against the workspace.css
+// layout.
 import { windowLimits, type Size, type WorkArea } from "./window.ts"
 
-/** CSS pixel minima of the log layouts in desktop.css: HUD + log side by side, or stacked. */
+/** CSS pixel minima of the log layouts in workspace.css: HUD + log side by side, or stacked. */
 export const HUD_MIN_WIDTH = 640
 export const LOG_MIN_WIDTH = 480
 export const LOG_SIDE_WIDTH = HUD_MIN_WIDTH + LOG_MIN_WIDTH

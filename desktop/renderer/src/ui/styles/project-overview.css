@@ -19,12 +19,12 @@
   align-self: center;
 }
 
-.app-nav__cta.agent-hud__start {
+.agent-hud__panel-action.agent-hud__start {
   font-size: 1.55rem;
 }
 
-.app-nav__cta.agent-hud__start:not(:disabled):hover,
-.app-nav__cta.agent-hud__start:not(:disabled):focus-visible {
+.agent-hud__panel-action.agent-hud__start:not(:disabled):hover,
+.agent-hud__panel-action.agent-hud__start:not(:disabled):focus-visible {
   color: color-mix(in oklab, var(--term-lime) clamp(0%, 45% * var(--tune-text, 1), 100%), white);
   transform: none;
 }

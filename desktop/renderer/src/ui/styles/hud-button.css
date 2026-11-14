@@ -181,7 +181,7 @@
    start buttons are green; the launch chooser's Cancel, which stands beside its
    Launch, and the enlarged picture's Close are amber; a toast's buttons are the
    toast's. */
-:root[data-theme="light"] :is(.agent-hud__start, .agent-hud__status-view .app-nav__cta) {
+:root[data-theme="light"] :is(.agent-hud__start, .agent-hud__status-view .agent-hud__panel-action) {
   --accent: var(--term-green);
 }
 
@@ -203,7 +203,7 @@
   .agent-hud__corner-control, .agent-hud__copy-text, .agent-hud__layout-direction,
   .agent-hud__project-folder, .agent-hud__model-trigger,
   .agent-hud__row-action:not(.agent-hud__capability-static), .agent-hud__start,
-  .agent-hud__status-view .app-nav__cta, .agent-error-toast__dismiss, .agent-error-toast__action,
+  .agent-hud__status-view .agent-hud__panel-action, .agent-error-toast__dismiss, .agent-error-toast__action,
   .agent-hud__image-toolbar > button
 ) {
   /* A utility key: a neutral cap on a lip mixed from the case. */
@@ -249,8 +249,8 @@
   &:is(
     .agent-hud__send, .agent-hud__dictate, .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt,
     .agent-hud__row-launch, .agent-hud__row-tools, .agent-hud__row-cancel, .agent-hud__row-delete,
-    .agent-hud__option[aria-checked="true"], .agent-hud__start, .agent-hud__status-view .app-nav__cta,
-    .agent-hud__copy-text[data-copied], .desktop-message-log-toggle[aria-expanded="true"],
+    .agent-hud__option[aria-checked="true"], .agent-hud__start, .agent-hud__status-view .agent-hud__panel-action,
+    .agent-hud__copy-text[data-copied], .message-log-toggle[aria-expanded="true"],
     .agent-error-toast__dismiss, .agent-error-toast__action, .agent-hud__image-toolbar > button
   ) {
     --key-tone: var(--accent, var(--btn-accent));
@@ -353,8 +353,8 @@
   padding: 0.48rem 0.82rem;
 }
 
-/* Desktop: trim the uppercase label to its capitals and add the trimmed space
-   back as padding, so the label is centered at the reference height. */
+/* Trim the uppercase label to its capitals and add the trimmed space back as
+   padding, so the label is centered at the untrimmed height. */
 :root[data-theme="light"] .agent-hud__row-action:not(.agent-hud__option) {
   text-box: trim-both cap alphabetic;
   padding-block: calc(0.48rem + (1lh - 1cap) / 2);

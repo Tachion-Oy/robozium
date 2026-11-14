@@ -5,12 +5,8 @@ type TerminalFrameProps = {
 };
 
 /**
- * Terminal surface.
- *
- * The CRT effects (scanlines + vignette + bloom) live on the <body> now so
- * they cover the whole page uniformly -- the nav sits on top of the same
- * raster instead of having a seam against it. This component is just the
- * flex cell that holds the scrollable log.
+ * The flex cell that holds the scrollable log, below the title row. The CRT
+ * effects live on the backdrop, so the title sits on the same raster.
  */
 export function TerminalFrame({ children }: TerminalFrameProps) {
   return (

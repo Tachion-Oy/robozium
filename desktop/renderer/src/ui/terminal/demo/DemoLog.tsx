@@ -15,7 +15,7 @@ import {
 	renderRevealItem,
 } from "../renderContent"
 
-// Landing-intro choreography. Rows enter in a tight cascade so the browser
+// Startup intro choreography. Rows enter in a tight cascade so Chromium
 // paints a small moving front instead of revealing every line simultaneously.
 const INTRO_CHARS_PER_SECOND = 160
 const INTRO_ROW_DELAY_MS = 85

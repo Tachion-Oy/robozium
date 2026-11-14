@@ -57,7 +57,7 @@ the screen and the selector's launch draft), the reply draft, divider layout and
 focus. `ui/backend/BackendStartup` renders App only once startup has found the
 backend, so every owner receives a client. Owners do not import each other; App passes results between them, as when
 a launch hands its new run to `useRunSession.open`, the HUD's Cancel uses
-`useProjectMutations.cancel`, or the listing marks rows with pending writes. As in the reference, a run that ends or goes missing
+`useProjectMutations.cancel`, or the listing marks rows with pending writes. A run that ends or goes missing
 leaves Current Run for the overview (`resolveHudPresentation`).
 
 ```mermaid
@@ -116,7 +116,7 @@ flowchart LR
   commands report each completed write (such as a created project) so that
   trying again does not repeat it.
 - **Errors.** Owners raise `showErrorToast` or `showNotificationToast` from
-  `feedback/notices`; `ui/feedback/ToastViewport` renders the reference toasts
+  `feedback/notices`; `ui/feedback/ToastViewport` renders the toasts
   without inline styles. The store owns tone, replacement, dismissal and hover
   timing. A problem or status that lasts until it is resolved, such as a lost
   connection, a failed read, a required restart or a confirmation, is rendered
@@ -134,7 +134,7 @@ The desktop shows the message log only occasionally, so it keeps no log state:
 HUD keeps only its own projection. The log is a pure selector over those events,
 computed only while the log pane is mounted:
 
-- `log/run-log` `selectLogItems` maps run records to the reference log rows:
+- `log/run-log` `selectLogItems` maps run records to log rows:
   messages with parsed content, consecutive script output as one row (a provider
   retry does not split it), and lifecycle banners. `run-payloads` keeps the
   lifecycle kind, agent, status and banner fields for it.
@@ -144,5 +144,5 @@ computed only while the log pane is mounted:
   changes that state through the `getMessageLog`/`setMessageLog` preload
   operations, so it survives renderer reloads.
 - `ui/log/MessageLog` memoizes the selector over the displayed run's events and
-  renders the reference `TerminalStream`, or the reference placeholder log when
+  renders them with `TerminalStream`, or the placeholder log when
   no run is active.

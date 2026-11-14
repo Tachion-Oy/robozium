@@ -125,13 +125,13 @@ export function CapabilitySelector({
 			<div className="agent-hud__capability-actions">
 				<button
 					type="submit"
-					className="app-nav__cta agent-hud__start"
+					className="agent-hud__panel-action agent-hud__start"
 						disabled={disabled || catalog === null || currentSelection === null || Boolean(loadError) || !name.trim()}>
 					<DisplayArt name="launch" label={disabled ? "Launching…" : "Launch"} />
 				</button>
 				<button
 					type="button"
-					className="app-nav__cta agent-hud__start"
+					className="agent-hud__panel-action agent-hud__start"
 					disabled={disabled}
 					onClick={onCancel}>
 					<DisplayArt name="cancel" />

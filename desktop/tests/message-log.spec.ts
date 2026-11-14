@@ -56,15 +56,15 @@ test("the log projects messages, grouped script output and lifecycle banners fro
 	expect(selectLogItems(events)).toEqual(selectLogItems([...events]))
 })
 
-test("the toggle opens the reference placeholder before a run and the run's rows during one", async ({ desktop: { app, page }, backend }) => {
+test("the toggle opens the placeholder log before a run and the run's rows during one", async ({ desktop: { app, page }, backend }) => {
 	const run = prepareRun(backend)
 	await backend.open()
 	await expect(log(page)).toHaveCount(0)
 	await toggle(page, "Show message log").click()
 	await expect(toggle(page, "Hide message log")).toHaveAttribute("aria-expanded", "true")
-	await expect(page.locator(".desktop-workspace__panes")).toHaveAttribute("data-log-open", "true")
+	await expect(page.locator(".workspace__panes")).toHaveAttribute("data-log-open", "true")
 	// Without an active run the pane shows the titled placeholder log.
-	await expect(log(page).locator(".app-nav__brand")).toBeVisible()
+	await expect(log(page).locator(".term-title__brand")).toBeVisible()
 	// The title is drawn from bundled art, so it must ship with the renderer.
 	expect(await app.evaluate(async ({ net }) => (await net.fetch("robozium://app/branding/robozium.svg")).status)).toBe(200)
 	await expect(log(page).locator(".term-msg-badge")).not.toHaveCount(0)
@@ -79,7 +79,7 @@ test("the toggle opens the reference placeholder before a run and the run's rows
 	await expect(replyBox(page)).toBeFocused()
 	await expect.poll(() => run.streams.length).toBe(1)
 	await toggle(page, "Show message log").click()
-	await expect(log(page).locator(".app-nav__brand")).toHaveCount(0)
+	await expect(log(page).locator(".term-title__brand")).toHaveCount(0)
 	for (const frame of [lifecycle(1, "started"), message(2, "Hello from the agent"), script(3, "line one "), script(4, "line two")])
 		emit(run.streams[0], frame)
 	await expect(log(page)).toContainText("NEW PROCESS")
@@ -103,7 +103,7 @@ test("the toggle opens the reference placeholder before a run and the run's rows
 	await expect(page.locator(".agent-hud__replyBox--agent")).toContainText("line one line two")
 	await toggle(page, "Hide message log").click()
 	await expect(log(page)).toHaveCount(0)
-	await expect(page.locator(".desktop-workspace__panes")).not.toHaveAttribute("data-log-open")
+	await expect(page.locator(".workspace__panes")).not.toHaveAttribute("data-log-open")
 })
 
 test("closing the log hides it before the window shrinks back", async ({ desktop: { app, page } }) => {
@@ -116,7 +116,7 @@ test("closing the log hides it before the window shrinks back", async ({ desktop
 		const docked: number[] = []
 		Reflect.set(window, "dockedFrames", docked)
 		const sample = () => {
-			if (innerWidth < 1120 && document.querySelector(".desktop-message-log")) docked.push(innerWidth)
+			if (innerWidth < 1120 && document.querySelector(".message-log")) docked.push(innerWidth)
 			requestAnimationFrame(sample)
 		}
 		requestAnimationFrame(sample)

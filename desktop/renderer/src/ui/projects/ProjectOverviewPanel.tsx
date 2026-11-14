@@ -5,7 +5,7 @@ import {
 	isActiveRunStatus,
 	ProjectStatus,
 	type ProjectRow,
-} from "../../projects/landing"
+} from "../../projects/project-rows"
 import { DisplayArt } from "../branding/DisplayArt"
 import { HudButton } from "../hud/HudButton"
 
@@ -300,7 +300,7 @@ export function ProjectOverviewPanel({
 					type="button"
 					onClick={locked ? onStartHere : onNewProject}
 					disabled={navigationPending}
-					className="app-nav__cta agent-hud__start">
+					className="agent-hud__panel-action agent-hud__start">
 					<DisplayArt name={locked ? "start-here" : "new-project"} />
 				</button>
 			</div>

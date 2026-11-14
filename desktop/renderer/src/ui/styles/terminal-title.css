@@ -1,0 +1,72 @@
+/* The Robozium title row above the startup terminal and the message log. The
+   row's z-index lets the title's bloom paint over the terminal below it. */
+
+.term-title__brand {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  width: calc(13.97 * 1em);
+  font-size: var(--title-size);
+  line-height: 1;
+  color: white;
+  --title-brand-filter:
+    drop-shadow(0 0 0.07em var(--term-lime))
+    drop-shadow(0 0 0.25em color-mix(in oklab, var(--term-lime) clamp(0%, 80% * var(--tune-fill, 1), 100%), transparent))
+    drop-shadow(0 0 0.48em color-mix(in oklab, var(--term-lime) clamp(0%, 50% * var(--tune-fill, 1), 100%), transparent));
+  --title-brand-filter-hover:
+    drop-shadow(0 0 0.1em var(--term-lime))
+    drop-shadow(0 0 0.32em color-mix(in oklab, var(--term-lime) clamp(0%, 95% * var(--tune-fill, 1), 100%), transparent))
+    drop-shadow(0 0 0.6em color-mix(in oklab, var(--term-lime) clamp(0%, 72% * var(--tune-fill, 1), 100%), transparent));
+  transform: translateY(0.24em);
+  user-select: none;
+  white-space: nowrap;
+  cursor: default;
+}
+
+@media (max-height: 800px) {
+  :root {
+    --title-row-height: max(
+      min(var(--title-row-compact-height), calc(100dvh * 0.25)),
+      calc(var(--title-size) * 1.48 + 2 * var(--title-row-padding))
+    );
+  }
+}
+
+.term-title {
+  width: 100dvw;
+  height: var(--title-row-height);
+}
+
+.term-title__label {
+  display: block;
+  width: 100%;
+}
+
+/* Filter an unmasked decorative wrapper, with no clipped accessibility text
+   inside it; the filter on the masked artwork itself would clip the bloom. */
+.term-title__art {
+  display: block;
+  filter: var(--title-brand-filter);
+}
+
+.term-title__brand:hover .term-title__art {
+  /* Render the new halo once per interaction rather than rastering a changing
+     blur on every transition frame. */
+  filter: var(--title-brand-filter-hover);
+}
+
+.term-title__brand .display-art {
+  display: block;
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes term-title-appear {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .term-title__brand--enter {
+    animation: term-title-appear var(--intro-title-fade) ease-out both;
+  }
+}

@@ -9,11 +9,11 @@ export function TerminalBackdrop({ children, title = true, animateTitle = false 
 	animateTitle?: boolean
 }) {
 	return (
-		<div className="desktop-terminal term-scanlines term-vignette">
-			{title && <div className="app-nav__row relative z-60 shrink-0">
-				<div className="flex h-full items-center justify-center px-(--landing-nav-inset)">
-					<h1 className={`app-nav__brand app-nav__brand--bar m-0${animateTitle ? " app-nav__brand--enter" : ""}`}>
-						<span className="app-nav__brand-label"><span className="app-nav__brand-art" aria-hidden="true"><DisplayArt name="robozium" decorative /></span><span className="sr-only">Robozium</span></span>
+		<div className="terminal-backdrop term-scanlines term-vignette">
+			{title && <div className="term-title relative z-60 shrink-0">
+				<div className="flex h-full items-center justify-center px-(--title-row-inset)">
+					<h1 className={`term-title__brand term-title__brand m-0${animateTitle ? " term-title__brand--enter" : ""}`}>
+						<span className="term-title__label"><span className="term-title__art" aria-hidden="true"><DisplayArt name="robozium" decorative /></span><span className="sr-only">Robozium</span></span>
 					</h1>
 				</div>
 			</div>}

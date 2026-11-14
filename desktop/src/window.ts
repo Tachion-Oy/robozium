@@ -1,6 +1,5 @@
-// Copied from robozium-electron/desktop/electron/window.cjs at 076b2c9.
-// Adapted: TypeScript, and the zoom shortcut uses the platform's own modifier
-// (Command on macOS, Control elsewhere), as the desktop did before.
+// Window size limits, the startup size and zoom. The zoom shortcut uses the
+// platform's own modifier (Command on macOS, Control elsewhere).
 
 export interface Size { width: number; height: number }
 export interface WorkArea { width: number; height: number }
