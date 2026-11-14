@@ -13,6 +13,7 @@ model listing.
 import argparse
 import base64
 import json
+import os
 import re
 import struct
 import sys
@@ -35,6 +36,7 @@ from roboz.models import Image, Message, Role
 from roboz.shed.sandbox import Sandbox
 
 from robozium.api.projects import Project
+from robozium.hub import environment as env
 from robozium.hub.utils import load_hub
 
 OPENROUTER = "openrouter"
@@ -289,7 +291,13 @@ def configured_models() -> dict[str, LLMEndpoint]:
 
 def build_orchestrator(endpoint: LLMEndpoint) -> Agent:
     """Build the application's orchestrator for one model in a throwaway project."""
-    with _build_lock, tempfile.TemporaryDirectory(prefix="model-check-") as hub_dir:
+    with (
+        _build_lock,
+        tempfile.TemporaryDirectory(prefix="model-check-") as hub_dir,
+        tempfile.TemporaryDirectory(prefix="model-check-tool-data-") as tool_data_dir,
+    ):
+        # The backend layout sets this in the container; this throwaway hub gets its own.
+        os.environ[env.TOOL_DATA_DIR] = tool_data_dir
         sandbox = Sandbox(Path(hub_dir)).for_project(CHECK_PROJECT)
         project = Project(sandbox=sandbox, slug=CHECK_PROJECT)
         root, _ = (

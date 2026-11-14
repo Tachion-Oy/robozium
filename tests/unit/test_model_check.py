@@ -7,6 +7,7 @@ from roboz.llm import LLMEndpoint, MockLLMEndpoint, with_openrouter_policy
 from roboz.models import Message, Role
 from roboz.tools import stop
 
+from robozium.hub import environment as env
 from scripts import model_check
 from scripts.model_check import (
     ModelResult,
@@ -331,6 +332,14 @@ def test_main_fails_clearly_when_the_listing_is_unavailable(monkeypatch, capsys)
     assert capsys.readouterr().out == (
         "FAIL openrouter model listing: OSError: network down\n"
     )
+
+
+def test_the_check_runs_without_the_container_layout(monkeypatch) -> None:
+    """CI runs it on a checkout, where no backend layout sets the tool-data folder."""
+    monkeypatch.delenv(env.TOOL_DATA_DIR)
+    model_check._hub.cache_clear()
+    assert model_check.configured_models()
+    assert model_check.build_orchestrator(_models()["Text · Deep reasoning"]).tools
 
 
 def test_the_orchestrator_prompt_comes_from_the_application_deployment() -> None:
