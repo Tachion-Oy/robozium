@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.6.2 - 2026-11-14
+
+- The release's model check runs again. Since 0.6.1 it stopped on a setting
+  only the app's container provides; the app itself was not affected.
+- Passing desktop test runs in CI no longer print every app launch's harmless
+  startup errors.
+
 ## 0.6.1 - 2026-11-14
 
 - Tools and skills keep what they save for themselves in `tool-data/` in the
