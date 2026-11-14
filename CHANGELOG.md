@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.6.3 - 2026-11-14
+
+- The app starts again after a tool or skill has saved something. Since 0.6.1,
+  the first save, such as setting the email signature, created `tool-data/` in
+  the hub, and the next start stopped with "Robozium could not start". What was
+  saved is still there.
+- In dark, the message log's and the startup screen's scan lines fade towards
+  the sides instead of running flat to the edges.
+
 ## 0.6.2 - 2026-11-14
 
 - The release's model check runs again. Since 0.6.1 it stopped on a setting
