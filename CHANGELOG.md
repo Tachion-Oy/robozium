@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+## 0.6.0 - 2026-11-14
+
+- Both themes have a new look.
+- Dark: the run view's panels and text are redrawn, and the buttons have
+  cut corners with a halo. Runs Overview and Environment sit in panels, dialogs
+  are panels too, and pictures are framed with square corners.
+- Light: purple ink, brighter colours and panels sunk into the screen. The HUD
+  is set in Sono, every button has one raised body, and names sit on grape
+  plates. The stripes keep one width at every zoom, on the log and on the
+  screens. Environment's sections are framed, and pictures are framed as
+  stickers, enlarged ones included.
+- The Agent and User labels have room above them in both themes instead of
+  almost touching the buttons and the panel above.
+- If the app is killed, crashes or fails to shut down, the backend container
+  and the host services stop with it, so the API port is free for the next
+  launch.
+- Returning to Environment after a run was stopped no longer flashes the
+  **Editing paused** toast.
+- The footer buttons no longer end up a fraction of a pixel out of place after
+  the run view slides in, so Record no longer shifts when recording starts.
+
 ## 0.5.19 - 2026-11-12
 
 - The message log shows a long run 50 messages at a time, so scrolling stays
