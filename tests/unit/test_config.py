@@ -1,3 +1,4 @@
+import os
 from dataclasses import replace
 from pathlib import Path
 
@@ -49,15 +50,26 @@ def test_the_tool_data_folder_stays_out_of_writable_areas(tmp_path, monkeypatch,
     """There, file commands could change what tools saved."""
     write_config(tmp_path)
     monkeypatch.setenv(env.TOOL_DATA_DIR, str(tmp_path / "sandbox" / area / "tool-data"))
-    with pytest.raises(RuntimeError, match="outside the folders file tools write"):
-        load_hub(start=tmp_path)
+    with pytest.raises(ValueError, match="outside the folders file tools write"):
+        _configure(load_hub(start=tmp_path))
 
 
-def test_the_hub_requires_the_tool_data_folder(tmp_path, monkeypatch):
+def test_agents_require_the_tool_data_folder_but_reading_settings_does_not(tmp_path, monkeypatch):
     write_config(tmp_path)
     monkeypatch.delenv(env.TOOL_DATA_DIR)
-    with pytest.raises(RuntimeError, match="must name the folder tools and skills save in"):
-        load_hub(start=tmp_path)
+    hub = load_hub(start=tmp_path)
+    with pytest.raises(ValueError, match="must name the folder tools and skills save in"):
+        _configure(hub)
+
+
+def _configure(hub):
+    project = hub.project("quotes")
+    return hub.configure_deployment(
+        project.sandbox,
+        project.slug,
+        endpoint_getter=lambda: hub.settings.default_model,
+        downloads_dir=project.attachments_dir,
+    )
 
 
 @pytest.mark.parametrize("value", [0, -1, True, 1.5])
@@ -143,7 +155,7 @@ def test_orchestrator_sandbox_permits_writes_at_project_root(
     assert _verdict(in_project, Operation.CREATE) == ActionVerdict.allow
     assert _verdict(in_readonly, Operation.CREATE) == ActionVerdict.deny
     # File commands may read what tools and skills saved; only those tools change it.
-    saved = hub.tool_data_dir / "email" / "signature.json"
+    saved = Path(os.environ[env.TOOL_DATA_DIR]) / "email" / "signature.json"
     assert _verdict(saved, Operation.READ) == ActionVerdict.allow
     assert _verdict(saved, Operation.CREATE) == ActionVerdict.deny
     assert _verdict(saved, Operation.DELETE) == ActionVerdict.deny

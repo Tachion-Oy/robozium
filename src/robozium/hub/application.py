@@ -121,7 +121,6 @@ class Hub:
             raise TypeError("deployment override must be callable")
         self.deployment = deployment
         self._validate_storage_paths(self.settings.sandbox, self.settings.logging)
-        self.tool_data_dir = self._tool_data_dir(self.settings.sandbox)
         self.local_packages = (
             self._skip_builtin_clashes(load_local_packages(settings.config_file.parent))
             if additional_capabilities is None else LocalPackages({}, {})
@@ -179,7 +178,7 @@ class Hub:
         root.add_capabilities(*self.additional_capabilities)
         root.set_attributes(
             downloads_dir=downloads_dir,
-            tool_data_dir=self.tool_data_dir,
+            tool_data_dir=self._tool_data_dir(sandbox),
         )
         return root
 
@@ -263,7 +262,11 @@ class Hub:
 
     @staticmethod
     def _tool_data_dir(sandbox: Sandbox) -> Path:
-        """The folder the backend layout names; file tools may read it but not write it."""
+        """The folder the backend layout names; file tools may read it but not write it.
+
+        Read when an agent is configured, not when the hub loads, so tools that only
+        read the hub's settings run without it.
+        """
         configured = os.environ.get(env.TOOL_DATA_DIR)
         if not configured:
             raise ValueError(f"{env.TOOL_DATA_DIR} must name the folder tools and skills save in")
