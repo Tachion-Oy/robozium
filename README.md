@@ -153,7 +153,8 @@ Projects live in the hub folder, `~/Robozium-Hub` by default:
 ~/Robozium-Hub/
 ├── readonly/         # reference files
 ├── workspace/        # shared working files
-└── projects/         # project files, history, snapshots, memory
+├── projects/         # project files, history, snapshots, memory
+└── tool-data/        # what tools and skills save, such as the email signature
 ```
 
 **Environment → Hub folder** shows its path, opens it, and changes it with the
@@ -163,9 +164,13 @@ empty hub. The app never moves or deletes a hub folder. Mock mode keeps its own
 throwaway hub.
 
 Each project's file tools can read within the hub and write in that project's
-folder. Writes to `workspace/` ask for confirmation. Writes to other projects
-and `readonly/` are denied. These are agent file-tool permissions, not an
+folder. Writes to `workspace/` ask for confirmation. Writes to other projects,
+`readonly/` and `tool-data/` are denied. These are agent file-tool permissions, not an
 operating-system sandbox; custom Python tools must enforce their own bounds.
+
+A tool or skill that keeps something of its own between runs saves it in its
+subfolder of `tool-data/`, where only that tool changes it. Removing or importing
+tools again leaves the folder alone, so a saved email signature stays.
 
 ![Three example projects and their permitted, prompted, and denied file paths inside the hub sandbox](docs/assets/sandbox-permissions.svg)
 
