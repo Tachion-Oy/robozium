@@ -276,7 +276,6 @@ button.agent-hud__image-preview {
   text-shadow: var(--hud-text-glow);
   font-family: inherit;
   line-height: var(--term-line-height);
-  letter-spacing: var(--term-letter-spacing);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: normal;
@@ -754,18 +753,18 @@ button.agent-hud__image-preview {
     var(--hud-reply-pad-block-end);
   font-family: var(--font-agent-input);
   line-height: var(--term-line-height);
-  letter-spacing: var(--term-letter-spacing);
+  /* The panels' monospace fonts are set a little tighter than their own spacing;
+     the agent's message and the reply inherit this. */
+  letter-spacing: -0.02em;
   display: flex;
   min-height: 0;
   overflow: hidden;
 }
 
-/* In dark the text is a little larger and wider set. The halo and the label
-   reach past the box: `clip` with a margin lets them out, where `hidden` would
-   cut them off. */
+/* In dark the text is a little larger. The halo and the label reach past the
+   box: `clip` with a margin lets them out, where `hidden` would cut them off. */
 :where(:root[data-theme="dark"]) .agent-hud__replyBox {
   font-size: 1.07em;
-  letter-spacing: 0.035em;
   overflow: clip;
   overflow-clip-margin: 1.2rem;
 }
