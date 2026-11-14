@@ -17,6 +17,7 @@ from roboz.models import AgentMode
 from roboz.tools import stop
 
 from robozium.api.app import create_app
+from robozium.hub import environment as env
 from robozium.hub.application import Hub
 from robozium.hub.utils import load_hub, load_hub_settings
 
@@ -287,6 +288,19 @@ def test_overlapping_app_lifespans_preserve_existing_logging(config_file, confli
         logging.getLogger("robozium.test").info("first-app-still-active")
         assert first.get("/ready").status_code == 200
         assert "first-app-still-active" in config.settings.logging.path.read_text()
+
+
+def test_the_hub_starts_with_what_tools_and_skills_saved(config_file, monkeypatch):
+    """A skill creates tool-data on its first save; the next start must accept it."""
+    from robozium.api.credentials import LoadedCredentials
+    from robozium.api.project_service import ProjectService
+
+    config = load_hub(config_file=config_file)
+    saved = config.settings.sandbox.root / "tool-data"
+    monkeypatch.setenv(env.TOOL_DATA_DIR, str(saved))
+    (saved / "email").mkdir(parents=True)
+    (saved / "email" / "signature.json").write_text("{}")
+    ProjectService(config, SimpleNamespace(), LoadedCredentials()).recover()
 
 
 def test_project_service_owns_startup_layout_validation(config_file):

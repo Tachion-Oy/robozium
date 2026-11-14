@@ -178,7 +178,7 @@ class Hub:
         root.add_capabilities(*self.additional_capabilities)
         root.set_attributes(
             downloads_dir=downloads_dir,
-            tool_data_dir=self._tool_data_dir(sandbox),
+            tool_data_dir=self.tool_data_dir(sandbox),
         )
         return root
 
@@ -261,7 +261,7 @@ class Hub:
             raise ValueError("logging path must be outside projects")
 
     @staticmethod
-    def _tool_data_dir(sandbox: Sandbox) -> Path:
+    def tool_data_dir(sandbox: Sandbox) -> Path:
         """The folder the backend layout names; file tools may read it but not write it.
 
         Read when an agent is configured, not when the hub loads, so tools that only
