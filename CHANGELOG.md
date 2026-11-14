@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.6.4 - 2026-11-15
+
+- In dark, the working indicator pulses with one small glow, so the mark stays
+  sharp instead of blurring.
+- The text in the agent and reply panels is set a little tighter, the same in
+  both themes. In dark, the agent's message and the reply now match.
+- In light, the project list's scroll bar stays visible, so it can be grabbed.
+- The × that removes an attachment is centred in its button.
+- In light, the panels' corners no longer show a white line outside their edge.
+
 ## 0.6.3 - 2026-11-14
 
 - The app starts again after a tool or skill has saved something. Since 0.6.1,
