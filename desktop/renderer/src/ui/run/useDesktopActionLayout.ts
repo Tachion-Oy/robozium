@@ -71,11 +71,16 @@ export function useDesktopActionLayout() {
 			schedule()
 		})
 		children.observe(root, { childList: true, subtree: true })
+		// Sizes are read from the screen, so they are slightly off while the reply form's
+		// entrance scales it, and a transform resizes nothing to observe. Place the actions
+		// again once an animation has ended.
+		document.addEventListener("animationend", schedule)
 		update()
 		return () => {
 			cancelAnimationFrame(frame)
 			observer.disconnect()
 			children.disconnect()
+			document.removeEventListener("animationend", schedule)
 		}
 	}, [])
 

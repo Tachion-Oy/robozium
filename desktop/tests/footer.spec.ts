@@ -21,6 +21,8 @@ test("fixture history navigates without wrapping and retains selection with draf
 	const latest = page.getByRole("button", { name: "Jump to latest agent message", exact: true })
 	await expect(message).toContainText("Mock run ready.")
 	// One row: jump, step, indicator, step, jump, each as tall as the indicator; the image plus is square.
+	// The run view's entrance moves the row, so it is measured once it has come to rest.
+	await waitForPanelLayout(page)
 	const indicator = page.locator(".agent-hud__logo--actions")
 	const [firstBox, previousBox, markBox, nextBox, latestBox, plusBox] = await Promise.all(
 		[first, previous, indicator, next, latest, page.getByRole("button", { name: "Add files" })].map(async button => (await button.boundingBox())!))
