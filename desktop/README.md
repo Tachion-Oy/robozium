@@ -169,7 +169,7 @@ its address. The API accepts the app only when started with
 
 ```sh
 ROBOZIUM_DESKTOP_API_PORT=8000 ROBOZIUM_HUB_ROOT=.runtime/dev-mock-hub \
-  ROBOZIUM_LOG_DIR=.runtime/dev-mock-logs \
+  ROBOZIUM_TOOL_DATA_DIR=.runtime/dev-mock-hub/tool-data ROBOZIUM_LOG_DIR=.runtime/dev-mock-logs \
   uv run uvicorn robozium.api.app:mock_app --factory --reload --host 127.0.0.1 --port 8000
 cd desktop && npm run build && npx electron . --backend-url=http://127.0.0.1:8000
 ```

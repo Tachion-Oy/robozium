@@ -28,10 +28,6 @@ from robozium.hub.local import LocalPackages, load_local_packages
 from robozium.hub.logging import HubLoggingConfig
 from robozium.hub.utils import slugify_project_name
 
-# What tools and skills save for themselves, such as the email signature. It sits in
-# the hub outside the areas the file tools may write, and outlives an import's removal.
-TOOL_DATA_DIRECTORY = "tool-data"
-
 
 @dataclass(frozen=True)
 class DependencyHealthSettings:
@@ -125,6 +121,7 @@ class Hub:
             raise TypeError("deployment override must be callable")
         self.deployment = deployment
         self._validate_storage_paths(self.settings.sandbox, self.settings.logging)
+        self.tool_data_dir = self._tool_data_dir(self.settings.sandbox)
         self.local_packages = (
             self._skip_builtin_clashes(load_local_packages(settings.config_file.parent))
             if additional_capabilities is None else LocalPackages({}, {})
@@ -182,7 +179,7 @@ class Hub:
         root.add_capabilities(*self.additional_capabilities)
         root.set_attributes(
             downloads_dir=downloads_dir,
-            tool_data_dir=sandbox.resolved_root / TOOL_DATA_DIRECTORY,
+            tool_data_dir=self.tool_data_dir,
         )
         return root
 
@@ -254,8 +251,6 @@ class Hub:
         for folder in (sandbox.readonly, sandbox.shared, sandbox.projects):
             if len(Path(folder).parts) != 1 or folder in {".", ".."}:
                 raise ValueError("sandbox area names must be single folder names")
-            if folder == TOOL_DATA_DIRECTORY:
-                raise ValueError(f"{TOOL_DATA_DIRECTORY} is the folder tools and skills save in")
         for folder in (sandbox.logs, sandbox.snapshots, sandbox.memory):
             if folder.is_absolute() or ".." in folder.parts:
                 raise ValueError("persistence folders must stay within their project")
@@ -265,6 +260,17 @@ class Hub:
         )
         if logging.path.resolve().is_relative_to(sandbox.projects_dir):
             raise ValueError("logging path must be outside projects")
+
+    @staticmethod
+    def _tool_data_dir(sandbox: Sandbox) -> Path:
+        """The folder the backend layout names; file tools may read it but not write it."""
+        configured = os.environ.get(env.TOOL_DATA_DIR)
+        if not configured:
+            raise ValueError(f"{env.TOOL_DATA_DIR} must name the folder tools and skills save in")
+        folder = Path(configured).resolve()
+        if folder.is_relative_to(sandbox.projects_dir) or folder.is_relative_to(sandbox.shared_dir):
+            raise ValueError(f"{env.TOOL_DATA_DIR} must be outside the folders file tools write")
+        return folder
 
     @staticmethod
     def _validate_local_capability_names(

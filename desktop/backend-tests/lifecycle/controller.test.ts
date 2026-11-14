@@ -421,6 +421,7 @@ test("the backend gets only the layout's own values through a private file; it r
 	assert.deepEqual(environment, {
 		ROBOZIUM_CONFIG: "/app/hub.config.py",
 		ROBOZIUM_HUB_ROOT: "/hub",
+		ROBOZIUM_TOOL_DATA_DIR: "/hub/tool-data",
 		ROBOZIUM_LOG_DIR: "/logs",
 		ROBOZIUM_ENCRYPTED_ENV_PATH: "/configuration/.env.encrypt",
 		ROBOZIUM_HOST_SCRIPT_SOCKET: "/host-scripts/scripts.sock",
