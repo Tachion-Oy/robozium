@@ -27,7 +27,10 @@ export function ReplyAttachmentPreview({ attachment, onRemove }: { attachment: R
 			{attachment.status !== "ready" ? <span className="agent-hud__reply-image-status" role="status">
 				{attachment.status === "failed" ? "Update failed" : attachment.status === "removing" ? "Removing…" : "Uploading…"}
 			</span> : null}
-			<button type="button" className="agent-hud__remove-image" onClick={onRemove} aria-label={`Remove ${attachment.name}`} title={`Remove ${attachment.name}`}>×</button>
+			<button type="button" className="agent-hud__remove-image" onClick={onRemove} aria-label={`Remove ${attachment.name}`} title={`Remove ${attachment.name}`}>
+				{/* Drawn rather than typed: a font's × sits off its line box's centre. */}
+				<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" /></svg>
+			</button>
 		</li>
 	)
 }
