@@ -41,14 +41,3 @@
   background: var(--term-vignette);
   z-index: 10;
 }
-
-/* Per-color glow helpers -- usable on any element */
-.term-glow-green {
-  text-shadow: var(--term-glow-green);
-}
-.term-glow-amber {
-  text-shadow: var(--term-glow-amber);
-}
-.term-glow-red {
-  text-shadow: var(--term-glow-red);
-}

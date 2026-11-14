@@ -58,13 +58,6 @@ function startAudioLevelMonitor(
 	stream: MediaStream,
 	onLevel: (level: number) => void,
 ): AudioLevelMonitor | null {
-	if (
-		typeof AudioContext === "undefined" ||
-		typeof requestAnimationFrame === "undefined"
-	) {
-		return null
-	}
-
 	let audioContext: AudioContext | null = null
 	let analyser: AnalyserNode
 	let source: MediaStreamAudioSourceNode
@@ -168,14 +161,8 @@ async function startRecordingSession({
 }: RecordingSessionHandlers): Promise<
 	{ session: RecordingSession } | { error: string }
 > {
-	if (
-		typeof navigator === "undefined" ||
-		!navigator.mediaDevices?.getUserMedia
-	) {
+	if (!navigator.mediaDevices?.getUserMedia) {
 		return { error: "Microphone is not available in this browser." }
-	}
-	if (typeof MediaRecorder === "undefined") {
-		return { error: "Audio recording is not available in this browser." }
 	}
 
 	let stream: MediaStream

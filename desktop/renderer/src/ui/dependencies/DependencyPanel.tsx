@@ -64,7 +64,7 @@ function Metadata({
 		<dl className="space-y-1">
 			{entries.map(([key, value]) => (
 				<div key={key} className="wrap-anywhere">
-					<dt className="inline text-term-blue text-shadow-(--term-glow-blue)">
+					<dt className="inline text-shadow-(--term-glow-blue)">
 						{key}=
 					</dt>
 					{" "}
@@ -171,7 +171,7 @@ function DependencyTable({
 				aria-sort={active ? sort.direction : "none"}>
 				<button
 					type="button"
-					className="flex w-full cursor-pointer items-center gap-2 text-left text-term-blue text-shadow-(--term-glow-blue)
+					className="flex w-full cursor-pointer items-center gap-2 text-left text-shadow-(--term-glow-blue)
 					 hover:text-white focus-visible:text-white focus-visible:outline-none"
 					onClick={() => onSort(field)}>
 					<span>{label}</span>

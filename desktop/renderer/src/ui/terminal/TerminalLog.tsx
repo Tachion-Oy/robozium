@@ -98,10 +98,10 @@ export function TerminalLog({
 		preserveScrollPosition()
 		if (scrollable && startAtTop) box.scrollTop = box.clientHeight - box.scrollHeight
 		box.addEventListener("scroll", rememberAnchor, { passive: true })
-		const observer = "ResizeObserver" in window ? new ResizeObserver(preserveScrollPosition) : null
-		observer?.observe(content)
+		const observer = new ResizeObserver(preserveScrollPosition)
+		observer.observe(content)
 		return () => {
-			observer?.disconnect()
+			observer.disconnect()
 			box.removeEventListener("scroll", rememberAnchor)
 			slide?.cancel()
 		}

@@ -113,46 +113,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
     transform 220ms ease;
 }
 
-/* User-dismissed: vanish a touch quicker than the phase fade. */
-
-.agent-hud--hidden::before,
-.agent-hud--hidden .agent-hud__box {
-  transition-duration: 160ms;
-}
-
-.agent-hud--hidden {
-  pointer-events: none;
-}
-
-.agent-hud--hidden::before {
-  background-color: transparent;
-}
-
-/* Collapse toward the shared centre (not a downward nudge) so the box reads as
-   shrinking into the minimized widget that grows over the same point. */
-
-.agent-hud--hidden .agent-hud__box {
-  opacity: 0;
-  transform: scale(0.92);
-  pointer-events: none;
-}
-
-/* Intro only: ease the dim backdrop in (the normal workflow keeps it instant).
-   `both` holds the final dim state once the animation ends. */
-
-.agent-hud--intro::before {
-  animation: hud-dim-in var(--intro-hud-backdrop-fade) ease both;
-}
-
-@keyframes hud-dim-in {
-  from {
-    background-color: transparent;
-  }
-  to {
-    background-color: var(--hud-dim-bg);
-  }
-}
-
 .agent-hud__box {
   /* Production default: poster-frame spacing for the finished shell. */
   --hud-pad-x: 3.6rem;
@@ -172,7 +132,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   --hud-control-pad-x: 0.72rem;
   --hud-corner-control-size: 1.55rem;
   --hud-corner-control-gap: 0.22rem;
-  --hud-corner-control-half-gap: 0.11rem;
   --hud-corner-control-left: 0.9rem;
   position: relative;
   z-index: 70;
@@ -274,74 +233,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   --hud-event-brightness: var(--hud-inactive-event-brightness);
 }
 
-/* Pointer movement must track the grip directly; the normal transition remains
-   useful for keyboard resizing and responsive viewport adjustments. */
-
-.agent-hud--fade .agent-hud__box--resizing,
-.agent-hud__box--resizing {
-  transition: none;
-  cursor: nesw-resize;
-  user-select: none;
-}
-
-/* Bottom-left resize affordance. Its visible square shares the corner rail's
-   button chrome, while the parent retains a generous drag/focus hit target. */
-
-.agent-hud__resize-handle {
-  position: absolute;
-  top: calc(
-    50% + var(--hud-corner-control-size) + var(--hud-corner-control-gap) +
-      var(--hud-corner-control-half-gap)
-  );
-  left: var(--hud-corner-control-left);
-  z-index: 20;
-  width: var(--hud-corner-control-size);
-  height: var(--hud-corner-control-size);
-  cursor: nesw-resize;
-  touch-action: none;
-  user-select: none;
-  outline: none;
-}
-
-.agent-hud__resize-wedge {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  width: var(--hud-corner-control-size);
-  height: var(--hud-corner-control-size);
-  box-sizing: border-box;
-  color: color-mix(in oklab, var(--term-blue) clamp(0%, 76% * var(--tune-text, 1), 100%), white);
-  filter:
-    drop-shadow(0 0 1px color-mix(in oklab, var(--term-blue) clamp(0%, 58% * var(--tune-glow, 1), 100%), transparent))
-    drop-shadow(0 0 6px color-mix(in oklab, var(--term-blue) clamp(0%, 28% * var(--tune-glow, 1), 100%), transparent));
-  opacity: 0.72;
-}
-
-.agent-hud__resize-icon {
-  display: block;
-  width: 1.05rem;
-  height: 1.05rem;
-  overflow: visible;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.65;
-  stroke-linecap: square;
-  stroke-linejoin: miter;
-  vector-effect: non-scaling-stroke;
-}
-
-.agent-hud__resize-handle:hover .agent-hud__resize-wedge,
-.agent-hud__resize-handle:focus-visible .agent-hud__resize-wedge,
-.agent-hud__box--resizing .agent-hud__resize-wedge {
-  --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
-  --btn-fill-strength: 24%;
-  color: color-mix(in oklab, var(--term-blue) clamp(0%, 68% * var(--tune-text, 1), 100%), white);
-  filter:
-    drop-shadow(0 0 2px color-mix(in oklab, var(--term-blue) clamp(0%, 78% * var(--tune-hover-glow, 1), 100%), transparent))
-    drop-shadow(0 0 8px color-mix(in oklab, var(--term-blue) clamp(0%, 42% * var(--tune-hover-glow, 1), 100%), transparent));
-  opacity: 1;
-}
 
 .agent-hud__box--overview {
   justify-content: flex-start;
@@ -418,28 +309,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   max-width: 100%;
 }
 
-/* ---------------------------------------------------------------------------
- * Minimized HUD control
- *
- * The small octagon the HUD collapses into when dismissed during a run: the
- * brand mark indicator plus an expand button (the only way back into the HUD).
- * It is vertically centred in the left gutter so it never sits on top of the
- * message text. Its mark shares the expanded indicator's working and
- * awaiting-input treatments.
- * ------------------------------------------------------------------------- */
-
-.agent-hud__mini {
-  position: fixed;
-  inset-block: 0;
-  left: max(0.75rem, calc((100vw - 84rem) / 4 - 4.875rem));
-  width: 9.75rem;
-  z-index: 55;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-
 /* All the widget's knobs live here, once. --mini-size drives a REGULAR octagon:
    a square box whose corner cut = size / (2 + √2) gives eight equal-length
    sides. The border is two thin lines (--mini-line) with a gap (--mini-gap)
@@ -482,22 +351,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   transition:
     opacity 220ms ease,
     transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.agent-hud__mini-expand {
-  pointer-events: auto;
-}
-
-/* Open HUD -> the widget shrinks and fades out (inert). */
-
-.agent-hud__mini--hidden {
-  pointer-events: none;
-}
-
-.agent-hud__mini--hidden .agent-hud__mini-box {
-  opacity: 0;
-  transform: scale(0.72);
-  pointer-events: none;
 }
 
 /* The fill: the panels' scan lines and bloom over the dark, an octagon inset by
@@ -586,11 +439,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
    remains clear of the flowing message-content column. */
 
 @media (max-width: 96rem) {
-  .agent-hud__mini {
-    left: 0.75rem;
-    width: 6.5rem;
-  }
-
   .agent-hud__mini-box,
   .agent-hud__busy {
     --hud-logo-size: 2.35rem;
@@ -604,10 +452,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
     gap: 0.2rem;
   }
 
-  .agent-hud__mini-expand {
-    font-size: 0.85rem;
-    letter-spacing: 0.02em;
-  }
 }
 
 .agent-hud__event-text {
@@ -628,44 +472,9 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   }
 }
 
-.agent-hud__mini-expand {
-  pointer-events: auto;
-}
-
-/* The shared button chrome declares position: relative for its pseudo layers.
-   The resize face is the exception: it must stay anchored to the handle's
-   bottom slot or it rises into the lower divider control. */
-
-.agent-hud__resize-wedge.agent-hud__corner-control {
-  position: absolute;
-}
-
-/* Fresh-load HUD entrance used below. Run/status/project views use the
-   shorter hud-view-in animation defined with their layout rules above. */
-
-@keyframes hud-appear {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Fresh-load HUD entrance. Gated on no-preference so reduced-motion users
-   get the content with no animation. */
-
-@media (prefers-reduced-motion: no-preference) {
-  .agent-hud__box--intro {
-    animation: hud-appear var(--intro-hud-box-fade) ease both;
-  }
-}
-
 /* Light theme */
 
-/*  Light HUD shell, panels, controls, matrices, resize handle, and minimized state  */
+/*  Light HUD shell, panels, controls, matrices and minimized state  */
 :root[data-theme="light"] .agent-hud__event-label {
   --term-msg-color: var(--term-blue);
   --term-msg-accent: var(--term-blue);
@@ -729,9 +538,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   max-width: none;
   overflow: hidden;
 }
-:root[data-theme="light"] .agent-hud__mini {
-  width: 8rem;
-}
 :root[data-theme="light"] :is(.agent-hud__mini-box, .agent-hud__busy) {
   --hud-logo-size: 3.1rem;
   --hud-logo-font-size: 2.5rem;
@@ -764,13 +570,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   border-radius: 0.42rem;
   background: transparent;
   backdrop-filter: none;
-}
-:root[data-theme="light"] .agent-hud__mini-expand {
-  width: 100%;
-  min-height: 2.35rem;
-  padding-inline: 0.65rem;
-  border-radius: 0.3rem;
-  font-size: 0.86rem;
 }
 :root[data-theme="light"] .agent-hud__mini-box::after {
   content: none;
@@ -857,7 +656,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
 }
 :root[data-theme="light"] .agent-hud__box {
   isolation: isolate;
-  --hud-shell-cut: 0.9rem;
   --hud-light-inner-rail: 0.68rem;
   --hud-pad-top: 1.45rem;
   --hud-pad-bottom: 1.25rem;
@@ -871,7 +669,6 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   --hud-control-pad-x: 1.15rem;
   --hud-corner-control-size: 1.9rem;
   --hud-corner-control-gap: 0.22rem;
-  --hud-corner-control-half-gap: 0.11rem;
   /* Centre the side controls between the inset rail seam and the panel seam,
      not between the panel seam and the shell's outer edge. */
   --hud-corner-control-left: calc(
@@ -902,26 +699,4 @@ body:has(.app-nav__row) .agent-hud:not(.agent-hud--landing) .agent-hud__box {
   --hud-section-gap: 1.2rem;
   /* Room above the User label (see the header row's margin). */
   --hud-panel-gap: 1.3rem;
-}
-:root[data-theme="light"] .agent-hud__resize-icon {
-  width: 1rem;
-  height: 1rem;
-  margin: auto;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.65;
-  stroke-linecap: square;
-  stroke-linejoin: miter;
-}
-:root[data-theme="light"]
-  .agent-hud__resize-handle:hover
-  .agent-hud__resize-wedge,
-:root[data-theme="light"]
-  .agent-hud__resize-handle:focus-visible
-  .agent-hud__resize-wedge,
-:root[data-theme="light"]
-  .agent-hud__box--resizing
-  .agent-hud__resize-wedge {
-  filter: none;
-  opacity: 1;
 }

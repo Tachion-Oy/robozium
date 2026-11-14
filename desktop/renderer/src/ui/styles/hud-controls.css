@@ -319,8 +319,6 @@
    device pixels. Variants inherit their surface from --btn-accent and adjust
    --btn-fill-strength, with interaction states free to brighten the edge. */
 
-.agent-hud__expand,
-.agent-hud__minimize,
 .agent-hud__corner-control,
 .agent-hud__copy-text,
 .agent-hud__dictate,
@@ -351,7 +349,7 @@
 /* Dark: a narrower edge at the accent's full strength, in a quiet halo of the
    button's colour that hover brightens. The halo is the button's own shadow, on
    a box rounded to its cut corners (hud-button.css says why it is no filter). */
-:where(:root[data-theme="dark"]) :is(.agent-hud__expand, .agent-hud__minimize, .agent-hud__corner-control, .agent-hud__copy-text, .agent-hud__dictate, .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__layout-controls .agent-hud__layout-direction, .agent-hud__send, .agent-hud__selector-trigger) {
+:where(:root[data-theme="dark"]) :is(.agent-hud__corner-control, .agent-hud__copy-text, .agent-hud__dictate, .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__layout-controls .agent-hud__layout-direction, .agent-hud__send, .agent-hud__selector-trigger) {
   --btn-ring: 1.5px;
   /* A narrow edge needs the accent's full strength to hold its colour. */
   --tune-edge: 2.7;
@@ -362,7 +360,7 @@
     0 0 10px color-mix(in oklab, var(--btn-accent) calc(24% * var(--halo-lift)), transparent);
 }
 
-:where(:root[data-theme="dark"]) :is(.agent-hud__expand, .agent-hud__minimize, .agent-hud__corner-control, .agent-hud__copy-text, .agent-hud__dictate, .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__layout-controls .agent-hud__layout-direction, .agent-hud__send, .agent-hud__selector-trigger):not(:disabled):hover {
+:where(:root[data-theme="dark"]) :is(.agent-hud__corner-control, .agent-hud__copy-text, .agent-hud__dictate, .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__layout-controls .agent-hud__layout-direction, .agent-hud__send, .agent-hud__selector-trigger):not(:disabled):hover {
   --halo-lift: 1.6;
 }
 
@@ -373,8 +371,6 @@
     0 0 12px color-mix(in oklab, var(--btn-accent) 45%, transparent);
 }
 
-.agent-hud__expand::before,
-.agent-hud__minimize::before,
 .agent-hud__corner-control::before,
 .agent-hud__copy-text::before,
 .agent-hud__dictate::before,
@@ -401,8 +397,6 @@
   background: var(--btn-edge);
 }
 
-.agent-hud__expand::after,
-.agent-hud__minimize::after,
 .agent-hud__corner-control::after,
 .agent-hud__copy-text::after,
 .agent-hud__dictate::after,
@@ -435,8 +429,6 @@
   backdrop-filter: blur(3px);
 }
 
-.agent-hud__expand,
-.agent-hud__minimize,
 .agent-hud__dictate,
 .agent-hud__image,
 .agent-hud__cancel,
@@ -448,28 +440,6 @@
   letter-spacing: .02em;
   white-space: nowrap;
   cursor: pointer;
-}
-
-.agent-hud__expand:hover,
-.agent-hud__minimize:hover {
-  color: color-mix(in oklab, var(--term-blue) clamp(0%, 72% * var(--tune-text, 1), 100%), white);
-  --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
-  --btn-fill-strength: 24%;
-  text-shadow:
-    0 0 3px color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-glow, 1), 100%), white),
-    0 0 14px color-mix(in oklab, var(--term-blue) clamp(0%, 65% * var(--tune-hover-glow, 1), 100%), transparent);
-}
-
-.agent-hud__size-icon {
-  display: block;
-  width: 1.05rem;
-  height: 1.05rem;
-  overflow: visible;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.55;
-  stroke-linecap: square;
-  stroke-linejoin: miter;
 }
 
 /* Compact icon action beside the Current Run selector. */
@@ -690,9 +660,6 @@
     visibility 0ms linear 0ms;
 }
 
-/* Shell-level controls form a compact rail immediately above the visible
-   resize face. Keeping them outside the action row leaves that row balanced. */
-
 /* The column is centred on the left edge: the zoom buttons, the theme toggle, then
    the divider buttons. */
 .agent-hud__corner-controls {
@@ -706,12 +673,6 @@
   flex-direction: column;
   align-items: center;
   gap: var(--hud-corner-control-gap);
-}
-
-.agent-hud__minimize:disabled {
-  cursor: default;
-  opacity: 0.28;
-  filter: none;
 }
 
 /* Only the divider buttons follow the HUD's disabled state; the theme toggle and
@@ -822,7 +783,6 @@
   opacity: 0.22;
 }
 
-.agent-hud__minimize:focus-visible,
 .agent-hud__copy-text:focus-visible,
 .agent-hud__layout-controls .agent-hud__layout-direction:focus-visible,
 .agent-hud__message-direction:focus-visible {
@@ -928,16 +888,6 @@
       color-mix(in oklab, var(--term-green) clamp(0%, 30% * var(--tune-glow, 1), 100%), transparent),
     0 0 1.35rem color-mix(in oklab, var(--term-green) clamp(0%, 22% * var(--tune-glow, 1), 100%), transparent);
   animation: none;
-}
-@keyframes hud-light-agent-working-pulse {
-  from {
-    filter: saturate(0.72);
-    opacity: 0.68;
-  }
-  to {
-    filter: saturate(1);
-    opacity: 1;
-  }
 }
 /* The copy and clear buttons keep their glyph; a key (hud-button.css) replaces
    the octagon. */
@@ -1079,20 +1029,20 @@
 /* A light button is a key (hud-button.css), so the octagon's two layers are not
    drawn. */
 :root[data-theme="light"] :is(
-  .agent-hud__expand, .agent-hud__minimize, .agent-hud__corner-control, .agent-hud__dictate, .agent-hud__image,
-  .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__layout, .agent-hud__layout-controls .agent-hud__layout-direction,
+  .agent-hud__corner-control, .agent-hud__dictate, .agent-hud__image,
+  .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__layout-controls .agent-hud__layout-direction,
   .agent-hud__send
 )::before,
 :root[data-theme="light"] :is(
-  .agent-hud__expand, .agent-hud__minimize, .agent-hud__corner-control, .agent-hud__dictate, .agent-hud__image,
-  .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__layout, .agent-hud__layout-controls .agent-hud__layout-direction,
+  .agent-hud__corner-control, .agent-hud__dictate, .agent-hud__image,
+  .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__layout-controls .agent-hud__layout-direction,
   .agent-hud__send
 )::after {
   content: none;
 }
 :root[data-theme="light"] :is(
-  .agent-hud__expand, .agent-hud__minimize, .agent-hud__corner-control, .agent-hud__copy-text, .agent-hud__dictate,
-  .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__layout, .agent-hud__send
+  .agent-hud__corner-control, .agent-hud__copy-text, .agent-hud__dictate,
+  .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__send
 ),
 :root[data-theme="light"] .agent-hud__layout-controls .agent-hud__layout-direction {
   min-height: 2.8rem;

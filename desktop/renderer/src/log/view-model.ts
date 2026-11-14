@@ -76,7 +76,6 @@ export type MessageLogItem = {
 }
 
 export const PROMPT_USER_ACTION = "prompt_user" as const
-export const USER_NOTIFICATION_MESSAGE_KIND = "user_notification" as const
 
 export function isPromptUserAssistantMessage(item: MessageLogItem): boolean {
 	return (

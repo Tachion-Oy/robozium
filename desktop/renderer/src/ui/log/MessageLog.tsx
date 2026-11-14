@@ -12,7 +12,7 @@ export function MessageLog({ active, events }: { active: boolean; events: readon
 	return (
 		<section id="desktop-message-log" aria-label="Message log" className="desktop-message-log" data-live={active || undefined}>
 			<TerminalBackdrop title={!active}>
-				{active ? <TerminalStream items={items} readable /> : <PlaceholderLog scrollable command="START AN AGENT TO SEE THE LIVE MESSAGES !" />}
+				{active ? <TerminalStream items={items} /> : <PlaceholderLog scrollable command="START AN AGENT TO SEE THE LIVE MESSAGES !" />}
 			</TerminalBackdrop>
 		</section>
 	)

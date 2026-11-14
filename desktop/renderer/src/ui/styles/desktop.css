@@ -1,6 +1,6 @@
 /* The copied desktop frontend uses the HUD as its entire client area. */
 html[data-desktop], html[data-desktop] body { margin: 0; height: 100%; min-height: 0; padding: 0; overflow: hidden; }
-html[data-desktop] { --app-ui-scale: 0.75; --app-ui-root-font-size: 75%; --hud-stream-agent-opacity: 1; --hud-stream-agent-fill: 100%; }
+html[data-desktop] { --app-ui-root-font-size: 75%; --hud-stream-agent-opacity: 1; --hud-stream-agent-fill: 100%; }
 html[data-desktop] .agent-hud, html[data-desktop] .agent-hud--landing {
   position: absolute; inset: 0; margin: 0; padding: 0; width: 100%; height: 100%; display: flex;
 }
@@ -11,7 +11,6 @@ html[data-desktop] .agent-hud__box {
 /* Exterior only: the inset rails and panel borders keep their existing shape. */
 html[data-desktop][data-theme="dark"] .agent-hud__box { border: 0; background-color: rgb(var(--hud-shell-rgb)); }
 html[data-desktop][data-theme="light"] .agent-hud__box { border: 0; border-radius: 0; }
-html[data-desktop] .agent-hud__mini { display: none; }
 
 .desktop-terminal { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
 .desktop-terminal .app-nav__brand { cursor: default; }
@@ -384,5 +383,3 @@ html[data-desktop]:not([data-theme="light"]) .desktop-message-log
   width: min(100%, 32rem); font-size: 2rem; transform: none;
 }
 .desktop-message-log .app-nav__row > div { padding-inline: 1.5rem; }
-/* Dropdowns remain within the HUD pane while the terminal occupies its side. */
-html[data-desktop] .agent-hud__model-dropdown { max-width: 100cqw; }
