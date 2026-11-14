@@ -1,96 +1,6 @@
 .desktop-terminal { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
 .desktop-terminal .app-nav__brand { cursor: default; }
 
-/* The first row reserves the geometric centre for all four arrows and the
-   logo. When every action fits its side lanes they stay there; otherwise all
-   of them share one row below, truncating labels instead of wrapping. Their DOM
-   nodes stay mounted so resize preserves focus, clipboard feedback and recording. */
-html[data-desktop] .agent-hud__actions {
-  position: relative; display: flex; flex-wrap: wrap; align-items: flex-start;
-  justify-content: flex-start; gap: 0.75rem 1rem;
-}
-html[data-desktop] .agent-hud__run-actions,
-html[data-desktop] .agent-hud__actions-submit { display: contents; }
-html[data-desktop] .agent-hud__navigation-row {
-  order: -1; flex: 0 0 100%; display: grid; place-items: center;
-  min-height: var(--hud-primary-action-height, 36px);
-}
-html[data-desktop] .agent-hud__actions [data-hud-action-placement] {
-  flex: 0 0 auto; width: max-content; max-width: 100%; margin: 0;
-}
-html[data-desktop] .agent-hud__actions [data-hud-action-placement="primary"] {
-  position: absolute; left: var(--hud-action-left);
-  top: var(--hud-action-top, 0px);
-}
-html[data-desktop] .agent-hud__actions[data-hud-actions="below"] {
-  flex-wrap: nowrap; padding-top: calc(var(--hud-primary-action-height, 36px) + 0.75rem);
-}
-html[data-desktop] .agent-hud__actions[data-hud-actions="below"] .agent-hud__navigation-row {
-  position: absolute; inset: 0 0 auto;
-}
-html[data-desktop] .agent-hud__actions [data-hud-action-placement="overflow"] { flex: 0 1 auto; }
-/* Record keeps its fixed width and the image plus has no label to shorten; the other labels shrink. */
-html[data-desktop] .agent-hud__actions button[data-hud-action-placement="overflow"]:not(.agent-hud__dictate, .agent-hud__image) { min-width: 0; }
-html[data-desktop] .agent-hud__actions .agent-hud__image[data-hud-action-placement="overflow"] { flex-shrink: 0; }
-/* The image plus stays square in every placement. */
-html[data-desktop] .agent-hud__actions .agent-hud__image[data-hud-action-placement] { width: calc(1em + 2 * var(--hud-control-pad-y)); }
-/* Light footer buttons are at least 2.8rem tall (hud-controls.css). */
-html[data-desktop][data-theme="light"] .agent-hud__actions .agent-hud__image[data-hud-action-placement] {
-  width: max(2.8rem, calc(1em + 2 * var(--hud-control-pad-y)));
-}
-/* The image plus starts the right-hand group, as beside the navigation. */
-html[data-desktop] .agent-hud__actions .agent-hud__image[data-hud-action-placement="overflow"] { margin-inline-start: auto; }
-/* Labels shorten with an ellipsis; Record's level meter keeps its own layout. */
-html[data-desktop] .agent-hud__actions button > span:not(.agent-hud__dictate-meter) {
-  display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  /* The clip box reaches below descenders (g, p, q) without changing the height. */
-  padding-block: 0.15em; margin-block: -0.15em;
-}
-/* A pending action keeps its label and pulses until its outcome arrives. */
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes desktop-action-busy { from { opacity: 0.55; } to { opacity: 1; } }
-  html[data-desktop] .agent-hud__actions button[aria-busy="true"],
-  html[data-desktop] .agent-hud__row-action[aria-busy="true"] {
-    animation: desktop-action-busy 0.9s ease-in-out infinite alternate;
-  }
-  /* On the light background an opacity pulse alone is barely visible: add a blue ring. */
-  @keyframes desktop-action-busy-light {
-    from { opacity: 0.35; box-shadow: 0 0 0 0 transparent; }
-    to {
-      opacity: 1;
-      box-shadow: 0 0 0 2px color-mix(in oklab, var(--term-blue) 60%, transparent),
-        0 0 0.7rem color-mix(in oklab, var(--term-blue) 45%, transparent);
-    }
-  }
-  html[data-desktop][data-theme="light"] .agent-hud__actions button[aria-busy="true"],
-  html[data-desktop][data-theme="light"] .agent-hud__row-action[aria-busy="true"] {
-    animation: desktop-action-busy-light 0.7s ease-in-out infinite alternate;
-  }
-}
-/* Keep hover/focus feedback in colour and glow, without moving the hit target. */
-html[data-desktop][data-theme] .agent-hud__actions button,
-html[data-desktop][data-theme] .agent-hud__actions button:not(:disabled):is(:hover, :focus-visible, :active) {
-  transform: none;
-}
-
-/* Extra footer rows reduce the panel space. Cap the compact panel's share so
-   both message and composer retain usable space at the native minimum height. */
-html[data-desktop] .agent-hud__panels[data-layout="top"] > .agent-hud__replyBox--user,
-html[data-desktop] .agent-hud__panels[data-layout="bottom"] > .agent-hud__replyBox--agent {
-  flex-basis: min(var(--hud-compact-panel-height), 45%);
-}
-
-/* Pane dimensions, rather than the native viewport, govern compact spacing. */
-@container hud-pane (height < 360px) {
-  html[data-desktop][data-theme] .agent-hud__box {
-    --hud-reply-pad-block-start: 0.4rem; --hud-reply-pad-block-end: 0.4rem;
-    --hud-pad-bottom: 0.75rem; --hud-panel-gap: 0.6rem; --hud-section-gap: 0.65rem;
-  }
-  /* Dark keeps room for its edge ticks above the header and below the footer. */
-  html[data-desktop][data-theme="dark"] .agent-hud__box { --hud-pad-top: 1.7rem; --hud-pad-bottom: 1.7rem; }
-  html[data-desktop] .agent-hud__replySection { gap: var(--hud-section-gap); }
-}
-
 .desktop-workspace {
   --desktop-panel-inset: 3.6rem;
   --desktop-divider-color: var(--desktop-divider-default-color);
@@ -189,17 +99,17 @@ html[data-theme="light"] .desktop-workspace .desktop-workspace__panes[data-log-o
 /* The right edge mirrors the left one: the message log toggle, taller than wide,
    with the clear and copy buttons beneath it. Buttons that cannot act are disabled,
    never hidden, as the panel divider buttons are. */
-html[data-desktop] .desktop-edge-controls {
+.desktop-edge-controls {
   position: absolute; right: var(--hud-corner-control-left); top: 50%; transform: translateY(-50%);
   z-index: 21; display: flex; flex-direction: column; align-items: center; gap: var(--hud-corner-control-gap);
 }
-html[data-desktop] .desktop-edge-controls__copy { display: contents; }
+.desktop-edge-controls__copy { display: contents; }
 /* Each edge has a toggle taller than wide: the message log heads the right edge,
    the theme sits at the centre of the left. */
-html[data-desktop][data-theme] .agent-hud__edge-toggle {
+.agent-hud__edge-toggle {
   height: calc(1.6 * var(--hud-corner-control-size)); min-height: calc(1.6 * var(--hud-corner-control-size));
 }
-html[data-desktop][data-theme="dark"] .agent-hud__edge-toggle {
+:root[data-theme="dark"] .agent-hud__edge-toggle {
   color: color-mix(in oklab, var(--term-blue) clamp(0%, 76% * var(--tune-text, 1), 100%), white);
 }
 .desktop-message-log-toggle__icon {
@@ -207,14 +117,14 @@ html[data-desktop][data-theme="dark"] .agent-hud__edge-toggle {
   fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: square;
 }
 /* While the log is open the toggle stays lit, as on hover. */
-html[data-desktop] .desktop-message-log-toggle[aria-expanded="true"] {
+.desktop-message-log-toggle[aria-expanded="true"] {
   --btn-edge: color-mix(in oklab, var(--term-blue) clamp(0%, 88% * var(--tune-hover-edge, 1), 100%), white);
   --btn-fill-strength: 24%;
 }
-html[data-desktop] .desktop-edge-controls .agent-hud__copy-controls {
+.desktop-edge-controls .agent-hud__copy-controls {
   flex-direction: column; align-items: center; gap: var(--hud-corner-control-gap);
 }
-html[data-desktop][data-theme] .desktop-edge-controls .agent-hud__copy-text {
+.desktop-edge-controls .agent-hud__copy-text {
   width: var(--hud-corner-control-size); height: var(--hud-corner-control-size);
   min-width: var(--hud-corner-control-size); min-height: var(--hud-corner-control-size);
 }
@@ -256,11 +166,11 @@ html[data-desktop][data-theme] .desktop-edge-controls .agent-hud__copy-text {
 .desktop-message-log .term-log-pager .term-msg-badge { border: 0; font: inherit; cursor: pointer; }
 .desktop-message-log .term-log-pager .term-msg-badge:disabled { opacity: 0.35; cursor: default; }
 /* A hovered page button brightens: by its colour in dark, where a filter would be redrawn with the badge's glow. */
-html[data-desktop][data-theme="dark"] .desktop-message-log .term-log-pager .term-msg-badge:not(:disabled):hover { background: color-mix(in oklab, var(--term-msg-color) 80%, white); }
-html[data-desktop][data-theme="light"] .desktop-message-log .term-log-pager .term-msg-badge:not(:disabled):hover { filter: brightness(1.2); }
+:root[data-theme="dark"] .desktop-message-log .term-log-pager .term-msg-badge:not(:disabled):hover { background: color-mix(in oklab, var(--term-msg-color) 80%, white); }
+:root[data-theme="light"] .desktop-message-log .term-log-pager .term-msg-badge:not(:disabled):hover { filter: brightness(1.2); }
 .desktop-message-log .term-log-pager__count { white-space: nowrap; }
 /* In light, the page count is printed in the rows' ink; the buttons keep the blue fill. */
-html[data-desktop][data-theme="light"] .desktop-message-log .term-log-pager {
+:root[data-theme="light"] .desktop-message-log .term-log-pager {
   --term-msg-color: var(--stream-ink);
   --term-msg-glow: 0 0 var(--stream-ink-bleed) color-mix(in oklab, var(--stream-ink) 65%, transparent);
 }
@@ -273,7 +183,7 @@ html[data-desktop][data-theme="light"] .desktop-message-log .term-log-pager {
 /* Dark text punched out of a filled tag, badge or page button keeps the CRT
    smudge of terminal.css, toned down slightly so small glyphs stay legible.
    Outlined script and system badges keep their own glowing text. */
-html[data-desktop]:not([data-theme="light"]) .desktop-message-log
+:root:not([data-theme="light"]) .desktop-message-log
   :is(.term-msg:not([data-role="script"], [data-role="system"]) .term-msg-badge-label, .term-log-pager .term-msg-badge-label, .term-tag-label) {
   -webkit-text-stroke: 0.7px color-mix(in oklab, var(--term-bg) 78%, var(--term-msg-color) 22%);
   text-shadow:

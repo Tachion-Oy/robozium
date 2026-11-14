@@ -277,22 +277,113 @@
   transform: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .agent-hud__actions-submit {
-    animation: none;
-    transition: none;
-  }
+/* The footer's first row reserves the geometric centre for the four arrows and the
+   indicator. When every action fits its side lane, the actions stand there, placed
+   by useDesktopActionLayout; otherwise they all share one row below, shortening
+   their labels instead of wrapping. The buttons stay mounted either way, so a
+   resize keeps focus, clipboard feedback and a recording. */
+.agent-hud__actions {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0.75rem 1rem;
 }
 
 .agent-hud__navigation-row {
-  display: contents;
+  order: -1;
+  flex: 0 0 100%;
+  display: grid;
+  place-items: center;
+  min-height: var(--hud-primary-action-height, 36px);
 }
 
-.agent-hud__actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: var(--hud-actions-gap);
+.agent-hud__actions [data-hud-action-placement] {
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: 100%;
+  margin: 0;
+}
+
+.agent-hud__actions [data-hud-action-placement="primary"] {
+  position: absolute;
+  left: var(--hud-action-left);
+  top: var(--hud-action-top, 0px);
+}
+
+.agent-hud__actions[data-hud-actions="below"] {
+  flex-wrap: nowrap;
+  padding-top: calc(var(--hud-primary-action-height, 36px) + 0.75rem);
+}
+
+.agent-hud__actions[data-hud-actions="below"] .agent-hud__navigation-row {
+  position: absolute;
+  inset: 0 0 auto;
+}
+
+.agent-hud__actions [data-hud-action-placement="overflow"] {
+  flex: 0 1 auto;
+}
+
+/* Record keeps its fixed width and the image plus has no label to shorten; the
+   other labels shrink. */
+.agent-hud__actions button[data-hud-action-placement="overflow"]:not(.agent-hud__dictate, .agent-hud__image) {
+  min-width: 0;
+}
+
+/* The image plus stays square in every placement, and in the row below it starts
+   the right-hand group, as it does beside the arrows. */
+.agent-hud__actions .agent-hud__image[data-hud-action-placement] {
+  width: calc(1em + 2 * var(--hud-control-pad-y));
+}
+
+.agent-hud__actions .agent-hud__image[data-hud-action-placement="overflow"] {
+  flex-shrink: 0;
+  margin-inline-start: auto;
+}
+
+/* Light footer buttons are at least 2.8rem tall. */
+:root[data-theme="light"] .agent-hud__actions .agent-hud__image[data-hud-action-placement] {
+  width: max(2.8rem, calc(1em + 2 * var(--hud-control-pad-y)));
+}
+
+/* Labels shorten with an ellipsis; Record's level meter keeps its own layout. */
+.agent-hud__actions button > span:not(.agent-hud__dictate-meter) {
+  display: block;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* The clip box reaches below descenders (g, p, q) without changing the height. */
+  padding-block: 0.15em;
+  margin-block: -0.15em;
+}
+
+/* A pending action keeps its label and pulses until its outcome arrives. On the
+   light background an opacity pulse alone is barely visible: it adds a blue ring. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes desktop-action-busy {
+    from { opacity: 0.55; }
+    to { opacity: 1; }
+  }
+
+  @keyframes desktop-action-busy-light {
+    from { opacity: 0.35; box-shadow: 0 0 0 0 transparent; }
+    to {
+      opacity: 1;
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--term-blue) 60%, transparent),
+        0 0 0.7rem color-mix(in oklab, var(--term-blue) 45%, transparent);
+    }
+  }
+
+  :is(.agent-hud__actions button, .agent-hud__row-action)[aria-busy="true"] {
+    animation: desktop-action-busy 0.9s ease-in-out infinite alternate;
+  }
+
+  :root[data-theme="light"] :is(.agent-hud__actions button, .agent-hud__row-action)[aria-busy="true"] {
+    animation: desktop-action-busy-light 0.7s ease-in-out infinite alternate;
+  }
 }
 
 /* Dark footer labels are spaced capitals, centred on the capitals as the small
@@ -637,27 +728,10 @@
   cursor: default;
 }
 
-.agent-hud__run-actions {
-  display: inline-flex;
-  align-items: center;
-  justify-self: start;
-  gap: var(--hud-actions-gap);
-}
-
+/* The two lanes only group the actions in the markup; the footer row places them. */
+.agent-hud__run-actions,
 .agent-hud__actions-submit {
-  display: inline-flex;
-  align-items: stretch;
-  justify-self: end;
-  gap: var(--hud-actions-gap);
-  padding-right: 0.2rem;
-  margin-bottom: 0.15rem;
-  opacity: 1;
-  transform: translateY(0);
-  visibility: visible;
-  transition:
-    opacity 180ms ease,
-    transform 180ms ease,
-    visibility 0ms linear 0ms;
+  display: contents;
 }
 
 /* The column is centred on the left edge: the zoom buttons, the theme toggle, then
@@ -850,12 +924,6 @@
 :root[data-theme="light"] .agent-hud__actions {
   min-height: 3.15rem;
 }
-:root[data-theme="light"] .agent-hud__actions-submit {
-  /* Preserve a little paint space around the rightmost control so the Send
-     border and lower accent are not clipped by the action-row boundary. */
-  padding-right: 0.2rem;
-  margin-bottom: 0.15rem;
-}
 /* Record has one width for "Record" and for "Stop" beside its level meter, so it
    does not grow when recording starts. */
 :root[data-theme="light"] .agent-hud__actions .agent-hud__dictate {
@@ -1044,29 +1112,14 @@
   font-size: 0.88rem;
   letter-spacing: 0.025em;
 }
-/* Copy buttons take their size where they stand: on the right edge, and as the
-   folder button in the header. */
-:root[data-theme="light"] :is(
-  .agent-hud__corner-control, .agent-hud__dictate,
-  .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__send
-),
-:root[data-theme="light"] .agent-hud__layout-controls .agent-hud__layout-direction {
+/* Light footer buttons are at least 2.8rem tall. */
+:root[data-theme="light"] :is(.agent-hud__dictate, .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt, .agent-hud__send) {
   min-height: 2.8rem;
 }
 /* The footer's legends are spaced capitals, as the row buttons' are. */
 :root[data-theme="light"] .agent-hud__actions :is(.agent-hud__send, .agent-hud__dictate, .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt) {
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-:root[data-theme="light"] .agent-hud__corner-control,
-:root[data-theme="light"]
-  .agent-hud__layout-controls
-  .agent-hud__layout-direction.agent-hud__corner-control {
-  width: var(--hud-corner-control-size);
-  height: var(--hud-corner-control-size);
-  min-width: var(--hud-corner-control-size);
-  min-height: var(--hud-corner-control-size);
-  padding: 0;
 }
 :root[data-theme="light"] .agent-hud__copy-text-icon {
   width: 1.2rem;
