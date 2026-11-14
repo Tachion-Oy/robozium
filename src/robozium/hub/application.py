@@ -28,6 +28,10 @@ from robozium.hub.local import LocalPackages, load_local_packages
 from robozium.hub.logging import HubLoggingConfig
 from robozium.hub.utils import slugify_project_name
 
+# What tools and skills save for themselves, such as the email signature. It sits in
+# the hub outside the areas the file tools may write, and outlives an import's removal.
+TOOL_DATA_DIRECTORY = "tool-data"
+
 
 @dataclass(frozen=True)
 class DependencyHealthSettings:
@@ -165,6 +169,8 @@ class Hub:
 
         ``downloads_dir`` is the agent attribute capabilities declare through
         RoboZ's ``required_attributes`` when they save files for the run.
+        ``tool_data_dir`` is the one they declare when they keep something of
+        their own between runs; each uses a subfolder named after itself.
         """
         if sandbox.scope is not None and sandbox.scope != project_slug:
             raise ValueError("deployment project must match the sandbox scope")
@@ -174,7 +180,10 @@ class Hub:
             root.capabilities, self.additional_capabilities
         )
         root.add_capabilities(*self.additional_capabilities)
-        root.set_attributes(downloads_dir=downloads_dir)
+        root.set_attributes(
+            downloads_dir=downloads_dir,
+            tool_data_dir=sandbox.resolved_root / TOOL_DATA_DIRECTORY,
+        )
         return root
 
     def _root(
@@ -245,6 +254,8 @@ class Hub:
         for folder in (sandbox.readonly, sandbox.shared, sandbox.projects):
             if len(Path(folder).parts) != 1 or folder in {".", ".."}:
                 raise ValueError("sandbox area names must be single folder names")
+            if folder == TOOL_DATA_DIRECTORY:
+                raise ValueError(f"{TOOL_DATA_DIRECTORY} is the folder tools and skills save in")
         for folder in (sandbox.logs, sandbox.snapshots, sandbox.memory):
             if folder.is_absolute() or ".." in folder.parts:
                 raise ValueError("persistence folders must stay within their project")

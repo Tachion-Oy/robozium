@@ -17,6 +17,7 @@ from roboz.deployment import SkillLoading
 from roboz.llm import MockLLMEndpoint
 
 from robozium.api.app import create_app
+from robozium.hub.application import TOOL_DATA_DIRECTORY
 from robozium.hub.local import LocalPackages, load_local_packages
 from robozium.hub.utils import load_hub
 
@@ -118,6 +119,41 @@ def test_imported_capabilities_get_the_download_folder_at_inspection_and_per_run
     agent = foreground_agent(definition.build())
     marker = next(tool for tool in agent.tools if tool.name == "downloads_marker")
     assert marker.description == str(project.attachments_dir / "run1")
+
+
+_KEEPER = (
+    "from pathlib import Path\n"
+    "from roboz.deployment import Capability, ToolLabel\n"
+    "from roboz.tools import stop\n"
+    "class Keeper(Capability):\n"
+    "    def __init__(self):\n"
+    "        super().__init__(label=ToolLabel('keeper', selectable=True))\n"
+    "    @property\n"
+    "    def required_attributes(self):\n"
+    "        return {'tool_data_dir': Path}\n"
+    "    def build(self, agent, pipe):\n"
+    "        return (stop.copy(name='tool_data_marker', description=str(agent.tool_data_dir)),)\n"
+)
+
+
+def test_imported_capabilities_get_the_hub_folder_for_what_they_save(tmp_path):
+    """One folder for every project and run, in the hub and outside the imported copy."""
+    config = write_config(tmp_path)
+    _package(tmp_path, source=_KEEPER)
+    hub = load_hub(config_file=config)
+    hub.definition.external_dependencies()
+    project = hub.project("quotes")
+    definition = hub.configure_deployment(
+        project.sandbox,
+        project.slug,
+        endpoint_getter=lambda: hub.settings.default_model,
+        downloads_dir=project.attachments_dir / "run1",
+    )
+    definition.set_capability_selection({"keeper": True})
+    definition.set_agent_endpoint(MockLLMEndpoint([]))
+    agent = foreground_agent(definition.build())
+    marker = next(tool for tool in agent.tools if tool.name == "tool_data_marker")
+    assert marker.description == str(tmp_path / "sandbox" / TOOL_DATA_DIRECTORY)
     assert project.attachments_dir == project.root / ".robozium-attachments"
 
 
