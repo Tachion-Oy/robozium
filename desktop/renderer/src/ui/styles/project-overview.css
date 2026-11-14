@@ -231,6 +231,13 @@
   scrollbar-color: color-mix(in oklab, var(--term-blue) 50%, transparent) transparent;
 }
 
+/* Light: the same always-there scrollbar, in the accent, on the screen's edge. */
+:root[data-theme="light"] .agent-hud__project-view > .agent-hud__table-scroll {
+  padding-right: 0.8rem;
+  scrollbar-gutter: stable;
+  scrollbar-color: color-mix(in oklab, var(--hud-accent) 55%, transparent) transparent;
+}
+
 .agent-hud__capability-selector,
 .agent-hud__settings-view {
   display: flex;
