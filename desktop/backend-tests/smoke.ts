@@ -8,6 +8,7 @@ import process from "node:process"
 import { test } from "node:test"
 import { stageBackend } from "../scripts/stage-backend.ts"
 import { BackendController } from "../src/backend-controller.ts"
+import { backendEnvironment } from "../src/backend-layout.ts"
 import { loadOrCreateBackendProfile } from "../src/backend-profile.ts"
 import { platformEngine } from "../src/platform-engine.ts"
 
@@ -87,6 +88,11 @@ test("desktop mock image starts rootless and retains projects in a new container
 			"present = [str(p) for p in private if p.exists()]",
 			"assert not present, present",
 		].join("; ")])
+		// A skill's first save creates the tool-data folder in the hub; the next start must accept it.
+		const environment = backendEnvironment("mock", port)
+		const saved = path.join(path.dirname(path.dirname(projectDirectory)), path.relative(environment.ROBOZIUM_HUB_ROOT, environment.ROBOZIUM_TOOL_DATA_DIR), "email/signature.json")
+		fs.mkdirSync(path.dirname(saved), { recursive: true })
+		fs.writeFileSync(saved, "{}\n")
 		// Restart app: the container stops with the app and the next launch replaces it.
 		const containerIds = () => podman(["ps", "--all", "--quiet", "--filter", `label=fi.tachion.robozium.desktop.project=${project}`]).trim().split(/\s+/).filter(Boolean)
 		const before = containerIds()
@@ -99,6 +105,7 @@ test("desktop mock image starts rootless and retains projects in a new container
 		assert.ok((await request("/projects")).some((item: { slug: string }) => item.slug === created.slug))
 		await cleanup()
 		assert.equal(fs.readFileSync(marker, "utf8"), "retained desktop data\n")
+		assert.equal(fs.readFileSync(saved, "utf8"), "{}\n")
 	} catch (error) {
 		// The build and start log, then the API's own output, which holds a Python traceback.
 		for (const log of [() => fs.readFileSync(path.join(runtime, ".runtime/logs/container.log"), "utf8").slice(-20_000), () => podman(["logs", "--tail", "200", `${project}-api`])]) {

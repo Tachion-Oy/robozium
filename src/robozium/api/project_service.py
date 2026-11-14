@@ -38,6 +38,10 @@ class ProjectService:
         sandbox = self._hub.settings.sandbox
         root = sandbox.resolved_root
         allowed = {sandbox.readonly, sandbox.shared, sandbox.projects}
+        # Tools and skills create their folder there the first time they save.
+        tool_data = self._hub.tool_data_dir(sandbox)
+        if tool_data.parent == root:
+            allowed.add(tool_data.name)
         if root.exists():
             # Hidden folders such as .git belong to tools that manage the hub, not to a misplaced root.
             unexpected = sorted(
