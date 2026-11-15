@@ -1400,6 +1400,83 @@ def test_api_delete_dormant_project_removes_folder(tmp_path: Path) -> None:
     assert client.get("/projects").json() == []
 
 
+def test_api_rename_moves_the_project_folder_to_the_new_slug(tmp_path: Path) -> None:
+    application = create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
+    client = TestClient(application)
+    assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
+    hub = load_hub(start=tmp_path)
+    old = hub.project(TEST_PROJECT_SLUG)
+    (old.root / "notes.txt").write_text("kept")
+    assert client.post(f"/capabilities/{TEST_PROJECT_SLUG}", json={}).status_code == 200
+
+    response = client.post(
+        f"/projects/{TEST_PROJECT_SLUG}/rename", json={"name": "New Name"}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"slug": "new-name"}
+    renamed = hub.project("new-name")
+    assert not old.root.exists()
+    assert (renamed.root / "notes.txt").read_text() == "kept"
+    assert renamed.capabilities_file.is_file()
+    assert [row["slug"] for row in client.get("/projects").json()] == ["new-name"]
+
+
+def test_api_rename_to_the_same_slug_changes_nothing(tmp_path: Path) -> None:
+    client = TestClient(
+        create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
+    )
+    assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
+
+    response = client.post(
+        f"/projects/{TEST_PROJECT_SLUG}/rename", json={"name": TEST_PROJECT_SLUG.upper()}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"slug": TEST_PROJECT_SLUG}
+
+
+def test_api_rename_refuses_a_taken_unknown_or_unusable_name(tmp_path: Path) -> None:
+    client = TestClient(
+        create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
+    )
+    assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
+    assert client.post("/projects", json={"name": "taken"}).status_code == 200
+
+    taken = client.post(f"/projects/{TEST_PROJECT_SLUG}/rename", json={"name": "Taken"})
+    assert taken.status_code == 409
+    assert taken.json()["detail"] == "A project with this name already exists."
+    assert client.post(
+        "/projects/never-manifested/rename", json={"name": "other"}
+    ).status_code == 404
+    assert client.post(
+        f"/projects/{TEST_PROJECT_SLUG}/rename", json={"name": "!!!"}
+    ).status_code == 400
+    assert sorted(row["slug"] for row in client.get("/projects").json()) == sorted(
+        [TEST_PROJECT_SLUG, "taken"]
+    )
+
+
+def test_api_rename_project_with_running_librarian_returns_409(tmp_path: Path) -> None:
+    application = create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
+    client = TestClient(application)
+    assert client.post("/projects", json={"name": TEST_PROJECT_SLUG}).status_code == 200
+    project = load_hub(start=tmp_path).project(TEST_PROJECT_SLUG)
+    _write_agent_run_log(
+        project,
+        agent_name=LIBRARIAN_AGENT_NAME,
+        status="running",
+    )
+
+    response = client.post(
+        f"/projects/{TEST_PROJECT_SLUG}/rename", json={"name": "other"}
+    )
+
+    assert response.status_code == 409
+    assert "active run" in response.json()["detail"]
+    assert project.root.exists()
+
+
 def test_api_delete_project_with_running_librarian_returns_409(tmp_path: Path) -> None:
     application = create_app(deployment=_test_deployment(_minimal_factory, tmp_path))
     client = TestClient(application)

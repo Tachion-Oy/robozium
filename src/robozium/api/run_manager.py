@@ -334,12 +334,15 @@ class RunManager:
             ]:
                 del self._runs[run_id]
 
-    def delete_project(self, slug: str, remove: Callable[[], None]) -> None:
-        """Keep registry start/create operations outside the deletion transaction."""
+    def retire_project(self, slug: str, action: Callable[[], None]) -> None:
+        """Delete or move an idle project's folder, then forget the runs that used it.
+
+        Registry start/create operations stay outside the transaction.
+        """
         with self._lock:
             if self.project_is_busy(slug):
                 raise ProjectBusyError("project has an active run; cancel it first")
-            remove()
+            action()
             self.forget_project_runs(slug)
 
     def shutdown(self, timeout_s: float = 10.0) -> bool:

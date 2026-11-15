@@ -257,6 +257,15 @@ def create_app(*, deployment: Hub, require_credentials: bool = False) -> FastAPI
         project_operation(lambda: projects.delete(slug))
         return {"ok": True}
 
+    @app.post("/projects/{slug}/rename")
+    def projects_rename(slug: str, body: ProjectRenameBody) -> dict[str, str]:
+        try:
+            return {"slug": project_operation(lambda: projects.rename(slug, body.name))}
+        except FileExistsError as exc:
+            raise HTTPException(
+                status_code=409, detail="A project with this name already exists."
+            ) from exc
+
     @app.post("/projects/{slug}/cancel")
     def projects_cancel(slug: str) -> dict[str, bool]:
         return {"ok": project_operation(lambda: projects.cancel(slug))}

@@ -158,6 +158,12 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 					disabled={navigationPending}
 					onChange={change => navigate({ type: "launch_changed", change })}
 					onCancel={() => navigate({ type: "launch_closed" })}
+					onRename={async (from, name) => {
+						const project = await projectMutations.rename(from, name)
+						if (project === null) return false
+						navigate({ type: "launch_renamed", from, project })
+						return true
+					}}
 					onSubmit={selection => { if (navigation.launch) void projectMutations.launch({ ...navigation.launch, selection }) }} />
 			case "dependencies":
 				return <DependencyPanel dependencies={dependencies} />

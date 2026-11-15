@@ -131,7 +131,7 @@ function RowActions({
 				disabled={!canLaunch}
 				onClick={() => onSelectCapabilities(project)}
 				variant="info">
-				Tools
+				Edit
 			</HudButton>
 			<HudButton
 				disabled={!canCancel}

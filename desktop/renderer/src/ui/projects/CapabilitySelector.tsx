@@ -1,12 +1,15 @@
 // App owns the capability reads and passes their state in; a failed read
-// is a toast with Retry, so the list never shifts.
-import { useEffect, useRef, type ComponentProps } from "react"
+// is a toast with Retry, so the list never shifts. An existing project's name
+// slot holds Rename, which swaps for the name field: Enter saves the rename at
+// once, Escape or leaving the field drops it.
+import { useEffect, useRef, useState, type ComponentProps } from "react"
 import { DisplayArt } from "../branding/DisplayArt"
 import type { CapabilitiesState } from "../../capabilities/useCapabilities"
 import { resolveCapabilitySelection } from "../../capabilities/capabilities"
 import type { LaunchDraft } from "../../app/hud-navigation"
 import type { CapabilitySelection, CapabilityView } from "../../capabilities/capabilities-api"
 import { CapabilityItem } from "../hud/CapabilityItem"
+import { HudButton } from "../hud/HudButton"
 import { Toast } from "../feedback/Toast"
 
 type CapabilitySelectorProps = {
@@ -15,6 +18,8 @@ type CapabilitySelectorProps = {
 	disabled: boolean
 	onChange: (change: Partial<Pick<LaunchDraft, "name" | "selection">>) => void
 	onCancel: () => void
+	/** Resolves true once the project carries the new name. */
+	onRename: (project: string, name: string) => Promise<boolean>
 	onSubmit: (selection: CapabilitySelection) => void
 }
 
@@ -29,11 +34,33 @@ export function CapabilitySelector({
 	disabled,
 	onChange,
 	onCancel,
+	onRename,
 	onSubmit,
 }: CapabilitySelectorProps) {
 	const { catalog, initialSelection, error: loadError, retry } = capabilities
 	const currentSelection = draftSelection ?? initialSelection
 	const title = useRef<HTMLHeadingElement>(null)
+	/** The typed new name while the name field is open; null while it is closed. */
+	const [newName, setNewName] = useState<string | null>(null)
+	const [renaming, setRenaming] = useState(false)
+	const renameOpen = newName !== null
+	const renameButton = useRef<HTMLButtonElement>(null)
+	/** Escape closed the field: focus returns to Rename, so the next Escape still reaches the form. */
+	const focusRenameButton = useRef(false)
+
+	useEffect(() => {
+		if (renameOpen || !focusRenameButton.current) return
+		focusRenameButton.current = false
+		renameButton.current?.focus()
+	}, [renameOpen])
+
+	const saveRename = async () => {
+		if (project === null || newName === null || renaming || !newName.trim()) return
+		setRenaming(true)
+		const renamed = await onRename(project, newName.trim())
+		setRenaming(false)
+		if (renamed) setNewName(null)
+	}
 
 	useEffect(() => {
 		if (project !== null) title.current?.focus()
@@ -41,7 +68,7 @@ export function CapabilitySelector({
 
 	const handleSubmit: NonNullable<ComponentProps<"form">["onSubmit"]> = (event) => {
 		event.preventDefault()
-		if (disabled || catalog === null || currentSelection === null || loadError || !name.trim()) return
+		if (disabled || renameOpen || catalog === null || currentSelection === null || loadError || !name.trim()) return
 		onSubmit(resolveCapabilitySelection(catalog, currentSelection))
 	}
 
@@ -91,7 +118,45 @@ export function CapabilitySelector({
 							className="agent-hud__project-input"
 						/>
 					</label>
-				) : null}
+				) : renameOpen ? (
+					<label className="agent-hud__capability-project">
+						Project name
+						<input
+							type="text"
+							autoFocus
+							value={newName}
+							onFocus={(event) => event.target.select()}
+							onChange={(event) => setNewName(event.target.value)}
+							onBlur={() => {
+								if (!renaming) setNewName(null)
+							}}
+							onKeyDown={(event) => {
+								if (event.key === "Enter") {
+									event.preventDefault()
+									void saveRename()
+								}
+								if (event.key === "Escape") {
+									event.preventDefault()
+									event.stopPropagation()
+									if (renaming) return
+									focusRenameButton.current = true
+									setNewName(null)
+								}
+							}}
+							readOnly={renaming}
+							aria-busy={renaming || undefined}
+							disabled={disabled}
+							placeholder="Project name"
+							className="agent-hud__project-input"
+						/>
+					</label>
+				) : (
+					<div className="flex justify-center">
+						<HudButton ref={renameButton} disabled={disabled} onClick={() => setNewName(project)}>
+							Rename
+						</HudButton>
+					</div>
+				)}
 			</div>
 			<p>Choose agent capabilities for this launch.</p>
 			<div className="agent-hud__table-scroll agent-hud__capability-list space-y-6 p-2">
@@ -126,7 +191,7 @@ export function CapabilitySelector({
 				<button
 					type="submit"
 					className="agent-hud__panel-action agent-hud__start"
-						disabled={disabled || catalog === null || currentSelection === null || Boolean(loadError) || !name.trim()}>
+						disabled={disabled || renameOpen || catalog === null || currentSelection === null || Boolean(loadError) || !name.trim()}>
 					<DisplayArt name="launch" label={disabled ? "Launching…" : "Launch"} />
 				</button>
 				<button
