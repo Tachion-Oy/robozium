@@ -1,7 +1,7 @@
 // App owns the capability reads and passes their state in; a failed read
-// is a toast with Retry, so the list never shifts. An existing project's name
-// slot holds Rename, which swaps for the name field: Enter saves the rename at
-// once, Escape or leaving the field drops it.
+// is a toast with Retry, so the list never shifts. An existing project's Rename,
+// at the left of the title row, opens the name field in the slot below: Enter
+// saves the rename at once, Escape or leaving the field drops it.
 import { useEffect, useRef, useState, type ComponentProps } from "react"
 import { DisplayArt } from "../branding/DisplayArt"
 import type { CapabilitiesState } from "../../capabilities/useCapabilities"
@@ -78,9 +78,19 @@ export function CapabilitySelector({
 				if (!disabled) onCancel()
 			}}>
 			{loadError && <Toast tone="error" title="Could not load capabilities" message={loadError} actions={[{ label: "Retry", onClick: retry }]} />}
-			<h2 ref={title} tabIndex={-1} className="text-center">
-				{project === null ? "New Project" : `Project: ${project}`}
-			</h2>
+			{/* Rename sits at the left of the title row; the title stays centred. */}
+			<div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+				<div className="justify-self-start">
+					{project !== null && (
+						<HudButton disabled={disabled} onClick={() => setRenaming(true)}>
+							Rename
+						</HudButton>
+					)}
+				</div>
+				<h2 ref={title} tabIndex={-1} className="text-center">
+					{project === null ? "New Project" : `Project: ${project}`}
+				</h2>
+			</div>
 			<div className="min-h-12">
 				{project === null ? (
 					<label className="agent-hud__capability-project">
@@ -129,13 +139,7 @@ export function CapabilitySelector({
 							className="agent-hud__project-input"
 						/>
 					</label>
-				) : (
-					<div className="flex justify-center">
-						<HudButton disabled={disabled} onClick={() => setRenaming(true)}>
-							Rename
-						</HudButton>
-					</div>
-				)}
+				) : null}
 			</div>
 			<p>Choose agent capabilities for this launch.</p>
 			<div className="agent-hud__table-scroll agent-hud__capability-list space-y-6 p-2">
