@@ -360,10 +360,8 @@ button.agent-hud__image-preview {
   border-radius: 2px;
   padding: 0.45rem 0.55rem;
   background: color-mix(in oklab, var(--hud-input-bg) 88%, black 12%);
-  white-space: pre;
-  overflow-x: auto;
-  overflow-wrap: normal;
-  word-break: normal;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 

@@ -188,7 +188,10 @@ different set of capabilities.
 
 Filesystem, PDF reading, stop, compactification, and the Robozium skill are
 always included.
-SafeScripts and imported capabilities are optional. New optional capabilities
+SafeScripts, user-approved shell commands, and imported capabilities are
+optional. With shell commands selected, the agent can propose any Bash command;
+the run pauses on a prompt showing the exact command, and only a `yes` or `y`
+reply runs it. New optional capabilities
 start unchecked, and newly selected skills follow their declared loading mode.
 Mock mode offers harmless **mock information** and **mock guidance** examples.
 

@@ -248,22 +248,29 @@ def test_built_root_keeps_live_selection_and_independent_memory_endpoint(tmp_pat
     assert not list(tmp_path.iterdir())
 
 
-def test_recipe_owns_builtins_and_only_scripts_are_selectable(tmp_path):
+def test_recipe_owns_builtins_and_only_script_and_shell_tools_are_selectable(tmp_path):
     definition = _define_recipe(Sandbox(tmp_path).for_project("project"))
     labels = {cap.label.name: cap.label for cap in definition.capabilities}
-    assert {name for name, label in labels.items() if label.selectable} == {"safe_scripts"}
+    assert {name for name, label in labels.items() if label.selectable} == {
+        "safe_scripts", "shell_commands"
+    }
     assert set(labels) == {
-        "stop", "filesystem", "pdf", "robozium", "compactification", "safe_scripts"
+        "stop", "filesystem", "pdf", "robozium", "compactification", "safe_scripts",
+        "shell_commands",
     }
     definition.set_capability_selection({})
     fixed, (maintenance,) = definition.build()
     assert {skill.name for skill in fixed.auto_loaded_skills} == {
         "filesystem", "pdf", "robozium"
     }
-    assert "run_shell_script" not in {tool.name for tool in fixed.tools}
-    definition.set_capability_selection({"safe_scripts": True})
+    assert not {"run_shell_script", "run_shell_command"} & {
+        tool.name for tool in fixed.tools
+    }
+    definition.set_capability_selection({"safe_scripts": True, "shell_commands": True})
     selected, (selected_maintenance,) = definition.build()
-    assert "run_shell_script" in {tool.name for tool in selected.tools}
+    assert {"run_shell_script", "run_shell_command"} <= {
+        tool.name for tool in selected.tools
+    }
     assert [tool.name for tool in maintenance.default_tools] == [
         tool.name for tool in selected_maintenance.default_tools
     ]
