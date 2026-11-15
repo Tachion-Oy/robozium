@@ -23,14 +23,26 @@ WORKDIR /app
 # advertises IPv6 without routing it, every call would first wait out a connect timeout.
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
+        bzip2 \
         ca-certificates \
         coreutils \
+        curl \
         diffutils \
+        file \
         findutils \
+        git \
         grep \
+        jq \
+        less \
         libglib2.0-bin \
         libreoffice \
+        openssh-client \
         ripgrep \
+        tree \
+        unzip \
+        wget \
+        xz-utils \
+        zip \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 robozium \
     && useradd --uid 10001 --gid robozium --no-create-home --home-dir /nonexistent robozium \

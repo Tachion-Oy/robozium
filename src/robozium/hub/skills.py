@@ -96,6 +96,61 @@ searches with `grep -r` or `rg` skip descendant symlinks. `rm` can remove a term
 link at its own pathname without reading or changing the target. These guards
 apply to the file tools; they are not an operating-system sandbox.
 
+## Shell commands
+
+This section applies only when `run_shell_command` is among your tools.
+
+Commands run inside Robozium's backend container, not on the user's computer.
+The container is a minimal Debian Linux system that holds the hub and nothing
+else of the user's: their programs, home folder, and other files are not there,
+and a command cannot open a program or a window on their computer. It has
+internet access, and its clock is UTC.
+
+Read, search, write, and patch files with the file tools; every shell command
+waits for the user's approval. Use a shell command for what the file tools
+cannot do. These programs are installed for that:
+
+- Archives: `zip`, `unzip`, `tar`, `gzip`, `bzip2`, `xz`.
+- Downloads and repositories: `curl`, `wget`, `git`.
+- Text and data: the GNU core utilities, including `base64` and `sha256sum`,
+  and `sed`, `awk`, `jq`, `diff`, `file`, `tree`.
+- Python: `python3` and `uv`.
+- Documents: LibreOffice as `soffice`, for example
+  `soffice --headless --convert-to pdf <file> --outdir <folder>`.
+
+Node.js, compilers, `make`, media tools, and `sudo` are not installed, and
+`apt-get` cannot install packages in this container, so do not try. Check for
+any other program with `command -v <name>`, and tell the user when a task needs
+one that is missing.
+
+`python3` is the application's own interpreter. Do not install packages into
+it; `pip install` does not reach it. Run a script that needs other packages
+with `uv run --no-project --with <package> python <script>`.
+
+`git` has no identity, credentials, or SSH keys. Public repositories can be
+cloned, a commit needs `-c user.name=<name> -c user.email=<email>`, and pushing
+or reaching a private repository does not work.
+
+Every command starts in the hub, where relative paths start for the file tools
+too. Begin with `cd` into your project directory, or use the paths from your
+project context, so that new files land in your project. Only the hub persists:
+anything written elsewhere in the container is lost when the app restarts.
+
+The permission table above does not bind a shell command; the user's approval
+of the exact command is its only guard. Follow the table anyway: change files
+in your project directory, and in the shared workspace only when the user asked
+for it.
+
+A command must finish on its own and is stopped at a time limit. Do not start
+background processes, servers, editors, or other interactive programs, and pass
+a flag such as `-y` where a program would ask a question. Send large output to
+a file instead of printing it. To embed a font or an image in a single-file
+HTML page, for example, write its base64 text with
+`base64 -w0 <file> > <file>.b64` or build the page with a Python script.
+
+Do not print or send environment variables, for example with `env`,
+`printenv`, or `set`: they can hold credentials.
+
 ## Librarian maintenance
 
 The Librarian is a deterministic background pipeline. It snapshots conversations,
