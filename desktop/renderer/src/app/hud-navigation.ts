@@ -22,6 +22,7 @@ export type HudNavigationEvent =
 	| { type: "launch_opened"; project: string | null }
 	| { type: "launch_changed"; change: Partial<Pick<LaunchDraft, "name" | "selection">> }
 	| { type: "launch_created"; name: string; project: string }
+	| { type: "launch_renamed"; from: string; project: string }
 	| { type: "launch_closed" }
 
 export function initialHudNavigation(runId: string | null): HudNavigation {
@@ -49,6 +50,10 @@ export function reduceHudNavigation(
 		case "launch_changed":
 			return state.launch
 				? { ...state, launch: { ...state.launch, ...event.change } }
+				: state
+		case "launch_renamed":
+			return state.launch?.project === event.from
+				? { ...state, launch: { ...state.launch, project: event.project, name: event.project } }
 				: state
 		case "launch_closed":
 			return {

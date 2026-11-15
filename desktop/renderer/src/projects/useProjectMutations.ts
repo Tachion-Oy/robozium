@@ -1,4 +1,5 @@
-// This app's launch, cancel and delete requests per project, until a listing confirms them.
+// This app's launch, cancel and delete requests per project, until a listing confirms them;
+// a rename answers at once with the new slug.
 // Rows belong to the overview; this owner only knows which requests it sent.
 // Launch requests use the desktop client under one abortable lifetime with
 // deadlines; a launching flag locks further launches; a launched run is handed to
@@ -14,7 +15,7 @@ import { getProjectSelection, listCapabilities, saveProjectSelection } from "../
 import { isSecretsLocked, promptAfterRefusal, showSecretsLocked, type SecretsGate } from "../credentials/locked"
 import { showErrorToast } from "../feedback/notices"
 import { createRun } from "../run/run-api"
-import { cancelProject, createProject, deleteProject } from "./projects-api"
+import { cancelProject, createProject, deleteProject, renameProject } from "./projects-api"
 import { ProjectStatus, type ProjectRow } from "./project-rows"
 
 export type ProjectMutationKind = "cancel" | "delete"
@@ -35,6 +36,8 @@ export interface ProjectMutations {
 	revision: number
 	cancel: (slug: string) => Promise<void>
 	remove: (slug: string) => Promise<void>
+	/** The project's new slug, or null when the rename failed and was reported. */
+	rename: (slug: string, name: string) => Promise<string | null>
 	/** End settling mutations whose outcome this listing shows. */
 	settle: (rows: readonly ProjectRow[]) => void
 	/** Launch commands outlive the selector; failures remain visible after dismissal. */
@@ -184,6 +187,23 @@ export function useProjectMutations(
 			message: `Could not delete "${slug}".`,
 			failed: "The project was not deleted. Try again.",
 		}),
+		rename: async (slug, name) => {
+			const signal = lifetime()
+			try {
+				return await withDeadline(signal, requestSignal => renameProject(client, slug, name, requestSignal))
+			} catch (error) {
+				if (!signal.aborted) {
+					showErrorToast({
+						title: "Rename failed",
+						message: `Could not rename "${slug}".`,
+						detail: error instanceof Error ? error.message : null,
+					})
+				}
+				return null
+			} finally {
+				if (!signal.aborted) setRevision(count => count + 1)
+			}
+		},
 		settle: rows => {
 			const status = new Map(rows.map(row => [row.slug, row.status] as const))
 			setPending(current => {

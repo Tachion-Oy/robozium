@@ -179,8 +179,9 @@ The hub is ordinary user data outside Git. Back it up yourself.
 ## Run capabilities
 
 In the HUD, **New Project** opens the capability selector with a project-name
-field. A dormant project's **Tools** button opens the same selector with its
-last saved choices. Change the optional capabilities, then **Launch** saves the
+field. A dormant project's **Edit** button opens the same selector with its
+last saved choices; **Rename** there gives the project, and its folder in the
+hub, a new name. Change the optional capabilities, then **Launch** saves the
 selection and starts the run. A row's **Launch** button reuses the saved
 choices directly. Relaunching keeps the project's memory while allowing a
 different set of capabilities.

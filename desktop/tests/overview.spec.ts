@@ -43,9 +43,9 @@ test("the overview shows backend statuses and polls every three seconds only whi
 	await expect(row(page, "running-project").locator(".agent-hud__project-summary")).toHaveCSS("filter", "none")
 	await expect(row(page, "running-project")).toContainText("2m ago")
 	// A live run opens, a dormant project launches; Launch or Open comes first.
-	await expect(row(page, "running-project").getByRole("button")).toHaveText(["Open", "Tools", "Cancel", "Delete"])
+	await expect(row(page, "running-project").getByRole("button")).toHaveText(["Open", "Edit", "Cancel", "Delete"])
 	await expect(launchButton(page, "running-project")).toHaveCount(0)
-	await expect(row(page, "dormant-project").getByRole("button")).toHaveText(["Launch", "Tools", "Cancel", "Delete"])
+	await expect(row(page, "dormant-project").getByRole("button")).toHaveText(["Launch", "Edit", "Cancel", "Delete"])
 	await expect(launchButton(page, "dormant-project")).toBeEnabled()
 	await expect(row(page, "running-project").getByRole("button", { name: "Cancel", exact: true })).toBeEnabled()
 	await expect(row(page, "syncing-project").getByRole("button", { name: "Cancel", exact: true })).toBeEnabled()
@@ -125,11 +125,11 @@ test("a failed launch keeps the selector draft and launching again reuses the cr
 	expect(writes(backend).filter(write => write.path === "/run/create")).toHaveLength(2)
 })
 
-test("Tools restores saved choices, and Escape or Cancel returns to the overview", async ({ desktop: { page }, backend }) => {
+test("Edit restores saved choices, and Escape or Cancel returns to the overview", async ({ desktop: { page }, backend }) => {
 	backend.handlers.set("GET /capabilities", response => json(response, catalog))
 	backend.handlers.set("GET /capabilities/existing-project", response => json(response, { web_search: true }))
 	await backend.open()
-	await row(page, "existing-project").getByRole("button", { name: "Tools", exact: true }).click()
+	await row(page, "existing-project").getByRole("button", { name: "Edit", exact: true }).click()
 	await expect(selector(page).getByRole("heading", { name: "Project: existing-project" })).toBeFocused()
 	await expect(capability(page, "web search")).toHaveAttribute("aria-checked", "true")
 	await expect(capability(page, "notes")).toHaveAttribute("aria-checked", "false")
@@ -143,7 +143,7 @@ test("Tools restores saved choices, and Escape or Cancel returns to the overview
 	const background = () => row(page, "existing-project").evaluate(element => getComputedStyle(element).backgroundColor)
 	await page.mouse.move(0, 0)
 	const resting = await background()
-	await row(page, "existing-project").getByRole("button", { name: "Tools", exact: true }).hover()
+	await row(page, "existing-project").getByRole("button", { name: "Edit", exact: true }).hover()
 	await expect.poll(background).not.toBe(resting)
 	await row(page, "existing-project").getByText("existing-project").hover()
 	await expect(row(page, "existing-project").getByText("existing-project")).toHaveCSS("cursor", "default")
@@ -202,7 +202,7 @@ for (const theme of ["dark", "light"]) {
 		const headerMargin = () => header.evaluate(element => getComputedStyle(element).marginBottom)
 		const fresh = await tableGap()
 		const freshMargin = await headerMargin()
-		await page.locator(".agent-hud__project-row", { hasText: "existing-project" }).getByRole("button", { name: "Tools", exact: true }).click()
+		await page.locator(".agent-hud__project-row", { hasText: "existing-project" }).getByRole("button", { name: "Edit", exact: true }).click()
 		await expect(page.getByRole("form", { name: "Capability selector" })).toBeVisible()
 		expect(await headerMargin()).toBe(freshMargin)
 		await page.getByRole("button", { name: "Cancel", exact: true }).click()
@@ -210,7 +210,7 @@ for (const theme of ["dark", "light"]) {
 		await expect(replyBox(page)).toBeFocused()
 		await view(page, "Runs Overview")
 		expect(await tableGap()).toBe(fresh)
-		await page.locator(".agent-hud__project-row", { hasText: "existing-project" }).getByRole("button", { name: "Tools", exact: true }).click()
+		await page.locator(".agent-hud__project-row", { hasText: "existing-project" }).getByRole("button", { name: "Edit", exact: true }).click()
 		await expect(page.getByRole("form", { name: "Capability selector" })).toBeVisible()
 		expect(await headerMargin()).toBe(freshMargin)
 		await page.getByRole("button", { name: "Cancel", exact: true }).click()
@@ -292,7 +292,59 @@ test("a cancellation keeps its row locked until the request settles, even if a l
 	await expect(launchButton(page, "existing-project")).toBeEnabled()
 })
 
-test("reopening Tools waits for fresh choices instead of offering the previous ones", async ({ desktop: { page }, backend }) => {
+test("Rename saves the new name on Enter, keeps the draft, and reports a refusal with the field open", async ({ desktop: { page }, backend }) => {
+	let rows = [project("existing-project")]
+	backend.handlers.set("GET /projects", response => json(response, rows))
+	backend.handlers.set("GET /capabilities", response => json(response, catalog))
+	backend.handlers.set("GET /capabilities/existing-project", response => json(response, {}))
+	backend.handlers.set("GET /capabilities/new-name", response => json(response, {}))
+	let refuse = true
+	backend.handlers.set("POST /projects/existing-project/rename", response => {
+		if (refuse) return json(response, { detail: "A project with this name already exists." }, 409)
+		rows = [project("new-name")]
+		json(response, { slug: "new-name" })
+	})
+	await backend.open()
+	await row(page, "existing-project").getByRole("button", { name: "Edit", exact: true }).click()
+	await capability(page, "web search").click()
+	const field = page.getByRole("textbox", { name: "Project name" })
+	const launch = selector(page).getByRole("button", { name: "Launch", exact: true })
+
+	// Escape closes the field, not the screen, and sends nothing.
+	await selector(page).getByRole("button", { name: "Rename", exact: true }).click()
+	await expect(field).toBeFocused()
+	await expect(field).toHaveValue("existing-project")
+	await expect(launch).toBeDisabled()
+	await page.keyboard.press("Escape")
+	await expect(field).toHaveCount(0)
+	await expect(selector(page).getByRole("button", { name: "Rename", exact: true })).toBeFocused()
+	await expect(launch).toBeEnabled()
+	expect(writes(backend)).toEqual([])
+
+	// The opened field has its text selected, so typing replaces the name.
+	await selector(page).getByRole("button", { name: "Rename", exact: true }).click()
+	await page.keyboard.type("New Name")
+	await page.keyboard.press("Enter")
+	await expect(toast(page, "Rename failed")).toContainText("A project with this name already exists.")
+	await expect(field).toHaveValue("New Name")
+	await expect(selector(page).getByRole("heading", { name: "Project: existing-project" })).toBeVisible()
+
+	refuse = false
+	await page.keyboard.press("Enter")
+	await expect(selector(page).getByRole("heading", { name: "Project: new-name" })).toBeVisible()
+	await expect(field).toHaveCount(0)
+	await expect(capability(page, "web search")).toHaveAttribute("aria-checked", "true")
+	expect(writes(backend)).toEqual([
+		{ method: "POST", path: "/projects/existing-project/rename", body: { name: "New Name" } },
+		{ method: "POST", path: "/projects/existing-project/rename", body: { name: "New Name" } },
+	])
+	// The renamed project's title has the focus, so Escape leaves the screen.
+	await page.keyboard.press("Escape")
+	await expect(row(page, "new-name")).toBeVisible()
+	await expect(row(page, "existing-project")).toHaveCount(0)
+})
+
+test("reopening Edit waits for fresh choices instead of offering the previous ones", async ({ desktop: { page }, backend }) => {
 	let saved: unknown = null
 	backend.handlers.set("GET /capabilities", response => json(response, catalog))
 	backend.handlers.set("GET /capabilities/existing-project", response => json(response, saved))
@@ -300,14 +352,14 @@ test("reopening Tools waits for fresh choices instead of offering the previous o
 	prepareRun(backend)
 	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ status: "completed" })))
 	await backend.open()
-	await row(page, "existing-project").getByRole("button", { name: "Tools", exact: true }).click()
+	await row(page, "existing-project").getByRole("button", { name: "Edit", exact: true }).click()
 	await capability(page, "web search").click()
 	await selector(page).getByRole("button", { name: "Launch", exact: true }).click()
 	await expectOverview(page)
 	expect(saved).toEqual({ web_search: true })
 	let refreshing: ServerResponse | undefined
 	backend.handlers.set("GET /capabilities/existing-project", response => { refreshing = response })
-	await row(page, "existing-project").getByRole("button", { name: "Tools", exact: true }).click()
+	await row(page, "existing-project").getByRole("button", { name: "Edit", exact: true }).click()
 	await expect.poll(() => refreshing).toBeDefined()
 	await expect(selector(page).getByRole("status")).toHaveText("Loading capabilities…")
 	await expect(selector(page).locator('button[type="submit"]')).toBeDisabled()

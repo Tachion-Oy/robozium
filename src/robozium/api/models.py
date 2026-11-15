@@ -34,6 +34,10 @@ class ProjectCreateBody(BaseModel):
     name: str
 
 
+class ProjectRenameBody(BaseModel):
+    name: str
+
+
 class ModelSelectBody(BaseModel):
     model_id: str
     run_id: str | None = None
@@ -214,6 +218,7 @@ __all__ = [
     "ModelSelectBody",
     "ModelSelectionView",
     "ProjectCreateBody",
+    "ProjectRenameBody",
     "ProjectSummary",
     "ReplyBody",
     "RunView",

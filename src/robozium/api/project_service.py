@@ -155,7 +155,25 @@ class ProjectService:
                     raise ProjectBusyError("project has an active run; cancel it first")
                 shutil.rmtree(project.root)
 
-            self._manager.delete_project(project.slug, remove)
+            self._manager.retire_project(project.slug, remove)
+
+    def rename(self, name: str, new_name: str) -> str:
+        """Move an idle project's folder to the new name's slug and return that slug."""
+        with self._lock:
+            project = self._existing(name)
+            renamed = self._hub.project(new_name)
+            if renamed.slug == project.slug:
+                return project.slug
+            if renamed.root.exists():
+                raise FileExistsError(renamed.slug)
+
+            def move() -> None:
+                if self._active(project):
+                    raise ProjectBusyError("project has an active run; cancel it first")
+                project.root.rename(renamed.root)
+
+            self._manager.retire_project(project.slug, move)
+            return renamed.slug
 
     def cancel(self, name: str) -> bool:
         with self._lock:

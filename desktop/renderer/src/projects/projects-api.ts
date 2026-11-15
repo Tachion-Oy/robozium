@@ -44,6 +44,11 @@ export async function cancelProject(client: DesktopApiClient, slug: string, sign
 	return parse(Acknowledgement, await client.request(`${projectPath(slug)}/cancel`, { method: "POST", signal })).ok
 }
 
+/** Renaming answers with the backend-chosen slug of the new name. */
+export async function renameProject(client: DesktopApiClient, slug: string, name: string, signal: AbortSignal): Promise<string> {
+	return parse(Created, await client.request(`${projectPath(slug)}/rename`, { method: "POST", json: { name }, signal })).slug
+}
+
 export async function deleteProject(client: DesktopApiClient, slug: string, signal: AbortSignal): Promise<void> {
 	parse(Deleted, await client.request(projectPath(slug), { method: "DELETE", signal }))
 }
