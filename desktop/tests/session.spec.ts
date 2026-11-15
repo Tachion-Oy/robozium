@@ -393,7 +393,7 @@ test("thinking lines leave with the working indicator and start again from none"
 	let state = tick(tick(session(), "12:41:35"), "12:41:45")
 	state = receive(state, delta(1, "live", "Answer"))
 	expect(selectRunDisplay(state).text).toBe("Answer")
-	expect(tick(state, "12:41:55")).toBe(state)
+	expect(tick(state, "12:41:55").hud).toBe(state.hud)
 	state = receive(state, retry(2))
 	expect(selectRunDisplay(state).text).toBe(working)
 	expect(selectRunDisplay(tick(state, "12:42:05")).text).toBe(`${working}\n12:42:05: Mock model thinking`)

@@ -26,15 +26,15 @@ export interface HudPresentation {
 	liveText: HudLiveText | null
 	/** The agent works without output newer than its launch, an answered prompt or a discarded attempt. */
 	working: boolean
-	/** Reasoning characters last reported for the model call in flight; none once its output or a retry arrives. */
-	reasoningChars: number | null
+	/** Reasoning last reported for the model call in flight, and where in the stream; none once later output or a retry arrives. */
+	reasoning: { chars: number; sequence: number } | null
 	/** One line per tick while the working indicator shows, so a long model call does not look frozen. */
 	thinkingLines: readonly string[]
 }
 
 /** Shown in the streaming style while the agent works without visible output. */
 export const AGENT_WORKING_TEXT = "Agent is working..."
-export const THINKING_LINE_INTERVAL_MS = 10_000
+export const THINKING_LINE_INTERVAL_MS = 5_000
 /** Providers report exact reasoning tokens only when a call ends; four characters approximate one. */
 const CHARACTERS_PER_TOKEN = 4
 

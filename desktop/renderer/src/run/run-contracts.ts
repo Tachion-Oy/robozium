@@ -69,7 +69,9 @@ export type RunFrame = { sequence: number } & (
 	}
 )
 export type RunDelta = Extract<RunFrame, { type: typeof RunFrameKind.MessageDelta }>
-export type RunRecord = Exclude<RunFrame, RunDelta>
+export type RunProgress = Extract<RunFrame, { type: typeof RunFrameKind.LlmProgress }>
+/** Deltas and progress report on the model call in flight; neither is kept as history. */
+export type RunRecord = Exclude<RunFrame, RunDelta | RunProgress>
 export interface RunView {
 	project: string
 	status: RunStatus

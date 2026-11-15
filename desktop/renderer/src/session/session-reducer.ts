@@ -12,14 +12,12 @@ export interface RunSession {
 export type SessionAction = RunAction
 	| { type: "open"; runId: string; project: string }
 	| { type: "select"; index: number }
-	| { type: "tick"; now: Date; model: string }
 
 export function reduceRunSession(state: RunSession | null, action: SessionAction): RunSession | null {
 	if (action.type === "open") return { run: initialRun(action.runId, action.project), hud: initialHud() }
 	if (!state) return state
-	if (action.type === "select" || action.type === "tick") {
-		const hud = reduceHud(state.hud, { ...action, run: state.run })
-		return hud === state.hud ? state : { ...state, hud }
+	if (action.type === "select") {
+		return { ...state, hud: reduceHud(state.hud, { ...action, run: state.run }) }
 	}
 	const update = reduceRun(state.run, action)
 	return { run: update.run, hud: reduceHud(state.hud, { type: "run", previousRun: state.run, update }) }
