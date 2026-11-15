@@ -1,13 +1,16 @@
 // Hub images load from the backend, which requires the renderer's Origin;
-// web images load from their https host without a referrer. "Open original"
-// opens either kind outside the window. The viewer outlives message changes
-// and returns focus to the panel when its trigger is gone.
+// web images load from their https host without CORS, which most hosts do not
+// answer, and without a referrer. "Open original" opens either kind outside
+// the window. The viewer outlives message changes and returns focus to the
+// panel when its trigger is gone.
 import { createContext, useContext, useEffect, useRef, useState, type MouseEvent, type ReactNode, type Ref, type RefObject } from "react"
 import { resolveHudImageSource } from "../../links/hud-images"
 import { openExternalLink, openHubFile } from "../../links/open-link"
 
 type ResolvedImage = {
 	src: string
+	/** Only the backend answers CORS requests. */
+	crossOrigin: "anonymous" | undefined
 	openOriginal: () => void
 }
 
@@ -39,10 +42,10 @@ function useResolvedImage(src: string | undefined): ResolvedImage | null {
 	const hubFileUrl = useContext(HubFileUrlContext)
 	const source = src ? resolveHudImageSource(src) : null
 	if (source?.kind === "web") {
-		return { src: source.url, openOriginal: () => openExternalLink(source.url) }
+		return { src: source.url, crossOrigin: undefined, openOriginal: () => openExternalLink(source.url) }
 	}
 	if (source?.kind === "hub" && hubFileUrl) {
-		return { src: hubFileUrl(source.path), openOriginal: () => openHubFile(source.path) }
+		return { src: hubFileUrl(source.path), crossOrigin: "anonymous", openOriginal: () => openHubFile(source.path) }
 	}
 	return null
 }
@@ -108,7 +111,7 @@ function ImageDialog({ image, returnFocus, onClose }: {
 			</div>
 			<div className="agent-hud__image-stage" style={{ width: image.width, aspectRatio: `${image.width} / ${image.height}` }}>
 				{failed ? <p role="status">Image unavailable</p> : (
-					<img src={image.src} crossOrigin="anonymous" alt={image.description} referrerPolicy="no-referrer" decoding="async" onError={() => setFailed(true)} />
+					<img src={image.src} crossOrigin={image.crossOrigin} alt={image.description} referrerPolicy="no-referrer" decoding="async" onError={() => setFailed(true)} />
 				)}
 			</div>
 		</dialog>
@@ -133,7 +136,7 @@ export function HudImage({ src, alt }: { src?: string; alt?: string }) {
 
 	const preview = (
 		<>
-			<img src={image.src} crossOrigin="anonymous" alt={description} loading="lazy" decoding="async" referrerPolicy="no-referrer"
+			<img src={image.src} crossOrigin={image.crossOrigin} alt={description} loading="lazy" decoding="async" referrerPolicy="no-referrer"
 				onLoad={() => setStatus("loaded")} onError={() => setStatus("failed")} />
 			{status === "loading" ? <span className="agent-hud__image-loading">Loading image…</span> : null}
 		</>
