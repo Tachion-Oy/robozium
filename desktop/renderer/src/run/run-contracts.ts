@@ -2,14 +2,18 @@
 // frame kinds and the complete value sets the backend uses for roles, phases and statuses.
 // A value that one module alone reacts to lives in that module (run-payloads, hud-messages).
 
-/** Discriminant of RunFrame. The parser maps wire frames to these kinds; the last two have no wire frame of their own. */
+/** Discriminant of RunFrame. The parser maps wire frames to these kinds; the runtime-event kinds have no wire frame of their own. */
 export const RunFrameKind = {
 	Message: "message",
 	MessageDelta: "message_delta",
 	ScriptOutput: "script_output",
 	Lifecycle: "run_lifecycle",
-	// Frames the parser derives from runtime events: a model retry, and a notice the user should see.
+	// Frames the parser derives from runtime events: a model call's start, progress, retry and success,
+	// and a notice the user should see.
+	LlmCallStarted: "llm_call_started",
+	LlmCallProgress: "llm_call_progress",
 	LlmRetry: "llm_retry",
+	LlmCallSucceeded: "llm_call_succeeded",
 	RuntimeNotice: "runtime_notice",
 } as const
 
@@ -52,7 +56,11 @@ export function isTerminal(status: RunStatus): boolean {
 export type RunFrame = { sequence: number } & (
 	| { type: typeof RunFrameKind.Message; id: string | null; role: MessageRole; content: string; kind: string | null; caller: string | null }
 	| { type: typeof RunFrameKind.MessageDelta; id: string; delta: string; chunk: number; agent: string }
+	| { type: typeof RunFrameKind.LlmCallStarted; callId: string; model: string }
+	/** Reasoning characters the model has streamed so far; hidden reasoning sends none. */
+	| { type: typeof RunFrameKind.LlmCallProgress; callId: string; reasoningChars: number }
 	| { type: typeof RunFrameKind.LlmRetry; agent: string }
+	| { type: typeof RunFrameKind.LlmCallSucceeded; callId: string }
 	/** A runtime event meant for the user, shown as the runtime wrote it. */
 	| { type: typeof RunFrameKind.RuntimeNotice; agent: string; level: RuntimeLevel; message: string }
 	| { type: typeof RunFrameKind.ScriptOutput; content: string }

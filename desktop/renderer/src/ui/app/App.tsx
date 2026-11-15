@@ -32,6 +32,7 @@ import { hubFileUrl } from "../../attachments/attachments-api"
 import { useDictation } from "../../dictation/useDictation"
 import { runLabels } from "../../hud/hud-view"
 import { selectRunDisplay } from "../../session/session-reducer"
+import { selectOpenModelCall, useThinkingLines, withThinkingLines } from "../../hud/useThinkingLines"
 import { isTerminal, RunStatus, type RunRecord } from "../../run/run-contracts"
 import { useMessageLog } from "../../log/useMessageLog"
 import type { BackendOperations } from "../backend/BackendStartup"
@@ -85,7 +86,9 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	const dictation = useDictation({ client, onTranscript: text =>
 		setDraft(current => current.trim() ? `${current.trimEnd()} ${text}` : text) })
 	const [layout, setLayout] = useState<LayoutMode>("top")
-	const display = selectRunDisplay(session)
+	const events = session === null ? [] : session.run.events
+	const thinkingLines = useThinkingLines(selectOpenModelCall(events))
+	const display = withThinkingLines(selectRunDisplay(session), thinkingLines)
 	const status = session?.run.unavailable ? "Run unavailable" : session ? runLabels[session.run.status] : "Awaiting input"
 	// A live start without keys locks the HUD on the guide and Environment.
 	const setupRequired = Boolean(credentials.status?.setupRequired)

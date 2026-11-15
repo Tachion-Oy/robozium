@@ -407,6 +407,30 @@ test("retrying old output cannot cancel a pending replacement creation", async (
 	await testInfo.attach("overview-actions.png", { body: (await captureNative(app, page, 640, 420))!, contentType: "image/png" })
 })
 
+test("a silent model call adds a thinking line every 10 seconds until the call succeeds", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	await page.clock.install()
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	const stream = run.streams[0]
+	const call = { call_id: "c1", endpoint: "openrouter", model: "deepseek/deepseek-v4.1-flash" }
+	const llm = (sequence: number, kind: string, data: Record<string, unknown>) =>
+		({ type: "runtime_event", sequence, payload: { category: "llm", kind, level: "info", agent_name: "orchestrator", data } })
+	emit(stream, llm(1, "started", call))
+	await expect(async () => {
+		await page.clock.runFor(10_000)
+		await expect(output(page)).toContainText("thinking", { timeout: 500 })
+	}).toPass()
+	await expect(output(page)).toHaveText(/^Agent is working\.\.\.(\n\d\d:\d\d:\d\d: deepseek-v4\.1-flash thinking)+$/)
+	emit(stream, llm(2, "progress", { ...call, reasoning_chars: 7600 }))
+	await expect(async () => {
+		await page.clock.runFor(10_000)
+		await expect(output(page)).toContainText(/thinking, ~1,900 tokens$/, { timeout: 500 })
+	}).toPass()
+	emit(stream, llm(3, "succeeded", call))
+	await expect(output(page)).toHaveText("Agent is working...")
+})
+
 test("provider retries discard abandoned text while keeping completed history and drafts", async ({ desktop: { page }, backend }) => {
 	const run = prepareRun(backend)
 	await page.clock.install()

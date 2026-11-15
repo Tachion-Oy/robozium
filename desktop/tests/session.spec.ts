@@ -3,6 +3,7 @@ import { parseRunEvent } from "../renderer/src/run/run-payloads"
 import type { RunFrame, RunView } from "../renderer/src/run/run-contracts"
 import { reduceRunSession, selectRunDisplay, type RunSession } from "../renderer/src/session/session-reducer"
 import { initialRun, reduceRun } from "../renderer/src/run/run-reducer"
+import { selectOpenModelCall, thinkingLine, withThinkingLines } from "../renderer/src/hud/useThinkingLines"
 
 function session(): RunSession {
 	return reduceRunSession(null, { type: "open", runId: "run", project: "project" })!
@@ -372,4 +373,35 @@ test("agent messages and prompts render as Markdown while live text and scripts 
 	state = snapshot(state, { status: "awaiting_user_input", promptId: "p1", prompt: "Pick **one**" })
 	expect(selectRunDisplay(state)).toMatchObject({ text: "Pick **one**", contentType: "markdown" })
 	expect(selectRunDisplay(null).contentType).toBe("plain-text")
+})
+
+const callStarted = (sequence: number, callId: string): RunFrame =>
+	({ type: "llm_call_started", sequence, callId, model: "deepseek/deepseek-v4.1-flash" })
+const callProgress = (sequence: number, callId: string, reasoningChars: number): RunFrame =>
+	({ type: "llm_call_progress", sequence, callId, reasoningChars })
+
+test("a model call stays open through progress and retries until it succeeds or other output arrives", () => {
+	let state = receive(session(), callStarted(1, "c1"))
+	expect(selectOpenModelCall(state.run.events)).toEqual({ id: "c1", model: "deepseek/deepseek-v4.1-flash", reasoningChars: null })
+	state = receive(state, callProgress(2, "c1", 7600), callProgress(3, "other", 99), retry(4))
+	expect(selectOpenModelCall(state.run.events)).toEqual({ id: "c1", model: "deepseek/deepseek-v4.1-flash", reasoningChars: 7600 })
+	expect(selectOpenModelCall(receive(state, { type: "llm_call_succeeded", sequence: 5, callId: "c1" }).run.events)).toBeNull()
+	expect(selectOpenModelCall(receive(state, message(5, "done", "Done")).run.events)).toBeNull()
+	expect(selectOpenModelCall(receive(state, script(5, "stdout")).run.events)).toBeNull()
+})
+
+test("thinking lines show the time, the model without its vendor and any reasoning estimate", () => {
+	const now = new Date(2026, 10, 15, 12, 41, 35)
+	const call = { id: "c1", model: "deepseek/deepseek-v4.1-flash", reasoningChars: null }
+	expect(thinkingLine(call, now)).toBe("12:41:35: deepseek-v4.1-flash thinking")
+	expect(thinkingLine({ ...call, reasoningChars: 7600 }, now)).toBe("12:41:35: deepseek-v4.1-flash thinking, ~1,900 tokens")
+	expect(thinkingLine({ ...call, model: "glm-5.3" }, now)).toBe("12:41:35: glm-5.3 thinking")
+})
+
+test("thinking lines follow only the working indicator", () => {
+	const lines = ["12:41:35: glm-5.3 thinking", "12:41:45: glm-5.3 thinking"]
+	const waiting = selectRunDisplay(receive(session(), callStarted(1, "c1")))
+	expect(withThinkingLines(waiting, lines).text).toBe(`${working}\n${lines[0]}\n${lines[1]}`)
+	const streaming = selectRunDisplay(receive(session(), callStarted(1, "c1"), delta(2, "live", "Answer")))
+	expect(withThinkingLines(streaming, lines).text).toBe("Answer")
 })
