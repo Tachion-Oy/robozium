@@ -28,6 +28,10 @@ function select(state: RunSession, index: number): RunSession {
 const working = "Agent is working..."
 const retry = (sequence: number, agent = "root"): RunFrame => ({ type: "llm_retry", sequence, agent })
 const script = (sequence: number, content: string): RunFrame => ({ type: "script_output", sequence, content })
+const progress = (sequence: number, reasoningChars: number): RunFrame => ({ type: "llm_progress", sequence, reasoningChars })
+function tick(state: RunSession, time: string): RunSession {
+	return reduceRunSession(state, { type: "tick", now: new Date(`2026-11-15T${time}`), model: "Mock model" })!
+}
 
 test("run reconciliation accepts live prefixes after recovery and rejects duplicate or completed chunks without a HUD", () => {
 	let run = initialRun("run", "project")
@@ -372,4 +376,25 @@ test("agent messages and prompts render as Markdown while live text and scripts 
 	state = snapshot(state, { status: "awaiting_user_input", promptId: "p1", prompt: "Pick **one**" })
 	expect(selectRunDisplay(state)).toMatchObject({ text: "Pick **one**", contentType: "markdown" })
 	expect(selectRunDisplay(null).contentType).toBe("plain-text")
+})
+
+test("each tick adds a thinking line under the working indicator, with a token estimate once reasoning is reported", () => {
+	let state = tick(session(), "12:41:35")
+	expect(selectRunDisplay(state).text).toBe(`${working}\n12:41:35: Mock model thinking`)
+	state = tick(receive(state, progress(1, 7600)), "12:41:45")
+	expect(selectRunDisplay(state).text)
+		.toBe(`${working}\n12:41:35: Mock model thinking\n12:41:45: Mock model thinking, ~1,900 tokens`)
+	// The estimate belongs to the call in flight: a retry starts the next attempt without one.
+	state = tick(receive(state, retry(2)), "12:41:55")
+	expect(selectRunDisplay(state).text.split("\n").at(-1)).toBe("12:41:55: Mock model thinking")
+})
+
+test("thinking lines leave with the working indicator and start again from none", () => {
+	let state = tick(tick(session(), "12:41:35"), "12:41:45")
+	state = receive(state, delta(1, "live", "Answer"))
+	expect(selectRunDisplay(state).text).toBe("Answer")
+	expect(tick(state, "12:41:55")).toBe(state)
+	state = receive(state, retry(2))
+	expect(selectRunDisplay(state).text).toBe(working)
+	expect(selectRunDisplay(tick(state, "12:42:05")).text).toBe(`${working}\n12:42:05: Mock model thinking`)
 })

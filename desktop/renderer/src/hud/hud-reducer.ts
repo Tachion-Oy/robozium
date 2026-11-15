@@ -4,7 +4,7 @@ import { RunFrameKind, type RunDelta, type RunRecord } from "../run/run-contract
 import type { RunState, RunUpdate } from "../run/run-reducer"
 import { initialHistory, updateHudHistory, type HudHistory } from "./hud-history"
 import { messageText, type HudLiveText } from "./hud-messages"
-import { buildMessageList, initialMessageList, selectHudDisplay, type HudDisplay, type HudPresentation } from "./hud-view"
+import { buildMessageList, initialMessageList, selectHudDisplay, thinkingLine, type HudDisplay, type HudPresentation } from "./hud-view"
 
 export interface HudState extends HudPresentation {
 	history: HudHistory
@@ -13,9 +13,13 @@ export interface HudState extends HudPresentation {
 export type HudAction =
 	| { type: "run"; previousRun: RunState; update: RunUpdate }
 	| { type: "select"; index: number; run: RunState }
+	| { type: "tick"; now: Date; model: string; run: RunState }
 
 export function initialHud(): HudState {
-	return { history: initialHistory(), view: initialMessageList(), liveText: null, selectedMessageId: null, working: true }
+	return {
+		history: initialHistory(), view: initialMessageList(), liveText: null, selectedMessageId: null, working: true,
+		reasoningChars: null, thinkingLines: [],
+	}
 }
 
 function updateHistoryAndView(state: HudState, previousRun: RunState, run: RunState, breakAfter: number | null): HudState {
@@ -69,6 +73,15 @@ function updateWorking(state: HudState, next: HudState, run: RunState, settled: 
 	return { ...next, liveText: settled.live, working }
 }
 
+/** A reported count belongs to the model call in flight; that call's output or a retry ends it. */
+function latestReasoning(current: number | null, events: readonly RunRecord[]): number | null {
+	for (const event of events) {
+		if (event.type === RunFrameKind.LlmProgress) current = event.reasoningChars
+		else if (event.type === RunFrameKind.Message || event.type === RunFrameKind.ScriptOutput || event.type === RunFrameKind.LlmRetry) current = null
+	}
+	return current
+}
+
 function applyRunUpdate(state: HudState, previousRun: RunState, update: RunUpdate): HudState {
 	const run = update.run
 	switch (update.type) {
@@ -86,13 +99,22 @@ function applyRunUpdate(state: HudState, previousRun: RunState, update: RunUpdat
 			// Replayed records can supersede live text even when stored history is unchanged.
 			const settled = update.type === "snapshot" && run.prompt
 				? { live: null, discarded: false } : settleLiveText(state.liveText, update.receivedEvents)
-			return updateWorking(state, next, run, settled)
+			return { ...updateWorking(state, next, run, settled), reasoningChars: latestReasoning(state.reasoningChars, update.receivedEvents) }
 		}
 	}
 }
 
 export function reduceHud(state: HudState, action: HudAction): HudState {
-	if (action.type === "run") return applyRunUpdate(state, action.previousRun, action.update)
+	if (action.type === "run") {
+		const next = applyRunUpdate(state, action.previousRun, action.update)
+		// The lines belong to the working indicator and leave with it.
+		const working = next.thinkingLines.length === 0 || selectHudMessage(next, action.update.run).working
+		return working ? next : { ...next, thinkingLines: [] }
+	}
+	if (action.type === "tick") {
+		if (!selectHudMessage(state, action.run).working) return state
+		return { ...state, thinkingLines: [...state.thinkingLines, thinkingLine(action.now, action.model, state.reasoningChars)] }
+	}
 	const current = selectHudMessage(state, action.run).currentIndex
 	const selectedMessageId = action.index === current ? null : state.view.messages[action.index]?.id ?? null
 	return { ...state, selectedMessageId }

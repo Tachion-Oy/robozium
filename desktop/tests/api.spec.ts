@@ -288,6 +288,10 @@ test("run parsing preserves the wire contract while normalizing retry controls",
 	} })
 	expect(parseRunEvent({ type: "runtime_event", sequence: 5, payload: { category: "llm", kind: "retrying", agent_name: "root" } }))
 		.toEqual({ type: "llm_retry", sequence: 5, agent: "root" })
+	// A model call's progress carries the reasoning streamed so far; its other data is ignored.
+	expect(parseRunEvent({ type: "runtime_event", sequence: 9, payload: {
+		category: "llm", kind: "progress", level: "info", agent_name: "root", data: { call_id: "c1", reasoning_chars: 7600, stream_chunks: 40 },
+	} })).toEqual({ type: "llm_progress", sequence: 9, reasoningChars: 7600 })
 	// Notices: every error-level event, plus the informational "images omitted" the runtime addresses to the user.
 	const omitted = "Images are omitted for text-model because it cannot read them."
 	expect(parseRunEvent({ type: "runtime_event", sequence: 6, payload: { category: "llm", kind: "images_omitted", level: "info", agent_name: "root", message: omitted } }))
@@ -313,6 +317,7 @@ test("run parsing rejects malformed consumed fields and ignores unconsumed event
 		{ type: "run_lifecycle", payload: { sequence: 1, kind: "started", agent_name: "root", temperature: {} } },
 		{ type: "runtime_event", sequence: 1, payload: { category: "llm", kind: "images_omitted", level: "info", agent_name: "root" } },
 		{ type: "runtime_event", sequence: 1, payload: { category: "tool", kind: "failed", level: "error", agent_name: "root", message: "" } },
+		{ type: "runtime_event", sequence: 1, payload: { category: "llm", kind: "progress", data: { reasoning_chars: -1 } } },
 	]) expect(() => parseRunEvent(value)).toThrow("invalid run data")
 	expect(parseRunEvent({ type: "future_event" })).toBeNull()
 	expect(parseRunEvent({ type: "llm_retry" })).toBeNull() // Only the parser creates this local control event.

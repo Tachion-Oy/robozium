@@ -12,10 +12,10 @@ const WireFrameType = {
 } as const
 // Runtime events reach the HUD by two rules, the same ones RoboZ's own terminal sink applies:
 // every error-level event is a notice, and so is the one informational LLM event the runtime
-// addresses to the user, images omitted for a model that cannot read them. An LLM retry becomes a
-// control frame. Everything else is ignored.
+// addresses to the user, images omitted for a model that cannot read them. An LLM retry and a
+// call's progress become control frames. Everything else is ignored.
 const LLM_CATEGORY = "llm"
-const LlmRuntimeSignal = { Retrying: "retrying", ImagesOmitted: "images_omitted" } as const
+const LlmRuntimeSignal = { Retrying: "retrying", Progress: "progress", ImagesOmitted: "images_omitted" } as const
 
 const parse = <T>(schema: z.ZodType<T>, value: unknown): T => parsePayload(schema, value, "The backend returned invalid run data.")
 
@@ -60,6 +60,8 @@ const RunLifecycleEvent = z.object({
 const RuntimeEvent = z.object({ payload: z.object({ category: z.unknown(), kind: z.unknown(), level: z.unknown().optional() }) })
 const LlmRetryEvent = z.object({ sequence, payload: z.object({ agent_name: nonBlank }) })
 	.transform(({ sequence, payload }) => ({ type: RunFrameKind.LlmRetry, sequence, agent: payload.agent_name }))
+const LlmProgressEvent = z.object({ sequence, payload: z.object({ data: z.object({ reasoning_chars: z.number().int().min(0) }) }) })
+	.transform(({ sequence, payload }) => ({ type: RunFrameKind.LlmProgress, sequence, reasoningChars: payload.data.reasoning_chars }))
 const RuntimeNoticeEvent = z.object({ sequence, payload: z.object({ agent_name: nonBlank, level: z.enum(RuntimeLevel), message: nonBlank }) })
 	.transform(({ sequence, payload }) => ({
 		type: RunFrameKind.RuntimeNotice, sequence, agent: payload.agent_name, level: payload.level, message: payload.message,
@@ -80,6 +82,7 @@ export function parseRunEvent(value: unknown): RunFrame | null {
 		case WireFrameType.RuntimeEvent: {
 			const { payload } = parse(RuntimeEvent, value)
 			if (payload.category === LLM_CATEGORY && payload.kind === LlmRuntimeSignal.Retrying) return parse(LlmRetryEvent, value)
+			if (payload.category === LLM_CATEGORY && payload.kind === LlmRuntimeSignal.Progress) return parse(LlmProgressEvent, value)
 			return isNotice(payload) ? parse(RuntimeNoticeEvent, value) : null
 		}
 		default:

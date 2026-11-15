@@ -433,6 +433,33 @@ test("provider retries discard abandoned text while keeping completed history an
 	await expect(page.getByRole("textbox", { name: "Reply text", exact: true })).toHaveValue("Keep this draft")
 })
 
+test("a long model call adds a thinking line every 10 seconds under the working indicator", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	await page.clock.install()
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	const stream = run.streams[0]
+	const llm = (sequence: number, kind: string, data?: Record<string, unknown>) =>
+		({ type: "runtime_event", sequence, payload: { category: "llm", kind, level: "info", agent_name: "orchestrator", data } })
+	const tick = async (text: string | RegExp) => {
+		await expect(async () => {
+			await page.clock.runFor(10_000)
+			await expect(output(page)).toContainText(text, { timeout: 500 })
+		}).toPass()
+	}
+	// A model that sends nothing still gets a line: the time and the run's model.
+	await tick("thinking")
+	await expect(output(page)).toHaveText(/^Agent is working\.\.\.(\n\d\d:\d\d:\d\d: First model thinking)+$/)
+	emit(stream, llm(1, "progress", { call_id: "c1", reasoning_chars: 7600 }))
+	await tick(/thinking, ~1,900 tokens$/)
+	// Answer text replaces the lines; a retry that discards it starts again without them.
+	emit(stream, delta(2, "Answer", 0))
+	await expect(output(page)).toHaveText("Answer")
+	emit(stream, llm(3, "retrying"))
+	await expect(output(page)).toHaveText("Agent is working...")
+	await tick(/^Agent is working\.\.\.\n\d\d:\d\d:\d\d: First model thinking$/)
+})
+
 test("an agent error never reaches the HUD; the next attempt's stream replaces the failed one", async ({ desktop: { page }, backend }) => {
 	const run = prepareRun(backend)
 	await start(page, backend)

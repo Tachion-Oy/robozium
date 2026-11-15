@@ -16,6 +16,8 @@ export interface RunSessionState {
 	/** Record an acknowledged reply, so later snapshots cannot revive its prompt. */
 	acknowledge: (promptId: string) => void
 	select: (index: number) => void
+	/** One beat of the HUD's thinking lines: the time and the displayed run's model. */
+	tick: (now: Date, model: string) => void
 	retry: () => void
 }
 
@@ -50,7 +52,8 @@ export function useRunSession(client: DesktopApiClient): RunSessionState {
 		dispatch({ type: "open", runId, project })
 		subscribe(runId, project)
 	}
-	return { session, scope, open,
+	const tick = useCallback((now: Date, model: string) => dispatch({ type: "tick", now, model }), [])
+	return { session, scope, open, tick,
 		acknowledge: promptId => dispatch({ type: "replied", promptId }),
 		select: (index: number) => dispatch({ type: "select", index }),
 		retry: () => {
