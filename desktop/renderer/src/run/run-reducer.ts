@@ -1,6 +1,6 @@
 // Reconcile SSE and snapshots into run data: events, status, prompt and stream cursors.
 // Return accepted updates for consumers; this module has no HUD state or display rules.
-import { isTerminal, RunFrameKind, RunStatus, type RunDelta, type RunFrame, type RunRecord, type RunView } from "./run-contracts"
+import { isTerminal, RunFrameKind, RunStatus, type RunDelta, type RunFrame, type RunProgress, type RunRecord, type RunView } from "./run-contracts"
 
 export interface RunPrompt {
 	id: string
@@ -33,11 +33,15 @@ export type RunAction =
 	| { type: "error"; message: string; unavailable: boolean }
 	| { type: "replied"; promptId: string }
 	| { type: "retry" }
+	/** A clock beat for consumers that show the run waiting; it changes no run data. */
+	| { type: "tick"; now: Date; model: string }
 
 // Replayed records remain part of the update even when storage is unchanged.
 // Consumers may need to dismiss transient output superseded by those records.
 export type RunUpdate = { run: RunState } & (
 	| { type: "delta"; frame: RunDelta }
+	| { type: "progress"; frame: RunProgress }
+	| { type: "tick"; now: Date; model: string }
 	| { type: "events" | "snapshot"; receivedEvents: readonly RunRecord[] }
 	| { type: "replied" }
 	| { type: "state" }
@@ -107,6 +111,12 @@ function applyDelta(state: RunState, frame: RunDelta): RunUpdate {
 	}
 }
 
+/** Progress is transient like a token fragment: a replayed one is dropped. */
+function applyProgress(state: RunState, frame: RunProgress): RunUpdate {
+	if (frame.sequence <= state.streamSequence) return { type: "state", run: state }
+	return { type: "progress", frame, run: { ...state, streamSequence: frame.sequence } }
+}
+
 function snapshotPrompt(previous: RunPrompt | null, view: RunView, afterSequence: number): RunPrompt | null {
 	if (isTerminal(view.status) || view.promptId === null || view.prompt === null) return null
 	if (previous?.id === view.promptId) {
@@ -129,8 +139,8 @@ function applyReply(state: RunState, promptId: string): RunUpdate {
 }
 
 function applySnapshot(state: RunState, view: RunView): RunUpdate {
-	// Token fragments are transient and cannot be recovered from history.
-	const receivedEvents = view.frames.filter(frame => frame.type !== RunFrameKind.MessageDelta)
+	// Token fragments and progress are transient and are not recovered from history.
+	const receivedEvents = view.frames.filter(frame => frame.type !== RunFrameKind.MessageDelta && frame.type !== RunFrameKind.LlmProgress)
 	const next = mergeEvents(state, receivedEvents)
 	// A snapshot still awaiting an answered prompt was taken before the reply.
 	const answered = view.promptId !== null && state.acknowledgedPrompts.has(view.promptId)
@@ -153,8 +163,10 @@ export function reduceRun(state: RunState, action: RunAction): RunUpdate {
 		case "retry": return { type: "state", run: { ...state, synchronized: false, error: "", unavailable: false } }
 		case "replied": return applyReply(state, action.promptId)
 		case "snapshot": return applySnapshot(state, action.view)
+		case "tick": return { type: "tick", run: state, now: action.now, model: action.model }
 		case "frame": {
 			if (action.frame.type === RunFrameKind.MessageDelta) return applyDelta(state, action.frame)
+			if (action.frame.type === RunFrameKind.LlmProgress) return applyProgress(state, action.frame)
 			const next = mergeEvents(state, [action.frame])
 			return {
 				type: "events", receivedEvents: [action.frame],

@@ -1,6 +1,6 @@
 // Coordinate HUD history, live text and selection from accepted run updates.
 // History owns grouping/recovery; the view owns prompt composition and display selection.
-import { RunFrameKind, type RunDelta, type RunRecord } from "../run/run-contracts"
+import { RunFrameKind, type RunDelta, type RunProgress, type RunRecord } from "../run/run-contracts"
 import type { RunState, RunUpdate } from "../run/run-reducer"
 import { initialHistory, updateHudHistory, type HudHistory } from "./hud-history"
 import { messageText, type HudLiveText } from "./hud-messages"
@@ -13,12 +13,11 @@ export interface HudState extends HudPresentation {
 export type HudAction =
 	| { type: "run"; previousRun: RunState; update: RunUpdate }
 	| { type: "select"; index: number; run: RunState }
-	| { type: "tick"; now: Date; model: string; run: RunState }
 
 export function initialHud(): HudState {
 	return {
 		history: initialHistory(), view: initialMessageList(), liveText: null, selectedMessageId: null, working: true,
-		reasoningChars: null, thinkingLines: [],
+		reasoning: null, thinkingLines: [],
 	}
 }
 
@@ -73,13 +72,39 @@ function updateWorking(state: HudState, next: HudState, run: RunState, settled: 
 	return { ...next, liveText: settled.live, working }
 }
 
-/** A reported count belongs to the model call in flight; that call's output or a retry ends it. */
-function latestReasoning(current: number | null, events: readonly RunRecord[]): number | null {
-	for (const event of events) {
-		if (event.type === RunFrameKind.LlmProgress) current = event.reasoningChars
-		else if (event.type === RunFrameKind.Message || event.type === RunFrameKind.ScriptOutput || event.type === RunFrameKind.LlmRetry) current = null
-	}
-	return current
+/** Reported reasoning belongs to the model call in flight; later output or a retry ends that call. */
+function settleReasoning(reasoning: HudState["reasoning"], events: readonly RunRecord[]): HudState["reasoning"] {
+	if (!reasoning) return null
+	const ended = events.some(event => event.sequence > reasoning.sequence
+		&& (event.type === RunFrameKind.Message || event.type === RunFrameKind.ScriptOutput || event.type === RunFrameKind.LlmRetry))
+	return ended ? null : reasoning
+}
+
+function applyProgress(state: HudState, frame: RunProgress): HudState {
+	return { ...state, reasoning: { chars: frame.reasoningChars, sequence: frame.sequence } }
+}
+
+/** One line per tick while the working indicator shows. */
+function applyTick(state: HudState, run: RunState, now: Date, model: string): HudState {
+	if (!selectHudMessage(state, run).working) return state
+	return { ...state, thinkingLines: [...state.thinkingLines, thinkingLine(now, model, state.reasoning?.chars ?? null)] }
+}
+
+/** The thinking lines belong to the working indicator and leave with it. */
+function dropStaleThinkingLines(state: HudState, run: RunState): HudState {
+	return state.thinkingLines.length === 0 || selectHudMessage(state, run).working ? state : { ...state, thinkingLines: [] }
+}
+
+function applyRecords(state: HudState, previousRun: RunState, update: Extract<RunUpdate, { type: "events" | "snapshot" }>): HudState {
+	const run = update.run
+	const newPrompt = update.type === "snapshot" && run.prompt?.id !== previousRun.prompt?.id
+	const breakAfter = newPrompt ? run.prompt?.afterSequence ?? null : null
+	const next = updateHistoryAndView(state, previousRun, run, breakAfter)
+	// Replayed records can supersede live text even when stored history is unchanged.
+	const settled = update.type === "snapshot" && run.prompt
+		? { live: null, discarded: false } : settleLiveText(state.liveText, update.receivedEvents)
+	const reasoning = settleReasoning(state.reasoning, update.receivedEvents)
+	return updateWorking(state, { ...next, reasoning }, run, settled)
 }
 
 function applyRunUpdate(state: HudState, previousRun: RunState, update: RunUpdate): HudState {
@@ -91,30 +116,18 @@ function applyRunUpdate(state: HudState, previousRun: RunState, update: RunUpdat
 			return dismissAnsweredPrompt(state, previousRun, run)
 		case "delta":
 			return applyDelta(state, previousRun, run, update.frame)
+		case "progress":
+			return applyProgress(state, update.frame)
+		case "tick":
+			return applyTick(state, run, update.now, update.model)
 		case "events":
-		case "snapshot": {
-			const newPrompt = update.type === "snapshot" && run.prompt?.id !== previousRun.prompt?.id
-			const breakAfter = newPrompt ? run.prompt?.afterSequence ?? null : null
-			const next = updateHistoryAndView(state, previousRun, run, breakAfter)
-			// Replayed records can supersede live text even when stored history is unchanged.
-			const settled = update.type === "snapshot" && run.prompt
-				? { live: null, discarded: false } : settleLiveText(state.liveText, update.receivedEvents)
-			return { ...updateWorking(state, next, run, settled), reasoningChars: latestReasoning(state.reasoningChars, update.receivedEvents) }
-		}
+		case "snapshot":
+			return applyRecords(state, previousRun, update)
 	}
 }
 
 export function reduceHud(state: HudState, action: HudAction): HudState {
-	if (action.type === "run") {
-		const next = applyRunUpdate(state, action.previousRun, action.update)
-		// The lines belong to the working indicator and leave with it.
-		const working = next.thinkingLines.length === 0 || selectHudMessage(next, action.update.run).working
-		return working ? next : { ...next, thinkingLines: [] }
-	}
-	if (action.type === "tick") {
-		if (!selectHudMessage(state, action.run).working) return state
-		return { ...state, thinkingLines: [...state.thinkingLines, thinkingLine(action.now, action.model, state.reasoningChars)] }
-	}
+	if (action.type === "run") return dropStaleThinkingLines(applyRunUpdate(state, action.previousRun, action.update), action.update.run)
 	const current = selectHudMessage(state, action.run).currentIndex
 	const selectedMessageId = action.index === current ? null : state.view.messages[action.index]?.id ?? null
 	return { ...state, selectedMessageId }

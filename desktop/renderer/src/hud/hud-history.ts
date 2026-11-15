@@ -27,7 +27,6 @@ function projectEvent(event: RunRecord, script: HudScriptMessage | null): EventP
 		case RunFrameKind.Message:
 			return { message: toHudMessage(event), openScript: null }
 		case RunFrameKind.LlmRetry:
-		case RunFrameKind.LlmProgress:
 		case RunFrameKind.RuntimeNotice:
 			return { message: null, openScript: script }
 		case RunFrameKind.Lifecycle:

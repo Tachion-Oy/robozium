@@ -433,7 +433,7 @@ test("provider retries discard abandoned text while keeping completed history an
 	await expect(page.getByRole("textbox", { name: "Reply text", exact: true })).toHaveValue("Keep this draft")
 })
 
-test("a long model call adds a thinking line every 10 seconds under the working indicator", async ({ desktop: { page }, backend }) => {
+test("a long model call adds a thinking line every 5 seconds under the working indicator", async ({ desktop: { page }, backend }) => {
 	const run = prepareRun(backend)
 	await page.clock.install()
 	await start(page, backend)
@@ -443,7 +443,7 @@ test("a long model call adds a thinking line every 10 seconds under the working 
 		({ type: "runtime_event", sequence, payload: { category: "llm", kind, level: "info", agent_name: "orchestrator", data } })
 	const tick = async (text: string | RegExp) => {
 		await expect(async () => {
-			await page.clock.runFor(10_000)
+			await page.clock.runFor(5_000)
 			await expect(output(page)).toContainText(text, { timeout: 500 })
 		}).toPass()
 	}

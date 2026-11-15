@@ -101,7 +101,6 @@ export function selectLogItems(events: readonly RunRecord[]): StreamLogItem[] {
 				})
 				break
 			case RunFrameKind.LlmRetry:
-			case RunFrameKind.LlmProgress:
 				break
 		}
 	}
