@@ -2,14 +2,16 @@
 // frame kinds and the complete value sets the backend uses for roles, phases and statuses.
 // A value that one module alone reacts to lives in that module (run-payloads, hud-messages).
 
-/** Discriminant of RunFrame. The parser maps wire frames to these kinds; the last two have no wire frame of their own. */
+/** Discriminant of RunFrame. The parser maps wire frames to these kinds; the last three have no wire frame of their own. */
 export const RunFrameKind = {
 	Message: "message",
 	MessageDelta: "message_delta",
 	ScriptOutput: "script_output",
 	Lifecycle: "run_lifecycle",
-	// Frames the parser derives from runtime events: a model retry, and a notice the user should see.
+	// Frames the parser derives from runtime events: a model retry, a model call's progress,
+	// and a notice the user should see.
 	LlmRetry: "llm_retry",
+	LlmProgress: "llm_progress",
 	RuntimeNotice: "runtime_notice",
 } as const
 
@@ -53,6 +55,8 @@ export type RunFrame = { sequence: number } & (
 	| { type: typeof RunFrameKind.Message; id: string | null; role: MessageRole; content: string; kind: string | null; caller: string | null }
 	| { type: typeof RunFrameKind.MessageDelta; id: string; delta: string; chunk: number; agent: string }
 	| { type: typeof RunFrameKind.LlmRetry; agent: string }
+	/** Reasoning characters the model call in flight has streamed so far. */
+	| { type: typeof RunFrameKind.LlmProgress; reasoningChars: number }
 	/** A runtime event meant for the user, shown as the runtime wrote it. */
 	| { type: typeof RunFrameKind.RuntimeNotice; agent: string; level: RuntimeLevel; message: string }
 	| { type: typeof RunFrameKind.ScriptOutput; content: string }

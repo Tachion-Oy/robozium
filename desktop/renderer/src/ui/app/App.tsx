@@ -1,5 +1,5 @@
 // Compose feature state into the HUD; keep navigation and draft ownership here.
-import { useMemo, useReducer, useState } from "react"
+import { useEffect, useMemo, useReducer, useState } from "react"
 import { RunHud } from "../run/RunHud"
 import { HubFileUrlContext } from "../run/HudImage"
 import { AgentHud } from "../hud/AgentHud"
@@ -30,7 +30,7 @@ import { useRunMutations } from "../../session/useRunMutations"
 import { useReplyAttachments } from "../../attachments/useReplyAttachments"
 import { hubFileUrl } from "../../attachments/attachments-api"
 import { useDictation } from "../../dictation/useDictation"
-import { runLabels } from "../../hud/hud-view"
+import { runLabels, THINKING_LINE_INTERVAL_MS } from "../../hud/hud-view"
 import { selectRunDisplay } from "../../session/session-reducer"
 import { isTerminal, RunStatus, type RunRecord } from "../../run/run-contracts"
 import { useMessageLog } from "../../log/useMessageLog"
@@ -105,6 +105,14 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	// Current Run shows and switches its live run's model; other screens set the default.
 	const modelRun = screen === "run" && session && !runEnded && !session.run.unavailable ? session.run.runId : null
 	const models = useModels(client, connected, modelRun)
+	// While Current Run shows a live run, each tick lets the working HUD add a line naming its model.
+	const runModel = models.selection?.models.find(model => model.model_id === models.selection?.selected_model_id)?.label
+	const tick = runSession.tick
+	useEffect(() => {
+		if (modelRun === null || !runModel) return
+		const timer = setInterval(() => tick(new Date(), runModel), THINKING_LINE_INTERVAL_MS)
+		return () => clearInterval(timer)
+	}, [modelRun, runModel, tick])
 	const projectQuery = useProjectQuery(client, screen === "projects" && polling, projectMutations)
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
 	// Each write's outcome goes to the draft declared below; it runs only after both exist.

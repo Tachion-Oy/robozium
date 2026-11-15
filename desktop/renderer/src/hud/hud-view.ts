@@ -26,10 +26,24 @@ export interface HudPresentation {
 	liveText: HudLiveText | null
 	/** The agent works without output newer than its launch, an answered prompt or a discarded attempt. */
 	working: boolean
+	/** Reasoning characters last reported for the model call in flight; none once its output or a retry arrives. */
+	reasoningChars: number | null
+	/** One line per tick while the working indicator shows, so a long model call does not look frozen. */
+	thinkingLines: readonly string[]
 }
 
 /** Shown in the streaming style while the agent works without visible output. */
 export const AGENT_WORKING_TEXT = "Agent is working..."
+export const THINKING_LINE_INTERVAL_MS = 10_000
+/** Providers report exact reasoning tokens only when a call ends; four characters approximate one. */
+const CHARACTERS_PER_TOKEN = 4
+
+/** The time and the model, with a token estimate once the model has streamed reasoning. */
+export function thinkingLine(now: Date, model: string, reasoningChars: number | null): string {
+	const line = `${now.toLocaleTimeString("en-GB")}: ${model} thinking`
+	if (!reasoningChars) return line
+	return `${line}, ~${Math.round(reasoningChars / CHARACTERS_PER_TOKEN).toLocaleString("en-US")} tokens`
+}
 
 /** Agent messages and prompts are Markdown; script and live output stay literal. */
 export type ContentType = "plain-text" | "markdown"
@@ -92,7 +106,7 @@ export function selectHudDisplay(state: HudPresentation | null, run: RunState | 
 	if (index === view.messages.length && (live || working)) {
 		// Settled text stays in the streaming style: it was never a completed HUD message.
 		return {
-			id: live?.id ?? "working", text: working ? AGENT_WORKING_TEXT : liveDisplay, contentType: "plain-text",
+			id: live?.id ?? "working", text: working ? [AGENT_WORKING_TEXT, ...state.thinkingLines].join("\n") : liveDisplay, contentType: "plain-text",
 			streaming: !isTerminal(run.status), working, index, currentIndex, count,
 		}
 	}

@@ -20,7 +20,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `models/` | Model requests and validation, and the acknowledged backend selection. |
 | `run/` | Run contracts, requests, payload decoding, event reconciliation and live updates. |
 | `session/` | The displayed run's subscription lifetime, the atomic composition of run data with HUD state, and the notices live updates raise. |
-| `hud/` | Message projection, history, display selection and layout logic. |
+| `hud/` | Message projection, history, display selection, the working indicator's thinking lines and layout logic. |
 | `dependencies/` | Dependency monitor records and Check Now requests and validation, and the view's owner. |
 | `environment/` | Saved settings and secrets requests and validation, the files an import folder's catalog names, the screen's owner and its editor state. |
 | `credentials/` | Secrets status, the unlock request and password prompt, and the locked-secrets notice. |
@@ -40,7 +40,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `projects/useProjectQuery` | Project rows and the first-load error; shows the rows with the pending writes App passes in (mutations and the opening launch) | Listing poll while visible, again after each write |
 | `projects/useProjectMutations` | This app's cancel and delete requests per project, shared by the rows and the HUD: requesting, then settling until a listing confirms them; one pending launch and the project it opens | Cancel, delete; create project, read and save capabilities, create run |
 | `capabilities/useCapabilities` | The open selector's catalogue and saved choices | Catalogue and selection reads |
-| `session/useRunSession` | The displayed run (`RunSession`) and its scope, which ends on open, retry, a new client or unmount | Stream and snapshot polling (`run/run-updates`) |
+| `session/useRunSession` | The displayed run (`RunSession`), its scope, which ends on open, retry, a new client or unmount, and the tick App sends every 10 seconds for the thinking lines | Stream and snapshot polling (`run/run-updates`) |
 | `session/useRunMutations` | One in-flight reply and one interruption of the displayed run, bound to the session scope; an accepted interruption stays pending until a snapshot shows a prompt or a stopped run | Reply, interrupt |
 | `dictation/useDictation` | One recording and its transcription; App joins the transcript to the reply draft, so a recording outlives view switches | Transcribe |
 | `attachments/useReplyAttachments` | The displayed run's staged reply files, from selection to acceptance; one queue orders uploads, removal, clearing and the reply that sends them, and a reopened run restores them from the backend | List, upload, delete |
