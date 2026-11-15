@@ -1,4 +1,4 @@
-// The badge the HUD shows a run's name in, top left; Environment names its sections with it.
+// The badge the HUD shows a run's name in, top left; grouped sections are named with it.
 import type { ReactNode } from "react"
 
 export function HudBadge({ title, children }: { title?: string; children: ReactNode }) {

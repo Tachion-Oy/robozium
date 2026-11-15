@@ -92,7 +92,7 @@ export function EnvironmentFolderImport({ disabled, onImport, onBusy }: {
 			{...dropzone.getRootProps({ role: "form", "aria-label": "Import tool or skill",
 				// A new folder replaces the last one, so the wait never names the previous folder.
 				onDrop: () => setFiles([]) })}
-			className="agent-hud__environment-controls"
+			className="agent-hud__field-row"
 			data-drag-active={dropzone.isDragActive || undefined}
 			onSubmit={submit}>
 			<input {...dropzone.getInputProps({ "aria-label": "Choose tool or skill folder", webkitdirectory: "" })} />

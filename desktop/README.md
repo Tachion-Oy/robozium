@@ -207,8 +207,9 @@ leaving the overview.
 
 - Clicking a project with an active run opens that run; the current run's row
   reads **Return to** its project. Clicking a dormant project, or **Edit**,
-  opens the capability selector for it. **Rename** there opens the name field:
-  Enter renames the project at once, Escape or leaving the field drops it.
+  opens the capability selector for it. Its name field is read-only until
+  **Rename**: Enter then renames the project at once, Escape or leaving the field
+  restores the name.
 - **Launch** starts a dormant project with its saved capabilities.
 - **Cancel** stops a running project's work and shows **Cancelling** until a
   listing reports it dormant. **Delete** asks **Confirm?** before removing a

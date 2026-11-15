@@ -133,7 +133,9 @@ test("Edit restores saved choices, and Escape or Cancel returns to the overview"
 	await expect(selector(page).getByRole("heading", { name: "Project: existing-project" })).toBeFocused()
 	await expect(capability(page, "web search")).toHaveAttribute("aria-checked", "true")
 	await expect(capability(page, "notes")).toHaveAttribute("aria-checked", "false")
-	await expect(page.getByRole("textbox", { name: "Project name" })).toHaveCount(0)
+	// An existing project's name shows in a read-only field until Rename.
+	await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue("existing-project")
+	await expect(page.getByRole("textbox", { name: "Project name" })).not.toBeEditable()
 	await page.keyboard.press("Escape")
 	await expect(selector(page)).toHaveCount(0)
 	// The row itself is not a button: clicking it does nothing.
@@ -292,7 +294,7 @@ test("a cancellation keeps its row locked until the request settles, even if a l
 	await expect(launchButton(page, "existing-project")).toBeEnabled()
 })
 
-test("Rename saves the new name on Enter, keeps the draft, and reports a refusal with the field open", async ({ desktop: { page }, backend }) => {
+test("Rename saves the new name on Enter, keeps the draft, and reports a refusal with the field still editable", async ({ desktop: { page }, backend }) => {
 	let rows = [project("existing-project")]
 	backend.handlers.set("GET /projects", response => json(response, rows))
 	backend.handlers.set("GET /capabilities", response => json(response, catalog))
@@ -310,13 +312,16 @@ test("Rename saves the new name on Enter, keeps the draft, and reports a refusal
 	const field = page.getByRole("textbox", { name: "Project name" })
 	const launch = selector(page).getByRole("button", { name: "Launch", exact: true })
 
-	// Escape closes the field, not the screen, and sends nothing.
+	// Escape restores the name and locks the field, not the screen, and sends nothing.
+	await expect(field).not.toBeEditable()
 	await selector(page).getByRole("button", { name: "Rename", exact: true }).click()
 	await expect(field).toBeFocused()
-	await expect(field).toHaveValue("existing-project")
+	await expect(field).toBeEditable()
 	await expect(launch).toBeDisabled()
+	await page.keyboard.type("Dropped")
 	await page.keyboard.press("Escape")
-	await expect(field).toHaveCount(0)
+	await expect(field).toHaveValue("existing-project")
+	await expect(field).not.toBeEditable()
 	await expect(selector(page).getByRole("heading", { name: "Project: existing-project" })).toBeFocused()
 	await expect(launch).toBeEnabled()
 	expect(writes(backend)).toEqual([])
@@ -332,7 +337,8 @@ test("Rename saves the new name on Enter, keeps the draft, and reports a refusal
 	refuse = false
 	await page.keyboard.press("Enter")
 	await expect(selector(page).getByRole("heading", { name: "Project: new-name" })).toBeVisible()
-	await expect(field).toHaveCount(0)
+	await expect(field).toHaveValue("new-name")
+	await expect(field).not.toBeEditable()
 	await expect(capability(page, "web search")).toHaveAttribute("aria-checked", "true")
 	expect(writes(backend)).toEqual([
 		{ method: "POST", path: "/projects/existing-project/rename", body: { name: "New Name" } },

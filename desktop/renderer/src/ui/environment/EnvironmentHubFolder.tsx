@@ -15,7 +15,7 @@ export function EnvironmentHubFolder({ hub, disabled }: { hub: HubFolder; disabl
 				{ label: "Cancel", disabled: pending, onClick: hub.cancel },
 			]} />}
 			{error && <Toast tone="error" title="Hub folder" message={error} />}
-			<div className="agent-hud__environment-controls">
+			<div className="agent-hud__field-row">
 				<input
 					className="agent-hud__project-input min-w-0 flex-1"
 					aria-label="Hub folder"

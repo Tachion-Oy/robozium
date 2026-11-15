@@ -258,20 +258,6 @@
   overflow-wrap: anywhere;
 }
 
-.agent-hud__capability-project {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  overflow-wrap: anywhere;
-}
-
-.agent-hud__capability-list {
-  flex: 1;
-  min-height: 3rem;
-  overflow-y: auto;
-}
-
 .agent-hud__capability-name {
   overflow-wrap: anywhere;
 }
