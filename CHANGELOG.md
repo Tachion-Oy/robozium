@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 0.6.6 - 2026-11-15
+
+- Shell commands the agent runs see only `PATH`, `LANG` and `HOME`, so the API
+  keys unlocked in the app can no longer be printed with a command such as
+  `env`. Their output appears in the HUD while they run, **Cancel** ends a
+  running command, nothing a command starts keeps running after it, and a
+  command may run for 10 minutes (RoboZ 0.17.0).
+- The backend container has everyday tools for shell commands: git, curl,
+  wget, zip, unzip, bzip2, xz, jq, file, tree, less and an SSH client. The
+  agent is told that commands run in the container, not on your computer,
+  which programs are there, and how to run Python with extra packages.
+- An error the agent made, such as a malformed reply, stays in its view for
+  20 messages instead of 5, so it can still say what went wrong and avoid
+  repeating it (RoboZ 0.17.0).
+
 ## 0.6.5 - 2026-11-15
 
 - While the agent works, a line with the time and the run's model appears under
