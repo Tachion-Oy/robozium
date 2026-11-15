@@ -86,9 +86,10 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	const dictation = useDictation({ client, onTranscript: text =>
 		setDraft(current => current.trim() ? `${current.trimEnd()} ${text}` : text) })
 	const [layout, setLayout] = useState<LayoutMode>("top")
-	const events = session === null ? [] : session.run.events
-	const thinkingLines = useThinkingLines(selectOpenModelCall(events))
-	const display = withThinkingLines(selectRunDisplay(session), thinkingLines)
+	const runEvents = session === null ? null : session.run.events
+	const openModelCall = useMemo(() => runEvents === null ? null : selectOpenModelCall(runEvents), [runEvents])
+	const runDisplay = selectRunDisplay(session)
+	const display = withThinkingLines(runDisplay, useThinkingLines(openModelCall, runDisplay.working))
 	const status = session?.run.unavailable ? "Run unavailable" : session ? runLabels[session.run.status] : "Awaiting input"
 	// A live start without keys locks the HUD on the guide and Environment.
 	const setupRequired = Boolean(credentials.status?.setupRequired)

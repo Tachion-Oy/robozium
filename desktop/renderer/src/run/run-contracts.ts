@@ -56,7 +56,7 @@ export function isTerminal(status: RunStatus): boolean {
 export type RunFrame = { sequence: number } & (
 	| { type: typeof RunFrameKind.Message; id: string | null; role: MessageRole; content: string; kind: string | null; caller: string | null }
 	| { type: typeof RunFrameKind.MessageDelta; id: string; delta: string; chunk: number; agent: string }
-	| { type: typeof RunFrameKind.LlmCallStarted; callId: string; model: string }
+	| { type: typeof RunFrameKind.LlmCallStarted; agent: string; callId: string; model: string }
 	/** Reasoning characters the model has streamed so far; hidden reasoning sends none. */
 	| { type: typeof RunFrameKind.LlmCallProgress; callId: string; reasoningChars: number }
 	| { type: typeof RunFrameKind.LlmRetry; agent: string }

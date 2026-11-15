@@ -375,19 +375,32 @@ test("agent messages and prompts render as Markdown while live text and scripts 
 	expect(selectRunDisplay(null).contentType).toBe("plain-text")
 })
 
-const callStarted = (sequence: number, callId: string): RunFrame =>
-	({ type: "llm_call_started", sequence, callId, model: "deepseek/deepseek-v4.1-flash" })
+const agentStarted = (sequence: number, agent: string, parent: string | null): RunFrame =>
+	({ type: "run_lifecycle", sequence, phase: "started", agent, status: null, details: { parent_agent_name: parent } })
+const callStarted = (sequence: number, callId: string, agent = "root"): RunFrame =>
+	({ type: "llm_call_started", sequence, agent, callId, model: "deepseek/deepseek-v4.1-flash" })
 const callProgress = (sequence: number, callId: string, reasoningChars: number): RunFrame =>
 	({ type: "llm_call_progress", sequence, callId, reasoningChars })
+const callSucceeded = (sequence: number, callId: string): RunFrame => ({ type: "llm_call_succeeded", sequence, callId })
+const openCall = (state: RunSession) => selectOpenModelCall(state.run.events)
 
-test("a model call stays open through progress and retries until it succeeds or other output arrives", () => {
-	let state = receive(session(), callStarted(1, "c1"))
-	expect(selectOpenModelCall(state.run.events)).toEqual({ id: "c1", model: "deepseek/deepseek-v4.1-flash", reasoningChars: null })
-	state = receive(state, callProgress(2, "c1", 7600), callProgress(3, "other", 99), retry(4))
-	expect(selectOpenModelCall(state.run.events)).toEqual({ id: "c1", model: "deepseek/deepseek-v4.1-flash", reasoningChars: 7600 })
-	expect(selectOpenModelCall(receive(state, { type: "llm_call_succeeded", sequence: 5, callId: "c1" }).run.events)).toBeNull()
-	expect(selectOpenModelCall(receive(state, message(5, "done", "Done")).run.events)).toBeNull()
-	expect(selectOpenModelCall(receive(state, script(5, "stdout")).run.events)).toBeNull()
+test("the root agent's model call stays open through progress, retries and other output until it succeeds", () => {
+	let state = receive(session(), agentStarted(1, "root", null), callStarted(2, "c1"))
+	expect(openCall(state)).toEqual({ id: "c1", model: "deepseek/deepseek-v4.1-flash", reasoningChars: null })
+	state = receive(state, callProgress(3, "c1", 7600), callProgress(4, "other", 99), retry(5), message(6, "note", "Note"), script(7, "stdout"))
+	expect(openCall(state)).toEqual({ id: "c1", model: "deepseek/deepseek-v4.1-flash", reasoningChars: 7600 })
+	expect(openCall(receive(state, callSucceeded(8, "c1")))).toBeNull()
+	// An interrupted call never succeeds; the agent's next call replaces it.
+	expect(openCall(receive(state, callStarted(8, "c2")))).toMatchObject({ id: "c2", reasoningChars: null })
+})
+
+test("a background agent's model calls neither open nor close the root agent's call", () => {
+	let state = receive(session(), agentStarted(1, "root", null), agentStarted(2, "librarian", "root"))
+	state = receive(state, callStarted(3, "background", "librarian"))
+	expect(openCall(state)).toBeNull()
+	state = receive(state, callStarted(4, "c1"), callStarted(5, "background-2", "librarian"), callSucceeded(6, "background-2"))
+	expect(openCall(state)).toMatchObject({ id: "c1" })
+	expect(openCall(receive(session(), callStarted(1, "c1")))).toBeNull() // No root agent is known yet.
 })
 
 test("thinking lines show the time, the model without its vendor and any reasoning estimate", () => {
@@ -400,8 +413,8 @@ test("thinking lines show the time, the model without its vendor and any reasoni
 
 test("thinking lines follow only the working indicator", () => {
 	const lines = ["12:41:35: glm-5.3 thinking", "12:41:45: glm-5.3 thinking"]
-	const waiting = selectRunDisplay(receive(session(), callStarted(1, "c1")))
+	const waiting = selectRunDisplay(session())
 	expect(withThinkingLines(waiting, lines).text).toBe(`${working}\n${lines[0]}\n${lines[1]}`)
-	const streaming = selectRunDisplay(receive(session(), callStarted(1, "c1"), delta(2, "live", "Answer")))
+	const streaming = selectRunDisplay(receive(session(), delta(1, "live", "Answer")))
 	expect(withThinkingLines(streaming, lines).text).toBe("Answer")
 })

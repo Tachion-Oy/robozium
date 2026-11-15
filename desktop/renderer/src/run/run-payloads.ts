@@ -60,8 +60,11 @@ const RunLifecycleEvent = z.object({
 
 // The probe reads the routing fields; only a consumed event is validated, and it requires its level.
 const RuntimeEvent = z.object({ payload: z.object({ category: z.unknown(), kind: z.unknown(), level: z.unknown().optional() }) })
-const LlmCallStartedEvent = z.object({ sequence, payload: z.object({ data: z.object({ call_id: nonBlank, model: nonBlank }) }) })
-	.transform(({ sequence, payload: { data } }) => ({ type: RunFrameKind.LlmCallStarted, sequence, callId: data.call_id, model: data.model }))
+const LlmCallStartedEvent = z.object({
+	sequence, payload: z.object({ agent_name: nonBlank, data: z.object({ call_id: nonBlank, model: nonBlank }) }),
+}).transform(({ sequence, payload }) => ({
+	type: RunFrameKind.LlmCallStarted, sequence, agent: payload.agent_name, callId: payload.data.call_id, model: payload.data.model,
+}))
 const LlmCallProgressEvent = z.object({
 	sequence, payload: z.object({ data: z.object({ call_id: nonBlank, reasoning_chars: z.number().int().min(0) }) }),
 }).transform(({ sequence, payload: { data } }) => ({

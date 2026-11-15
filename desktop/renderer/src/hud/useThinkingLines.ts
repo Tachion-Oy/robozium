@@ -1,8 +1,9 @@
-// While a model call runs without visible output, add a timestamped line every 10 seconds,
-// so a long call reads as thinking rather than a hang. Models that stream their reasoning
-// also report a growing token estimate; models that hide it show the line alone.
+// While the run's own agent waits on a model call and the HUD shows the working indicator,
+// add a timestamped line every 10 seconds, so a long call reads as thinking rather than a hang.
+// Models that stream their reasoning also report a growing token estimate; models that hide it
+// show the line alone.
 import { useEffect, useRef, useState } from "react"
-import { RunFrameKind, type RunRecord } from "../run/run-contracts"
+import { LifecyclePhase, RunFrameKind, type RunRecord } from "../run/run-contracts"
 import type { HudDisplay } from "./hud-view"
 
 export const THINKING_LINE_INTERVAL_MS = 10_000
@@ -15,24 +16,41 @@ export interface OpenModelCall {
 	reasoningChars: number | null
 }
 
-/** The latest model call that has not succeeded and has not been followed by other run output. */
+/**
+ * The root agent's latest model call that has not succeeded. Background agents share the run's
+ * events and call models too; their calls do not hold the user up and are left out.
+ * A call that failed or was interrupted stays open until the agent's next call replaces it.
+ */
 export function selectOpenModelCall(events: readonly RunRecord[]): OpenModelCall | null {
+	let rootAgent: string | null = null
 	let call: OpenModelCall | null = null
 	for (const event of events) {
 		switch (event.type) {
+			case RunFrameKind.Lifecycle: {
+				const parent = event.details.parent_agent_name
+				const hasParent = parent !== null && parent !== undefined
+				if (rootAgent === null && event.phase === LifecyclePhase.Started && !hasParent) {
+					rootAgent = event.agent
+				}
+				break
+			}
 			case RunFrameKind.LlmCallStarted:
-				call = { id: event.callId, model: event.model, reasoningChars: null }
+				if (event.agent === rootAgent) {
+					call = { id: event.callId, model: event.model, reasoningChars: null }
+				}
 				break
 			case RunFrameKind.LlmCallProgress:
 				if (call !== null && call.id === event.callId) {
 					call = { id: call.id, model: call.model, reasoningChars: event.reasoningChars }
 				}
 				break
-			case RunFrameKind.LlmRetry:
+			case RunFrameKind.LlmCallSucceeded:
+				if (call !== null && call.id === event.callId) {
+					call = null
+				}
 				break
 			default:
-				// Success, a message, script output, a notice or a lifecycle change ends the wait.
-				call = null
+				break
 		}
 	}
 	return call
@@ -54,37 +72,32 @@ export function thinkingLine(call: OpenModelCall, now: Date): string {
 	return `${line}, ~${tokens.toLocaleString("en-US")} tokens`
 }
 
-interface CallLines {
-	callId: string
-	lines: string[]
-}
-
-export function useThinkingLines(call: OpenModelCall | null): readonly string[] {
-	const [state, setState] = useState<CallLines | null>(null)
+/**
+ * Lines for the open call, one every 10 seconds while `working`. They are dropped when the call
+ * changes or the working indicator leaves, so a stale call never shows old lines.
+ */
+export function useThinkingLines(call: OpenModelCall | null, working: boolean): readonly string[] {
+	const [lines, setLines] = useState<readonly string[]>([])
+	// The timer reads the latest reasoning count without restarting on every progress event.
 	const latestCall = useRef(call)
 	useEffect(() => {
 		latestCall.current = call
 	})
 	const callId = call === null ? null : call.id
 	useEffect(() => {
-		if (callId === null) return
+		if (callId === null || !working) return
 		const timer = setInterval(() => {
 			const current = latestCall.current
-			if (current === null || current.id !== callId) return
+			if (current === null) return
 			const line = thinkingLine(current, new Date())
-			setState(previous => {
-				if (previous === null || previous.callId !== callId) {
-					return { callId, lines: [line] }
-				}
-				return { callId, lines: [...previous.lines, line] }
-			})
+			setLines(previous => [...previous, line])
 		}, THINKING_LINE_INTERVAL_MS)
-		return () => clearInterval(timer)
-	}, [callId])
-	if (state === null || state.callId !== callId) {
-		return []
-	}
-	return state.lines
+		return () => {
+			clearInterval(timer)
+			setLines([])
+		}
+	}, [callId, working])
+	return lines
 }
 
 /** The lines follow the working indicator; any other display stays as it is. */
