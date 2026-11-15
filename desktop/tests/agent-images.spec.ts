@@ -71,6 +71,15 @@ test("hub and https images load inline, failed and unsafe sources keep a link, a
 	await expect.poll(() => reference.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(8)
 	await expect(reference).toHaveAttribute("src", `${web}/reference.png`)
 	await expect(panel.getByRole("button", { name: "Expand Web reference" })).toHaveAttribute("aria-busy", "false")
+	// Only the backend answers CORS; a web host without CORS headers must still load.
+	// Routed responses pass CORS regardless, so the request mode is checked instead.
+	await expect(landscape).toHaveAttribute("crossorigin", "anonymous")
+	await expect(reference).not.toHaveAttribute("crossorigin")
+	await panel.getByRole("button", { name: "Expand Web reference" }).click()
+	const webDialog = page.getByRole("dialog", { name: "Web reference" })
+	await expect.poll(() => webDialog.getByRole("img").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(8)
+	await expect(webDialog.getByRole("img")).not.toHaveAttribute("crossorigin")
+	await webDialog.getByRole("button", { name: "Close", exact: true }).click()
 	await expect(panel.getByRole("status").filter({ hasText: "Missing image" })).toContainText("Missing image — Image unavailable")
 	await expect(panel.getByRole("status").filter({ hasText: "Web missing" })).toContainText("Web missing — Image unavailable")
 	expect(referrers).toEqual([undefined, undefined])
