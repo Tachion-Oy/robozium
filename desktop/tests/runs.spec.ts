@@ -277,7 +277,7 @@ for (const status of ["failed", "cancelled", "queued", "cancelling"] as const) {
 			await expect.poll(() => run.closed).toBe(run.streams.length)
 			return
 		}
-		await expect(runStatus(page)).toContainText(status === "cancelling" ? "Stopping" : "Queued")
+		await expect(runStatus(page)).toContainText(status === "cancelling" ? "Cancelling" : "Queued")
 		await expect(output(page)).toHaveText("Kept output")
 	})
 }

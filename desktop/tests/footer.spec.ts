@@ -39,8 +39,8 @@ test("fixture history navigates without wrapping and retains selection with draf
 	await expect(latest).toBeDisabled()
 	await expect(page.locator(".agent-hud__logo--actions")).toHaveAttribute("data-agent-state", "awaiting-input")
 	// The run awaits a reply: it can be cancelled or dictated to, and Send waits for a draft.
-	for (const name of ["Stop", "Record"]) await expect(footer.getByRole("button", { name, exact: true })).toBeEnabled()
-	for (const name of ["Cancel", "Send"]) await expect(footer.getByRole("button", { name, exact: true })).toBeDisabled()
+	for (const name of ["Cancel", "Record"]) await expect(footer.getByRole("button", { name, exact: true })).toBeEnabled()
+	for (const name of ["Interrupt", "Send"]) await expect(footer.getByRole("button", { name, exact: true })).toBeDisabled()
 	await previous.press("Enter")
 	await expect(message).toContainText("Planning the next steps.")
 	await previous.press("Space")

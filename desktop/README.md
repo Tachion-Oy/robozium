@@ -111,7 +111,7 @@ introduction. The first build requires internet.
 Later launches reuse the image when the staged inputs match its build identifier.
 Startup failures show an explanation and **Retry** in a toast over the loading screen. Closing the window cancels
 startup, waits for its Podman command to exit, and stops only the installation's
-verified API containers. Closing during runs stops each run as **Stop** does; the
+verified API containers. Closing during runs cancels each run as **Cancel** does; the
 window shows **Stopping** until the backend has exited. Containers, images,
 credentials, and host data remain.
 If the app ends any other way, such as a crash, a kill or a logout, an exit guard

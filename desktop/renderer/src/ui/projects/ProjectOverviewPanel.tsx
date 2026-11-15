@@ -1,4 +1,5 @@
-// Rows are not buttons: Launch reads Open on a row with a run to open, Cancel is Stop.
+// Rows are not buttons: Launch reads Open on a row with a run to open. Cancel is red as
+// the HUD's Cancel and Delete are: a row never offers Cancel and Delete together.
 // A narrow row wraps its buttons onto a second line, starting at the left.
 import { useState } from "react"
 import {
@@ -62,7 +63,7 @@ function statusDisplay(status: ProjectStatus, locked: boolean): {
 			}
 		case ProjectStatus.Cancelling:
 			return {
-				label: "STOPPING",
+				label: "CANCELLING",
 				className:
 					"font-bold text-term-red [text-shadow:var(--term-glow-red)] opacity-80",
 			}
@@ -135,8 +136,8 @@ function RowActions({
 			<HudButton
 				disabled={!canCancel}
 				onClick={() => onCancelRun(project)}
-				variant="warning">
-				Stop
+				variant="danger">
+				Cancel
 			</HudButton>
 			{confirmingDelete && canDelete ? (
 				<HudButton

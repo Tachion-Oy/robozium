@@ -5,7 +5,7 @@ import { captureNative, setNativeViewport, waitForPanelLayout } from "./native"
 import type { Backend } from "./selection-fixture"
 
 // A leaving toast is hidden from assistive technology, but these checks follow it through its exit.
-const toast = (page: Page) => page.getByRole("alert", { includeHidden: true }).filter({ hasText: "Stop failed" })
+const toast = (page: Page) => page.getByRole("alert", { includeHidden: true }).filter({ hasText: "Cancel failed" })
 const cancel = (page: Page) => page.locator(".agent-hud__cancel")
 
 async function refusedCancel(page: Page, backend: Backend) {
@@ -33,8 +33,8 @@ for (const theme of ["dark", "light"]) {
 		const hud = await page.locator(".agent-hud__box").boundingBox()
 		await cancel(page).click()
 		const notice = toast(page)
-		await expect(notice.locator(".agent-error-toast__title")).toHaveText("Stop failed")
-		await expect(notice.locator(".agent-error-toast__message")).toHaveText('Could not stop "existing-project".')
+		await expect(notice.locator(".agent-error-toast__title")).toHaveText("Cancel failed")
+		await expect(notice.locator(".agent-error-toast__message")).toHaveText('Could not cancel "existing-project".')
 		await expect(notice.locator(".agent-error-toast__detail")).toHaveText("The project is still active. Try again.")
 		await expect(notice).toHaveAttribute("aria-live", "assertive")
 		await expect(notice.getByRole("button", { name: "Dismiss error notification" })).toBeVisible()

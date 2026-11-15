@@ -35,7 +35,7 @@ export class BackendApi {
 		return projects.data.filter(project => project.status !== "dormant").map(project => project.slug)
 	}
 
-	/** Cancel the project's run and background work, as the HUD's Stop does. */
+	/** Cancel the project's run and background work, as the HUD's Cancel does. */
 	async cancelProject(slug: string, signal: AbortSignal): Promise<void> {
 		Acknowledgement.parse(await this.request(`/projects/${encodeURIComponent(slug)}/cancel`, "POST", signal))
 	}

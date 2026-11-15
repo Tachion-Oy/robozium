@@ -53,7 +53,7 @@ test("a failed load offers Retry in a toast, then the variables show with secret
 test("editing is unavailable while runs or background work are active", async ({ desktop: { page }, backend }) => {
 	backend.handlers.set("GET /credentials/environment", response => json(response, environment({ editable: false, entries: [entry("A", "1")] })))
 	await openEnvironment(page, backend)
-	await expect(toast(page, "Editing paused")).toContainText("Stop all runs and background work before editing.")
+	await expect(toast(page, "Editing paused")).toContainText("Cancel all runs and background work before editing.")
 	await expect(panel(page).getByRole("button", { name: "Add variable" })).toBeDisabled()
 	await expect(saveForm(page).getByRole("button", { name: "Reset environment" })).toBeDisabled()
 })

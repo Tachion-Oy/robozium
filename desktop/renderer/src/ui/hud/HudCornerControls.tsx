@@ -1,5 +1,5 @@
 // The column's centre is the theme toggle, with the zoom buttons above it and the
-// panel divider buttons below. Only the divider buttons follow `disabled`.
+// panel divider buttons below; a mark separates the three groups. Only the divider buttons follow `disabled`.
 import { useZoom } from "../../zoom/useZoom"
 import { ThemeToggle } from "../theme/ThemeToggle"
 import { HudEdgeButton } from "./HudEdgeButton"
@@ -62,7 +62,9 @@ export function HudCornerControls({
 					</svg>
 				</HudEdgeButton>
 			</div>
+			<span className="agent-hud__edge-divider" aria-hidden="true" />
 			<ThemeToggle />
+			<span className="agent-hud__edge-divider" aria-hidden="true" />
 			<div
 				className="agent-hud__layout-controls"
 				data-disabled={disabled || undefined}
