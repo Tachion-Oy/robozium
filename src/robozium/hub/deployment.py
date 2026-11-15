@@ -13,7 +13,7 @@ from roboz.deployment import (
 )
 from roboz.llm import EndpointLike, LLMEndpoint, LLMEndpointRoute
 from roboz.shed.agents import librarian, orchestrator
-from roboz.shed.capabilities import Compactification, SafeScripts
+from roboz.shed.capabilities import Compactification, SafeScripts, ShellCommands
 from roboz.shed.sandbox import Sandbox
 
 from robozium.hub.skills import robozium as robozium_skill
@@ -31,9 +31,9 @@ def robozium(
 ) -> DeployableAgent:
     """Define the persistent orchestrator and its fixed Librarian maintenance.
 
-    The orchestrator owns its standard capabilities. SafeScripts is
-    selectable; callers may attach local capabilities and choose a selection
-    before calling ``build``. Scripts use
+    The orchestrator owns its standard capabilities. SafeScripts and
+    user-approved shell commands are selectable; callers may attach local
+    capabilities and choose a selection before calling ``build``. Scripts use
     the read-only safe-scripts directory unless a directory or socket is supplied.
     """
     sandbox = replace(sandbox)
@@ -60,6 +60,7 @@ def robozium(
             scripts_dir=scripts_dir,
             socket_path=script_socket,
         ),
+        ShellCommands(label=ToolLabel("shell_commands", selectable=True)),
     )
     watched_agent_names = root.agent_names(include_background=False)
     root.add_background_agents(
