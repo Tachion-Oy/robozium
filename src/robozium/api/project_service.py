@@ -89,7 +89,7 @@ class ProjectService:
                 for project in self._projects()
             ):
                 raise ProjectBusyError(
-                    "Stop all runs and background work before editing"
+                    "Cancel all runs and background work before editing"
                 )
             yield
 

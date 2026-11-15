@@ -71,6 +71,7 @@ export function AgentHud({ presentation, layoutMode, onLayoutModeChange, message
 									<path d="M3 4.5h10M3 8h10M3 11.5h10" />
 								</svg>
 							</HudEdgeButton>
+							<span className="agent-hud__edge-divider" aria-hidden="true" />
 							<div ref={setCopySlot} className="edge-controls__copy" />
 							{!copySlotFilled && (
 								<HudCopyControls agentMessage={null} replyDraft="" disabled onClearReply={() => {}} />

@@ -252,6 +252,27 @@
   }
 }
 
+/* In dark the pulse swings further: a dimmer low end, and a high end with a wider
+   glow around the indicator and the mark. Both ends stay finished layers. */
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-theme="dark"] .agent-hud__logo[data-agent-state="working"] {
+    color: color-mix(in oklab, var(--term-amber) 36%, var(--hud-logo-bg));
+  }
+
+  :root[data-theme="dark"] .agent-hud__logo[data-agent-state="working"] > .agent-hud__logo-pulse {
+    color: color-mix(in oklab, var(--term-amber) 88%, white);
+    box-shadow:
+      0 0 5px color-mix(in oklab, var(--term-amber) 75%, transparent),
+      0 0 16px color-mix(in oklab, var(--term-amber) 50%, transparent);
+  }
+
+  :root[data-theme="dark"] .agent-hud__logo-pulse > .robozium-mark {
+    filter:
+      drop-shadow(0 0 2px color-mix(in oklab, var(--term-amber) 90%, transparent))
+      drop-shadow(0 0 7px color-mix(in oklab, var(--term-amber) 55%, transparent));
+  }
+}
+
 .agent-hud__logo > .robozium-mark::before,
 .agent-hud__logo-pulse > .robozium-mark::before {
   content: "";
@@ -580,7 +601,7 @@
 }
 
 /* Record (dictate): greenish to match the HUD message palette, the same way
-   Cancel borrows amber and Interrupt borrows red. */
+   Cancel borrows red and Interrupt borrows amber. */
 
 .agent-hud__dictate {
   --btn-accent: var(--term-green);
@@ -690,31 +711,31 @@
 }
 
 /* Run controls (Cancel / Interrupt) share the base button chrome above but are
-   colour-coded to their intent: amber for cancel, red for interrupt. The row
+   colour-coded to their intent: red for cancel, amber for interrupt. The row
    layout (inline-flex/gap) lives on the element in HudControls.tsx. */
 
 .agent-hud__cancel {
-  --btn-accent: var(--term-amber);
-  color: color-mix(in oklab, var(--term-amber) clamp(0%, 65% * var(--tune-text, 1), 100%), white);
+  --btn-accent: var(--term-red);
+  color: color-mix(in oklab, var(--term-red) clamp(0%, 65% * var(--tune-text, 1), 100%), white);
 }
 
 .agent-hud__cancel:not(:disabled):hover {
-  color: color-mix(in oklab, var(--term-amber) clamp(0%, 80% * var(--tune-text, 1), 100%), white);
-  --btn-edge: color-mix(in oklab, var(--term-amber) clamp(0%, 80% * var(--tune-hover-edge, 1), 100%), white);
+  color: color-mix(in oklab, var(--term-red) clamp(0%, 80% * var(--tune-text, 1), 100%), white);
+  --btn-edge: color-mix(in oklab, var(--term-red) clamp(0%, 80% * var(--tune-hover-edge, 1), 100%), white);
   --btn-fill-strength: 28%;
-  text-shadow: var(--term-glow-amber);
+  text-shadow: var(--term-glow-red);
 }
 
 .agent-hud__interrupt {
-  --btn-accent: var(--term-red);
-  color: color-mix(in oklab, var(--term-red) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
+  --btn-accent: var(--term-amber);
+  color: color-mix(in oklab, var(--term-amber) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
 }
 
 .agent-hud__interrupt:not(:disabled):hover {
-  color: color-mix(in oklab, var(--term-red) clamp(0%, 82% * var(--tune-text, 1), 100%), white);
-  --btn-edge: color-mix(in oklab, var(--term-red) clamp(0%, 82% * var(--tune-hover-edge, 1), 100%), white);
+  color: color-mix(in oklab, var(--term-amber) clamp(0%, 82% * var(--tune-text, 1), 100%), white);
+  --btn-edge: color-mix(in oklab, var(--term-amber) clamp(0%, 82% * var(--tune-hover-edge, 1), 100%), white);
   --btn-fill-strength: 28%;
-  text-shadow: var(--term-glow-red);
+  text-shadow: var(--term-glow-amber);
 }
 
 .agent-hud__cancel:disabled,
@@ -1162,4 +1183,27 @@
   top: anchor(center, 50%);
   left: anchor(center, 50%);
   translate: -50% -50%;
+}
+
+/* A short mark in the gap between an edge column's groups of related buttons. */
+.agent-hud__edge-divider {
+  --edge-divider-ink: color-mix(in oklab, var(--term-blue) 62%, transparent);
+  display: grid;
+  place-items: center;
+  width: var(--hud-corner-control-size);
+  height: 0.6rem;
+  flex: none;
+}
+.agent-hud__edge-divider::before {
+  content: "";
+  width: 36%;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--edge-divider-ink);
+}
+:root[data-theme="dark"] .agent-hud__edge-divider::before {
+  box-shadow: 0 0 4px color-mix(in oklab, var(--term-blue) 45%, transparent);
+}
+:root[data-theme="light"] .agent-hud__edge-divider {
+  --edge-divider-ink: color-mix(in oklab, var(--hud-input-text) 45%, transparent);
 }

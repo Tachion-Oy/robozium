@@ -110,13 +110,13 @@ export function useRunMutations(client: DesktopApiClient, run: RunSessionState, 
 			// Never repeated; an accepted interruption stays pending until a snapshot shows its effect.
 			accepted = await withDeadline(signal, requestSignal => interruptRun(client, session.run.runId, requestSignal))
 			if (!accepted) {
-				showErrorToast({ title: "Cancel failed", message: "Could not cancel the agent's current work.", detail: "The backend refused the interruption." })
+				showErrorToast({ title: "Interrupt failed", message: "Could not interrupt the agent's current work.", detail: "The backend refused the interruption." })
 			}
 		} catch (error) {
 			if (!signal.aborted) {
 				showErrorToast({
-					title: "Cancel failed",
-					message: "Could not cancel the agent's current work.",
+					title: "Interrupt failed",
+					message: "Could not interrupt the agent's current work.",
 					detail: error instanceof Error ? error.message : null,
 				})
 			}

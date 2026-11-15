@@ -368,7 +368,7 @@
   box-shadow: none;
 }
 :root[data-theme="light"] .agent-hud__projects-table {
-  --status-column: 8rem;
+  --status-column: 9rem;
 }
 /* A project's row is a card on the screen; the pointer tints it with the accent. */
 :root[data-theme="light"] .agent-hud__project-row {

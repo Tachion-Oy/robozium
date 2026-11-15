@@ -597,7 +597,7 @@ test("a secret saved in Environment applies after Restart app and a reset remove
 		await createAndLaunch(page, "Restarted secrets")
 		await expect(page.getByRole("status", { name: "Run status" })).toContainText("restarted-secrets")
 		await chooseView(page, "Runs Overview")
-		await page.locator(".agent-hud__project-row", { hasText: "restarted-secrets" }).getByRole("button", { name: "Stop", exact: true }).click()
+		await page.locator(".agent-hud__project-row", { hasText: "restarted-secrets" }).getByRole("button", { name: "Cancel", exact: true }).click()
 		await expect(page.locator(".agent-hud__project-row", { hasText: "restarted-secrets" })).toContainText("DORMANT", { timeout: 30_000 })
 	})
 	await test.step("Reset the environment and restart without secrets", async () => {

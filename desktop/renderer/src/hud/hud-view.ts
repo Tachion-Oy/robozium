@@ -8,10 +8,10 @@ export const runLabels: Record<RunStatus, string> = {
 	[RunStatus.Queued]: "Queued",
 	[RunStatus.Running]: "Running",
 	[RunStatus.AwaitingUserInput]: "Awaiting input",
-	[RunStatus.Cancelling]: "Stopping",
+	[RunStatus.Cancelling]: "Cancelling",
 	[RunStatus.Completed]: "Completed",
 	[RunStatus.Failed]: "Failed",
-	[RunStatus.Cancelled]: "Stopped",
+	[RunStatus.Cancelled]: "Cancelled",
 }
 
 export interface HudMessageList {
