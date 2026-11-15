@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+## 0.6.5 - 2026-11-15
+
+- While the agent works, a line with the time and the run's model appears under
+  **Agent is working...** every 5 seconds, so a long model call no longer looks
+  frozen. Models that stream their reasoning add a token estimate to the line
+  (RoboZ 0.16.2).
+- New optional **shell_commands** capability: the agent can ask to run any Bash
+  command in the hub folder, inside the app's container. Each request pauses
+  the run on a prompt showing the exact command, and only a `yes` or `y` reply
+  runs it.
+- Code blocks in messages and prompts wrap long lines instead of scrolling
+  sideways.
+- Projects can be renamed. The projects row's **Tools** button reads **Edit**,
+  and the Edit screen has a **Rename** button beside its title. The project's
+  logs, memory, saved capabilities and files move with it. The Edit screen is
+  grouped into sections, as Environment is.
+- The run footer's **Stop** reads **Cancel** and is red, and its **Cancel**
+  reads **Interrupt** and is amber; what each does is unchanged. Cancelling a
+  run is called cancel everywhere. Short dividers group the edge columns'
+  buttons, and the dark working pulse is stronger.
+- Web images an agent embeds load even when their site sends no CORS headers,
+  instead of showing **Image unavailable**.
+
 ## 0.6.4 - 2026-11-15
 
 - In dark, the working indicator pulses with one small glow, so the mark stays
