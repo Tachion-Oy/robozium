@@ -60,7 +60,12 @@ def robozium(
             scripts_dir=scripts_dir,
             socket_path=script_socket,
         ),
-        ShellCommands(label=ToolLabel("shell_commands", selectable=True)),
+        # The safe-scripts service's limit; HOME keeps program caches in the container's writable home.
+        ShellCommands(
+            label=ToolLabel("shell_commands", selectable=True),
+            timeout_s=600.0,
+            env_allowlist=("HOME",),
+        ),
     )
     watched_agent_names = root.agent_names(include_background=False)
     root.add_background_agents(
