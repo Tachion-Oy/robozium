@@ -88,6 +88,9 @@ test("desktop mock image starts rootless and retains projects in a new container
 			"present = [str(p) for p in private if p.exists()]",
 			"assert not present, present",
 		].join("; ")])
+		// The Robozium skill names these programs to the agent for shell commands.
+		podman(["run", "--rm", "--network", "none", "--entrypoint", "sh", `localhost/${project}-api`, "-c",
+			"for program in zip unzip tar gzip bzip2 xz curl wget git base64 sha256sum sed awk jq diff file tree python3 uv soffice; do command -v \"$program\" >/dev/null || { echo \"missing: $program\" >&2; exit 1; }; done"])
 		// A skill's first save creates the tool-data folder in the hub; the next start must accept it.
 		const environment = backendEnvironment("mock", port)
 		const saved = path.join(path.dirname(path.dirname(projectDirectory)), path.relative(environment.ROBOZIUM_HUB_ROOT, environment.ROBOZIUM_TOOL_DATA_DIR), "email/signature.json")
