@@ -271,6 +271,8 @@ def test_recipe_owns_builtins_and_only_script_and_shell_tools_are_selectable(tmp
     assert {"run_shell_script", "run_shell_command"} <= {
         tool.name for tool in selected.tools
     }
+    shell = next(tool for tool in selected.tools if tool.name == "run_shell_command")
+    assert "Time limit: 600 seconds" in shell.description
     assert [tool.name for tool in maintenance.default_tools] == [
         tool.name for tool in selected_maintenance.default_tools
     ]
