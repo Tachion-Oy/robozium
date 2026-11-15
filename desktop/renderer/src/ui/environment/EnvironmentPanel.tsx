@@ -57,23 +57,23 @@ export function EnvironmentPanel({ draft, mutations, hub, restartRequired, onRes
 				{draft.editingPaused && <Toast tone="info" title="Editing paused" message="Cancel all runs and background work before editing." />}
 				<h2 className="text-center">Environment</h2>
 				<div className="agent-hud__table-scroll min-h-0 flex-1 overflow-auto px-3 [scrollbar-gutter:stable]">
-					<div className="agent-hud__environment-sections pb-4">
-						<section aria-label="Hub folder" className="agent-hud__panel agent-hud__environment-section">
-							<h3 className="agent-hud__environment-heading"><HudBadge>Hub folder</HudBadge></h3>
+					<div className="agent-hud__sections pb-4">
+						<section aria-label="Hub folder" className="agent-hud__panel agent-hud__section">
+							<h3 className="agent-hud__section-heading"><HudBadge>Hub folder</HudBadge></h3>
 							{/* Opening stays available during runs; changing the folder waits for them. */}
 							<EnvironmentHubFolder hub={hub} disabled={!editable || editor !== null} />
 						</section>
-						<fieldset disabled={!editable} className="agent-hud__environment-sections">
-							<section aria-label="Key file" className="agent-hud__panel agent-hud__environment-section">
-								<h3 className="agent-hud__environment-heading"><HudBadge>Key file</HudBadge></h3>
+						<fieldset disabled={!editable} className="agent-hud__sections">
+							<section aria-label="Key file" className="agent-hud__panel agent-hud__section">
+								<h3 className="agent-hud__section-heading"><HudBadge>Key file</HudBadge></h3>
 								<EnvironmentKeyFileImport
 									disabled={!editable || editor !== null}
 									replacing={(view?.entries.length ?? 0) > 0}
 									onReplace={async (file, password) => view ? mutations.replaceFile(file, password, view.revision) : "Settings cannot be changed right now."}
 								/>
 							</section>
-							<section aria-label="Tools and skills" className="agent-hud__panel agent-hud__environment-section">
-								<h3 className="agent-hud__environment-heading"><HudBadge>Tools and skills</HudBadge></h3>
+							<section aria-label="Tools and skills" className="agent-hud__panel agent-hud__section">
+								<h3 className="agent-hud__section-heading"><HudBadge>Tools and skills</HudBadge></h3>
 								<EnvironmentFolderImport
 									disabled={!editable || editor !== null}
 									onImport={mutations.importPackage}
@@ -85,8 +85,8 @@ export function EnvironmentPanel({ draft, mutations, hub, restartRequired, onRes
 									onRemove={mutations.removeImport}
 								/>
 							</section>
-							<section aria-label="Variables" className="agent-hud__panel agent-hud__environment-section agent-hud__environment-section--variables">
-								<h3 className="agent-hud__environment-heading"><HudBadge>Variables</HudBadge></h3>
+							<section aria-label="Variables" className="agent-hud__panel agent-hud__section agent-hud__environment-variables">
+								<h3 className="agent-hud__section-heading"><HudBadge>Variables</HudBadge></h3>
 								<EnvironmentVariableList
 									variables={draft.variables}
 									editorName={editor?.original.name ?? null}

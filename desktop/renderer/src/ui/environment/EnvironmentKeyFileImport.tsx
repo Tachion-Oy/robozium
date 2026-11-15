@@ -30,7 +30,7 @@ export function EnvironmentKeyFileImport({ disabled, replacing, onReplace }: {
 		<>
 			<div
 				{...dropzone.getRootProps({ role: "group", "aria-label": "Key file" })}
-				className="agent-hud__environment-controls"
+				className="agent-hud__field-row"
 				data-drag-active={dropzone.isDragActive || undefined}>
 				<input {...dropzone.getInputProps({ "aria-label": "Choose key file" })} />
 				<input

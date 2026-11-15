@@ -25,92 +25,9 @@
   text-shadow: none;
 }
 
-/* Sections stand apart; the rows inside a section sit together. */
-.agent-hud__environment-sections {
-  display: flex;
-  flex-direction: column;
-  gap: 3rem;
-  min-width: 0;
-  /* Also a fieldset, which keeps its own padding and border otherwise. */
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.agent-hud__environment-section {
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
-  min-width: 0;
-}
-
-/* The section's name in the run-name badge, at its own width. */
-.agent-hud__environment-heading {
-  display: flex;
-  align-self: flex-start;
-  min-height: 2.2rem;
-}
-
-/* Dark: each section is a panel (hud-panels.css) named by its badge on the top
-   edge, clear of the cut corner. A quieter one than a view's: a smaller cut, a
-   dimmer edge without lit corners, no halo, and the plain dark as its fill, so
-   the fields inside stand out. */
-:root[data-theme="dark"] .agent-hud__environment-sections {
-  gap: 2.4rem;
-}
-
-:root[data-theme="dark"] .agent-hud__environment-sections:not(fieldset) {
-  padding-top: 1.2rem;
-}
-
-:root[data-theme="dark"] .agent-hud__environment-section {
-  --panel-cut: 1.2rem;
-  --panel-edge: color-mix(in oklab, var(--term-blue) 60%, transparent);
-  --panel-corner: transparent;
-  --panel-halo: none;
-  --panel-sheen: none;
-  padding: 2.2rem 1.3rem 1.3rem;
-}
-
-:root[data-theme="dark"] .agent-hud__environment-heading {
-  position: absolute;
-  top: 0;
-  left: calc(var(--panel-cut) + 0.6rem);
-  translate: 0 -50%;
-}
-
-/* Light: each section is a screen named by its plate on the top edge. Its paper
-   wears the screens' stripes, and the fields the user works in are plain white
-   on it. */
-:root[data-theme="light"] .agent-hud__environment-sections {
-  gap: 2.2rem;
-}
-
-:root[data-theme="light"] .agent-hud__environment-sections:not(fieldset) {
-  padding-top: 1.1rem;
-}
-
-:root[data-theme="light"] .agent-hud__environment-section {
-  --stripe-strength: var(--hud-stripe-strength);
-  position: relative;
-  padding: 2rem 1.1rem 1.1rem;
-  border: 1px solid var(--hud-screen-edge);
-  border-radius: var(--hud-screen-radius);
-  background: var(--stripes) fixed, var(--hud-input-bg);
-  background-blend-mode: multiply, normal;
-  box-shadow: var(--hud-screen-shadow);
-}
-
 /* Variables is a list the user edits, so its screen has the fields' plain paper. */
-:root[data-theme="light"] .agent-hud__environment-section--variables {
+:root[data-theme="light"] .agent-hud__environment-variables {
   background: var(--hud-field-bg);
-}
-
-:root[data-theme="light"] .agent-hud__environment-heading {
-  position: absolute;
-  top: 0;
-  left: 1rem;
-  translate: 0 -50%;
 }
 
 /* The variable editor groups two fields, so it keeps the panel's dark and they stand out. */
@@ -118,27 +35,19 @@
   --field-fill: var(--hud-input-bg);
 }
 
-/* A row of one input and its buttons, the same in every section. */
-.agent-hud__environment-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
-}
-
 /* The dropzone's hidden file input would otherwise take a gap as a flex item. */
-.agent-hud__environment-controls > input[type="file"] {
+.agent-hud__field-row > input[type="file"] {
   position: absolute;
 }
 
 /* A file or folder held over the row lights its input up in the HUD's blue. */
-:root[data-theme="dark"] .agent-hud__environment-controls[data-drag-active] .agent-hud__project-input {
+:root[data-theme="dark"] .agent-hud__field-row[data-drag-active] .agent-hud__project-input {
   --field-edge: color-mix(in oklab, var(--term-blue) 85%, white);
   --field-fill: color-mix(in oklab, var(--term-blue) 24%, var(--hud-input-bg));
 }
 
 /* On the light background a glow barely shows: a solid blue edge and ring instead. */
-:root[data-theme="light"] .agent-hud__environment-controls[data-drag-active] .agent-hud__project-input {
+:root[data-theme="light"] .agent-hud__field-row[data-drag-active] .agent-hud__project-input {
   border-color: var(--term-blue);
   background: color-mix(in oklab, var(--term-blue) clamp(0%, 18% * var(--tune-fill, 1), 100%), var(--hud-input-bg));
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--term-blue) 45%, transparent);
