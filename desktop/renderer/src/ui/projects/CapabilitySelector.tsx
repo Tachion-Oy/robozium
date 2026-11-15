@@ -40,27 +40,7 @@ export function CapabilitySelector({
 	const { catalog, initialSelection, error: loadError, retry } = capabilities
 	const currentSelection = draftSelection ?? initialSelection
 	const title = useRef<HTMLHeadingElement>(null)
-	/** The typed new name while the name field is open; null while it is closed. */
-	const [newName, setNewName] = useState<string | null>(null)
 	const [renaming, setRenaming] = useState(false)
-	const renameOpen = newName !== null
-	const renameButton = useRef<HTMLButtonElement>(null)
-	/** Escape closed the field: focus returns to Rename, so the next Escape still reaches the form. */
-	const focusRenameButton = useRef(false)
-
-	useEffect(() => {
-		if (renameOpen || !focusRenameButton.current) return
-		focusRenameButton.current = false
-		renameButton.current?.focus()
-	}, [renameOpen])
-
-	const saveRename = async () => {
-		if (project === null || newName === null || renaming || !newName.trim()) return
-		setRenaming(true)
-		const renamed = await onRename(project, newName.trim())
-		setRenaming(false)
-		if (renamed) setNewName(null)
-	}
 
 	useEffect(() => {
 		if (project !== null) title.current?.focus()
@@ -68,7 +48,7 @@ export function CapabilitySelector({
 
 	const handleSubmit: NonNullable<ComponentProps<"form">["onSubmit"]> = (event) => {
 		event.preventDefault()
-		if (disabled || renameOpen || catalog === null || currentSelection === null || loadError || !name.trim()) return
+		if (disabled || renaming || catalog === null || currentSelection === null || loadError || !name.trim()) return
 		onSubmit(resolveCapabilitySelection(catalog, currentSelection))
 	}
 
@@ -118,33 +98,32 @@ export function CapabilitySelector({
 							className="agent-hud__project-input"
 						/>
 					</label>
-				) : renameOpen ? (
+				) : renaming ? (
 					<label className="agent-hud__capability-project">
 						Project name
 						<input
 							type="text"
 							autoFocus
-							value={newName}
+							defaultValue={project}
 							onFocus={(event) => event.target.select()}
-							onChange={(event) => setNewName(event.target.value)}
-							onBlur={() => {
-								if (!renaming) setNewName(null)
-							}}
-							onKeyDown={(event) => {
-								if (event.key === "Enter") {
-									event.preventDefault()
-									void saveRename()
-								}
+							onBlur={() => setRenaming(false)}
+							onKeyDown={async (event) => {
+								const input = event.currentTarget
 								if (event.key === "Escape") {
 									event.preventDefault()
 									event.stopPropagation()
-									if (renaming) return
-									focusRenameButton.current = true
-									setNewName(null)
+									// The title takes the focus, so the next Escape still reaches the form.
+									title.current?.focus()
 								}
+								if (event.key !== "Enter") return
+								event.preventDefault()
+								// Read-only while the request is out, so a second Enter sends nothing.
+								if (input.readOnly || !input.value.trim()) return
+								input.readOnly = true
+								const renamed = await onRename(project, input.value.trim())
+								input.readOnly = false
+								if (renamed) setRenaming(false)
 							}}
-							readOnly={renaming}
-							aria-busy={renaming || undefined}
 							disabled={disabled}
 							placeholder="Project name"
 							className="agent-hud__project-input"
@@ -152,7 +131,7 @@ export function CapabilitySelector({
 					</label>
 				) : (
 					<div className="flex justify-center">
-						<HudButton ref={renameButton} disabled={disabled} onClick={() => setNewName(project)}>
+						<HudButton disabled={disabled} onClick={() => setRenaming(true)}>
 							Rename
 						</HudButton>
 					</div>
@@ -191,7 +170,7 @@ export function CapabilitySelector({
 				<button
 					type="submit"
 					className="agent-hud__panel-action agent-hud__start"
-						disabled={disabled || renameOpen || catalog === null || currentSelection === null || Boolean(loadError) || !name.trim()}>
+						disabled={disabled || renaming || catalog === null || currentSelection === null || Boolean(loadError) || !name.trim()}>
 					<DisplayArt name="launch" label={disabled ? "Launching…" : "Launch"} />
 				</button>
 				<button

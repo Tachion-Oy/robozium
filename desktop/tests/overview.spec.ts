@@ -317,7 +317,7 @@ test("Rename saves the new name on Enter, keeps the draft, and reports a refusal
 	await expect(launch).toBeDisabled()
 	await page.keyboard.press("Escape")
 	await expect(field).toHaveCount(0)
-	await expect(selector(page).getByRole("button", { name: "Rename", exact: true })).toBeFocused()
+	await expect(selector(page).getByRole("heading", { name: "Project: existing-project" })).toBeFocused()
 	await expect(launch).toBeEnabled()
 	expect(writes(backend)).toEqual([])
 
