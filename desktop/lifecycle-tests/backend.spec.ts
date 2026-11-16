@@ -6,6 +6,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import net from "node:net"
 import { tmpdir } from "node:os"
 import path from "node:path"
+import { freeApiPort } from "../tests/api-port"
 import { captureNative, chooseView, documentUrl, modelTrigger, setNativeViewport, toast } from "../tests/native"
 import { expectFooterGeometry } from "../tests/footer-geometry"
 import { resolveBackendLayout } from "../src/backend-layout"
@@ -30,10 +31,7 @@ const test = base.extend<{ runtime: Runtime }>({
 		const directory = await mkdtemp(path.join(tmpdir(), "robozium-native-backend-"))
 		const profile = path.join(directory, "profile")
 		const commands = path.join(directory, "commands")
-		const server = net.createServer()
-		await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve))
-		const port = (server.address() as net.AddressInfo).port
-		await new Promise<void>(resolve => server.close(() => resolve()))
+		const port = await freeApiPort()
 		const apps: { app: ElectronApplication; child: ChildProcess }[] = []
 		const logs: string[] = []
 		try {
