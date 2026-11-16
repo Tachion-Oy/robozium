@@ -19,7 +19,7 @@ from roboz.runtime.events import EventSink, MessageEvent, PipeEvent, RunLifecycl
 from roboz.runtime.pipe import EventPipe
 
 from robozium.api.attachments import AttachmentInfo, RunAttachments, UploadedFile
-from robozium.api.errors import ModelDoesNotFitError
+from robozium.api.errors import ModelSwitchRefusedError
 from robozium.api.projects import Project
 from robozium.api.run_events import RunEvents
 from robozium.api.state import CapabilitySelection, ProjectRunItem, RunState, RunStatus
@@ -110,17 +110,25 @@ class RunControl:
             return self._endpoint
 
     def replace_endpoint(self, endpoint: LLMEndpoint) -> None:
-        """Switch the run's model unless its conversation does not fit the new one's window.
+        """Switch the root agent's model, unless that cannot work now.
 
-        The size is what the provider counted for the last model call, so it is
-        unknown before the first call.
+        The selector changes the root's model only. While the root has delegated
+        to another agent, that agent answers with its own model, so a switch
+        would show a model that is not the one working. Otherwise the root's
+        conversation has to fit the new model's window; its size is what the
+        provider counted for the last model call, unknown before the first.
         """
         with self._lock:
+            if self._agents_running > 1:
+                raise ModelSwitchRefusedError(
+                    "A specialist is working with its own model. Switch the "
+                    "model when it has finished."
+                )
             tokens = self._conversation_tokens
             window = endpoint.max_context_tokens
             room = int(window * _SWITCH_FILL_LIMIT)
             if tokens is not None and tokens > room:
-                raise ModelDoesNotFitError(
+                raise ModelSwitchRefusedError(
                     f"The conversation is about {_thousands(tokens)} tokens. "
                     f"{endpoint.model_name} has room for {_thousands(room)} "
                     f"(its {_thousands(window)} window less a margin). Choose a "

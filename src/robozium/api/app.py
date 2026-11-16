@@ -45,7 +45,7 @@ from robozium.api.environment import router as environment_router
 from robozium.api.environment_service import EnvironmentService
 from robozium.api.errors import (
     InvalidCapabilitySelection,
-    ModelDoesNotFitError,
+    ModelSwitchRefusedError,
     ProjectBusyError,
     ProjectCancellationInProgressError,
     RestartRequiredError,
@@ -210,7 +210,7 @@ def create_app(*, deployment: Hub, require_credentials: bool = False) -> FastAPI
                 manager.replace_orchestrator_endpoint(body.run_id, endpoint)
             except KeyError:
                 raise HTTPException(status_code=404, detail="unknown run_id") from None
-            except ModelDoesNotFitError as exc:
+            except ModelSwitchRefusedError as exc:
                 raise HTTPException(status_code=409, detail=str(exc)) from None
         return _model_selection_view(
             deployment.model_selector,

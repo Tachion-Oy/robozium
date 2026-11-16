@@ -37,7 +37,7 @@ from roboz.tooling.decorators import tool
 from roboz.tools import prompt_user_at_start, stop
 
 from robozium.api.errors import (
-    ModelDoesNotFitError,
+    ModelSwitchRefusedError,
     ProjectBusyError,
     ProjectCancellationInProgressError,
 )
@@ -233,10 +233,12 @@ def test_manager_builds_a_route_that_closes_over_its_run_state() -> None:
     assert resolved_models == ["first", "second"]
 
 
-def test_manager_refuses_a_model_the_conversation_does_not_fit() -> None:
+def test_manager_refuses_a_model_switch_that_cannot_work() -> None:
     first = _manager_endpoint("first", max_context_tokens=1_000_000)
     small = _manager_endpoint("small", max_context_tokens=100_000)
     roomy = _manager_endpoint("roomy", max_context_tokens=200_000)
+    delegated = Event()
+    continue_delegate = Event()
     waiting = Event()
     continue_run = Event()
 
@@ -274,6 +276,8 @@ def test_manager_refuses_a_model_the_conversation_does_not_fit() -> None:
                     )
                 )
                 emit(reply(2_000))
+                delegated.set()
+                assert continue_delegate.wait(timeout=5.0)
                 emit(
                     RunLifecycleEvent(
                         kind="stopped",
@@ -296,10 +300,21 @@ def test_manager_refuses_a_model_the_conversation_does_not_fit() -> None:
     )
     run_id = manager.create(_project())
     assert manager.start_run(run_id)
+
+    # While a delegate works, the selector's model is not the one answering.
+    assert delegated.wait(timeout=5.0)
+    with pytest.raises(ModelSwitchRefusedError) as busy:
+        manager.replace_orchestrator_endpoint(run_id, roomy)
+    assert str(busy.value) == (
+        "A specialist is working with its own model. Switch the model when it "
+        "has finished."
+    )
+    assert manager.get_orchestrator_model_id(run_id) == first.dependency_id
+    continue_delegate.set()
     assert waiting.wait(timeout=5.0)
 
     # 95,000 tokens do not fit 100,000 with 15 % to spare.
-    with pytest.raises(ModelDoesNotFitError) as refusal:
+    with pytest.raises(ModelSwitchRefusedError) as refusal:
         manager.replace_orchestrator_endpoint(run_id, small)
     assert str(refusal.value) == (
         "The conversation is about 95k tokens. small has room for 85k "
