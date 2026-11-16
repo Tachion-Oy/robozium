@@ -343,6 +343,64 @@ def test_model_selection_is_snapshotted_and_scoped_per_run(tmp_path: Path) -> No
     )
 
 
+def _long_conversation_factory(
+    sandbox: Sandbox,
+    project_slug: str,
+    /,
+    *,
+    endpoint_getter: Callable[[], LLMEndpoint],
+    event_sinks: Sequence[EventSink],
+) -> BuiltAgents:
+    del sandbox, project_slug, endpoint_getter
+    return _root_bundle(
+        Agent(
+            event_sinks=event_sinks,
+            name="api_long_conversation_test",
+            tools=[entry, stop],
+            system_prompt="API HTTP test agent.",
+            default_tools=[prompt_user_at_start("m")],
+            custom_prompt_user_tool=None,
+            agent_endpoint=MockLLMEndpoint(
+                responses=[{"action": "stop", "rationale": "done", "value": "ok"}]
+            ),
+            # About 100,000 tokens: over 60 % of gpt-oss-120b's 131,072.
+            initial_messages=["x" * 40_000] * 10,
+        )
+    )
+
+
+def test_model_switch_is_refused_when_the_conversation_does_not_fit(
+    tmp_path: Path,
+) -> None:
+    application = create_app(
+        deployment=_test_deployment(_long_conversation_factory, tmp_path)
+    )
+    client = TestClient(application)
+    run_id = _create_run(client).json()["run_id"]
+    assert application.state.run_manager.start_run(run_id)
+    _wait_for_status(client, run_id, "awaiting_user_input")
+
+    refused = client.post(
+        "/models", json={"model_id": "model:cerebras:gpt-oss-120b", "run_id": run_id}
+    )
+
+    assert refused.status_code == 409
+    # The token count includes the agent's own instructions, so only its frame is fixed.
+    assert refused.json()["detail"].startswith("The conversation is about ")
+    assert "gpt-oss-120b has room for 79k (60 % of its 131k window)" in (
+        refused.json()["detail"]
+    )
+    assert (
+        client.get(f"/models?run_id={run_id}").json()["selected_model_id"]
+        == "model:openrouter:z-ai/glm-5.3"
+    )
+    fits = client.post(
+        "/models",
+        json={"model_id": "model:openrouter:z-ai/glm-5.3-flash", "run_id": run_id},
+    )
+    assert fits.status_code == 200
+
+
 def test_models_returns_not_found_for_unknown_run(tmp_path: Path) -> None:
     application = create_app(deployment=load_hub(start=tmp_path))
     client = TestClient(application)

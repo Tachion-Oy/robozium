@@ -36,7 +36,11 @@ from roboz.shed.sandbox import Sandbox
 from roboz.tooling.decorators import tool
 from roboz.tools import prompt_user_at_start, stop
 
-from robozium.api.errors import ProjectBusyError, ProjectCancellationInProgressError
+from robozium.api.errors import (
+    ModelDoesNotFitError,
+    ProjectBusyError,
+    ProjectCancellationInProgressError,
+)
 from robozium.api.projects import Project
 from robozium.api.run_control import RunControl
 from robozium.api.run_events import RunEvents
@@ -136,7 +140,7 @@ def _minimal_api_agent_for_manager_test(
     )
 
 
-def _manager_endpoint(name: str) -> LLMEndpoint:
+def _manager_endpoint(name: str, *, max_context_tokens: int = 128_000) -> LLMEndpoint:
     from types import SimpleNamespace
 
     def forbidden():
@@ -148,6 +152,7 @@ def _manager_endpoint(name: str) -> LLMEndpoint:
         ),
         api_name="test",
         model_name=name,
+        max_context_tokens=max_context_tokens,
     )
 
 
@@ -194,6 +199,7 @@ def test_manager_builds_a_route_that_closes_over_its_run_state() -> None:
         class ProbeAgent:
             def __init__(self) -> None:
                 self.pipe = EventPipe()
+                self.messages: list[Message] = []
 
             def invoke(self) -> None:
                 waiting_for_change.set()
@@ -226,6 +232,61 @@ def test_manager_builds_a_route_that_closes_over_its_run_state() -> None:
 
     assert _wait_status(manager, run_id, {"completed"})["status"] == "completed"
     assert resolved_models == ["first", "second"]
+
+
+def test_manager_refuses_a_model_the_conversation_does_not_fit() -> None:
+    first = _manager_endpoint("first", max_context_tokens=1_000_000)
+    small = _manager_endpoint("small", max_context_tokens=100_000)
+    roomy = _manager_endpoint("roomy", max_context_tokens=200_000)
+    waiting = Event()
+    continue_run = Event()
+
+    def run_factory(
+        sandbox: Sandbox,
+        project_slug: str,
+        /,
+        *,
+        endpoint_getter: Callable[[], LLMEndpoint],
+        event_sinks: Sequence[EventSink],
+    ) -> Any:
+        class TalkativeAgent:
+            def __init__(self) -> None:
+                self.pipe = EventPipe()
+                # 70,000 tokens: over 60 % of 100,000, under 60 % of 200,000.
+                self.messages = [
+                    Message(role=Role.USER, content="x" * 40_000) for _ in range(7)
+                ]
+
+            def invoke(self) -> None:
+                waiting.set()
+                assert continue_run.wait(timeout=5.0)
+
+        del sandbox, project_slug, endpoint_getter, event_sinks
+        return BuiltAgents(agent=cast(Agent, TalkativeAgent()), background_agents=())
+
+    manager = RunManager(
+        deferred_deployment(run_factory),
+        definition=DeployableAgent(name="test"),
+        hub_name="TestHub",
+        default_orchestrator_endpoint=lambda: first,
+    )
+    run_id = manager.create(_project())
+    assert manager.start_run(run_id)
+    assert waiting.wait(timeout=5.0)
+
+    with pytest.raises(ModelDoesNotFitError) as refusal:
+        manager.replace_orchestrator_endpoint(run_id, small)
+    assert str(refusal.value) == (
+        "The conversation is about 70k tokens. small has room for 60k "
+        "(60 % of its 100k window). Choose a model with a larger window, "
+        "or start a new run."
+    )
+    assert manager.get_orchestrator_model_id(run_id) == first.dependency_id
+
+    manager.replace_orchestrator_endpoint(run_id, roomy)
+    assert manager.get_orchestrator_model_id(run_id) == roomy.dependency_id
+    continue_run.set()
+    assert _wait_status(manager, run_id, {"completed"})["status"] == "completed"
 
 
 def test_manager_names_the_run_attachment_folder_for_capabilities() -> None:
