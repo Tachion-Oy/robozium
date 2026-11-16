@@ -199,7 +199,6 @@ def test_manager_builds_a_route_that_closes_over_its_run_state() -> None:
         class ProbeAgent:
             def __init__(self) -> None:
                 self.pipe = EventPipe()
-                self.messages: list[Message] = []
 
             def invoke(self) -> None:
                 waiting_for_change.set()
@@ -249,19 +248,44 @@ def test_manager_refuses_a_model_the_conversation_does_not_fit() -> None:
         endpoint_getter: Callable[[], LLMEndpoint],
         event_sinks: Sequence[EventSink],
     ) -> Any:
+        def emit(event: object) -> None:
+            for sink in event_sinks:
+                sink(cast(Any, event))
+
+        def reply(tokens: int) -> MessageEvent:
+            message = Message(role=Role.ASSISTANT, content="{}", token_input=tokens)
+            return MessageEvent(message=message, sequence=0)
+
         class TalkativeAgent:
             def __init__(self) -> None:
                 self.pipe = EventPipe()
-                # 70,000 tokens: over 60 % of 100,000, under 60 % of 200,000.
-                self.messages = [
-                    Message(role=Role.USER, content="x" * 40_000) for _ in range(7)
-                ]
 
             def invoke(self) -> None:
+                emit(RunLifecycleEvent(kind="started", agent_name="root", sequence=0))
+                # The root's last model call: 95,000 tokens.
+                emit(reply(95_000))
+                # A delegate's own, smaller conversation does not count.
+                emit(
+                    RunLifecycleEvent(
+                        kind="started",
+                        agent_name="helper",
+                        sequence=0,
+                        parent_agent_name="root",
+                    )
+                )
+                emit(reply(2_000))
+                emit(
+                    RunLifecycleEvent(
+                        kind="stopped",
+                        agent_name="helper",
+                        sequence=0,
+                        parent_agent_name="root",
+                    )
+                )
                 waiting.set()
                 assert continue_run.wait(timeout=5.0)
 
-        del sandbox, project_slug, endpoint_getter, event_sinks
+        del sandbox, project_slug, endpoint_getter
         return BuiltAgents(agent=cast(Agent, TalkativeAgent()), background_agents=())
 
     manager = RunManager(
@@ -274,12 +298,13 @@ def test_manager_refuses_a_model_the_conversation_does_not_fit() -> None:
     assert manager.start_run(run_id)
     assert waiting.wait(timeout=5.0)
 
+    # 95,000 tokens do not fit 100,000 with 15 % to spare.
     with pytest.raises(ModelDoesNotFitError) as refusal:
         manager.replace_orchestrator_endpoint(run_id, small)
     assert str(refusal.value) == (
-        "The conversation is about 70k tokens. small has room for 60k "
-        "(60 % of its 100k window). Choose a model with a larger window, "
-        "or start a new run."
+        "The conversation is about 95k tokens. small has room for 85k "
+        "(its 100k window less a margin). Choose a model with a larger "
+        "window, or start a new run."
     )
     assert manager.get_orchestrator_model_id(run_id) == first.dependency_id
 
