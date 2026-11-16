@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## 0.6.7 - 2026-11-16
+
+- The agent is told to treat shell commands as a last resort. It uses the file
+  tools, the web skill and the PDF reader first, and proposes a shell command
+  only for what none of them can do, such as unpacking an archive or
+  base64-encoding a file. It does not delete, move or overwrite files through
+  the shell, or use it to get around a refusal.
+- Every shell command the agent proposes starts with a line saying in plain
+  words what it does, so the approval prompt shows that line above the
+  command. A command has one purpose, without loops or chains of separate
+  steps. The agent announces a job that needs several commands before the
+  first one, and does not propose a declined command again in another form.
+- Dark theme: **New Project**, **Start Here** and **Launch** are green
+  cut-corner buttons and the Edit screen's **Cancel** an amber one, matching
+  the light keys.
+- Light theme: the Edit screen no longer has a striped screen around the whole
+  project. Its Project, Tools and Skills groups stand as their own screens, as
+  they do in dark and in Environment.
+
 ## 0.6.6 - 2026-11-15
 
 - Shell commands the agent runs see only `PATH`, `LANG` and `HOME`, so the API
