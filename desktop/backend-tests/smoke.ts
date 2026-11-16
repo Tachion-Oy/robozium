@@ -1,7 +1,6 @@
 import assert from "node:assert/strict"
 import { execFileSync } from "node:child_process"
 import fs from "node:fs"
-import net from "node:net"
 import os from "node:os"
 import path from "node:path"
 import process from "node:process"
@@ -11,15 +10,13 @@ import { BackendController } from "../src/backend-controller.ts"
 import { backendEnvironment } from "../src/backend-layout.ts"
 import { loadOrCreateBackendProfile } from "../src/backend-profile.ts"
 import { platformEngine } from "../src/platform-engine.ts"
+import { freeApiPort } from "../tests/api-port.ts"
 
 test("desktop mock image starts rootless and retains projects in a new container after an app restart and shutdown", { timeout: 900_000 }, async t => {
 	const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "desktop-container-"))
 	const profile = path.join(temporary, "profile with spaces")
 	const source = path.join(temporary, "stage")
-	const server = net.createServer()
-	await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve))
-	const port = (server.address() as net.AddressInfo).port
-	await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+	const port = await freeApiPort()
 	const { project, runtime } = loadOrCreateBackendProfile(profile, "mock", String(port))
 	const podman = (args: string[]) => execFileSync("podman", args, { encoding: "utf8", timeout: 60_000 })
 	const launch = () => new BackendController({ profile, source, mode: "mock", port: String(port), engine: platformEngine() })
