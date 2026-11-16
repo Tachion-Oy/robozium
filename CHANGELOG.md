@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## 0.6.8 - 2026-11-17
+
+- A file search or other file command no longer fills the agent's view with
+  its intermediate steps. Only the final result stays, so one search over a
+  large project adds about 5,000 tokens instead of about 250,000 (RoboZ
+  0.18.0).
+- A failed model call shows a toast that names the model and the cause, for
+  example "The request to openrouter/z-ai/glm-5.3 failed: the provider account
+  does not have enough credit for it. Add credit or choose a model from
+  another provider, then send a message to continue." The causes it tells
+  apart are missing credit, a rejected API key, a rate limit, a conversation
+  too long for the model, the provider's content filter and an image the model
+  cannot take. The panel keeps the last output, and a reply continues the run
+  (RoboZ 0.18.0).
+- Switching to a model the conversation does not fit is refused with a toast,
+  for example "The conversation is about 125k tokens. gpt-oss-120b has room
+  for 111k (its 131k window less a margin). Choose a model with a larger
+  window, or start a new run." Switching while a specialist works is refused
+  too.
+- Compaction summarises what the model sees, so its request is no larger than
+  the conversation that triggered it (RoboZ 0.18.0).
+- One logged message holds at most 1,000,000 characters; a longer one is cut
+  and says how much was kept (RoboZ 0.18.0).
+
 ## 0.6.7 - 2026-11-16
 
 - The agent is told to treat shell commands as a last resort. It uses the file
