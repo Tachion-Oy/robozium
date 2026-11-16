@@ -22,6 +22,10 @@ class InvalidCapabilitySelection(ValueError):
     """The requested capability selection cannot be applied."""
 
 
+class ModelDoesNotFitError(ValueError):
+    """The run's conversation is too long for the requested model."""
+
+
 class EnvironmentConflictError(RuntimeError):
     """Saved settings changed or an imported package already occupies its destination."""
 
@@ -33,6 +37,7 @@ class EnvironmentImportNotFoundError(LookupError):
 __all__ = [
     "EnvironmentConflictError",
     "EnvironmentImportNotFoundError",
+    "ModelDoesNotFitError",
     "ProjectBusyError",
     "ProjectCancellationInProgressError",
     "RestartRequiredError",

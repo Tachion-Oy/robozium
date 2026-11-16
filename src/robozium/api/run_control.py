@@ -13,19 +13,26 @@ from types import MappingProxyType
 from uuid import UUID, uuid4
 
 from roboz.agent import Agent
-from roboz.llm import LLMEndpoint
+from roboz.llm import LLMEndpoint, estimate_conversation_tokens
 from roboz.models import Str, StrImage
 from roboz.runtime.events import EventSink, PipeEvent, RunLifecycleEvent
 from roboz.runtime.pipe import EventPipe
 
 from robozium.api.attachments import AttachmentInfo, RunAttachments, UploadedFile
+from robozium.api.errors import ModelDoesNotFitError
 from robozium.api.projects import Project
 from robozium.api.run_events import RunEvents
 from robozium.api.state import CapabilitySelection, ProjectRunItem, RunState, RunStatus
 from robozium.api.wait_registry import RunCancelled, WaitRegistry
 from robozium.hub.application import AttachmentSettings
+from robozium.hub.deployment import COMPACTION_THRESHOLD_PERCENT
 
 logger = logging.getLogger(__name__)
+
+
+def _thousands(tokens: int) -> str:
+    """Token counts as the context status shows them, such as 245k."""
+    return f"{round(tokens / 1000)}k"
 
 
 class RunControl:
@@ -55,6 +62,7 @@ class RunControl:
         self._cancel_requested = False
         self._cancel_background = False
         self._thread: threading.Thread | None = None
+        self._agent: Agent | None = None
         self._pipe: EventPipe | None = None
         self._background_pipes: tuple[EventPipe, ...] = ()
         self._background_threads: set[threading.Thread] = set()
@@ -94,7 +102,25 @@ class RunControl:
             return self._endpoint
 
     def replace_endpoint(self, endpoint: LLMEndpoint) -> None:
+        """Switch the run's model unless its conversation is too long for the new one.
+
+        Past the compaction threshold of the new model, compaction would start at
+        once and summarize with that model, which the conversation does not fit.
+        """
         with self._lock:
+            agent = self._agent
+            if agent is not None:
+                tokens = estimate_conversation_tokens(list(agent.messages))
+                window = endpoint.max_context_tokens
+                room = int(window * COMPACTION_THRESHOLD_PERCENT / 100)
+                if tokens >= room:
+                    raise ModelDoesNotFitError(
+                        f"The conversation is about {_thousands(tokens)} tokens. "
+                        f"{endpoint.model_name} has room for {_thousands(room)} "
+                        f"({COMPACTION_THRESHOLD_PERCENT:g} % of its "
+                        f"{_thousands(window)} window). Choose a model with a "
+                        "larger window, or start a new run."
+                    )
             self._endpoint = endpoint
 
     @property
@@ -203,6 +229,7 @@ class RunControl:
     def attach(self, agents: tuple[Agent, tuple[Agent, ...]]) -> bool:
         agent, background_agents = agents
         with self._lock:
+            self._agent = agent
             self._pipe = agent.pipe
             self._background_pipes = tuple(
                 background.pipe for background in background_agents
@@ -259,6 +286,7 @@ class RunControl:
         )
         self._completed_at = time.time()
         self._error = error if self._status == RunStatus.FAILED else None
+        self._agent = None
         self._pipe = None
         self._can_interrupt = False
         self._upload_results.clear()
