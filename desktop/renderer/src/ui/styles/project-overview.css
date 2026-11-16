@@ -11,22 +11,31 @@
   }
 }
 
+/* The large buttons under the overview and the launch chooser. Their dress is
+   the theme's button (hud-button.css); the label is lettering art. */
 .agent-hud__start {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   align-self: center;
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid transparent;
+  padding: 0.7rem 1.6rem;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
 }
 
-.agent-hud__panel-action.agent-hud__start {
-  font-size: 1.55rem;
+.agent-hud__start .display-art {
+  font-size: 0.95em;
 }
 
-.agent-hud__panel-action.agent-hud__start:not(:disabled):hover,
-.agent-hud__panel-action.agent-hud__start:not(:disabled):focus-visible {
-  color: color-mix(in oklab, var(--term-lime) clamp(0%, 45% * var(--tune-text, 1), 100%), white);
-  transform: none;
+.agent-hud__start:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .agent-hud__project-input {
@@ -298,11 +307,6 @@
   gap: 1rem;
 }
 
-.agent-hud__capability-actions .agent-hud__start:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
 /* Light theme */
 
 :root[data-theme="light"] .agent-hud__project-view [class*="text-shadow"] {
@@ -324,10 +328,6 @@
   color: var(--hud-status-opening);
   text-shadow: none;
 }
-:root[data-theme="light"] .agent-hud__start {
-  font-size: 1rem;
-}
-
 /* The overview is a screen, as the run view's panels are (hud-panels.css), and
    wears the same stripes. */
 :root[data-theme="light"] .agent-hud__project-view {
@@ -344,9 +344,10 @@
   background-blend-mode: multiply, normal;
   box-shadow: var(--hud-screen-shadow);
 }
-/* Environment and Dependencies sit on the HUD itself: an inner panel would leave
-   their inputs on a near-matching background. */
-:root[data-theme="light"] .agent-hud__project-view.agent-hud__settings-view {
+/* Environment, Dependencies and the launch chooser sit on the HUD itself, as in
+   dark: their sections are the screens, and an outer one would leave their
+   inputs on a near-matching background. */
+:root[data-theme="light"] .agent-hud__project-view:is(.agent-hud__settings-view, .agent-hud__capability-selector) {
   padding: 0;
   border: 0;
   border-radius: 0;

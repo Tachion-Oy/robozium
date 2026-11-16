@@ -64,9 +64,10 @@
    clipped, so its own shadow is the halo: a shadow follows a rounded box, and
    1.7 times the cut puts the curve on the middle of each cut corner and nowhere
    outside the octagon. A filter would be blurred again whenever a row is redrawn.
-   The enlarged image's two controls wear this dress too; they are not given the
-   buttons' class, since light keeps their plain look. */
-:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__image-toolbar > :is(a, button)) {
+   The large start buttons and the enlarged image's two controls wear this dress
+   too; the image's are not given the buttons' class, since light keeps their
+   plain look. */
+:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__start, .agent-hud__image-toolbar > :is(a, button)) {
   --ring-cut: 0.42rem;
   /* Wider than a hairline: at a zoom between whole pixels 1px comes out uneven. */
   --ring-width: 1.5px;
@@ -76,19 +77,23 @@
   position: relative;
   z-index: 0;
   border-radius: calc(var(--ring-cut) * 1.7);
-  /* The label is centred on its capitals: its line is trimmed to their height
-     and the padding gives the trimmed space back. Untrimmed, the room a line
-     keeps for descenders leaves the capitals sitting high. */
-  padding-block: calc(0.2rem + (1lh - 1cap) / 2);
   color: color-mix(in oklab, var(--accent) clamp(0%, 60% * var(--tune-text, 1), 100%), white);
-  text-box: trim-both cap alphabetic;
   box-shadow:
     0 0 2px color-mix(in oklab, var(--accent) calc(45% * var(--halo-lift)), transparent),
     0 0 10px color-mix(in oklab, var(--accent) calc(24% * var(--halo-lift)), transparent),
     inset 0 0 6px color-mix(in oklab, var(--accent) calc(12% * var(--halo-lift)), transparent);
 }
 
-:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__image-toolbar > :is(a, button))::before {
+/* A label in letters is centred on its capitals: its line is trimmed to their
+   height and the padding gives the trimmed space back. Untrimmed, the room a line
+   keeps for descenders leaves the capitals sitting high. A start button's label
+   is lettering art, already centred, and keeps its own padding. */
+:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__image-toolbar > :is(a, button)) {
+  padding-block: calc(0.2rem + (1lh - 1cap) / 2);
+  text-box: trim-both cap alphabetic;
+}
+
+:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__start, .agent-hud__image-toolbar > :is(a, button))::before {
   content: "";
   position: absolute;
   /* Out over the button's own 1px border. */
@@ -104,14 +109,14 @@
   );
 }
 
-:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__image-toolbar > :is(a, button))::after {
+:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__start, .agent-hud__image-toolbar > :is(a, button))::after {
   inset: -1px;
   background: var(--edge);
 }
 
 /* The cut-corner outline: an octagon and one inset by the edge's width, as a
    single even-odd shape. The panels' labels (hud-panels.css) wear it too. */
-:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__image-toolbar > :is(a, button))::after,
+:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__start, .agent-hud__image-toolbar > :is(a, button))::after,
 .agent-hud__panel-label::after {
   /* Where the inner outline's cut meets its straight side, for an even width. */
   --ring-inner: calc(var(--ring-cut) + var(--ring-width) * 0.4142);
@@ -151,7 +156,7 @@
 }
 
 /* Lit: under the pointer, focused from the keyboard, or armed to delete. */
-:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__image-toolbar > :is(a, button)):is(.agent-hud__row-delete--confirm, :not(:disabled, .agent-hud__capability-static):hover, :not(:disabled):focus-visible) {
+:root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__start, .agent-hud__image-toolbar > :is(a, button)):is(.agent-hud__row-delete--confirm, :not(:disabled, .agent-hud__capability-static):hover, :not(:disabled):focus-visible) {
   --edge: color-mix(in oklab, var(--accent) 88%, white);
   --fill: color-mix(in oklab, var(--accent) 30%, transparent);
   --halo-lift: 1.6;
@@ -162,6 +167,12 @@
     0 0 12px color-mix(in oklab, var(--accent) 55%, transparent),
     0 0 24px color-mix(in oklab, var(--accent) 38%, transparent),
     0 0 40px color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+/* A start button's label is lettering art, a shape that a text shadow does not
+   reach: lit, it glows by a shadow of its own. */
+:root[data-theme="dark"] .agent-hud__start:not(:disabled):is(:hover, :focus-visible) .display-art {
+  filter: drop-shadow(0 0 0.28em var(--accent));
 }
 
 /* A switch that is on: filled in its colour with dark letters, in a halo no
@@ -177,15 +188,24 @@
     0 0 20px color-mix(in oklab, var(--accent) 70%, transparent);
 }
 
-/* Light buttons that have no colour of their own in dark name one here: the large
-   start buttons are green; the launch chooser's Cancel, which stands beside its
-   Launch, and the enlarged picture's Close are amber; a toast's buttons are the
-   toast's. */
-:root[data-theme="light"] :is(.agent-hud__start, .agent-hud__status-view .agent-hud__panel-action) {
+/* The large start buttons are green in both themes; the launch chooser's Cancel,
+   which stands beside its Launch, is amber. */
+.agent-hud__start {
   --accent: var(--term-green);
 }
 
-:root[data-theme="light"] :is(.agent-hud__start + .agent-hud__start, .agent-hud__image-toolbar > button) {
+.agent-hud__start + .agent-hud__start {
+  --accent: var(--term-amber);
+}
+
+/* Light buttons that have no colour of their own in dark name one here: a status
+   view's actions are green; the enlarged picture's Close is amber; a toast's
+   buttons are the toast's. */
+:root[data-theme="light"] .agent-hud__status-view .agent-hud__panel-action {
+  --accent: var(--term-green);
+}
+
+:root[data-theme="light"] .agent-hud__image-toolbar > button {
   --accent: var(--term-amber);
 }
 
