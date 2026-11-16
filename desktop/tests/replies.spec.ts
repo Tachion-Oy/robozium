@@ -2,6 +2,7 @@ import { expect, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { test, json, project, prepareRun, snapshot, start, output, view, replyBox, launchButton, runStatus, delta, emit, message } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
+import { toast } from "./native"
 
 const waiting = (prompt = "p1", overrides: Record<string, unknown> = {}) =>
 	snapshot({ status: "awaiting_user_input", current_prompt_id: prompt, current_prompt: `Question ${prompt}`, ...overrides })
@@ -34,6 +35,33 @@ test("Enter and Send post one trimmed reply; Shift+Enter and IME composition do 
 	json(pending!, { ok: true })
 	await expect(editor).toHaveValue("")
 	expect(replies(backend)).toHaveLength(1)
+})
+
+test("a wait with an empty prompt keeps the last output, shows its cause as a toast and takes a reply", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	const history = [message(1, "Latest output")]
+	let current = waiting("p1", { message_trace: history })
+	backend.handlers.set("GET /run/run-one", response => json(response, current))
+	const sent: unknown[] = []
+	backend.handlers.set("POST /run/run-one/reply", (response, body) => {
+		sent.push(body)
+		current = snapshot({ message_trace: history })
+		json(response, { ok: true })
+	})
+	await start(page, backend)
+	await replyBox(page).fill("Go on")
+	await send(page).click()
+	emit(run.streams[0], delta(2, "Half an ans", 0))
+	await expect(output(page)).toHaveText("Half an ans")
+	// The model call fails: the backend explains it in a notice and waits with an empty prompt.
+	const cause = "The request to openrouter/z-ai/glm-5.3 failed: the provider account does not have enough credit for it."
+	emit(run.streams[0], { type: "runtime_event", sequence: 3, payload: { category: "llm", kind: "failed", level: "error", agent_name: "orchestrator", message: cause } })
+	current = waiting("p2", { current_prompt: "", message_trace: history })
+	await expect(toast(page, "Runtime error")).toContainText(cause)
+	await expect(output(page)).toHaveText("Latest output")
+	await replyBox(page).fill("retry")
+	await replyBox(page).press("Enter")
+	await expect.poll(() => sent).toEqual([{ prompt_id: "p1", content: "Go on" }, { prompt_id: "p2", content: "retry" }])
 })
 
 test("live output after an acknowledged reply streams instead of waiting for the completed message", async ({ desktop: { page }, backend }) => {
