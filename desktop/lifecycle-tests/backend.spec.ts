@@ -499,6 +499,34 @@ test("UI starts a project run, answers its prompts and returns to the overview a
 	await closeWindow(app)
 })
 
+test("a failed model call shows its cause as a toast, keeps the last message in the panel and continues after a reply", async ({ runtime }) => {
+	const { profile, port } = runtime
+	const { app, page } = await launchConnected(runtime)
+	await installTestClient(page, `http://127.0.0.1:${port}`)
+	await page.evaluate(() => window.testApi.request("/projects", { method: "POST", json: { name: "Failing model" } }))
+	// The mock backend fails one model call, as a rejected key, for a project carrying this marker.
+	await writeFile(path.join(profile, "mock/hub/projects/failing-model/.mock-scenario"), "llm-error")
+	await page.reload()
+	await page.locator(".agent-hud__project-row", { hasText: "failing-model" }).getByRole("button", { name: "Launch", exact: true }).click()
+	const output = page.locator(".agent-hud__replyBox--agent .agent-hud__replyBox-scroll")
+	const reply = page.getByRole("textbox", { name: "Reply text", exact: true })
+	const status = page.getByRole("status", { name: "Run status" })
+	const question = "About to simulate an LLM failure. Reply to continue."
+	await expect(output).toHaveText(question)
+	// The message arrives before the snapshot that carries its prompt; a reply needs the prompt.
+	await expect(status).toContainText("Awaiting input")
+	await reply.fill("Go on")
+	await reply.press("Enter")
+	// The cause is a toast only. The run waits without a prompt of its own, so the panel returns to the last message.
+	await expect(toast(page, "Runtime error")).toContainText("the provider rejected the API key")
+	await expect(output).toHaveText(question)
+	await expect(status).toContainText("Awaiting input")
+	await reply.fill("retry")
+	await reply.press("Enter")
+	await expect(page.locator(".agent-hud__project-row", { hasText: "failing-model" })).toContainText("DORMANT")
+	await closeWindow(app)
+})
+
 test("Cancel in the HUD cancels the run and returns to the overview", async ({ runtime }) => {
 	const { app, page } = await launchConnected(runtime)
 	let cancels = 0

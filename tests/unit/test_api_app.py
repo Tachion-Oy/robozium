@@ -1951,3 +1951,44 @@ def test_active_model_api_switch_changes_next_request_and_isolates_runs(
     finally:
         assert manager.shutdown()
         client.close()
+
+
+def test_failed_model_call_is_a_notice_and_the_run_waits_without_prompt_text(
+    tmp_path: Path,
+) -> None:
+    hub = configured_hub(load_hub(start=tmp_path), deployment=mock_deployment)
+    application = create_app(deployment=hub)
+    client = TestClient(application)
+    manager = application.state.run_manager
+    run_id = _create_run(client, {"project": "refused"}).json()["run_id"]
+    (hub.project("refused").root / ".mock-scenario").write_text("llm-error")
+    events: list[object] = []
+    manager.subscribe_event_listener(run_id, events.append)
+
+    def wait_for_prompt(text: str) -> None:
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            state = client.get(f"/run/{run_id}").json()
+            if state["status"] == "awaiting_user_input" and state["current_prompt"] == text:
+                return
+            assert state["status"] not in ("failed", "completed"), state
+            time.sleep(0.02)
+        raise AssertionError(f"run did not wait with prompt {text!r}")
+
+    assert manager.start_run(run_id)
+    wait_for_prompt("About to simulate an LLM failure. Reply to continue.")
+    assert client.post(f"/run/{run_id}/reply", json={"content": "go"}).status_code == 200
+
+    # The scripted model call fails: the cause is a notice, and the prompt has no text.
+    wait_for_prompt("")
+    notices = [
+        event.message
+        for event in events
+        if isinstance(event, RuntimeEvent) and event.level == "error"
+    ]
+    assert len(notices) == 1
+    assert "the provider rejected the API key" in notices[0]
+    assert "Invalid API key" not in notices[0]
+
+    assert client.post(f"/run/{run_id}/reply", json={"content": "retry"}).status_code == 200
+    _wait_for_status(client, run_id, "completed")
