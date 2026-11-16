@@ -80,7 +80,8 @@ export function buildMessageList(
 ): HudMessageList {
 	const messages: HudMessage[] = [...completed]
 	let activePromptId: string | null = null
-	if (prompt) {
+	// A wait without text, as after a failed model call, leaves the latest output in view.
+	if (prompt && prompt.text !== "") {
 		const match = [...completed].reverse().find(message => message.source === "message" && message.text === prompt.text)
 		activePromptId = match?.id ?? `prompt:${prompt.id}`
 		if (!match) messages.push({ id: activePromptId, text: prompt.text, source: "prompt" })
