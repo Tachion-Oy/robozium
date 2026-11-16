@@ -3,7 +3,6 @@
 from collections.abc import Callable, Sequence
 from dataclasses import replace
 from pathlib import Path
-from typing import Final
 
 from roboz.deployment import (
     Capability,
@@ -18,9 +17,6 @@ from roboz.shed.capabilities import Compactification, SafeScripts, ShellCommands
 from roboz.shed.sandbox import Sandbox
 
 from robozium.hub.skills import robozium as robozium_skill
-
-# Share of a model's context window at which the conversation is compacted.
-COMPACTION_THRESHOLD_PERCENT: Final[float] = 60.0
 
 
 def robozium(
@@ -58,7 +54,7 @@ def robozium(
             label=SkillLabel("robozium", loading=SkillLoading.AUTOMATIC),
             value=robozium_skill,
         ),
-        Compactification(threshold_percent=COMPACTION_THRESHOLD_PERCENT),
+        Compactification(threshold_percent=60.0),
         SafeScripts(
             label=ToolLabel("safe_scripts", selectable=True),
             scripts_dir=scripts_dir,

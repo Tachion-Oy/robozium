@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
 from config_support import write_config
@@ -25,10 +26,11 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from roboz import Agent
 from roboz.llm import LLMEndpoint, MockLLMEndpoint, MockTranscriptionEndpoint
-from roboz.models import Empty, Message, Str
+from roboz.models import Empty, Message, Role, Str
 from roboz.runtime.events import (
     EventSink,
     MessageEvent,
+    RunLifecycleEvent,
     RuntimeEvent,
     ScriptOutputEvent,
 )
@@ -343,62 +345,61 @@ def test_model_selection_is_snapshotted_and_scoped_per_run(tmp_path: Path) -> No
     )
 
 
-def _long_conversation_factory(
-    sandbox: Sandbox,
-    project_slug: str,
-    /,
-    *,
-    endpoint_getter: Callable[[], LLMEndpoint],
-    event_sinks: Sequence[EventSink],
-) -> BuiltAgents:
-    del sandbox, project_slug, endpoint_getter
-    return _root_bundle(
-        Agent(
-            event_sinks=event_sinks,
-            name="api_long_conversation_test",
-            tools=[entry, stop],
-            system_prompt="API HTTP test agent.",
-            default_tools=[prompt_user_at_start("m")],
-            custom_prompt_user_tool=None,
-            agent_endpoint=MockLLMEndpoint(
-                responses=[{"action": "stop", "rationale": "done", "value": "ok"}]
-            ),
-            # About 100,000 tokens: over 60 % of gpt-oss-120b's 131,072.
-            initial_messages=["x" * 40_000] * 10,
-        )
-    )
-
-
 def test_model_switch_is_refused_when_the_conversation_does_not_fit(
     tmp_path: Path,
 ) -> None:
-    application = create_app(
-        deployment=_test_deployment(_long_conversation_factory, tmp_path)
-    )
+    reported = Event()
+    release = Event()
+
+    def factory(
+        sandbox: Sandbox,
+        project_slug: str,
+        /,
+        *,
+        endpoint_getter: Callable[[], LLMEndpoint],
+        event_sinks: Sequence[EventSink],
+    ) -> BuiltAgents:
+        class LongRunAgent:
+            def __init__(self) -> None:
+                self.pipe = EventPipe()
+
+            def invoke(self) -> None:
+                # The run's last model call took 125,000 input tokens.
+                message = Message(role=Role.ASSISTANT, content="{}", token_input=125_000)
+                for sink in event_sinks:
+                    sink(RunLifecycleEvent(kind="started", agent_name="root", sequence=0))
+                    sink(MessageEvent(message=message, sequence=0))
+                reported.set()
+                assert release.wait(timeout=10.0)
+
+        del sandbox, project_slug, endpoint_getter
+        return _root_bundle(cast(Agent, LongRunAgent()))
+
+    application = create_app(deployment=_test_deployment(factory, tmp_path))
     client = TestClient(application)
     run_id = _create_run(client).json()["run_id"]
     assert application.state.run_manager.start_run(run_id)
-    _wait_for_status(client, run_id, "awaiting_user_input")
+    assert reported.wait(timeout=10.0)
 
     refused = client.post(
         "/models", json={"model_id": "model:cerebras:gpt-oss-120b", "run_id": run_id}
-    )
-
-    assert refused.status_code == 409
-    # The token count includes the agent's own instructions, so only its frame is fixed.
-    assert refused.json()["detail"].startswith("The conversation is about ")
-    assert "gpt-oss-120b has room for 79k (60 % of its 131k window)" in (
-        refused.json()["detail"]
-    )
-    assert (
-        client.get(f"/models?run_id={run_id}").json()["selected_model_id"]
-        == "model:openrouter:z-ai/glm-5.3"
     )
     fits = client.post(
         "/models",
         json={"model_id": "model:openrouter:z-ai/glm-5.3-flash", "run_id": run_id},
     )
+    release.set()
+
+    assert refused.status_code == 409
+    assert refused.json() == {
+        "detail": (
+            "The conversation is about 125k tokens. gpt-oss-120b has room for "
+            "111k (its 131k window less a margin). Choose a model with a larger "
+            "window, or start a new run."
+        )
+    }
     assert fits.status_code == 200
+    assert fits.json()["selected_model_id"] == "model:openrouter:z-ai/glm-5.3-flash"
 
 
 def test_models_returns_not_found_for_unknown_run(tmp_path: Path) -> None:
