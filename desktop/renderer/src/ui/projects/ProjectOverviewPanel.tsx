@@ -301,7 +301,7 @@ export function ProjectOverviewPanel({
 					type="button"
 					onClick={locked ? onStartHere : onNewProject}
 					disabled={navigationPending}
-					className="agent-hud__panel-action agent-hud__start">
+					className="agent-hud__start">
 					<DisplayArt name={locked ? "start-here" : "new-project"} />
 				</button>
 			</div>
