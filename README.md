@@ -194,7 +194,9 @@ the run pauses on a prompt showing the exact command, and only a `yes` or `y`
 reply runs it. Commands run inside the backend container with the hub as
 working directory, not on your computer: they see the hub and the app's own
 data, not your other files or programs. The container has everyday tools such
-as git, curl, zip, jq, Python and LibreOffice. New optional capabilities
+as git, curl, zip, jq, Python and LibreOffice. The agent is told to propose a
+shell command only when no other tool can do the job, and to start each command
+with a line saying what it does. New optional capabilities
 start unchecked, and newly selected skills follow their declared loading mode.
 Mock mode offers harmless **mock information** and **mock guidance** examples.
 
