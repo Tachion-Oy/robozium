@@ -1,10 +1,9 @@
 import type { ReactNode } from "react"
 
-export const AgentActivityState = {
-	Working: "working",
-	AwaitingInput: "awaiting-input",
-} as const
-export type AgentActivityState = typeof AgentActivityState[keyof typeof AgentActivityState]
+export enum AgentActivityState {
+	Working = "working",
+	AwaitingInput = "awaiting-input",
+}
 
 /**
  * The Robozium mark in the current text colour, so the activity styles colour it.

@@ -15,37 +15,46 @@ export const RunFrameKind = {
 	RuntimeNotice: "runtime_notice",
 } as const
 
-export const MessageRole = {
-	Assistant: "assistant", User: "user", System: "system", Error: "error",
-} as const
-export type MessageRole = typeof MessageRole[keyof typeof MessageRole]
+export enum MessageRole {
+	Assistant = "assistant",
+	User = "user",
+	System = "system",
+	Error = "error",
+}
 
 /** Severity the runtime attaches to each of its events. */
-export const RuntimeLevel = { Debug: "debug", Info: "info", Warning: "warning", Error: "error" } as const
-export type RuntimeLevel = typeof RuntimeLevel[keyof typeof RuntimeLevel]
+export enum RuntimeLevel {
+	Debug = "debug",
+	Info = "info",
+	Warning = "warning",
+	Error = "error",
+}
 
-export const LifecyclePhase = { Started: "started", Stopped: "stopped" } as const
-export type LifecyclePhase = typeof LifecyclePhase[keyof typeof LifecyclePhase]
-export const LifecycleStatus = {
-	Running: "running", Completed: "completed", Failed: "failed", Cancelled: "cancelled",
-} as const
-export type LifecycleStatus = typeof LifecycleStatus[keyof typeof LifecycleStatus]
+export enum LifecyclePhase {
+	Started = "started",
+	Stopped = "stopped",
+}
+export enum LifecycleStatus {
+	Running = "running",
+	Completed = "completed",
+	Failed = "failed",
+	Cancelled = "cancelled",
+}
 /** Lifecycle payload fields shown in the message log banner, in wire order. */
 export const LIFECYCLE_DETAIL_KEYS = [
 	"parent_agent_name", "status", "api_name", "model_name", "max_context_tokens", "temperature",
 ] as const
 export type LifecycleDetails = Readonly<Partial<Record<typeof LIFECYCLE_DETAIL_KEYS[number], string | number | null>>>
 
-export const RunStatus = {
-	Queued: "queued",
-	Running: "running",
-	AwaitingUserInput: "awaiting_user_input",
-	Cancelling: "cancelling",
-	Completed: "completed",
-	Failed: "failed",
-	Cancelled: "cancelled",
-} as const
-export type RunStatus = typeof RunStatus[keyof typeof RunStatus]
+export enum RunStatus {
+	Queued = "queued",
+	Running = "running",
+	AwaitingUserInput = "awaiting_user_input",
+	Cancelling = "cancelling",
+	Completed = "completed",
+	Failed = "failed",
+	Cancelled = "cancelled",
+}
 export const runLabels: Record<RunStatus, string> = {
 	[RunStatus.Queued]: "Queued",
 	[RunStatus.Running]: "Running",
