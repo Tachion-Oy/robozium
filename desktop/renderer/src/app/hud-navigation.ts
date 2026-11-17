@@ -11,13 +11,11 @@ export type LaunchDraft = {
 }
 
 export type HudNavigation = {
-	runId: string | null
 	screen: HudScreen
 	launch: LaunchDraft | null
 }
 
 export type HudNavigationEvent =
-	| { type: "reset"; runId: string | null }
 	| { type: "screen_selected"; screen: HudScreen }
 	| { type: "launch_opened"; project: string | null }
 	| { type: "launch_changed"; change: Partial<Pick<LaunchDraft, "name" | "selection">> }
@@ -25,9 +23,7 @@ export type HudNavigationEvent =
 	| { type: "launch_renamed"; from: string; project: string }
 	| { type: "launch_closed" }
 
-export function initialHudNavigation(runId: string | null): HudNavigation {
-	return { runId, screen: runId ? "run" : "projects", launch: null }
-}
+export const initialHudNavigation: HudNavigation = { screen: "projects", launch: null }
 
 /** Draft lifetime follows navigation actions, independently of mounted screens. */
 export function reduceHudNavigation(
@@ -35,8 +31,6 @@ export function reduceHudNavigation(
 	event: HudNavigationEvent,
 ): HudNavigation {
 	switch (event.type) {
-		case "reset":
-			return initialHudNavigation(event.runId)
 		case "screen_selected":
 			return event.screen === "launch" && !state.launch
 				? state

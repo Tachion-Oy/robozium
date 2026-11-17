@@ -51,7 +51,7 @@ interface AppProps {
 }
 
 export function App({ client, connected, covered, operating, backend }: AppProps) {
-	const [navigation, navigate] = useReducer(reduceHudNavigation, null, initialHudNavigation)
+	const [navigation, navigate] = useReducer(reduceHudNavigation, initialHudNavigation)
 	const [focusRunEditor, setFocusRunEditor] = useState(false)
 	const runSession = useRunSession(client)
 	const messageLog = useMessageLog()
