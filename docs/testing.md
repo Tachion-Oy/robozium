@@ -210,7 +210,8 @@ They cover status rows and per-status actions, three-second polling on every
 screen and through failed reads with an immediate read when the overview opens,
 New Project's single creation
 followed by the capability save and run creation, a failed launch keeping the
-selector draft and reusing the created project, Edit restoring saved choices, Rename saving on Enter and reporting a refusal,
+selector draft and reusing the created project, Edit restoring saved choices, a skill stepping
+through off, always on and on demand and launching with the chosen loading, Rename saving on Enter and reporting a refusal,
 Escape and Cancel, inline capability load errors with Retry, rows that are not
 buttons, Open on active runs and the current one, cancel and delete settling through listings
 with their refusal and failure alerts, and long names in both themes at

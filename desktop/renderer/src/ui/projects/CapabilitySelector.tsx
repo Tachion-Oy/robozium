@@ -6,9 +6,9 @@
 import { useEffect, useRef, useState, type ComponentProps } from "react"
 import { DisplayArt } from "../branding/DisplayArt"
 import type { CapabilitiesState } from "../../capabilities/useCapabilities"
-import { resolveCapabilitySelection } from "../../capabilities/capabilities"
+import { CapabilityState, resolveCapabilitySelection } from "../../capabilities/capabilities"
 import type { LaunchDraft } from "../../app/hud-navigation"
-import type { CapabilitySelection, CapabilityView } from "../../capabilities/capabilities-api"
+import type { CapabilitySelection, CapabilityView, SkillLoading } from "../../capabilities/capabilities-api"
 import { CapabilityItem } from "../hud/CapabilityItem"
 import { HudBadge } from "../hud/HudBadge"
 import { HudButton } from "../hud/HudButton"
@@ -29,6 +29,20 @@ const CAPABILITY_GROUPS = [
 	{ label: "Defaults", selectable: false },
 	{ label: "Selectable", selectable: true },
 ] as const
+
+/** What the selection holds for a capability; false when it is off. */
+function chosen(selection: CapabilitySelection | null, name: string): boolean | SkillLoading {
+	if (selection === null || !Object.hasOwn(selection, name)) return false
+	return selection[name]
+}
+
+/** A selectable capability is as chosen; a fixed one is as declared. */
+function capabilityState(capability: CapabilityView, selection: CapabilitySelection | null): CapabilityState {
+	const choice = capability.selectable ? chosen(selection, capability.name) : capability.loading ?? true
+	if (choice === false) return CapabilityState.Off
+	if (choice === "on_demand") return CapabilityState.OnDemand
+	return CapabilityState.On
+}
 
 export function CapabilitySelector({
 	draft: { project, name, selection: draftSelection },
@@ -55,14 +69,15 @@ export function CapabilitySelector({
 		onSubmit(resolveCapabilitySelection(catalog, currentSelection))
 	}
 
+	// A tool is off or on. A skill steps from off to its declared loading, to the other loading, then off.
 	const handleCapabilityToggle = ({ name, loading }: CapabilityView) => {
-		const nextSelection = {
-			...currentSelection,
-			[name]: initialSelection && Object.hasOwn(initialSelection, name)
-				? initialSelection[name]
-				: loading ?? true,
-		}
-		if (currentSelection && Object.hasOwn(currentSelection, name) && currentSelection[name]) {
+		const nextSelection = { ...currentSelection }
+		const choice = chosen(currentSelection, name)
+		if (choice === false) {
+			nextSelection[name] = loading ?? true
+		} else if (loading !== null && choice === loading) {
+			nextSelection[name] = loading === "automatic" ? "on_demand" : "automatic"
+		} else {
 			delete nextSelection[name]
 		}
 		onChange({ selection: nextSelection })
@@ -84,6 +99,11 @@ export function CapabilitySelector({
 			<h2 ref={title} tabIndex={-1} className="text-center">
 				{project === null ? "New Project" : `Project: ${project}`}
 			</h2>
+			<ul aria-label="Chip colours" className="agent-hud__capability-legend flex flex-wrap justify-center gap-x-6 gap-y-1">
+				<li data-lamp={CapabilityState.Off}>Off</li>
+				<li data-lamp={CapabilityState.OnDemand}>On demand</li>
+				<li data-lamp={CapabilityState.On}>Always on</li>
+			</ul>
 			<div className="agent-hud__table-scroll min-h-0 flex-1 overflow-auto px-3 [scrollbar-gutter:stable]">
 				<div className="agent-hud__sections pb-4">
 					<section aria-label="Project" className="agent-hud__panel agent-hud__section">
@@ -165,7 +185,7 @@ export function CapabilitySelector({
 												key={capability.name}
 												capability={capability}
 												selection={{
-													checked: !capability.selectable || Boolean(currentSelection && Object.hasOwn(currentSelection, capability.name) && currentSelection[capability.name]),
+													state: capabilityState(capability, currentSelection),
 													disabled: disabled || !capability.selectable,
 													onToggle: () => handleCapabilityToggle(capability),
 												}}
