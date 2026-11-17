@@ -2,8 +2,7 @@
 // props from BackendStartup. A failure shows as a toast over it, so the loader never
 // moves, and reduced motion requested during the introduction settles it.
 import { useEffect, useState, type ReactNode } from "react"
-import { AgentActivityState } from "../run/run-view"
-import { AgentIndicator } from "../branding/RoboziumMark"
+import { AgentActivityState, AgentIndicator } from "../branding/RoboziumMark"
 import { TerminalBackdrop } from "../terminal/TerminalBackdrop"
 import { IntroStream, PlaceholderLog } from "../terminal/demo/DemoLog"
 import type { StartupScreenMode } from "../../backend/useStartupScreen"

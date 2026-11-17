@@ -28,7 +28,7 @@ export function HudCopyControls({
 	const targets: CopyTextButtonProps[] = [
 		{
 			copyKey: agentMessage?.id ?? "",
-			content: !agentMessage || agentMessage.indicator ? "" : agentMessage.content,
+			content: !agentMessage || agentMessage.working ? "" : agentMessage.text,
 			target: "agent output",
 			reverseIcon: true,
 		},

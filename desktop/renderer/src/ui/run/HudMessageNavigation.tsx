@@ -1,11 +1,9 @@
-// Types come from ./run-view, and the Robozium mark replaces the "A".
-import type {
-	AgentActivityState,
-	HudMessageNavigationDirection,
-} from "./run-view"
+// The Robozium mark replaces the "A".
 import { MessageWedge } from "./MessageWedge"
-import { AgentIndicator } from "../branding/RoboziumMark"
+import { AgentIndicator, type AgentActivityState } from "../branding/RoboziumMark"
 import { HudEdgeButton } from "../hud/HudEdgeButton"
+
+export type HudMessageNavigationDirection = "first" | "previous" | "next" | "latest"
 
 export type HudMessageNavigationModel = {
 	agentActivityState: AgentActivityState
