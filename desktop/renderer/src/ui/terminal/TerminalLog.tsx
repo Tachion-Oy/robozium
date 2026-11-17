@@ -50,8 +50,11 @@ export function TerminalLog({
 		if (!box) return
 		const content = (box.firstElementChild ?? box) as HTMLElement
 		const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)")
-		// The row being read while scrolled up, and where it sat on screen.
-		let anchor: { row: Element; top: number } | null = null
+		// The row being read while scrolled up, and how far below the box's top edge
+		// it sat. Measured from the box, so the box itself may move on screen.
+		let anchor: { row: Element; offset: number } | null = null
+		// Where the last correction below left the scroll position.
+		let correctedScrollTop: number | null = null
 		let slide: Animation | null = null
 
 		const rememberAnchor = () => {
@@ -63,10 +66,16 @@ export function TerminalLog({
 			for (const row of content.children) {
 				const rect = row.getBoundingClientRect()
 				if (rect.bottom > top) {
-					anchor = { row, top: rect.top }
+					anchor = { row, offset: rect.top - top }
 					return
 				}
 			}
+		}
+
+		// A correction scrolls too. Only the user's own scrolling picks a new reading position.
+		const handleScroll = () => {
+			if (box.scrollTop === correctedScrollTop) return
+			rememberAnchor()
 		}
 
 		const preserveScrollPosition = () => {
@@ -79,8 +88,11 @@ export function TerminalLog({
 			// Scrolled up: rows around the view change height (appends, the
 			// newest row typing out); keep the row being read where it is.
 			if (anchor?.row.isConnected) {
-				box.scrollTop += anchor.row.getBoundingClientRect().top - anchor.top
-				rememberAnchor()
+				const offset = anchor.row.getBoundingClientRect().top - box.getBoundingClientRect().top
+				box.scrollTop += offset - anchor.offset
+				// The browser rounds the scroll position. The remembered offset stays as it
+				// was, so the next correction makes up for the rounding instead of adding to it.
+				correctedScrollTop = box.scrollTop
 				return
 			}
 			if (grown <= 0 || !mounted || reducedMotion.matches) return
@@ -97,12 +109,12 @@ export function TerminalLog({
 
 		preserveScrollPosition()
 		if (scrollable && startAtTop) box.scrollTop = box.clientHeight - box.scrollHeight
-		box.addEventListener("scroll", rememberAnchor, { passive: true })
+		box.addEventListener("scroll", handleScroll, { passive: true })
 		const observer = new ResizeObserver(preserveScrollPosition)
 		observer.observe(content)
 		return () => {
 			observer.disconnect()
-			box.removeEventListener("scroll", rememberAnchor)
+			box.removeEventListener("scroll", handleScroll)
 			slide?.cancel()
 		}
 	}, [scrollable, startAtTop])

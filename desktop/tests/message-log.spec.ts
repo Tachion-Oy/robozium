@@ -4,7 +4,7 @@ import { selectLogItems } from "../renderer/src/log/run-log"
 import { parseRunEvent } from "../renderer/src/run/run-payloads"
 import type { RunRecord } from "../renderer/src/run/run-contracts"
 import { test, prepareRun, message, emit, start, launchButton, replyBox } from "./run-fixture"
-import { captureNative, setNativeViewport } from "./native"
+import { captureNative, setNativeViewport, waitForPanelLayout } from "./native"
 
 const lifecycle = (sequence: number, kind: string, extra: Record<string, unknown> = {}) => ({
 	type: "run_lifecycle", payload: { kind, agent_name: "orchestrator", sequence, parent_agent_name: null, status: null, model_name: "mock", ...extra },
@@ -197,9 +197,14 @@ test("scrolled up, the row being read stays put while messages arrive", async ({
 	await scroller.evaluate(box => { box.scrollTop = -(box.scrollHeight - box.clientHeight) / 2 })
 	const row = log(page).locator(".term-msg", { hasText: "Row 20" })
 	await row.scrollIntoViewIfNeeded()
+	// The log's opening animation moves the whole box; measure once it rests.
+	await waitForPanelLayout(page)
 	const before = (await row.boundingBox())!.y
-	for (let i = 41; i <= 50; i++) emit(run.streams[0], wire("user", JSON.stringify({ value: `Row ${i}` }), i, null, "status"))
-	await expect(log(page)).toContainText("Row 50")
+	// Rows arrive one at a time, as in a run: a position error per row would add up.
+	for (let i = 41; i <= 50; i++) {
+		emit(run.streams[0], wire("user", JSON.stringify({ value: `Row ${i}` }), i, null, "status"))
+		await expect(log(page)).toContainText(`Row ${i}`)
+	}
 	await expect.poll(async () => Math.abs((await row.boundingBox())!.y - before)).toBeLessThanOrEqual(1)
 })
 
