@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
 import { listProjects } from "./projects-api"
-import { markProjectsCancelling, markProjectsDeleting, markProjectOpening, mergeProjects, type ProjectRow } from "./project-rows"
+import { markProjectsCancelling, markProjectsDeleting, markProjectOpening, type ProjectRow } from "./project-rows"
 import type { PendingMutation, ProjectMutationKind } from "./useProjectMutations"
 
 const DEFAULT_POLL_INTERVAL_MS = 3000
@@ -57,7 +57,7 @@ export function useProjectQuery(client: DesktopApiClient, visible: boolean, writ
 		let timeout: number | null = null
 		const poll = async () => {
 			try {
-				const next = mergeProjects(await withDeadline(controller.signal, signal => listProjects(client, signal)))
+				const next = await withDeadline(controller.signal, signal => listProjects(client, signal))
 				if (controller.signal.aborted) return
 				settle.current(next)
 				setListed(next)

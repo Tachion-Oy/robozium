@@ -40,13 +40,11 @@ export interface ProjectMutations {
 	rename: (slug: string, name: string) => Promise<string | null>
 	/** End settling mutations whose outcome this listing shows. */
 	settle: (rows: readonly ProjectRow[]) => void
-	/** Launch commands outlive the selector; failures remain visible after dismissal. */
+	/** Launch commands outlive the selector; failures remain visible after dismissal. A launch in flight refuses another at once. */
 	launch: (draft: LaunchDraft) => Promise<boolean>
 	launching: boolean
 	/** The existing project being launched; a new project has no row yet. */
 	opening: string | null
-	/** Read synchronously, so a second click before the next render is refused. */
-	isLaunching: () => boolean
 }
 
 export interface LaunchCallbacks {
@@ -170,7 +168,6 @@ export function useProjectMutations(
 		pending,
 		revision,
 		launch, launching, opening,
-		isLaunching: () => activeLaunch.current !== null,
 		cancel: async slug => {
 			await send(slug, "cancel", (client, signal) => cancelProject(client, slug, signal), {
 				title: "Cancel failed",

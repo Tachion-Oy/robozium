@@ -3,20 +3,15 @@
 import { z } from "zod"
 import { type DesktopApiClient } from "../api/client"
 import { nonBlank, orNull, parsePayload } from "../api/payload"
+import { ProjectStatus, type ProjectRow } from "./project-rows"
 
 // The backend owns status precedence; "opening" and "deleting" exist only as local overview marks.
-const ProjectSummaryStatus = z.enum(["running", "awaiting_user_input", "cancelling", "syncing", "dormant"])
-export type ProjectSummaryStatus = z.infer<typeof ProjectSummaryStatus>
-export interface Project {
-	slug: string
-	status: ProjectSummaryStatus
-	runId: string | null
-	/** Seconds since the epoch, or null when the backend does not know. */
-	createdAt: number | null
-}
+const ProjectSummaryStatus = z.enum([
+	ProjectStatus.Running, ProjectStatus.AwaitingUserInput, ProjectStatus.Cancelling, ProjectStatus.Syncing, ProjectStatus.Dormant,
+])
 
 const Created = z.object({ slug: nonBlank })
-const Projects: z.ZodType<Project[]> = z.array(Created.extend({
+const Projects: z.ZodType<ProjectRow[]> = z.array(Created.extend({
 	status: ProjectSummaryStatus,
 	run_id: orNull(nonBlank),
 	created_at: orNull(z.number()),
@@ -28,7 +23,7 @@ const Deleted = z.object({ ok: z.literal(true) })
 const parse = <T>(schema: z.ZodType<T>, value: unknown): T =>
 	parsePayload(schema, value, "The backend returned an invalid selection response.")
 
-export async function listProjects(client: DesktopApiClient, signal: AbortSignal): Promise<Project[]> {
+export async function listProjects(client: DesktopApiClient, signal: AbortSignal): Promise<ProjectRow[]> {
 	return parse(Projects, await client.request("/projects", { signal }))
 }
 
