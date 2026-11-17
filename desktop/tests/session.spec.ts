@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { parseRunEvent } from "../renderer/src/run/run-payloads"
-import type { RunFrame, RunView } from "../renderer/src/run/run-contracts"
+import { LifecyclePhase, MessageRole, RunStatus, type RunFrame, type RunView } from "../renderer/src/run/run-contracts"
 import { selectRunDisplay } from "../renderer/src/hud/hud-display"
 import { reduceRunSession, type RunSession } from "../renderer/src/session/session-reducer"
 
@@ -15,11 +15,11 @@ function delta(sequence: number, id: string, text: string, chunk = 0, agent = "r
 	return { type: "message_delta", sequence, id, delta: text, chunk, agent }
 }
 function message(sequence: number, id: string, content: string, kind: string | null = "user_notification"): RunFrame {
-	return { type: "message", sequence, id, content, kind, caller: null, role: "assistant" }
+	return { type: "message", sequence, id, content, kind, caller: null, role: MessageRole.Assistant }
 }
 function snapshot(state: RunSession, overrides: Partial<RunView>): RunSession {
 	return reduceRunSession(state, { type: "snapshot", view: {
-		project: "project", status: "running", frames: [], promptId: null, prompt: null, error: null, ...overrides,
+		project: "project", status: RunStatus.Running, frames: [], promptId: null, prompt: null, error: null, ...overrides,
 	} })!
 }
 function select(state: RunSession, index: number): RunSession {
@@ -61,7 +61,7 @@ test("history selection changes presentation while identical backend updates pro
 	expect(pinned.run).toEqual(following.run)
 	expect(selectRunDisplay(following).text).toBe("Working")
 	expect(selectRunDisplay(pinned).text).toBe("First")
-	const final = { status: "completed", frames: [message(4, "live", "Done")] } as const
+	const final = { status: RunStatus.Completed, frames: [message(4, "live", "Done")] } as const
 	following = snapshot(following, { ...final, frames: [...final.frames] })
 	pinned = snapshot(pinned, { ...final, frames: [...final.frames] })
 	expect(pinned.run).toEqual(following.run)
@@ -92,9 +92,9 @@ for (const source of ["SSE", "snapshot"] as const) {
 			script(1, "First"), retry(2), script(3, " continued"),
 			message(4, "internal", "null", null), script(5, "Second"),
 			message(6, "question", '{"action":"prompt_user","value":"Continue?"}', null),
-			{ type: "message", sequence: 7, id: "error", role: "error", kind: null, caller: null, content: "Problem" },
+			{ type: "message", sequence: 7, id: "error", role: MessageRole.Error, kind: null, caller: null, content: "Problem" },
 			message(8, "notification", literal),
-			{ type: "message", sequence: 9, id: "reply", role: "user", kind: null, caller: null, content: "Hidden reply" },
+			{ type: "message", sequence: 9, id: "reply", role: MessageRole.User, kind: null, caller: null, content: "Hidden reply" },
 			script(10, "Third"),
 		]
 		const state = source === "SSE" ? receive(session(), ...events) : snapshot(session(), { frames: events })
@@ -138,7 +138,7 @@ test("background retries and stale retry snapshots do not clear newer foreground
 
 test("an active prompt wins over later notifications while explicit history selections remain pinned", () => {
 	let state = snapshot(session(), {
-		status: "awaiting_user_input", promptId: "p1", prompt: "Continue?",
+		status: RunStatus.AwaitingUserInput, promptId: "p1", prompt: "Continue?",
 		frames: [message(1, "old", "Earlier"), message(2, "question", "Continue?"), message(3, "background", "Background")],
 	})
 	expect(selectRunDisplay(state)).toMatchObject({ text: "Continue?", index: 1, currentIndex: 1, count: 3 })
@@ -147,18 +147,18 @@ test("an active prompt wins over later notifications while explicit history sele
 	expect(selectRunDisplay(state).text).toBe("Background")
 	state = select(state, selectRunDisplay(state).currentIndex)
 	expect(selectRunDisplay(state).text).toBe("Continue?")
-	state = snapshot(state, { status: "awaiting_user_input", promptId: "p2", prompt: "Next question?" })
+	state = snapshot(state, { status: RunStatus.AwaitingUserInput, promptId: "p2", prompt: "Next question?" })
 	expect(selectRunDisplay(state).text).toBe("Next question?")
-	state = snapshot(state, { status: "completed", frames: [message(5, "done", "Done")] })
+	state = snapshot(state, { status: RunStatus.Completed, frames: [message(5, "done", "Done")] })
 	expect(selectRunDisplay(state)).toMatchObject({ text: "Done", streaming: false })
 })
 
 test("snapshot-only prompt changes retain a pinned notification and latest returns to the new question", () => {
-	let state = snapshot(session(), { status: "awaiting_user_input", promptId: "p1", prompt: "First?" })
+	let state = snapshot(session(), { status: RunStatus.AwaitingUserInput, promptId: "p1", prompt: "First?" })
 	state = receive(state, message(1, "background", "Background"))
 	// The question is current; select background, then replace the active prompt.
 	state = select(state, 0)
-	state = snapshot(state, { status: "awaiting_user_input", promptId: "p2", prompt: "Second?" })
+	state = snapshot(state, { status: RunStatus.AwaitingUserInput, promptId: "p2", prompt: "Second?" })
 	expect(selectRunDisplay(state).text).toBe("Background")
 	state = select(state, selectRunDisplay(state).currentIndex)
 	expect(selectRunDisplay(state).text).toBe("Second?")
@@ -196,7 +196,7 @@ test("ordinary completion settles visible text in the streaming style until outp
 	expect(selectRunDisplay(state)).toMatchObject({ text: "action:working", streaming: true })
 	state = receive(state, delta(4, "next", "Next action"))
 	expect(selectRunDisplay(state).text).toBe("Next action")
-	state = snapshot(state, { status: "awaiting_user_input", promptId: "p1", prompt: "Continue?" })
+	state = snapshot(state, { status: RunStatus.AwaitingUserInput, promptId: "p1", prompt: "Continue?" })
 	expect(selectRunDisplay(state).text).toBe("Continue?")
 })
 
@@ -216,25 +216,25 @@ test("an interrupted generation keeps its cut-off text in the streaming style un
 	// The backend gives the streamed id to the next message: its interrupted-generation context.
 	state = receive(state, message(3, "cut", "The previous assistant generation was interrupted.", "interrupted_generation"))
 	expect(selectRunDisplay(state)).toMatchObject({ text: "action:prompt_user,value:Half a son", streaming: true })
-	state = snapshot(state, { status: "awaiting_user_input", promptId: "p1", prompt: "Action interrupted!" })
+	state = snapshot(state, { status: RunStatus.AwaitingUserInput, promptId: "p1", prompt: "Action interrupted!" })
 	expect(selectRunDisplay(state)).toMatchObject({ text: "Action interrupted!", streaming: false })
 })
 
 test("an acknowledged reply resumes the run until a snapshot shows another prompt", () => {
-	let state = snapshot(session(), { status: "awaiting_user_input", promptId: "p1", prompt: "Continue?" })
+	let state = snapshot(session(), { status: RunStatus.AwaitingUserInput, promptId: "p1", prompt: "Continue?" })
 	state = reduceRunSession(state, { type: "replied", promptId: "p1" })!
 	expect(state.run.status).toBe("running")
 	// A snapshot taken before the reply still awaits the answered prompt.
-	state = snapshot(state, { status: "awaiting_user_input", promptId: "p1", prompt: "Continue?" })
+	state = snapshot(state, { status: RunStatus.AwaitingUserInput, promptId: "p1", prompt: "Continue?" })
 	expect(state.run).toMatchObject({ status: "running", prompt: null })
-	state = snapshot(state, { status: "awaiting_user_input", promptId: "p2", prompt: "Next?" })
+	state = snapshot(state, { status: RunStatus.AwaitingUserInput, promptId: "p2", prompt: "Next?" })
 	expect(state.run.status).toBe("awaiting_user_input")
 })
 
 test("a launch and an acknowledged reply show the agent working until visible output arrives", () => {
 	let state = session()
 	expect(selectRunDisplay(state)).toMatchObject({ text: working, contentType: "plain-text", streaming: true, count: 1 })
-	state = snapshot(state, { status: "awaiting_user_input", promptId: "p1", prompt: "Continue?", frames: [message(1, "q", "Continue?")] })
+	state = snapshot(state, { status: RunStatus.AwaitingUserInput, promptId: "p1", prompt: "Continue?", frames: [message(1, "q", "Continue?")] })
 	expect(selectRunDisplay(state)).toMatchObject({ text: "Continue?", streaming: false, count: 1 })
 	state = reduceRunSession(state, { type: "replied", promptId: "p1" })!
 	expect(selectRunDisplay(state)).toMatchObject({ text: working, streaming: true, index: 1, count: 2 })
@@ -251,7 +251,7 @@ test("a launch and an acknowledged reply show the agent working until visible ou
 	expect(selectRunDisplay(state)).toMatchObject({ text: "action", streaming: true, count: 2 })
 	state = receive(state, message(4, "notice", "Background done"))
 	expect(selectRunDisplay(state)).toMatchObject({ text: "Background done", streaming: false, count: 2 })
-	state = snapshot(state, { status: "completed" })
+	state = snapshot(state, { status: RunStatus.Completed })
 	expect(selectRunDisplay(state)).toMatchObject({ text: "Background done", count: 2 })
 })
 
@@ -290,7 +290,7 @@ test("prefix recovery followed by a split keeps unique script identities and bot
 	const selectedId = selectRunDisplay(state).id
 	state = snapshot(state, { frames: [script(2, "Prefix")] })
 	expect(selectRunDisplay(state)).toMatchObject({ id: selectedId, text: "PrefixLater" })
-	state = snapshot(state, { frames: [{ type: "run_lifecycle", sequence: 3, phase: "started", agent: "root", status: null, details: {} }] })
+	state = snapshot(state, { frames: [{ type: "run_lifecycle", sequence: 3, phase: LifecyclePhase.Started, agent: "root", status: null, details: {} }] })
 	expect(selectRunDisplay(state)).toMatchObject({ id: selectedId, text: "Later" })
 	expect(state.hud.view.messages.map(item => item.id)).toEqual(["script:2", "script:4", "message:last"])
 	state = select(state, 0)
@@ -329,7 +329,7 @@ test("replaying older durable output leaves newer live text intact", () => {
 
 test("a prompt keeps pinned scripts separate through dismissal, continuation and recovery", () => {
 	let state = receive(session(), script(2, "Before"))
-	state = snapshot(state, { status: "awaiting_user_input", promptId: "p1", prompt: "Continue?", frames: [script(2, "Before")] })
+	state = snapshot(state, { status: RunStatus.AwaitingUserInput, promptId: "p1", prompt: "Continue?", frames: [script(2, "Before")] })
 	state = select(state, 0)
 	const selectedId = selectRunDisplay(state).id
 	state = snapshot(state, {})
@@ -347,7 +347,7 @@ test("a prompt keeps pinned scripts separate through dismissal, continuation and
 
 test("a status-only prompt snapshot closes the existing script group", () => {
 	let state = receive(session(), script(1, "Before"))
-	state = snapshot(state, { status: "awaiting_user_input", promptId: "p1", prompt: "Continue?" })
+	state = snapshot(state, { status: RunStatus.AwaitingUserInput, promptId: "p1", prompt: "Continue?" })
 	state = snapshot(state, { frames: [script(1, "Before")] })
 	state = receive(state, script(2, "After"))
 	expect(state.hud.view.messages.map(item => item.text)).toEqual(["Before", "After"])
@@ -355,7 +355,7 @@ test("a status-only prompt snapshot closes the existing script group", () => {
 
 test("a delayed prompt snapshot splits scripts at its capture point without moving the boundary on repeated polls", () => {
 	let state = receive(session(), script(2, "Before"), script(4, "After"))
-	const prompt = { status: "awaiting_user_input", promptId: "p1", prompt: "Continue?" } as const
+	const prompt = { status: RunStatus.AwaitingUserInput, promptId: "p1", prompt: "Continue?" } as const
 	state = snapshot(state, { ...prompt, frames: [script(2, "Before")] })
 	expect(state.hud.view.messages.map(item => item.text)).toEqual(["Before", "After", "Continue?"])
 	state = snapshot(state, { ...prompt, frames: [script(2, "Before"), script(4, "After")] })
@@ -371,7 +371,7 @@ test("agent messages and prompts render as Markdown while live text and scripts 
 	expect(selectRunDisplay(state)).toMatchObject({ text: "**partial", contentType: "plain-text", streaming: true })
 	state = receive(state, script(3, "$ ls *.md"))
 	expect(selectRunDisplay(state)).toMatchObject({ text: "$ ls *.md", contentType: "plain-text" })
-	state = snapshot(state, { status: "awaiting_user_input", promptId: "p1", prompt: "Pick **one**" })
+	state = snapshot(state, { status: RunStatus.AwaitingUserInput, promptId: "p1", prompt: "Pick **one**" })
 	expect(selectRunDisplay(state)).toMatchObject({ text: "Pick **one**", contentType: "markdown" })
 	expect(selectRunDisplay(null).contentType).toBe("plain-text")
 })
