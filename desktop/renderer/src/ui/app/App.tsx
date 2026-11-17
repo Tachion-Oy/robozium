@@ -142,7 +142,7 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 						<RunHud key={session?.run.runId} draft={draft} onDraftChange={setDraft} attachments={replyAttachments} dictation={dictation}
 							layoutMode={layout} display={display} awaitingInput={Boolean(session?.run.prompt)}
 							focusOnOpen={focusRunEditor} onSelect={runSession.select}
-							reply={{ available: runMutations.canReply, submitting: runMutations.replying, submit: runMutations.reply }}
+							mutations={runMutations}
 							cancel={{ isPending: cancelling, available: Boolean(session && !isTerminal(session.run.status)),
 								onTrigger: () => { if (session && !cancelling) void projectMutations.cancel(session.run.project) } }}
 							interrupt={{ isPending: runMutations.interrupting, available: runMutations.canInterrupt,
