@@ -19,10 +19,10 @@ import type { HudMessageNavigationModel } from "./HudMessageNavigation"
 import { ReplyEditor } from "./ReplyEditor"
 
 export type ReplyComposerModel = {
-	value: string
+	draft: string
 	attachments: ReplyAttachmentsModel
-	isReplyAvailable: boolean
-	isSubmitting: boolean
+	canReply: boolean
+	replying: boolean
 	focusOnOpen?: boolean
 	onChange: (value: string) => void
 	onSubmit: () => void | Promise<void>
@@ -52,16 +52,16 @@ export function ReplyForm({
 		noClick: true,
 		noKeyboard: true,
 		onDrop: composer.attachments.onDrop,
-		disabled: locked || !composer.attachments.canAdd || controls.cancel?.isPending,
+		disabled: locked || !composer.attachments.canAdd || controls.cancel.isPending,
 	})
 	const canSubmit = Boolean(
 		!locked &&
-		(composer.value.trim() || composer.attachments.items.length) &&
+		(composer.draft.trim() || composer.attachments.items.length) &&
 			composer.attachments.isReady &&
-			composer.isReplyAvailable &&
-			!composer.isSubmitting &&
-			!controls.cancel?.isPending &&
-			!controls.interrupt?.isPending,
+			composer.canReply &&
+			!composer.replying &&
+			!controls.cancel.isPending &&
+			!controls.interrupt.isPending,
 	)
 
 	const handleSubmit: SubmitEventHandler<HTMLFormElement> = (event) => {
@@ -81,7 +81,7 @@ export function ReplyForm({
 				data-layout={layoutMode}>
 				<AgentMessagePanel message={message} />
 				<ReplyEditor
-					value={composer.value}
+					value={composer.draft}
 					attachments={composer.attachments}
 					dropzone={dropzone}
 					canSubmit={canSubmit}
@@ -95,18 +95,15 @@ export function ReplyForm({
 				agentMessage={message}
 				navigation={navigation}
 				locked={locked}
-				replyDraft={composer.value}
+				replyDraft={composer.draft}
 				hasAttachments={composer.attachments.items.length > 0}
 				onAddAttachments={dropzone.open}
-				attachmentsDisabled={locked || !composer.attachments.canAdd || controls.cancel?.isPending}
+				attachmentsDisabled={locked || !composer.attachments.canAdd || controls.cancel.isPending}
 				onClearReply={() => {
 					composer.onChange("")
 					composer.attachments.onClear()
 				}}
-				submission={{
-					canSubmit,
-					isSubmitting: composer.isSubmitting,
-				}}
+				canSubmit={canSubmit}
 			/>
 		</form>
 	)

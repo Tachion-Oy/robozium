@@ -54,10 +54,10 @@ export function OnboardingHud({ layoutMode, onExit }: OnboardingHudProps) {
 			layoutMode={layoutMode}
 			message={{ ...page, contentType: "markdown", mode: "current" }}
 			composer={{
-				value: "",
+				draft: "",
 				attachments: NO_ATTACHMENTS,
-				isReplyAvailable: false,
-				isSubmitting: false,
+				canReply: false,
+				replying: false,
 				onChange: ignore,
 				onSubmit: ignore,
 			}}
@@ -77,8 +77,8 @@ export function OnboardingHud({ layoutMode, onExit }: OnboardingHudProps) {
 					isTranscribing: false,
 					onToggle: ignore,
 				},
-				cancel: { isPending: false, onTrigger: ignore },
-				interrupt: { isPending: false, onTrigger: ignore },
+				cancel: { isPending: false, available: false, onTrigger: ignore },
+				interrupt: { isPending: false, available: false, onTrigger: ignore },
 			}}
 		/>
 	)

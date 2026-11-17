@@ -23,43 +23,42 @@ export type HudDictationControls = {
 
 export type HudPendingAction = {
 	isPending: boolean
-	available?: boolean
+	available: boolean
 	onTrigger: () => void
 }
 
 export type HudControlModel = {
 	dictation: HudDictationControls
-	cancel?: HudPendingAction
-	interrupt?: HudPendingAction
+	cancel: HudPendingAction
+	interrupt: HudPendingAction
 }
 
 type HudControlsProps = HudControlModel & {
 	agentMessage: AgentMessage
 	navigation: HudMessageNavigationModel
 	/** Disable every control except message navigation. */
-	locked?: boolean
+	locked: boolean
 	replyDraft: string
-	hasAttachments?: boolean
+	hasAttachments: boolean
+	/** Missing while files cannot be added: react-dropzone returns no `open` when disabled, whatever its types say. The button is then left out. */
 	onAddAttachments?: () => void
-	attachmentsDisabled?: boolean
+	attachmentsDisabled: boolean
 	onClearReply: () => void
-	submission: {
-		canSubmit: boolean
-		isSubmitting: boolean
-	}
+	/** The reply can be sent now: nothing is pending and there is something to send. */
+	canSubmit: boolean
 }
 
 export function HudControls({
 	agentMessage,
 	dictation,
 	navigation,
-	locked = false,
+	locked,
 	replyDraft,
-	hasAttachments = false,
+	hasAttachments,
 	onAddAttachments,
 	attachmentsDisabled,
 	onClearReply,
-	submission,
+	canSubmit,
 	cancel,
 	interrupt,
 }: HudControlsProps) {
@@ -88,26 +87,22 @@ export function HudControls({
 			ref={actionsRef}
 			className="agent-hud__actions">
 			<div className="agent-hud__run-actions">
-				{cancel ? (
-					<button
-						type="button"
-						className="agent-hud__cancel"
-						onClick={cancel.onTrigger}
-						disabled={locked || cancel.isPending || cancel.available === false}
-						aria-busy={cancel.isPending || undefined}>
-						<span>Cancel</span>
-					</button>
-				) : null}
-				{interrupt ? (
-					<button
-						type="button"
-						className="agent-hud__interrupt"
-						onClick={interrupt.onTrigger}
-						disabled={locked || interrupt.isPending || interrupt.available === false || cancel?.isPending}
-						aria-busy={interrupt.isPending || undefined}>
-						<span>Interrupt</span>
-					</button>
-				) : null}
+				<button
+					type="button"
+					className="agent-hud__cancel"
+					onClick={cancel.onTrigger}
+					disabled={locked || cancel.isPending || !cancel.available}
+					aria-busy={cancel.isPending || undefined}>
+					<span>Cancel</span>
+				</button>
+				<button
+					type="button"
+					className="agent-hud__interrupt"
+					onClick={interrupt.onTrigger}
+					disabled={locked || interrupt.isPending || !interrupt.available || cancel.isPending}
+					aria-busy={interrupt.isPending || undefined}>
+					<span>Interrupt</span>
+				</button>
 			</div>
 			<div className="agent-hud__navigation-row">
 				<HudMessageNavigation {...navigation} />
@@ -153,12 +148,7 @@ export function HudControls({
 				<button
 					type="submit"
 					className="agent-hud__send"
-					disabled={
-						submission.isSubmitting ||
-						!submission.canSubmit ||
-						cancel?.isPending ||
-						interrupt?.isPending
-					}>
+					disabled={!canSubmit}>
 					<span>Send</span>
 				</button>
 			</div>

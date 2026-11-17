@@ -5,7 +5,7 @@ import type { Dispatch, SetStateAction } from "react"
 import type { ReplyAttachmentsModel } from "../../attachments/useReplyAttachments"
 import type { UseDictationResult } from "../../dictation/useDictation"
 import type { HudDisplay } from "../../hud/hud-reducer"
-import type { ReplyAttachments, ReplyResult } from "../../session/useRunMutations"
+import type { RunMutations } from "../../session/useRunMutations"
 import type { LayoutMode } from "../hud/HudCornerControls"
 import type { AgentMessage } from "./AgentMessagePanel"
 import type { HudPendingAction } from "./HudControls"
@@ -23,11 +23,7 @@ type RunHudProps = {
 	awaitingInput: boolean
 	focusOnOpen: boolean
 	onSelect: (index: number) => void
-	reply: {
-		available: boolean
-		submitting: boolean
-		submit: (content: string, attachments: ReplyAttachments) => Promise<ReplyResult>
-	}
+	mutations: Pick<RunMutations, "canReply" | "replying" | "reply">
 	cancel: HudPendingAction
 	interrupt: HudPendingAction
 }
@@ -42,7 +38,7 @@ export function RunHud({
 	awaitingInput,
 	focusOnOpen,
 	onSelect,
-	reply,
+	mutations,
 	cancel,
 	interrupt,
 }: RunHudProps) {
@@ -57,7 +53,7 @@ export function RunHud({
 	const handleSubmit = async () => {
 		const submittedDraft = draft
 		// The owner reports failures; an acknowledged reply clears only an unchanged draft.
-		if (await reply.submit(draft, attachments) === "acknowledged") {
+		if (await mutations.reply(draft, attachments) === "acknowledged") {
 			onDraftChange((current) =>
 				current === submittedDraft ? "" : current,
 			)
@@ -76,10 +72,10 @@ export function RunHud({
 			message={message}
 			layoutMode={layoutMode}
 			composer={{
-				value: draft,
+				draft,
 				attachments,
-				isReplyAvailable: reply.available,
-				isSubmitting: reply.submitting,
+				canReply: mutations.canReply,
+				replying: mutations.replying,
 				focusOnOpen,
 				onChange: onDraftChange,
 				onSubmit: handleSubmit,

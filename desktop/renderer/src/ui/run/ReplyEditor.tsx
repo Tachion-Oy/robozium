@@ -10,8 +10,8 @@ import { ReplyAttachmentPreview } from "./ReplyAttachmentPreview"
 
 type ReplyEditorProps = {
 	value: string
-	attachments?: ReplyAttachmentsModel
-	dropzone?: DropzoneState
+	attachments: ReplyAttachmentsModel
+	dropzone: DropzoneState
 	canSubmit: boolean
 	disabled?: boolean
 	autoFocus?: boolean
@@ -31,12 +31,12 @@ export function ReplyEditor({
 	const lastLocalValueRef = useRef(value)
 	const attachmentListRef = useRef<HTMLUListElement>(null)
 	const previousAttachmentsRef = useRef<readonly ReplyAttachment[]>([])
-	const items = attachments?.items
+	const items = attachments.items
 
 	useLayoutEffect(() => {
 		const previous = previousAttachmentsRef.current
-		previousAttachmentsRef.current = items ?? []
-		if (!items?.some((image) => !previous.some((old) => old.url === image.url))) return
+		previousAttachmentsRef.current = items
+		if (!items.some((image) => !previous.some((old) => old.url === image.url))) return
 		if (textareaRef.current) textareaRef.current.scrollTop = 0
 		if (attachmentListRef.current) attachmentListRef.current.scrollTop = attachmentListRef.current.scrollHeight
 	}, [items])
@@ -63,13 +63,13 @@ export function ReplyEditor({
 
 	return (
 		<div
-			{...dropzone?.getRootProps({ role: "group", "aria-label": "Reply composer", tabIndex: 0 })}
+			{...dropzone.getRootProps({ role: "group", "aria-label": "Reply composer", tabIndex: 0 })}
 			className="agent-hud__panel agent-hud__replyBox agent-hud__replyBox--user"
-			data-drag-active={dropzone?.isDragActive || undefined}
+			data-drag-active={dropzone.isDragActive || undefined}
 			aria-disabled={disabled || undefined}>
-			{attachments?.error && <Toast tone="error" title="Attachments" message={attachments.error}
+			{attachments.error && <Toast tone="error" title="Attachments" message={attachments.error}
 				actions={attachments.canRetry ? [{ label: "Retry attachments", onClick: attachments.onRetry }] : []} />}
-			{dropzone ? <input {...dropzone.getInputProps({ "aria-label": "Choose files" })} /> : null}
+			<input {...dropzone.getInputProps({ "aria-label": "Choose files" })} />
 			<div className="agent-hud__reply-text">
 				<textarea
 					className="agent-hud__textarea"
@@ -86,11 +86,11 @@ export function ReplyEditor({
 					placeholder="Enter your reply..."
 				/>
 			</div>
-			{items?.length ? (
+			{items.length ? (
 				<ul className="agent-hud__reply-images" aria-label="Attachments" ref={attachmentListRef} tabIndex={0}>
 					{items.map((attachment) => (
 						<ReplyAttachmentPreview key={attachment.url} attachment={attachment} onRemove={() => {
-							attachments?.onRemove(attachment.url)
+							attachments.onRemove(attachment.url)
 							textareaRef.current?.focus({ preventScroll: true })
 						}} />
 					))}
