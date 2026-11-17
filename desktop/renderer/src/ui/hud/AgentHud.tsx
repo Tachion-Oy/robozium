@@ -5,7 +5,7 @@ import type { MessageLogState } from "../../log/useMessageLog"
 import { HudCopyControls } from "../run/HudCopyControls"
 import { HudCornerControls, moveLayoutMode, type LayoutMode } from "./HudCornerControls"
 import { HudEdgeButton } from "./HudEdgeButton"
-import type { HudPresentation } from "./hudPresentation"
+import { hasOverviewLayout, type HudScreen } from "../../app/hud-navigation"
 
 // The right edge's copy controls element. The reply form renders its live copy controls
 // into it with a portal, because the form holds the displayed message and the draft,
@@ -16,8 +16,10 @@ export const CopyControlsSlot = createContext<{ element: HTMLElement | null; set
 	setFilled: () => {},
 })
 
-export function AgentHud({ presentation, layoutMode, onLayoutModeChange, messageLog, logPane, header, children }: {
-	presentation: HudPresentation
+export function AgentHud({ screen, inactive, layoutMode, onLayoutModeChange, messageLog, logPane, header, children }: {
+	screen: HudScreen
+	/** The displayed run has ended or gone missing. */
+	inactive: boolean
 	layoutMode: LayoutMode
 	onLayoutModeChange: (mode: LayoutMode) => void
 	messageLog: MessageLogState
@@ -32,10 +34,10 @@ export function AgentHud({ presentation, layoutMode, onLayoutModeChange, message
 	const hud = useRef<HTMLDivElement>(null)
 	const resizing = messageLog.resizingWidth
 	const hudBoxClassName = `agent-hud__box${
-		presentation.headerVariant === "overview"
+		hasOverviewLayout(screen)
 			? " agent-hud__box--overview"
 			: ""
-	}${presentation.context === "recovery" ? " agent-hud__box--inactive" : ""}`
+	}${inactive ? " agent-hud__box--inactive" : ""}`
 
 	return (
 		<div className="workspace">
@@ -50,7 +52,7 @@ export function AgentHud({ presentation, layoutMode, onLayoutModeChange, message
 					aria-live="polite">
 					<div className={hudBoxClassName}>
 						<HudCornerControls
-							disabled={!presentation.enableCornerControls}
+							disabled={screen !== "run"}
 							layout={{
 								mode: layoutMode,
 								onMove: (direction) =>

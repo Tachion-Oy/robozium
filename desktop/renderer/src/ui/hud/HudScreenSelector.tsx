@@ -1,8 +1,5 @@
 import { SelectorDropdown } from "./SelectorDropdown"
-import type {
-	HudScreen,
-	HudScreenOption,
-} from "./hudPresentation"
+import type { HudScreen, HudScreenOption } from "../../app/hud-navigation"
 
 type HudScreenSelectorProps = {
 	screen: HudScreen
