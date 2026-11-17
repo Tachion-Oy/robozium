@@ -156,11 +156,11 @@ test("a message arriving at the tail slides the log up instead of jumping", asyn
 	await expect.poll(() => run.streams.length).toBe(1)
 	await setNativeViewport(app, page, 1260, 780, 1)
 	await toggle(page, "Show message log").click()
-	for (let i = 1; i <= 30; i++) emit(run.streams[0], message(i, `Row ${i}`))
-	await expect(log(page)).toContainText("Row 30")
+	for (let i = 1; i <= 3; i++) emit(run.streams[0], message(i, `Row ${i}`))
+	await expect(log(page)).toContainText("Row 3")
 	const column = log(page).locator(".term-log > div")
 	await expect.poll(() => column.evaluate(element => element.getAnimations().length)).toBe(0)
-	// Sample the column's offset every frame, however late the row arrives.
+	// Sample the column's offset every frame, however late a row arrives.
 	await column.evaluate(element => {
 		const offsets: number[] = []
 		Reflect.set(window, "columnOffsets", offsets)
@@ -170,10 +170,21 @@ test("a message arriving at the tail slides the log up instead of jumping", asyn
 		}
 		requestAnimationFrame(sample)
 	})
+	const largestOffset = async () => Math.max(...await page.evaluate(() => Reflect.get(window, "columnOffsets") as number[]))
+	// With room below, a new row pushes nothing: the rows above must not move in any frame.
+	emit(run.streams[0], message(4, "Row 4"))
+	await expect(log(page)).toContainText("Row 4")
+	await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+	expect(await largestOffset()).toBe(0)
+
+	for (let i = 5; i <= 30; i++) emit(run.streams[0], message(i, `Row ${i}`))
+	await expect(log(page)).toContainText("Row 30")
+	await expect.poll(() => column.evaluate(element => element.getAnimations().length)).toBe(0)
+	await page.evaluate(() => { (Reflect.get(window, "columnOffsets") as number[]).length = 0 })
 	emit(run.streams[0], message(31, "Newest row"))
 	await expect(log(page)).toContainText("Newest row")
-	// It started lower and eased up into place.
-	await expect.poll(async () => Math.max(...await page.evaluate(() => Reflect.get(window, "columnOffsets") as number[]))).toBeGreaterThan(0)
+	// The pane is full: it started lower and eased up into place.
+	await expect.poll(largestOffset).toBeGreaterThan(0)
 	await expect.poll(() => column.evaluate(element => element.getAnimations().length)).toBe(0)
 	await expect.poll(() => column.evaluate(element => new DOMMatrixReadOnly(getComputedStyle(element).transform).m42)).toBe(0)
 	expect(await log(page).locator(".term-log").evaluate(box => box.scrollTop)).toBe(0)
