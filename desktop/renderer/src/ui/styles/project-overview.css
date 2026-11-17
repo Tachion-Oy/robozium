@@ -267,6 +267,43 @@
   overflow-wrap: anywhere;
 }
 
+/* What a chip's colour means: a lamp in each of the three colours before its meaning. */
+.agent-hud__capability-legend {
+  font-size: 0.85em;
+  letter-spacing: 0.08em;
+}
+
+.agent-hud__capability-legend > li::before {
+  content: "";
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-right: 0.55rem;
+  background: var(--lamp);
+  translate: 0 -0.05rem;
+}
+
+.agent-hud__capability-legend > [data-lamp="off"] {
+  --lamp: var(--term-blue);
+}
+
+.agent-hud__capability-legend > [data-lamp="on_demand"] {
+  --lamp: var(--term-amber);
+}
+
+.agent-hud__capability-legend > [data-lamp="on"] {
+  --lamp: var(--term-green);
+}
+
+:root[data-theme="dark"] .agent-hud__capability-legend > li::before {
+  box-shadow: 0 0 6px var(--lamp);
+}
+
+/* Light: a chip that is off is a pale key under a plate-coloured tag, so its lamp is the plate's colour. */
+:root[data-theme="light"] .agent-hud__capability-legend > [data-lamp="off"] {
+  --lamp: var(--hud-plate-bg);
+}
+
 .agent-hud__capability-name {
   overflow-wrap: anywhere;
 }

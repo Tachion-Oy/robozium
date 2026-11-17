@@ -217,7 +217,11 @@ leaving the overview.
 - **New Project** opens the capability selector with a **Project name** field.
 
 The capability selector lists fixed **Defaults** and **Selectable** tools and
-skills, restoring the project's saved choices. **Launch** saves the choices and
+skills, restoring the project's saved choices. A chip is blue when off and green
+when always on. A selectable skill has a third, amber state, **On demand**: the
+agent sees the skill listed and loads it when it needs it, instead of having its
+instructions in every conversation. Clicking a skill steps through the three
+states; a legend under the title names the colours. **Launch** saves the choices and
 starts the run; **Cancel** or Escape returns to the overview. A load failure
 shows an inline alert with **Retry**. Launch and the selector controls stay
 disabled while a launch, a model change or a reconnection is pending.

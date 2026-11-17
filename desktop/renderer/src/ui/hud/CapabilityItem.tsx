@@ -1,9 +1,17 @@
+import { CapabilityState } from "../../capabilities/capabilities"
 import type { CapabilityView } from "../../capabilities/capabilities-api"
 import { HudButton } from "./HudButton"
 
 type CapabilityItemProps = {
 	capability: Pick<CapabilityView, "name" | "kind">
-	selection?: { checked: boolean; disabled: boolean; onToggle: () => void }
+	selection?: { state: CapabilityState; disabled: boolean; onToggle: () => void }
+}
+
+// aria-checked takes "false", "mixed" or "true"; on demand is the standard third state.
+function ariaChecked(state: CapabilityState): "false" | "mixed" | "true" {
+	if (state === CapabilityState.Off) return "false"
+	if (state === CapabilityState.OnDemand) return "mixed"
+	return "true"
 }
 
 export function CapabilityItem({ capability, selection }: CapabilityItemProps) {
@@ -18,7 +26,7 @@ export function CapabilityItem({ capability, selection }: CapabilityItemProps) {
 			variant="option"
 			role="checkbox"
 			aria-label={name}
-			aria-checked={selection.checked}
+			aria-checked={ariaChecked(selection.state)}
 			disabled={selection.disabled}
 			onClick={selection.onToggle}
 			className="flex items-center gap-3">
