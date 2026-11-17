@@ -13,7 +13,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | Folder | Responsibility |
 | --- | --- |
 | `ui/` | All rendered components and CSS: app composition, backend startup, the HUD frame, the overview and capability selector, and the run view. |
-| `app/` | The navigation reducer (screen and launch draft). |
+| `app/` | The navigation reducer (selected screen and launch draft), and which screen and view menu entries the HUD shows for them. |
 | `backend/` | IPC connection discovery and HTTP readiness hooks, and when the startup screen covers the app. |
 | `projects/` | Project requests and validation, the overview rows (query) and this app's cancel and delete requests (mutations), and the launch command. |
 | `capabilities/` | Capability catalogue and saved-selection requests, the selector's reads, and selection resolution. |
@@ -53,12 +53,14 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `zoom/useZoom` | Whether the zoom can move in or out; main owns the factor and resets it to 100% on every start | Read on each window resize and step through `getZoom`/`zoom` (IPC) |
 
 `ui/app/App.tsx` composes the owners and keeps navigation (`app/hud-navigation`:
-the screen and the selector's launch draft), the reply draft, divider layout and
-focus. `ui/backend/BackendStartup` renders App only once startup has found the
+the selected screen and the selector's launch draft, changed only through its
+events), the reply draft, divider layout and focus. `ui/backend/BackendStartup` renders App only once startup has found the
 backend, so every owner receives a client. Owners do not import each other; App passes results between them, as when
 a launch hands its new run to `useRunSession.open`, the HUD's Cancel uses
 `useProjectMutations.cancel`, or the listing marks rows with pending writes. A run that ends or goes missing
-leaves Current Run for the overview (`resolveHudPresentation`).
+leaves Current Run for the overview: `visibleScreen` in `app/hud-navigation`
+decides the screen shown from the selected one, the run and the two locks, and
+components take that screen instead of flags derived from it.
 
 ```mermaid
 flowchart LR
