@@ -3,8 +3,7 @@
 // dialog and Environment share it.
 import type { ReactNode } from "react"
 import { createPortal } from "react-dom"
-import { AgentIndicator } from "../branding/RoboziumMark"
-import { AgentActivityState } from "../run/run-view"
+import { AgentActivityState, AgentIndicator } from "../branding/RoboziumMark"
 
 export function HudBusy({ busy, label, window = false, className = "", children }: {
 	busy: boolean

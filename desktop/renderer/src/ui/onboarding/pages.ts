@@ -3,7 +3,7 @@
 import type { AgentMessage } from "../run/AgentMessagePanel"
 import guide from "./onboarding.md?raw"
 
-type OnboardingPage = Pick<AgentMessage, "id" | "content" | "illustration">
+type OnboardingPage = Pick<AgentMessage, "id" | "text" | "illustration">
 
 const ILLUSTRATIONS: Record<string, NonNullable<AgentMessage["illustration"]>> = {
 	"Welcome to Robozium": { name: "keys", alt: "A key next to the Robozium window" },
@@ -16,9 +16,9 @@ function guidePages(markdown: string): OnboardingPage[] {
 	for (const heading of Object.keys(ILLUSTRATIONS)) {
 		if (!headings.includes(heading)) throw new Error(`The onboarding guide has no page headed "${heading}".`)
 	}
-	return pages.map((content, index) => {
+	return pages.map((text, index) => {
 		const heading = headings[index]
-		return { id: `onboarding-${index}`, content, illustration: heading ? ILLUSTRATIONS[heading] : undefined }
+		return { id: `onboarding-${index}`, text, illustration: heading ? ILLUSTRATIONS[heading] : undefined }
 	})
 }
 

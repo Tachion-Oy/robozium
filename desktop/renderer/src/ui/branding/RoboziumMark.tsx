@@ -1,5 +1,10 @@
 import type { ReactNode } from "react"
-import type { AgentActivityState } from "../run/run-view"
+
+export const AgentActivityState = {
+	Working: "working",
+	AwaitingInput: "awaiting-input",
+} as const
+export type AgentActivityState = typeof AgentActivityState[keyof typeof AgentActivityState]
 
 /**
  * The Robozium mark in the current text colour, so the activity styles colour it.

@@ -9,13 +9,13 @@ import { HudMarkdown } from "./HudMarkdown"
 
 export type AgentMessage = {
 	id: string
-	content: string
+	text: string
 	contentType: ContentType
 	mode: "current" | "history" | "streaming"
 	/** Static app artwork shown beside the text; agent content never sets it. */
 	illustration?: { name: "keys" | "secrets"; alt: string }
 	/** Status text, such as the working indicator, that is not copied as agent output. */
-	indicator?: boolean
+	working?: boolean
 }
 
 type AgentMessagePanelProps = {
@@ -30,7 +30,7 @@ export function AgentMessagePanel({ message }: AgentMessagePanelProps) {
 		if (!element) return
 		element.scrollTop =
 			message.mode === "streaming" ? element.scrollHeight : 0
-	}, [message.content, message.id, message.mode])
+	}, [message.text, message.id, message.mode])
 
 	return (
 		<div className="agent-hud__panel agent-hud__replyBox agent-hud__replyBox--agent">
@@ -53,11 +53,11 @@ export function AgentMessagePanel({ message }: AgentMessagePanelProps) {
 					<pre
 						className="agent-hud__stream-text"
 						aria-live="polite">
-						{message.content}
+						{message.text}
 					</pre>
 				) : (
 					<HudImageViewer returnFocus={scrollRef}>
-						<HudMarkdown key={message.id}>{message.content}</HudMarkdown>
+						<HudMarkdown key={message.id}>{message.text}</HudMarkdown>
 					</HudImageViewer>
 				)}
 			</div>

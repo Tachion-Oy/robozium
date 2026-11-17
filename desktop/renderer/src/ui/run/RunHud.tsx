@@ -10,7 +10,8 @@ import type { LayoutMode } from "../hud/HudCornerControls"
 import type { AgentMessage } from "./AgentMessagePanel"
 import type { HudPendingAction } from "./HudControls"
 import { ReplyForm } from "./ReplyForm"
-import { AgentActivityState, type HudMessageNavigationDirection } from "./run-view"
+import { AgentActivityState } from "../branding/RoboziumMark"
+import type { HudMessageNavigationDirection } from "./HudMessageNavigation"
 
 type RunHudProps = {
 	draft: string
@@ -48,10 +49,10 @@ export function RunHud({
 	const { index, currentIndex, count } = display
 	const message: AgentMessage = {
 		id: display.id,
-		content: display.text,
+		text: display.text,
 		contentType: display.contentType,
 		mode: display.streaming ? "streaming" : index === currentIndex ? "current" : "history",
-		indicator: display.working,
+		working: display.working,
 	}
 	const handleSubmit = async () => {
 		const submittedDraft = draft

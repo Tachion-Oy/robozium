@@ -2,7 +2,8 @@ import { useState } from "react"
 import type { ReplyAttachmentsModel } from "../../attachments/useReplyAttachments"
 import type { LayoutMode } from "../hud/HudCornerControls"
 import { ReplyForm } from "../run/ReplyForm"
-import { AgentActivityState, type HudMessageNavigationDirection } from "../run/run-view"
+import { AgentActivityState } from "../branding/RoboziumMark"
+import type { HudMessageNavigationDirection } from "../run/HudMessageNavigation"
 import { ONBOARDING_PAGES } from "./pages"
 
 const ignore = () => {}
