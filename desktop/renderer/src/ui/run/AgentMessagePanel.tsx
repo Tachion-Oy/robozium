@@ -3,7 +3,7 @@
 // the per-message Markdown so a new message does not close it, and the scroll
 // area takes focus back when the viewer's trigger is gone.
 import { useEffect, useRef } from "react"
-import type { ContentType } from "../../hud/hud-view"
+import type { ContentType } from "../../hud/hud-reducer"
 import { HudImageViewer } from "./HudImage"
 import { HudMarkdown } from "./HudMarkdown"
 

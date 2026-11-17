@@ -4,7 +4,7 @@
 import type { Dispatch, SetStateAction } from "react"
 import type { ReplyAttachmentsModel } from "../../attachments/useReplyAttachments"
 import type { UseDictationResult } from "../../dictation/useDictation"
-import type { HudDisplay } from "../../hud/hud-view"
+import type { HudDisplay } from "../../hud/hud-reducer"
 import type { ReplyAttachments, ReplyResult } from "../../session/useRunMutations"
 import type { LayoutMode } from "../hud/HudCornerControls"
 import type { AgentMessage } from "./AgentMessagePanel"
