@@ -12,7 +12,7 @@ type TerminalLogProps = {
 	startAtTop?: boolean
 }
 
-/** How long a newly appended row takes to slide the tail up into place. */
+/** How long the rows pushed up by a newly appended row take to slide into place. */
 const SLIDE_MS = 220
 
 /**
@@ -29,7 +29,9 @@ const SLIDE_MS = 220
  * `overflow-y-auto` with no scroll scripting.
  *
  * Growth at the pinned tail slides in instead of jumping a whole row: the
- * column starts where it was and eases up into place on the compositor.
+ * column starts where it was and eases up into place on the compositor. The
+ * slide covers only the distance the rows above were pushed, so a box with
+ * room below takes a new row without moving them.
  *
  * The box (the scroll container) is capped at `max-w-360` — the inner
  * column's `max-w-336` plus `px-12` on both sides — so its scrollbar hugs
@@ -43,7 +45,7 @@ export function TerminalLog({
 	startAtTop = false,
 }: TerminalLogProps) {
 	const boxRef = useRef<HTMLDivElement>(null)
-	const lastHeight = useRef(0)
+	const lastHidden = useRef<number | null>(null)
 
 	useLayoutEffect(() => {
 		const box = boxRef.current
@@ -79,11 +81,12 @@ export function TerminalLog({
 		}
 
 		const preserveScrollPosition = () => {
-			// Layout height: a running slide's transform must not count as growth.
-			const height = content.offsetHeight
-			const grown = height - lastHeight.current
-			const mounted = lastHeight.current > 0
-			lastHeight.current = height
+			// How much of the column the box cannot show: zero while the box still
+			// shrink-wraps it. Layout heights, so a running slide's transform does
+			// not count.
+			const hidden = content.offsetHeight - box.clientHeight
+			const previousHidden = lastHidden.current
+			lastHidden.current = hidden
 			if (!scrollable) box.scrollTop = 0
 			// Scrolled up: rows around the view change height (appends, the
 			// newest row typing out); keep the row being read where it is.
@@ -95,14 +98,18 @@ export function TerminalLog({
 				correctedScrollTop = box.scrollTop
 				return
 			}
-			if (grown <= 0 || !mounted || reducedMotion.matches) return
+			if (previousHidden === null || reducedMotion.matches) return
+			// The rows above moved up only by what no longer fits. With room below,
+			// the box grew downward and they did not move at all.
+			const pushed = hidden - previousHidden
+			if (pushed <= 0) return
 			// Continue from wherever a running slide has got to.
 			const offset = slide?.playState === "running"
 				? new DOMMatrixReadOnly(getComputedStyle(content).transform).m42
 				: 0
 			slide?.cancel()
 			slide = content.animate(
-				[{ transform: `translateY(${offset + grown}px)` }, { transform: "none" }],
+				[{ transform: `translateY(${offset + pushed}px)` }, { transform: "none" }],
 				{ duration: SLIDE_MS, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
 			)
 		}
