@@ -1,6 +1,7 @@
 // Compose feature state into the HUD; keep navigation and draft ownership here.
-import { useEffect, useMemo, useReducer, useState } from "react"
+import { useEffect, useMemo, useReducer, useState, type ReactNode } from "react"
 import { RunHud } from "../run/RunHud"
+import { HudCopyControls } from "../run/HudCopyControls"
 import { HubFileUrlContext } from "../run/HudImage"
 import { AgentHud } from "../hud/AgentHud"
 import { MessageLog } from "../log/MessageLog"
@@ -132,6 +133,14 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	// The HUD and the overview rows share one cancellation per project.
 	const cancelling = session !== null && (projectMutations.pending.has(session.run.project) || session.run.status === RunStatus.Cancelling)
 	const runError = screen === "run" ? session?.run.error : ""
+	// The right edge's copy and clear buttons act on Current Run's message and draft; the guide shows them disabled.
+	let copyControls: ReactNode = null
+	if (screen === "run" && session) {
+		copyControls = <HudCopyControls key={session.run.runId} message={display} replyDraft={draft} hasAttachments={replyAttachments.items.length > 0}
+			onClearReply={() => { setDraft(""); replyAttachments.onClear() }} />
+	} else if (screen === "onboarding") {
+		copyControls = <HudCopyControls message={null} replyDraft="" hasAttachments={false} disabled onClearReply={() => {}} />
+	}
 
 	function renderContent() {
 		switch (screen) {
@@ -184,7 +193,8 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 				logPane={() => <MessageLog key={session?.run.runId} active={runLive} events={session?.run.events ?? noEvents} />}
 				header={<HudHeader screen={screen} screenOptions={screenOptions(screen, navigation.launch !== null, limits)}
 					projectSlug={session?.run.project ?? null} onSelectScreen={selectScreen}
-					modelSelector={<ModelSelector models={models} disabled={locked || !connected || projectMutations.launching} />} />}>
+					modelSelector={<ModelSelector models={models} disabled={locked || !connected || projectMutations.launching} />} />}
+				copyControls={copyControls}>
 				{renderContent()}
 			</AgentHud>
 			<PasswordDialog open={credentials.asking} title="Unlock secrets" label="Password" submitLabel="Unlock" pendingLabel="Unlocking…"

@@ -92,17 +92,10 @@ export function ReplyForm({
 			</div>
 			<HudControls
 				{...controls}
-				agentMessage={message}
 				navigation={navigation}
 				locked={locked}
-				replyDraft={composer.draft}
-				hasAttachments={composer.attachments.items.length > 0}
 				onAddAttachments={dropzone.open}
 				attachmentsDisabled={locked || !composer.attachments.canAdd || controls.cancel.isPending}
-				onClearReply={() => {
-					composer.onChange("")
-					composer.attachments.onClear()
-				}}
 				canSubmit={canSubmit}
 			/>
 		</form>

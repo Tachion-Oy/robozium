@@ -1,14 +1,7 @@
 // `available: false` shows an action disabled until its owner arrives;
 // a pending action is busy under its own label, which a span can truncate.
-// The copy controls render into the right edge's copy column (hud/AgentHud), not the
-// footer, and mark it filled so the column drops its disabled placeholder.
-import { use, useLayoutEffect } from "react"
-import { createPortal } from "react-dom"
-import { CopyControlsSlot } from "../hud/AgentHud"
 import { useFooterActionLayout } from "./useFooterActionLayout"
 import { AudioLevelMeter } from "./AudioLevelMeter"
-import type { AgentMessage } from "./AgentMessagePanel"
-import { HudCopyControls } from "./HudCopyControls"
 import {
 	HudMessageNavigation,
 	type HudMessageNavigationModel,
@@ -34,40 +27,27 @@ export type HudControlModel = {
 }
 
 type HudControlsProps = HudControlModel & {
-	agentMessage: AgentMessage
 	navigation: HudMessageNavigationModel
 	/** Disable every control except message navigation. */
 	locked: boolean
-	replyDraft: string
-	hasAttachments: boolean
 	/** Missing while files cannot be added: react-dropzone returns no `open` when disabled, whatever its types say. The button is then left out. */
 	onAddAttachments?: () => void
 	attachmentsDisabled: boolean
-	onClearReply: () => void
 	/** The reply can be sent now: nothing is pending and there is something to send. */
 	canSubmit: boolean
 }
 
 export function HudControls({
-	agentMessage,
 	dictation,
 	navigation,
 	locked,
-	replyDraft,
-	hasAttachments,
 	onAddAttachments,
 	attachmentsDisabled,
-	onClearReply,
 	canSubmit,
 	cancel,
 	interrupt,
 }: HudControlsProps) {
 	const actionsRef = useFooterActionLayout()
-	const { element: copySlot, setFilled } = use(CopyControlsSlot)
-	useLayoutEffect(() => {
-		setFilled(true)
-		return () => setFilled(false)
-	}, [setFilled])
 	const dictationLabel = dictation.isTranscribing
 		? "Text…"
 		: dictation.isRecording
@@ -108,16 +88,6 @@ export function HudControls({
 				<HudMessageNavigation {...navigation} />
 			</div>
 			<div className="agent-hud__actions-submit">
-				{copySlot && createPortal(
-					<HudCopyControls
-						agentMessage={agentMessage}
-						replyDraft={replyDraft}
-						hasAttachments={hasAttachments}
-						disabled={locked}
-						onClearReply={onClearReply}
-					/>,
-					copySlot,
-				)}
 				{onAddAttachments ? (
 					<button
 						type="button"
