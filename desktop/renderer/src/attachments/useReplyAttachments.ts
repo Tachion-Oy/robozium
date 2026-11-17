@@ -3,7 +3,7 @@
 // through the desktop client under a deadline and end with the queue; restored
 // previews load from the backend origin. Without a run there is nothing to upload
 // or retry.
-import { useEffect, useRef, useState } from "react"
+import { useLayoutEffect, useRef, useState } from "react"
 import type { FileRejection } from "react-dropzone"
 import { ApiError, type DesktopApiClient } from "../api/client"
 import { withDeadline } from "../api/request"
@@ -59,7 +59,9 @@ export function useReplyAttachments(client: DesktopApiClient, runId: string | nu
 	const [state, setState] = useState<ReplyAttachmentsState>(IDLE)
 	const queue = useRef<AttachmentQueue | null>(null)
 	// A queue per run. Leaving or ending the run drops local state; server attachments stay.
-	useEffect(() => {
+	// It starts before the paint: the reply form mounts in the render that names the run, and
+	// its Add files button exists only once the queue says files can be added.
+	useLayoutEffect(() => {
 		if (ended) return
 		const started = startAttachmentQueue(client, runId, setState)
 		queue.current = started

@@ -1,22 +1,13 @@
 // The HUD fills its pane. The caller supplies the message log pane and owns whether it is open.
 // The right edge holds the message log toggle with the copy controls beneath it.
-import { createContext, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { useRef, type CSSProperties, type ReactNode } from "react"
 import type { MessageLogState } from "../../log/useMessageLog"
 import { HudCopyControls } from "../run/HudCopyControls"
 import { HudCornerControls, moveLayoutMode, type LayoutMode } from "./HudCornerControls"
 import { HudEdgeButton } from "./HudEdgeButton"
 import { hasOverviewLayout, type HudScreen } from "../../app/hud-navigation"
 
-// The right edge's copy controls element. The reply form renders its live copy controls
-// into it with a portal, because the form holds the displayed message and the draft,
-// and marks the slot filled while it does. An unfilled slot shows the same controls
-// disabled, so the column never changes shape.
-export const CopyControlsSlot = createContext<{ element: HTMLElement | null; setFilled: (filled: boolean) => void }>({
-	element: null,
-	setFilled: () => {},
-})
-
-export function AgentHud({ screen, inactive, layoutMode, onLayoutModeChange, messageLog, logPane, header, children }: {
+export function AgentHud({ screen, inactive, layoutMode, onLayoutModeChange, messageLog, logPane, header, copyControls, children }: {
 	screen: HudScreen
 	/** The displayed run has ended or gone missing. */
 	inactive: boolean
@@ -26,11 +17,10 @@ export function AgentHud({ screen, inactive, layoutMode, onLayoutModeChange, mes
 	/** Rendered only while the log is open. */
 	logPane: () => ReactNode
 	header: ReactNode
+	/** The screen's copy and clear buttons. Without any, the column shows the same buttons disabled, so it never changes shape. */
+	copyControls: ReactNode
 	children: ReactNode
 }) {
-	const [copySlot, setCopySlot] = useState<HTMLElement | null>(null)
-	const [copySlotFilled, setCopySlotFilled] = useState(false)
-	const copySlotValue = useMemo(() => ({ element: copySlot, setFilled: setCopySlotFilled }), [copySlot])
 	const hud = useRef<HTMLDivElement>(null)
 	const resizing = messageLog.resizingWidth
 	const hudBoxClassName = `agent-hud__box${
@@ -74,13 +64,13 @@ export function AgentHud({ screen, inactive, layoutMode, onLayoutModeChange, mes
 								</svg>
 							</HudEdgeButton>
 							<span className="agent-hud__edge-divider" aria-hidden="true" />
-							<div ref={setCopySlot} className="edge-controls__copy" />
-							{!copySlotFilled && (
-								<HudCopyControls agentMessage={null} replyDraft="" disabled onClearReply={() => {}} />
+							<div className="edge-controls__copy">{copyControls}</div>
+							{!copyControls && (
+								<HudCopyControls message={null} replyDraft="" hasAttachments={false} disabled onClearReply={() => {}} />
 							)}
 						</div>
 						{header}
-						<CopyControlsSlot value={copySlotValue}>{children}</CopyControlsSlot>
+						{children}
 					</div>
 				</div>
 				{messageLog.open && logPane()}

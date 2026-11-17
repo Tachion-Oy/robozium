@@ -2,7 +2,7 @@
 // images. Without a
 // message (no reply form) there is nothing to copy, and the buttons are disabled.
 // The buttons follow the panels top to bottom, with Clear last.
-import type { AgentMessage } from "./AgentMessagePanel"
+import type { HudDisplay } from "../../hud/hud-reducer"
 import {
 	CopyTextButton,
 	type CopyTextButtonProps,
@@ -10,25 +10,25 @@ import {
 import { HudEdgeButton } from "../hud/HudEdgeButton"
 
 type HudCopyControlsProps = {
-	agentMessage: AgentMessage | null
+	message: Pick<HudDisplay, "id" | "text" | "working"> | null
 	replyDraft: string
-	hasAttachments?: boolean
+	hasAttachments: boolean
 	disabled?: boolean
 	onClearReply: () => void
 }
 
 /** Copy the top (agent) panel, copy the bottom (reply) panel, then clear the reply. */
 export function HudCopyControls({
-	agentMessage,
+	message,
 	replyDraft,
-	hasAttachments = false,
+	hasAttachments,
 	disabled = false,
 	onClearReply,
 }: HudCopyControlsProps) {
 	const targets: CopyTextButtonProps[] = [
 		{
-			copyKey: agentMessage?.id ?? "",
-			content: !agentMessage || agentMessage.working ? "" : agentMessage.text,
+			copyKey: message?.id ?? "",
+			content: !message || message.working ? "" : message.text,
 			target: "agent output",
 			reverseIcon: true,
 		},
