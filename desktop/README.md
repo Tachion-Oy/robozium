@@ -500,9 +500,10 @@ also owns its installation identity and container log.
   and delete.
   `renderer/src/session/useRunSession.ts` owns the displayed run's subscription.
   `session-reducer.ts` composes run reconciliation and HUD projection atomically.
-  `hud/hud-reducer.ts` coordinates live text, history and selection;
-  `hud-history.ts`, `hud-view.ts` and `hud-messages.ts` own grouping/recovery,
-  prompt/display composition and typed text extraction respectively.
+  `hud/hud-reducer.ts` coordinates live text, history and selection, composes
+  the prompt with completed output and selects the one display;
+  `hud-history.ts` and `hud-messages.ts` own grouping/recovery and typed text
+  extraction respectively.
 - `tsconfig.json` supplies Node types and module settings for every file in
   `src/`. Its standard name lets editors discover the same project the type check
   uses. The test and Vite configurations extend it.
