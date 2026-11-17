@@ -1,6 +1,13 @@
 // Contracts come from the desktop capability API.
 import type { CapabilitySelection, CapabilityView } from "./capabilities-api"
 
+/** A capability's state for a launch. Only a skill can be on demand: listed for the agent, which loads it when it needs it. */
+export enum CapabilityState {
+	Off = "off",
+	OnDemand = "on_demand",
+	On = "on",
+}
+
 /** Keep available optional choices; new capabilities stay off and fixed ones are implicit. */
 export function resolveCapabilitySelection(
 	catalog: CapabilityView[],

@@ -23,7 +23,7 @@
   text-align: left;
 }
 
-.agent-hud__option[aria-checked="true"]:disabled {
+.agent-hud__option:not([aria-checked="false"]):disabled {
   opacity: 0.8;
 }
 
@@ -39,7 +39,7 @@
 
 /* Each kind of button has one colour, from which a theme draws its edge, fill,
    label and glow. A tool or skill is blue, as listed in Environment, and green
-   once chosen. */
+   once chosen; a chosen skill the agent loads on demand is amber. */
 .agent-hud__row-tools,
 .agent-hud__option {
   --accent: var(--term-blue);
@@ -50,7 +50,8 @@
   --accent: var(--term-green);
 }
 
-.agent-hud__row-cancel {
+.agent-hud__row-cancel,
+.agent-hud__option[aria-checked="mixed"] {
   --accent: var(--term-amber);
 }
 
@@ -150,7 +151,7 @@
   color: color-mix(in oklab, var(--accent) 60%, white);
 }
 
-:root[data-theme="dark"] .agent-hud__option[aria-checked="true"] {
+:root[data-theme="dark"] .agent-hud__option:not([aria-checked="false"]) {
   --fill: color-mix(in oklab, var(--accent) 24%, transparent);
   color: color-mix(in oklab, var(--accent) 75%, white);
 }
@@ -269,7 +270,7 @@
   &:is(
     .agent-hud__send, .agent-hud__dictate, .agent-hud__image, .agent-hud__cancel, .agent-hud__interrupt,
     .agent-hud__row-launch, .agent-hud__row-tools, .agent-hud__row-cancel, .agent-hud__row-delete,
-    .agent-hud__option[aria-checked="true"], .agent-hud__start, .agent-hud__status-view .agent-hud__panel-action,
+    .agent-hud__option:not([aria-checked="false"]), .agent-hud__start, .agent-hud__status-view .agent-hud__panel-action,
     .agent-hud__copy-text[data-copied], .message-log-toggle[aria-expanded="true"],
     .agent-error-toast__dismiss, .agent-error-toast__action, .agent-hud__image-toolbar > button
   ) {
@@ -311,7 +312,7 @@
   }
 
   /* Pressed, or latched on. */
-  &:not(:disabled):is(:active, [aria-pressed="true"], [aria-checked="true"], [aria-expanded="true"]) {
+  &:not(:disabled):is(:active, [aria-pressed="true"], [aria-checked="true"], [aria-checked="mixed"], [aria-expanded="true"]) {
     --key-lip-height: 1px;
     --key-face: color-mix(in oklab, var(--key-face-hover) 88%, var(--hud-control-ink));
     --key-sink: inset 0 0.2rem 0.26rem color-mix(in oklab, var(--hud-control-ink) 44%, transparent);
@@ -329,22 +330,22 @@
   }
 
   /* A capability every launch has: chosen, and locked. */
-  &.agent-hud__option[aria-checked="true"]:disabled {
-    --key-face: color-mix(in oklab, var(--term-green) 30%, var(--hud-card-bg));
-    --key-rim: color-mix(in oklab, var(--term-green) 55%, var(--hud-control-ink));
+  &.agent-hud__option:not([aria-checked="false"]):disabled {
+    --key-face: color-mix(in oklab, var(--accent) 30%, var(--hud-card-bg));
+    --key-rim: color-mix(in oklab, var(--accent) 55%, var(--hud-control-ink));
     --key-legend: var(--hud-control-ink);
   }
 }
 
 /* The "Skill" or "Tool" tag on a chip has the chip's colours flipped, as dark's
    has: filled with the chip's colour, darkened, under pale letters. On a chip
-   not yet chosen it is a plate; on a chosen one, green. */
+   not yet chosen it is a plate; on a chosen one, the chip's green or amber. */
 :root[data-theme="light"] .agent-hud__option {
   --tag-bg: var(--hud-plate-bg);
 }
 
-:root[data-theme="light"] .agent-hud__option[aria-checked="true"] {
-  --tag-bg: color-mix(in oklab, var(--term-green) 52%, var(--hud-control-ink));
+:root[data-theme="light"] .agent-hud__option:not([aria-checked="false"]) {
+  --tag-bg: color-mix(in oklab, var(--accent) 52%, var(--hud-control-ink));
 }
 
 :root[data-theme="light"] .agent-hud__capability-badge {

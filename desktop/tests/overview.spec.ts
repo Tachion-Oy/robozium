@@ -153,6 +153,36 @@ test("Edit restores saved choices, and Escape or Cancel returns to the overview"
 	expect(writes(backend)).toEqual([])
 })
 
+test("a skill steps through off, always on and on demand, and launches with the chosen loading", async ({ desktop: { page }, backend }) => {
+	backend.handlers.set("GET /capabilities", response => json(response, catalog))
+	backend.handlers.set("GET /capabilities/existing-project", response => json(response, { notes: "on_demand" }))
+	prepareRun(backend)
+	await backend.open()
+	await row(page, "existing-project").getByRole("button", { name: "Edit", exact: true }).click()
+	// The legend names the three chip colours without a hover.
+	await expect(selector(page).getByRole("list", { name: "Chip colours" }).getByRole("listitem")).toHaveText(["Off", "On demand", "Always on"])
+	// The saved on-demand choice is the third checkbox state.
+	await expect(capability(page, "notes")).toHaveAttribute("aria-checked", "mixed")
+	await capability(page, "notes").click()
+	await expect(capability(page, "notes")).toHaveAttribute("aria-checked", "false")
+	// Off steps to the loading the skill declares, then to the other one.
+	await capability(page, "notes").click()
+	await expect(capability(page, "notes")).toHaveAttribute("aria-checked", "true")
+	await capability(page, "notes").click()
+	await expect(capability(page, "notes")).toHaveAttribute("aria-checked", "mixed")
+	// A tool has no third state.
+	await capability(page, "web search").click()
+	await capability(page, "web search").click()
+	await expect(capability(page, "web search")).toHaveAttribute("aria-checked", "false")
+	await selector(page).getByRole("button", { name: "Launch", exact: true }).click()
+	await expect(runStatus(page)).toContainText("existing-project")
+	const selection = { notes: "on_demand" }
+	expect(writes(backend)).toEqual([
+		{ method: "POST", path: "/capabilities/existing-project", body: selection },
+		{ method: "POST", path: "/run/create", body: { project: "existing-project", capabilities: selection } },
+	])
+})
+
 test("capability load failures show in a toast and recover through Retry", async ({ desktop: { page }, backend }) => {
 	backend.handlers.set("GET /capabilities", response => json(response, { detail: "Catalogue unavailable" }, 503))
 	await backend.open()
