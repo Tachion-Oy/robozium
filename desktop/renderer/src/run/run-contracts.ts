@@ -46,6 +46,15 @@ export const RunStatus = {
 	Cancelled: "cancelled",
 } as const
 export type RunStatus = typeof RunStatus[keyof typeof RunStatus]
+export const runLabels: Record<RunStatus, string> = {
+	[RunStatus.Queued]: "Queued",
+	[RunStatus.Running]: "Running",
+	[RunStatus.AwaitingUserInput]: "Awaiting input",
+	[RunStatus.Cancelling]: "Cancelling",
+	[RunStatus.Completed]: "Completed",
+	[RunStatus.Failed]: "Failed",
+	[RunStatus.Cancelled]: "Cancelled",
+}
 
 export function isTerminal(status: RunStatus): boolean {
 	return status === RunStatus.Completed || status === RunStatus.Failed || status === RunStatus.Cancelled

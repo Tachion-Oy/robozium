@@ -1,8 +1,7 @@
 // Compose run reconciliation and HUD presentation in one atomic React update.
 // Run actions flow through reduceRun first; history selection affects only the HUD.
 import { initialRun, reduceRun, type RunAction, type RunState } from "../run/run-reducer"
-import { initialHud, reduceHud, selectHudMessage, type HudState } from "../hud/hud-reducer"
-import type { HudDisplay } from "../hud/hud-view"
+import { initialHud, reduceHud, selectHudMessage, type HudDisplay, type HudState } from "../hud/hud-reducer"
 
 export interface RunSession {
 	run: RunState
