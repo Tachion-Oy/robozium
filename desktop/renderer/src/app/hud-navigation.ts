@@ -1,7 +1,14 @@
-// Selections come from the desktop capability API.
+// The selected screen and the launch draft, changed only by the events below, and the
+// screen the HUD shows for them. Selections come from the desktop capability API.
 import type { CapabilitySelection } from "../capabilities/capabilities-api"
 
 export type HudScreen = "projects" | "run" | "dependencies" | "launch" | "environment" | "onboarding"
+
+export type HudScreenOption = {
+	value: HudScreen
+	label: string
+	disabled?: boolean
+}
 
 export type LaunchDraft = {
 	project: string | null
@@ -23,9 +30,18 @@ export type HudNavigationEvent =
 	| { type: "launch_renamed"; from: string; project: string }
 	| { type: "launch_closed" }
 
+/** What the app's state allows: a live run has Current Run; setup and a pending restart lock the HUD. */
+export type HudLimits = {
+	runLive: boolean
+	/** No API keys are configured yet: only the overview, the guide and Environment open. */
+	setupRequired: boolean
+	/** A change waits for Restart app: only Environment stays open. */
+	restartRequired: boolean
+}
+
 export const initialHudNavigation: HudNavigation = { screen: "projects", launch: null }
 
-/** Draft lifetime follows navigation actions, independently of mounted screens. */
+/** Draft lifetime follows navigation actions, independently of mounted screens. Launch is selected only with a draft. */
 export function reduceHudNavigation(
 	state: HudNavigation,
 	event: HudNavigationEvent,
@@ -60,4 +76,35 @@ export function reduceHudNavigation(
 				? { ...state, launch: { ...state.launch, project: event.project } }
 				: state
 	}
+}
+
+/** The screen the HUD shows: the selected one, or the overview (Environment under a restart) while it is closed. */
+export function visibleScreen(selected: HudScreen, limits: HudLimits): HudScreen {
+	if (limits.restartRequired) return "environment"
+	if (limits.setupRequired) {
+		return selected === "onboarding" || selected === "environment" ? selected : "projects"
+	}
+	// A run that ends or goes missing leaves Current Run; the guide opens only during setup.
+	if (selected === "run" && !limits.runLive) return "projects"
+	if (selected === "onboarding") return "projects"
+	return selected
+}
+
+/** The view menu's entries. A lock keeps the plain entries and disables the ones it closes. */
+export function screenOptions(screen: HudScreen, launchOpen: boolean, limits: HudLimits): HudScreenOption[] {
+	const locked = limits.setupRequired || limits.restartRequired
+	// During setup the menu only leads to Environment, and back from it.
+	const overviewClosed = limits.restartRequired || (limits.setupRequired && screen !== "environment")
+	const options: HudScreenOption[] = []
+	if (limits.runLive && !locked) options.push({ value: "run", label: "Current Run" })
+	options.push({ value: "projects", label: "Runs Overview", disabled: overviewClosed })
+	options.push({ value: "dependencies", label: "Dependencies", disabled: locked })
+	options.push({ value: "environment", label: "Environment" })
+	if (launchOpen && !locked) options.push({ value: "launch", label: "Launch" })
+	return options
+}
+
+/** The overview and Launch keep the same gap below the selectors, whatever the run state. */
+export function hasOverviewLayout(screen: HudScreen): boolean {
+	return screen === "projects" || screen === "launch"
 }

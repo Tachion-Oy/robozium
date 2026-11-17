@@ -7,11 +7,10 @@ import { MessageLog } from "../log/MessageLog"
 import { HudHeader } from "../hud/HudHeader"
 import { ModelSelector } from "../hud/ModelSelector"
 import type { LayoutMode } from "../hud/HudCornerControls"
-import { resolveHudPresentation, type HudScreen } from "../hud/hudPresentation"
 import { ProjectOverview } from "../projects/ProjectOverview"
 import { OnboardingHud } from "../onboarding/OnboardingHud"
 import { CapabilitySelector } from "../projects/CapabilitySelector"
-import { initialHudNavigation, reduceHudNavigation } from "../../app/hud-navigation"
+import { initialHudNavigation, reduceHudNavigation, screenOptions, visibleScreen, type HudLimits, type HudScreen } from "../../app/hud-navigation"
 import type { DesktopApiClient } from "../../api/client"
 import { useModels } from "../../models/useModels"
 import { useProjectQuery } from "../../projects/useProjectQuery"
@@ -91,19 +90,13 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	const setupRequired = Boolean(credentials.status?.setupRequired)
 	// A change that applies after a restart locks the HUD on Environment until Restart app.
 	const restartRequired = Boolean(credentials.status?.restartRequired)
-	// A run that ends or goes missing leaves Current Run for the overview.
-	const presentation = resolveHudPresentation({
-		hasRun: session !== null,
-		runEnded,
-		runUnavailable: Boolean(session?.run.unavailable),
-		selectedScreen: navigation.screen,
-		launch: navigation.launch,
-		setupRequired,
-		restartRequired,
-	})
-	const screen = presentation.screen
+	const locked = setupRequired || restartRequired
+	const runLive = session !== null && !runEnded && !session.run.unavailable
+	const limits: HudLimits = { runLive, setupRequired, restartRequired }
+	// Current Run is open only for a live run with nothing locked.
+	const screen = visibleScreen(navigation.screen, limits)
 	// Current Run shows and switches its live run's model; other screens set the default.
-	const modelRun = screen === "run" && session && !runEnded && !session.run.unavailable ? session.run.runId : null
+	const modelRun = screen === "run" && session ? session.run.runId : null
 	const models = useModels(client, connected, modelRun)
 	// While Current Run shows a live run, each tick lets the working HUD add a line naming its model.
 	const runModel = models.selection?.models.find(model => model.model_id === models.selection?.selected_model_id)?.label
@@ -156,7 +149,7 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 				return <ProjectOverview projects={projectQuery} mutations={projectMutations} navigationPending={navigationPending} isLaunching={projectMutations.isLaunching}
 					currentRunId={session?.run.runId ?? null} onCurrentProjectClick={showRun} onOpenRun={openRun}
 					onSelectCapabilities={project => navigate({ type: "launch_opened", project })}
-					onLaunch={projectMutations.launch} locked={presentation.locked} onStartHere={() => selectScreen("onboarding")} />
+					onLaunch={projectMutations.launch} locked={locked} onStartHere={() => selectScreen("onboarding")} />
 			case "onboarding":
 				return <div className="agent-hud__run-view">
 					<OnboardingHud layoutMode={layout} onExit={() => selectScreen("projects")} />
@@ -182,11 +175,12 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 
 	return (
 		<>
-			<AgentHud presentation={presentation}
+			<AgentHud screen={screen} inactive={session !== null && !runLive}
 				layoutMode={layout} onLayoutModeChange={setLayout} messageLog={messageLog}
-				logPane={() => <MessageLog key={session?.run.runId} active={presentation.context === "active-run"} events={session?.run.events ?? noEvents} />}
-				header={<HudHeader presentation={presentation} projectSlug={session?.run.project ?? null} onSelectScreen={selectScreen}
-					modelSelector={<ModelSelector models={models} disabled={presentation.locked || !connected || projectMutations.launching} />} />}>
+				logPane={() => <MessageLog key={session?.run.runId} active={runLive} events={session?.run.events ?? noEvents} />}
+				header={<HudHeader screen={screen} screenOptions={screenOptions(screen, navigation.launch !== null, limits)}
+					projectSlug={session?.run.project ?? null} onSelectScreen={selectScreen}
+					modelSelector={<ModelSelector models={models} disabled={locked || !connected || projectMutations.launching} />} />}>
 				{renderContent()}
 			</AgentHud>
 			<PasswordDialog open={credentials.asking} title="Unlock secrets" label="Password" submitLabel="Unlock" pendingLabel="Unlocking…"

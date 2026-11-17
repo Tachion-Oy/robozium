@@ -8,23 +8,28 @@ import { openProjectFolder, showOnboardingFile } from "../../links/open-link"
 import { HudEdgeButton } from "./HudEdgeButton"
 import { HudProjectBadge } from "./HudProjectBadge"
 import { HudScreenSelector } from "./HudScreenSelector"
-import type { HudPresentation, HudScreen } from "./hudPresentation"
+import { hasOverviewLayout, type HudScreen, type HudScreenOption } from "../../app/hud-navigation"
 
 type HudHeaderProps = {
-	presentation: HudPresentation
+	screen: HudScreen
+	screenOptions: readonly HudScreenOption[]
 	projectSlug: string | null
 	modelSelector: ReactNode
 	onSelectScreen: (screen: HudScreen) => void
 }
 
 export function HudHeader({
-	presentation,
+	screen,
+	screenOptions,
 	projectSlug,
 	modelSelector,
 	onSelectScreen,
 }: HudHeaderProps) {
+	// The project name labels the run on Current Run; elsewhere it would look like the screen's subject.
+	// The guide is its own subject: its badge leads to the guide's file.
+	const showProjectBadge = screen === "run" || screen === "onboarding"
 	// A run's name is null until its project is known; the button waits for it.
-	const badge = presentation.screen === "onboarding"
+	const badge = screen === "onboarding"
 		? { name: "onboarding", folderLabel: "Show onboarding file", openFolder: showOnboardingFile }
 		: {
 			name: projectSlug,
@@ -35,22 +40,22 @@ export function HudHeader({
 		<div
 			className={[
 				"agent-hud__header",
-				presentation.headerVariant === "overview"
+				hasOverviewLayout(screen)
 					? "agent-hud__header--overview"
 					: "agent-hud__header--row",
-				presentation.showProjectBadge ? "agent-hud__header--project" : "",
+				showProjectBadge ? "agent-hud__header--project" : "",
 			]
 					.filter(Boolean)
 					.join(" ")}>
-			{presentation.showProjectBadge ? <HudProjectBadge name={badge.name} /> : null}
+			{showProjectBadge ? <HudProjectBadge name={badge.name} /> : null}
 			<div className="agent-hud__header-actions">
 				{modelSelector}
 				<HudScreenSelector
-					screen={presentation.screen}
-					options={presentation.screenOptions}
+					screen={screen}
+					options={screenOptions}
 					onSelectScreen={onSelectScreen}
 				/>
-				{presentation.showProjectBadge ? (
+				{showProjectBadge ? (
 					<HudEdgeButton
 						variant="icon"
 						className="agent-hud__project-folder"
