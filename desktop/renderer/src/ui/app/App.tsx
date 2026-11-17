@@ -124,7 +124,11 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	// A launch, a disconnection or an unconfirmed model change locks navigation.
 	const navigationPending = projectMutations.launching || !connected || models.pending
 	const selectScreen = (next: HudScreen) => { setFocusRunEditor(false); navigate({ type: "screen_selected", screen: next }) }
-	const openRun = (runId: string, project: string) => { runSession.open(runId, project); showRun() }
+	// The displayed run's own row only shows it again.
+	const openRun = (runId: string, project: string) => {
+		if (session?.run.runId !== runId) runSession.open(runId, project)
+		showRun()
+	}
 	// The HUD and the overview rows share one cancellation per project.
 	const cancelling = session !== null && (projectMutations.pending.has(session.run.project) || session.run.status === RunStatus.Cancelling)
 	const runError = screen === "run" ? session?.run.error : ""
@@ -146,10 +150,10 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 					</HubFileUrlContext>
 				</div>
 			case "projects":
-				return <ProjectOverview projects={projectQuery} mutations={projectMutations} navigationPending={navigationPending} isLaunching={projectMutations.isLaunching}
-					currentRunId={session?.run.runId ?? null} onCurrentProjectClick={showRun} onOpenRun={openRun}
+				return <ProjectOverview projects={projectQuery} mutations={projectMutations} navigationPending={navigationPending}
+					locked={locked} onOpenRun={openRun}
 					onSelectCapabilities={project => navigate({ type: "launch_opened", project })}
-					onLaunch={projectMutations.launch} locked={locked} onStartHere={() => selectScreen("onboarding")} />
+					onStartHere={() => selectScreen("onboarding")} />
 			case "onboarding":
 				return <div className="agent-hud__run-view">
 					<OnboardingHud layoutMode={layout} onExit={() => selectScreen("projects")} />
