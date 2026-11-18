@@ -18,8 +18,8 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `projects/` | Project requests and validation, the overview rows (query) and this app's cancel and delete requests (mutations), and the launch command. |
 | `capabilities/` | Capability catalogue and saved-selection requests, the selector's reads, and selection resolution. |
 | `models/` | Model requests and validation, and the acknowledged backend selection. |
-| `run/` | Run contracts, requests, payload decoding, event reconciliation and live updates. |
-| `session/` | The displayed run's subscription lifetime, the atomic composition of run data with HUD state, and the notices live updates raise. |
+| `run/` | Run contracts, requests, payload decoding and live updates. |
+| `session/` | The displayed run's subscription lifetime, the one reducer for its run data and HUD state, and the notices live updates raise. |
 | `hud/` | Message projection, history, display selection, the working indicator's thinking lines and layout logic. |
 | `dependencies/` | Dependency monitor records and Check Now requests and validation, and the view's owner. |
 | `environment/` | Saved settings and secrets requests and validation, the files an import folder's catalog names, the screen's owner and its editor state. |
@@ -81,8 +81,8 @@ flowchart LR
   Mutations --> RunApi["run-api"]
   Mutations --> Notices["feedback/notices"]
   Session --> Updates["run-updates"] --> RunApi
-  Session --> Reducer["session-reducer"] --> RunReducer["run-reducer"]
-  Reducer --> HudReducer["hud-reducer"]
+  Session --> Reducer["session-reducer"] --> HudDisplay["hud-display"]
+  Reducer --> HudHistory["hud-history"]
   Query --> ProjectsApi
   Mutations --> ProjectsApi
   Mutations --> Notices
@@ -95,8 +95,9 @@ flowchart LR
 ## Rules
 
 - **Direction.** `ui/` imports owners; owners and feature modules never import
-  `ui/`. Shared `api/` imports no feature module. HUD projection consumes
-  validated run data, while run reconciliation has no HUD dependency.
+  `ui/`. Shared `api/` imports no feature module. `run/` imports
+  neither `session/` nor `hud/`. `session-reducer` is the only writer of the
+  displayed run's state; `hud/` computes from that state and changes nothing.
 - **Names.** A variable holding an owner is named after its hook:
   `useProjectQuery` → `projectQuery`, `useEnvironmentDraft` →
   `environmentDraft`. Where an owner is split, the reads keep the area's name
@@ -132,7 +133,7 @@ flowchart LR
 ## The message log
 
 The desktop shows the message log only occasionally, so it keeps no log state:
-`run-reducer` already retains every durable event of the displayed run, and the
+`session-reducer` already retains every durable event of the displayed run, and the
 HUD keeps only its own projection. The log is a pure selector over those events,
 computed only while the log pane is mounted:
 

@@ -259,8 +259,8 @@ Electron: retry scoping/replay, prompt selection, settling, completed-token
 suppression, snapshots overtaking SSE, and script identity across recovered
 boundaries. Delivery-order cases cover repeated snapshots, older duplicates that
 must leave newer live text intact, and delayed/status-only prompt snapshots whose
-boundaries survive recovery. Separation checks exercise run reconciliation without
-a HUD, selection changes leaving run data untouched, recovered scripts before a
+boundaries survive recovery. Separation checks exercise accepted and refused token
+fragments, selection changes leaving run data untouched, recovered scripts before a
 live display boundary, and duplicate chunks after live text was cleared.
 Mixed-content checks apply the same message and script grouping expectations to
 streamed events and snapshot recovery, including hidden agent completions.
