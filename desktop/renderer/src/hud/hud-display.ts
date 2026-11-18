@@ -1,7 +1,7 @@
-// Compose completed output with the active prompt, preserve pinned history and select the one display.
+// Compose completed output with the active prompt and select the one display. Nothing here changes state.
 // The message list changes with messages/prompts; token updates only replace live text.
 import { isTerminal } from "../run/run-contracts"
-import type { HudState, RunPrompt, RunState } from "../session/session-reducer"
+import type { RunPrompt, RunSession } from "../session/session-reducer"
 import { streamingText, type HudMessage, type RecordedHudMessage } from "./hud-messages"
 
 export interface HudMessageList {
@@ -42,20 +42,7 @@ export function initialMessageList(): HudMessageList {
 	return { messages: [], indices: new Map(), activePromptId: null }
 }
 
-function retainPinnedPrompt(previous: HudMessageList, messages: HudMessage[], selectedId: string | null): void {
-	if (selectedId === null || messages.some(message => message.id === selectedId)) return
-	const index = previous.indices.get(selectedId)
-	if (index === undefined) return
-	const selected = previous.messages[index]
-	if (selected?.source === "prompt") messages.splice(Math.min(index, messages.length), 0, selected)
-}
-
-export function buildMessageList(
-	previous: HudMessageList,
-	completed: readonly RecordedHudMessage[],
-	prompt: RunPrompt | null,
-	selectedId: string | null,
-): HudMessageList {
+export function buildMessageList(completed: readonly RecordedHudMessage[], prompt: RunPrompt | null): HudMessageList {
 	const messages: HudMessage[] = [...completed]
 	let activePromptId: string | null = null
 	// A wait without text, as after a failed model call, leaves the latest output in view.
@@ -64,20 +51,20 @@ export function buildMessageList(
 		activePromptId = match?.id ?? `prompt:${prompt.id}`
 		if (!match) messages.push({ id: activePromptId, text: prompt.text, source: "prompt" })
 	}
-	retainPinnedPrompt(previous, messages, selectedId)
 	return { messages, indices: new Map(messages.map((message, index) => [message.id, index])), activePromptId }
 }
 
 /** Priority: explicitly pinned message, active prompt, live text or the working indicator, latest completed output. */
-export function selectHudMessage(state: HudState | null, run: RunState | null): HudDisplay {
+export function selectRunDisplay(session: RunSession | null): HudDisplay {
 	const empty: HudDisplay = { id: "empty", text: "", contentType: "plain-text", streaming: false, working: false, index: 0, currentIndex: 0, count: 0 }
-	if (!state || !run) return empty
-	const { view, selectedMessageId, liveText } = state
+	if (!session) return empty
+	const { run, hud } = session
+	const { view, selectedMessageId, liveText } = hud
 	const promptIndex = view.activePromptId === null ? undefined : view.indices.get(view.activePromptId)
 	const live = promptIndex === undefined ? liveText : null
 	const liveDisplay = live ? streamingText(live.raw) : ""
 	// Live text without visible characters yet, such as leading JSON punctuation, shows the agent working.
-	const working = promptIndex === undefined && !isTerminal(run.status) && (live ? !liveDisplay.trim() : state.working)
+	const working = promptIndex === undefined && !isTerminal(run.status) && (live ? !liveDisplay.trim() : hud.working)
 	const count = view.messages.length + (live || working ? 1 : 0)
 	const currentIndex = promptIndex ?? Math.max(0, count - 1)
 	const selectedIndex = selectedMessageId === null ? undefined : view.indices.get(selectedMessageId)
@@ -85,7 +72,7 @@ export function selectHudMessage(state: HudState | null, run: RunState | null): 
 	if (index === view.messages.length && (live || working)) {
 		// Settled text stays in the streaming style: it was never a completed HUD message.
 		return {
-			id: live?.id ?? "working", text: working ? [AGENT_WORKING_TEXT, ...state.thinkingLines].join("\n") : liveDisplay, contentType: "plain-text",
+			id: live?.id ?? "working", text: working ? [AGENT_WORKING_TEXT, ...hud.thinkingLines].join("\n") : liveDisplay, contentType: "plain-text",
 			streaming: !isTerminal(run.status), working, index, currentIndex, count,
 		}
 	}
@@ -94,6 +81,6 @@ export function selectHudMessage(state: HudState | null, run: RunState | null): 
 	return {
 		id: message.id, text: message.text, working: false, index, currentIndex, count,
 		contentType: message.source === "script" ? "plain-text" : "markdown",
-		streaming: message.id === state.history.openScriptId && !run.prompt && !isTerminal(run.status),
+		streaming: message.id === hud.history.openScriptId && !run.prompt && !isTerminal(run.status),
 	}
 }

@@ -4,9 +4,7 @@ import { isTerminal, RunFrameKind, RunStatus, type RunDelta, type RunProgress, t
 import type { RunUpdate } from "../run/run-updates"
 import { initialHistory, updateHudHistory, type HudHistory } from "../hud/hud-history"
 import { messageText, type HudLiveText } from "../hud/hud-messages"
-import {
-	buildMessageList, initialMessageList, selectHudMessage, thinkingLine, type HudDisplay, type HudMessageList,
-} from "../hud/hud-display"
+import { buildMessageList, initialMessageList, selectRunDisplay, thinkingLine, type HudMessageList } from "../hud/hud-display"
 
 export interface RunPrompt {
 	id: string
@@ -35,6 +33,7 @@ export interface RunState {
 /** What the single-message panel keeps beside the run data. */
 export interface HudState {
 	history: HudHistory
+	/** Completed output with the active prompt, indexed by id: what the panel pages through. */
 	view: HudMessageList
 	selectedMessageId: string | null
 	liveText: HudLiveText | null
@@ -129,9 +128,7 @@ function updateHistoryAndView(state: RunSession, run: RunState, breakAfter: numb
 	const hud = state.hud
 	const history = updateHudHistory(hud.history, state.run.events, run.events, breakAfter, hud.selectedMessageId)
 	if (history.messages === hud.history.messages && run.prompt === state.run.prompt) return { ...hud, history }
-	const view = buildMessageList(hud.view, history.messages, run.prompt, hud.selectedMessageId)
-	const selectedMessageId = hud.selectedMessageId !== null && view.indices.has(hud.selectedMessageId) ? hud.selectedMessageId : null
-	return { ...hud, history, view, selectedMessageId }
+	return { ...hud, history, view: buildMessageList(history.messages, run.prompt) }
 }
 
 /** An accepted token fragment extends the live text. A replayed, duplicate or superseded one only moves the cursor. */
@@ -262,17 +259,17 @@ function applyReply(state: RunSession, promptId: string): RunSession {
 	return { run, hud: { ...updateHistoryAndView(state, run, null), working: true } }
 }
 
-/** One line per tick while the working indicator shows. */
+/** One line per tick while the working indicator is what the panel displays; a pinned message shows none. */
 function applyTick(state: RunSession, now: Date, model: string): RunSession {
 	const hud = state.hud
-	if (!selectHudMessage(hud, state.run).working) return { run: state.run, hud }
+	if (!selectRunDisplay(state).working) return { run: state.run, hud }
 	const line = thinkingLine(now, model, hud.reasoning?.chars ?? null)
 	return { run: state.run, hud: { ...hud, thinkingLines: [...hud.thinkingLines, line] } }
 }
 
 /** Picking the latest message follows new output again; any other message stays pinned. */
 function selectMessage(state: RunSession, index: number): RunSession {
-	const current = selectHudMessage(state.hud, state.run).currentIndex
+	const current = selectRunDisplay(state).currentIndex
 	const selectedMessageId = index === current ? null : state.hud.view.messages[index]?.id ?? null
 	return { run: state.run, hud: { ...state.hud, selectedMessageId } }
 }
@@ -298,7 +295,7 @@ function applyRunAction(state: RunSession, action: RunAction): RunSession {
 
 /** The thinking lines belong to the working indicator and leave with it. */
 function dropStaleThinkingLines(state: RunSession): RunSession {
-	if (state.hud.thinkingLines.length === 0 || selectHudMessage(state.hud, state.run).working) return state
+	if (state.hud.thinkingLines.length === 0 || selectRunDisplay(state).working) return state
 	return { run: state.run, hud: { ...state.hud, thinkingLines: [] } }
 }
 
@@ -307,8 +304,4 @@ export function reduceRunSession(state: RunSession | null, action: SessionAction
 	if (!state) return state
 	if (action.type === "select") return selectMessage(state, action.index)
 	return dropStaleThinkingLines(applyRunAction(state, action))
-}
-
-export function selectRunDisplay(session: RunSession | null): HudDisplay {
-	return selectHudMessage(session?.hud ?? null, session?.run ?? null)
 }
