@@ -45,38 +45,24 @@ function appendEvent(history: HudHistory, event: RunRecord): HudHistory {
 	return { ...history, messages: [...messages.values()], openScriptId }
 }
 
-function findScriptAnchor(
-	previous: readonly RecordedHudMessage[],
-	group: HudScriptMessage,
-	selectedId: string | null,
-	claimed: ReadonlySet<string>,
-): HudScriptMessage | null {
-	let candidate: HudScriptMessage | null = null
+/** The record or break between two groups never goes away, so a rebuilt group holds at most one earlier group's anchor. */
+function findScriptAnchor(previous: readonly RecordedHudMessage[], group: HudScriptMessage): HudScriptMessage | null {
 	for (const message of previous) {
-		if (message.source !== "script" || claimed.has(message.id)) continue
-		if (message.anchorSequence < group.firstSequence || message.anchorSequence > group.lastSequence) continue
-		if (message.id === selectedId) return message
-		candidate ??= message
+		if (message.source !== "script") continue
+		if (message.anchorSequence >= group.firstSequence && message.anchorSequence <= group.lastSequence) return message
 	}
-	return candidate
+	return null
 }
 
-function retainScriptIdentities(
-	previous: readonly RecordedHudMessage[],
-	rebuilt: readonly RecordedHudMessage[],
-	selectedId: string | null,
-): RecordedHudMessage[] {
-	const claimed = new Set<string>()
+function retainScriptIdentities(previous: readonly RecordedHudMessage[], rebuilt: readonly RecordedHudMessage[]): RecordedHudMessage[] {
 	return rebuilt.map(message => {
 		if (message.source !== "script") return message
-		const anchor = findScriptAnchor(previous, message, selectedId, claimed)
-		const retained = anchor ? { ...message, id: anchor.id, anchorSequence: anchor.anchorSequence } : message
-		claimed.add(retained.id)
-		return retained
+		const anchor = findScriptAnchor(previous, message)
+		return anchor ? { ...message, id: anchor.id, anchorSequence: anchor.anchorSequence } : message
 	})
 }
 
-function recoverHistory(history: HudHistory, events: readonly RunRecord[], selectedId: string | null): HudHistory {
+function recoverHistory(history: HudHistory, events: readonly RunRecord[]): HudHistory {
 	const collected = new Map<string, RecordedHudMessage>()
 	let script: HudScriptMessage | null = null
 	let nextBreak = 0
@@ -89,7 +75,7 @@ function recoverHistory(history: HudHistory, events: readonly RunRecord[], selec
 		if (projected.message) collected.set(projected.message.id, projected.message)
 		script = projected.openScript
 	}
-	const messages = retainScriptIdentities(history.messages, [...collected.values()], selectedId)
+	const messages = retainScriptIdentities(history.messages, [...collected.values()])
 	const scriptIsOpen = script !== null && script.lastSequence > (history.breaks.at(-1) ?? -1)
 	return { ...history, messages, openScriptId: scriptIsOpen ? messages.at(-1)?.id ?? null : null }
 }
@@ -100,7 +86,6 @@ export function updateHudHistory(
 	previousEvents: readonly RunRecord[],
 	events: readonly RunRecord[],
 	breakAfter: number | null,
-	selectedId: string | null,
 ): HudHistory {
 	let next = history
 	if (events !== previousEvents) {
@@ -108,11 +93,11 @@ export function updateHudHistory(
 		const appended = last && events.length === previousEvents.length + 1
 			&& last.sequence > (previousEvents.at(-1)?.sequence ?? -1)
 			&& last.sequence > (history.breaks.at(-1) ?? -1)
-		next = appended ? appendEvent(history, last) : recoverHistory(history, events, selectedId)
+		next = appended ? appendEvent(history, last) : recoverHistory(history, events)
 	}
 	if (breakAfter === null || next.breaks.includes(breakAfter)) return next
 	const breaks = [...next.breaks, breakAfter].sort((a, b) => a - b)
 	next = { ...next, breaks, openScriptId: null }
-	if (breakAfter < (events.at(-1)?.sequence ?? -1)) return recoverHistory(next, events, selectedId)
+	if (breakAfter < (events.at(-1)?.sequence ?? -1)) return recoverHistory(next, events)
 	return next
 }

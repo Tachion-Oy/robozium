@@ -126,7 +126,7 @@ function mergeEvents(state: RunState, incoming: readonly RunRecord[]): RunState 
 
 function updateHistoryAndView(state: RunSession, run: RunState, breakAfter: number | null): HudState {
 	const hud = state.hud
-	const history = updateHudHistory(hud.history, state.run.events, run.events, breakAfter, hud.selectedMessageId)
+	const history = updateHudHistory(hud.history, state.run.events, run.events, breakAfter)
 	if (history.messages === hud.history.messages && run.prompt === state.run.prompt) return { ...hud, history }
 	return { ...hud, history, view: buildMessageList(history.messages, run.prompt) }
 }
