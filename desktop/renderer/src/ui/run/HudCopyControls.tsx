@@ -2,7 +2,7 @@
 // images. Without a
 // message (no reply form) there is nothing to copy, and the buttons are disabled.
 // The buttons follow the panels top to bottom, with Clear last.
-import type { HudDisplay } from "../../hud/hud-reducer"
+import type { HudDisplay } from "../../hud/hud-display"
 import {
 	CopyTextButton,
 	type CopyTextButtonProps,
