@@ -62,19 +62,22 @@ export function selectRunDisplay(session: RunSession | null): HudDisplay {
 	const { view, selectedMessageId, liveText } = hud
 	const promptIndex = view.activePromptId === null ? undefined : view.indices.get(view.activePromptId)
 	const live = promptIndex === undefined ? liveText : null
-	const liveDisplay = live ? streamingText(live.raw) : ""
+	const liveDisplay = live === null ? "" : streamingText(live)
 	// Live text without visible characters yet, such as leading JSON punctuation, shows the agent working.
-	const working = promptIndex === undefined && !isTerminal(run.status) && (live ? !liveDisplay.trim() : hud.working)
-	const count = view.messages.length + (live || working ? 1 : 0)
+	const working = promptIndex === undefined && !isTerminal(run.status) && (live === null ? hud.working : !liveDisplay.trim())
+	// Live text or the working indicator follows the messages as one more item.
+	const extra = live !== null || working
+	const count = view.messages.length + (extra ? 1 : 0)
 	const currentIndex = promptIndex ?? Math.max(0, count - 1)
 	const selectedIndex = selectedMessageId === null ? undefined : view.indices.get(selectedMessageId)
 	const index = selectedIndex ?? currentIndex
-	if (index === view.messages.length && (live || working)) {
+	if (index === view.messages.length && extra) {
+		let id = "working"
+		if (live !== null && run.streamMessage) id = `message:${run.streamMessage.id}`
+		let text = liveDisplay
+		if (working) text = [AGENT_WORKING_TEXT, ...hud.thinkingLines].join("\n")
 		// Settled text stays in the streaming style: it was never a completed HUD message.
-		return {
-			id: live?.id ?? "working", text: working ? [AGENT_WORKING_TEXT, ...hud.thinkingLines].join("\n") : liveDisplay, contentType: "plain-text",
-			streaming: !isTerminal(run.status), working, index, currentIndex, count,
-		}
+		return { id, text, contentType: "plain-text", streaming: !isTerminal(run.status), working, index, currentIndex, count }
 	}
 	const message = view.messages[index]
 	if (!message) return empty

@@ -23,13 +23,6 @@ export interface HudScriptMessage extends MessageContent {
 export type RecordedHudMessage = HudAgentMessage | HudScriptMessage
 export type HudMessage = RecordedHudMessage | HudPromptMessage
 
-export interface HudLiveText {
-	id: string
-	agent: string
-	raw: string
-	sequence: number
-}
-
 function promptText(content: string): string | null {
 	let action: unknown
 	try {

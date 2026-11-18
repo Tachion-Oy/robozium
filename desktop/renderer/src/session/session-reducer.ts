@@ -3,7 +3,7 @@
 import { isTerminal, RunFrameKind, RunStatus, type RunDelta, type RunProgress, type RunRecord, type RunView } from "../run/run-contracts"
 import type { RunUpdate } from "../run/run-updates"
 import { initialHistory, updateHudHistory, type HudHistory } from "../hud/hud-history"
-import { messageText, type HudLiveText } from "../hud/hud-messages"
+import { messageText } from "../hud/hud-messages"
 import { buildMessageList, initialMessageList, selectRunDisplay, thinkingLine, type HudMessageList } from "../hud/hud-display"
 
 export interface RunPrompt {
@@ -21,6 +21,7 @@ export interface RunState {
 	completedMessageIds: ReadonlySet<string>
 	retrySequences: ReadonlyMap<string, number>
 	streamSequence: number
+	/** The message whose token fragments arrived last, and its latest fragment; a retry of its agent ends it. */
 	streamMessage: Pick<RunDelta, "id" | "agent" | "chunk" | "sequence"> | null
 	error: string
 	unavailable: boolean
@@ -36,7 +37,8 @@ export interface HudState {
 	/** Completed output with the active prompt, indexed by id: what the panel pages through. */
 	view: HudMessageList
 	selectedMessageId: string | null
-	liveText: HudLiveText | null
+	/** The raw text streamed for run.streamMessage while the panel still shows it. */
+	liveText: string | null
 	/** The agent works without output newer than its launch, an answered prompt or a discarded attempt. */
 	working: boolean
 	/** Reasoning last reported for the model call in flight, and where in the stream; none once later output or a retry arrives. */
@@ -62,7 +64,7 @@ export type SessionAction = RunAction
 	| { type: "select"; index: number }
 
 interface SettledLiveText {
-	live: HudLiveText | null
+	live: string | null
 	discarded: boolean
 }
 
@@ -91,7 +93,6 @@ function recordEvents(state: RunState, events: readonly RunRecord[], added: read
 				completedMessageIds ??= new Set(state.completedMessageIds)
 				completedMessageIds.add(event.id)
 			}
-			if (streamMessage?.id === event.id) streamMessage = null
 		}
 		if (event.type === RunFrameKind.LlmRetry) {
 			retrySequences ??= new Map(state.retrySequences)
@@ -134,24 +135,22 @@ function updateHistoryAndView(state: RunSession, run: RunState, breakAfter: numb
 /** An accepted token fragment extends the live text. A replayed, duplicate or superseded one only moves the cursor. */
 function applyDelta(state: RunSession, frame: RunDelta): RunSession {
 	const previous = state.run
+	const stream = previous.streamMessage
 	const run = { ...previous, streamSequence: Math.max(previous.streamSequence, frame.sequence) }
-	const duplicateChunk = previous.streamMessage?.id === frame.id && frame.chunk <= previous.streamMessage.chunk
+	const duplicateChunk = stream?.id === frame.id && frame.chunk <= stream.chunk
 	// Snapshot recovery does not advance the SSE cursor: a delayed prefix may still be needed.
 	if (frame.sequence <= previous.streamSequence || duplicateChunk || previous.completedMessageIds.has(frame.id)
 		|| frame.sequence <= (previous.retrySequences.get(frame.agent) ?? -1)) return { run, hud: state.hud }
 	const accepted = { ...run, streamMessage: { id: frame.id, agent: frame.agent, chunk: frame.chunk, sequence: frame.sequence } }
-	const id = `message:${frame.id}`
-	const live = state.hud.liveText?.id === id ? state.hud.liveText : null
-	// The first fragment of a model call closes the script output before it.
-	const hud = updateHistoryAndView(state, accepted, live ? null : frame.sequence)
-	return {
-		run: accepted,
-		hud: {
-			...hud,
-			liveText: { id, agent: frame.agent, raw: (live?.raw ?? "") + frame.delta, sequence: frame.sequence },
-			working: false,
-		},
+	// Text still on show continues. Otherwise this fragment starts the text and closes the script output before it.
+	let liveText = frame.delta
+	let breakAfter: number | null = frame.sequence
+	if (state.hud.liveText !== null && stream?.id === frame.id) {
+		liveText = state.hud.liveText + frame.delta
+		breakAfter = null
 	}
+	const hud = updateHistoryAndView(state, accepted, breakAfter)
+	return { run: accepted, hud: { ...hud, liveText, working: false } }
 }
 
 /** Progress is transient like a token fragment: a replayed one is dropped. */
@@ -163,14 +162,16 @@ function applyProgress(state: RunSession, frame: RunProgress): RunSession {
 	}
 }
 
-/** Output supersedes live text; a retry discards it while the agent keeps working. */
-function settleLiveText(live: HudLiveText | null, events: readonly RunRecord[]): SettledLiveText {
+/** Output at or after the streamed message supersedes its live text; a retry discards it while the agent keeps working. */
+function settleLiveText(state: RunSession, events: readonly RunRecord[]): SettledLiveText {
+	const live = state.hud.liveText
+	const stream = state.run.streamMessage
+	if (live === null || stream === null) return { live, discarded: false }
 	for (const event of events) {
-		if (!live) break
-		if (event.sequence < live.sequence) continue
+		if (event.sequence < stream.sequence) continue
 		switch (event.type) {
 			case RunFrameKind.LlmRetry:
-				if (event.agent === live.agent) return { live: null, discarded: true }
+				if (event.agent === stream.agent) return { live: null, discarded: true }
 				break
 			case RunFrameKind.ScriptOutput:
 				return { live: null, discarded: false }
@@ -209,7 +210,7 @@ function applyRecords(
 function applyRecord(state: RunSession, frame: RunRecord): RunSession {
 	const merged = mergeEvents(state.run, [frame])
 	const run = { ...merged, streamSequence: Math.max(state.run.streamSequence, frame.sequence) }
-	return applyRecords(state, run, [frame], null, settleLiveText(state.hud.liveText, [frame]))
+	return applyRecords(state, run, [frame], null, settleLiveText(state, [frame]))
 }
 
 function snapshotPrompt(previous: RunPrompt | null, view: RunView): RunPrompt | null {
@@ -240,7 +241,7 @@ function applySnapshot(state: RunSession, view: RunView): RunSession {
 		else breakAfter = Math.max(merged.events.at(-1)?.sequence ?? -1, previous.streamSequence)
 	}
 	// A prompt takes the place of live text.
-	const settled = run.prompt ? { live: null, discarded: false } : settleLiveText(state.hud.liveText, received)
+	const settled = run.prompt ? { live: null, discarded: false } : settleLiveText(state, received)
 	return applyRecords(state, run, received, breakAfter, settled)
 }
 
