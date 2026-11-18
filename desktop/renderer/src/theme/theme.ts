@@ -28,6 +28,11 @@ export async function toggleTheme(): Promise<void> {
 		switching = transition
 		root.dataset.themeSwitching = ""
 		try {
+			await transition.ready
+		} catch {
+			// A newer switch or a hidden window skipped this fade before it began; the theme is applied all the same.
+		}
+		try {
 			await transition.finished
 		} finally {
 			if (switching === transition) delete root.dataset.themeSwitching
