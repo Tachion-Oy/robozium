@@ -35,11 +35,11 @@ export interface ProjectQueryState {
 }
 
 /**
- * Poll the listing while the overview is visible: at once, after each read
- * settles and after each write. A failed read keeps the last rows; rows survive
- * the overview being hidden.
+ * Poll the listing while the backend can answer: at once, after each read
+ * settles, after each write and when the overview opens, so its rows are never
+ * from before. A failed read keeps the last rows; rows survive a pause.
  */
-export function useProjectQuery(client: DesktopApiClient, visible: boolean, writes: ProjectWrites): ProjectQueryState {
+export function useProjectQuery(client: DesktopApiClient, polling: boolean, overviewOpen: boolean, writes: ProjectWrites): ProjectQueryState {
 	const [listed, setListed] = useState<ProjectRow[]>([])
 	const [isInitialLoading, setIsInitialLoading] = useState(true)
 	const [loaded, setLoaded] = useState(false)
@@ -52,7 +52,7 @@ export function useProjectQuery(client: DesktopApiClient, visible: boolean, writ
 	const intervalMs = slugsOf(pending, "cancel").length > 0 ? CANCELLATION_POLL_INTERVAL_MS : DEFAULT_POLL_INTERVAL_MS
 
 	useEffect(() => {
-		if (!visible) return
+		if (!polling) return
 		const controller = new AbortController()
 		let timeout: number | null = null
 		const poll = async () => {
@@ -79,7 +79,7 @@ export function useProjectQuery(client: DesktopApiClient, visible: boolean, writ
 			if (timeout !== null) window.clearTimeout(timeout)
 		}
 		// A finished launch, successful or not, reads the listing again.
-	}, [client, visible, intervalMs, refreshes, revision, opening])
+	}, [client, polling, overviewOpen, intervalMs, refreshes, revision, opening])
 
 	const rows = useMemo(() => {
 		// An acknowledged deletion hides its row until a listing confirms it.

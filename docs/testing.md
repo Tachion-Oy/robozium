@@ -132,7 +132,7 @@ and centered, contained arrows in both themes and zoom levels, including
 disabled states. Selector scenarios cover pointer selection, keyboard option
 focus, Escape and outside dismissal, one open menu, and each view's content. A
 model choice is one write that the backend keeps across a reload; the view
-resets. Mock-run checks start from Runs Overview, verify Current Run becomes
+resets. Mock-run checks start from Runs Overview, verify the run's entry becomes
 available, and exercise returning to the same draft through the overview and
 view selector. They cover multiline editing, caret retention during
 resizing/theme/zoom changes, bounded divider movement, disabled limits, a reload
@@ -206,14 +206,20 @@ local drafts and the overview, and verify recovery reads without automatic write
 retries or reloading models on each healthy readiness poll.
 
 Connected overview tests in `desktop/tests/overview.spec.ts` use the same server.
-They cover status rows and per-status actions, three-second polling only while
-the overview is visible and through failed reads, New Project's single creation
+They cover status rows and per-status actions, three-second polling on every
+screen and through failed reads with an immediate read when the overview opens,
+New Project's single creation
 followed by the capability save and run creation, a failed launch keeping the
 selector draft and reusing the created project, Edit restoring saved choices, Rename saving on Enter and reporting a refusal,
 Escape and Cancel, inline capability load errors with Retry, rows that are not
 buttons, Open on active runs and the current one, cancel and delete settling through listings
 with their refusal and failure alerts, and long names in both themes at
-normal/narrow sizes and 125% zoom. `backend-ipc.spec.ts` checks that the CSP's
+normal/narrow sizes and 125% zoom. View-menu checks cover the entry that names a
+single run and opens it, the count and side panel for several runs with the one
+on screen marked, an open menu that keeps its runs while one ends, keyboard
+opening and closing, and a long run name that widens neither the selector nor
+its menu, with the panel inside the window at 640×420 and at 642×420 with 150%
+zoom in both themes. `backend-ipc.spec.ts` checks that the CSP's
 `img-src` admits only bundled art, local previews, https web images and the
 backend's hub images, and that the overview's display art loads.
 

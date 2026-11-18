@@ -48,7 +48,7 @@ async function expectSettledHeaderRow(page: Page) {
 }
 
 /**
- * The header is one row inside the window: the project badge (on Current Run) where
+ * The header is one row inside the window: the project badge (on the run screen) where
  * the row starts, then the model and view selectors together on the right, and the
  * project folder button where the row ends. Long labels ellipsize. The badge and the
  * square folder button match the selectors' height.
@@ -174,11 +174,11 @@ for (const theme of ["dark", "light"]) {
 		await expect(up).toBeDisabled()
 		await expect(down).toBeDisabled()
 		await view.click()
-		await expect(page.getByRole("option", { name: "Current Run", exact: true })).toHaveCount(0)
+		await expect(page.getByRole("option", { name: "preview", exact: true })).toHaveCount(0)
 		await page.keyboard.press("Escape")
 		await page.getByRole("button", { name: "Launch", exact: true }).press("Enter")
 		await expect(reply).toBeFocused()
-		await expect(view).toHaveAccessibleName("Current Run")
+		await expect(view).toHaveAccessibleName("preview")
 		await expect(page.locator(".agent-hud__replyBox--agent")).toContainText("Mock run ready.")
 		await reply.fill("First line")
 		// Shift+Enter adds a line; Enter would send the reply.
@@ -224,7 +224,7 @@ for (const theme of ["dark", "light"]) {
 		await down.press("Enter")
 		await expect(down).toBeDisabled()
 		await chooseView(page, "Runs Overview")
-		await chooseView(page, "Current Run")
+		await chooseView(page, "preview")
 		await expect(reply).toHaveValue(draft)
 		// A reload keeps the backend's run but not the local draft or divider.
 		await reloadApp(page)
@@ -476,7 +476,7 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 				if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 				await expect(page.locator("html")).toHaveAttribute("data-theme", theme)
 				await expect(modelTrigger(page)).toHaveAttribute("title", "Mock model")
-				await expect(viewTrigger(page)).toHaveAttribute("title", "Current Run")
+				await expect(viewTrigger(page)).toHaveAttribute("title", "preview")
 				await expect(page.locator(".agent-hud__event-text")).toBeVisible()
 				await page.mouse.move(0, 0)
 				expect(await page.locator(".agent-hud__box").evaluate(box => {
@@ -536,7 +536,7 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 							&& document.documentElement.scrollWidth === innerWidth && document.documentElement.scrollHeight === innerHeight
 					})).toBe(true)
 				}
-				await chooseView(page, "Current Run")
+				await chooseView(page, "preview")
 			}
 		})
 	}

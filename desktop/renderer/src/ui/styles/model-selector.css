@@ -13,6 +13,20 @@
 
 .agent-hud__view-selector {
   --selector-accent: var(--term-amber);
+  /* The 13 letters of "Runs Overview", the longest view, at the labels' letter spacing: a run's
+     project name is cut there, so it never widens the view button or its menu. */
+  --view-label-cap: calc(13 * (1ch + 0.02em) + 0.5px);
+}
+
+.agent-hud__view-trigger > span,
+.agent-hud__view-selector .agent-hud__model-option-label {
+  max-inline-size: var(--view-label-cap);
+}
+
+.agent-hud__view-selector .agent-hud__model-option-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @keyframes hud-model-ready-in {
@@ -87,6 +101,22 @@
 
 .agent-hud__model-caret[data-open] {
   transform: rotate(180deg);
+}
+
+/* An option that opens choices carries the trigger's caret before its selected dot,
+   pointing left at the panel. */
+.agent-hud__model-option-marks {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.agent-hud__model-choices-caret {
+  flex: 0 0 auto;
+  width: 0.8rem;
+  height: 0.7rem;
+  fill: currentColor;
+  transform: rotate(90deg);
 }
 
 .agent-hud__model-menu {
@@ -165,6 +195,13 @@
 .agent-hud__model-menu > * {
   position: relative;
   z-index: 1;
+}
+
+/* An option's choices: a second panel left of the menu, in the room the window leaves there. */
+.agent-hud__model-menu--choices {
+  right: calc(var(--menu-inline-size, 0px) + var(--menu-offset));
+  min-width: 0;
+  max-width: calc(var(--menu-room-inline, 100vw) - var(--menu-inline-size, 0px) - var(--menu-offset) - var(--menu-gutter));
 }
 
 /* The options scroll inside the ring, which stays put. */
@@ -270,6 +307,10 @@
     min-height: 2.35rem;
     padding: 0.5rem 0.32rem 0.5rem 0.78rem;
     letter-spacing: 0.045em
+}
+/* The cap follows the key's wider letter spacing. */
+:root[data-theme="light"] .agent-hud__view-trigger > span {
+    max-inline-size: calc(13 * (1ch + 0.045em) + 0.5px)
 }
 :root[data-theme="light"] .agent-hud__model-trigger::before,
 :root[data-theme="light"] .agent-hud__model-trigger::after {

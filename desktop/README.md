@@ -201,9 +201,9 @@ project selection.
 
 Runs Overview lists every project with its backend status (running,
 waiting, cancelling, syncing or dormant) and start time. The list polls every
-three seconds while the overview is visible, and every 250ms while a
-cancellation is settling; a failed read keeps the last rows. Rows survive
-leaving the overview.
+three seconds on every screen, because the view selector names the runs, and
+every 250ms while a cancellation is settling. Opening the overview reads the
+list at once; a failed read keeps the last rows.
 
 - Clicking a project with an active run opens that run; the current run's row
   reads **Return to** its project. Clicking a dormant project, or **Edit**,
@@ -313,7 +313,15 @@ Send rightmost. When the actions do not all fit beside the centered history
 controls, all of them move to one row beneath; there, labels truncate with an
 ellipsis instead of wrapping.
 
-Switch views using the header, or use the current run's row in Runs Overview. The
+Switch views using the header, or open a run from its row in Runs Overview.
+With one run running or waiting, the view selector's first entry reads that
+project's name and opens the run. With several it reads their count
+(**2 Runs**) and opens a panel left of the menu that lists them by project,
+marking the one on screen; Right arrow opens the panel, and Left arrow or Escape
+closes it. A long project name is cut to the width of **Runs Overview** in the
+selector and its menu, and shown in full in the panel. An open menu keeps the
+runs it opened with; choosing one that has ended since returns to Runs Overview.
+The
 draft, selected message, and divider position survive view, model, theme,
 window-size, and zoom changes. Reloading or restarting resets the desktop to
 Runs Overview with no local session; it does not recover an existing run yet.
@@ -325,7 +333,7 @@ row of actions: **Save**, **Restart app** and **Reset environment**. **Restart
 app** stops the runs and the backend container and starts the app again with a
 new container, which reads `.env` again and keeps mounted data; the loading
 screen covers the HUD until the app closes.
-Divider controls remain visible but disabled outside Current Run.
+Divider controls remain visible but disabled outside a run's screen.
 
 **Environment** lists the runtime's saved settings and secrets, with the
 variables that the application and imported tools need. **Add variable** and

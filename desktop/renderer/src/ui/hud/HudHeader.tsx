@@ -14,18 +14,23 @@ type HudHeaderProps = {
 	screen: HudScreen
 	screenOptions: readonly HudScreenOption[]
 	projectSlug: string | null
+	/** The session's run, marked among the view menu's runs while it is on screen. */
+	runId: string | null
 	modelSelector: ReactNode
 	onSelectScreen: (screen: HudScreen) => void
+	onOpenRun: (runId: string, project: string) => void
 }
 
 export function HudHeader({
 	screen,
 	screenOptions,
 	projectSlug,
+	runId,
 	modelSelector,
 	onSelectScreen,
+	onOpenRun,
 }: HudHeaderProps) {
-	// The project name labels the run on Current Run; elsewhere it would look like the screen's subject.
+	// The project name labels the run on the run screen; elsewhere it would look like the screen's subject.
 	// The guide is its own subject: its badge leads to the guide's file.
 	const showProjectBadge = screen === "run" || screen === "onboarding"
 	// A run's name is null until its project is known; the button waits for it.
@@ -53,7 +58,9 @@ export function HudHeader({
 				<HudScreenSelector
 					screen={screen}
 					options={screenOptions}
+					runId={runId}
 					onSelectScreen={onSelectScreen}
+					onOpenRun={onOpenRun}
 				/>
 				{showProjectBadge ? (
 					<HudEdgeButton

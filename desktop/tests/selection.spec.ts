@@ -214,7 +214,7 @@ test("recovery reconciles a pending model write without replaying it", async ({ 
 	expect(backend.requests.filter(request => request.method === "POST")).toHaveLength(1)
 })
 
-test("Current Run shows and switches its run's model, and the other screens keep the default", async ({ desktop: { page }, backend }) => {
+test("The run screen shows and switches its run's model, and the other screens keep the default", async ({ desktop: { page }, backend }) => {
 	prepareRun(backend)
 	const selected = { default: "one", run: "two" }
 	const posts: unknown[] = []
@@ -231,7 +231,7 @@ test("Current Run shows and switches its run's model, and the other screens keep
 	await expect(model).toHaveAttribute("title", "Second model")
 	await view(page, "Runs Overview")
 	await expect(model).toHaveAttribute("title", "First model")
-	await view(page, "Current Run")
+	await view(page, "existing-project")
 	await expect(model).toHaveAttribute("title", "Second model")
 	// Switching mid-run changes only this run, as before an image reply to a vision model.
 	await chooseModel(page, "First model")
@@ -240,7 +240,7 @@ test("Current Run shows and switches its run's model, and the other screens keep
 	await expect(model).toHaveAttribute("title", "First model")
 	await chooseModel(page, "Second model")
 	await expect(model).toHaveAttribute("title", "Second model")
-	await view(page, "Current Run")
+	await view(page, "existing-project")
 	await expect(model).toHaveAttribute("title", "First model")
 	expect(posts).toEqual([{ model_id: "one", run_id: "run-one" }, { model_id: "two" }])
 })

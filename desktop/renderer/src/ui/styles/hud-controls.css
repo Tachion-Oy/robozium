@@ -549,7 +549,7 @@
   cursor: pointer;
 }
 
-/* Compact icon action beside the Current Run selector. */
+/* Compact icon action beside the view selector. */
 
 .agent-hud__copy-text {
   --btn-cut: 0.4375rem;

@@ -11,10 +11,11 @@ import type { LayoutMode } from "../hud/HudCornerControls"
 import { ProjectOverview } from "../projects/ProjectOverview"
 import { OnboardingHud } from "../onboarding/OnboardingHud"
 import { CapabilitySelector } from "../projects/CapabilitySelector"
-import { initialHudNavigation, reduceHudNavigation, screenOptions, visibleScreen, type HudLimits, type HudScreen } from "../../app/hud-navigation"
+import { initialHudNavigation, reduceHudNavigation, screenOptions, visibleScreen, type HudLimits, type HudRun, type HudScreen } from "../../app/hud-navigation"
 import type { DesktopApiClient } from "../../api/client"
 import { useModels } from "../../models/useModels"
 import { useProjectQuery } from "../../projects/useProjectQuery"
+import { isActiveRunStatus } from "../../projects/project-rows"
 import { useProjectMutations } from "../../projects/useProjectMutations"
 import { useCapabilities } from "../../capabilities/useCapabilities"
 import { PasswordDialog } from "../hud/PasswordDialog"
@@ -93,12 +94,12 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	const locked = setupRequired || restartRequired
 	const runLive = session !== null && !runEnded && !session.run.unavailable
 	const limits: HudLimits = { runLive, setupRequired, restartRequired }
-	// Current Run is open only for a live run with nothing locked.
+	// The run screen is open only for a live run with nothing locked.
 	const screen = visibleScreen(navigation.screen, limits)
-	// Current Run shows and switches its live run's model; other screens set the default.
+	// The run screen shows and switches its live run's model; other screens set the default.
 	const modelRun = screen === "run" && session ? session.run.runId : null
 	const models = useModels(client, connected, modelRun)
-	// While Current Run shows a live run, each tick lets the working HUD add a line naming its model.
+	// While the run screen shows a live run, each tick lets the working HUD add a line naming its model.
 	const runModel = models.selection?.models.find(model => model.model_id === models.selection?.selected_model_id)?.label
 	const tick = runSession.tick
 	useEffect(() => {
@@ -106,7 +107,16 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 		const timer = setInterval(() => tick(new Date(), runModel), THINKING_LINE_INTERVAL_MS)
 		return () => clearInterval(timer)
 	}, [modelRun, runModel, tick])
-	const projectQuery = useProjectQuery(client, screen === "projects" && polling, projectMutations)
+	// Read on every screen: the view menu names the runs wherever it is opened.
+	const projectQuery = useProjectQuery(client, polling, screen === "projects", projectMutations)
+	// The view menu's runs: the listing's running and waiting projects, and the run on screen until a listing reports it.
+	const menuRuns: HudRun[] = []
+	for (const row of projectQuery.rows) {
+		if (isActiveRunStatus(row.status) && row.runId !== null) menuRuns.push({ runId: row.runId, project: row.slug })
+	}
+	if (session && runLive && !menuRuns.some(run => run.runId === session.run.runId)) {
+		menuRuns.push({ runId: session.run.runId, project: session.run.project })
+	}
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
 	// Each write's outcome goes to the draft declared below; it runs only after both exist.
 	const environmentMutations = useEnvironmentMutations(client, setupRequired, restartRequired, {
@@ -124,9 +134,13 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	// A launch, a disconnection or an unconfirmed model change locks navigation.
 	const navigationPending = projectMutations.launching || !connected || models.pending
 	const selectScreen = (next: HudScreen) => { setFocusRunEditor(false); navigate({ type: "screen_selected", screen: next }) }
-	// The displayed run's own row only shows it again.
+	// The displayed run's own row or menu entry only shows it again. Like the overview's rows,
+	// the view menu opens no other run while navigation is locked.
 	const openRun = (runId: string, project: string) => {
-		if (session?.run.runId !== runId) runSession.open(runId, project)
+		if (session?.run.runId !== runId) {
+			if (navigationPending) return
+			runSession.open(runId, project)
+		}
 		showRun()
 	}
 	// The HUD and the overview rows share one cancellation per project.
@@ -190,8 +204,9 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 			<AgentHud screen={screen} inactive={session !== null && !runLive}
 				layoutMode={layout} onLayoutModeChange={setLayout} messageLog={messageLog}
 				logPane={() => <MessageLog key={session?.run.runId} active={runLive} events={session?.run.events ?? noEvents} />}
-				header={<HudHeader screen={screen} screenOptions={screenOptions(screen, navigation.launch !== null, limits)}
-					projectSlug={session?.run.project ?? null} onSelectScreen={selectScreen}
+				header={<HudHeader screen={screen} screenOptions={screenOptions(screen, navigation.launch !== null, limits, menuRuns)}
+					projectSlug={session?.run.project ?? null} runId={session?.run.runId ?? null}
+					onSelectScreen={selectScreen} onOpenRun={openRun}
 					modelSelector={<ModelSelector models={models} disabled={locked || !connected || projectMutations.launching} />} />}
 				copyControls={copyControls}>
 				{renderContent()}

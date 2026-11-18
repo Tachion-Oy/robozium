@@ -1,9 +1,9 @@
-import { expect, type Page } from "@playwright/test"
+import { expect, type Locator, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { writeFile } from "node:fs/promises"
 import { test, json, project, prepareRun, launchButton, runStatus, view, snapshot, expectOverview, replyBox } from "./run-fixture"
 import type { Backend } from "./selection-fixture"
-import { captureNative, inlineAlerts, setNativeViewport, toast } from "./native"
+import { captureNative, inlineAlerts, setNativeViewport, toast, viewTrigger } from "./native"
 
 const catalog = [
 	{ name: "base_tool", kind: "tool", selectable: false, loading: null },
@@ -15,9 +15,13 @@ const selector = (page: Page) => page.getByRole("form", { name: "Capability sele
 const capability = (page: Page, name: string) => selector(page).getByRole("checkbox", { name, exact: true })
 const writes = (backend: Backend) => backend.requests.filter(request => request.method !== "GET")
 	.map(({ method, path, body }) => ({ method, path, body }))
+const waiting = (slug: string, runId: string) => project(slug, { status: "awaiting_user_input", run_id: runId })
+const viewMenu = (page: Page) => page.getByRole("listbox", { name: "HUD view" })
+const runsEntry = (page: Page) => viewMenu(page).getByRole("option", { name: "2 Runs", exact: true })
+const runsPanel = (page: Page) => page.getByRole("listbox", { name: "2 Runs", exact: true })
 const listings = (backend: Backend) => backend.requests.filter(request => request.method === "GET" && request.path === "/projects").length
 
-test("the overview shows backend statuses and polls every three seconds only while visible", async ({ desktop: { page }, backend }) => {
+test("the overview shows backend statuses, and the listing polls every three seconds on every screen", async ({ desktop: { page }, backend }) => {
 	const now = 1_800_000_000
 	await page.clock.install({ time: now * 1000 })
 	let rows = [
@@ -59,16 +63,18 @@ test("the overview shows backend statuses and polls every three seconds only whi
 	await page.clock.fastForward(3000)
 	await expect.poll(() => listings(backend)).toBe(before + 2)
 	await expect(row(page, "dormant-project")).toBeVisible()
+	// The view menu names the runs on every screen, so the listing is read off the overview too.
 	await view(page, "Environment")
-	const hidden = listings(backend)
-	await page.clock.fastForward(10_000)
-	expect(listings(backend)).toBe(hidden)
+	await expect.poll(() => listings(backend)).toBe(before + 3)
+	await page.clock.fastForward(3000)
+	await expect.poll(() => listings(backend)).toBe(before + 4)
+	// Opening the overview reads at once.
 	rows = [project("dormant-project")]
 	backend.handlers.set("GET /projects", response => json(response, rows))
 	await view(page, "Runs Overview")
 	await expect(page.getByText("Refreshing project status")).toHaveCount(0)
 	await expect(row(page, "running-project")).toHaveCount(0)
-	expect(listings(backend)).toBe(hidden + 1)
+	expect(listings(backend)).toBe(before + 5)
 })
 
 test("New Project creates once, saves the chosen capabilities, then launches and opens the run", async ({ desktop: { page }, backend }) => {
@@ -185,6 +191,130 @@ test("Open opens active runs and returns to the current run", async ({ desktop: 
 	expect(writes(backend)).toEqual([])
 })
 
+test("the view menu names a single run and opens it; several are counted and listed beside the menu", async ({ desktop: { page }, backend }) => {
+	let rows = [waiting("live-project", "run-live"), project("other-project")]
+	backend.handlers.set("GET /projects", response => json(response, rows))
+	prepareRun(backend, "run-live", "live-project")
+	prepareRun(backend, "run-other", "other-project")
+	await backend.open()
+	// One run: the entry is its name, and opens a run the HUD has not opened yet.
+	await view(page, "live-project")
+	await expect(runStatus(page)).toContainText("live-project")
+	await expect(viewTrigger(page)).toHaveAccessibleName("live-project")
+	// Two runs: the entry counts them, and its panel lists them with the one on screen marked.
+	rows = [waiting("live-project", "run-live"), waiting("other-project", "run-other")]
+	await expect(viewTrigger(page)).toHaveAccessibleName("2 Runs")
+	await viewTrigger(page).click()
+	await expect(runsEntry(page)).toHaveAttribute("aria-expanded", "false")
+	await runsEntry(page).click()
+	await expect(runsPanel(page).getByRole("option")).toHaveCount(2)
+	await expect(runsPanel(page).getByRole("option", { name: "live-project", exact: true })).toHaveAttribute("aria-selected", "true")
+	await runsPanel(page).getByRole("option", { name: "other-project", exact: true }).click()
+	await expect(page.getByRole("listbox")).toHaveCount(0)
+	await expect(runStatus(page)).toContainText("other-project")
+	expect(writes(backend)).toEqual([])
+})
+
+test("the open view menu keeps its runs while one ends, and the ended run's entry leads to the overview", async ({ desktop: { page }, backend }) => {
+	let rows = [waiting("live-project", "run-live"), waiting("other-project", "run-other")]
+	backend.handlers.set("GET /projects", response => json(response, rows))
+	prepareRun(backend, "run-live", "live-project")
+	prepareRun(backend, "run-other", "other-project")
+	backend.handlers.set("GET /run/run-other", response => json(response, snapshot({ project: "other-project", status: "completed" })))
+	await backend.open()
+	await viewTrigger(page).click()
+	await runsEntry(page).click()
+	await expect(runsPanel(page).getByRole("option")).toHaveCount(2)
+	// The overview behind the menu shows the listing that reports the run ended.
+	rows = [waiting("live-project", "run-live"), project("other-project")]
+	await expect(row(page, "other-project").getByText("DORMANT", { exact: true })).toBeVisible()
+	await expect(runsEntry(page)).toBeVisible()
+	await expect(runsPanel(page).getByRole("option")).toHaveCount(2)
+	await runsPanel(page).getByRole("option", { name: "other-project", exact: true }).click()
+	await expectOverview(page)
+	// The next opening shows the one run left.
+	await viewTrigger(page).click()
+	await expect(viewMenu(page).getByRole("option", { name: "live-project", exact: true })).toBeVisible()
+	await expect(runsEntry(page)).toHaveCount(0)
+})
+
+test("the view menu's runs panel opens and closes from the keyboard", async ({ desktop: { page }, backend }) => {
+	backend.handlers.set("GET /projects", response => json(response, [waiting("live-project", "run-live"), waiting("other-project", "run-other")]))
+	await backend.open()
+	await viewTrigger(page).click()
+	await page.keyboard.press("ArrowUp")
+	await expect(runsEntry(page)).toBeFocused()
+	await page.keyboard.press("ArrowRight")
+	await expect(runsPanel(page).getByRole("option", { name: "live-project", exact: true })).toBeFocused()
+	await page.keyboard.press("ArrowDown")
+	await expect(runsPanel(page).getByRole("option", { name: "other-project", exact: true })).toBeFocused()
+	await page.keyboard.press("ArrowLeft")
+	await expect(runsPanel(page)).toHaveCount(0)
+	await expect(runsEntry(page)).toBeFocused()
+	await page.keyboard.press("Enter")
+	await expect(runsPanel(page)).toBeVisible()
+	// Escape leaves the panel first, then the menu.
+	await page.keyboard.press("Escape")
+	await expect(runsPanel(page)).toHaveCount(0)
+	await expect(runsEntry(page)).toBeFocused()
+	await page.keyboard.press("Escape")
+	await expect(viewMenu(page)).toHaveCount(0)
+	await expect(viewTrigger(page)).toBeFocused()
+})
+
+for (const theme of ["dark", "light"]) {
+	test(`a long run name never widens the view button or menu, and the runs panel fits a narrow zoomed window in ${theme}`, async ({ desktop: { app, page }, backend }, testInfo) => {
+		const longName = "a-project-with-a-very-long-name"
+		let rows = [project(longName), project(`${longName}-two`)]
+		backend.handlers.set("GET /projects", response => json(response, rows))
+		prepareRun(backend, "run-long", longName)
+		await backend.open()
+		if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
+		const width = (target: Locator) => target.evaluate(element => element.getBoundingClientRect().width)
+		const cut = (label: Locator) => label.evaluate(element => element.scrollWidth > element.clientWidth)
+		// Without a run the button reads Runs Overview, the longest view, in full.
+		await viewTrigger(page).click()
+		const plainTrigger = await width(viewTrigger(page))
+		const plainMenu = await width(viewMenu(page))
+		expect(await cut(viewTrigger(page).locator("span"))).toBe(false)
+		expect(await cut(viewMenu(page).getByRole("option", { name: "Runs Overview", exact: true }).locator(".agent-hud__model-option-label"))).toBe(false)
+		await page.keyboard.press("Escape")
+		rows = [waiting(longName, "run-long"), project(`${longName}-two`)]
+		await expect(row(page, longName).first().getByText("WAITING", { exact: true })).toBeVisible()
+		await viewTrigger(page).click()
+		const entry = viewMenu(page).getByRole("option", { name: longName, exact: true })
+		expect(await width(viewMenu(page))).toBeCloseTo(plainMenu, 0)
+		expect(await cut(entry.locator(".agent-hud__model-option-label"))).toBe(true)
+		await entry.click()
+		await expect(runStatus(page)).toContainText(longName)
+		expect(await width(viewTrigger(page))).toBeLessThanOrEqual(plainTrigger + 1)
+		rows = [waiting(longName, "run-long"), waiting(`${longName}-two`, "run-two")]
+		await expect(viewTrigger(page)).toHaveAccessibleName("2 Runs")
+		// setNativeViewport needs a size its zoom divides exactly, which 1.4 never does near the
+		// minimum width. 642 at 1.5 is a narrower page than the minimum 640 at 1.4.
+		for (const [width, zoom] of [[640, 1], [642, 1.5]]) {
+			await setNativeViewport(app, page, width, 420, zoom)
+			await viewTrigger(page).click()
+			await runsEntry(page).click()
+			await expect(runsPanel(page).getByRole("option")).toHaveCount(2)
+			// The panel sits left of the menu, and both stay inside the window.
+			expect(await page.evaluate(() => {
+				const [menu, panel] = [...document.querySelectorAll(".agent-hud__model-menu")].map(element => element.getBoundingClientRect())
+				return {
+					beside: panel.right <= menu.left && Math.abs(panel.top - menu.top) < 1,
+					contained: [menu, panel].every(rect => rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight),
+					still: document.documentElement.scrollWidth === innerWidth && document.documentElement.scrollHeight === innerHeight,
+				}
+			})).toEqual({ beside: true, contained: true, still: true })
+			const screenshot = testInfo.outputPath(`runs-panel-${theme}-${zoom}.png`)
+			await writeFile(screenshot, (await captureNative(app, page, width, 420))!)
+			await testInfo.attach(`runs-panel-${theme}-${zoom}.png`, { path: screenshot, contentType: "image/png" })
+			await page.keyboard.press("Escape")
+			await page.keyboard.press("Escape")
+		}
+	})
+}
+
 for (const theme of ["dark", "light"]) {
 	test(`the overview keeps one gap below the selectors before, during and after a run in ${theme}`, async ({ desktop: { page }, backend }) => {
 		prepareRun(backend)
@@ -218,7 +348,7 @@ for (const theme of ["dark", "light"]) {
 		await page.getByRole("button", { name: "Cancel", exact: true }).click()
 		// The run ends while its HUD is open; the overview it returns to keeps the same gap.
 		backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ status: "cancelled" })))
-		await view(page, "Current Run")
+		await view(page, "existing-project")
 		await expectOverview(page)
 		expect(await tableGap()).toBe(fresh)
 	})
