@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test"
 import { parseRunEvent } from "../renderer/src/run/run-payloads"
 import type { RunFrame, RunView } from "../renderer/src/run/run-contracts"
 import { reduceRunSession, selectRunDisplay, type RunSession } from "../renderer/src/session/session-reducer"
-import { initialRun, reduceRun } from "../renderer/src/run/run-reducer"
+import { initialRun, reduceRun } from "../renderer/src/session/session-reducer"
 
 function session(): RunSession {
 	return reduceRunSession(null, { type: "open", runId: "run", project: "project" })!

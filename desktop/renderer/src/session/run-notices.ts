@@ -1,7 +1,7 @@
 // Notices raised by live run updates. One case per signal the HUD announces;
 // everything else a run sends is shown by the reducers, never toasted.
 import { showErrorToast, showNotificationToast, type NotificationTone } from "../feedback/notices"
-import type { RunAction } from "../run/run-reducer"
+import type { RunAction } from "./session-reducer"
 import { RunFrameKind, RunStatus, RuntimeLevel, type RunFrame } from "../run/run-contracts"
 
 /** Raise the toast a live update warrants, if any. Replayed history never arrives here as frames. */

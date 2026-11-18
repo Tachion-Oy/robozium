@@ -5,7 +5,7 @@ import { withDeadline } from "../api/request"
 import { isRetryableReadError } from "../api/retry"
 import { isTerminal, type RunFrame, type RunView } from "./run-contracts"
 import { getRunSnapshot, streamRunEvents } from "./run-api"
-import type { RunAction } from "./run-reducer"
+import type { RunAction } from "../session/session-reducer"
 
 const RUN_POLL_INTERVAL_MS = 2000
 const RECONNECT_BASE_DELAY_MS = 500
