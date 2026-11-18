@@ -34,7 +34,11 @@ export interface RunState {
 /** What the single-message panel keeps beside the run data. */
 export interface HudState {
 	history: HudHistory
-	/** Completed output with the active prompt, indexed by id: what the panel pages through. */
+	/**
+	 * Completed output with the active prompt, indexed by id: what the panel pages through.
+	 * Kept here, not computed per redraw: finding a pinned message or the prompt by search costs
+	 * tens of microseconds per redraw in a long run.
+	 */
 	view: HudMessageList
 	selectedMessageId: string | null
 	/** The raw text streamed for run.streamMessage while the panel still shows it. */

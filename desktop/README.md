@@ -290,12 +290,13 @@ Agent messages and prompts render as sanitized Markdown; live text and script
 output stay literal. Web links open in the default browser, and links to files
 inside the hub open in their default application.
 
-The run reducer owns run identity, durable event reconciliation, and backend
-status. Run protocol values and derived types live in `run/run-contracts.ts`;
-`api/request.ts` supplies deadlines for selection, run and readiness requests.
-A separate desktop HUD reducer owns transient/settling text, prompt
-identity, and the single-message panel's history selection. App reads one display
-selector. Token deltas update only the active accumulator; completed attempts
+One session reducer owns the displayed run: its identity, durable event
+reconciliation and backend status, and what the single-message panel keeps
+beside them (live and settling text, completed output and the picked message).
+Each action is handled once and changes both together. Run protocol values and
+derived types live in `run/run-contracts.ts`; `api/request.ts` supplies
+deadlines for selection, run and readiness requests. App reads one display
+selector. Token deltas update only the live text; completed attempts
 retain message boundaries and completions instead of token chunks. Ordered
 content appends incrementally, while recovered history is reconciled by sequence.
 Script identities remain anchored when recovered prefixes or boundaries change
@@ -494,14 +495,15 @@ also owns its installation identity and container log.
 - `renderer/src/run/run-api.ts` exposes typed creation, snapshot and stream
   operations. `run-payloads.ts` decodes snapshots and SSE through the same event
   validator. `run-updates.ts` coordinates concurrent streaming, serialized
-  snapshots and polling with shared cleanup; `run-reducer.ts` owns backend state.
+  snapshots and polling with shared cleanup, and names the updates it dispatches.
 - `renderer/src/projects/useProjectMutations.ts` owns the launch command (project
   creation, capability resolution and saving, and run creation) beside cancel
   and delete.
   `renderer/src/session/useRunSession.ts` owns the displayed run's subscription.
-  `session-reducer.ts` composes run reconciliation and HUD projection atomically.
-  `hud/hud-reducer.ts` coordinates live text, history and selection, composes
-  the prompt with completed output and selects the one display;
+  `session-reducer.ts` holds the displayed run's state and every change to it:
+  run reconciliation, live text, history and selection.
+  `hud/hud-display.ts` computes what the panel shows from that state: it adds
+  the prompt to completed output and selects the one display;
   `hud-history.ts` and `hud-messages.ts` own grouping/recovery and typed text
   extraction respectively.
 - `tsconfig.json` supplies Node types and module settings for every file in
