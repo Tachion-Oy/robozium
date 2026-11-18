@@ -5,7 +5,12 @@ import { withDeadline } from "../api/request"
 import { isRetryableReadError } from "../api/retry"
 import { isTerminal, type RunFrame, type RunView } from "./run-contracts"
 import { getRunSnapshot, streamRunEvents } from "./run-api"
-import type { RunAction } from "../session/session-reducer"
+
+/** What a watched run reports: one stream frame, one snapshot, or the failure that ends the watch. */
+export type RunUpdate =
+	| { type: "frame"; frame: RunFrame }
+	| { type: "snapshot"; view: RunView }
+	| { type: "error"; message: string; unavailable: boolean }
 
 const RUN_POLL_INTERVAL_MS = 2000
 const RECONNECT_BASE_DELAY_MS = 500
@@ -26,7 +31,7 @@ export function watchRun(
 	client: DesktopApiClient,
 	runId: string,
 	project: string,
-	dispatch: (action: RunAction) => void,
+	dispatch: (update: RunUpdate) => void,
 ): () => void {
 	const controller = new AbortController()
 	const polling = createRunPoller()

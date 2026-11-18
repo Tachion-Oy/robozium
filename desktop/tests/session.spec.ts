@@ -2,7 +2,6 @@ import { expect, test } from "@playwright/test"
 import { parseRunEvent } from "../renderer/src/run/run-payloads"
 import type { RunFrame, RunView } from "../renderer/src/run/run-contracts"
 import { reduceRunSession, selectRunDisplay, type RunSession } from "../renderer/src/session/session-reducer"
-import { initialRun, reduceRun } from "../renderer/src/session/session-reducer"
 
 function session(): RunSession {
 	return reduceRunSession(null, { type: "open", runId: "run", project: "project" })!
@@ -33,23 +32,21 @@ function tick(state: RunSession, time: string): RunSession {
 	return reduceRunSession(state, { type: "tick", now: new Date(`2026-11-15T${time}`), model: "Mock model" })!
 }
 
-test("run reconciliation accepts live prefixes after recovery and rejects duplicate or completed chunks without a HUD", () => {
-	let run = initialRun("run", "project")
+test("run reconciliation accepts live prefixes after recovery and rejects duplicate or completed chunks", () => {
 	const completed = message(6, "background", "Background")
-	run = reduceRun(run, { type: "snapshot", view: {
-		project: "project", status: "running", frames: [completed], promptId: null, prompt: null, error: null,
-	} }).run
-	const prefix = reduceRun(run, { type: "frame", frame: delta(5, "active", "Prefix") })
-	expect(prefix.type).toBe("delta")
+	const recovered = snapshot(session(), { frames: [completed] })
+	// An accepted fragment extends the live text; a rejected one leaves the HUD as it was.
+	const prefix = receive(recovered, delta(5, "active", "Prefix"))
+	expect(prefix.hud.liveText?.raw).toBe("Prefix")
 	expect(prefix.run.events).toEqual([completed])
-	const duplicate = reduceRun(prefix.run, { type: "frame", frame: delta(7, "active", "Duplicate", 0) })
-	expect(duplicate.type).toBe("state")
-	const continuation = reduceRun(duplicate.run, { type: "frame", frame: delta(8, "active", " continued", 1) })
-	expect(continuation.type).toBe("delta")
+	const duplicate = receive(prefix, delta(7, "active", "Duplicate", 0))
+	expect(duplicate.hud).toBe(prefix.hud)
+	const continuation = receive(duplicate, delta(8, "active", " continued", 1))
+	expect(continuation.hud.liveText?.raw).toBe("Prefix continued")
 	const done = message(9, "active", "Complete")
-	run = reduceRun(continuation.run, { type: "frame", frame: done }).run
-	const late = reduceRun(run, { type: "frame", frame: delta(10, "active", "Obsolete", 2) })
-	expect(late.type).toBe("state")
+	const finished = receive(continuation, done)
+	const late = receive(finished, delta(10, "active", "Obsolete", 2))
+	expect(late.hud).toBe(finished.hud)
 	expect(late.run.events).toEqual([completed, done])
 })
 

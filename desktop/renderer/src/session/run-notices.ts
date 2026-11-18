@@ -1,19 +1,19 @@
 // Notices raised by live run updates. One case per signal the HUD announces;
 // everything else a run sends is shown by the reducers, never toasted.
 import { showErrorToast, showNotificationToast, type NotificationTone } from "../feedback/notices"
-import type { RunAction } from "./session-reducer"
 import { RunFrameKind, RunStatus, RuntimeLevel, type RunFrame } from "../run/run-contracts"
+import type { RunUpdate } from "../run/run-updates"
 
 /** Raise the toast a live update warrants, if any. Replayed history never arrives here as frames. */
-export function announceRunUpdate(action: RunAction, project: string): void {
-	switch (action.type) {
+export function announceRunUpdate(update: RunUpdate, project: string): void {
+	switch (update.type) {
 		case "snapshot":
-			if (action.view.status === RunStatus.Failed) {
-				showErrorToast({ title: "Run failed", message: `Could not run "${project}".`, detail: action.view.error })
+			if (update.view.status === RunStatus.Failed) {
+				showErrorToast({ title: "Run failed", message: `Could not run "${project}".`, detail: update.view.error })
 			}
 			return
 		case "frame":
-			announceFrame(action.frame)
+			announceFrame(update.frame)
 			return
 		default:
 			return
