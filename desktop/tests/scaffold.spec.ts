@@ -338,6 +338,20 @@ test("switches themes with the keyboard and mouse while retaining focus", async 
 	await expect(toggle).toBeFocused()
 })
 
+test("a theme switch that overtakes the previous one's fade raises no error", async ({ desktop: { page } }) => {
+	const root = page.locator("html")
+	const toggle = page.getByRole("button", { name: "Toggle color theme" })
+	await expect(root).toHaveAttribute("data-theme", "dark")
+	// Two clicks in one task: the second switch skips the first one's fade before it has begun.
+	// The fixture fails the test on any page error, which is where the skipped fade used to surface.
+	await toggle.evaluate((button: HTMLElement) => {
+		button.click()
+		button.click()
+	})
+	await expect(root).toHaveAttribute("data-theme", "light")
+	await expect(root).not.toHaveAttribute("data-theme-switching")
+})
+
 for (const theme of ["dark", "light"]) {
 	test(`selectors choose the backend's model and switch views in ${theme}`, async ({ desktop: { page }, fakeBackend }) => {
 		const toggle = page.getByRole("button", { name: "Toggle color theme" })
