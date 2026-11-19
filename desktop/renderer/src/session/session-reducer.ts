@@ -43,8 +43,8 @@ export interface HudState {
 	selectedMessageId: string | null
 	/** The raw text streamed for run.streamMessage while the panel still shows it. */
 	liveText: string | null
-	/** The agent works without output newer than its launch, an answered prompt or a discarded attempt. */
-	working: boolean
+	/** No output since the launch, an answered prompt or a discarded attempt; the display decides whether the indicator shows. */
+	awaitingOutput: boolean
 	/** Reasoning last reported for the model call in flight, and where in the stream; none once later output or a retry arrives. */
 	reasoning: { chars: number; sequence: number } | null
 	/** One line per tick while the working indicator shows, so a long model call does not look frozen. */
@@ -81,7 +81,7 @@ function initialSession(runId: string, project: string): RunSession {
 			synchronized: false, acknowledgedPrompts: new Set(),
 		},
 		hud: {
-			history: initialHistory(), view: initialMessageList(), liveText: null, selectedMessageId: null, working: true,
+			history: initialHistory(), view: initialMessageList(), liveText: null, selectedMessageId: null, awaitingOutput: true,
 			reasoning: null, thinkingLines: [],
 		},
 	}
@@ -154,7 +154,7 @@ function applyDelta(state: RunSession, frame: RunDelta): RunSession {
 		breakAfter = null
 	}
 	const hud = updateHistoryAndView(state, accepted, breakAfter)
-	return { run: accepted, hud: { ...hud, liveText, working: false } }
+	return { run: accepted, hud: { ...hud, liveText, awaitingOutput: false } }
 }
 
 /** Progress is transient like a token fragment: a replayed one is dropped. */
@@ -206,9 +206,9 @@ function applyRecords(
 ): RunSession {
 	const hud = updateHistoryAndView(state, run, breakAfter)
 	const newOutput = hud.history.messages.at(-1)?.id !== state.hud.history.messages.at(-1)?.id
-	const working = !newOutput && !run.prompt && (state.hud.working || settled.discarded)
+	const awaitingOutput = !newOutput && !run.prompt && (state.hud.awaitingOutput || settled.discarded)
 	const reasoning = settleReasoning(state.hud.reasoning, received)
-	return { run, hud: { ...hud, reasoning, liveText: settled.live, working } }
+	return { run, hud: { ...hud, reasoning, liveText: settled.live, awaitingOutput } }
 }
 
 function applyRecord(state: RunSession, frame: RunRecord): RunSession {
@@ -261,7 +261,7 @@ function applyReply(state: RunSession, promptId: string): RunSession {
 		prompt: previous.prompt?.id === promptId ? null : previous.prompt,
 		status: previous.status === RunStatus.AwaitingUserInput ? RunStatus.Running : previous.status,
 	}
-	return { run, hud: { ...updateHistoryAndView(state, run, null), working: true } }
+	return { run, hud: { ...updateHistoryAndView(state, run, null), awaitingOutput: true } }
 }
 
 /** One line per tick while the working indicator is what the panel displays; a pinned message shows none. */
