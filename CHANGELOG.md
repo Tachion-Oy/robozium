@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.6.9 - 2026-11-19
+
+- A skill chip in the capability selector steps through off, on demand and
+  always on. On demand is amber, always on is green, and a legend under the
+  project title names the three colours.
+- Scrolled up in the message log, the row being read stays in place as
+  messages arrive one by one.
+- A message arriving while the log still has room no longer makes the rows
+  above drop and slide back up. Once the log is full, rows slide only by the
+  part that did not fit.
+
 ## 0.6.8 - 2026-11-17
 
 - A file search or other file command no longer fills the agent's view with
