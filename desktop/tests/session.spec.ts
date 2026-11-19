@@ -38,12 +38,12 @@ test("run reconciliation accepts live prefixes after recovery and rejects duplic
 	const recovered = snapshot(session(), { frames: [completed] })
 	// An accepted fragment extends the live text; a rejected one leaves the HUD as it was.
 	const prefix = receive(recovered, delta(5, "active", "Prefix"))
-	expect(prefix.hud.liveText).toBe("Prefix")
+	expect(prefix.run.liveText).toBe("Prefix")
 	expect(prefix.run.events).toEqual([completed])
 	const duplicate = receive(prefix, delta(7, "active", "Duplicate", 0))
 	expect(duplicate.hud).toBe(prefix.hud)
 	const continuation = receive(duplicate, delta(8, "active", " continued", 1))
-	expect(continuation.hud.liveText).toBe("Prefix continued")
+	expect(continuation.run.liveText).toBe("Prefix continued")
 	const done = message(9, "active", "Complete")
 	const finished = receive(continuation, done)
 	const late = receive(finished, delta(10, "active", "Obsolete", 2))
@@ -274,7 +274,7 @@ test("completed attempts retain no token frames and delta work does not traverse
 	// Run records contain only the 100 completions; display boundaries stay in the HUD.
 	expect(state.run.events).toHaveLength(100)
 	expect(state.hud.history.breaks).toHaveLength(100)
-	expect(state.hud.liveText).toBeNull()
+	expect(state.run.liveText).toBeNull()
 	state = receive(state, delta(++sequence, "next", "New"))
 	const history = state.run.events
 	const completed = state.hud.view.messages

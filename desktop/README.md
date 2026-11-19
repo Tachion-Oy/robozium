@@ -291,8 +291,8 @@ output stay literal. Web links open in the default browser, and links to files
 inside the hub open in their default application.
 
 One session reducer owns the displayed run: its identity, durable event
-reconciliation and backend status, and what the single-message panel keeps
-beside them (live and settling text, completed output and the picked message).
+reconciliation, backend status and the live or settling text, and what the
+single-message panel keeps beside them (completed output and the picked message).
 Each action is handled once and changes both together. Run protocol values and
 derived types live in `run/run-contracts.ts`; `api/request.ts` supplies
 deadlines for selection, run and readiness requests. App reads one display

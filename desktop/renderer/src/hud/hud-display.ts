@@ -59,9 +59,9 @@ export function selectRunDisplay(session: RunSession | null): HudDisplay {
 	const empty: HudDisplay = { id: "empty", text: "", contentType: "plain-text", streaming: false, working: false, index: 0, currentIndex: 0, count: 0 }
 	if (!session) return empty
 	const { run, hud } = session
-	const { view, selectedMessageId, liveText } = hud
+	const { view, selectedMessageId } = hud
 	const promptIndex = view.activePromptId === null ? undefined : view.indices.get(view.activePromptId)
-	const live = promptIndex === undefined ? liveText : null
+	const live = promptIndex === undefined ? run.liveText : null
 	const liveDisplay = live === null ? "" : streamingText(live)
 	// Live text without visible characters yet, such as leading JSON punctuation, shows the agent working.
 	const working = promptIndex === undefined && !isTerminal(run.status) && (live === null ? hud.awaitingOutput : !liveDisplay.trim())
