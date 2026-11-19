@@ -11,7 +11,7 @@ export interface RunPrompt {
 	text: string
 }
 
-/** What the backend reported, and the cursors that decide which token fragments are accepted. */
+/** What the backend reported, the text being streamed, and the cursors that decide which token fragments are accepted. */
 export interface RunState {
 	runId: string
 	project: string
@@ -23,6 +23,8 @@ export interface RunState {
 	streamSequence: number
 	/** The message whose token fragments arrived last, and its latest fragment; a retry of its agent ends it. */
 	streamMessage: Pick<RunDelta, "id" | "agent" | "chunk" | "sequence"> | null
+	/** The raw text streamed for streamMessage, until later output, a retry or a prompt takes its place. */
+	liveText: string | null
 	error: string
 	unavailable: boolean
 	/** A snapshot has been applied since the last error or retry. */
@@ -41,8 +43,6 @@ export interface HudState {
 	 */
 	view: HudMessageList
 	selectedMessageId: string | null
-	/** The raw text streamed for run.streamMessage while the panel still shows it. */
-	liveText: string | null
 	/** No output since the launch, an answered prompt or a discarded attempt; the display decides whether the indicator shows. */
 	awaitingOutput: boolean
 	/** Reasoning last reported for the model call in flight, and where in the stream; none once later output or a retry arrives. */
@@ -77,11 +77,11 @@ function initialSession(runId: string, project: string): RunSession {
 		run: {
 			runId, project, status: RunStatus.Queued, prompt: null, events: [],
 			completedMessageIds: new Set(), retrySequences: new Map(),
-			streamSequence: -1, streamMessage: null, error: "", unavailable: false,
+			streamSequence: -1, streamMessage: null, liveText: null, error: "", unavailable: false,
 			synchronized: false, acknowledgedPrompts: new Set(),
 		},
 		hud: {
-			history: initialHistory(), view: initialMessageList(), liveText: null, selectedMessageId: null, awaitingOutput: true,
+			history: initialHistory(), view: initialMessageList(), selectedMessageId: null, awaitingOutput: true,
 			reasoning: null, thinkingLines: [],
 		},
 	}
@@ -145,16 +145,16 @@ function applyDelta(state: RunSession, frame: RunDelta): RunSession {
 	// Snapshot recovery does not advance the SSE cursor: a delayed prefix may still be needed.
 	if (frame.sequence <= previous.streamSequence || duplicateChunk || previous.completedMessageIds.has(frame.id)
 		|| frame.sequence <= (previous.retrySequences.get(frame.agent) ?? -1)) return { run, hud: state.hud }
-	const accepted = { ...run, streamMessage: { id: frame.id, agent: frame.agent, chunk: frame.chunk, sequence: frame.sequence } }
 	// Text still on show continues. Otherwise this fragment starts the text and closes the script output before it.
 	let liveText = frame.delta
 	let breakAfter: number | null = frame.sequence
-	if (state.hud.liveText !== null && stream?.id === frame.id) {
-		liveText = state.hud.liveText + frame.delta
+	if (previous.liveText !== null && stream?.id === frame.id) {
+		liveText = previous.liveText + frame.delta
 		breakAfter = null
 	}
+	const accepted = { ...run, liveText, streamMessage: { id: frame.id, agent: frame.agent, chunk: frame.chunk, sequence: frame.sequence } }
 	const hud = updateHistoryAndView(state, accepted, breakAfter)
-	return { run: accepted, hud: { ...hud, liveText, awaitingOutput: false } }
+	return { run: accepted, hud: { ...hud, awaitingOutput: false } }
 }
 
 /** Progress is transient like a token fragment: a replayed one is dropped. */
@@ -168,7 +168,7 @@ function applyProgress(state: RunSession, frame: RunProgress): RunSession {
 
 /** Output at or after the streamed message supersedes its live text; a retry discards it while the agent keeps working. */
 function settleLiveText(state: RunSession, events: readonly RunRecord[]): SettledLiveText {
-	const live = state.hud.liveText
+	const live = state.run.liveText
 	const stream = state.run.streamMessage
 	if (live === null || stream === null) return { live, discarded: false }
 	for (const event of events) {
@@ -208,7 +208,7 @@ function applyRecords(
 	const newOutput = hud.history.messages.at(-1)?.id !== state.hud.history.messages.at(-1)?.id
 	const awaitingOutput = !newOutput && !run.prompt && (state.hud.awaitingOutput || settled.discarded)
 	const reasoning = settleReasoning(state.hud.reasoning, received)
-	return { run, hud: { ...hud, reasoning, liveText: settled.live, awaitingOutput } }
+	return { run: { ...run, liveText: settled.live }, hud: { ...hud, reasoning, awaitingOutput } }
 }
 
 function applyRecord(state: RunSession, frame: RunRecord): RunSession {
