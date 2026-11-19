@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test"
 import { parseRunEvent } from "../renderer/src/run/run-payloads"
 import { LifecyclePhase, MessageRole, RunStatus, type RunFrame, type RunView } from "../renderer/src/run/run-contracts"
 import { selectRunDisplay } from "../renderer/src/hud/hud-display"
-import { reduceRunSession, type RunSession } from "../renderer/src/session/session-reducer"
+import { reduceRunSession, type RunSessionState } from "../renderer/src/session/session-reducer"
 
-function session(): RunSession {
+function session(): RunSessionState {
 	return reduceRunSession(null, { type: "open", runId: "run", project: "project" })!
 }
-function receive(state: RunSession, ...frames: RunFrame[]): RunSession {
+function receive(state: RunSessionState, ...frames: RunFrame[]): RunSessionState {
 	for (const frame of frames) state = reduceRunSession(state, { type: "frame", frame })!
 	return state
 }
@@ -17,19 +17,19 @@ function delta(sequence: number, id: string, text: string, chunk = 0, agent = "r
 function message(sequence: number, id: string, content: string, kind: string | null = "user_notification"): RunFrame {
 	return { type: "message", sequence, id, content, kind, caller: null, role: MessageRole.Assistant }
 }
-function snapshot(state: RunSession, overrides: Partial<RunView>): RunSession {
+function snapshot(state: RunSessionState, overrides: Partial<RunView>): RunSessionState {
 	return reduceRunSession(state, { type: "snapshot", view: {
 		project: "project", status: RunStatus.Running, frames: [], promptId: null, prompt: null, error: null, ...overrides,
 	} })!
 }
-function select(state: RunSession, index: number): RunSession {
+function select(state: RunSessionState, index: number): RunSessionState {
 	return reduceRunSession(state, { type: "select", index })!
 }
 const working = "Agent is working..."
 const retry = (sequence: number, agent = "root"): RunFrame => ({ type: "llm_retry", sequence, agent })
 const script = (sequence: number, content: string): RunFrame => ({ type: "script_output", sequence, content })
 const progress = (sequence: number, reasoningChars: number): RunFrame => ({ type: "llm_progress", sequence, reasoningChars })
-function tick(state: RunSession, time: string): RunSession {
+function tick(state: RunSessionState, time: string): RunSessionState {
 	return reduceRunSession(state, { type: "tick", now: new Date(`2026-11-15T${time}`), model: "Mock model" })!
 }
 

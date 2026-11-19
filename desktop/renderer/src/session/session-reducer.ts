@@ -51,7 +51,7 @@ export interface HudState {
 	thinkingLines: readonly string[]
 }
 
-export interface RunSession {
+export interface RunSessionState {
 	run: RunState
 	hud: HudState
 }
@@ -63,7 +63,7 @@ type RunAction = RunUpdate
 	/** A clock beat: one more thinking line while the working indicator shows. */
 	| { type: "tick"; now: Date; model: string }
 
-export type SessionAction = RunAction
+export type RunSessionAction = RunAction
 	| { type: "open"; runId: string; project: string }
 	| { type: "select"; index: number }
 
@@ -72,7 +72,7 @@ interface SettledLiveText {
 	discarded: boolean
 }
 
-function initialSession(runId: string, project: string): RunSession {
+function initialSession(runId: string, project: string): RunSessionState {
 	return {
 		run: {
 			runId, project, status: RunStatus.Queued, prompt: null, events: [],
@@ -129,7 +129,7 @@ function mergeEvents(state: RunState, incoming: readonly RunRecord[]): RunState 
 	return recordEvents(state, events, added)
 }
 
-function updateHistoryAndView(state: RunSession, run: RunState, breakAfter: number | null): HudState {
+function updateHistoryAndView(state: RunSessionState, run: RunState, breakAfter: number | null): HudState {
 	const hud = state.hud
 	const history = updateHudHistory(hud.history, state.run.events, run.events, breakAfter)
 	if (history.messages === hud.history.messages && run.prompt === state.run.prompt) return { ...hud, history }
@@ -137,7 +137,7 @@ function updateHistoryAndView(state: RunSession, run: RunState, breakAfter: numb
 }
 
 /** An accepted token fragment extends the live text. A replayed, duplicate or superseded one only moves the cursor. */
-function applyDelta(state: RunSession, frame: RunDelta): RunSession {
+function applyDelta(state: RunSessionState, frame: RunDelta): RunSessionState {
 	const previous = state.run
 	const stream = previous.streamMessage
 	const run = { ...previous, streamSequence: Math.max(previous.streamSequence, frame.sequence) }
@@ -158,7 +158,7 @@ function applyDelta(state: RunSession, frame: RunDelta): RunSession {
 }
 
 /** Progress is transient like a token fragment: a replayed one is dropped. */
-function applyProgress(state: RunSession, frame: RunProgress): RunSession {
+function applyProgress(state: RunSessionState, frame: RunProgress): RunSessionState {
 	if (frame.sequence <= state.run.streamSequence) return { run: state.run, hud: state.hud }
 	return {
 		run: { ...state.run, streamSequence: frame.sequence },
@@ -167,7 +167,7 @@ function applyProgress(state: RunSession, frame: RunProgress): RunSession {
 }
 
 /** Output at or after the streamed message supersedes its live text; a retry discards it while the agent keeps working. */
-function settleLiveText(state: RunSession, events: readonly RunRecord[]): SettledLiveText {
+function settleLiveText(state: RunSessionState, events: readonly RunRecord[]): SettledLiveText {
 	const live = state.run.liveText
 	const stream = state.run.streamMessage
 	if (live === null || stream === null) return { live, discarded: false }
@@ -202,8 +202,8 @@ function settleReasoning(reasoning: HudState["reasoning"], events: readonly RunR
  * or a prompt ends that.
  */
 function applyRecords(
-	state: RunSession, run: RunState, received: readonly RunRecord[], breakAfter: number | null, settled: SettledLiveText,
-): RunSession {
+	state: RunSessionState, run: RunState, received: readonly RunRecord[], breakAfter: number | null, settled: SettledLiveText,
+): RunSessionState {
 	const hud = updateHistoryAndView(state, run, breakAfter)
 	const newOutput = hud.history.messages.at(-1)?.id !== state.hud.history.messages.at(-1)?.id
 	const awaitingOutput = !newOutput && !run.prompt && (state.hud.awaitingOutput || settled.discarded)
@@ -211,7 +211,7 @@ function applyRecords(
 	return { run: { ...run, liveText: settled.live }, hud: { ...hud, reasoning, awaitingOutput } }
 }
 
-function applyRecord(state: RunSession, frame: RunRecord): RunSession {
+function applyRecord(state: RunSessionState, frame: RunRecord): RunSessionState {
 	const merged = mergeEvents(state.run, [frame])
 	const run = { ...merged, streamSequence: Math.max(state.run.streamSequence, frame.sequence) }
 	return applyRecords(state, run, [frame], null, settleLiveText(state, [frame]))
@@ -225,7 +225,7 @@ function snapshotPrompt(previous: RunPrompt | null, view: RunView): RunPrompt | 
 	return { id: view.promptId, text: view.prompt }
 }
 
-function applySnapshot(state: RunSession, view: RunView): RunSession {
+function applySnapshot(state: RunSessionState, view: RunView): RunSessionState {
 	const previous = state.run
 	// Token fragments and progress are transient and are not recovered from history.
 	const received = view.frames.filter(frame => frame.type !== RunFrameKind.MessageDelta && frame.type !== RunFrameKind.LlmProgress)
@@ -253,7 +253,7 @@ function applySnapshot(state: RunSession, view: RunView): RunSession {
  * The backend acknowledged a reply: the run resumes, and later snapshots cannot revive the prompt.
  * The answered prompt leaves the view: the agent's live text, or its working indicator, shows instead.
  */
-function applyReply(state: RunSession, promptId: string): RunSession {
+function applyReply(state: RunSessionState, promptId: string): RunSessionState {
 	const previous = state.run
 	const run: RunState = {
 		...previous,
@@ -265,7 +265,7 @@ function applyReply(state: RunSession, promptId: string): RunSession {
 }
 
 /** One line per tick while the working indicator is what the panel displays; a pinned message shows none. */
-function applyTick(state: RunSession, now: Date, model: string): RunSession {
+function applyTick(state: RunSessionState, now: Date, model: string): RunSessionState {
 	const hud = state.hud
 	if (!selectRunDisplay(state).working) return { run: state.run, hud }
 	const line = thinkingLine(now, model, hud.reasoning?.chars ?? null)
@@ -273,13 +273,13 @@ function applyTick(state: RunSession, now: Date, model: string): RunSession {
 }
 
 /** Picking the latest message follows new output again; any other message stays pinned. */
-function selectMessage(state: RunSession, index: number): RunSession {
+function selectMessage(state: RunSessionState, index: number): RunSessionState {
 	const current = selectRunDisplay(state).currentIndex
 	const selectedMessageId = index === current ? null : state.hud.view.messages[index]?.id ?? null
 	return { run: state.run, hud: { ...state.hud, selectedMessageId } }
 }
 
-function applyRunAction(state: RunSession, action: RunAction): RunSession {
+function applyRunAction(state: RunSessionState, action: RunAction): RunSessionState {
 	switch (action.type) {
 		case "error":
 			return { run: { ...state.run, synchronized: false, error: action.message, unavailable: action.unavailable }, hud: state.hud }
@@ -299,12 +299,12 @@ function applyRunAction(state: RunSession, action: RunAction): RunSession {
 }
 
 /** The thinking lines belong to the working indicator and leave with it. */
-function dropStaleThinkingLines(state: RunSession): RunSession {
+function dropStaleThinkingLines(state: RunSessionState): RunSessionState {
 	if (state.hud.thinkingLines.length === 0 || selectRunDisplay(state).working) return state
 	return { run: state.run, hud: { ...state.hud, thinkingLines: [] } }
 }
 
-export function reduceRunSession(state: RunSession | null, action: SessionAction): RunSession | null {
+export function reduceRunSession(state: RunSessionState | null, action: RunSessionAction): RunSessionState | null {
 	if (action.type === "open") return initialSession(action.runId, action.project)
 	if (!state) return state
 	if (action.type === "select") return selectMessage(state, action.index)

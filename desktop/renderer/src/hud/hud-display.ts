@@ -1,7 +1,7 @@
 // Compose completed output with the active prompt and select the one display. Nothing here changes state.
 // The message list changes with messages/prompts; token updates only replace live text.
 import { isTerminal } from "../run/run-contracts"
-import type { RunPrompt, RunSession } from "../session/session-reducer"
+import type { RunPrompt, RunSessionState } from "../session/session-reducer"
 import { streamingText, type HudMessage, type RecordedHudMessage } from "./hud-messages"
 
 export interface HudMessageList {
@@ -55,10 +55,10 @@ export function buildMessageList(completed: readonly RecordedHudMessage[], promp
 }
 
 /** Priority: explicitly pinned message, active prompt, live text or the working indicator, latest completed output. */
-export function selectRunDisplay(session: RunSession | null): HudDisplay {
+export function selectRunDisplay(state: RunSessionState | null): HudDisplay {
 	const empty: HudDisplay = { id: "empty", text: "", contentType: "plain-text", streaming: false, working: false, index: 0, currentIndex: 0, count: 0 }
-	if (!session) return empty
-	const { run, hud } = session
+	if (!state) return empty
+	const { run, hud } = state
 	const { view, selectedMessageId } = hud
 	const promptIndex = view.activePromptId === null ? undefined : view.indices.get(view.activePromptId)
 	const live = promptIndex === undefined ? run.liveText : null

@@ -7,7 +7,7 @@ import { showErrorToast } from "../feedback/notices"
 import { isSecretsLocked, promptAfterRefusal, showSecretsLocked, type SecretsGate } from "../credentials/locked"
 import { interruptRun, submitReply } from "../run/run-api"
 import { RunStatus } from "../run/run-contracts"
-import type { RunSessionState } from "./useRunSession"
+import type { RunSession } from "./useRunSession"
 
 /** "ignored" means nothing was sent: no answerable prompt, an empty reply or one already in flight. */
 export type ReplyResult = "acknowledged" | "failed" | "ignored"
@@ -30,12 +30,12 @@ export interface RunMutations {
 
 const LOCKED_REPLY = "Unlock secrets before replying. Your draft has been kept."
 
-export function useRunMutations(client: DesktopApiClient, run: RunSessionState, secrets: SecretsGate): RunMutations {
+export function useRunMutations(client: DesktopApiClient, runSession: RunSession, secrets: SecretsGate): RunMutations {
 	const active = useRef<AbortController | null>(null)
 	const interruption = useRef<AbortController | null>(null)
 	const [replying, setReplying] = useState(false)
 	const [interrupting, setInterrupting] = useState(false)
-	const { session, scope, acknowledge } = run
+	const { run, scope, acknowledge } = runSession
 	// A new displayed run, retry or client ends the previous run's writes.
 	useEffect(() => () => {
 		active.current?.abort()
@@ -46,10 +46,10 @@ export function useRunMutations(client: DesktopApiClient, run: RunSessionState, 
 		setInterrupting(false)
 	}, [scope])
 
-	const prompt = session?.run.prompt ?? null
-	const synchronized = Boolean(session?.run.synchronized && !session.run.error)
-	const running = session?.run.status === RunStatus.Running
-	const canReply = Boolean(synchronized && session?.run.status === RunStatus.AwaitingUserInput && prompt)
+	const prompt = run?.prompt ?? null
+	const synchronized = Boolean(run?.synchronized && !run.error)
+	const running = run?.status === RunStatus.Running
+	const canReply = Boolean(synchronized && run?.status === RunStatus.AwaitingUserInput && prompt)
 	const canInterrupt = synchronized && running && !prompt && !interrupting
 	// The interruption has taken effect once the agent asks or stops.
 	useEffect(() => {
@@ -59,7 +59,7 @@ export function useRunMutations(client: DesktopApiClient, run: RunSessionState, 
 	const reply = async (content: string, attachments?: ReplyAttachments): Promise<ReplyResult> => {
 		const trimmed = content.trim()
 		const hasContent = Boolean(trimmed || attachments?.items.length)
-		if (!session || !prompt || !scope || scope.aborted || !canReply || !hasContent || active.current) return "ignored"
+		if (!run || !prompt || !scope || scope.aborted || !canReply || !hasContent || active.current) return "ignored"
 		const controller = new AbortController()
 		active.current = controller
 		setReplying(true)
@@ -72,7 +72,7 @@ export function useRunMutations(client: DesktopApiClient, run: RunSessionState, 
 			}
 			// Sent once per action; a failure keeps the draft and the next snapshot shows the outcome.
 			const send = async () => {
-				await withDeadline(signal, requestSignal => submitReply(client, session.run.runId, prompt.id, trimmed, requestSignal))
+				await withDeadline(signal, requestSignal => submitReply(client, run.runId, prompt.id, trimmed, requestSignal))
 				return true
 			}
 			// The backend attaches the run's staged attachments to the reply itself.
@@ -100,7 +100,7 @@ export function useRunMutations(client: DesktopApiClient, run: RunSessionState, 
 	}
 
 	const interrupt = async (): Promise<void> => {
-		if (!session || !scope || scope.aborted || !canInterrupt || interruption.current) return
+		if (!run || !scope || scope.aborted || !canInterrupt || interruption.current) return
 		const controller = new AbortController()
 		interruption.current = controller
 		setInterrupting(true)
@@ -108,7 +108,7 @@ export function useRunMutations(client: DesktopApiClient, run: RunSessionState, 
 		let accepted = false
 		try {
 			// Never repeated; an accepted interruption stays pending until a snapshot shows its effect.
-			accepted = await withDeadline(signal, requestSignal => interruptRun(client, session.run.runId, requestSignal))
+			accepted = await withDeadline(signal, requestSignal => interruptRun(client, run.runId, requestSignal))
 			if (!accepted) {
 				showErrorToast({ title: "Interrupt failed", message: "Could not interrupt the agent's current work.", detail: "The backend refused the interruption." })
 			}

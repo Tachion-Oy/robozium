@@ -30,7 +30,7 @@ import { useRunMutations } from "../../session/useRunMutations"
 import { useReplyAttachments } from "../../attachments/useReplyAttachments"
 import { hubFileUrl } from "../../attachments/attachments-api"
 import { useDictation } from "../../dictation/useDictation"
-import { selectRunDisplay, THINKING_LINE_INTERVAL_MS } from "../../hud/hud-display"
+import { THINKING_LINE_INTERVAL_MS } from "../../hud/hud-display"
 import { isTerminal, runLabels, RunStatus, type RunRecord } from "../../run/run-contracts"
 import { useMessageLog } from "../../log/useMessageLog"
 import type { BackendOperations } from "../backend/BackendStartup"
@@ -66,46 +66,46 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 		secrets: credentials,
 	})
 	const runMutations = useRunMutations(client, runSession, credentials)
-	const session = runSession.session
-	const runEnded = Boolean(session?.run.synchronized && isTerminal(session.run.status))
+	const run = runSession.run
+	const runEnded = Boolean(run?.synchronized && isTerminal(run.status))
 	// Above the screens, so switching views keeps the staged attachments.
-	const replyAttachments = useReplyAttachments(client, session?.run.runId ?? null, runEnded)
+	const replyAttachments = useReplyAttachments(client, run?.runId ?? null, runEnded)
 	const fileUrl = useMemo(() => (path: string) => hubFileUrl(client, path), [client])
 	const [draft, setDraft] = useState("")
 	// Like the attachments, the text belongs to one live run: opening another run or
 	// ending this one empties it, so old text never resurfaces in a later run.
-	const draftRun = runEnded ? null : session?.run.runId ?? null
-	const [draftOwner, setDraftOwner] = useState(draftRun)
-	if (draftOwner !== draftRun) {
-		setDraftOwner(draftRun)
+	const draftRunId = runEnded ? null : run?.runId ?? null
+	const [draftOwner, setDraftOwner] = useState(draftRunId)
+	if (draftOwner !== draftRunId) {
+		setDraftOwner(draftRunId)
 		setDraft("")
 	}
 	// A transcript joins the draft after a space.
 	const dictation = useDictation({ client, onTranscript: text =>
 		setDraft(current => current.trim() ? `${current.trimEnd()} ${text}` : text) })
 	const [layout, setLayout] = useState<LayoutMode>("top")
-	const display = selectRunDisplay(session)
-	const status = session?.run.unavailable ? "Run unavailable" : session ? runLabels[session.run.status] : "Awaiting input"
+	const display = runSession.display
+	const statusLabel = run?.unavailable ? "Run unavailable" : run ? runLabels[run.status] : "Awaiting input"
 	// A live start without keys locks the HUD on the guide and Environment.
 	const setupRequired = Boolean(credentials.status?.setupRequired)
 	// A change that applies after a restart locks the HUD on Environment until Restart app.
 	const restartRequired = Boolean(credentials.status?.restartRequired)
 	const locked = setupRequired || restartRequired
-	const runLive = session !== null && !runEnded && !session.run.unavailable
+	const runLive = run !== null && !runEnded && !run.unavailable
 	const limits: HudLimits = { runLive, setupRequired, restartRequired }
 	// Current Run is open only for a live run with nothing locked.
 	const screen = visibleScreen(navigation.screen, limits)
 	// Current Run shows and switches its live run's model; other screens set the default.
-	const modelRun = screen === "run" && session ? session.run.runId : null
-	const models = useModels(client, connected, modelRun)
+	const modelRunId = screen === "run" && run ? run.runId : null
+	const models = useModels(client, connected, modelRunId)
 	// While Current Run shows a live run, each tick lets the working HUD add a line naming its model.
-	const runModel = models.selection?.models.find(model => model.model_id === models.selection?.selected_model_id)?.label
+	const modelLabel = models.selection?.models.find(model => model.model_id === models.selection?.selected_model_id)?.label
 	const tick = runSession.tick
 	useEffect(() => {
-		if (modelRun === null || !runModel) return
-		const timer = setInterval(() => tick(new Date(), runModel), THINKING_LINE_INTERVAL_MS)
+		if (modelRunId === null || !modelLabel) return
+		const timer = setInterval(() => tick(new Date(), modelLabel), THINKING_LINE_INTERVAL_MS)
 		return () => clearInterval(timer)
-	}, [modelRun, runModel, tick])
+	}, [modelRunId, modelLabel, tick])
 	const projectQuery = useProjectQuery(client, screen === "projects" && polling, projectMutations)
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
 	// Each write's outcome goes to the draft declared below; it runs only after both exist.
@@ -126,16 +126,16 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	const selectScreen = (next: HudScreen) => { setFocusRunEditor(false); navigate({ type: "screen_selected", screen: next }) }
 	// The displayed run's own row only shows it again.
 	const openRun = (runId: string, project: string) => {
-		if (session?.run.runId !== runId) runSession.open(runId, project)
+		if (run?.runId !== runId) runSession.open(runId, project)
 		showRun()
 	}
 	// The HUD and the overview rows share one cancellation per project.
-	const cancelling = session !== null && (projectMutations.pending.has(session.run.project) || session.run.status === RunStatus.Cancelling)
-	const runError = screen === "run" ? session?.run.error : ""
+	const cancelling = run !== null && (projectMutations.pending.has(run.project) || run.status === RunStatus.Cancelling)
+	const runError = screen === "run" ? run?.error : ""
 	// The right edge's copy and clear buttons act on Current Run's message and draft; the guide shows them disabled.
 	let copyControls: ReactNode = null
-	if (screen === "run" && session) {
-		copyControls = <HudCopyControls key={session.run.runId} message={display} replyDraft={draft} hasAttachments={replyAttachments.items.length > 0}
+	if (screen === "run" && run) {
+		copyControls = <HudCopyControls key={run.runId} message={display} replyDraft={draft} hasAttachments={replyAttachments.items.length > 0}
 			onClearReply={() => { setDraft(""); replyAttachments.onClear() }} />
 	} else if (screen === "onboarding") {
 		copyControls = <HudCopyControls message={null} replyDraft="" hasAttachments={false} disabled onClearReply={() => {}} />
@@ -145,14 +145,14 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 		switch (screen) {
 			case "run":
 				return <div className="agent-hud__run-view">
-					{session && <p className="sr-only" role="status" aria-label="Run status">{session.run.project} · {status}</p>}
+					{run && <p className="sr-only" role="status" aria-label="Run status">{run.project} · {statusLabel}</p>}
 					<HubFileUrlContext value={fileUrl}>
-						<RunHud key={session?.run.runId} draft={draft} onDraftChange={setDraft} attachments={replyAttachments} dictation={dictation}
-							layoutMode={layout} display={display} awaitingInput={Boolean(session?.run.prompt)}
+						<RunHud key={run?.runId} draft={draft} onDraftChange={setDraft} attachments={replyAttachments} dictation={dictation}
+							layoutMode={layout} display={display} awaitingInput={Boolean(run?.prompt)}
 							focusOnOpen={focusRunEditor} onSelect={runSession.select}
 							mutations={runMutations}
-							cancel={{ isPending: cancelling, available: Boolean(session && !isTerminal(session.run.status)),
-								onTrigger: () => { if (session && !cancelling) void projectMutations.cancel(session.run.project) } }}
+							cancel={{ isPending: cancelling, available: Boolean(run && !isTerminal(run.status)),
+								onTrigger: () => { if (run && !cancelling) void projectMutations.cancel(run.project) } }}
 							interrupt={{ isPending: runMutations.interrupting, available: runMutations.canInterrupt,
 								onTrigger: () => void runMutations.interrupt() }} />
 					</HubFileUrlContext>
@@ -187,11 +187,11 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 
 	return (
 		<>
-			<AgentHud screen={screen} inactive={session !== null && !runLive}
+			<AgentHud screen={screen} inactive={run !== null && !runLive}
 				layoutMode={layout} onLayoutModeChange={setLayout} messageLog={messageLog}
-				logPane={() => <MessageLog key={session?.run.runId} active={runLive} events={session?.run.events ?? noEvents} />}
+				logPane={() => <MessageLog key={run?.runId} active={runLive} events={run?.events ?? noEvents} />}
 				header={<HudHeader screen={screen} screenOptions={screenOptions(screen, navigation.launch !== null, limits)}
-					projectSlug={session?.run.project ?? null} onSelectScreen={selectScreen}
+					projectSlug={run?.project ?? null} onSelectScreen={selectScreen}
 					modelSelector={<ModelSelector models={models} disabled={locked || !connected || projectMutations.launching} />} />}
 				copyControls={copyControls}>
 				{renderContent()}
