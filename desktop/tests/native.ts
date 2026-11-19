@@ -212,11 +212,22 @@ export async function startupDone(page: Page) {
  * Reduced motion settles the launch animation, which startup.spec.ts covers
  * itself. The emulation ends with the startup screen, since reduced motion also
  * stills the HUD's own animations.
+ *
+ * Ending the emulation starts the entrance animations it had switched off, such
+ * as the overview's 8px slide, although the screen has long been drawn. They are
+ * ended here: a click during the slide presses a button that then moves from
+ * under the pointer, so the release misses it and nothing is clicked.
  */
 export async function skipIntro(page: Page) {
 	await page.emulateMedia({ reducedMotion: "reduce" })
 	await startupDone(page)
 	await page.emulateMedia({ reducedMotion: null })
+	await page.evaluate(() => {
+		for (const animation of document.getAnimations()) {
+			// The activity logo pulses indefinitely, and an endless animation cannot be finished.
+			if (animation.effect?.getTiming().iterations !== Infinity) animation.finish()
+		}
+	})
 }
 
 /** Reload the document, skipping the launch animation it plays again. */
