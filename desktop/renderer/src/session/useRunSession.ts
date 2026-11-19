@@ -6,10 +6,12 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import type { DesktopApiClient } from "../api/client"
 import { watchRun } from "../run/run-updates"
 import { announceRunUpdate } from "./run-notices"
-import { reduceRunSession, type RunSession } from "./session-reducer"
+import { reduceRunSession, type RunState } from "./session-reducer"
+import { selectRunDisplay, type HudDisplay } from "../hud/hud-display"
 
-export interface RunSessionState {
-	session: RunSession | null
+export interface RunSession {
+	run: RunState | null
+	display: HudDisplay
 	/** Ends when the displayed run's subscription does: on open, retry, a new client or unmount. */
 	scope: AbortSignal | null
 	open: (runId: string, project: string) => void
@@ -22,8 +24,8 @@ export interface RunSessionState {
 }
 
 /** App-owned session survives view changes; opening another run only disposes local work. */
-export function useRunSession(client: DesktopApiClient): RunSessionState {
-	const [session, dispatch] = useReducer(reduceRunSession, null)
+export function useRunSession(client: DesktopApiClient): RunSession {
+	const [state, dispatch] = useReducer(reduceRunSession, null)
 	const dispose = useRef<(() => void) | null>(null)
 	const lifetime = useRef<AbortController | null>(null)
 	const [scope, setScope] = useState<AbortSignal | null>(null)
@@ -53,12 +55,13 @@ export function useRunSession(client: DesktopApiClient): RunSessionState {
 		subscribe(runId, project)
 	}
 	const tick = useCallback((now: Date, model: string) => dispatch({ type: "tick", now, model }), [])
-	return { session, scope, open, tick,
+	const run = state ? state.run : null
+	return { run, display: selectRunDisplay(state), scope, open, tick,
 		acknowledge: promptId => dispatch({ type: "replied", promptId }),
 		select: (index: number) => dispatch({ type: "select", index }),
 		retry: () => {
-			if (!session) return
+			if (!run) return
 			dispatch({ type: "retry" })
-			subscribe(session.run.runId, session.run.project)
+			subscribe(run.runId, run.project)
 		} }
 }
