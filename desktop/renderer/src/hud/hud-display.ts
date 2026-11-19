@@ -64,7 +64,7 @@ export function selectRunDisplay(session: RunSession | null): HudDisplay {
 	const live = promptIndex === undefined ? liveText : null
 	const liveDisplay = live === null ? "" : streamingText(live)
 	// Live text without visible characters yet, such as leading JSON punctuation, shows the agent working.
-	const working = promptIndex === undefined && !isTerminal(run.status) && (live === null ? hud.working : !liveDisplay.trim())
+	const working = promptIndex === undefined && !isTerminal(run.status) && (live === null ? hud.awaitingOutput : !liveDisplay.trim())
 	// Live text or the working indicator follows the messages as one more item.
 	const extra = live !== null || working
 	const count = view.messages.length + (extra ? 1 : 0)
