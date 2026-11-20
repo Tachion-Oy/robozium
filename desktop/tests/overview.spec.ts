@@ -248,7 +248,7 @@ for (const theme of ["dark", "light"]) {
 		await page.getByRole("button", { name: "Cancel", exact: true }).click()
 		// The run ends while its HUD is open; the overview it returns to keeps the same gap.
 		backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ status: "cancelled" })))
-		await view(page, "Current Run")
+		await view(page, "Current Runs")
 		await expectOverview(page)
 		expect(await tableGap()).toBe(fresh)
 	})

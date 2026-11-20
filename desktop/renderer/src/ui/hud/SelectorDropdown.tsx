@@ -1,6 +1,7 @@
 // The empty catch carries a comment for the desktop lint rules; the
 // trigger markup lives in SelectorTrigger; the menu opens leftward from the trigger's
-// right edge and scrolls its options within the room left in the window.
+// right edge (the run selector's, which starts the row, rightward from its left edge)
+// and scrolls its options within the room left in the window.
 import {
 	type KeyboardEvent as ReactKeyboardEvent,
 	type ReactNode,
@@ -27,8 +28,10 @@ type SelectorDropdownProps<Value extends string> = {
 	onOpen?: () => void
 	disabled?: boolean
 	busy?: boolean
-	variant?: "model" | "view"
+	variant?: "model" | "view" | "run"
 	emptyContent?: ReactNode
+	/** A line below the options. */
+	note?: ReactNode
 	/** Draws a label, such as a model's tier as an icon; plain text by default. */
 	renderLabel?: (label: string) => ReactNode
 }
@@ -62,6 +65,7 @@ export function SelectorDropdown<Value extends string>({
 	busy = false,
 	variant = "model",
 	emptyContent = null,
+	note = null,
 	renderLabel = label => label,
 }: SelectorDropdownProps<Value>) {
 	const listboxId = useId()
@@ -92,21 +96,24 @@ export function SelectorDropdown<Value extends string>({
 		}
 	}, [isOpen])
 
-	// The menu may use the window from its left edge to the trigger's right edge, and
-	// from the trigger's bottom edge down, so it never overflows the window.
+	// The menu may use the window from its left edge to the trigger's right edge (the run
+	// menu from the trigger's left edge to the window's right edge), and from the
+	// trigger's bottom edge down, so it never overflows the window.
 	useLayoutEffect(() => {
 		const menu = menuRef.current
 		const trigger = triggerRef.current
 		if (!isOpen || !menu || !trigger) return
 		const fit = () => {
-			const { right, bottom } = trigger.getBoundingClientRect()
-			menu.style.setProperty("--menu-room-inline", `${right}px`)
+			const { left, right, bottom } = trigger.getBoundingClientRect()
+			let roomInline = right
+			if (variant === "run") roomInline = window.innerWidth - left
+			menu.style.setProperty("--menu-room-inline", `${roomInline}px`)
 			menu.style.setProperty("--menu-room-block", `${window.innerHeight - bottom}px`)
 		}
 		fit()
 		window.addEventListener("resize", fit)
 		return () => window.removeEventListener("resize", fit)
-	}, [isOpen])
+	}, [isOpen, variant])
 
 	useEffect(() => {
 		if (!isOpen) return
@@ -142,17 +149,23 @@ export function SelectorDropdown<Value extends string>({
 		void settleSelection()
 	}
 
-	const isViewSelector = variant === "view"
+	// The view and run selectors add their own classes to the model selector's.
+	let selectorClass = "agent-hud__model-selector agent-hud__model-selector--ready"
+	let triggerClass = ""
+	if (variant !== "model") {
+		selectorClass = `${selectorClass} agent-hud__${variant}-selector`
+		triggerClass = `agent-hud__${variant}-trigger`
+	}
 
 	return (
 		<div
 			ref={rootRef}
-			className={`agent-hud__model-selector agent-hud__model-selector--ready${isViewSelector ? " agent-hud__view-selector" : ""}`}>
+			className={selectorClass}>
 			<SelectorTrigger
 				ref={triggerRef}
 				label={renderLabel(triggerLabel)}
 				open={isOpen}
-				className={isViewSelector ? "agent-hud__view-trigger" : ""}
+				className={triggerClass}
 				disabled={disabled}
 				aria-label={triggerLabel}
 				title={triggerLabel}
@@ -197,6 +210,7 @@ export function SelectorDropdown<Value extends string>({
 							</button>
 						))}
 						{options.length === 0 ? emptyContent : null}
+						{note}
 					</div>
 				</div>
 			) : null}

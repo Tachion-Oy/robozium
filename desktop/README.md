@@ -329,7 +329,7 @@ row of actions: **Save**, **Restart app** and **Reset environment**. **Restart
 app** stops the runs and the backend container and starts the app again with a
 new container, which reads `.env` again and keeps mounted data; the loading
 screen covers the HUD until the app closes.
-Divider controls remain visible but disabled outside Current Run.
+Divider controls remain visible but disabled outside Current Runs.
 
 **Environment** lists the runtime's saved settings and secrets, with the
 variables that the application and imported tools need. **Add variable** and

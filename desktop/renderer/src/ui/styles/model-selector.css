@@ -1,5 +1,5 @@
-/* Shared model/view dropdown surface. Each selector supplies its signature
-   accent; both menus hang from the trigger's right edge. */
+/* Shared model/view/run dropdown surface. Each selector supplies its signature
+   accent; the menus hang from the trigger's right edge, the run menu from its left. */
 /* Selectors take the width of their label and shrink with the header row. */
 .agent-hud__model-selector {
   --selector-accent: var(--term-green);
@@ -13,6 +13,16 @@
 
 .agent-hud__view-selector {
   --selector-accent: var(--term-amber);
+}
+
+.agent-hud__run-selector {
+  --selector-accent: var(--term-blue);
+}
+
+/* The run selector starts the header row, so its menu hangs from its left edge. */
+.agent-hud__run-selector .agent-hud__model-menu {
+  right: auto;
+  left: 0;
 }
 
 @keyframes hud-model-ready-in {

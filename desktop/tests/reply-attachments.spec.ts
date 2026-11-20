@@ -191,7 +191,7 @@ test("staged attachments load from the backend, with the renderer's origin, and 
 
 	await view(page, "Environment")
 	await expect(replyBox(page)).toHaveCount(0)
-	await view(page, "Current Run")
+	await view(page, "Current Runs")
 	await expect(previews(page)).toHaveCount(2)
 	await expect(page.getByRole("img", { name: "earlier.pdf", exact: true })).toContainText("PDFearlier.pdf")
 	expect(requestsTo(backend, "GET", "/run/run-one/files")).toHaveLength(1)

@@ -1,4 +1,4 @@
-// autoFocus focuses the reply when Current Run opens; the composer is disabled
+// autoFocus focuses the reply when Current Runs opens; the composer is disabled
 // only with its editor, not whenever files cannot be added; no "Updating images…" notice
 // flashes beneath the reply, and upload failures are a toast with Retry attachments; the
 // placeholder says "Enter", since a reply is typed or dictated.

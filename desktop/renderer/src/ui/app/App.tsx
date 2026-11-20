@@ -6,6 +6,7 @@ import { HubFileUrlContext } from "../run/HudImage"
 import { AgentHud } from "../hud/AgentHud"
 import { MessageLog } from "../log/MessageLog"
 import { HudHeader } from "../hud/HudHeader"
+import { HudRunSelector } from "../hud/HudRunSelector"
 import { ModelSelector } from "../hud/ModelSelector"
 import type { LayoutMode } from "../hud/HudCornerControls"
 import { ProjectOverview } from "../projects/ProjectOverview"
@@ -93,12 +94,12 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	const locked = setupRequired || restartRequired
 	const runLive = run !== null && !runEnded && !run.unavailable
 	const limits: HudLimits = { runLive, setupRequired, restartRequired }
-	// Current Run is open only for a live run with nothing locked.
+	// Current Runs is open only for a live run with nothing locked.
 	const screen = visibleScreen(navigation.screen, limits)
-	// Current Run shows and switches its live run's model; other screens set the default.
+	// Current Runs shows and switches its live run's model; other screens set the default.
 	const modelRunId = screen === "run" && run ? run.runId : null
 	const models = useModels(client, connected, modelRunId)
-	// While Current Run shows a live run, each tick lets the working HUD add a line naming its model.
+	// While Current Runs shows a live run, each tick lets the working HUD add a line naming its model.
 	const modelLabel = models.selection?.models.find(model => model.model_id === models.selection?.selected_model_id)?.label
 	const tick = runSession.tick
 	useEffect(() => {
@@ -106,7 +107,8 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 		const timer = setInterval(() => tick(new Date(), modelLabel), THINKING_LINE_INTERVAL_MS)
 		return () => clearInterval(timer)
 	}, [modelRunId, modelLabel, tick])
-	const projectQuery = useProjectQuery(client, screen === "projects" && polling, projectMutations)
+	// Current Runs lists the live runs as the overview does.
+	const projectQuery = useProjectQuery(client, (screen === "projects" || screen === "run") && polling, projectMutations)
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
 	// Each write's outcome goes to the draft declared below; it runs only after both exist.
 	const environmentMutations = useEnvironmentMutations(client, setupRequired, restartRequired, {
@@ -132,7 +134,7 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	// The HUD and the overview rows share one cancellation per project.
 	const cancelling = run !== null && (projectMutations.pending.has(run.project) || run.status === RunStatus.Cancelling)
 	const runError = screen === "run" ? run?.error : ""
-	// The right edge's copy and clear buttons act on Current Run's message and draft; the guide shows them disabled.
+	// The right edge's copy and clear buttons act on the displayed run's message and draft; the guide shows them disabled.
 	let copyControls: ReactNode = null
 	if (screen === "run" && run) {
 		copyControls = <HudCopyControls key={run.runId} message={display} replyDraft={draft} hasAttachments={replyAttachments.items.length > 0}
@@ -192,6 +194,8 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 				logPane={() => <MessageLog key={run?.runId} active={runLive} events={run?.events ?? noEvents} />}
 				header={<HudHeader screen={screen} screenOptions={screenOptions(screen, navigation.launch !== null, limits)}
 					projectSlug={run?.project ?? null} onSelectScreen={selectScreen}
+					runSelector={<HudRunSelector runId={run?.runId ?? null} project={run?.project ?? null} rows={projectQuery.rows}
+						disabled={navigationPending || locked} onOpenRun={openRun} />}
 					modelSelector={<ModelSelector models={models} disabled={locked || !connected || projectMutations.launching} />} />}
 				copyControls={copyControls}>
 				{renderContent()}

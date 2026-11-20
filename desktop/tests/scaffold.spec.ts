@@ -2,7 +2,7 @@ import { _electron, expect, type Page } from "@playwright/test"
 import { once } from "node:events"
 import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { test, desktopRoot, launchArgs, documentUrl, preload, waitForPanelLayout, captureNative, chooseModel, chooseView, modelTrigger, setNativeViewport, viewTrigger, reloadApp } from "./native"
+import { test, desktopRoot, launchArgs, documentUrl, preload, waitForPanelLayout, captureNative, chooseModel, chooseView, modelTrigger, setNativeViewport, viewTrigger, runTrigger, reloadApp } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
 async function expectPanelGeometry(page: Page, layout: "top" | "equal" | "bottom") {
@@ -48,15 +48,15 @@ async function expectSettledHeaderRow(page: Page) {
 }
 
 /**
- * The header is one row inside the window: the project badge (on Current Run) where
- * the row starts, then the model and view selectors together on the right, and the
- * project folder button where the row ends. Long labels ellipsize. The badge and the
- * square folder button match the selectors' height.
+ * The header is one row inside the window: the run selector (on Current Runs) or the
+ * guide's badge where the row starts, then the model and view selectors together on the
+ * right, and the project folder button where the row ends. Long labels ellipsize. The
+ * badge and the square folder button match the selectors' height.
  */
 async function headerRow(page: Page) {
 	return page.locator(".agent-hud__header").evaluate(header => {
-		const badge = header.querySelector(".agent-hud__event-edge")
-		const selectors = [...header.querySelectorAll("button.agent-hud__selector-trigger")]
+		const badge = header.querySelector(".agent-hud__event-edge, .agent-hud__run-trigger")
+		const selectors = [...header.querySelectorAll(".agent-hud__header-actions button.agent-hud__selector-trigger")]
 		const folder = header.querySelector(".agent-hud__project-folder")
 		const controls = [...badge ? [badge] : [], ...selectors, ...folder ? [folder] : []]
 			.map(control => control.getBoundingClientRect())
@@ -174,11 +174,11 @@ for (const theme of ["dark", "light"]) {
 		await expect(up).toBeDisabled()
 		await expect(down).toBeDisabled()
 		await view.click()
-		await expect(page.getByRole("option", { name: "Current Run", exact: true })).toHaveCount(0)
+		await expect(page.getByRole("option", { name: "Current Runs", exact: true })).toHaveCount(0)
 		await page.keyboard.press("Escape")
 		await page.getByRole("button", { name: "Launch", exact: true }).press("Enter")
 		await expect(reply).toBeFocused()
-		await expect(view).toHaveAccessibleName("Current Run")
+		await expect(view).toHaveAccessibleName("Current Runs")
 		await expect(page.locator(".agent-hud__replyBox--agent")).toContainText("Mock run ready.")
 		await reply.fill("First line")
 		// Shift+Enter adds a line; Enter would send the reply.
@@ -224,7 +224,7 @@ for (const theme of ["dark", "light"]) {
 		await down.press("Enter")
 		await expect(down).toBeDisabled()
 		await chooseView(page, "Runs Overview")
-		await chooseView(page, "Current Run")
+		await chooseView(page, "Current Runs")
 		await expect(reply).toHaveValue(draft)
 		// A reload keeps the backend's run but not the local draft or divider.
 		await reloadApp(page)
@@ -476,8 +476,8 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 				if (theme === "light") await page.getByRole("button", { name: "Toggle color theme" }).click()
 				await expect(page.locator("html")).toHaveAttribute("data-theme", theme)
 				await expect(modelTrigger(page)).toHaveAttribute("title", "Mock model")
-				await expect(viewTrigger(page)).toHaveAttribute("title", "Current Run")
-				await expect(page.locator(".agent-hud__event-text")).toBeVisible()
+				await expect(viewTrigger(page)).toHaveAttribute("title", "Current Runs")
+				await expect(runTrigger(page)).toHaveAttribute("title", "preview")
 				await page.mouse.move(0, 0)
 				expect(await page.locator(".agent-hud__box").evaluate(box => {
 					const rect = box.getBoundingClientRect()
@@ -536,7 +536,7 @@ for (const [width, height] of [[1260, 780], [640, 420]]) {
 							&& document.documentElement.scrollWidth === innerWidth && document.documentElement.scrollHeight === innerHeight
 					})).toBe(true)
 				}
-				await chooseView(page, "Current Run")
+				await chooseView(page, "Current Runs")
 			}
 		})
 	}
