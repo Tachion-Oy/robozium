@@ -68,7 +68,7 @@ function previewHandlers(): Map<string, Handler> {
 		project: "preview", status: "awaiting_user_input", error: null,
 		message_trace: previewMessages.slice(0, -1).map((content, index) => ({
 			type: "message", sequence: index + 1, message_id: `preview-${index + 1}`,
-			payload: { role: "assistant", content, message_kind: "user_notification" },
+			payload: { role: "assistant", content, truncation: { threshold: 0, severity: 1 }, message_kind: "user_notification" },
 		})),
 		current_prompt_id: "preview-prompt", current_prompt: previewMessages.at(-1),
 	}

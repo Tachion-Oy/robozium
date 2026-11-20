@@ -138,10 +138,12 @@ class RunEvents:
                 return event
 
     def _record_message_event(self, state: _EventState, event: MessageEvent) -> None:
+        # Serialized as the stream serializes it, so history and live frames agree.
+        dumped = event.message.model_dump(mode="json", include={"truncation"})
         payload: RunViewMessagePayload = {
             "role": event.message.role,
             "content": event.message.content,
-            "truncation": None,
+            "truncation": dumped["truncation"],
             "message_kind": event.message.message_kind,
             "caller": event.message.caller,
         }

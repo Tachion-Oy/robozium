@@ -10,8 +10,13 @@ const lifecycle = (sequence: number, kind: string, extra: Record<string, unknown
 	type: "run_lifecycle", payload: { kind, agent_name: "orchestrator", sequence, parent_agent_name: null, status: null, model_name: "mock", ...extra },
 })
 const script = (sequence: number, content: string) => ({ type: "script_output", sequence, payload: { content } })
-const wire = (role: string, content: string, sequence: number, kind: string | null = null, caller: string | null = null) => ({
-	type: "message", sequence, message_id: `m${sequence}`, payload: { role, content, message_kind: kind, caller },
+// RoboZ truncation rules as the backend sends them; severity 1 is Light and 3 is Remove.
+const LIGHT_FROM_START = { threshold: 0, severity: 1 }
+const REMOVED_FROM_START = { threshold: 0, severity: 3 }
+const wire = (
+	role: string, content: string, sequence: number, kind: string | null = null, caller: string | null = null, truncation: unknown = LIGHT_FROM_START,
+) => ({
+	type: "message", sequence, message_id: `m${sequence}`, payload: { role, content, truncation, message_kind: kind, caller },
 })
 const records = (...frames: unknown[]) => frames.map(frame => parseRunEvent(frame) as RunRecord)
 
@@ -54,6 +59,23 @@ test("the log projects messages, grouped script output and lifecycle banners fro
 	// The selector keeps no state: recovered history and live appends give the same rows.
 	const events = records(script(1, "a"), script(2, "b"), wire("assistant", "{}", 3))
 	expect(selectLogItems(events)).toEqual(selectLogItems([...events]))
+})
+
+test("the log leaves out messages the agent never sees and keeps ones removed later", () => {
+	const items = selectLogItems(records(
+		script(1, "before "),
+		wire("user", "snapshot taken", 2, null, "snapshot_conversations", REMOVED_FROM_START),
+		wire("user", "guard allowed", 3, null, "guard_files", [REMOVED_FROM_START]),
+		script(4, "after"),
+		wire("error", "Retrying", 5, null, null, [LIGHT_FROM_START, { threshold: 20, severity: 3 }]),
+		wire("user", "old output", 6, null, null, { threshold: 5, severity: 3 }),
+	))
+	expect(items).toEqual([
+		// A hidden message is not displayed, so it does not split the script output.
+		{ kind: "message", role: "script", content: "before after" },
+		{ kind: "message", role: "error", content: "Retrying", parsed: { kind: "error", value: "Retrying" } },
+		{ kind: "message", role: "tool", content: "old output" },
+	])
 })
 
 test("the toggle opens the placeholder log before a run and the run's rows during one", async ({ desktop: { app, page }, backend }) => {

@@ -10,7 +10,7 @@ export const snapshot = (overrides: Record<string, unknown> = {}) => ({
 })
 export const message = (sequence: number, content: string, id = `m${sequence}`) => ({
 	type: "message", sequence, message_id: id,
-	payload: { role: "assistant", content, message_kind: "user_notification" },
+	payload: { role: "assistant", content, truncation: { threshold: 0, severity: 1 }, message_kind: "user_notification" },
 })
 export const delta = (sequence: number, text: string, chunk = 0, id = "live") => ({
 	type: "message_delta", sequence, payload: { message_id: id, delta: text, chunk_index: chunk, agent_name: "orchestrator" },

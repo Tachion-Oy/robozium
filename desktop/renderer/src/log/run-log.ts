@@ -74,7 +74,10 @@ function lifecycleItem(event: LifecycleEvent): LifecycleLogItem {
 		: { ...base, phase: LifecyclePhase.Stopped, status: event.status }
 }
 
-/** Consecutive script output forms one row; a displayed message or banner closes it. */
+/**
+ * Consecutive script output forms one row; a displayed message or banner closes it.
+ * A message the agent never sees is not displayed.
+ */
 export function selectLogItems(events: readonly RunRecord[]): StreamLogItem[] {
 	const items: StreamLogItem[] = []
 	let script: MessageLogItem | null = null
@@ -85,6 +88,7 @@ export function selectLogItems(events: readonly RunRecord[]): StreamLogItem[] {
 				else items.push(script = { kind: StreamLogItemKind.Message, role: StreamLogRole.Script, content: event.content })
 				break
 			case RunFrameKind.Message:
+				if (event.hiddenFromAgent) break
 				script = null
 				items.push(messageItem(event))
 				break

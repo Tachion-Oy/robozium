@@ -22,13 +22,41 @@ const parse = <T>(schema: z.ZodType<T>, value: unknown): T => parsePayload(schem
 const sequence = z.number().int().min(0)
 const Envelope = z.object({ type: z.string() })
 
+/** RoboZ's truncation severities: how much of a message the agent's context keeps once a rule applies. */
+enum TruncationSeverity {
+	Light = 1,
+	Stub = 2,
+	Remove = 3,
+}
+interface TruncationRule {
+	threshold: number
+	severity: TruncationSeverity
+}
+const TruncationRuleSchema = z.object({ threshold: z.number().int(), severity: z.enum(TruncationSeverity) })
+
+/** Every rule removes the message from the freshest turn on, so the agent never sees it. */
+function isHiddenFromAgent(truncation: TruncationRule | TruncationRule[]): boolean {
+	let rules: TruncationRule[]
+	if (Array.isArray(truncation)) rules = truncation
+	else rules = [truncation]
+	if (rules.length === 0) return false
+	return rules.every(rule => rule.threshold === 0 && rule.severity === TruncationSeverity.Remove)
+}
+
 const MessageEvent = z.object({
 	type: z.literal(WireFrameType.Message),
 	sequence,
 	message_id: orNull(nonBlank),
-	payload: z.object({ role: z.enum(MessageRole), content: z.string(), message_kind: orNull(z.string()), caller: orNull(z.string()) }),
+	payload: z.object({
+		role: z.enum(MessageRole),
+		content: z.string(),
+		truncation: z.union([TruncationRuleSchema, z.array(TruncationRuleSchema)]),
+		message_kind: orNull(z.string()),
+		caller: orNull(z.string()),
+	}),
 }).transform(({ sequence, message_id, payload }) => ({
 	type: RunFrameKind.Message, sequence, id: message_id, role: payload.role, content: payload.content, kind: payload.message_kind, caller: payload.caller,
+	hiddenFromAgent: isHiddenFromAgent(payload.truncation),
 }))
 
 const MessageDeltaEvent = z.object({

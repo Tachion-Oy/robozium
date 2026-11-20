@@ -139,8 +139,10 @@ computed only while the log pane is mounted:
 
 - `log/run-log` `selectLogItems` maps run records to log rows:
   messages with parsed content, consecutive script output as one row (a provider
-  retry does not split it), and lifecycle banners. `run-payloads` keeps the
-  lifecycle kind, agent, status and banner fields for it.
+  retry or a hidden message does not split it), and lifecycle banners. A message
+  whose truncation removes it at threshold 0 never reaches the agent and gets no
+  row. `run-payloads` keeps the lifecycle kind, agent, status and banner fields
+  and that hidden flag for it.
 - Main owns whether the pane is open (`src/message-log-window`), because
   opening it grows the window to fit both panes and closing it restores the
   earlier size unless the user resized meanwhile. `log/useMessageLog` reads and

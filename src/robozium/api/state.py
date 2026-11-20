@@ -41,10 +41,16 @@ STATUS_FAILED: RunStatus = RunStatus.FAILED
 STATUS_CANCELLED: RunStatus = RunStatus.CANCELLED
 
 
+class RunViewTruncationRule(TypedDict):
+    threshold: int
+    severity: int
+
+
 class RunViewMessagePayload(TypedDict):
     role: Role
     content: str
-    truncation: None
+    # The message's RoboZ truncation as the stream sends it: one rule or a list.
+    truncation: RunViewTruncationRule | list[RunViewTruncationRule]
     message_kind: MessageKind | None
     caller: str | None
 
