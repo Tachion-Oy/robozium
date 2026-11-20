@@ -132,10 +132,15 @@ class ReplyBody(BaseModel):
     content: str
 
 
+class RunViewTruncationRule(BaseModel):
+    threshold: int
+    severity: int
+
+
 class RunViewMessagePayload(BaseModel):
     role: str
     content: str
-    truncation: Any = None
+    truncation: RunViewTruncationRule | list[RunViewTruncationRule]
     message_kind: MessageKind | None = None
     caller: str | None = None
 

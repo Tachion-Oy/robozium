@@ -270,10 +270,12 @@ test("typed run streams ignore unknown events and release the response on exit, 
 
 test("run parsing preserves the wire contract while normalizing retry controls", () => {
 	expect(parseRunEvent({ type: "message", sequence: 1, message_id: "m1", payload: {
-		role: "assistant", content: "Hello", message_kind: "user_notification", caller: null,
-	} })).toEqual({ type: "message", sequence: 1, id: "m1", role: "assistant", content: "Hello", kind: "user_notification", caller: null })
+		role: "assistant", content: "Hello", truncation: { threshold: 0, severity: 1 }, message_kind: "user_notification", caller: null,
+	} })).toEqual({
+		type: "message", sequence: 1, id: "m1", role: "assistant", content: "Hello", kind: "user_notification", caller: null, hiddenFromAgent: false,
+	})
 	expect(parseRunEvent({ type: "message", sequence: 1, payload: {
-		role: "user", content: "{}", message_kind: null, caller: "run_file_command",
+		role: "user", content: "{}", truncation: { threshold: 0, severity: 1 }, message_kind: null, caller: "run_file_command",
 	} })).toMatchObject({ role: "user", kind: null, caller: "run_file_command" })
 	expect(parseRunEvent({ type: "message_delta", sequence: 2, payload: {
 		message_id: "m2", delta: "Progress", chunk_index: 0, agent_name: "root",
@@ -304,11 +306,13 @@ test("run parsing preserves the wire contract while normalizing retry controls",
 
 test("run parsing rejects malformed consumed fields and ignores unconsumed events", () => {
 	for (const role of ["assistant", "user", "system", "error"]) {
-		expect(parseRunEvent({ type: "message", sequence: 1, payload: { role, content: "text" } }))
+		expect(parseRunEvent({ type: "message", sequence: 1, payload: { role, content: "text", truncation: { threshold: 0, severity: 1 } } }))
 			.toMatchObject({ role, id: null, kind: null })
 	}
 	for (const value of [
-		{ type: "message", sequence: 1, payload: { role: "unknown", content: "text" } },
+		{ type: "message", sequence: 1, payload: { role: "unknown", content: "text", truncation: { threshold: 0, severity: 1 } } },
+		{ type: "message", sequence: 1, payload: { role: "user", content: "text" } },
+		{ type: "message", sequence: 1, payload: { role: "user", content: "text", truncation: { threshold: 0, severity: 4 } } },
 		{ type: "script_output", sequence: -1, payload: { content: "text" } },
 		{ type: "script_output", sequence: 1, payload: { content: 42 } },
 		{ type: "run_lifecycle", sequence: 1, payload: {} },

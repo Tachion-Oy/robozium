@@ -70,7 +70,11 @@ export function isTerminal(status: RunStatus): boolean {
 }
 
 export type RunFrame = { sequence: number } & (
-	| { type: typeof RunFrameKind.Message; id: string | null; role: MessageRole; content: string; kind: string | null; caller: string | null }
+	| {
+		type: typeof RunFrameKind.Message; id: string | null; role: MessageRole; content: string; kind: string | null; caller: string | null
+		/** Its truncation removes it from the agent's context from the start, so the agent never sees it. */
+		hiddenFromAgent: boolean
+	}
 	| { type: typeof RunFrameKind.MessageDelta; id: string; delta: string; chunk: number; agent: string }
 	| { type: typeof RunFrameKind.LlmRetry; agent: string }
 	/** Reasoning characters the model call in flight has streamed so far. */

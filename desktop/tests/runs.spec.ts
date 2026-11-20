@@ -404,13 +404,13 @@ test("completed prompt messages extract user-facing text and late token deltas c
 	const run = prepareRun(backend)
 	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ message_trace: [{
 		...message(5, JSON.stringify({ action: "prompt_user", rationale: "Ask", value: "Question?" }), "prompt-message"),
-		payload: { role: "assistant", content: JSON.stringify({ action: "prompt_user", rationale: "Ask", value: "Question?" }) },
+		payload: { role: "assistant", content: JSON.stringify({ action: "prompt_user", rationale: "Ask", value: "Question?" }), truncation: { threshold: 0, severity: 1 } },
 	}] })))
 	await start(page, backend)
 	await expect(output(page)).toHaveText("Question?")
 	emit(run.streams[0], delta(4, "obsolete partial", 0, "prompt-message"))
 	emit(run.streams[0], { type: "future_event", payload: {} })
-	emit(run.streams[0], { ...message(6, "internal tool output"), payload: { role: "user", content: "internal tool output" } })
+	emit(run.streams[0], { ...message(6, "internal tool output"), payload: { role: "user", content: "internal tool output", truncation: { threshold: 0, severity: 1 } } })
 	await expect(output(page)).toHaveText("Question?")
 	await expect(page.getByRole("button", { name: "Previous agent message", exact: true })).toBeDisabled()
 })
@@ -499,7 +499,7 @@ test("an agent error never reaches the HUD; the next attempt's stream replaces t
 	emit(stream, message(1, "Earlier"))
 	emit(stream, delta(2, "Broken attempt", 0, "attempt-1"))
 	await expect(output(page)).toHaveText("Broken attempt")
-	emit(stream, { type: "message", sequence: 3, message_id: "error", payload: { role: "error", content: "Unparsable JSON", message_kind: null } })
+	emit(stream, { type: "message", sequence: 3, message_id: "error", payload: { role: "error", content: "Unparsable JSON", truncation: { threshold: 0, severity: 1 }, message_kind: null } })
 	emit(stream, delta(4, "Fixed", 0, "attempt-2"))
 	await expect(output(page)).toHaveText("Fixed")
 	emit(stream, message(5, "Fixed response", "attempt-2"))
@@ -546,7 +546,7 @@ test("ordinary completion keeps progress visible through polling until a prompt 
 	emit(run.streams[0], delta(1, '{"action":"working"', 0, "tool"))
 	await expect(output(page)).toHaveText("action:working")
 	const completed = { type: "message", sequence: 2, message_id: "tool",
-		payload: { role: "assistant", content: '{"action":"tool","value":"work"}' } }
+		payload: { role: "assistant", content: '{"action":"tool","value":"work"}', truncation: { threshold: 0, severity: 1 } } }
 	emit(run.streams[0], completed)
 	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ message_trace: [completed] })))
 	await page.clock.fastForward(2001)

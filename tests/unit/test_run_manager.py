@@ -15,7 +15,15 @@ from roboz import Agent
 from roboz.agent import run_nested_agent
 from roboz.deployment import DeployableAgent
 from roboz.llm import LLMEndpoint, LLMEndpointRoute, MockLLMEndpoint
-from roboz.models import Empty, Message, MessageKind, Role, Str
+from roboz.models import (
+    ERROR_RETRY,
+    NO_MESSAGE,
+    Empty,
+    Message,
+    MessageKind,
+    Role,
+    Str,
+)
 from roboz.runtime.events import (
     EventSink,
     MessageDeltaEvent,
@@ -567,6 +575,21 @@ def test_run_event_snapshots_detach_nested_runtime_data() -> None:
     assert actual["type"] == "runtime_event"
     assert actual["payload"]["message"] == "auth failed"
     assert actual["payload"]["data"] == {"details": {"attempts": [1]}}
+
+
+def test_run_event_snapshots_keep_message_truncation() -> None:
+    # The desktop message log hides a message removed from the agent's context at
+    # threshold 0; it reads these exact numbers, so a RoboZ change to them fails here.
+    events = RunEvents(message_history_limit=5000)
+    events.dispatch(MessageEvent(Message(role=Role.USER, content="status", truncation=NO_MESSAGE), sequence=1))
+    events.dispatch(MessageEvent(Message(role=Role.ERROR, content="retry", truncation=ERROR_RETRY), sequence=2))
+
+    trace = events.snapshot()["message_trace"]
+    truncations = [entry["payload"]["truncation"] for entry in trace if entry["type"] == "message"]
+    assert truncations == [
+        {"threshold": 0, "severity": 3},
+        [{"threshold": 0, "severity": 1}, {"threshold": 20, "severity": 3}],
+    ]
 
 
 def test_run_events_forwards_message_deltas_without_trace_pollution() -> None:
