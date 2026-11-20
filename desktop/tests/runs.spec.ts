@@ -2,7 +2,7 @@ import { expect } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { writeFile } from "node:fs/promises"
 import { test, json, catalogue, project, prepareRun, snapshot, message, delta, emit, start, view, output, runStatus, launchButton, expectOverview } from "./run-fixture"
-import { captureNative, chooseModel, modelTrigger, setNativeViewport } from "./native"
+import { captureNative, chooseModel, modelTrigger, runTrigger, setNativeViewport } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
 test("launch requires a confirmed model, blocks overlapping writes and duplicate submissions", async ({ desktop: { page }, backend }) => {
@@ -134,6 +134,37 @@ test("a project with an active run opens that run without launching", async ({ d
 	expect(backend.requests.filter(request => request.path.startsWith("/capabilities"))).toHaveLength(0)
 })
 
+test("the run selector lists the live runs, marks the displayed one and opens another", async ({ desktop: { page }, backend }) => {
+	backend.handlers.set("GET /projects", response => json(response, [
+		project("first-project", { status: "awaiting_user_input", run_id: "run-first" }),
+		project("idle-project"),
+		project("second-project", { status: "running", run_id: "run-second" }),
+	]))
+	prepareRun(backend, "run-first", "first-project")
+	prepareRun(backend, "run-second", "second-project")
+	await backend.open()
+	await page.getByRole("button", { name: "Open first-project", exact: true }).click()
+	await expect(runStatus(page)).toContainText("first-project")
+	await runTrigger(page).click()
+	const runs = page.getByRole("listbox", { name: "Live runs" })
+	await expect(runs.getByRole("option")).toHaveText(["first-project●", "second-project"])
+	await expect(runs.getByRole("option", { selected: true })).toHaveText("first-project●")
+	await expect(runs).not.toContainText("Launch more")
+	await runs.getByRole("option", { name: "second-project" }).click()
+	await expect(runStatus(page)).toContainText("second-project")
+	await expect(runTrigger(page)).toHaveAttribute("title", "second-project")
+	await expect(page.getByRole("textbox", { name: "Reply text", exact: true })).toBeFocused()
+})
+
+test("a single live run is the run selector's only entry, with a line on launching more", async ({ desktop: { page }, backend }) => {
+	prepareRun(backend)
+	await start(page, backend)
+	await runTrigger(page).click()
+	const runs = page.getByRole("listbox", { name: "Live runs" })
+	await expect(runs.getByRole("option")).toHaveText(["existing-project●"])
+	await expect(runs).toContainText("Launch more from Runs Overview")
+})
+
 test("creation deadlines abort the request and ignore late success", async ({ desktop: { page }, backend }) => {
 	let pending: ServerResponse | undefined
 	let closed = false
@@ -214,7 +245,7 @@ test("view changes retain one session, project, history selection and draft; a n
 	await page.getByRole("textbox", { name: "Reply text", exact: true }).fill("Keep my draft")
 	await view(page, "Environment"); await view(page, "Runs Overview")
 	await expect(launchButton(page, "second-project")).toBeVisible()
-	await view(page, "Current Run")
+	await view(page, "Current Runs")
 	await expect(output(page)).toHaveText("First")
 	await expect(runStatus(page)).toContainText("existing-project")
 	await expect(page.getByRole("textbox", { name: "Reply text", exact: true })).toHaveValue("Keep my draft")
@@ -396,7 +427,7 @@ test("retrying old output cannot cancel a pending replacement creation", async (
 	await view(page, "Runs Overview")
 	await launchButton(page, "existing-project").click()
 	await expect.poll(() => pending).toBeDefined()
-	await view(page, "Current Run")
+	await view(page, "Current Runs")
 	await expect(page.getByRole("button", { name: "Retry output" })).toBeDisabled()
 	json(pending!, { run_id: "replacement" })
 	await expect(page.getByRole("alert")).toHaveCount(0)

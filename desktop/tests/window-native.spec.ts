@@ -56,7 +56,7 @@ test("the HUD and its header controls keep their place on every frame while the 
 		const x = (selector: string) => Math.round(document.querySelector(selector)!.getBoundingClientRect().x)
 		const tick = () => {
 			const hud = Math.round(document.querySelector(".agent-hud")!.getBoundingClientRect().width)
-			frames.push(`${hud}@${x(".agent-hud__model-trigger:not(.agent-hud__view-trigger)")},${x(".agent-hud__view-trigger")}`)
+			frames.push(`${hud}@${x(".agent-hud__model-trigger:not(.agent-hud__view-trigger, .agent-hud__run-trigger)")},${x(".agent-hud__view-trigger")}`)
 			if (frames.length < 90) requestAnimationFrame(tick)
 		}
 		requestAnimationFrame(tick)

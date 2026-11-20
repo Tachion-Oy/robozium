@@ -132,7 +132,7 @@ and centered, contained arrows in both themes and zoom levels, including
 disabled states. Selector scenarios cover pointer selection, keyboard option
 focus, Escape and outside dismissal, one open menu, and each view's content. A
 model choice is one write that the backend keeps across a reload; the view
-resets. Mock-run checks start from Runs Overview, verify Current Run becomes
+resets. Mock-run checks start from Runs Overview, verify Current Runs becomes
 available, and exercise returning to the same draft through the overview and
 view selector. They cover multiline editing, caret retention during
 resizing/theme/zoom changes, bounded divider movement, disabled limits, a reload

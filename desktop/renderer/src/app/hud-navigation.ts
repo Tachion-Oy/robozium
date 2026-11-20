@@ -30,7 +30,7 @@ export type HudNavigationEvent =
 	| { type: "launch_renamed"; from: string; project: string }
 	| { type: "launch_closed" }
 
-/** What the app's state allows: a live run has Current Run; setup and a pending restart lock the HUD. */
+/** What the app's state allows: a live run has Current Runs; setup and a pending restart lock the HUD. */
 export type HudLimits = {
 	runLive: boolean
 	/** No API keys are configured yet: only the overview, the guide and Environment open. */
@@ -84,7 +84,7 @@ export function visibleScreen(selected: HudScreen, limits: HudLimits): HudScreen
 	if (limits.setupRequired) {
 		return selected === "onboarding" || selected === "environment" ? selected : "projects"
 	}
-	// A run that ends or goes missing leaves Current Run; the guide opens only during setup.
+	// A run that ends or goes missing leaves Current Runs; the guide opens only during setup.
 	if (selected === "run" && !limits.runLive) return "projects"
 	if (selected === "onboarding") return "projects"
 	return selected
@@ -96,7 +96,7 @@ export function screenOptions(screen: HudScreen, launchOpen: boolean, limits: Hu
 	// During setup the menu only leads to Environment, and back from it.
 	const overviewClosed = limits.restartRequired || (limits.setupRequired && screen !== "environment")
 	const options: HudScreenOption[] = []
-	if (limits.runLive && !locked) options.push({ value: "run", label: "Current Run" })
+	if (limits.runLive && !locked) options.push({ value: "run", label: "Current Runs" })
 	options.push({ value: "projects", label: "Runs Overview", disabled: overviewClosed })
 	options.push({ value: "dependencies", label: "Dependencies", disabled: locked })
 	options.push({ value: "environment", label: "Environment" })

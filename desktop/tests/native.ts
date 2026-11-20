@@ -252,8 +252,9 @@ export async function reopen(app: ElectronApplication, profile: string, backendU
 }
 
 /** Header selectors are buttons named after their current value, with listbox menus. */
-export const modelTrigger = (page: Page) => page.locator(".agent-hud__model-trigger:not(.agent-hud__view-trigger)")
+export const modelTrigger = (page: Page) => page.locator(".agent-hud__model-trigger:not(.agent-hud__view-trigger, .agent-hud__run-trigger)")
 export const viewTrigger = (page: Page) => page.locator(".agent-hud__view-trigger")
+export const runTrigger = (page: Page) => page.locator(".agent-hud__run-trigger")
 
 export async function chooseView(page: Page, name: string) {
 	await viewTrigger(page).click()

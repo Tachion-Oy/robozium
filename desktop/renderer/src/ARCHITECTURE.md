@@ -58,7 +58,7 @@ events), the reply draft, divider layout and focus. `ui/backend/BackendStartup` 
 backend, so every owner receives a client. Owners do not import each other; App passes results between them, as when
 a launch hands its new run to `useRunSession.open`, the HUD's Cancel uses
 `useProjectMutations.cancel`, or the listing marks rows with pending writes. A run that ends or goes missing
-leaves Current Run for the overview: `visibleScreen` in `app/hud-navigation`
+leaves Current Runs for the overview: `visibleScreen` in `app/hud-navigation`
 decides the screen shown from the selected one, the run and the two locks, and
 components take that screen instead of flags derived from it.
 
