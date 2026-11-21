@@ -129,7 +129,7 @@ def test_composition_uses_persistent_preset_and_has_no_construction_side_effects
         "purge_snapshots",
         "purge_memory",
         "stop_when_watched_agents_inactive",
-        "sleep_between_runs",
+        "sleep",
     ]
     compactifier = next(
         t for t in agent.default_tools if t.name == COMPACTIFY_MESSAGES_TOOL_NAME

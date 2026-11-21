@@ -255,8 +255,8 @@ def test_recipe_owns_builtins_and_only_script_and_shell_tools_are_selectable(tmp
         "safe_scripts", "shell_commands"
     }
     assert set(labels) == {
-        "stop", "filesystem", "pdf", "robozium", "compactification", "safe_scripts",
-        "shell_commands",
+        "stop", "filesystem", "pdf", "robozium", "compactification", "sleep",
+        "safe_scripts", "shell_commands",
     }
     definition.set_capability_selection({})
     fixed, (maintenance,) = definition.build()
@@ -266,6 +266,7 @@ def test_recipe_owns_builtins_and_only_script_and_shell_tools_are_selectable(tmp
     assert not {"run_shell_script", "run_shell_command"} & {
         tool.name for tool in fixed.tools
     }
+    assert "sleep" in {tool.name for tool in fixed.tools}
     definition.set_capability_selection({"safe_scripts": True, "shell_commands": True})
     selected, (selected_maintenance,) = definition.build()
     assert {"run_shell_script", "run_shell_command"} <= {
