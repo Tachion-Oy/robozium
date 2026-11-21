@@ -30,22 +30,6 @@ export function isActiveRunStatus(status: ProjectStatus): boolean {
 	)
 }
 
-export interface LiveRun {
-	runId: string
-	project: string
-}
-
-/** The listed live runs; a shown run the listing does not name yet, such as one just launched, comes first. */
-export function liveRuns(rows: readonly ProjectRow[], shown: LiveRun | null): LiveRun[] {
-	const runs: LiveRun[] = []
-	for (const row of rows) {
-		if (row.runId !== null && isActiveRunStatus(row.status)) runs.push({ runId: row.runId, project: row.slug })
-	}
-	const listed = runs.some(run => run.runId === shown?.runId)
-	if (shown !== null && !listed) runs.unshift(shown)
-	return runs
-}
-
 /** Optimistically mark the projects with active cancel intent as cancelling. */
 export function markProjectsCancelling(
 	rows: ProjectRow[],

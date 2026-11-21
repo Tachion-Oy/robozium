@@ -363,9 +363,11 @@ test("the log shows the run chosen in its own selector until a run is opened", a
 	await expect(runs.getByRole("option")).toHaveText(["first-project"])
 	await page.keyboard.press("Escape")
 
-	// Without live runs there is nothing to choose.
+	// Without live runs the list only says where runs are launched.
 	listing = [project("first-project"), project("second-project")]
 	backend.handlers.set("GET /run/run-first", response => json(response, snapshot({ project: "first-project", status: "completed" })))
-	await expect(logRunTrigger(page)).toHaveCount(0)
 	await expect(log(page).locator(".term-title__brand")).toBeVisible()
+	await logRunTrigger(page).click()
+	await expect(runs.getByRole("option")).toHaveCount(0)
+	await expect(runs).toContainText("Launch more from Runs Overview")
 })
