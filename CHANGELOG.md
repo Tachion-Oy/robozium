@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The root agent always has RoboZ's `sleep` tool, so it can wait for
+  background work, such as parallel web searchers, and check on it again.
+  Each wait prints the time waited and left every 3 seconds, and the user
+  can interrupt it. The Librarian's wait is the same tool, now named
+  `sleep` instead of `sleep_between_runs`.
+
 ## 0.6.9 - 2026-11-19
 
 - A skill chip in the capability selector steps through off, on demand and

@@ -13,7 +13,7 @@ from roboz.deployment import (
 )
 from roboz.llm import EndpointLike, LLMEndpoint, LLMEndpointRoute
 from roboz.shed.agents import librarian, orchestrator
-from roboz.shed.capabilities import Compactification, SafeScripts, ShellCommands
+from roboz.shed.capabilities import Compactification, SafeScripts, ShellCommands, Sleep
 from roboz.shed.sandbox import Sandbox
 
 from robozium.hub.skills import robozium as robozium_skill
@@ -55,6 +55,8 @@ def robozium(
             value=robozium_skill,
         ),
         Compactification(threshold_percent=60.0),
+        # Always on: many tools leave the agent waiting for background work.
+        Sleep(),
         SafeScripts(
             label=ToolLabel("safe_scripts", selectable=True),
             scripts_dir=scripts_dir,

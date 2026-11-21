@@ -12,7 +12,7 @@ from roboz.shed.identifiers import (
     PURGE_LOGS_TOOL_NAME,
     PURGE_MEMORY_TOOL_NAME,
     PURGE_SNAPSHOTS_TOOL_NAME,
-    SLEEP_BETWEEN_RUNS_TOOL_NAME,
+    SLEEP_TOOL_NAME,
     SNAPSHOT_CONVERSATIONS_TOOL_NAME,
     STOP_WHEN_WATCHED_AGENTS_INACTIVE_TOOL_NAME,
 )
@@ -51,7 +51,7 @@ def test_mock_librarian_is_non_agentic_workflow(tmp_path: Path) -> None:
         PURGE_SNAPSHOTS_TOOL_NAME,
         PURGE_MEMORY_TOOL_NAME,
         STOP_WHEN_WATCHED_AGENTS_INACTIVE_TOOL_NAME,
-        SLEEP_BETWEEN_RUNS_TOOL_NAME,
+        SLEEP_TOOL_NAME,
     ]
 
 
