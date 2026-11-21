@@ -40,7 +40,7 @@ TypeScript hooks, contracts and state live in the matching folders outside `ui/`
 | `projects/useProjectQuery` | Project rows and the first-load error; shows the rows with the pending writes App passes in (mutations and the opening launch) | Listing poll while visible, again after each write |
 | `projects/useProjectMutations` | This app's cancel and delete requests per project, shared by the rows and the HUD: requesting, then settling until a listing confirms them; one pending launch and the project it opens | Cancel, delete; create project, read and save capabilities, create run |
 | `capabilities/useCapabilities` | The open selector's catalogue and saved choices | Catalogue and selection reads |
-| `session/useRunSession` | The displayed run (`RunSession`: its run data and display), its scope, which ends on open, retry, a new client or unmount, and the tick App sends every 5 seconds for the thinking lines | Stream and snapshot polling (`run/run-updates`) |
+| `session/useRunSession` | The displayed run (`RunSession`: its run data and display), its scope, which ends on open, close, retry, a new client or unmount, and the tick App sends every 5 seconds for the thinking lines; a second, silent instance holds the run the message log shows when the user chose another there | Stream and snapshot polling (`run/run-updates`) |
 | `session/useRunMutations` | One in-flight reply and one interruption of the displayed run, bound to the session scope; an accepted interruption stays pending until a snapshot shows a prompt or a stopped run | Reply, interrupt |
 | `dictation/useDictation` | One recording and its transcription; App joins the transcript to the reply draft, so a recording outlives view switches | Transcribe |
 | `attachments/useReplyAttachments` | The displayed run's staged reply files, from selection to acceptance; one queue orders uploads, removal, clearing and the reply that sends them, and a reopened run restores them from the backend | List, upload, delete |
@@ -134,7 +134,10 @@ flowchart LR
 
 The desktop shows the message log only occasionally, so it keeps no log state:
 `session-reducer` already retains every durable event of the displayed run, and the
-HUD keeps only its own projection. The log is a pure selector over those events,
+HUD keeps only its own projection. The log shows the HUD's run until the user
+picks another live run in the log's own selector; App then opens that run in a
+second `useRunSession` that raises no notices, and closes it when a run is opened
+or launched, which the log follows again. The log is a pure selector over those events,
 computed only while the log pane is mounted:
 
 - `log/run-log` `selectLogItems` maps run records to log rows:
@@ -148,6 +151,7 @@ computed only while the log pane is mounted:
   earlier size unless the user resized meanwhile. `log/useMessageLog` reads and
   changes that state through the `getMessageLog`/`setMessageLog` preload
   operations, so it survives renderer reloads.
-- `ui/log/MessageLog` memoizes the selector over the displayed run's events and
-  renders them with `TerminalStream`, or the placeholder log when
-  no run is active.
+- `ui/log/MessageLog` memoizes the selector over the shown run's events and
+  renders them with `TerminalStream`, or the placeholder log when that run is
+  not live. Its bottom row carries the run selector (`HudRunSelector`'s log
+  variant) beside the pages, while any run is live.

@@ -12,9 +12,11 @@ import { selectRunDisplay, type HudDisplay } from "../hud/hud-display"
 export interface RunSession {
 	run: RunState | null
 	display: HudDisplay
-	/** Ends when the displayed run's subscription does: on open, retry, a new client or unmount. */
+	/** Ends when the displayed run's subscription does: on open, close, retry, a new client or unmount. */
 	scope: AbortSignal | null
 	open: (runId: string, project: string) => void
+	/** End the subscription and forget the run. */
+	close: () => void
 	/** Record an acknowledged reply, so later snapshots cannot revive its prompt. */
 	acknowledge: (promptId: string) => void
 	select: (index: number) => void
@@ -23,8 +25,11 @@ export interface RunSession {
 	retry: () => void
 }
 
-/** App-owned session survives view changes; opening another run only disposes local work. */
-export function useRunSession(client: DesktopApiClient): RunSession {
+/**
+ * App-owned session survives view changes; opening another run only disposes local work.
+ * The message log's own run passes announce false, so its updates raise no toasts.
+ */
+export function useRunSession(client: DesktopApiClient, announce: boolean): RunSession {
 	const [state, dispatch] = useReducer(reduceRunSession, null)
 	const dispose = useRef<(() => void) | null>(null)
 	const lifetime = useRef<AbortController | null>(null)
@@ -47,16 +52,20 @@ export function useRunSession(client: DesktopApiClient): RunSession {
 		dispose.current = watchRun(client, runId, project, action => {
 			if (generation.current !== current) return
 			dispatch(action)
-			announceRunUpdate(action, project)
+			if (announce) announceRunUpdate(action, project)
 		})
 	}
 	const open = (runId: string, project: string) => {
 		dispatch({ type: "open", runId, project })
 		subscribe(runId, project)
 	}
+	const close = () => {
+		stop()
+		dispatch({ type: "close" })
+	}
 	const tick = useCallback((now: Date, model: string) => dispatch({ type: "tick", now, model }), [])
 	const run = state ? state.run : null
-	return { run, display: selectRunDisplay(state), scope, open, tick,
+	return { run, display: selectRunDisplay(state), scope, open, close, tick,
 		acknowledge: promptId => dispatch({ type: "replied", promptId }),
 		select: (index: number) => dispatch({ type: "select", index }),
 		retry: () => {

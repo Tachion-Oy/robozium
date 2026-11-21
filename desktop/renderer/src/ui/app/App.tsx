@@ -16,6 +16,7 @@ import { initialHudNavigation, reduceHudNavigation, screenOptions, visibleScreen
 import type { DesktopApiClient } from "../../api/client"
 import { useModels } from "../../models/useModels"
 import { useProjectQuery } from "../../projects/useProjectQuery"
+import { liveRuns, type LiveRun } from "../../projects/project-rows"
 import { useProjectMutations } from "../../projects/useProjectMutations"
 import { useCapabilities } from "../../capabilities/useCapabilities"
 import { PasswordDialog } from "../hud/PasswordDialog"
@@ -53,7 +54,15 @@ interface AppProps {
 export function App({ client, connected, covered, operating, backend }: AppProps) {
 	const [navigation, navigate] = useReducer(reduceHudNavigation, initialHudNavigation)
 	const [focusRunEditor, setFocusRunEditor] = useState(false)
-	const runSession = useRunSession(client)
+	const runSession = useRunSession(client, true)
+	// The log shows the HUD's run until the user chooses another in the log; opening or
+	// launching a run shows that run in both again.
+	const logSession = useRunSession(client, false)
+	const [logFollowsHud, setLogFollowsHud] = useState(true)
+	const followInLog = () => {
+		setLogFollowsHud(true)
+		logSession.close()
+	}
 	const messageLog = useMessageLog()
 	// Polls wait for a connected backend and stop while a restart or the close runs, so a poll
 	// that fails against a stopping or starting backend never flashes an error. Under the launch
@@ -62,7 +71,7 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	const credentials = useCredentials(client, connected, !covered)
 	const showRun = () => { setFocusRunEditor(true); navigate({ type: "screen_selected", screen: "run" }) }
 	const projectMutations = useProjectMutations(client, {
-		onLaunched: (runId, project) => { runSession.open(runId, project); navigate({ type: "launch_closed" }); showRun() },
+		onLaunched: (runId, project) => { runSession.open(runId, project); followInLog(); navigate({ type: "launch_closed" }); showRun() },
 		onProjectCreated: (name, project) => navigate({ type: "launch_created", name, project }),
 		secrets: credentials,
 	})
@@ -93,6 +102,9 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	const restartRequired = Boolean(credentials.status?.restartRequired)
 	const locked = setupRequired || restartRequired
 	const runLive = run !== null && !runEnded && !run.unavailable
+	let logRun = run
+	if (!logFollowsHud) logRun = logSession.run
+	const logLive = logRun !== null && !(logRun.synchronized && isTerminal(logRun.status)) && !logRun.unavailable
 	const limits: HudLimits = { runLive, setupRequired, restartRequired }
 	// Current Runs is open only for a live run with nothing locked.
 	const screen = visibleScreen(navigation.screen, limits)
@@ -107,8 +119,9 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 		const timer = setInterval(() => tick(new Date(), modelLabel), THINKING_LINE_INTERVAL_MS)
 		return () => clearInterval(timer)
 	}, [modelRunId, modelLabel, tick])
-	// Current Runs lists the live runs as the overview does.
-	const projectQuery = useProjectQuery(client, (screen === "projects" || screen === "run") && polling, projectMutations)
+	// Current Runs and the open log list the live runs as the overview does.
+	const listing = screen === "projects" || screen === "run" || messageLog.open
+	const projectQuery = useProjectQuery(client, listing && polling, projectMutations)
 	const capabilities = useCapabilities(client, navigation.launch?.project ?? null, screen === "launch")
 	// Each write's outcome goes to the draft declared below; it runs only after both exist.
 	const environmentMutations = useEnvironmentMutations(client, setupRequired, restartRequired, {
@@ -129,7 +142,26 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 	// The displayed run's own row only shows it again.
 	const openRun = (runId: string, project: string) => {
 		if (run?.runId !== runId) runSession.open(runId, project)
+		followInLog()
 		showRun()
+	}
+	const showInLog = (runId: string, project: string) => {
+		if (runId === run?.runId) {
+			followInLog()
+			return
+		}
+		setLogFollowsHud(false)
+		logSession.open(runId, project)
+	}
+	let hudRun: LiveRun | null = null
+	if (run) hudRun = { runId: run.runId, project: run.project }
+	let logShown: LiveRun | null = null
+	if (logRun && logLive) logShown = { runId: logRun.runId, project: logRun.project }
+	const logRuns = liveRuns(projectQuery.rows, logShown)
+	let logRunSelector: ReactNode = null
+	if (logRuns.length > 0) {
+		logRunSelector = <HudRunSelector variant="log" runId={logShown?.runId ?? null} project={logShown?.project ?? null}
+			runs={logRuns} disabled={false} onOpenRun={showInLog} />
 	}
 	// The HUD and the overview rows share one cancellation per project.
 	const cancelling = run !== null && (projectMutations.pending.has(run.project) || run.status === RunStatus.Cancelling)
@@ -191,11 +223,11 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 		<>
 			<AgentHud screen={screen} inactive={run !== null && !runLive}
 				layoutMode={layout} onLayoutModeChange={setLayout} messageLog={messageLog}
-				logPane={() => <MessageLog key={run?.runId} active={runLive} events={run?.events ?? noEvents} />}
+				logPane={() => <MessageLog key={logRun?.runId} active={logLive} events={logRun?.events ?? noEvents} runSelector={logRunSelector} />}
 				header={<HudHeader screen={screen} screenOptions={screenOptions(screen, navigation.launch !== null, limits)}
 					projectSlug={run?.project ?? null} onSelectScreen={selectScreen}
-					runSelector={<HudRunSelector runId={run?.runId ?? null} project={run?.project ?? null} rows={projectQuery.rows}
-						disabled={navigationPending || locked} onOpenRun={openRun} />}
+					runSelector={<HudRunSelector variant="run" runId={run?.runId ?? null} project={run?.project ?? null}
+						runs={liveRuns(projectQuery.rows, hudRun)} disabled={navigationPending || locked} onOpenRun={openRun} />}
 					modelSelector={<ModelSelector models={models} disabled={locked || !connected || projectMutations.launching} />} />}
 				copyControls={copyControls}>
 				{renderContent()}

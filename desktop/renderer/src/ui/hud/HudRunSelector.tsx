@@ -1,26 +1,22 @@
-// The run selector names the displayed run where the header row starts and lists every
-// live run, so another opens without the overview. One live run gets a line saying more
-// are launched from the overview.
-import { isActiveRunStatus, type ProjectRow } from "../../projects/project-rows"
+// The run selector lists every live run, so another opens without the overview. The
+// header's names the displayed run where the header row starts; the message log's, in
+// its bottom row, names the run the log shows. One live run gets a line saying more are
+// launched from the overview.
+import type { LiveRun } from "../../projects/project-rows"
 import { SelectorDropdown, type SelectorOption } from "./SelectorDropdown"
 
 type HudRunSelectorProps = {
-	/** The displayed run; its project is null until it is known. */
+	/** The shown run; its project is null until it is known. */
 	runId: string | null
 	project: string | null
-	rows: readonly ProjectRow[]
+	runs: readonly LiveRun[]
 	disabled: boolean
 	onOpenRun: (runId: string, project: string) => void
+	variant: "run" | "log"
 }
 
-export function HudRunSelector({ runId, project, rows, disabled, onOpenRun }: HudRunSelectorProps) {
-	const options: SelectorOption<string>[] = []
-	for (const row of rows) {
-		if (row.runId !== null && isActiveRunStatus(row.status)) options.push({ value: row.runId, label: row.slug })
-	}
-	// A run just launched is offered before a listing names it.
-	const listed = options.some(option => option.value === runId)
-	if (runId !== null && project !== null && !listed) options.unshift({ value: runId, label: project })
+export function HudRunSelector({ runId, project, runs, disabled, onOpenRun, variant }: HudRunSelectorProps) {
+	const options: SelectorOption<string>[] = runs.map(run => ({ value: run.runId, label: run.project }))
 
 	const choose = (nextRunId: string) => {
 		const chosen = options.find(option => option.value === nextRunId)
@@ -28,18 +24,30 @@ export function HudRunSelector({ runId, project, rows, disabled, onOpenRun }: Hu
 		return true
 	}
 
+	let noteClass = "agent-hud__model-empty"
+	if (variant === "log") noteClass = "term-log-selector__note"
 	let note = null
-	if (options.length === 1) note = <span className="agent-hud__model-empty">Launch more from Runs Overview</span>
+	if (options.length === 1) note = <span className={noteClass}>Launch more from Runs Overview</span>
+
+	// The log's selector also stands without a live run of its own, offering the others.
+	let triggerLabel = project ?? "waiting for project info"
+	let listboxLabel = "Live runs"
+	let waiting = project === null
+	if (variant === "log") {
+		triggerLabel = project ?? "Live runs"
+		listboxLabel = "Log runs"
+		waiting = false
+	}
 
 	return (
 		<SelectorDropdown
 			value={runId}
 			options={options}
-			triggerLabel={project ?? "waiting for project info"}
-			listboxLabel="Live runs"
+			triggerLabel={triggerLabel}
+			listboxLabel={listboxLabel}
 			onSelect={choose}
-			disabled={disabled || project === null}
-			variant="run"
+			disabled={disabled || waiting}
+			variant={variant}
 			note={note}
 		/>
 	)

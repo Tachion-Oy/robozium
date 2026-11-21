@@ -65,6 +65,7 @@ type RunAction = RunUpdate
 
 export type RunSessionAction = RunAction
 	| { type: "open"; runId: string; project: string }
+	| { type: "close" }
 	| { type: "select"; index: number }
 
 interface SettledLiveText {
@@ -306,6 +307,7 @@ function dropStaleThinkingLines(state: RunSessionState): RunSessionState {
 
 export function reduceRunSession(state: RunSessionState | null, action: RunSessionAction): RunSessionState | null {
 	if (action.type === "open") return initialSession(action.runId, action.project)
+	if (action.type === "close") return null
 	if (!state) return state
 	if (action.type === "select") return selectMessage(state, action.index)
 	return dropStaleThinkingLines(applyRunAction(state, action))

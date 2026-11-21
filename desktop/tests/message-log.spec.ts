@@ -3,7 +3,7 @@ import { writeFile } from "node:fs/promises"
 import { selectLogItems } from "../renderer/src/log/run-log"
 import { parseRunEvent } from "../renderer/src/run/run-payloads"
 import type { RunRecord } from "../renderer/src/run/run-contracts"
-import { test, prepareRun, message, emit, start, launchButton, replyBox } from "./run-fixture"
+import { test, json, project, snapshot, prepareRun, message, emit, start, view, launchButton, replyBox, runStatus } from "./run-fixture"
 import { captureNative, setNativeViewport, waitForPanelLayout } from "./native"
 
 const lifecycle = (sequence: number, kind: string, extra: Record<string, unknown> = {}) => ({
@@ -22,6 +22,7 @@ const records = (...frames: unknown[]) => frames.map(frame => parseRunEvent(fram
 
 const toggle = (page: Page, name: "Show message log" | "Hide message log") => page.getByRole("button", { name, exact: true })
 const log = (page: Page) => page.getByRole("region", { name: "Message log" })
+const logRunTrigger = (page: Page) => log(page).locator(".term-log-selector > button")
 
 test("the log projects messages, grouped script output and lifecycle banners from run records", () => {
 	const items = selectLogItems(records(
@@ -294,4 +295,77 @@ test("the log shows one page of 50 rows, follows the newest page and holds an ol
 	await expect(pager).toContainText("PAGE 5 / 5")
 	await expect(rows).toHaveCount(1)
 	await expect(rows.first()).toContainText("Row 201.")
+})
+
+test("the log shows the run chosen in its own selector until a run is opened", async ({ desktop: { page }, backend }) => {
+	let listing = [
+		project("first-project", { status: "awaiting_user_input", run_id: "run-first" }),
+		project("second-project", { status: "running", run_id: "run-second" }),
+	]
+	backend.handlers.set("GET /projects", response => json(response, listing))
+	backend.handlers.set("GET /credentials/environment", response => json(response, {
+		revision: "r1", entries: [], overrides: [], requires_password: false, editable: true, suggestions: [], example_errors: [], imports: [],
+	}))
+	const first = prepareRun(backend, "run-first", "first-project")
+	const second = prepareRun(backend, "run-second", "second-project")
+	await backend.open()
+	await page.getByRole("button", { name: "Open first-project", exact: true }).click()
+	await expect(runStatus(page)).toContainText("first-project")
+	await expect.poll(() => first.streams.length).toBe(1)
+	emit(first.streams[0], message(1, "First says hello"))
+	await toggle(page, "Show message log").click()
+	await expect(log(page)).toContainText("First says hello")
+	await expect(logRunTrigger(page)).toHaveText("first-project▴")
+
+	// The list rises above the button and marks the shown run.
+	await logRunTrigger(page).click()
+	const runs = log(page).getByRole("listbox", { name: "Log runs" })
+	await expect(runs.getByRole("option")).toHaveText(["first-project●", "second-project"])
+	const menuBottom = (await runs.boundingBox())!.y + (await runs.boundingBox())!.height
+	expect(menuBottom).toBeLessThanOrEqual((await logRunTrigger(page).boundingBox())!.y)
+	await page.keyboard.press("Escape")
+	await expect(runs).toHaveCount(0)
+
+	// Choosing another run changes the log only.
+	await logRunTrigger(page).click()
+	await runs.getByRole("option", { name: "second-project" }).click()
+	await expect.poll(() => second.streams.length).toBe(1)
+	emit(second.streams[0], message(1, "Second reporting"))
+	await expect(log(page)).toContainText("Second reporting")
+	await expect(log(page)).not.toContainText("First says hello")
+	await expect(runStatus(page)).toContainText("first-project")
+	await expect(page.locator(".agent-hud__run-trigger")).toHaveAttribute("title", "first-project")
+
+	// Other screens keep the log's run.
+	await view(page, "Runs Overview")
+	await expect(log(page)).toContainText("Second reporting")
+	await view(page, "Environment")
+	await expect(log(page)).toContainText("Second reporting")
+
+	// Opening a run shows it in the log again.
+	await view(page, "Runs Overview")
+	await page.getByRole("button", { name: "Open first-project", exact: true }).click()
+	await expect(log(page)).toContainText("First says hello")
+	await expect(logRunTrigger(page)).toHaveText("first-project▴")
+
+	// The log's run ending leaves the placeholder; the selector still offers the live run.
+	await logRunTrigger(page).click()
+	await runs.getByRole("option", { name: "second-project" }).click()
+	// The mock's snapshots carry no history, so the new watch hears the message again.
+	await expect.poll(() => second.streams.length).toBe(2)
+	emit(second.streams[1], message(1, "Second reporting"))
+	await expect(log(page)).toContainText("Second reporting")
+	listing = [listing[0], project("second-project")]
+	backend.handlers.set("GET /run/run-second", response => json(response, snapshot({ project: "second-project", status: "completed" })))
+	await expect(log(page).locator(".term-title__brand")).toBeVisible()
+	await expect(logRunTrigger(page)).toHaveText("Live runs▴")
+	await logRunTrigger(page).click()
+	await expect(runs.getByRole("option")).toHaveText(["first-project"])
+	await page.keyboard.press("Escape")
+
+	// Without live runs there is nothing to choose.
+	listing = [project("first-project"), project("second-project")]
+	backend.handlers.set("GET /run/run-first", response => json(response, snapshot({ project: "first-project", status: "completed" })))
+	await expect(logRunTrigger(page)).toHaveCount(0)
+	await expect(log(page).locator(".term-title__brand")).toBeVisible()
 })

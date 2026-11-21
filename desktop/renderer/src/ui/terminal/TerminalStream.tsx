@@ -1,5 +1,5 @@
 // The caller supplies the items, and the pane is always readable, so the HUD visibility store is gone.
-import { Fragment, memo, useCallback, useEffect, useState } from "react"
+import { Fragment, memo, useCallback, useEffect, useState, type ReactNode } from "react"
 import {
 	isPromptUserAssistantMessage,
 	StreamLogItemKind,
@@ -18,6 +18,8 @@ import {
 
 type TerminalStreamProps = {
 	items: readonly StreamLogItem[]
+	/** Leads the bottom row, left of the pages. */
+	footerStart: ReactNode
 }
 
 const REVEAL_CHARS_PER_SECOND = 240
@@ -52,7 +54,7 @@ const TerminalStreamRow = memo(function TerminalStreamRow({
 	})
 })
 
-export function TerminalStream({ items }: TerminalStreamProps) {
+export function TerminalStream({ items, footerStart }: TerminalStreamProps) {
 	const [reveal, setReveal] = useState({ index: -1, chars: 0 })
 	const [expandedRows, setExpandedRows] = useState<Set<number>>(() => new Set())
 	// Pages are fixed from the run's first row. Null follows the newest page;
@@ -172,16 +174,21 @@ export function TerminalStream({ items }: TerminalStreamProps) {
 					)
 				})}
 			</TerminalLog>
-			{pageCount > 1 && (
-				<nav className="term-log-pager" aria-label="Message log pages">
-					<button type="button" className="term-msg-badge" disabled={shownPage === 0} onClick={() => showPage(shownPage - 1)}>
-						<span className="term-msg-badge-label">‹ OLDER</span>
-					</button>
-					<span className="term-log-pager__count">PAGE {shownPage + 1} / {pageCount}</span>
-					<button type="button" className="term-msg-badge" disabled={shownPage === lastPage} onClick={() => showPage(shownPage + 1)}>
-						<span className="term-msg-badge-label">NEWER ›</span>
-					</button>
-				</nav>
+			{(pageCount > 1 || footerStart) && (
+				<div className="term-log-footer">
+					{footerStart}
+					{pageCount > 1 && (
+						<nav className="term-log-pager" aria-label="Message log pages">
+							<button type="button" className="term-msg-badge" disabled={shownPage === 0} onClick={() => showPage(shownPage - 1)}>
+								<span className="term-msg-badge-label">‹ OLDER</span>
+							</button>
+							<span className="term-log-pager__count">PAGE {shownPage + 1} / {pageCount}</span>
+							<button type="button" className="term-msg-badge" disabled={shownPage === lastPage} onClick={() => showPage(shownPage + 1)}>
+								<span className="term-msg-badge-label">NEWER ›</span>
+							</button>
+						</nav>
+					)}
+				</div>
 			)}
 		</div>
 	)
