@@ -1,7 +1,8 @@
 // The empty catch carries a comment for the desktop lint rules; the
 // trigger markup lives in SelectorTrigger; the menu opens leftward from the trigger's
 // right edge (the run selector's, which starts the row, rightward from its left edge)
-// and scrolls its options within the room left in the window.
+// and scrolls its options within the room left in the window. The message log's
+// selector is a terminal badge whose menu rises from it within the log pane.
 import {
 	type KeyboardEvent as ReactKeyboardEvent,
 	type ReactNode,
@@ -28,7 +29,7 @@ type SelectorDropdownProps<Value extends string> = {
 	onOpen?: () => void
 	disabled?: boolean
 	busy?: boolean
-	variant?: "model" | "view" | "run"
+	variant?: "model" | "view" | "run" | "log"
 	emptyContent?: ReactNode
 	/** A line below the options. */
 	note?: ReactNode
@@ -98,17 +99,25 @@ export function SelectorDropdown<Value extends string>({
 
 	// The menu may use the window from its left edge to the trigger's right edge (the run
 	// menu from the trigger's left edge to the window's right edge), and from the
-	// trigger's bottom edge down, so it never overflows the window.
+	// trigger's bottom edge down, so it never overflows the window. The log's menu may use
+	// its terminal frame, which clips it, from the trigger's left edge right and from its top edge up.
 	useLayoutEffect(() => {
 		const menu = menuRef.current
 		const trigger = triggerRef.current
 		if (!isOpen || !menu || !trigger) return
 		const fit = () => {
-			const { left, right, bottom } = trigger.getBoundingClientRect()
+			const { left, right, top, bottom } = trigger.getBoundingClientRect()
 			let roomInline = right
+			let roomBlock = window.innerHeight - bottom
 			if (variant === "run") roomInline = window.innerWidth - left
+			const frame = trigger.closest(".term-frame")
+			if (variant === "log" && frame) {
+				const bounds = frame.getBoundingClientRect()
+				roomInline = bounds.right - left
+				roomBlock = top - bounds.top
+			}
 			menu.style.setProperty("--menu-room-inline", `${roomInline}px`)
-			menu.style.setProperty("--menu-room-block", `${window.innerHeight - bottom}px`)
+			menu.style.setProperty("--menu-room-block", `${roomBlock}px`)
 		}
 		fit()
 		window.addEventListener("resize", fit)
@@ -152,33 +161,52 @@ export function SelectorDropdown<Value extends string>({
 	// The view and run selectors add their own classes to the model selector's.
 	let selectorClass = "agent-hud__model-selector agent-hud__model-selector--ready"
 	let triggerClass = ""
-	if (variant !== "model") {
+	if (variant === "view" || variant === "run") {
 		selectorClass = `${selectorClass} agent-hud__${variant}-selector`
 		triggerClass = `agent-hud__${variant}-trigger`
+	}
+	let menuClass = "agent-hud__model-menu"
+	let optionsClass = "agent-hud__model-options"
+	let optionClass = "agent-hud__model-option"
+	let optionLabelClass: string | undefined
+	const triggerProps = {
+		ref: triggerRef,
+		disabled,
+		"aria-label": triggerLabel,
+		title: triggerLabel,
+		"aria-busy": busy || undefined,
+		"aria-haspopup": "listbox" as const,
+		"aria-controls": isOpen ? listboxId : undefined,
+		onClick: toggleMenu,
+	}
+	let trigger = <SelectorTrigger {...triggerProps} label={renderLabel(triggerLabel)} open={isOpen} className={triggerClass} />
+	// The log's selector takes the terminal's classes: its trigger is a badge like the pager's.
+	if (variant === "log") {
+		selectorClass = "term-log-selector"
+		menuClass = "term-log-selector__menu"
+		optionsClass = "term-log-selector__options"
+		optionClass = "term-msg-badge term-log-selector__option"
+		optionLabelClass = "term-msg-badge-label"
+		trigger = (
+			<button {...triggerProps} type="button" className="term-msg-badge" aria-expanded={isOpen}>
+				<span className="term-msg-badge-label">
+					<span className="term-log-selector__name">{renderLabel(triggerLabel)}</span>
+					<span className="term-log-selector__caret" data-open={isOpen || undefined} aria-hidden="true">▴</span>
+				</span>
+			</button>
+		)
 	}
 
 	return (
 		<div
 			ref={rootRef}
 			className={selectorClass}>
-			<SelectorTrigger
-				ref={triggerRef}
-				label={renderLabel(triggerLabel)}
-				open={isOpen}
-				className={triggerClass}
-				disabled={disabled}
-				aria-label={triggerLabel}
-				title={triggerLabel}
-				aria-busy={busy || undefined}
-				aria-haspopup="listbox"
-				aria-controls={isOpen ? listboxId : undefined}
-				onClick={toggleMenu}
-			/>
+			{trigger}
 			{isOpen ? (
 				<div
 					ref={menuRef}
 					id={listboxId}
-					className="agent-hud__model-menu"
+					className={menuClass}
 					role="listbox"
 					aria-label={listboxLabel}
 					onKeyDown={(event) => {
@@ -193,19 +221,19 @@ export function SelectorDropdown<Value extends string>({
 							event.key === "ArrowDown" ? 1 : -1,
 						)
 					}}>
-					<div className="agent-hud__model-options">
+					<div className={optionsClass}>
 						{options.map((option) => (
 							<button
 								key={option.value}
 								type="button"
 								role="option"
 								aria-selected={option.value === value}
-								className="agent-hud__model-option"
+								className={optionClass}
 								disabled={option.disabled}
 								onClick={() => selectOption(option.value)}>
-								<span>{renderLabel(option.label)}</span>
+								<span className={optionLabelClass}>{renderLabel(option.label)}</span>
 								{option.value === value ? (
-									<span aria-hidden="true">●</span>
+									<span className={optionLabelClass} aria-hidden="true">●</span>
 								) : null}
 							</button>
 						))}

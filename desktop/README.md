@@ -377,8 +377,9 @@ cannot fit it. Its size is not remembered, so the app stays small and leaves
 the windows beneath it visible. Zoom is remembered. Opening the message log grows the
 window just enough to show both panes, side by side when the screen is wide
 enough and stacked otherwise; closing it restores the earlier size unless you
-resized the window meanwhile. Launching the app again brings the open window
-to the front.
+resized the window meanwhile. The log shows the run opened or launched last; the
+selector at its bottom left shows another live run's messages without changing
+the HUD. Launching the app again brings the open window to the front.
 
 ## Host services
 

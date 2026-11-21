@@ -156,27 +156,58 @@ html[data-theme="light"] .workspace .workspace__panes[data-log-open]::after {
      first and newest rows clear of the fades. */
   --term-log-fade: linear-gradient(to bottom, transparent, black 2.5rem, black calc(100% - 2.5rem), transparent);
 }
-/* Pages of the log, under the rows and centred on them. */
-.message-log .term-log-pager {
+/* The log's bottom row: the run selector at the left, the pages centred under the rows. */
+.message-log .term-log-footer {
   --term-msg-color: var(--term-blue);
   --term-msg-glow: var(--term-glow-blue);
   --term-msg-accent: var(--term-blue);
-  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 0.75rem 1.5rem;
+  /* The pages stay centred while the selector's name fits beside them; a longer name moves them right. */
+  display: grid; grid-template-columns: minmax(max-content, 1fr) auto minmax(0, 1fr); align-items: baseline; gap: 0.75rem 1.5rem;
   padding: 0 var(--workspace-panel-inset) 3vh;
   font-family: var(--font-terminal); line-height: var(--term-line-height); letter-spacing: var(--term-letter-spacing);
   color: var(--term-msg-color); text-shadow: var(--term-msg-glow);
 }
-.message-log .term-log-pager .term-msg-badge { border: 0; font: inherit; cursor: pointer; }
-.message-log .term-log-pager .term-msg-badge:disabled { opacity: 0.35; cursor: default; }
-/* A hovered page button brightens: by its colour in dark, where a filter would be redrawn with the badge's glow. */
-:root[data-theme="dark"] .message-log .term-log-pager .term-msg-badge:not(:disabled):hover { background: color-mix(in oklab, var(--term-msg-color) 80%, white); }
-:root[data-theme="light"] .message-log .term-log-pager .term-msg-badge:not(:disabled):hover { filter: brightness(1.2); }
+.message-log .term-log-pager {
+  grid-column: 2;
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 0.75rem 1.5rem;
+}
+/* A narrow pane puts the pages on their own line under the selector. */
+@container message-log (width < 40rem) {
+  .message-log .term-log-footer { grid-template-columns: minmax(0, 1fr); }
+  .message-log .term-log-pager { grid-column: 1; }
+}
+.message-log .term-log-footer .term-msg-badge { border: 0; font: inherit; cursor: pointer; }
+.message-log .term-log-footer .term-msg-badge:disabled { opacity: 0.35; cursor: default; }
+/* A hovered or focused badge brightens: by its colour in dark, where a filter would be redrawn with the badge's glow. */
+:root[data-theme="dark"] .message-log .term-log-footer .term-msg-badge:not(:disabled):is(:hover, :focus-visible) { background: color-mix(in oklab, var(--term-msg-color) 80%, white); }
+:root[data-theme="light"] .message-log .term-log-footer .term-msg-badge:not(:disabled):is(:hover, :focus-visible) { filter: brightness(1.2); }
 .message-log .term-log-pager__count { white-space: nowrap; }
-/* In light, the page count is printed in the rows' ink; the buttons keep the blue fill. */
-:root[data-theme="light"] .message-log .term-log-pager {
+/* In light, the page count and the selector's note are printed in the rows' ink; the badges keep the blue fill. */
+:root[data-theme="light"] .message-log .term-log-footer {
   --term-msg-color: var(--stream-ink);
   --term-msg-glow: 0 0 var(--stream-ink-bleed) color-mix(in oklab, var(--stream-ink) 65%, transparent);
 }
+/* The selector names the shown project; its list rises above it, clipped by the frame. */
+.message-log .term-log-selector { position: relative; grid-column: 1; justify-self: start; min-width: 0; max-width: 100%; }
+.message-log .term-log-selector .term-msg-badge { max-width: 100%; text-transform: uppercase; }
+.message-log .term-log-selector > .term-msg-badge > .term-msg-badge-label { display: inline-flex; gap: 1ch; max-width: 100%; vertical-align: bottom; }
+.message-log .term-log-selector__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.message-log .term-log-selector__caret { flex: none; transition: transform 120ms ease-out; }
+.message-log .term-log-selector__caret[data-open] { transform: rotate(180deg); }
+.message-log .term-log-selector__menu {
+  position: absolute; bottom: calc(100% + 0.75rem); left: 0; z-index: 40;
+  display: flex; flex-direction: column;
+  width: max-content; min-width: 100%;
+  max-width: calc(var(--menu-room-inline, 100vw) - 1rem);
+  max-height: calc(var(--menu-room-block, 100vh) - 1.75rem);
+  padding: 0.75rem;
+  background: var(--term-bg);
+  box-shadow: inset 0 0 0 1.5px var(--term-msg-accent), 0 0 4px color-mix(in oklab, var(--term-msg-accent) 50%, transparent);
+}
+.message-log .term-log-selector__options { display: grid; gap: 0.75rem; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.message-log .term-log-selector__option { display: flex; justify-content: space-between; gap: 1.5ch; text-align: left; }
+.message-log .term-log-selector__option:focus-visible { outline: none; }
+.message-log .term-log-selector__note { white-space: nowrap; }
 .message-log .term-log > div { max-width: none; padding-block: 2.5rem; }
 /* Without the title, the live log keeps the same margin above as below. */
 .message-log[data-live] .term-frame { padding-top: 3vh; }
@@ -187,7 +218,7 @@ html[data-theme="light"] .workspace .workspace__panes[data-log-open]::after {
    smudge of terminal.css, toned down slightly so small glyphs stay legible.
    Outlined script and system badges keep their own glowing text. */
 :root:not([data-theme="light"]) .message-log
-  :is(.term-msg:not([data-role="script"], [data-role="system"]) .term-msg-badge-label, .term-log-pager .term-msg-badge-label, .term-tag-label) {
+  :is(.term-msg:not([data-role="script"], [data-role="system"]) .term-msg-badge-label, .term-log-footer .term-msg-badge-label, .term-tag-label) {
   -webkit-text-stroke: 0.7px color-mix(in oklab, var(--term-bg) 78%, var(--term-msg-color) 22%);
   text-shadow:
     0 0 1px color-mix(in oklab, var(--term-msg-color) 70%, transparent),
