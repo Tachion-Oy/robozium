@@ -2,11 +2,22 @@
 
 ## Unreleased
 
-- The root agent always has RoboZ's `sleep` tool, so it can wait for
-  background work, such as parallel web searchers, and check on it again.
-  Each wait prints the time waited and left every 3 seconds, and the user
-  can interrupt it. The Librarian's wait is the same tool, now named
-  `sleep` instead of `sleep_between_runs`.
+## 0.6.10 - 2026-11-21
+
+- The project name on Current Runs is a blue dropdown that lists every live
+  run and opens another without going back to Runs Overview. "Current Run" is
+  renamed "Current Runs".
+- The message log has its own run selector at its bottom left, beside the
+  pages. It lists the live runs and shows the chosen run's messages without
+  changing the HUD. Switching screens keeps the log's run; opening or
+  launching a run shows that run in the log again.
+- The message log leaves out messages the agent never sees, such as the
+  Librarian's background status.
+- The root agent always has the `sleep` tool, so it can wait for background
+  work, such as parallel web searchers, and check on it again. Each wait
+  prints the time waited and left every 3 seconds, and the user can interrupt
+  it. The Librarian's wait is the same tool, now named `sleep` instead of
+  `sleep_between_runs` (RoboZ 0.19.0).
 
 ## 0.6.9 - 2026-11-19
 
