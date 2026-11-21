@@ -174,22 +174,20 @@ export function TerminalStream({ items, footerStart }: TerminalStreamProps) {
 					)
 				})}
 			</TerminalLog>
-			{(pageCount > 1 || footerStart) && (
-				<div className="term-log-footer">
-					{footerStart}
-					{pageCount > 1 && (
-						<nav className="term-log-pager" aria-label="Message log pages">
-							<button type="button" className="term-msg-badge" disabled={shownPage === 0} onClick={() => showPage(shownPage - 1)}>
-								<span className="term-msg-badge-label">‹ OLDER</span>
-							</button>
-							<span className="term-log-pager__count">PAGE {shownPage + 1} / {pageCount}</span>
-							<button type="button" className="term-msg-badge" disabled={shownPage === lastPage} onClick={() => showPage(shownPage + 1)}>
-								<span className="term-msg-badge-label">NEWER ›</span>
-							</button>
-						</nav>
-					)}
-				</div>
-			)}
+			<div className="term-log-footer">
+				{footerStart}
+				{pageCount > 1 && (
+					<nav className="term-log-pager" aria-label="Message log pages">
+						<button type="button" className="term-msg-badge" disabled={shownPage === 0} onClick={() => showPage(shownPage - 1)}>
+							<span className="term-msg-badge-label">‹ OLDER</span>
+						</button>
+						<span className="term-log-pager__count">PAGE {shownPage + 1} / {pageCount}</span>
+						<button type="button" className="term-msg-badge" disabled={shownPage === lastPage} onClick={() => showPage(shownPage + 1)}>
+							<span className="term-msg-badge-label">NEWER ›</span>
+						</button>
+					</nav>
+				)}
+			</div>
 		</div>
 	)
 }

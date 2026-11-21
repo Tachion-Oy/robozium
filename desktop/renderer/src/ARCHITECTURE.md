@@ -154,4 +154,4 @@ computed only while the log pane is mounted:
 - `ui/log/MessageLog` memoizes the selector over the shown run's events and
   renders them with `TerminalStream`, or the placeholder log when that run is
   not live. Its bottom row carries the run selector (`HudRunSelector`'s log
-  variant) beside the pages, while any run is live.
+  variant) beside the pages.

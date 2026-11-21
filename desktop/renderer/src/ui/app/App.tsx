@@ -16,7 +16,6 @@ import { initialHudNavigation, reduceHudNavigation, screenOptions, visibleScreen
 import type { DesktopApiClient } from "../../api/client"
 import { useModels } from "../../models/useModels"
 import { useProjectQuery } from "../../projects/useProjectQuery"
-import { liveRuns, type LiveRun } from "../../projects/project-rows"
 import { useProjectMutations } from "../../projects/useProjectMutations"
 import { useCapabilities } from "../../capabilities/useCapabilities"
 import { PasswordDialog } from "../hud/PasswordDialog"
@@ -28,6 +27,7 @@ import { useHubFolder } from "../../hub-folder/useHubFolder"
 import { DependencyPanel } from "../dependencies/DependencyPanel"
 import { useDependencies } from "../../dependencies/useDependencies"
 import { useRunSession } from "../../session/useRunSession"
+import type { RunState } from "../../session/session-reducer"
 import { useRunMutations } from "../../session/useRunMutations"
 import { useReplyAttachments } from "../../attachments/useReplyAttachments"
 import { hubFileUrl } from "../../attachments/attachments-api"
@@ -153,16 +153,11 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 		setLogFollowsHud(false)
 		logSession.open(runId, project)
 	}
-	let hudRun: LiveRun | null = null
-	if (run) hudRun = { runId: run.runId, project: run.project }
-	let logShown: LiveRun | null = null
-	if (logRun && logLive) logShown = { runId: logRun.runId, project: logRun.project }
-	const logRuns = liveRuns(projectQuery.rows, logShown)
-	let logRunSelector: ReactNode = null
-	if (logRuns.length > 0) {
-		logRunSelector = <HudRunSelector variant="log" runId={logShown?.runId ?? null} project={logShown?.project ?? null}
-			runs={logRuns} disabled={false} onOpenRun={showInLog} />
-	}
+	// An ended run is no longer the log's to mark.
+	let logShown: RunState | null = null
+	if (logLive) logShown = logRun
+	const logRunSelector = <HudRunSelector variant="log" runId={logShown?.runId ?? null} project={logShown?.project ?? null}
+		rows={projectQuery.rows} disabled={false} onOpenRun={showInLog} />
 	// The HUD and the overview rows share one cancellation per project.
 	const cancelling = run !== null && (projectMutations.pending.has(run.project) || run.status === RunStatus.Cancelling)
 	const runError = screen === "run" ? run?.error : ""
@@ -226,8 +221,8 @@ export function App({ client, connected, covered, operating, backend }: AppProps
 				logPane={() => <MessageLog key={logRun?.runId} active={logLive} events={logRun?.events ?? noEvents} runSelector={logRunSelector} />}
 				header={<HudHeader screen={screen} screenOptions={screenOptions(screen, navigation.launch !== null, limits)}
 					projectSlug={run?.project ?? null} onSelectScreen={selectScreen}
-					runSelector={<HudRunSelector variant="run" runId={run?.runId ?? null} project={run?.project ?? null}
-						runs={liveRuns(projectQuery.rows, hudRun)} disabled={navigationPending || locked} onOpenRun={openRun} />}
+					runSelector={<HudRunSelector variant="run" runId={run?.runId ?? null} project={run?.project ?? null} rows={projectQuery.rows}
+						disabled={navigationPending || locked} onOpenRun={openRun} />}
 					modelSelector={<ModelSelector models={models} disabled={locked || !connected || projectMutations.launching} />} />}
 				copyControls={copyControls}>
 				{renderContent()}

@@ -9,7 +9,7 @@ import type { RunRecord } from "../../run/run-contracts"
 type MessageLogProps = {
 	active: boolean
 	events: readonly RunRecord[]
-	/** Chooses the shown run; null while no run is live. */
+	/** Chooses the shown run. */
 	runSelector: ReactNode
 }
 
@@ -20,7 +20,7 @@ export function MessageLog({ active, events, runSelector }: MessageLogProps) {
 	if (!active) {
 		content = <div className="flex flex-1 min-h-0 w-full flex-col">
 			<PlaceholderLog scrollable command="START AN AGENT TO SEE THE LIVE MESSAGES !" />
-			{runSelector && <div className="term-log-footer">{runSelector}</div>}
+			<div className="term-log-footer">{runSelector}</div>
 		</div>
 	}
 	return (
