@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.6.12 - 2026-11-22
+
+- The startup progress bar during an update fills as the backend build does its
+  work. Steps reused from the previous build no longer count, so it no longer
+  starts a few segments in, waits, and jumps to most of the way.
+
 ## 0.6.11 - 2026-11-22
 
 - RoboZ 0.20.0. Capabilities are written differently: each is a subclass that
