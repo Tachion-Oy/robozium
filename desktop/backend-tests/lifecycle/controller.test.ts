@@ -48,7 +48,8 @@ const rootless = { host: { security: { rootless: true }, idMappings: { uidmap: r
 
 const id = "a".repeat(64)
 /** The first steps of a Podman build, as its plain output announces them. */
-const BUILD_START = "[1/2] STEP 1/7: FROM docker.io/library/python:3.13-slim-bookworm AS python-deps\n[1/2] STEP 2/7: ENV UV_COMPILE_BYTECODE=1\n"
+// A local base image takes no time, so the output finishes one step that does.
+const BUILD_START = "[1/2] STEP 1/7: FROM docker.io/library/python:3.13-slim-bookworm AS python-deps\n[1/2] STEP 2/7: ENV UV_COMPILE_BYTECODE=1\n--> ec907f0aacd\n[1/2] STEP 3/7: WORKDIR /app\n"
 const hash = "b".repeat(64)
 function fixture(t: TestContext, options: FixtureOptions = {}) {
 	const directory = mkdtempSync(path.join(tmpdir(), "robozium-controller-"))

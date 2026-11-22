@@ -332,7 +332,7 @@ export class BackendController {
 		} catch {
 			// Progress then weighs steps as the build announces them; the build reports a missing file itself.
 		}
-		const progress = new BuildProgress(dockerfile)
+		const progress = new BuildProgress(dockerfile, updating)
 		const building = (fraction: number): BackendStatus => ({
 			state: "starting",
 			...updating
