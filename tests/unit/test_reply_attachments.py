@@ -15,10 +15,10 @@ from uuid import uuid4
 
 import pytest
 from config_support import write_config
-from deployment_support import configured_hub
+from deployment_support import Returning, configured_hub
 from fastapi.testclient import TestClient
 from PIL import Image
-from roboz.deployment import Capability, DeployableAgent, ToolLabel
+from roboz.deployment import DeployableAgent
 from roboz.llm import LLMEndpoint, LLMEndpointRoute, MockLLMEndpoint
 from roboz.models import AgentMode, Empty, Message, Stop, Str, StrImage
 from roboz.runtime import interact_with_user
@@ -106,9 +106,9 @@ def image_run(tmp_path, *, vision=True, specialist=False, accepts_images=True, b
         if timeout is not None:
             prompt = timed_prompt
         receiver = DeployableAgent(name="receiver", system_prompt="Inspect user images.", capabilities=[
-            Capability(label=ToolLabel(name="ask", default=True), value=prompt),
-            Capability(label=ToolLabel(name="stop"), value=stop),
-            Capability(label=ToolLabel(name="fail"), value=fail),
+            Returning(name="ask", default=True, value=prompt),
+            Returning(name="stop", value=stop),
+            Returning(name="fail", value=fail),
         ])
         receiver.set_agent_endpoint(LLMEndpointRoute(lambda: endpoint))
         if background is not None:
@@ -119,13 +119,13 @@ def image_run(tmp_path, *, vision=True, specialist=False, accepts_images=True, b
 
             receiver.add_background_agents(DeployableAgent(
                 name="background", mode=AgentMode.DETERMINISTIC, capabilities=[
-                    Capability(label=ToolLabel(name="hold", default=True), value=hold),
+                    Returning(name="hold", default=True, value=hold),
                 ],
             ))
         if not specialist:
             return receiver
         root = DeployableAgent(name="root", system_prompt="Delegate the request.", nested_agents=[receiver], capabilities=[
-            Capability(label=ToolLabel(name="stop"), value=stop),
+            Returning(name="stop", value=stop),
         ])
         root.set_agent_endpoint(MockLLMEndpoint([
             {"action": "receiver", "rationale": "delegate"},

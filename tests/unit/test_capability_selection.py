@@ -9,9 +9,11 @@ from threading import Event
 
 import pytest
 from config_support import write_config
-from deployment_support import configured_hub
+from deployment_support import Returning, configured_hub
 from fastapi.testclient import TestClient
-from roboz.deployment import Capability, SkillLabel, SkillLoading, ToolLabel
+from roboz.deployment import (
+    SkillLoading,
+)
 from roboz.skill import Skill
 from roboz.tools import stop
 
@@ -26,12 +28,12 @@ def launch_api(tmp_path):
         hub,
         additional_capabilities=(
             *hub.additional_capabilities,
-            Capability(
-                label=SkillLabel("email", selectable=True, loading=SkillLoading.AUTOMATIC),
+            Returning(
+                name="email", selectable=True, loading=SkillLoading.AUTOMATIC,
                 value=Skill(name="email_tools", description="Test skill", instructions="Test."),
             ),
-            Capability(
-                label=ToolLabel("optional_tool", selectable=True),
+            Returning(
+                name="optional_tool", selectable=True,
                 value=stop.copy(name="optional_stop"),
             ),
         ),
@@ -117,8 +119,8 @@ def test_saved_choices_survive_restart_and_catalogue_changes_unchanged(launch_ap
     updated = configured_hub(
         hub,
         additional_capabilities=(
-            Capability(
-                label=ToolLabel("new_tool", selectable=True),
+            Returning(
+                name="new_tool", selectable=True,
                 value=stop.copy(name="new_stop"),
             ),
         ),

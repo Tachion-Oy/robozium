@@ -343,8 +343,8 @@ def test_constants_control_the_complete_deployment(config_file, monkeypatch):
     monkeypatch.chdir(config_file.parent)
     with config_file.open("a") as file:
         file.write("""
-from roboz.deployment import Capability, DeployableAgent, ToolLabel
-from roboz.tools import stop
+from roboz.deployment import DeployableAgent
+from roboz.shed.capabilities import Stop
 
 MODELS = {"Alternate": FLASH}
 DEFAULT_MODEL = FLASH
@@ -352,7 +352,7 @@ DEPENDENCY_HEALTH = DependencyHealthSettings(interval_s=17, timeout_s=3)
 MEMORY_ENDPOINT = GPT_OSS
 REVIEWER = DeployableAgent(
     name="reviewer", system_prompt="Review the project.",
-    capabilities=(Capability(label=ToolLabel("stop"), value=stop),),
+    capabilities=(Stop(),),
 )
 REVIEWER.set_agent_endpoint(GPT_OSS)
 SUBAGENTS = (REVIEWER,)

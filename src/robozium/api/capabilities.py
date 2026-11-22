@@ -5,7 +5,7 @@ from contextlib import contextmanager
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import StrictBool, TypeAdapter
-from roboz.deployment import SkillLabel, SkillLoading, ToolLabel
+from roboz.deployment import Capability, SkillLoading
 from roboz.runtime.persistence import atomic_write_json
 
 from robozium.api.models import CapabilityView
@@ -31,7 +31,7 @@ def _project(request: Request, slug: str) -> Iterator[Project]:
 
 
 @router.get("", response_model=list[CapabilityView])
-def catalogue(request: Request, response: Response) -> list[ToolLabel | SkillLabel]:
+def catalogue(request: Request, response: Response) -> list[Capability]:
     hub: Hub = request.app.state.hub
     response.headers["Cache-Control"] = "no-store"
     return hub.capabilities()

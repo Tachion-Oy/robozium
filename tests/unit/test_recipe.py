@@ -3,17 +3,16 @@
 from types import SimpleNamespace
 
 import pytest
+from deployment_support import Returning
 from roboz.deployment import (
-    Capability,
     DeployableAgent,
-    ToolLabel,
 )
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
 from roboz.models import Empty
 from roboz.runtime import default_event_sinks
+from roboz.shed.capabilities import Stop
 from roboz.shed.sandbox import Sandbox
 from roboz.shed.tools.safe_scripts import RunShellScriptInput
-from roboz.tools import stop
 
 from robozium.hub.deployment import robozium
 
@@ -22,7 +21,7 @@ def _specialist(name, *, nested_agents=(), background_agents=()):
     definition = DeployableAgent(
         name=name,
         system_prompt="Complete specialist work.",
-        capabilities=(Capability(label=ToolLabel("stop"), value=stop),),
+        capabilities=(Stop(),),
         nested_agents=nested_agents,
         background_agents=background_agents,
     )
@@ -56,7 +55,7 @@ def test_recipe_builds_independent_graphs_without_materializing_clients(tmp_path
             sandbox,
             endpoint_getter=lambda: selected,
             memory_endpoint=MockLLMEndpoint([]),
-            additional_capabilities=(Capability(label=ToolLabel("empty"), value=()),),
+            additional_capabilities=(Returning(name="empty", value=()),),
             specialists=(specialist,),
             event_sinks=(events.append,),
         )
@@ -250,11 +249,11 @@ def test_built_root_keeps_live_selection_and_independent_memory_endpoint(tmp_pat
 
 def test_recipe_owns_builtins_and_only_script_and_shell_tools_are_selectable(tmp_path):
     definition = _define_recipe(Sandbox(tmp_path).for_project("project"))
-    labels = {cap.label.name: cap.label for cap in definition.capabilities}
-    assert {name for name, label in labels.items() if label.selectable} == {
+    capabilities = {cap.name: cap for cap in definition.capabilities}
+    assert {name for name, cap in capabilities.items() if cap.selectable} == {
         "safe_scripts", "shell_commands"
     }
-    assert set(labels) == {
+    assert set(capabilities) == {
         "stop", "filesystem", "pdf", "robozium", "compactification", "sleep",
         "safe_scripts", "shell_commands",
     }

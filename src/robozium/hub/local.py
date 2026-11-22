@@ -264,12 +264,12 @@ def _import_packages(
         entrypoint = root / package / "__init__.py"
         values = _import_capabilities(f"{namespace}.{'.'.join(package.parts)}", entrypoint)
         for capability in values:
-            if expected is not None and capability.label.kind != expected:
+            if expected is not None and capability.kind != expected:
                 raise ValueError(
                     f"{entrypoint}: listed under {expected}s in {CATALOG_FILE} but exports "
-                    f"{capability.label.kind} {capability.label.name!r}"
+                    f"{capability.kind} {capability.name!r}"
                 )
-            label = capability.label.name
+            label = capability.name
             if label in labels:
                 raise ValueError(
                     f"duplicate capability name {label!r} in {entrypoint}; also exported by "
@@ -295,11 +295,6 @@ def _import_capabilities(module_name: str, entrypoint: Path) -> tuple[Capability
                 values.append(cast(Callable[[], Capability], value)())
         if not values:
             raise TypeError("export a RoboZ Capability instance or a Capability subclass with a no-argument constructor")
-        for value in values:
-            if not callable(value.build):
-                raise TypeError("a Capability must provide build()")
-            if value.value is None and type(value).build is Capability.build:
-                raise TypeError("a Capability without a value must implement build()")
         return tuple(values)
     except Exception as exc:
         raise RuntimeError(f"{entrypoint}: {exc}") from exc

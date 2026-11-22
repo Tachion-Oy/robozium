@@ -63,7 +63,7 @@ class EnvironmentService:
         for package, values in hub.local_packages.capabilities.items():
             if package.is_relative_to(self._destination):
                 loaded.setdefault(package.relative_to(self._destination).parts[0], []).extend(
-                    CapabilityView.model_validate(value.label) for value in values
+                    CapabilityView.model_validate(value) for value in values
                 )
         self._imports = {
             name: EnvironmentImport(
@@ -445,7 +445,7 @@ class EnvironmentService:
         except RuntimeError as exc:
             raise ValueError(str(exc)) from exc
         capabilities = [
-            CapabilityView.model_validate(value.label) for value in discovered
+            CapabilityView.model_validate(value) for value in discovered
         ]
         existing = {label.name for label in self._hub.capabilities()}
         existing -= self._loaded_import_labels

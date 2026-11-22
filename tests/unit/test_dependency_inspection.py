@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 from config_support import write_config
-from deployment_support import configured_hub
+from deployment_support import Returning, configured_hub
 from fastapi.testclient import TestClient
 from roboz.dependencies import (
     DependencyFailure,
@@ -17,7 +17,7 @@ from roboz.dependencies import (
     ExternalDependency,
     ExternalDependencyKind,
 )
-from roboz.deployment import Capability, DeployableAgent, ToolLabel
+from roboz.deployment import DeployableAgent
 from roboz.models import AgentMode, Empty, Message
 from roboz.tooling.decorators import factory
 
@@ -50,7 +50,7 @@ def _factory_for(*resources):
             name="dependency_test",
             mode=AgentMode.DETERMINISTIC,
             capabilities=(
-                Capability(label=ToolLabel("dependency", default=True), value=bound),
+                Returning(name="dependency", default=True, value=bound),
             ),
         )
 
