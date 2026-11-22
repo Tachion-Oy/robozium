@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.6.11 - 2026-11-22
+
+- RoboZ 0.20.0. Capabilities are written differently: each is a subclass that
+  states its own name and settings, and `ToolLabel`, `SkillLabel` and
+  `Capability(label=..., value=...)` are gone.
+- An imported folder written for RoboZ 0.19 stops loading. It shows as a
+  broken import in the Environment panel, and its tools and skills are gone
+  until the folder is updated and imported again. The app starts normally.
+  Robozify needs its RoboZ 0.20 version.
+- A skill can bring a tool that runs before each of the agent's turns.
+  Robozify's parallel web search uses it to hand the searchers' notes to the
+  agent without the agent asking, and to wait for the searchers by itself.
+- The `sleep` tool no longer prints the time waited and left.
+
 ## 0.6.10 - 2026-11-21
 
 - The project name on Current Runs is a blue dropdown that lists every live
