@@ -5,12 +5,23 @@ from types import SimpleNamespace
 from typing import NamedTuple
 
 from roboz.agent import Agent
-from roboz.deployment import DeployableAgent
+from roboz.deployment import Capability, DeployableAgent
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
 from roboz.runtime import default_event_sinks
 
 from robozium.hub.application import Hub
 from robozium.hub.utils import load_hub
+
+
+class Returning(Capability):
+    """Test capability whose build() returns the one value it was given."""
+
+    def __init__(self, *, value, **settings):
+        super().__init__(**settings)
+        self.value = value
+
+    def build(self, agent, pipe):
+        return (self.value,)
 
 
 class BuiltAgents(NamedTuple):

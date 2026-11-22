@@ -7,16 +7,28 @@ from pathlib import Path
 from roboz.deployment import (
     Capability,
     DeployableAgent,
-    SkillLabel,
     SkillLoading,
-    ToolLabel,
 )
 from roboz.llm import EndpointLike, LLMEndpoint, LLMEndpointRoute
+from roboz.runtime import EventPipe
 from roboz.shed.agents import librarian, orchestrator
 from roboz.shed.capabilities import Compactification, SafeScripts, ShellCommands, Sleep
 from roboz.shed.sandbox import Sandbox
+from roboz.skill import Skill
 
 from robozium.hub.skills import robozium as robozium_skill
+
+
+class Robozium(Capability):
+    """Load Robozium's orientation and HUD output skill into the root agent."""
+
+    def __init__(self) -> None:
+        """Name the capability after its skill, which always loads."""
+        super().__init__(name="robozium", loading=SkillLoading.AUTOMATIC)
+
+    def build(self, agent: DeployableAgent, pipe: EventPipe) -> tuple[Skill, ...]:
+        """Return the skill."""
+        return (robozium_skill,)
 
 
 def robozium(
@@ -50,21 +62,18 @@ def robozium(
     if scripts_dir is None and script_socket is None:
         scripts_dir = sandbox.readonly_dir / "safe-scripts"
     root.add_capabilities(
-        Capability(
-            label=SkillLabel("robozium", loading=SkillLoading.AUTOMATIC),
-            value=robozium_skill,
-        ),
+        Robozium(),
         Compactification(threshold_percent=60.0),
         # Always on: many tools leave the agent waiting for background work.
         Sleep(),
         SafeScripts(
-            label=ToolLabel("safe_scripts", selectable=True),
+            selectable=True,
             scripts_dir=scripts_dir,
             socket_path=script_socket,
         ),
         # The safe-scripts service's limit; HOME keeps program caches in the container's writable home.
         ShellCommands(
-            label=ToolLabel("shell_commands", selectable=True),
+            selectable=True,
             timeout_s=600.0,
             env_allowlist=("HOME",),
         ),

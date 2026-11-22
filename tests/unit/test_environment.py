@@ -17,16 +17,19 @@ from robozium.api.errors import RestartRequiredError
 from robozium.hub.utils import load_hub
 
 URL = "/credentials/environment"
-TOOL = """from roboz.deployment import Capability, ToolLabel
+TOOL = """from roboz.deployment import Capability
 from roboz.tools import stop
 from .nested import NAME
-TOOLS = Capability(label=ToolLabel(NAME, selectable=True), value=stop)
+class Tools(Capability):
+    def build(self, agent, pipe):
+        return (stop,)
+TOOLS = Tools(name=NAME, selectable=True)
 ALIAS = TOOLS
 """
-SKILL = """from roboz.deployment import Capability, SkillLabel
+SKILL = """from roboz.deployment import Capability, SkillLoading
 class Guide(Capability):
     def __init__(self):
-        super().__init__(label=SkillLabel('actual_guide', selectable=True))
+        super().__init__(name='actual_guide', selectable=True, loading=SkillLoading.ON_DEMAND)
     def build(self, agent, pipe):
         raise AssertionError('discovery must not build capabilities')
 """
@@ -189,8 +192,8 @@ def test_restart_loads_copied_capabilities_and_recovers_confirmation(
         (tool(SKILL), "listed under tools in robozium.json but exports skill 'actual_guide'"),
         (tool("CAPABILITY = None"), "Capability instance"),
         (
-            tool("from roboz.deployment import Capability, ToolLabel\nCAPABILITY = Capability(label=ToolLabel('unbound'))"),
-            "must implement build",
+            tool("from roboz.deployment import Capability\nCAPABILITY = Capability(name='unbound')"),
+            "abstract method 'build'",
         ),
         (tool("broken python!"), "__init__.py"),
         (tool("import nonexistent_dependency"), "nonexistent_dependency"),
@@ -282,11 +285,13 @@ def test_remove_rejects_cross_origin_requests_and_queued_runs(client, tmp_path):
 def test_dunder_all_supports_a_constructed_subclass_without_constructing_it_again(
     client,
 ):
-    source = """from roboz.deployment import Capability, ToolLabel
+    source = """from roboz.deployment import Capability
 from roboz.tools import stop
 class Configured(Capability):
     def __init__(self, name):
-        super().__init__(label=ToolLabel(name, selectable=True), value=stop)
+        super().__init__(name=name, selectable=True)
+    def build(self, agent, pipe):
+        return (stop,)
 CAPABILITY = Configured('configured')
 __all__ = ['Configured', 'CAPABILITY']
 """

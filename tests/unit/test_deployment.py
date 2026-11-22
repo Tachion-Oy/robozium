@@ -7,13 +7,13 @@ from threading import Thread
 
 import pytest
 from deployment_support import configured_deployment, configured_hub, foreground_agent
-from roboz.deployment import Capability, DeployableAgent, ToolLabel
+from roboz.deployment import DeployableAgent
 from roboz.llm import LLMEndpoint, MockLLMEndpoint
 from roboz.models import AgentMode
 from roboz.shed.agents.orchestrator import ORCHESTRATOR_PROMPT
+from roboz.shed.capabilities import Stop
 from roboz.shed.identifiers import COMPACTIFY_MESSAGES_TOOL_NAME
 from roboz.shed.sandbox import Sandbox
-from roboz.tools import stop
 
 from robozium.api.projects import Project
 from robozium.hub.skills import robozium as robozium_skill
@@ -58,7 +58,7 @@ def _specialist(name, *, subagents=(), background_agents=(), responses=None):
     definition = DeployableAgent(
         name=name,
         system_prompt="Run specialists and stop.",
-        capabilities=(Capability(label=ToolLabel("stop"), value=stop),),
+        capabilities=(Stop(),),
         nested_agents=subagents,
         background_agents=background_agents,
     )

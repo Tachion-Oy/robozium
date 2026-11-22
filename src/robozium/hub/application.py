@@ -12,7 +12,7 @@ from types import MappingProxyType
 from typing import TypedDict
 
 from roboz.dependencies import ExternalDependency
-from roboz.deployment import Capability, DeployableAgent, SkillLabel, ToolLabel
+from roboz.deployment import Capability, DeployableAgent
 from roboz.llm import (
     EndpointLike,
     LLMEndpoint,
@@ -135,9 +135,9 @@ class Hub:
         slug = slugify_project_name(name)
         return Project(sandbox=self.settings.sandbox.for_project(slug), slug=slug)
 
-    def capabilities(self) -> list[ToolLabel | SkillLabel]:
-        """Return declared capability labels for this Hub's orchestrator."""
-        return [capability.label for capability in self.definition.capabilities]
+    def capabilities(self) -> list[Capability]:
+        """Return the capabilities declared for this Hub's orchestrator."""
+        return list(self.definition.capabilities)
 
     @cached_property
     def definition(self) -> DeployableAgent:
@@ -208,7 +208,7 @@ class Hub:
             return loaded
         project = self.project(self.settings.name)
         builtins = {
-            capability.label.name
+            capability.name
             for capability in self._root(
                 project.sandbox.for_project(project.slug),
                 project.slug,
@@ -220,10 +220,10 @@ class Hub:
             if not package.is_relative_to(imports):
                 continue
             for capability in values:
-                if capability.label.name in builtins:
+                if capability.name in builtins:
                     clashes.setdefault(
                         package.relative_to(imports).parts[0],
-                        f"Capability {capability.label.name!r} in {package} conflicts with a "
+                        f"Capability {capability.name!r} in {package} conflicts with a "
                         "built-in; rename its label in the capability package",
                     )
         if not clashes:
@@ -279,10 +279,10 @@ class Hub:
     def _validate_local_capability_names(
         builtins: Iterable[Capability], additional: Iterable[Capability]
     ) -> None:
-        builtin_names = {capability.label.name for capability in builtins}
+        builtin_names = {capability.name for capability in builtins}
         for capability in additional:
-            if capability.label.name in builtin_names:
+            if capability.name in builtin_names:
                 raise ValueError(
-                    f"Local capability {capability.label.name!r} conflicts with a built-in; "
+                    f"Local capability {capability.name!r} conflicts with a built-in; "
                     "rename its label in the capability package"
                 )

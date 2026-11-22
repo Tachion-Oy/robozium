@@ -28,9 +28,12 @@ def _load(config_dir):
 
 def _source(label="private"):
     return (
-        "from roboz.deployment import Capability, ToolLabel\n"
+        "from roboz.deployment import Capability\n"
         "from roboz.tools import stop\n"
-        f"CAPABILITY = Capability(label=ToolLabel({label!r}, selectable=True), value=stop)\n"
+        "class Private(Capability):\n"
+        "    def build(self, agent, pipe):\n"
+        "        return (stop,)\n"
+        f"CAPABILITY = Private(name={label!r}, selectable=True)\n"
     )
 
 
@@ -86,11 +89,11 @@ def test_cli_packages_are_selectable_and_execute_through_live_deployment(tmp_pat
 
 _DOWNLOADER = (
     "from pathlib import Path\n"
-    "from roboz.deployment import Capability, ToolLabel\n"
+    "from roboz.deployment import Capability\n"
     "from roboz.tools import stop\n"
     "class Downloader(Capability):\n"
     "    def __init__(self):\n"
-    "        super().__init__(label=ToolLabel('downloader', selectable=True))\n"
+    "        super().__init__(name='downloader', selectable=True)\n"
     "    @property\n"
     "    def required_attributes(self):\n"
     "        return {'downloads_dir': Path}\n"
@@ -123,11 +126,11 @@ def test_imported_capabilities_get_the_download_folder_at_inspection_and_per_run
 
 _KEEPER = (
     "from pathlib import Path\n"
-    "from roboz.deployment import Capability, ToolLabel\n"
+    "from roboz.deployment import Capability\n"
     "from roboz.tools import stop\n"
     "class Keeper(Capability):\n"
     "    def __init__(self):\n"
-    "        super().__init__(label=ToolLabel('keeper', selectable=True))\n"
+    "        super().__init__(name='keeper', selectable=True)\n"
     "    @property\n"
     "    def required_attributes(self):\n"
     "        return {'tool_data_dir': Path}\n"
@@ -179,7 +182,7 @@ def test_config_relative_discovery_order_and_relative_imports_ignore_parent_code
     monkeypatch.chdir(tmp_path)
     before = sys.path.copy()
     hub = load_hub(config_file=config)
-    assert [cap.label.name for cap in hub.additional_capabilities] == [
+    assert [cap.name for cap in hub.additional_capabilities] == [
         "first", "middle", "last", "copied"
     ]
     assert sys.path == before
@@ -215,7 +218,7 @@ def test_failed_imports_discard_submodules_and_remain_retryable(tmp_path, source
         _load(tmp_path)
     helper.write_text(_source("after_repair"))
     (package / "__init__.py").write_text("from .helper import CAPABILITY\n")
-    assert next(iter(_load(tmp_path).values()))[0].label.name == "after_repair"
+    assert next(iter(_load(tmp_path).values()))[0].name == "after_repair"
 
 
 def test_duplicate_names_identify_both_packages_and_allow_repair(tmp_path):
@@ -439,7 +442,7 @@ def test_a_broken_imported_folder_is_skipped_and_reported(tmp_path, name, catalo
     if catalog is None:
         (folder / "robozium.json").unlink()
     loaded = load_local_packages(tmp_path)
-    assert [cap.label.name for values in loaded.capabilities.values() for cap in values] == ["good"]
+    assert [cap.name for values in loaded.capabilities.values() for cap in values] == ["good"]
     assert list(loaded.broken) == [name]
     assert reason in loaded.broken[name]
     assert not any(module.startswith("_robozium_local_") and f".imports.{name}" in module for module in sys.modules)
@@ -458,7 +461,7 @@ def test_an_imported_folder_whose_requirements_conflict_is_skipped(tmp_path, mon
 
     monkeypatch.setattr("robozium.hub.local._install_requirements", install)
     loaded = load_local_packages(tmp_path)
-    assert [cap.label.name for values in loaded.capabilities.values() for cap in values] == ["good"]
+    assert [cap.name for values in loaded.capabilities.values() for cap in values] == ["good"]
     assert "Could not install" in loaded.broken["b_conflict"]
     # Together first; then the folders one at a time.
     assert installs == [["a_good", "b_conflict"], ["a_good"], ["a_good", "b_conflict"]]
@@ -489,6 +492,6 @@ def test_an_imported_folder_that_names_a_built_in_is_skipped_at_startup(tmp_path
     _imported(tmp_path, "b_clash", source=_source("stop"))
     hub = load_hub(config_file=write_config(tmp_path))
     assert "conflicts with a built-in" in hub.local_packages.broken["b_clash"]
-    assert [cap.label.name for cap in hub.additional_capabilities] == ["good"]
+    assert [cap.name for cap in hub.additional_capabilities] == ["good"]
     names = {row["name"] for row in TestClient(create_app(deployment=hub)).get("/capabilities").json()}
     assert "good" in names

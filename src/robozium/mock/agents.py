@@ -11,8 +11,7 @@ from roboz.deployment import (
     Capability,
     DeployableAgent,
     RequiredAttributes,
-    SkillLabel,
-    ToolLabel,
+    SkillLoading,
 )
 from roboz.llm import LLMEndpoint, LLMEndpointRoute, MockLLMEndpoint, MockProviderError
 from roboz.models import AgentMode, Empty, Message
@@ -24,12 +23,12 @@ from roboz.shed.capabilities import (
     ConversationSnapshots,
     MaintenanceCadence,
     MemoryConsolidation,
+    Stop,
 )
 from roboz.shed.sandbox import Sandbox
 from roboz.skill import Skill
 from roboz.tooling import Tool
 from roboz.tooling.decorators import factory, tool
-from roboz.tools import stop
 
 from robozium.api.projects import Project
 from robozium.hub import environment as env
@@ -70,23 +69,40 @@ def mock_information(input: Empty, messages: list[Message]) -> MockInformation:
     return MockInformation(message="The optional mock capability is available.")
 
 
-def _selection_examples() -> tuple[Capability, ...]:
-    """Offer harmless tool and skill choices without changing scripted responses."""
-    return (
-        Capability(
-            label=ToolLabel("mock_information", selectable=True),
-            value=mock_information,
-        ),
-        Capability(
-            label=SkillLabel("mock_guidance", selectable=True),
-            value=Skill(
+class MockInformationExample(Capability):
+    """Offer a harmless optional tool in mock mode."""
+
+    def __init__(self) -> None:
+        """Name the capability after its tool and make it selectable."""
+        super().__init__(name="mock_information", selectable=True)
+
+    def build(self, agent: DeployableAgent, pipe: EventPipe) -> tuple[Tool, ...]:
+        """Return the tool."""
+        return (mock_information,)
+
+
+class MockGuidance(Capability):
+    """Offer a harmless optional skill in mock mode."""
+
+    def __init__(self) -> None:
+        """Name the capability after its skill and make it selectable."""
+        super().__init__(name="mock_guidance", selectable=True, loading=SkillLoading.ON_DEMAND)
+
+    def build(self, agent: DeployableAgent, pipe: EventPipe) -> tuple[Skill, ...]:
+        """Return the skill with its own copy of the tool."""
+        return (
+            Skill(
                 name="mock_guidance",
                 description="Try an optional skill in mock mode.",
                 instructions="Use mock_skill_information to return the demonstration message.",
                 tools=(mock_information.copy(name="mock_skill_information"),),
             ),
-        ),
-    )
+        )
+
+
+def _selection_examples() -> tuple[Capability, ...]:
+    """Offer harmless tool and skill choices without changing scripted responses."""
+    return (MockInformationExample(), MockGuidance())
 
 
 @factory
@@ -169,7 +185,7 @@ def _mock_recipe(
         name="hello_world",
         system_prompt="Return Hello, World! and stop.",
         description="Run a deterministic hello world specialist agent.",
-        capabilities=(Capability(label=ToolLabel("stop"), value=stop),),
+        capabilities=(Stop(),),
     )
     specialist.set_agent_endpoint(
         MockLLMEndpoint(
@@ -233,7 +249,7 @@ def _mock_recipe(
 
 class _MockSetup(Capability):
     def __init__(self, tools: Sequence[Tool]) -> None:
-        super().__init__(label=ToolLabel("mock_setup", default=True))
+        super().__init__(name="mock_setup", default=True)
         self.tools = tuple(tools)
 
     def build(self, agent: DeployableAgent, pipe: EventPipe) -> tuple[Tool, ...]:
@@ -242,7 +258,7 @@ class _MockSetup(Capability):
 
 class _MockSinks(Capability):
     def __init__(self, sinks: Sequence[EventSink]) -> None:
-        super().__init__(label=ToolLabel("mock_events"))
+        super().__init__(name="mock_events")
         self.sinks = sinks
 
     def build(self, agent: DeployableAgent, pipe: EventPipe) -> tuple[()]:
@@ -617,7 +633,7 @@ class _LibrarianHold(Capability):
     snapshot_endpoint: MockLLMEndpoint
 
     def __post_init__(self) -> None:
-        super().__init__(label=ToolLabel("librarian_hold"))
+        super().__init__(name="librarian_hold")
 
     @property
     def required_attributes(self) -> RequiredAttributes:
