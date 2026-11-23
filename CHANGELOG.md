@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.6.13 - 2026-11-23
+
+- Script output in the message log keeps one line per entry instead of running
+  together on one line, and a long block shows its newest lines rather than its
+  first ones.
 ## 0.6.12 - 2026-11-22
 
 - The startup progress bar during an update fills as the backend build does its
