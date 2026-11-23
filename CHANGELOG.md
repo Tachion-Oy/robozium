@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 0.6.14 - 2026-11-23
+
+- The model picker shows a picture icon for models that accept pasted images,
+  then each model's input and output price in US dollars per 1M tokens, then
+  its provider: `GLM-5.3 Flash ⚡ 🖼 · ($0.0399 / $0.074) · OpenRouter`.
+  OpenRouter prices are OpenRouter's listed price, its cheapest provider's;
+  a request can cost more on the provider it is routed to.
+- RoboZ 0.21.0. A catalogue model can carry its input and output prices, and
+  the app does not start if a selectable model has none.
+- OpenRouter models move to their newer versions: DeepSeek V4.1 Flash 1017,
+  GPT-6.2 Sol and Qwen4 Max. Gemini 4 Neon joins the fast models.
+- While the model thinks after a tool call, a line with the time and the run's
+  model appears every 5 seconds under the tool call, as under **Agent is
+  working...**. The lines appear only while a model call runs and has shown
+  no text yet.
+
 ## 0.6.13 - 2026-11-23
 
 - Script output in the message log keeps one line per entry instead of running
