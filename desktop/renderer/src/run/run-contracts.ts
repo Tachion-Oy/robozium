@@ -2,14 +2,15 @@
 // frame kinds and the complete value sets the backend uses for roles, phases and statuses.
 // A value that one module alone reacts to lives in that module (run-payloads, hud-messages).
 
-/** Discriminant of RunFrame. The parser maps wire frames to these kinds; the last three have no wire frame of their own. */
+/** Discriminant of RunFrame. The parser maps wire frames to these kinds; the last four have no wire frame of their own. */
 export const RunFrameKind = {
 	Message: "message",
 	MessageDelta: "message_delta",
 	ScriptOutput: "script_output",
 	Lifecycle: "run_lifecycle",
-	// Frames the parser derives from runtime events: a model retry, a model call's progress,
-	// and a notice the user should see.
+	// Frames the parser derives from runtime events: a model call's start or success, a model retry,
+	// a model call's progress, and a notice the user should see.
+	LlmCall: "llm_call",
 	LlmRetry: "llm_retry",
 	LlmProgress: "llm_progress",
 	RuntimeNotice: "runtime_notice",
@@ -76,6 +77,8 @@ export type RunFrame = { sequence: number } & (
 		hiddenFromAgent: boolean
 	}
 	| { type: typeof RunFrameKind.MessageDelta; id: string; delta: string; chunk: number; agent: string }
+	/** A model call started, or returned its reply. */
+	| { type: typeof RunFrameKind.LlmCall; started: boolean }
 	| { type: typeof RunFrameKind.LlmRetry; agent: string }
 	/** Reasoning characters the model call in flight has streamed so far. */
 	| { type: typeof RunFrameKind.LlmProgress; reasoningChars: number }
@@ -92,8 +95,9 @@ export type RunFrame = { sequence: number } & (
 )
 export type RunDelta = Extract<RunFrame, { type: typeof RunFrameKind.MessageDelta }>
 export type RunProgress = Extract<RunFrame, { type: typeof RunFrameKind.LlmProgress }>
-/** Deltas and progress report on the model call in flight; neither is kept as history. */
-export type RunRecord = Exclude<RunFrame, RunDelta | RunProgress>
+export type RunCall = Extract<RunFrame, { type: typeof RunFrameKind.LlmCall }>
+/** Deltas, progress and a call's start and success report on the model call in flight; none is kept as history. */
+export type RunRecord = Exclude<RunFrame, RunDelta | RunProgress | RunCall>
 export interface RunView {
 	project: string
 	status: RunStatus

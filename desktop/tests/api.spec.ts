@@ -290,6 +290,11 @@ test("run parsing preserves the wire contract while normalizing retry controls",
 	} })
 	expect(parseRunEvent({ type: "runtime_event", sequence: 5, payload: { category: "llm", kind: "retrying", agent_name: "root" } }))
 		.toEqual({ type: "llm_retry", sequence: 5, agent: "root" })
+	// A model call's start and its success; their data is ignored.
+	expect(parseRunEvent({ type: "runtime_event", sequence: 10, payload: { category: "llm", kind: "started", level: "info", agent_name: "root", data: { call_id: "c1" } } }))
+		.toEqual({ type: "llm_call", sequence: 10, started: true })
+	expect(parseRunEvent({ type: "runtime_event", sequence: 11, payload: { category: "llm", kind: "succeeded", level: "info", agent_name: "root", data: { call_id: "c1" } } }))
+		.toEqual({ type: "llm_call", sequence: 11, started: false })
 	// A model call's progress carries the reasoning streamed so far; its other data is ignored.
 	expect(parseRunEvent({ type: "runtime_event", sequence: 9, payload: {
 		category: "llm", kind: "progress", level: "info", agent_name: "root", data: { call_id: "c1", reasoning_chars: 7600, stream_chunks: 40 },
@@ -322,11 +327,12 @@ test("run parsing rejects malformed consumed fields and ignores unconsumed event
 		{ type: "runtime_event", sequence: 1, payload: { category: "llm", kind: "images_omitted", level: "info", agent_name: "root" } },
 		{ type: "runtime_event", sequence: 1, payload: { category: "tool", kind: "failed", level: "error", agent_name: "root", message: "" } },
 		{ type: "runtime_event", sequence: 1, payload: { category: "llm", kind: "progress", data: { reasoning_chars: -1 } } },
+		{ type: "runtime_event", payload: { category: "llm", kind: "started" } },
 	]) expect(() => parseRunEvent(value)).toThrow("invalid run data")
 	expect(parseRunEvent({ type: "future_event" })).toBeNull()
 	expect(parseRunEvent({ type: "llm_retry" })).toBeNull() // Only the parser creates this local control event.
 	expect(parseRunEvent({ type: "runtime_event", payload: { category: "tool", kind: "retrying" } })).toBeNull()
-	expect(parseRunEvent({ type: "runtime_event", payload: { category: "llm", kind: "started" } })).toBeNull()
+	expect(parseRunEvent({ type: "runtime_event", payload: { category: "tool", kind: "started" } })).toBeNull()
 })
 
 test("run reads validate status against the contract and encode the known run ID", async ({ backend: { client, server } }) => {

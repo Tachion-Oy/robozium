@@ -74,8 +74,8 @@ export function selectRunDisplay(state: RunSessionState | null): HudDisplay {
 	if (index === view.messages.length && extra) {
 		let id = "working"
 		if (live !== null && run.streamMessage) id = `message:${run.streamMessage.id}`
-		let text = liveDisplay
-		if (working) text = [AGENT_WORKING_TEXT, ...hud.thinkingLines].join("\n")
+		// The thinking lines go under the working indicator or the text left on screen, such as the last tool call.
+		const text = [working ? AGENT_WORKING_TEXT : liveDisplay, ...hud.thinkingLines].join("\n")
 		// Settled text stays in the streaming style: it was never a completed HUD message.
 		return { id, text, contentType: "plain-text", streaming: !isTerminal(run.status), working, index, currentIndex, count }
 	}

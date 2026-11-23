@@ -29,6 +29,7 @@ const working = "Agent is working..."
 const retry = (sequence: number, agent = "root"): RunFrame => ({ type: "llm_retry", sequence, agent })
 const script = (sequence: number, content: string): RunFrame => ({ type: "script_output", sequence, content })
 const progress = (sequence: number, reasoningChars: number): RunFrame => ({ type: "llm_progress", sequence, reasoningChars })
+const call = (sequence: number, started: boolean): RunFrame => ({ type: "llm_call", sequence, started })
 function tick(state: RunSessionState, time: string): RunSessionState {
 	return reduceRunSession(state, { type: "tick", now: new Date(`2026-11-15T${time}`), model: "Mock model" })!
 }
@@ -377,22 +378,54 @@ test("agent messages and prompts render as Markdown while live text and scripts 
 })
 
 test("each tick adds a thinking line under the working indicator, with a token estimate once reasoning is reported", () => {
-	let state = tick(session(), "12:41:35")
+	// No model call runs yet: no line.
+	const idle = session()
+	expect(tick(idle, "12:41:25").hud).toBe(idle.hud)
+	let state = tick(receive(idle, call(1, true)), "12:41:35")
 	expect(selectRunDisplay(state).text).toBe(`${working}\n12:41:35: Mock model thinking`)
-	state = tick(receive(state, progress(1, 7600)), "12:41:45")
+	state = tick(receive(state, progress(2, 7600)), "12:41:45")
 	expect(selectRunDisplay(state).text)
 		.toBe(`${working}\n12:41:35: Mock model thinking\n12:41:45: Mock model thinking, ~1,900 tokens`)
 	// The estimate belongs to the call in flight: a retry starts the next attempt without one.
-	state = tick(receive(state, retry(2)), "12:41:55")
+	state = tick(receive(state, retry(3)), "12:41:55")
 	expect(selectRunDisplay(state).text.split("\n").at(-1)).toBe("12:41:55: Mock model thinking")
 })
 
 test("thinking lines leave with the working indicator and start again from none", () => {
-	let state = tick(tick(session(), "12:41:35"), "12:41:45")
-	state = receive(state, delta(1, "live", "Answer"))
+	let state = tick(tick(receive(session(), call(1, true)), "12:41:35"), "12:41:45")
+	state = receive(state, delta(2, "live", "Answer"))
 	expect(selectRunDisplay(state).text).toBe("Answer")
 	expect(tick(state, "12:41:55").hud).toBe(state.hud)
-	state = receive(state, retry(2))
+	state = receive(state, retry(3))
 	expect(selectRunDisplay(state).text).toBe(working)
 	expect(selectRunDisplay(tick(state, "12:42:05")).text).toBe(`${working}\n12:42:05: Mock model thinking`)
+})
+
+test("while the model thinks after a tool call, thinking lines go under the tool call left on screen", () => {
+	const toolCall = '{"action":"run_file_command","value":"ls"}'
+	const shown = "action:run_file_command,value:ls"
+	// The tool call streams and completes. While the tool runs its text stays, without lines.
+	let state = receive(session(), call(1, true), delta(2, "tool", toolCall), call(3, false), message(4, "tool", toolCall, null))
+	expect(selectRunDisplay(state).text).toBe(shown)
+	expect(tick(state, "12:41:25").hud).toBe(state.hud)
+	// The next model call thinks: a line per tick under the tool call, with the token estimate once reported.
+	state = tick(receive(state, call(5, true)), "12:41:35")
+	expect(selectRunDisplay(state)).toMatchObject({ text: `${shown}\n12:41:35: Mock model thinking`, streaming: true })
+	state = tick(receive(state, progress(6, 400)), "12:41:45")
+	expect(selectRunDisplay(state).text).toBe(`${shown}\n12:41:35: Mock model thinking\n12:41:45: Mock model thinking, ~100 tokens`)
+	// The call's first text replaces the tool call and its lines.
+	expect(selectRunDisplay(receive(state, delta(7, "next", "Done"))).text).toBe("Done")
+	// A call that returns without streaming ends the lines; the tool call stays.
+	const returned = receive(state, call(7, false))
+	expect(selectRunDisplay(returned).text).toBe(shown)
+	expect(returned.hud.thinkingLines).toEqual([])
+})
+
+test("script output keeps its own lines: thinking lines are never added to it", () => {
+	const waiting = "12:41:30: No new notes from the web searchers.\n"
+	let state = receive(session(), script(1, waiting))
+	expect(tick(state, "12:41:35").hud).toBe(state.hud)
+	// The model is called with the script's lines still on screen.
+	state = tick(receive(state, call(2, true)), "12:41:40")
+	expect(selectRunDisplay(state).text).toBe(waiting)
 })

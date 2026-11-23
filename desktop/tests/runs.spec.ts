@@ -478,17 +478,45 @@ test("a long model call adds a thinking line every 5 seconds under the working i
 			await expect(output(page)).toContainText(text, { timeout: 500 })
 		}).toPass()
 	}
-	// A model that sends nothing still gets a line: the time and the run's model.
+	// A model call that sends nothing still gets a line: the time and the run's model.
+	emit(stream, llm(1, "started"))
 	await tick("thinking")
 	await expect(output(page)).toHaveText(/^Agent is working\.\.\.(\n\d\d:\d\d:\d\d: First model thinking)+$/)
-	emit(stream, llm(1, "progress", { call_id: "c1", reasoning_chars: 7600 }))
+	emit(stream, llm(2, "progress", { call_id: "c1", reasoning_chars: 7600 }))
 	await tick(/thinking, ~1,900 tokens$/)
 	// Answer text replaces the lines; a retry that discards it starts again without them.
-	emit(stream, delta(2, "Answer", 0))
+	emit(stream, delta(3, "Answer", 0))
 	await expect(output(page)).toHaveText("Answer")
-	emit(stream, llm(3, "retrying"))
+	emit(stream, llm(4, "retrying"))
 	await expect(output(page)).toHaveText("Agent is working...")
 	await tick(/^Agent is working\.\.\.\n\d\d:\d\d:\d\d: First model thinking$/)
+})
+
+test("while the model thinks after a tool call, a thinking line appears under the tool call every 5 seconds", async ({ desktop: { page }, backend }) => {
+	const run = prepareRun(backend)
+	await page.clock.install()
+	await start(page, backend)
+	await expect.poll(() => run.streams.length).toBe(1)
+	const stream = run.streams[0]
+	const llm = (sequence: number, kind: string) =>
+		({ type: "runtime_event", sequence, payload: { category: "llm", kind, level: "info", agent_name: "orchestrator" } })
+	const toolCall = '{"action":"run_file_command","value":"ls"}'
+	const completed = message(4, toolCall, "tool")
+	// The tool call streams and completes; its text stays on screen.
+	emit(stream, llm(1, "started"))
+	emit(stream, delta(2, toolCall, 0, "tool"))
+	emit(stream, llm(3, "succeeded"))
+	emit(stream, { ...completed, payload: { ...completed.payload, message_kind: null } })
+	await expect(output(page)).toHaveText("action:run_file_command,value:ls")
+	// The next model call thinks under it.
+	emit(stream, llm(5, "started"))
+	await expect(async () => {
+		await page.clock.runFor(5_000)
+		await expect(output(page)).toHaveText(/^action:run_file_command,value:ls(\n\d\d:\d\d:\d\d: First model thinking)+$/, { timeout: 500 })
+	}).toPass()
+	// The call's first text replaces the tool call and its lines.
+	emit(stream, delta(6, "Done", 0, "next"))
+	await expect(output(page)).toHaveText("Done")
 })
 
 test("an agent error never reaches the HUD; the next attempt's stream replaces the failed one", async ({ desktop: { page }, backend }) => {

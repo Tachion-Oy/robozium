@@ -1,6 +1,6 @@
 // The displayed run's state and every change to it. One reducer handles each action once:
 // it reconciles SSE and snapshots into run data and updates what the HUD keeps in the same step.
-import { isTerminal, RunFrameKind, RunStatus, type RunDelta, type RunProgress, type RunRecord, type RunView } from "../run/run-contracts"
+import { isTerminal, RunFrameKind, RunStatus, type RunCall, type RunDelta, type RunProgress, type RunRecord, type RunView } from "../run/run-contracts"
 import type { RunUpdate } from "../run/run-updates"
 import { initialHistory, updateHudHistory, type HudHistory } from "../hud/hud-history"
 import { messageText } from "../hud/hud-messages"
@@ -47,7 +47,9 @@ export interface HudState {
 	awaitingOutput: boolean
 	/** Reasoning last reported for the model call in flight, and where in the stream; none once later output or a retry arrives. */
 	reasoning: { chars: number; sequence: number } | null
-	/** One line per tick while the working indicator shows, so a long model call does not look frozen. */
+	/** A model call is running and has streamed no text yet. */
+	thinking: boolean
+	/** One line per tick while thinking, so a long model call does not look frozen; none otherwise. */
 	thinkingLines: readonly string[]
 }
 
@@ -60,7 +62,7 @@ export interface RunSessionState {
 type RunAction = RunUpdate
 	| { type: "replied"; promptId: string }
 	| { type: "retry" }
-	/** A clock beat: one more thinking line while the working indicator shows. */
+	/** A clock beat: one more thinking line while the model thinks. */
 	| { type: "tick"; now: Date; model: string }
 
 export type RunSessionAction = RunAction
@@ -83,7 +85,7 @@ function initialSession(runId: string, project: string): RunSessionState {
 		},
 		hud: {
 			history: initialHistory(), view: initialMessageList(), selectedMessageId: null, awaitingOutput: true,
-			reasoning: null, thinkingLines: [],
+			reasoning: null, thinking: false, thinkingLines: [],
 		},
 	}
 }
@@ -155,7 +157,13 @@ function applyDelta(state: RunSessionState, frame: RunDelta): RunSessionState {
 	}
 	const accepted = { ...run, liveText, streamMessage: { id: frame.id, agent: frame.agent, chunk: frame.chunk, sequence: frame.sequence } }
 	const hud = updateHistoryAndView(state, accepted, breakAfter)
-	return { run: accepted, hud: { ...hud, awaitingOutput: false } }
+	return { run: accepted, hud: { ...hud, awaitingOutput: false, thinking: false } }
+}
+
+/** The model thinks from a call's start until its first text or its reply; a replayed frame is dropped. */
+function applyCall(state: RunSessionState, frame: RunCall): RunSessionState {
+	if (frame.sequence <= state.run.streamSequence) return { run: state.run, hud: state.hud }
+	return { run: { ...state.run, streamSequence: frame.sequence }, hud: { ...state.hud, thinking: frame.started } }
 }
 
 /** Progress is transient like a token fragment: a replayed one is dropped. */
@@ -209,7 +217,9 @@ function applyRecords(
 	const newOutput = hud.history.messages.at(-1)?.id !== state.hud.history.messages.at(-1)?.id
 	const awaitingOutput = !newOutput && !run.prompt && (state.hud.awaitingOutput || settled.discarded)
 	const reasoning = settleReasoning(state.hud.reasoning, received)
-	return { run: { ...run, liveText: settled.live }, hud: { ...hud, reasoning, awaitingOutput } }
+	// A retry that discards the attempt's text has the model thinking again; a finished run has no model call.
+	const thinking = !isTerminal(run.status) && (hud.thinking || settled.discarded)
+	return { run: { ...run, liveText: settled.live }, hud: { ...hud, reasoning, awaitingOutput, thinking } }
 }
 
 function applyRecord(state: RunSessionState, frame: RunRecord): RunSessionState {
@@ -228,8 +238,9 @@ function snapshotPrompt(previous: RunPrompt | null, view: RunView): RunPrompt | 
 
 function applySnapshot(state: RunSessionState, view: RunView): RunSessionState {
 	const previous = state.run
-	// Token fragments and progress are transient and are not recovered from history.
-	const received = view.frames.filter(frame => frame.type !== RunFrameKind.MessageDelta && frame.type !== RunFrameKind.LlmProgress)
+	// Token fragments, progress and a call's start and success are transient and are not recovered from history.
+	const received = view.frames.filter(frame => frame.type !== RunFrameKind.MessageDelta
+		&& frame.type !== RunFrameKind.LlmProgress && frame.type !== RunFrameKind.LlmCall)
 	const merged = mergeEvents(previous, received)
 	// A snapshot still awaiting an answered prompt was taken before the reply.
 	const answered = view.promptId !== null && previous.acknowledgedPrompts.has(view.promptId)
@@ -262,13 +273,14 @@ function applyReply(state: RunSessionState, promptId: string): RunSessionState {
 		prompt: previous.prompt?.id === promptId ? null : previous.prompt,
 		status: previous.status === RunStatus.AwaitingUserInput ? RunStatus.Running : previous.status,
 	}
-	return { run, hud: { ...updateHistoryAndView(state, run, null), awaitingOutput: true } }
+	// No model call runs during a prompt: one that failed or was interrupted ended there.
+	return { run, hud: { ...updateHistoryAndView(state, run, null), awaitingOutput: true, thinking: false } }
 }
 
-/** One line per tick while the working indicator is what the panel displays; a pinned message shows none. */
+/** One line per tick while the model thinks. */
 function applyTick(state: RunSessionState, now: Date, model: string): RunSessionState {
 	const hud = state.hud
-	if (!selectRunDisplay(state).working) return { run: state.run, hud }
+	if (!hud.thinking) return { run: state.run, hud }
 	const line = thinkingLine(now, model, hud.reasoning?.chars ?? null)
 	return { run: state.run, hud: { ...hud, thinkingLines: [...hud.thinkingLines, line] } }
 }
@@ -295,13 +307,14 @@ function applyRunAction(state: RunSessionState, action: RunAction): RunSessionSt
 		case "frame":
 			if (action.frame.type === RunFrameKind.MessageDelta) return applyDelta(state, action.frame)
 			if (action.frame.type === RunFrameKind.LlmProgress) return applyProgress(state, action.frame)
+			if (action.frame.type === RunFrameKind.LlmCall) return applyCall(state, action.frame)
 			return applyRecord(state, action.frame)
 	}
 }
 
-/** The thinking lines belong to the working indicator and leave with it. */
+/** The thinking lines leave when the model stops thinking. */
 function dropStaleThinkingLines(state: RunSessionState): RunSessionState {
-	if (state.hud.thinkingLines.length === 0 || selectRunDisplay(state).working) return state
+	if (state.hud.thinkingLines.length === 0 || state.hud.thinking) return state
 	return { run: state.run, hud: { ...state.hud, thinkingLines: [] } }
 }
 
