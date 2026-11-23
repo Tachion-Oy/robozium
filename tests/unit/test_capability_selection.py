@@ -412,7 +412,7 @@ def test_relaunch_replaces_choices_and_preserves_project_memory(launch_api):
 def test_worker_builds_with_the_creation_selection(launch_api, enabled):
     from types import SimpleNamespace
 
-    from roboz.llm import LLMEndpoint, MockLLMEndpoint
+    from roboz.llm import LLMEndpoint, LLMPricing, MockLLMEndpoint
 
     hub, _, _ = launch_api
     requests = []
@@ -444,6 +444,9 @@ def test_worker_builds_with_the_creation_selection(launch_api, enabled):
         ),
         api_name="test",
         model_name="selection",
+        prices=LLMPricing(
+            input_price_per_million_tokens=0.1, output_price_per_million_tokens=0.4
+        ),
         stream=False,
     )
     hub = configured_hub(

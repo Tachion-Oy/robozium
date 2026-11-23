@@ -46,6 +46,9 @@ class ModelSelectBody(BaseModel):
 class AvailableModelView(BaseModel):
     model_id: str
     label: str
+    accepts_images: bool
+    input_price_per_million_tokens: float
+    output_price_per_million_tokens: float
 
 
 class ModelSelectionView(BaseModel):

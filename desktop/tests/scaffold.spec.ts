@@ -2,7 +2,7 @@ import { _electron, expect, type Page } from "@playwright/test"
 import { once } from "node:events"
 import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { test, desktopRoot, launchArgs, documentUrl, preload, waitForPanelLayout, captureNative, chooseModel, chooseView, modelTrigger, setNativeViewport, viewTrigger, runTrigger, reloadApp } from "./native"
+import { test, desktopRoot, launchArgs, documentUrl, preload, waitForPanelLayout, captureNative, chooseModel, chooseView, modelOption, modelTrigger, setNativeViewport, viewTrigger, runTrigger, reloadApp } from "./native"
 import { expectFooterGeometry } from "./footer-geometry"
 
 async function expectPanelGeometry(page: Page, layout: "top" | "equal" | "bottom") {
@@ -383,12 +383,12 @@ for (const theme of ["dark", "light"]) {
 		await model.press("Enter")
 		await expect(model).toHaveAttribute("aria-controls", await menu.getAttribute("id") as string)
 		// The open menu focuses the selected option; arrows move through enabled options.
-		await expect(menu.getByRole("option", { name: "Mock model", exact: true })).toBeFocused()
+		await expect(modelOption(page, "Mock model")).toBeFocused()
 		await page.keyboard.press("ArrowDown")
-		await expect(menu.getByRole("option", { name: "Mock fast model", exact: true })).toBeFocused()
+		await expect(modelOption(page, "Mock fast model")).toBeFocused()
 		await page.keyboard.press("ArrowUp")
 		await page.keyboard.press("ArrowUp")
-		await expect(menu.getByRole("option", { name: "Mock extended context model", exact: true })).toBeFocused()
+		await expect(modelOption(page, "Mock extended context model")).toBeFocused()
 		await page.keyboard.press("Escape")
 		await expect(menu).toHaveCount(0)
 		await expect(model).toBeFocused()
@@ -460,7 +460,7 @@ test("native Ctrl shortcuts zoom both ways and reset with an open selector", asy
 			BrowserWindow.getAllWindows()[0].webContents.getZoomFactor()), { message: `Zoom after Ctrl+${keyCode}` })
 			.toBeCloseTo(factor)
 		await expect(selected).toBeFocused()
-		await expect(selected).toHaveAccessibleName("Mock model")
+		await expect(selected).toHaveAccessibleName("Mock model Accepts images · ($0.30 / $1.20)")
 		await expect(modelTrigger(page)).toHaveAttribute("aria-expanded", "true")
 	}
 })

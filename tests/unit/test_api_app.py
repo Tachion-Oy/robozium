@@ -276,7 +276,13 @@ def test_models_get_and_post_update_process_selection(tmp_path: Path) -> None:
     assert initial.status_code == 200
     assert initial.json() == {
         "models": [
-            {"model_id": endpoint.dependency_id, "label": label}
+            {
+                "model_id": endpoint.dependency_id,
+                "label": label,
+                "accepts_images": endpoint.accepts_images,
+                "input_price_per_million_tokens": endpoint.prices.input_price_per_million_tokens,
+                "output_price_per_million_tokens": endpoint.prices.output_price_per_million_tokens,
+            }
             for label, endpoint in hub.settings.models.items()
         ],
         "selected_model_id": "model:openrouter:z-ai/glm-5.3",

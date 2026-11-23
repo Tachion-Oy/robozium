@@ -1,5 +1,5 @@
-// useModels owns the selection, requests and acknowledgements,
-// and ModelLabel draws the speed tier as an icon.
+// useModels owns the selection, requests and acknowledgements, and ModelLabel draws a
+// model's tier and image support as icons beside its prices.
 import type { ModelsState } from "../../models/useModels"
 import { ModelLabel } from "./ModelLabel"
 import { SelectorDropdown } from "./SelectorDropdown"
@@ -34,11 +34,12 @@ export function ModelSelector({ models, disabled = false }: {
 			options={(selection?.models ?? []).map((model) => ({
 				value: model.model_id,
 				label: model.label,
+				content: <ModelLabel model={model} />,
 				disabled: pending,
 			}))}
 			triggerLabel={selected?.label ?? "Model"}
+			triggerContent={selected ? <ModelLabel model={selected} /> : undefined}
 			listboxLabel="Base model"
-			renderLabel={(label) => <ModelLabel label={label} />}
 			disabled={disabled}
 			onOpen={() => {
 				// Load the catalogue on first open, after a failed request or when it is

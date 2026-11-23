@@ -29,6 +29,18 @@ from robozium.hub.logging import HubLoggingConfig
 from robozium.hub.utils import slugify_project_name
 
 
+def model_prices(endpoint: LLMEndpoint) -> tuple[float, float]:
+    """Return a model's input and output USD per 1M tokens; the picker shows both."""
+    prices = endpoint.prices
+    if prices is None:
+        raise ValueError(f"model {endpoint.dependency_id} needs input and output prices")
+    input_price = prices.input_price_per_million_tokens
+    output_price = prices.output_price_per_million_tokens
+    if input_price is None or output_price is None:
+        raise ValueError(f"model {endpoint.dependency_id} needs input and output prices")
+    return input_price, output_price
+
+
 @dataclass(frozen=True)
 class DependencyHealthSettings:
     """Explicit timing policy for dependency polling and bounded checks."""
@@ -244,6 +256,8 @@ class Hub:
             raise ValueError("hub name must be nonempty")
         if not settings.models or any(not name.strip() for name in settings.models):
             raise ValueError("model labels must be nonempty")
+        for endpoint in settings.models.values():
+            model_prices(endpoint)
 
     @staticmethod
     def _validate_storage_paths(sandbox: Sandbox, logging: HubLoggingConfig) -> None:

@@ -58,7 +58,7 @@ from robozium.api.run_manager import RunManager
 from robozium.api.sse import event_to_sse_frame
 from robozium.api.state import RunStatus
 from robozium.api.state import RunView as RunViewState
-from robozium.hub.application import Hub, HubSettings
+from robozium.hub.application import Hub, HubSettings, model_prices
 from robozium.hub.utils import load_hub, load_hub_settings
 from robozium.mock.agents import (
     mock_deployment,
@@ -90,11 +90,18 @@ def _model_selection_view(
     *,
     selected_model_id: str | None = None,
 ) -> ModelSelectionView:
+    models = []
+    for label, endpoint in selector.models.items():
+        input_price, output_price = model_prices(endpoint)
+        models.append(AvailableModelView(
+            model_id=endpoint.dependency_id,
+            label=label,
+            accepts_images=endpoint.accepts_images,
+            input_price_per_million_tokens=input_price,
+            output_price_per_million_tokens=output_price,
+        ))
     return ModelSelectionView(
-        models=[
-            AvailableModelView(model_id=endpoint.dependency_id, label=label)
-            for label, endpoint in selector.models.items()
-        ],
+        models=models,
         selected_model_id=selected_model_id or selector.selected_model_id,
     )
 
