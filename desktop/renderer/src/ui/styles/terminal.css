@@ -240,6 +240,12 @@
   white-space: normal;
 }
 
+/* Script output is line-oriented (one progress line per entry), so its rows keep
+   their line breaks; `cleanTailText` bounds them to the newest lines instead. */
+.term-log--clamp .term-msg[data-role="script"] .term-msg-content {
+  white-space: pre-wrap;
+}
+
 .term-log--scrollable .term-msg--interactive {
   cursor: pointer;
 }

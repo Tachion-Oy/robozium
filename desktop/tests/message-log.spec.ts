@@ -2,6 +2,7 @@ import { expect, type Page } from "@playwright/test"
 import { writeFile } from "node:fs/promises"
 import { selectLogItems } from "../renderer/src/log/run-log"
 import { parseRunEvent } from "../renderer/src/run/run-payloads"
+import { cleanTailText } from "../renderer/src/ui/terminal/cleanText"
 import type { RunRecord } from "../renderer/src/run/run-contracts"
 import { test, json, project, snapshot, prepareRun, message, emit, start, view, launchButton, replyBox, runStatus } from "./run-fixture"
 import { captureNative, setNativeViewport, waitForPanelLayout } from "./native"
@@ -79,6 +80,15 @@ test("the log leaves out messages the agent never sees and keeps ones removed la
 	])
 })
 
+test("a long script row keeps its newest whole lines", () => {
+	const lines = Array.from({ length: 30 }, (_, i) => `12:00:${String(i).padStart(2, "0")}: No new notes.`)
+	const shown = cleanTailText(`${lines.join("\n")}\n`, 100)
+	expect(shown.length).toBeLessThanOrEqual(100)
+	expect(shown).toBe(`…\n${lines.slice(-4).join("\n")}`)
+	// Short output is shown whole, without its final line break.
+	expect(cleanTailText("one\ntwo\n", 100)).toBe("one\ntwo")
+})
+
 test("the toggle opens the placeholder log before a run and the run's rows during one", async ({ desktop: { app, page }, backend }) => {
 	const run = prepareRun(backend)
 	await backend.open()
@@ -103,12 +113,16 @@ test("the toggle opens the placeholder log before a run and the run's rows durin
 	await expect.poll(() => run.streams.length).toBe(1)
 	await toggle(page, "Show message log").click()
 	await expect(log(page).locator(".term-title__brand")).toHaveCount(0)
-	for (const frame of [lifecycle(1, "started"), message(2, "Hello from the agent"), script(3, "line one "), script(4, "line two")])
+	for (const frame of [lifecycle(1, "started"), message(2, "Hello from the agent"), script(3, "line one\n"), script(4, "line two\n")])
 		emit(run.streams[0], frame)
 	await expect(log(page)).toContainText("NEW PROCESS")
 	await expect(log(page)).toContainText("orchestrator")
 	await expect(log(page)).toContainText("Hello from the agent")
 	await expect(log(page)).toContainText("line one line two")
+	// Script output keeps one line per entry, unlike the crammed message rows.
+	const scriptRow = log(page).locator('.term-msg[data-role="script"] .term-msg-content').last()
+	expect(await scriptRow.evaluate(element => getComputedStyle(element).whiteSpace)).toBe("pre-wrap")
+	await expect.poll(() => scriptRow.innerText()).toContain("line one\nline two")
 	// The live log has no title, and its first row sits as far below the top as the tail's margin at the bottom.
 	// Opening the log grows the window; sample once it is side by side and settled.
 	const marginDifference = () => log(page).evaluate(pane => {
