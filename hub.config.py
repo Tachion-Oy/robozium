@@ -44,18 +44,19 @@ MEMORY_ENDPOINT: Final = with_openrouter_policy(
 # Labels tell users which models answer quickly and which reason longer for hard tasks.
 FAST_MODELS: Final = {
     "GLM-5.3 FlashX": OPENROUTER.z_ai__glm_5_3_flashx,
-    "DeepSeek V4.1 Flash": OPENROUTER.deepseek__deepseek_v4_1_flash,
+    "DeepSeek V4.1 Flash": OPENROUTER.deepseek__deepseek_v4_1_flash_1017,
     "Kimi K3": OPENROUTER.moonshotai__kimi_k3,
     "Qwen3.8 Flash": OPENROUTER.qwen__qwen3_8_flash,
     "MiniMax M3.1 Flash": OPENROUTER.minimax__minimax_m3_1_flash,
+    "Gemini 4 Neon": OPENROUTER.google__gemini_4_neon,
 }
 DEEP_REASONING_MODELS: Final = {
     "DeepSeek V4 Pro": OPENROUTER.deepseek__deepseek_v4_pro_0813,
     "Kimi K3.1 Pro": OPENROUTER.moonshotai__kimi_k3_1_pro,
-    "Qwen3.8 Max": OPENROUTER.qwen__qwen3_8_max_0902,
+    "Qwen4 Max": OPENROUTER.qwen__qwen4_max,
     "Gemini 4 Argon": OPENROUTER.google__gemini_4_argon,
     "Claude Sonnet 5.5": OPENROUTER.anthropic__claude_sonnet_5_5,
-    "GPT-6.1 Sol": OPENROUTER.openai__gpt_6_1_sol,
+    "GPT-6.2 Sol": OPENROUTER.openai__gpt_6_2_sol,
     "Grok 4.7": OPENROUTER.x_ai__grok_4_7,
 }
 MODELS: Final = {

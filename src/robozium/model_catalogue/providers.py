@@ -27,11 +27,11 @@ _ROBOZ_ENDPOINTS_INVENTORY = {'schema_version': 1,
                                                                   'accepts_images': True,
                                                                   'accepts_temperature': True,
                                                                   'endpoint_type': 'llm'},
-                                         'deepseek__deepseek_v4_1_flash': {'model_id': 'deepseek/deepseek-v4.1-flash',
-                                                                           'max_context_tokens': 1048576,
-                                                                           'accepts_images': True,
-                                                                           'accepts_temperature': True,
-                                                                           'endpoint_type': 'llm'},
+                                         'deepseek__deepseek_v4_1_flash_1017': {'model_id': 'deepseek/deepseek-v4.1-flash-1017',
+                                                                                'max_context_tokens': 1048576,
+                                                                                'accepts_images': True,
+                                                                                'accepts_temperature': True,
+                                                                                'endpoint_type': 'llm'},
                                          'deepseek__deepseek_v4_pro_0813': {'model_id': 'deepseek/deepseek-v4-pro-0813',
                                                                             'max_context_tokens': 1048576,
                                                                             'accepts_images': False,
@@ -47,11 +47,11 @@ _ROBOZ_ENDPOINTS_INVENTORY = {'schema_version': 1,
                                                                  'accepts_images': True,
                                                                  'accepts_temperature': True,
                                                                  'endpoint_type': 'llm'},
-                                         'qwen__qwen3_8_max_0902': {'model_id': 'qwen/qwen3.8-max-0902',
-                                                                    'max_context_tokens': 1000000,
-                                                                    'accepts_images': True,
-                                                                    'accepts_temperature': True,
-                                                                    'endpoint_type': 'llm'},
+                                         'qwen__qwen4_max': {'model_id': 'qwen/qwen4-max',
+                                                             'max_context_tokens': 1000000,
+                                                             'accepts_images': True,
+                                                             'accepts_temperature': True,
+                                                             'endpoint_type': 'llm'},
                                          'qwen__qwen3_8_flash': {'model_id': 'qwen/qwen3.8-flash',
                                                                  'max_context_tokens': 1000000,
                                                                  'accepts_images': True,
@@ -67,12 +67,17 @@ _ROBOZ_ENDPOINTS_INVENTORY = {'schema_version': 1,
                                                                     'accepts_images': True,
                                                                     'accepts_temperature': True,
                                                                     'endpoint_type': 'llm'},
+                                         'google__gemini_4_neon': {'model_id': 'google/gemini-4-neon',
+                                                                   'max_context_tokens': 1048576,
+                                                                   'accepts_images': True,
+                                                                   'accepts_temperature': True,
+                                                                   'endpoint_type': 'llm'},
                                          'anthropic__claude_sonnet_5_5': {'model_id': 'anthropic/claude-sonnet-5.5',
                                                                           'max_context_tokens': 1000000,
                                                                           'accepts_images': True,
                                                                           'accepts_temperature': False,
                                                                           'endpoint_type': 'llm'},
-                                         'openai__gpt_6_1_sol': {'model_id': 'openai/gpt-6.1-sol',
+                                         'openai__gpt_6_2_sol': {'model_id': 'openai/gpt-6.2-sol',
                                                                  'max_context_tokens': 1050000,
                                                                  'accepts_images': True,
                                                                  'accepts_temperature': False,
@@ -107,16 +112,17 @@ if _TYPE_CHECKING:
         z_ai__glm_5_3: _LLMEndpoint
         z_ai__glm_5_3_flash: _LLMEndpoint
         z_ai__glm_5_3_flashx: _LLMEndpoint
-        deepseek__deepseek_v4_1_flash: _LLMEndpoint
+        deepseek__deepseek_v4_1_flash_1017: _LLMEndpoint
         deepseek__deepseek_v4_pro_0813: _LLMEndpoint
         moonshotai__kimi_k3_1_pro: _LLMEndpoint
         moonshotai__kimi_k3: _LLMEndpoint
-        qwen__qwen3_8_max_0902: _LLMEndpoint
+        qwen__qwen4_max: _LLMEndpoint
         qwen__qwen3_8_flash: _LLMEndpoint
         minimax__minimax_m3_1_flash: _LLMEndpoint
         google__gemini_4_argon: _LLMEndpoint
+        google__gemini_4_neon: _LLMEndpoint
         anthropic__claude_sonnet_5_5: _LLMEndpoint
-        openai__gpt_6_1_sol: _LLMEndpoint
+        openai__gpt_6_2_sol: _LLMEndpoint
         x_ai__grok_4_7: _LLMEndpoint
 
     openrouter: _openrouter_Catalog
