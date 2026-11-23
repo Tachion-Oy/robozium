@@ -28,8 +28,8 @@
           "accepts_temperature": true,
           "endpoint_type": "llm"
         },
-        "deepseek__deepseek_v4_1_flash": {
-          "model_id": "deepseek/deepseek-v4.1-flash",
+        "deepseek__deepseek_v4_1_flash_1017": {
+          "model_id": "deepseek/deepseek-v4.1-flash-1017",
           "max_context_tokens": 1048576,
           "accepts_images": true,
           "accepts_temperature": true,
@@ -56,8 +56,8 @@
           "accepts_temperature": true,
           "endpoint_type": "llm"
         },
-        "qwen__qwen3_8_max_0902": {
-          "model_id": "qwen/qwen3.8-max-0902",
+        "qwen__qwen4_max": {
+          "model_id": "qwen/qwen4-max",
           "max_context_tokens": 1000000,
           "accepts_images": true,
           "accepts_temperature": true,
@@ -84,6 +84,13 @@
           "accepts_temperature": true,
           "endpoint_type": "llm"
         },
+        "google__gemini_4_neon": {
+          "model_id": "google/gemini-4-neon",
+          "max_context_tokens": 1048576,
+          "accepts_images": true,
+          "accepts_temperature": true,
+          "endpoint_type": "llm"
+        },
         "anthropic__claude_sonnet_5_5": {
           "model_id": "anthropic/claude-sonnet-5.5",
           "max_context_tokens": 1000000,
@@ -91,8 +98,8 @@
           "accepts_temperature": false,
           "endpoint_type": "llm"
         },
-        "openai__gpt_6_1_sol": {
-          "model_id": "openai/gpt-6.1-sol",
+        "openai__gpt_6_2_sol": {
+          "model_id": "openai/gpt-6.2-sol",
           "max_context_tokens": 1050000,
           "accepts_images": true,
           "accepts_temperature": false,
