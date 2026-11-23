@@ -12,10 +12,12 @@ const WireFrameType = {
 } as const
 // Runtime events reach the HUD by two rules, the same ones RoboZ's own terminal sink applies:
 // every error-level event is a notice, and so is the one informational LLM event the runtime
-// addresses to the user, images omitted for a model that cannot read them. An LLM retry and a
-// call's progress become control frames. Everything else is ignored.
+// addresses to the user, images omitted for a model that cannot read them. An LLM call's start,
+// success, retry and progress become control frames. Everything else is ignored.
 const LLM_CATEGORY = "llm"
-const LlmRuntimeSignal = { Retrying: "retrying", Progress: "progress", ImagesOmitted: "images_omitted" } as const
+const LlmRuntimeSignal = {
+	Started: "started", Succeeded: "succeeded", Retrying: "retrying", Progress: "progress", ImagesOmitted: "images_omitted",
+} as const
 
 const parse = <T>(schema: z.ZodType<T>, value: unknown): T => parsePayload(schema, value, "The backend returned invalid run data.")
 
@@ -86,6 +88,8 @@ const RunLifecycleEvent = z.object({
 
 // The probe reads the routing fields; only a consumed event is validated, and it requires its level.
 const RuntimeEvent = z.object({ payload: z.object({ category: z.unknown(), kind: z.unknown(), level: z.unknown().optional() }) })
+const LlmCallEvent = z.object({ sequence, payload: z.object({ kind: z.string() }) })
+	.transform(({ sequence, payload }) => ({ type: RunFrameKind.LlmCall, sequence, started: payload.kind === LlmRuntimeSignal.Started }))
 const LlmRetryEvent = z.object({ sequence, payload: z.object({ agent_name: nonBlank }) })
 	.transform(({ sequence, payload }) => ({ type: RunFrameKind.LlmRetry, sequence, agent: payload.agent_name }))
 const LlmProgressEvent = z.object({ sequence, payload: z.object({ data: z.object({ reasoning_chars: z.number().int().min(0) }) }) })
@@ -95,9 +99,24 @@ const RuntimeNoticeEvent = z.object({ sequence, payload: z.object({ agent_name: 
 		type: RunFrameKind.RuntimeNotice, sequence, agent: payload.agent_name, level: payload.level, message: payload.message,
 	}))
 
+/** The LLM events that become control frames, by kind. */
+const LlmControlEvents = new Map<unknown, z.ZodType<RunFrame>>([
+	[LlmRuntimeSignal.Started, LlmCallEvent],
+	[LlmRuntimeSignal.Succeeded, LlmCallEvent],
+	[LlmRuntimeSignal.Retrying, LlmRetryEvent],
+	[LlmRuntimeSignal.Progress, LlmProgressEvent],
+])
+
 function isNotice(payload: { category: unknown; kind: unknown; level?: unknown }): boolean {
 	return payload.level === RuntimeLevel.Error
 		|| (payload.category === LLM_CATEGORY && payload.kind === LlmRuntimeSignal.ImagesOmitted)
+}
+
+function parseRuntimeEvent(value: unknown): RunFrame | null {
+	const { payload } = parse(RuntimeEvent, value)
+	const control = payload.category === LLM_CATEGORY ? LlmControlEvents.get(payload.kind) : undefined
+	if (control) return parse(control, value)
+	return isNotice(payload) ? parse(RuntimeNoticeEvent, value) : null
 }
 
 /** Unconsumed wire frames are ignored; malformed consumed fields are errors. */
@@ -107,12 +126,7 @@ export function parseRunEvent(value: unknown): RunFrame | null {
 		case WireFrameType.MessageDelta: return parse(MessageDeltaEvent, value)
 		case WireFrameType.ScriptOutput: return parse(ScriptOutputEvent, value)
 		case WireFrameType.RunLifecycle: return parse(RunLifecycleEvent, value)
-		case WireFrameType.RuntimeEvent: {
-			const { payload } = parse(RuntimeEvent, value)
-			if (payload.category === LLM_CATEGORY && payload.kind === LlmRuntimeSignal.Retrying) return parse(LlmRetryEvent, value)
-			if (payload.category === LLM_CATEGORY && payload.kind === LlmRuntimeSignal.Progress) return parse(LlmProgressEvent, value)
-			return isNotice(payload) ? parse(RuntimeNoticeEvent, value) : null
-		}
+		case WireFrameType.RuntimeEvent: return parseRuntimeEvent(value)
 		default:
 			return null
 	}

@@ -275,8 +275,10 @@ reading older history. An active prompt stays current even when a background
 notification arrives afterward; the latest arrow returns to that prompt from a
 pinned history entry. While the agent works without visible output, after
 launch, an accepted reply or a provider retry, the panel shows *Agent is
-working...* in the streaming style; earlier messages stay reachable. Provider
-retries discard abandoned partial text. Ordinary agent-message completion, or an
+working...* in the streaming style; earlier messages stay reachable. While a
+model call runs without text of its own, a line with the time and the model is
+added every 5 seconds under *Agent is working...* or under the tool call left
+on screen. Provider retries discard abandoned partial text. Ordinary agent-message completion, or an
 interruption, keeps its last progress visible in the streaming style until new
 output or a prompt replaces it. Live text scrolls downward; selecting another entry resets
 its scroll. At either end, unavailable directions are disabled. Empty history
