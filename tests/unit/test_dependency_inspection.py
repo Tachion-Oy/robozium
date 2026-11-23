@@ -149,7 +149,15 @@ def test_mock_app_dependency_contract_allows_startup() -> None:
     with TestClient(mock_app()) as client:
         assert client.get("/ready").status_code == 200
         assert client.get("/models").json() == {
-            "models": [{"model_id": "model:mock:mock", "label": "Mock"}],
+            "models": [
+                {
+                    "model_id": "model:mock:mock",
+                    "label": "Mock",
+                    "accepts_images": True,
+                    "input_price_per_million_tokens": 0.3,
+                    "output_price_per_million_tokens": 1.2,
+                }
+            ],
             "selected_model_id": "model:mock:mock",
         }
 

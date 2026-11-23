@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test"
 import type { ServerResponse } from "node:http"
 import { test, catalogue, json } from "./selection-fixture"
-import { chooseModel, chooseView as view, modelTrigger, reloadApp, toast } from "./native"
+import { chooseModel, chooseView as view, modelOption, modelTrigger, reloadApp, toast } from "./native"
 import { prepareRun, start, launchButton } from "./run-fixture"
 
 const notices = (page: Page) => toast(page, "Model unavailable")
@@ -17,7 +17,7 @@ test("model changes await acknowledgement, reject duplicate writes, and retry by
 	await chooseModel(page, "Second model")
 	await expect(model).toHaveAttribute("title", "First model")
 	await model.click()
-	await expect(page.getByRole("option", { name: "Second model", exact: true })).toBeDisabled()
+	await expect(modelOption(page, "Second model")).toBeDisabled()
 	await page.keyboard.press("Escape")
 	expect(backend.requests.filter(request => request.method === "POST")).toHaveLength(1)
 	json(pending!, { detail: "Selection rejected" }, 400)
@@ -30,6 +30,23 @@ test("model changes await acknowledgement, reject duplicate writes, and retry by
 	await expect(page.getByRole("alert")).toHaveCount(0)
 	await view(page, "Environment")
 	await expect(model).toHaveAttribute("title", "Second model")
+})
+
+test("model options show the tier and image icons, then the prices before the provider", async ({ desktop: { page }, backend }) => {
+	backend.handlers.set("GET /models", response => json(response, {
+		models: [
+			{ model_id: "glm", label: "GLM-5.3 · Fast · OpenRouter", accepts_images: true, input_price_per_million_tokens: 0.0699, output_price_per_million_tokens: 1.4 },
+			{ model_id: "pro", label: "DeepSeek V4 Pro · Deep reasoning · OpenRouter", accepts_images: false, input_price_per_million_tokens: 2, output_price_per_million_tokens: 10 },
+		],
+		selected_model_id: "glm",
+	}))
+	await backend.open()
+	await modelTrigger(page).click()
+	const options = page.getByRole("listbox", { name: "Base model" }).getByRole("option")
+	await expect(options.nth(0)).toHaveAccessibleName("GLM-5.3 Fast Accepts images · ($0.0699 / $1.40) · OpenRouter")
+	await expect(options.nth(1)).toHaveAccessibleName("DeepSeek V4 Pro Deep reasoning · ($2.00 / $10.00) · OpenRouter")
+	await expect(options.nth(1).getByRole("img", { name: "Accepts images" })).toHaveCount(0)
+	await page.keyboard.press("Escape")
 })
 
 test("empty and malformed model catalogues stay accessible and recover through reads", async ({ desktop: { page }, backend }) => {

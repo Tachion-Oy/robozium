@@ -27,9 +27,9 @@ export interface FakeBackend {
 }
 
 const mockModels = [
-	{ model_id: "mock", label: "Mock model" },
-	{ model_id: "mock-fast", label: "Mock fast model" },
-	{ model_id: "mock-extended", label: "Mock extended context model" },
+	{ model_id: "mock", label: "Mock model", accepts_images: true, input_price_per_million_tokens: 0.3, output_price_per_million_tokens: 1.2 },
+	{ model_id: "mock-fast", label: "Mock fast model", accepts_images: false, input_price_per_million_tokens: 0.05, output_price_per_million_tokens: 0.2 },
+	{ model_id: "mock-extended", label: "Mock extended context model", accepts_images: true, input_price_per_million_tokens: 2, output_price_per_million_tokens: 10 },
 ]
 /**
  * The preview run's history; its last message is the prompt the run awaits a reply to.
@@ -261,9 +261,13 @@ export async function chooseView(page: Page, name: string) {
 	await page.getByRole("listbox", { name: "HUD view" }).getByRole("option", { name, exact: true }).click()
 }
 
-export async function chooseModel(page: Page, name: string) {
+/** A model option is named by its label, then its icons and prices. */
+export const modelOption = (page: Page, label: string) =>
+	page.getByRole("listbox", { name: "Base model" }).getByRole("option", { name: new RegExp(`^${label} `) })
+
+export async function chooseModel(page: Page, label: string) {
 	await modelTrigger(page).click()
-	await page.getByRole("listbox", { name: "Base model" }).getByRole("option", { name, exact: true }).click()
+	await modelOption(page, label).click()
 }
 
 export async function waitForPanelLayout(page: Page) {

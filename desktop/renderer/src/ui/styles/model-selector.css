@@ -73,11 +73,13 @@
   margin-block: -0.15em;
 }
 
-/* A model's speed tier, drawn in the label's colour at its cap height. */
+/* A model's speed tier or image support, drawn in the label's colour at its cap height.
+   The negative block margins keep the icon from making the line, and the trigger, taller. */
 .agent-hud__model-tier {
   display: inline-block;
   width: 1.15em;
   height: 1.15em;
+  margin-block: -0.2em;
   vertical-align: -0.2em;
   fill: none;
   stroke: currentColor;

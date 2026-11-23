@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Literal, overload
 
-from roboz.llm import LLMEndpoint, LLMEndpointRoute, with_request_options
+from roboz.llm import LLMEndpoint, LLMEndpointRoute, LLMPricing, with_request_options
 from roboz.llm.openai_compatible import (
     OpenAIChatCompletion,
     OpenAIResponseFormat,
@@ -119,6 +119,10 @@ def mock_model_endpoint() -> LLMEndpoint:
         client=_ScriptedClient("mock", unexpected_completion),
         api_name="mock",
         model_name="mock",
+        accepts_images=True,
+        prices=LLMPricing(
+            input_price_per_million_tokens=0.3, output_price_per_million_tokens=1.2
+        ),
         stream=False,
     )
 

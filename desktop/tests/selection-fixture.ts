@@ -3,7 +3,10 @@ import { test as native, json, reloadApp, type FakeBackend } from "./native"
 export { json }
 
 export const catalogue = {
-	models: [{ model_id: "one", label: "First model" }, { model_id: "two", label: "Second model" }],
+	models: [
+		{ model_id: "one", label: "First model", accepts_images: false, input_price_per_million_tokens: 0.1, output_price_per_million_tokens: 0.4 },
+		{ model_id: "two", label: "Second model", accepts_images: false, input_price_per_million_tokens: 2, output_price_per_million_tokens: 10 },
+	],
 	selected_model_id: "one",
 }
 /** A backend project summary; tests override the status or run identity they exercise. */

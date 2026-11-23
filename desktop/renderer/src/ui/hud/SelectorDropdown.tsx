@@ -17,6 +17,8 @@ import { SelectorTrigger } from "./SelectorTrigger"
 export type SelectorOption<Value extends string> = {
 	value: Value
 	label: string
+	/** Drawn in place of the label text, such as a model's icons and prices. */
+	content?: ReactNode
 	disabled?: boolean
 }
 
@@ -33,8 +35,8 @@ type SelectorDropdownProps<Value extends string> = {
 	emptyContent?: ReactNode
 	/** A line below the options. */
 	note?: ReactNode
-	/** Draws a label, such as a model's tier as an icon; plain text by default. */
-	renderLabel?: (label: string) => ReactNode
+	/** Drawn in place of the trigger label text. */
+	triggerContent?: ReactNode
 }
 
 function moveOptionFocus(
@@ -67,7 +69,7 @@ export function SelectorDropdown<Value extends string>({
 	variant = "model",
 	emptyContent = null,
 	note = null,
-	renderLabel = label => label,
+	triggerContent = triggerLabel,
 }: SelectorDropdownProps<Value>) {
 	const listboxId = useId()
 	const rootRef = useRef<HTMLDivElement>(null)
@@ -179,7 +181,7 @@ export function SelectorDropdown<Value extends string>({
 		"aria-controls": isOpen ? listboxId : undefined,
 		onClick: toggleMenu,
 	}
-	let trigger = <SelectorTrigger {...triggerProps} label={renderLabel(triggerLabel)} open={isOpen} className={triggerClass} />
+	let trigger = <SelectorTrigger {...triggerProps} label={triggerContent} open={isOpen} className={triggerClass} />
 	// The log's selector takes the terminal's classes: its trigger is a badge like the pager's.
 	if (variant === "log") {
 		selectorClass = "term-log-selector"
@@ -190,7 +192,7 @@ export function SelectorDropdown<Value extends string>({
 		trigger = (
 			<button {...triggerProps} type="button" className="term-msg-badge" aria-expanded={isOpen}>
 				<span className="term-msg-badge-label">
-					<span className="term-log-selector__name">{renderLabel(triggerLabel)}</span>
+					<span className="term-log-selector__name">{triggerContent}</span>
 					<span className="term-log-selector__caret" data-open={isOpen || undefined} aria-hidden="true">▴</span>
 				</span>
 			</button>
@@ -231,7 +233,7 @@ export function SelectorDropdown<Value extends string>({
 								className={optionClass}
 								disabled={option.disabled}
 								onClick={() => selectOption(option.value)}>
-								<span className={optionLabelClass}>{renderLabel(option.label)}</span>
+								<span className={optionLabelClass}>{option.content ?? option.label}</span>
 								{option.value === value ? (
 									<span className={optionLabelClass} aria-hidden="true">●</span>
 								) : null}

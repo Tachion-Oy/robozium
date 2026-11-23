@@ -13,6 +13,7 @@ from deployment_support import BuiltAgents, configured_hub, deferred_deployment
 from fastapi.testclient import TestClient
 from roboz import Agent
 from roboz.endpoints.adapters.openai_compatible import OpenAICompatibleAdapter
+from roboz.llm import LLMPricing
 from roboz.models import AgentMode
 from roboz.tools import stop
 
@@ -133,7 +134,13 @@ def test_custom_root_and_memory_compile_one_dependency_contract(
         api_key_env="LOCAL_MODEL_KEY",
     )
     root, spare, memory = (
-        adapter.chat_endpoint(model=f"{role}-model", max_context_tokens=32768)
+        adapter.chat_endpoint(
+            model=f"{role}-model",
+            max_context_tokens=32768,
+            prices=LLMPricing(
+                input_price_per_million_tokens=0.1, output_price_per_million_tokens=0.4
+            ),
+        )
         for role in ("root", "spare", "memory")
     )
     hub = load_hub(config_file=config_file)
@@ -219,6 +226,13 @@ def test_invalid_model_selection_fails_before_construction(config_file, change):
         )
         with pytest.raises(ValueError):
             configured_hub(hub, models=models)
+
+
+def test_a_model_without_prices_fails_before_construction(config_file):
+    hub = load_hub(config_file=config_file)
+    unpriced = hub.settings.default_model.model_copy(update={"prices": None})
+    with pytest.raises(ValueError, match="needs input and output prices"):
+        configured_hub(hub, models={"Unpriced": unpriced}, default_model=unpriced)
 
 
 @pytest.mark.parametrize(

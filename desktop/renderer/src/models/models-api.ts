@@ -4,12 +4,25 @@ import { z } from "zod"
 import { ApiError, type DesktopApiClient } from "../api/client"
 import { nonBlank, parsePayload } from "../api/payload"
 
-export interface AvailableModel { model_id: string; label: string }
+/** Prices are USD per 1M tokens. */
+export interface AvailableModel {
+	model_id: string
+	label: string
+	accepts_images: boolean
+	input_price_per_million_tokens: number
+	output_price_per_million_tokens: number
+}
 export interface ModelSelection { models: AvailableModel[]; selected_model_id: string }
 
 const MALFORMED = "The backend returned an invalid selection response."
 const ModelSelection: z.ZodType<ModelSelection> = z.object({
-	models: z.array(z.object({ model_id: nonBlank, label: nonBlank })),
+	models: z.array(z.object({
+		model_id: nonBlank,
+		label: nonBlank,
+		accepts_images: z.boolean(),
+		input_price_per_million_tokens: z.number().nonnegative(),
+		output_price_per_million_tokens: z.number().nonnegative(),
+	})),
 	selected_model_id: z.string(),
 }).refine(({ models, selected_model_id }) => {
 	const ids = new Set(models.map(model => model.model_id))
