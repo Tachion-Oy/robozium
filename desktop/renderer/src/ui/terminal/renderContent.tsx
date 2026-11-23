@@ -1,6 +1,7 @@
 import { Fragment, type ReactNode } from "react"
 import {
 	StreamLogItemKind,
+	StreamLogRole,
 	type LifecycleLogItem,
 	type MessageLogItem,
 	type StreamLogItem,
@@ -13,10 +14,7 @@ import { TerminalCursor } from "./TerminalCursor"
 import { TerminalEmphasis } from "./TerminalEmphasis"
 import { TerminalMessage } from "./TerminalMessage"
 import { TerminalTag } from "./TerminalTag"
-
-const MAX_CONTENT_CHARS = 500
-const ANGLE_BRACKET_LEFT = "["
-const ANGLE_BRACKET_RIGHT = "]"
+import { cleanTailText, cleanText } from "./cleanText"
 
 /**
  * Total character budget for a live log message, across all of its fields. With
@@ -30,18 +28,11 @@ export const LIVE_MESSAGE_MAX_CHARS = 420
 /** Largest amount of a message shown after the user expands a log row. */
 export const EXPANDED_MESSAGE_MAX_CHARS = 4_000
 
-export function cleanText(
-	s: string,
-	limit: number = MAX_CONTENT_CHARS,
-): string {
-	const substituted = s.replace(
-		/<([^>\n]+)>/g,
-		(_, inner: string) =>
-			`${ANGLE_BRACKET_LEFT}${inner}${ANGLE_BRACKET_RIGHT}`,
-	)
-	if (substituted.length <= limit) return substituted
-	const cap = Math.max(1, limit - 1)
-	return `${substituted.slice(0, cap)}…`
+/** An unparsed message's text: script output keeps its newest lines, anything else its start. */
+function cleanUnparsed(item: MessageLogItem, maxChars: number): string {
+	return item.role === StreamLogRole.Script
+		? cleanTailText(item.content, maxChars)
+		: cleanText(item.content, maxChars)
 }
 
 /**
@@ -72,7 +63,7 @@ function renderMessageContent(
 	maxChars: number = LIVE_MESSAGE_MAX_CHARS,
 ): ReactNode {
 	if (mode === "demo") return renderDemoContent(item)
-	if (!item.parsed) return cleanText(item.content, maxChars)
+	if (!item.parsed) return cleanUnparsed(item, maxChars)
 
 	switch (item.parsed.kind) {
 		case "assistant": {
@@ -130,7 +121,7 @@ export function messageRevealText(
 	item: MessageLogItem,
 	maxChars: number = LIVE_MESSAGE_MAX_CHARS,
 ): string {
-	if (!item.parsed) return cleanText(item.content, maxChars)
+	if (!item.parsed) return cleanUnparsed(item, maxChars)
 	switch (item.parsed.kind) {
 		case "assistant": {
 			const action = cleanText(item.parsed.action, maxChars)
