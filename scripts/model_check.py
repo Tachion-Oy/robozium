@@ -50,7 +50,9 @@ PROBE_ATTEMPTS = 5
 PARALLEL_MODELS = 8
 TEXT_PROMPT = "Reply with exactly one word: hello"
 AGENT_GREETING = "hi"
-IMAGE_PROMPT = "What colour is this square? Reply with one word."
+# Agent models run in JSON mode, and some providers then refuse a request that
+# never mentions JSON.
+IMAGE_PROMPT = 'What colour is this square? Reply as JSON: {"colour": "<one word>"}'
 CHECK_PROJECT = "model-check"
 
 type Ping = Callable[[LLMEndpoint, list[Message]], str]
