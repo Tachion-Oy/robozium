@@ -69,6 +69,8 @@ class RunViewLifecycleEntry(TypedDict):
 
 class RunViewScriptOutputPayload(TypedDict):
     content: str
+    # The tool that printed the output.
+    caller: str | None
 
 
 class RunViewScriptOutputEntry(TypedDict):

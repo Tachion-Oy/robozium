@@ -128,13 +128,15 @@ def test_event_to_sse_frame_serializes_lifecycle_started_with_metadata() -> None
 
 
 def test_event_to_sse_frame_serializes_script_output_event() -> None:
-    event = ScriptOutputEvent(content="script line", sequence=9)
+    event = ScriptOutputEvent(
+        content="script line", sequence=9, caller="run_shell_script"
+    )
     frame = event_to_sse_frame(event)
     payload = json.loads(frame[6:-2])
     assert payload == {
         "type": "script_output",
         "sequence": 9,
-        "payload": {"content": "script line"},
+        "payload": {"content": "script line", "caller": "run_shell_script"},
     }
 
 

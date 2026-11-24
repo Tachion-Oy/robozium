@@ -175,6 +175,7 @@ class RunViewLifecycleEntry(BaseModel):
 
 class RunViewScriptOutputPayload(BaseModel):
     content: str
+    caller: str | None = None
 
 
 class RunViewScriptOutputEntry(BaseModel):

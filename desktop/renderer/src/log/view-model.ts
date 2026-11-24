@@ -73,6 +73,8 @@ export type MessageLogItem = {
 	label?: string
 	parsed?: ParsedMessageContent
 	messageKind?: string
+	/** The tool that printed a script row's output. */
+	caller?: string | null
 }
 
 export const PROMPT_USER_ACTION = "prompt_user" as const

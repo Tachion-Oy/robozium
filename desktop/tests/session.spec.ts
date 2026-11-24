@@ -27,7 +27,7 @@ function select(state: RunSessionState, index: number): RunSessionState {
 }
 const working = "Agent is working..."
 const retry = (sequence: number, agent = "root"): RunFrame => ({ type: "llm_retry", sequence, agent })
-const script = (sequence: number, content: string): RunFrame => ({ type: "script_output", sequence, content })
+const script = (sequence: number, content: string): RunFrame => ({ type: "script_output", sequence, content, caller: null })
 const progress = (sequence: number, reasoningChars: number): RunFrame => ({ type: "llm_progress", sequence, reasoningChars })
 const call = (sequence: number, started: boolean): RunFrame => ({ type: "llm_call", sequence, started })
 function tick(state: RunSessionState, time: string): RunSessionState {
@@ -132,8 +132,7 @@ test("background retries and stale retry snapshots do not clear newer foreground
 	expect(selectRunDisplay(state).text).toBe("Keep")
 	state = snapshot(state, { frames: [retry(3)] })
 	expect(selectRunDisplay(state).text).toBe("Keep")
-	state = receive(state, { type: "script_output", sequence: 6, content: "Script\n" }, retry(7),
-		{ type: "script_output", sequence: 8, content: "continued" })
+	state = receive(state, script(6, "Script\n"), retry(7), script(8, "continued"))
 	expect(selectRunDisplay(state).text).toBe("Script\ncontinued")
 	expect(selectRunDisplay(state).count).toBe(1)
 })
@@ -177,8 +176,8 @@ test("a snapshot overtaking SSE does not discard an unfinished stream's prefix",
 
 test("a recovered stream boundary splits script groups without duplicating pinned identities", () => {
 	let state = snapshot(session(), { frames: [
-		{ type: "script_output", sequence: 1, content: "First script" },
-		{ type: "script_output", sequence: 4, content: "Second script" },
+		script(1, "First script"),
+		script(4, "Second script"),
 		message(6, "last", "Latest"),
 	] })
 	state = select(state, 0)

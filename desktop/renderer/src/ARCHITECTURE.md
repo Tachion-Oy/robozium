@@ -141,8 +141,9 @@ or launched, which the log follows again. The log is a pure selector over those 
 computed only while the log pane is mounted:
 
 - `log/run-log` `selectLogItems` maps run records to log rows:
-  messages with parsed content, consecutive script output as one row (a provider
-  retry or a hidden message does not split it), and lifecycle banners. A message
+  messages with parsed content, consecutive script output of one tool as one row
+  titled with that tool's name (a provider retry or a hidden message does not
+  split it), and lifecycle banners. A message
   whose truncation removes it at threshold 0 never reaches the agent and gets no
   row. `run-payloads` keeps the lifecycle kind, agent, status and banner fields
   and that hidden flag for it.

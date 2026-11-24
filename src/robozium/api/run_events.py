@@ -188,7 +188,7 @@ class RunEvents:
         script_entry: RunViewScriptOutputEntry = {
             "type": "script_output",
             "sequence": event.sequence,
-            "payload": {"content": event.content},
+            "payload": {"content": event.content, "caller": event.caller},
         }
         self._append_trace_entry(state, script_entry)
 
