@@ -74,13 +74,15 @@
 }
 
 /* A model's speed tier or image support, drawn in the label's colour at its cap height.
-   The negative block margins keep the icon from making the line, and the trigger, taller. */
+   The negative block margins keep the icon from making the line, and the trigger, taller.
+   The baseline holds the icon's bottom margin edge, 0.375em under its middle, so this
+   offset puts that middle on the middle of the capitals. */
 .agent-hud__model-tier {
   display: inline-block;
   width: 1.15em;
   height: 1.15em;
   margin-block: -0.2em;
-  vertical-align: -0.2em;
+  vertical-align: calc(0.5cap - 0.375em);
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
