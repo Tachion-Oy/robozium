@@ -248,11 +248,11 @@ test("typed run streams ignore unknown events and release the response on exit, 
 			response = res
 			res.writeHead(200, { "Content-Type": "text/event-stream" })
 			res.write('data: {"type":"future_event"}\n\n')
-			res.write('data: {"type":"script_output","sequence":1,"payload":{"content":"Hello"}}\n\n')
+			res.write('data: {"type":"script_output","sequence":1,"payload":{"content":"Hello","caller":"run_shell_script"}}\n\n')
 		})
 		const controller = new AbortController()
 		const events = streamRunEvents(client, "run/one", controller.signal)
-		expect((await events.next()).value).toEqual({ type: "script_output", sequence: 1, content: "Hello" })
+		expect((await events.next()).value).toEqual({ type: "script_output", sequence: 1, content: "Hello", caller: "run_shell_script" })
 		const closed = once(response!, "close")
 		if (end === "return") {
 			await events.return(undefined)
@@ -280,8 +280,8 @@ test("run parsing preserves the wire contract while normalizing retry controls",
 	expect(parseRunEvent({ type: "message_delta", sequence: 2, payload: {
 		message_id: "m2", delta: "Progress", chunk_index: 0, agent_name: "root",
 	} })).toEqual({ type: "message_delta", sequence: 2, id: "m2", delta: "Progress", chunk: 0, agent: "root" })
-	expect(parseRunEvent({ type: "script_output", sequence: 3, payload: { content: "stdout" } }))
-		.toEqual({ type: "script_output", sequence: 3, content: "stdout" })
+	expect(parseRunEvent({ type: "script_output", sequence: 3, payload: { content: "stdout", caller: "run_shell_script" } }))
+		.toEqual({ type: "script_output", sequence: 3, content: "stdout", caller: "run_shell_script" })
 	expect(parseRunEvent({ type: "run_lifecycle", payload: {
 		kind: "stopped", agent_name: "root", sequence: 4, parent_agent_name: null, status: "completed",
 		model_name: "model", max_context_tokens: 8000, output_format: "text", unknown: "ignored",

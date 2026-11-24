@@ -84,7 +84,8 @@ export type RunFrame = { sequence: number } & (
 	| { type: typeof RunFrameKind.LlmProgress; reasoningChars: number }
 	/** A runtime event meant for the user, shown as the runtime wrote it. */
 	| { type: typeof RunFrameKind.RuntimeNotice; agent: string; level: RuntimeLevel; message: string }
-	| { type: typeof RunFrameKind.ScriptOutput; content: string }
+	/** Text a tool printed while it ran, and that tool's name. */
+	| { type: typeof RunFrameKind.ScriptOutput; content: string; caller: string | null }
 	| {
 		type: typeof RunFrameKind.Lifecycle
 		phase: LifecyclePhase

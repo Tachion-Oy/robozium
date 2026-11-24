@@ -34,11 +34,11 @@ def event_to_sse_frame(event: PipeEvent) -> str:
                 "type": "run_lifecycle",
                 "payload": _drop_none_values(asdict(event)),
             }
-        case ScriptOutputEvent(content=content, sequence=sequence):
+        case ScriptOutputEvent(content=content, sequence=sequence, caller=caller):
             payload = {
                 "type": "script_output",
                 "sequence": sequence,
-                "payload": {"content": content},
+                "payload": {"content": content, "caller": caller},
             }
         case MessageDeltaEvent(
             message_id=message_id,

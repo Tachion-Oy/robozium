@@ -1295,7 +1295,9 @@ def test_api_run_view_preserves_streamed_message_identity(tmp_path: Path) -> Non
 
 
 def test_api_run_view_serializes_script_output_trace_entry(tmp_path: Path) -> None:
-    event = ScriptOutputEvent(content="script line", sequence=0)
+    event = ScriptOutputEvent(
+        content="script line", sequence=0, caller="run_shell_script"
+    )
 
     def factory(sandbox, project_slug, *, endpoint_getter, event_sinks):
         del sandbox, project_slug, endpoint_getter
@@ -1318,7 +1320,7 @@ def test_api_run_view_serializes_script_output_trace_entry(tmp_path: Path) -> No
         {
             "type": "script_output",
             "sequence": 1,
-            "payload": {"content": "script line"},
+            "payload": {"content": "script line", "caller": "run_shell_script"},
         }
     ]
 

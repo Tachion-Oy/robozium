@@ -63,7 +63,17 @@ function renderMessageContent(
 	maxChars: number = LIVE_MESSAGE_MAX_CHARS,
 ): ReactNode {
 	if (mode === "demo") return renderDemoContent(item)
-	if (!item.parsed) return cleanUnparsed(item, maxChars)
+	if (!item.parsed) {
+		const text = cleanUnparsed(item, maxChars)
+		if (!item.caller) return text
+		// The tool's name titles its output, which starts on the line below.
+		return (
+			<>
+				<TerminalTag>{item.caller}</TerminalTag>
+				{`\n${text}`}
+			</>
+		)
+	}
 
 	switch (item.parsed.kind) {
 		case "assistant": {
@@ -121,7 +131,11 @@ export function messageRevealText(
 	item: MessageLogItem,
 	maxChars: number = LIVE_MESSAGE_MAX_CHARS,
 ): string {
-	if (!item.parsed) return cleanUnparsed(item, maxChars)
+	if (!item.parsed) {
+		const text = cleanUnparsed(item, maxChars)
+		if (!item.caller) return text
+		return `${item.caller}\n${text}`
+	}
 	switch (item.parsed.kind) {
 		case "assistant": {
 			const action = cleanText(item.parsed.action, maxChars)

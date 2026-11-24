@@ -69,8 +69,11 @@ const MessageDeltaEvent = z.object({
 	type: RunFrameKind.MessageDelta, sequence, id: payload.message_id, delta: payload.delta, chunk: payload.chunk_index, agent: payload.agent_name,
 }))
 
-const ScriptOutputEvent = z.object({ type: z.literal(WireFrameType.ScriptOutput), sequence, payload: z.object({ content: z.string() }) })
-	.transform(({ sequence, payload }) => ({ type: RunFrameKind.ScriptOutput, sequence, content: payload.content }))
+const ScriptOutputEvent = z.object({
+	type: z.literal(WireFrameType.ScriptOutput),
+	sequence,
+	payload: z.object({ content: z.string(), caller: orNull(z.string()) }),
+}).transform(({ sequence, payload }) => ({ type: RunFrameKind.ScriptOutput, sequence, content: payload.content, caller: payload.caller }))
 
 /** Detail fields are display-only scalars; absent fields stay absent. */
 const detail = z.union([z.string(), z.number()]).nullable().optional()

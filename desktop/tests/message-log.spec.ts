@@ -10,7 +10,7 @@ import { captureNative, setNativeViewport, waitForPanelLayout } from "./native"
 const lifecycle = (sequence: number, kind: string, extra: Record<string, unknown> = {}) => ({
 	type: "run_lifecycle", payload: { kind, agent_name: "orchestrator", sequence, parent_agent_name: null, status: null, model_name: "mock", ...extra },
 })
-const script = (sequence: number, content: string) => ({ type: "script_output", sequence, payload: { content } })
+const script = (sequence: number, content: string, caller = "run_shell_script") => ({ type: "script_output", sequence, payload: { content, caller } })
 // RoboZ truncation rules as the backend sends them; severity 1 is Light and 3 is Remove.
 const LIGHT_FROM_START = { threshold: 0, severity: 1 }
 const REMOVED_FROM_START = { threshold: 0, severity: 3 }
@@ -46,7 +46,7 @@ test("the log projects messages, grouped script output and lifecycle banners fro
 		{ kind: "message", role: "agent", content: JSON.stringify({ action: "run_script", rationale: "Inspect", path: "a.py" }),
 			parsed: { kind: "assistant", action: "run_script", rationale: "Inspect", extra: { path: "a.py" } } },
 		// A retry is not displayed, so it does not split the script output.
-		{ kind: "message", role: "script", content: "line one\nline two\nafter retry" },
+		{ kind: "message", role: "script", content: "line one\nline two\nafter retry", caller: "run_shell_script" },
 		{ kind: "message", role: "tool", content: "plain output", parsed: { kind: "user", caller: "script_result", extra: {} } },
 		{ kind: "message", role: "tool", content: "unlabelled" },
 		{ kind: "message", role: "tool", content: JSON.stringify({ status: "ok", agent: "librarian" }),
@@ -61,6 +61,11 @@ test("the log projects messages, grouped script output and lifecycle banners fro
 	// The selector keeps no state: recovered history and live appends give the same rows.
 	const events = records(script(1, "a"), script(2, "b"), wire("assistant", "{}", 3))
 	expect(selectLogItems(events)).toEqual(selectLogItems([...events]))
+	// Output another tool printed starts a row of its own.
+	expect(selectLogItems(records(script(1, "a"), script(2, "b"), script(3, "c", "execute_shell_command")))).toEqual([
+		{ kind: "message", role: "script", content: "ab", caller: "run_shell_script" },
+		{ kind: "message", role: "script", content: "c", caller: "execute_shell_command" },
+	])
 })
 
 test("the log leaves out messages the agent never sees and keeps ones removed later", () => {
@@ -74,7 +79,7 @@ test("the log leaves out messages the agent never sees and keeps ones removed la
 	))
 	expect(items).toEqual([
 		// A hidden message is not displayed, so it does not split the script output.
-		{ kind: "message", role: "script", content: "before after" },
+		{ kind: "message", role: "script", content: "before after", caller: "run_shell_script" },
 		{ kind: "message", role: "error", content: "Retrying", parsed: { kind: "error", value: "Retrying" } },
 		{ kind: "message", role: "tool", content: "old output" },
 	])
@@ -119,10 +124,11 @@ test("the toggle opens the placeholder log before a run and the run's rows durin
 	await expect(log(page)).toContainText("orchestrator")
 	await expect(log(page)).toContainText("Hello from the agent")
 	await expect(log(page)).toContainText("line one line two")
-	// Script output keeps one line per entry, unlike the crammed message rows.
+	// Script output keeps one line per entry, unlike the crammed message rows, under the name of the tool that printed it.
 	const scriptRow = log(page).locator('.term-msg[data-role="script"] .term-msg-content').last()
 	expect(await scriptRow.evaluate(element => getComputedStyle(element).whiteSpace)).toBe("pre-wrap")
-	await expect.poll(() => scriptRow.innerText()).toContain("line one\nline two")
+	await expect.poll(() => scriptRow.innerText()).toContain("run_shell_script\nline one\nline two")
+	await expect(scriptRow.locator(".intro-emph__rich .term-tag")).toHaveText("run_shell_script")
 	// The live log has no title, and its first row sits as far below the top as the tail's margin at the bottom.
 	// Opening the log grows the window; sample once it is side by side and settled.
 	const marginDifference = () => log(page).evaluate(pane => {

@@ -75,8 +75,8 @@ function lifecycleItem(event: LifecycleEvent): LifecycleLogItem {
 }
 
 /**
- * Consecutive script output forms one row; a displayed message or banner closes it.
- * A message the agent never sees is not displayed.
+ * Consecutive script output of one tool forms one row, titled with that tool's name; a
+ * displayed message or banner closes it. A message the agent never sees is not displayed.
  */
 export function selectLogItems(events: readonly RunRecord[]): StreamLogItem[] {
 	const items: StreamLogItem[] = []
@@ -84,8 +84,12 @@ export function selectLogItems(events: readonly RunRecord[]): StreamLogItem[] {
 	for (const event of events) {
 		switch (event.type) {
 			case RunFrameKind.ScriptOutput:
-				if (script) script.content += event.content
-				else items.push(script = { kind: StreamLogItemKind.Message, role: StreamLogRole.Script, content: event.content })
+				if (script && script.caller === event.caller) {
+					script.content += event.content
+					break
+				}
+				script = { kind: StreamLogItemKind.Message, role: StreamLogRole.Script, content: event.content, caller: event.caller }
+				items.push(script)
 				break
 			case RunFrameKind.Message:
 				if (event.hiddenFromAgent) break
