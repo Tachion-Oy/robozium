@@ -469,6 +469,23 @@ def test_api_user_io_notify_streams_message_event_to_sink() -> None:
     assert emitted[1].sequence == 2
 
 
+def test_api_user_io_records_a_question_in_the_run_history() -> None:
+    """A question stays in the run history once the wait for its reply ends."""
+    control = RunControl(_project(), _TEST_DEFAULT_ENDPOINT, history_limit=5000)
+    io = ApiUserIO(control)
+
+    assert io.request_input("question?", timeout=0.01) is None
+    # The wait after a failed model call asks with empty text.
+    assert io.request_input("", timeout=0.01) is None
+
+    recorded = [
+        (entry["payload"]["content"], entry["payload"]["message_kind"])
+        for entry in control.snapshot()["message_trace"]
+        if entry["type"] == "message"
+    ]
+    assert recorded == [("question?", MessageKind.USER_PROMPT)]
+
+
 def test_manager_sequences_and_replays_user_notifications() -> None:
     from roboz.runtime.io import interact_with_user
 

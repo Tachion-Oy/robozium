@@ -91,8 +91,9 @@ for (const source of ["SSE", "snapshot"] as const) {
 		const literal = '{"action":"prompt_user","value":"Show this JSON literally"}'
 		const events: RunFrame[] = [
 			script(1, "First"), retry(2), script(3, " continued"),
-			message(4, "internal", "null", null), script(5, "Second"),
-			message(6, "question", '{"action":"prompt_user","value":"Continue?"}', null),
+			// The agent's call that asks is a tool call; the question arrives as its own record.
+			message(4, "call", '{"action":"prompt_user","value":"Continue?"}', null), script(5, "Second"),
+			message(6, "question", "Continue?", "user_prompt"),
 			{ type: "message", sequence: 7, id: "error", role: MessageRole.Error, kind: null, caller: null, content: "Problem", hiddenFromAgent: false },
 			message(8, "notification", literal),
 			{ type: "message", sequence: 9, id: "reply", role: MessageRole.User, kind: null, caller: null, content: "Hidden reply", hiddenFromAgent: false },
