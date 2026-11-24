@@ -400,17 +400,18 @@ test("script output stays literal, groups chunks, and keeps a pinned identity ac
 	expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe(expected)
 })
 
-test("completed prompt messages extract user-facing text and late token deltas cannot replace them", async ({ desktop: { page }, backend }) => {
+test("a recorded question is listed once beside the agent's call that asked it and late token deltas cannot replace it", async ({ desktop: { page }, backend }) => {
 	const run = prepareRun(backend)
-	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ message_trace: [{
-		...message(5, JSON.stringify({ action: "prompt_user", rationale: "Ask", value: "Question?" }), "prompt-message"),
-		payload: { role: "assistant", content: JSON.stringify({ action: "prompt_user", rationale: "Ask", value: "Question?" }), truncation: { threshold: 0, severity: 1 } },
-	}] })))
+	const call = JSON.stringify({ action: "prompt_user", rationale: "Ask", value: "Question?" })
+	backend.handlers.set("GET /run/run-one", response => json(response, snapshot({ message_trace: [
+		{ ...message(5, call, "prompt-message"), payload: { role: "assistant", content: call, truncation: { threshold: 0, severity: 1 } } },
+		{ ...message(6, "Question?"), payload: { role: "assistant", content: "Question?", truncation: { threshold: 0, severity: 1 }, message_kind: "user_prompt" } },
+	] })))
 	await start(page, backend)
 	await expect(output(page)).toHaveText("Question?")
 	emit(run.streams[0], delta(4, "obsolete partial", 0, "prompt-message"))
 	emit(run.streams[0], { type: "future_event", payload: {} })
-	emit(run.streams[0], { ...message(6, "internal tool output"), payload: { role: "user", content: "internal tool output", truncation: { threshold: 0, severity: 1 } } })
+	emit(run.streams[0], { ...message(7, "internal tool output"), payload: { role: "user", content: "internal tool output", truncation: { threshold: 0, severity: 1 } } })
 	await expect(output(page)).toHaveText("Question?")
 	await expect(page.getByRole("button", { name: "Previous agent message", exact: true })).toBeDisabled()
 })
