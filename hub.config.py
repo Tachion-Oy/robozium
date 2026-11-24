@@ -33,9 +33,15 @@ ATTACHMENTS: Final = AttachmentSettings(
 )
 
 OPENROUTER: Final = openrouter.configured()
-GLM: Final = with_openrouter_policy(OPENROUTER.z_ai__glm_5_3, reasoning_effort="low")
+# Agents reply with one JSON object, so their models run in JSON mode. In text
+# mode DeepSeek often answers with its native tool-call markup instead.
+JSON_MODE: Final = {"output_format": "json"}
+GLM: Final = with_openrouter_policy(
+    OPENROUTER.z_ai__glm_5_3.model_copy(update=JSON_MODE), reasoning_effort="low"
+)
 FLASH: Final = with_openrouter_policy(
-    OPENROUTER.z_ai__glm_5_3_flash, reasoning_effort="low"
+    OPENROUTER.z_ai__glm_5_3_flash.model_copy(update=JSON_MODE),
+    reasoning_effort="low",
 )
 GPT_OSS: Final = cerebras.configured().gpt_oss_120b
 MEMORY_ENDPOINT: Final = with_openrouter_policy(
@@ -64,14 +70,14 @@ MODELS: Final = {
     "GLM-5.3 Flash · Fast · OpenRouter": FLASH,
     **{
         f"{name} · Fast · OpenRouter": with_openrouter_policy(
-            endpoint, reasoning_effort="low"
+            endpoint.model_copy(update=JSON_MODE), reasoning_effort="low"
         )
         for name, endpoint in FAST_MODELS.items()
     },
     "GPT-OSS-120B · Fast · Cerebras": GPT_OSS,
     **{
         f"{name} · Deep reasoning · OpenRouter": with_openrouter_policy(
-            endpoint, reasoning_effort="high"
+            endpoint.model_copy(update=JSON_MODE), reasoning_effort="high"
         )
         for name, endpoint in DEEP_REASONING_MODELS.items()
     },
