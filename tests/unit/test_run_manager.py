@@ -588,7 +588,7 @@ def test_run_event_snapshots_keep_message_truncation() -> None:
     truncations = [entry["payload"]["truncation"] for entry in trace if entry["type"] == "message"]
     assert truncations == [
         {"threshold": 0, "severity": 3},
-        [{"threshold": 0, "severity": 1}, {"threshold": 20, "severity": 3}],
+        [{"threshold": 0, "severity": 1}, {"threshold": 100, "severity": 3}],
     ]
 
 
