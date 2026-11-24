@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+## 0.6.15 - 2026-11-24
+
+- Agents on the OpenRouter models run in JSON mode. In text mode DeepSeek V4.1
+  Flash often answered with its native tool-call markup instead of a JSON
+  action, which showed as an empty reply and an error: 42 of 204 calls in one
+  evening, against 3 of 347 in JSON mode. The mode is `output_format` on each
+  model in `models.json`; GPT-OSS-120B on Cerebras stays in text mode.
+- Paging back through the top panel shows every question the run asked, also
+  after it is answered: the web search plan, email and timesheet
+  confirmations, command approvals, the interrupt prompt. Before, only a
+  question the agent asked itself stayed.
+- A SCRIPT row in the message log shows the name of the tool that printed it,
+  as a tag above the output. Output of another tool starts a row of its own.
+- The speed and picture icons in the model selector sit level with the capital
+  letters, in the trigger and in the open list. They sat too low.
+- RoboZ 0.23.0. A format error stays in the agent's conversation after the
+  retry succeeds, so the model still sees it on later turns; it is removed 100
+  messages later. A reply with no text gets its own error message instead of
+  the unparsable-JSON one. A question to the user has its own message kind,
+  `user_prompt`, and script output names the tool that printed it.
+
 ## 0.6.14 - 2026-11-23
 
 - The model picker shows a picture icon for models that accept pasted images,
