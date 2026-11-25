@@ -67,14 +67,14 @@
   justify-content: space-between;
 }
 
-/* The dark HUD's text: Share Tech Mono in a pale blue with a soft glow. Set on
+/* The dark HUD's text: Share Tech Mono in a pale blue with a thin glow. Set on
    the shell, so the message log and the toasts keep their own, and on the
    password dialog, which is outside the shell. A picture's frame is a dim blue
    line in a quiet halo. */
 :root[data-theme="dark"] :is(.agent-hud__box, .agent-hud__password-dialog) {
   --font-agent-input: var(--font-terminal-alt);
-  --hud-input-text: color-mix(in oklab, var(--term-blue) 24%, white);
-  --hud-text-glow: 0 0 0.6em color-mix(in oklab, var(--term-blue) 50%, transparent);
+  --hud-input-text: color-mix(in oklab, var(--term-blue) 27%, white);
+  --hud-text-glow: 0 0 0.1em color-mix(in oklab, var(--term-blue) 50%, transparent);
   --image-edge: color-mix(in oklab, var(--term-blue) 45%, var(--term-bg));
   --image-glow: 0 0 4px color-mix(in oklab, var(--term-blue) 50%, transparent), 0 0 14px color-mix(in oklab, var(--term-blue) 22%, transparent);
 }
