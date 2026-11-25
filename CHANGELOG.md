@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 0.6.16 - 2026-11-25
+
+- The dark theme's text is easier to read. The text in the Agent and User
+  panels is slightly larger and set tighter, in its letters and its lines. All
+  the HUD's text has a thin glow in place of the wide haze, and a little more
+  blue in its ink. The scan lines behind the text are fainter.
+- Project rows in the dark theme are taller, and so are the small buttons in
+  them, in the Environment panel and in the tool lists: at 100% zoom a row is
+  38px high instead of 34px, a button 23px instead of 18px.
+- The message log shows each question once. Since 0.6.15 a question the agent
+  asked appeared twice: in the agent's `prompt_user` call and again in a row
+  directly below it. A question a tool asks (a command approval, the web search
+  plan) has no row in the log, as before 0.6.15; the top panel still shows it
+  and keeps it in its history.
+
 ## 0.6.15 - 2026-11-24
 
 - Agents on the OpenRouter models run in JSON mode. In text mode DeepSeek V4.1
