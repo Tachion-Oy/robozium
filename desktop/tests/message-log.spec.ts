@@ -85,6 +85,28 @@ test("the log leaves out messages the agent never sees and keeps ones removed la
 	])
 })
 
+test("the log gives a question's record no row", () => {
+	const call = JSON.stringify({ action: "prompt_user", rationale: "Ask", value: "Continue?" })
+	const items = selectLogItems(records(
+		wire("assistant", call, 1),
+		wire("assistant", "Continue?", 2, "user_prompt"),
+		script(3, "before "),
+		// A question a tool asked has a record and no call.
+		wire("assistant", "Run the command?", 4, "user_prompt"),
+		script(5, "after"),
+		wire("assistant", "Done", 6, "user_notification"),
+	))
+	expect(items).toEqual([
+		// The agent's question is shown once, in the call that asked it.
+		{ kind: "message", role: "agent", content: call,
+			parsed: { kind: "assistant", action: "prompt_user", rationale: "Ask", extra: { value: "Continue?" } } },
+		// A record is not displayed, so it does not split the script output.
+		{ kind: "message", role: "script", content: "before after", caller: "run_shell_script" },
+		// A notification keeps its row.
+		{ kind: "message", role: "agent", content: "Done" },
+	])
+})
+
 test("a long script row keeps its newest whole lines", () => {
 	const lines = Array.from({ length: 30 }, (_, i) => `12:00:${String(i).padStart(2, "0")}: No new notes.`)
 	const shown = cleanTailText(`${lines.join("\n")}\n`, 100)

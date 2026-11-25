@@ -1,6 +1,6 @@
 // Project the displayed run's retained events into message log rows. No log state:
 // the log pane computes this only while it is mounted.
-import { LifecyclePhase, MessageRole, RunFrameKind, RuntimeLevel, type RunRecord } from "../run/run-contracts"
+import { LifecyclePhase, MessageRole, RunFrameKind, RuntimeLevel, UserMessageKind, type RunRecord } from "../run/run-contracts"
 import { isAssistantContent, parseContentObject, type ParsedMessageContent } from "./normalize"
 import { StreamLogItemKind, StreamLogRole, type LifecycleLogItem, type MessageLogItem, type StreamLogItem } from "./view-model"
 
@@ -76,7 +76,8 @@ function lifecycleItem(event: LifecycleEvent): LifecycleLogItem {
 
 /**
  * Consecutive script output of one tool forms one row, titled with that tool's name; a
- * displayed message or banner closes it. A message the agent never sees is not displayed.
+ * displayed message or banner closes it. A message the agent never sees is not displayed,
+ * and neither is a question's record, which the backend writes for the HUD's history.
  */
 export function selectLogItems(events: readonly RunRecord[]): StreamLogItem[] {
 	const items: StreamLogItem[] = []
@@ -93,6 +94,7 @@ export function selectLogItems(events: readonly RunRecord[]): StreamLogItem[] {
 				break
 			case RunFrameKind.Message:
 				if (event.hiddenFromAgent) break
+				if (event.kind === UserMessageKind.Prompt) break
 				script = null
 				items.push(messageItem(event))
 				break
