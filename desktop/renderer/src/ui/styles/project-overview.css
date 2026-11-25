@@ -190,7 +190,7 @@
    follow a button to its project name. The row itself does nothing on click,
    so the cursor stays an arrow. */
 .agent-hud__project-row {
-  padding-block: 0.3rem;
+  padding-block: 0.48rem;
   border-bottom: 1px solid color-mix(in oklab, var(--term-blue) 20%, transparent);
   cursor: default;
 }

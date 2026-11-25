@@ -203,7 +203,7 @@
    the message log and the startup screen, whose ink is their own violet
    (desktop.css), declare it again. */
 :root[data-theme="dark"] {
-  --scanline-ink: color-mix(in oklab, var(--term-blue) 4.5%, transparent);
+  --scanline-ink: color-mix(in oklab, var(--term-blue) 3%, transparent);
 }
 
 :root[data-theme="dark"],

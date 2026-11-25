@@ -90,7 +90,7 @@
    keeps for descenders leaves the capitals sitting high. A start button's label
    is lettering art, already centred, and keeps its own padding. */
 :root[data-theme="dark"] :is(.agent-hud__row-action, .agent-hud__image-toolbar > :is(a, button)) {
-  padding-block: calc(0.2rem + (1lh - 1cap) / 2);
+  padding-block: calc(0.4rem + (1lh - 1cap) / 2);
   text-box: trim-both cap alphabetic;
 }
 

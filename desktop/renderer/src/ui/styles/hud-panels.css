@@ -593,7 +593,7 @@ button.agent-hud__image-preview {
 
 .agent-hud__panels {
   --hud-compact-panel-height: calc(
-    5.4em + var(--hud-reply-pad-block-start) +
+    4lh + var(--hud-reply-pad-block-start) +
       var(--hud-reply-pad-block-end) + 2px
   );
   position: relative;
@@ -759,10 +759,13 @@ button.agent-hud__image-preview {
   overflow: hidden;
 }
 
-/* In dark the text is a little larger. The halo and the label reach past the
-   box: `clip` with a margin lets them out, where `hidden` would cut them off. */
+/* In dark the text is a little larger, and set tighter in its letters and its
+   lines. The halo and the label reach past the box: `clip` with a margin lets
+   them out, where `hidden` would cut them off. */
 :where(:root[data-theme="dark"]) .agent-hud__replyBox {
-  font-size: 1.07em;
+  --term-line-height: 1.28;
+  font-size: 1.1em;
+  letter-spacing: -0.05em;
   overflow: clip;
   overflow-clip-margin: 1.2rem;
 }
