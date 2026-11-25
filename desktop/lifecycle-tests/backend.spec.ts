@@ -94,7 +94,9 @@ const test = base.extend<{ runtime: Runtime }>({
 					}
 					await testInfo.attach("container.log", { body: buildLog, contentType: "text/plain" })
 				} finally {
-					await rm(directory, { recursive: true, force: true })
+					// A process of an app that has just ended can still be writing its caches into the
+					// profile. Removal then fails as not empty, so it tries again until the writing stops.
+					await rm(directory, { recursive: true, force: true, maxRetries: 10 })
 				}
 			}
 		}
