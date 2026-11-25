@@ -376,8 +376,20 @@ export async function captureNative(app: ElectronApplication, page: Page, width:
 	await waitForPanelLayout(page)
 	// A resize can leave parts of the surface unpainted; repaint all of it before capturing.
 	await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.invalidate())
-	await page.evaluate(() => new Promise<void>(resolve =>
-		requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+	// Wait for two frames. A test's installed clock replaces requestAnimationFrame with one
+	// that follows its timers, not the screen, and the capture was then the frame before the
+	// page's last change. A new ResizeObserver reports when the page is next rendered.
+	await page.evaluate(async () => {
+		for (let frame = 0; frame < 2; frame++) {
+			await new Promise<void>(resolve => {
+				const observer = new ResizeObserver(() => {
+					observer.disconnect()
+					resolve()
+				})
+				observer.observe(document.body)
+			})
+		}
+	})
 	// CDP screenshots crop at Electron zoom. Wait for the full native surface.
 	let screenshot: Buffer | undefined
 	await expect.poll(async () => {
