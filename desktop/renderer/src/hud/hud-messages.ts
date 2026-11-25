@@ -1,15 +1,11 @@
 // Interpret validated message content for the plain-text HUD. No history or selection state.
 // Backend payload validation lives in run/run-payloads; these types describe display content.
-import { MessageRole, RunFrameKind, type RunRecord } from "../run/run-contracts"
+import { MessageRole, RunFrameKind, UserMessageKind, type RunRecord } from "../run/run-contracts"
 
 type MessageEvent = Extract<RunRecord, { type: typeof RunFrameKind.Message }>
 type ScriptEvent = Extract<RunRecord, { type: typeof RunFrameKind.ScriptOutput }>
 
-/** The kinds the backend puts on messages written for the user. The HUD shows these as written; other assistant messages are tool calls. */
-enum UserMessageKind {
-	Notification = "user_notification",
-	Prompt = "user_prompt",
-}
+/** The HUD shows a message written for the user as written; other assistant messages are tool calls. */
 const USER_MESSAGE_KINDS: ReadonlySet<string> = new Set(Object.values(UserMessageKind))
 
 interface MessageContent { id: string; text: string }

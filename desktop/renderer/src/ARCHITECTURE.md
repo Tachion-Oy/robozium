@@ -145,8 +145,10 @@ computed only while the log pane is mounted:
   titled with that tool's name (a provider retry or a hidden message does not
   split it), and lifecycle banners. A message
   whose truncation removes it at threshold 0 never reaches the agent and gets no
-  row. `run-payloads` keeps the lifecycle kind, agent, status and banner fields
-  and that hidden flag for it.
+  row. Neither does a question's record (`UserMessageKind.Prompt`): the backend
+  writes it for the HUD's history, and a question the agent asked is already
+  a row, its `prompt_user` call. `run-payloads` keeps the lifecycle kind, agent,
+  status and banner fields and that hidden flag for it.
 - Main owns whether the pane is open (`src/message-log-window`), because
   opening it grows the window to fit both panes and closing it restores the
   earlier size unless the user resized meanwhile. `log/useMessageLog` reads and

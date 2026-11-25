@@ -1,6 +1,6 @@
 // Run vocabulary shared by payload validation, reconciliation and HUD consumers: the desktop's
 // frame kinds and the complete value sets the backend uses for roles, phases and statuses.
-// A value that one module alone reacts to lives in that module (run-payloads, hud-messages).
+// A value that one module alone reacts to lives in that module (run-payloads).
 
 /** Discriminant of RunFrame. The parser maps wire frames to these kinds; the last four have no wire frame of their own. */
 export const RunFrameKind = {
@@ -21,6 +21,12 @@ export enum MessageRole {
 	User = "user",
 	System = "system",
 	Error = "error",
+}
+
+/** The kinds the backend puts on the messages it writes for the user: a notification, and a question that waits for a reply. */
+export enum UserMessageKind {
+	Notification = "user_notification",
+	Prompt = "user_prompt",
 }
 
 /** Severity the runtime attaches to each of its events. */
